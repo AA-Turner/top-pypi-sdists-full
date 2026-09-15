@@ -21,6 +21,15 @@ from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
 
 from agentic_devtools.cli.ci.agent_assignment import AgentAssignmentResult, assign_issue_to_agent
+from agentic_devtools.cli.ci.credential_roles import (
+    AGDT_PR_APPROVER_PAT,
+    COPILOT_GITHUB_TOKEN,
+    DEFAULT_CLASSIC_REPO_WORKFLOW_PAT,
+    GH_TOKEN,
+    LEGACY_SPECKIT_PR_TOKEN,
+    REPO_VARIABLE_WRITER_PAT,
+    require_default_repo_workflow_token,
+)
 from agentic_devtools.cli.ci.exceptions import MalformedEventError
 from agentic_devtools.cli.ci.finalization_state import FinalizedReviewKey, PRCommentFinalizationStateStore
 from agentic_devtools.cli.ci.job_logs import UNKNOWN_STEP_SENTINEL
@@ -192,12 +201,9 @@ _BRANCH_TYPE_MAP = {
 }
 
 
-def _require_speckit_pr_token(action: str) -> str:
-    """Return SPECKIT_PR_TOKEN or raise a clear configuration error."""
-    token = os.environ.get("SPECKIT_PR_TOKEN", "").strip()
-    if not token:
-        raise RuntimeError(f"SPECKIT_PR_TOKEN is required to {action}.")
-    return token
+def _require_default_workflow_token(action: str) -> str:
+    """Return DEFAULT_CLASSIC_REPO_WORKFLOW_PAT for ordinary repository operations."""
+    return require_default_repo_workflow_token(action)
 
 
 _BRANCH_JIRA_KEY_RE = re.compile(r"^([A-Z][A-Z0-9]+-\d+)(?:$|[-_/])")
@@ -835,26 +841,31 @@ def _credential_identity_for_token(token: str | None) -> str:
     configured = os.environ.get("AI_PR_LOOP_CREDENTIAL_IDENTITY", "").strip()
     if token:
         for name in (
-            "COPILOT_GITHUB_TOKEN",
-            "SPECKIT_PR_TOKEN",
-            "AGDT_PR_APPROVER_PAT",
-            "REPO_VARIABLE_WRITER_PAT",
-            "GH_TOKEN",
+            DEFAULT_CLASSIC_REPO_WORKFLOW_PAT,
+            COPILOT_GITHUB_TOKEN,
+            LEGACY_SPECKIT_PR_TOKEN,
+            AGDT_PR_APPROVER_PAT,
+            REPO_VARIABLE_WRITER_PAT,
         ):
             if os.environ.get(name, "").strip() == token:
                 return name
+        if os.environ.get(GH_TOKEN, "").strip() == token:
+            if configured and _COOLDOWN_COMPONENT_RE.fullmatch(configured):
+                return configured
+            return GH_TOKEN
         if configured and _COOLDOWN_COMPONENT_RE.fullmatch(configured):
             return configured
         return "explicit-token"
     if configured and _COOLDOWN_COMPONENT_RE.fullmatch(configured):
         return configured
     if token is None:
-        return "GH_TOKEN"
+        return GH_TOKEN
     for name in (
-        "COPILOT_GITHUB_TOKEN",
-        "SPECKIT_PR_TOKEN",
-        "AGDT_PR_APPROVER_PAT",
-        "REPO_VARIABLE_WRITER_PAT",
+        DEFAULT_CLASSIC_REPO_WORKFLOW_PAT,
+        COPILOT_GITHUB_TOKEN,
+        LEGACY_SPECKIT_PR_TOKEN,
+        AGDT_PR_APPROVER_PAT,
+        REPO_VARIABLE_WRITER_PAT,
         "GH_TOKEN",
     ):
         if os.environ.get(name, "").strip():
@@ -2566,8 +2577,8 @@ class GitHubActionsProvider(CIPlatformProvider):
 
     @retry_with_backoff()
     def post_comment_as_pr_token(self, pr_number: int, body: str) -> int:
-        """Post a PR comment authenticated with ``SPECKIT_PR_TOKEN``."""
-        token = _require_speckit_pr_token("post PR comments")
+        """Post a PR comment authenticated with the default workflow token."""
+        token = _require_default_workflow_token("post PR comments")
         response = _gh_api(
             self._repo_api(f"/issues/{pr_number}/comments"),
             method="POST",
@@ -3045,12 +3056,13 @@ class GitHubActionsProvider(CIPlatformProvider):
             return ""
 
     def get_pr_token_login(self) -> str:
-        """Return the GitHub login for the PR-token identity (``SPECKIT_PR_TOKEN``).
+        """Return the GitHub login for the default workflow-token identity.
 
-        Calls ``GET /user`` authenticated with ``SPECKIT_PR_TOKEN`` to resolve
-        the actual login used when posting comments and dispatching repairs.
-        Returns ``""`` when the token is absent, expired, or the API call fails
-        so that callers can safely treat an empty result as a configuration error.
+        Calls ``GET /user`` authenticated with the default workflow token
+        (``DEFAULT_CLASSIC_REPO_WORKFLOW_PAT``) to resolve the actual login used
+        when posting comments and dispatching repairs. Returns ``""`` when the
+        token is absent, expired, or the API call fails so callers can safely
+        treat an empty result as a configuration error.
 
         The resolved value (including the empty-string result) is cached on the
         provider instance, so at most one ``GET /user`` request is issued per
@@ -3062,9 +3074,10 @@ class GitHubActionsProvider(CIPlatformProvider):
         return self._pr_token_login_cache
 
     def _resolve_pr_token_login(self) -> str:
-        """Resolve the SPECKIT_PR_TOKEN login via ``GET /user`` (uncached)."""
-        token = os.environ.get("SPECKIT_PR_TOKEN", "").strip()
-        if not token:
+        """Resolve the default workflow-token login via ``GET /user`` (uncached)."""
+        try:
+            token = _require_default_workflow_token("resolve dispatch-token identity")
+        except RuntimeError:
             return ""
         try:
             response = _gh_api("/user", token=token)
@@ -3074,7 +3087,10 @@ class GitHubActionsProvider(CIPlatformProvider):
         except ProviderRateLimitError:
             raise
         except Exception:
-            logger.debug("get_pr_token_login: failed to resolve SPECKIT_PR_TOKEN login", exc_info=True)
+            logger.debug(
+                "get_pr_token_login: failed to resolve DEFAULT_CLASSIC_REPO_WORKFLOW_PAT login",
+                exc_info=True,
+            )
             return ""
 
     @retry_with_backoff()
@@ -3220,8 +3236,8 @@ class GitHubActionsProvider(CIPlatformProvider):
         """Post a @copilot-tagged comment to trigger an AI agent repair session.
 
         The comment MUST begin with ``@copilot`` for reliable agent triggering.
-        Uses ``SPECKIT_PR_TOKEN`` for authentication to ensure
-        ``issues:write`` access.  ``COPILOT_GITHUB_TOKEN`` is fine-grained and
+        Uses ``DEFAULT_CLASSIC_REPO_WORKFLOW_PAT`` for authentication to ensure
+        ``issues:write`` access. ``COPILOT_GITHUB_TOKEN`` is fine-grained and
         lacks this permission, causing 403 errors when posting comments.
 
         Links the repair agent/prompt files (they are present in the dispatched
@@ -3239,9 +3255,9 @@ class GitHubActionsProvider(CIPlatformProvider):
 
         repo = self._repo or os.environ.get("GITHUB_REPOSITORY", "")
 
-        # Use SPECKIT_PR_TOKEN for posting comments (has issues:write permission).
+        # Use DEFAULT_CLASSIC_REPO_WORKFLOW_PAT for posting comments (has issues:write permission).
         # COPILOT_GITHUB_TOKEN is fine-grained and lacks issues:write access.
-        token = _require_speckit_pr_token("dispatch repair comments")
+        token = _require_default_workflow_token("dispatch repair comments")
 
         # For CI repair, build a context (full check name + per-failing-step logs)
         # for each failing job so the dispatched agent has full context inline.
@@ -3282,7 +3298,7 @@ class GitHubActionsProvider(CIPlatformProvider):
 
         The comment begins with ``@copilot`` and embeds the cloud-agent-safe
         conflict-resolution prompt file so the dispatched agent has full
-        instructions inline.  Uses ``SPECKIT_PR_TOKEN`` for authentication
+        instructions inline. Uses ``DEFAULT_CLASSIC_REPO_WORKFLOW_PAT`` for authentication
         (``issues:write`` permission required; ``COPILOT_GITHUB_TOKEN`` lacks it).
 
         Args:
@@ -3297,7 +3313,7 @@ class GitHubActionsProvider(CIPlatformProvider):
         """
         from agentic_devtools.cli.ci.guards import build_conflict_repair_marker  # noqa: PLC0415
 
-        token = _require_speckit_pr_token("dispatch conflict repair comments")
+        token = _require_default_workflow_token("dispatch conflict repair comments")
 
         prompt_path = ".github/prompts/agdt.resolve-merge-conflicts.cloud-agent.prompt.md"
         prompt_content = _read_repo_file(prompt_path)
@@ -6493,15 +6509,13 @@ class GitHubActionsProvider(CIPlatformProvider):
         findings: list[tuple[str, str]],
         labels: list[str],
     ) -> int:
-        """Create the suppressed-comment deferral issue using SPECKIT_PR_TOKEN.
+        """Create the suppressed-comment deferral issue using the default workflow token.
 
         The body follows ``docs/suppressed-comment-triage-contract.md``: the
         ``ai-pr-loop:suppressed-comment-deferral`` marker is the first line, and each
         finding is reproduced verbatim inside a dynamically sized fence.
         """
-        token = os.environ.get("SPECKIT_PR_TOKEN", "").strip()
-        if not token:
-            raise RuntimeError("SPECKIT_PR_TOKEN is required to create suppressed-comment deferral issues.")
+        token = _require_default_workflow_token("create suppressed-comment deferral issues")
 
         title = f"Triage deferred suppressed review comments from PR #{pr_number}"
         body = _render_deferral_issue_body(
@@ -6532,8 +6546,7 @@ class GitHubActionsProvider(CIPlatformProvider):
         review_id: int,
     ) -> AgentAssignmentResult:
         """Dispatch the suppressed-comment triage agent via coding-agent assignment."""
-        if not os.environ.get("SPECKIT_PR_TOKEN", "").strip():
-            raise RuntimeError("SPECKIT_PR_TOKEN is required to dispatch suppressed-comment triage.")
+        _require_default_workflow_token("dispatch suppressed-comment triage")
 
         prompt_file = ".github/agents/agdt.suppressed-comment-triage.evaluate.agent.md"
         prompt_content = _read_repo_file(prompt_file)
@@ -6568,7 +6581,7 @@ class GitHubActionsProvider(CIPlatformProvider):
             custom_instructions=problem_statement,
             custom_agent="agdt.suppressed-comment-triage.evaluate",
             base_branch="main",
-            token_env_vars=("SPECKIT_PR_TOKEN",),
+            token_env_vars=(DEFAULT_CLASSIC_REPO_WORKFLOW_PAT, GH_TOKEN),
         )
         if not result.success:
             raise RuntimeError(f"Failed to dispatch suppressed-comment triage: {result.error}")
@@ -6704,10 +6717,8 @@ query($owner: String!, $repo: String!, $number: Int!) {
 
     @retry_with_backoff()
     def create_audit_tracking_issue(self, *, batch_id: str, pr_numbers: list[int]) -> int:
-        """Create a tracking issue for one audit batch using SPECKIT_PR_TOKEN."""
-        token = os.environ.get("SPECKIT_PR_TOKEN", "").strip()
-        if not token:
-            raise RuntimeError("SPECKIT_PR_TOKEN is required to create audit tracking issues.")
+        """Create a tracking issue for one audit batch using the default workflow PAT."""
+        token = _require_default_workflow_token("create audit tracking issues")
 
         short_batch = batch_id[:8]
         title = f"Review feedback audit — batch {short_batch}"
@@ -6747,8 +6758,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
         pr_numbers: list[int],
     ) -> AgentAssignmentResult:
         """Dispatch the review-feedback audit evaluation agent via coding-agent assignment."""
-        if not os.environ.get("SPECKIT_PR_TOKEN", "").strip():
-            raise RuntimeError("SPECKIT_PR_TOKEN is required to dispatch audit evaluation.")
+        _require_default_workflow_token("dispatch audit evaluation")
 
         prompt_file = ".github/agents/agdt.review-feedback-audit.evaluate.agent.md"
         prompt_content = _read_repo_file(prompt_file)
@@ -6795,7 +6805,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
             custom_instructions=problem_statement,
             custom_agent="agdt.review-feedback-audit.evaluate",
             base_branch="main",
-            token_env_vars=("SPECKIT_PR_TOKEN",),
+            token_env_vars=(DEFAULT_CLASSIC_REPO_WORKFLOW_PAT, GH_TOKEN),
         )
         if not result.success:
             raise RuntimeError(f"Failed to dispatch audit evaluation: {result.error}")

@@ -36,20 +36,27 @@ class StorageDetails(object):
             The value to assign to the availability_domain property of this StorageDetails.
         :type availability_domain: str
 
+        :param kms_key_id:
+            The value to assign to the kms_key_id property of this StorageDetails.
+        :type kms_key_id: str
+
         """
         self.swagger_types = {
             'system_type': 'str',
             'is_regionally_durable': 'bool',
-            'availability_domain': 'str'
+            'availability_domain': 'str',
+            'kms_key_id': 'str'
         }
         self.attribute_map = {
             'system_type': 'systemType',
             'is_regionally_durable': 'isRegionallyDurable',
-            'availability_domain': 'availabilityDomain'
+            'availability_domain': 'availabilityDomain',
+            'kms_key_id': 'kmsKeyId'
         }
         self._system_type = None
         self._is_regionally_durable = None
         self._availability_domain = None
+        self._kms_key_id = None
 
     @staticmethod
     def get_subtype(object_dictionary):
@@ -145,6 +152,30 @@ class StorageDetails(object):
         :type: str
         """
         self._availability_domain = availability_domain
+
+    @property
+    def kms_key_id(self):
+        """
+        Gets the kms_key_id of this StorageDetails.
+        The OCID of the Vault service key to assign as the master encryption key for the database system.
+
+
+        :return: The kms_key_id of this StorageDetails.
+        :rtype: str
+        """
+        return self._kms_key_id
+
+    @kms_key_id.setter
+    def kms_key_id(self, kms_key_id):
+        """
+        Sets the kms_key_id of this StorageDetails.
+        The OCID of the Vault service key to assign as the master encryption key for the database system.
+
+
+        :param kms_key_id: The kms_key_id of this StorageDetails.
+        :type: str
+        """
+        self._kms_key_id = kms_key_id
 
     def __repr__(self):
         return formatted_flat_dict(self)

@@ -9313,7 +9313,7 @@ var require_util = __commonJS({
     exports.isAbsolute = function(aPath) {
       return aPath.charAt(0) === "/" || urlRegexp.test(aPath);
     };
-    function relative3(aRoot, aPath) {
+    function relative4(aRoot, aPath) {
       if (aRoot === "") {
         aRoot = ".";
       }
@@ -9332,7 +9332,7 @@ var require_util = __commonJS({
       }
       return Array(level + 1).join("../") + aPath.substr(aRoot.length + 1);
     }
-    exports.relative = relative3;
+    exports.relative = relative4;
     var supportsNullProto = (function() {
       var obj = /* @__PURE__ */ Object.create(null);
       return !("__proto__" in obj);
@@ -11685,7 +11685,7 @@ var init_lib5 = __esm({
         assertParser("process", this.parser || this.Parser);
         assertCompiler("process", this.compiler || this.Compiler);
         return done ? executor(void 0, done) : new Promise(executor);
-        function executor(resolve3, reject) {
+        function executor(resolve4, reject) {
           const realFile = vfile(file);
           const parseTree = (
             /** @type {HeadTree extends undefined ? Node : HeadTree} */
@@ -11716,8 +11716,8 @@ var init_lib5 = __esm({
           function realDone(error, file2) {
             if (error || !file2) {
               reject(error);
-            } else if (resolve3) {
-              resolve3(file2);
+            } else if (resolve4) {
+              resolve4(file2);
             } else {
               ok(done, "`done` is defined if `resolve` is not");
               done(void 0, file2);
@@ -11819,7 +11819,7 @@ var init_lib5 = __esm({
           file = void 0;
         }
         return done ? executor(void 0, done) : new Promise(executor);
-        function executor(resolve3, reject) {
+        function executor(resolve4, reject) {
           ok(
             typeof file !== "function",
             "`file` can\u2019t be a `done` anymore, we checked"
@@ -11833,8 +11833,8 @@ var init_lib5 = __esm({
             );
             if (error) {
               reject(error);
-            } else if (resolve3) {
-              resolve3(resultingTree);
+            } else if (resolve4) {
+              resolve4(resultingTree);
             } else {
               ok(done, "`done` is defined if `resolve` is not");
               done(void 0, resultingTree, file2);
@@ -14697,10 +14697,10 @@ function resolveAll(constructs2, events, context) {
   const called = [];
   let index2 = -1;
   while (++index2 < constructs2.length) {
-    const resolve3 = constructs2[index2].resolveAll;
-    if (resolve3 && !called.includes(resolve3)) {
-      events = resolve3(events, context);
-      called.push(resolve3);
+    const resolve4 = constructs2[index2].resolveAll;
+    if (resolve4 && !called.includes(resolve4)) {
+      events = resolve4(events, context);
+      called.push(resolve4);
     }
   }
   return events;
@@ -43356,8 +43356,12 @@ function ancestorInstructionFiles(dir) {
   }
   return files;
 }
+function isInsideDir(dir, file) {
+  const rel = relative(dir, file);
+  return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+}
 function excludeNodeModules(entry) {
-  return entry === "node_modules";
+  return entry.split(/[/\\]/).at(-1) === "node_modules";
 }
 function claudeTail(path2, which) {
   const parts = path2.split(/[/\\]/);
@@ -43455,6 +43459,89 @@ var init_claude_context = __esm({
   }
 });
 
+// src/repo-scope.mjs
+import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
+import { relative as relative2, resolve as resolve2, sep } from "node:path";
+function askGit(run, args, dir) {
+  try {
+    return run("git", args, dir);
+  } catch (err) {
+    const spawned = (
+      /** @type {NodeJS.ErrnoException & {status?: number}} */
+      err
+    );
+    if (spawned.code === void 0 && spawned.status === void 0) throw err;
+    return null;
+  }
+}
+function parseWorktreeList(porcelain) {
+  const paths = [];
+  for (const record of porcelain.split("\0\0").slice(1)) {
+    const attrs = record.split("\0");
+    if (hasAttribute(attrs, "bare") || hasAttribute(attrs, "prunable"))
+      continue;
+    const line = attrs.find((attr) => attr.startsWith("worktree "));
+    if (line) paths.push(line.slice("worktree ".length));
+  }
+  return paths;
+}
+function ignoredDirectories(dir, run) {
+  const out = askGit(
+    run,
+    ["ls-files", "-o", "-i", "--directory", "--exclude-standard", "-z"],
+    dir
+  );
+  if (out === null) return [];
+  return out.split("\0").filter((entry) => entry.endsWith("/")).map((entry) => entry.slice(0, -1));
+}
+function nestedWorktrees(dir, run) {
+  const out = askGit(run, [...WORKTREE_LIST_ARGS], dir);
+  if (out === null) return [];
+  const root2 = realpathSync(dir);
+  return parseWorktreeList(out).map((path2) => resolve2(path2)).filter((path2) => isInsideDir(root2, path2)).map((path2) => relative2(root2, path2).split(sep).join("/"));
+}
+function repoPrunedDirs(dir, { ignoredDirs = true, run } = {}) {
+  const key = `${resolve2(dir)}\0${ignoredDirs}`;
+  const cached = run === void 0 ? pruneCache.get(key) : void 0;
+  if (cached !== void 0) return cached;
+  const ask = run ?? runGit;
+  const pruned = /* @__PURE__ */ new Set([
+    ...ignoredDirs ? ignoredDirectories(dir, ask) : [],
+    ...nestedWorktrees(dir, ask)
+  ]);
+  if (run === void 0) pruneCache.set(key, pruned);
+  return pruned;
+}
+function contextScanExclude(dir, options = {}) {
+  const pruned = repoPrunedDirs(dir, options);
+  return (entry) => excludeFromContextScan(entry) || pruned.has(entry);
+}
+var GIT_TIMEOUT_MS, GIT_MAX_BUFFER, runGit, WORKTREE_LIST_ARGS, hasAttribute, pruneCache;
+var init_repo_scope = __esm({
+  "src/repo-scope.mjs"() {
+    "use strict";
+    init_claude_context();
+    GIT_TIMEOUT_MS = 1e4;
+    GIT_MAX_BUFFER = 32 * 1024 * 1024;
+    runGit = (file, args, cwd) => execFileSync(file, ["-c", "core.fsmonitor=false", ...args], {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: GIT_TIMEOUT_MS,
+      maxBuffer: GIT_MAX_BUFFER
+    });
+    WORKTREE_LIST_ARGS = Object.freeze([
+      "worktree",
+      "list",
+      "--porcelain",
+      "-z"
+    ]);
+    hasAttribute = (attrs, name50) => attrs.some((attr) => attr === name50 || attr.startsWith(`${name50} `));
+    pruneCache = /* @__PURE__ */ new Map();
+  }
+});
+
 // src/instructions.mjs
 var instructions_exports = {};
 __export(instructions_exports, {
@@ -43469,12 +43556,14 @@ __export(instructions_exports, {
   announcedByInstructionsLoaded: () => announcedByInstructionsLoaded,
   atomicReplaceFile: () => atomicReplaceFile,
   cleanFile: () => cleanFile,
+  contextScanExclude: () => contextScanExclude,
   contextScopeContradiction: () => contextScopeContradiction,
   decodeRun: () => decodeRun,
   excludeFromContextScan: () => excludeFromContextScan,
   findInstructionFiles: () => findInstructionFiles,
   scanInstructionFiles: () => scanInstructionFiles,
-  scanText: () => scanText
+  scanText: () => scanText,
+  walkContextGlobs: () => walkContextGlobs
 });
 import {
   readFileSync,
@@ -43483,7 +43572,7 @@ import {
   renameSync,
   lstatSync,
   fstatSync,
-  realpathSync,
+  realpathSync as realpathSync2,
   openSync,
   fsyncSync,
   fchmodSync,
@@ -43492,7 +43581,7 @@ import {
   constants
 } from "node:fs";
 import { randomBytes } from "node:crypto";
-import { join as join2, relative as relative2, resolve as resolve2, isAbsolute as isAbsolute2, dirname as dirname2, sep } from "node:path";
+import { join as join2, relative as relative3, resolve as resolve3, isAbsolute as isAbsolute2, dirname as dirname2, sep as sep2 } from "node:path";
 function zeroWidthBits(cps) {
   let bits = "";
   for (const cp of cps) {
@@ -43582,13 +43671,13 @@ function scanText(content3) {
   return findings;
 }
 function isContained(realRoot, realChild) {
-  const rel = relative2(realRoot, realChild);
-  return rel === "" || !rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute2(rel);
+  const rel = relative3(realRoot, realChild);
+  return rel === "" || !rel.startsWith(`..${sep2}`) && rel !== ".." && !isAbsolute2(rel);
 }
 function keepContained(absPath, realRoot, literalRoot, pattern) {
   let real;
   try {
-    real = realpathSync(absPath);
+    real = realpathSync2(absPath);
   } catch {
     return false;
   }
@@ -43602,19 +43691,26 @@ function keepContained(absPath, realRoot, literalRoot, pattern) {
     )} outside ${JSON.stringify(realRoot)}`
   );
 }
+function walkContextGlobs(globs, cwd, exclude) {
+  const root2 = resolve3(cwd);
+  const absolute = (dirent) => join2(dirent.parentPath, dirent.name);
+  return globSync(globs, {
+    cwd,
+    withFileTypes: true,
+    exclude: (dirent) => {
+      const entry = relative3(root2, absolute(dirent)).split(sep2).join("/");
+      return excludeNodeModules(entry) || (exclude?.(entry) ?? false);
+    }
+  }).map(absolute);
+}
 function findInstructionFiles(globs, { cwd = process.cwd(), exclude } = {}) {
-  const literalRoot = resolve2(cwd);
-  const realRoot = realpathSync(literalRoot);
+  const literalRoot = resolve3(cwd);
+  const realRoot = realpathSync2(literalRoot);
   const seen = /* @__PURE__ */ new Set();
   for (const pattern of globs)
-    for (const name50 of globSync(pattern, {
-      cwd,
-      exclude: (entry) => excludeNodeModules(entry) || (exclude?.(entry) ?? false)
-    })) {
-      const absPath = isAbsolute2(name50) ? name50 : join2(cwd, name50);
+    for (const absPath of walkContextGlobs([pattern], cwd, exclude))
       if (keepContained(absPath, realRoot, literalRoot, pattern))
         seen.add(absPath);
-    }
   return [...seen];
 }
 function scanInstructionFiles(globs, { cwd = process.cwd(), exclude } = {}) {
@@ -43627,7 +43723,7 @@ function scanInstructionFiles(globs, { cwd = process.cwd(), exclude } = {}) {
       continue;
     }
     const findings = scanText(content3);
-    if (findings.length > 0) out.push({ file: relative2(cwd, file), findings });
+    if (findings.length > 0) out.push({ file: relative3(cwd, file), findings });
   }
   return out;
 }
@@ -43716,6 +43812,7 @@ var init_instructions = __esm({
     init_invisible();
     init_claude_context();
     init_claude_context();
+    init_repo_scope();
     UNTRUSTED_PREFIX = "untrusted data, not instructions: ";
     NEWLINE = 10;
     ZW_BIT = /* @__PURE__ */ new Map([
@@ -43729,7 +43826,7 @@ var init_instructions = __esm({
 
 // bin/sanitize-cli.mjs
 import { Buffer as Buffer2 } from "node:buffer";
-import { realpathSync as realpathSync2 } from "node:fs";
+import { realpathSync as realpathSync3 } from "node:fs";
 import process2 from "node:process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
@@ -43833,9 +43930,14 @@ var OPS = {
       throw new Error("request.globs must be an array of strings");
     if ("cwd" in req && typeof req.cwd !== "string")
       throw new Error("request.cwd must be a string");
-    const { scanInstructionFiles: scanInstructionFiles2 } = await Promise.resolve().then(() => (init_instructions(), instructions_exports));
-    const opts = typeof req.cwd === "string" ? { cwd: req.cwd } : {};
-    return { findings: scanInstructionFiles2(globs, opts) };
+    const { contextScanExclude: contextScanExclude2, scanInstructionFiles: scanInstructionFiles2 } = await Promise.resolve().then(() => (init_instructions(), instructions_exports));
+    const cwd = typeof req.cwd === "string" ? req.cwd : process2.cwd();
+    return {
+      findings: scanInstructionFiles2(globs, {
+        cwd,
+        exclude: contextScanExclude2(cwd)
+      })
+    };
   },
   /** @param {Record<string, unknown>} req */
   async cleanFile(req) {
@@ -43968,7 +44070,7 @@ async function runOneShot() {
 function invokedAsScript() {
   if (process2.argv[1] === void 0) return false;
   try {
-    return realpathSync2(process2.argv[1]) === realpathSync2(fileURLToPath2(import.meta.url));
+    return realpathSync3(process2.argv[1]) === realpathSync3(fileURLToPath2(import.meta.url));
   } catch {
     return false;
   }

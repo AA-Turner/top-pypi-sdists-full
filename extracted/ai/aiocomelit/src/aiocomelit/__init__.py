@@ -1,14 +1,13 @@
+# Copyright 2023 Simone Chemelli and contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """aiocomelit library."""
 
-__version__ = "2.0.7"
+__version__ = "3.0.0"
 
-from .api import (
-    ComeliteSerialBridgeApi,
-    ComelitSerialBridgeObject,
-    ComelitVedoApi,
-    ComelitVedoAreaObject,
-    ComelitVedoZoneObject,
-)
+from .api import ComelitDeviceObject, ComelitVedoAreaObject, ComelitVedoZoneObject
+from .devices.bridge import ComeliteSerialBridgeApi
+from .devices.vedo import ComelitVedoApi
 from .exceptions import (
     CannotAuthenticate,
     CannotConnect,
@@ -21,8 +20,8 @@ __all__ = [
     "CannotAuthenticate",
     "CannotConnect",
     "CannotRetrieveData",
+    "ComelitDeviceObject",
     "ComelitError",
-    "ComelitSerialBridgeObject",
     "ComelitVedoApi",
     "ComelitVedoAreaObject",
     "ComelitVedoZoneObject",

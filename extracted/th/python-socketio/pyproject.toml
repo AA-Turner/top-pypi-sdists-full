@@ -1,6 +1,6 @@
 [project]
 name = "python-socketio"
-version = "5.16.4"
+version = "5.17.0"
 license = {text = "MIT"}
 authors = [
     { name = "Miguel Grinberg", email = "miguel.grinberg@gmail.com" },
@@ -23,8 +23,12 @@ file = "README.md"
 content-type = "text/markdown"
 
 [project.urls]
-Homepage = "https://github.com/miguelgrinberg/python-socketio"
-"Bug Tracker" = "https://github.com/miguelgrinberg/python-socketio/issues"
+Homepage = "https://code.miguelgrinberg.com/miguelgrinberg/python-socketio"
+Documentation = "https://python-socketio.readthedocs.io/"
+"Source Code" = "https://code.miguelgrinberg.com/miguelgrinberg/python-socketio"
+"Issue Tracker" = "https://code.miguelgrinberg.com/miguelgrinberg/python-socketio/issues"
+Changelog = "https://code.miguelgrinberg.com/miguelgrinberg/python-socketio/src/branch/main/CHANGES.md"
+Funding = "https://code.miguelgrinberg.com/miguelgrinberg/python-socketio#sponsor-this-project"
 
 [project.optional-dependencies]
 client = [

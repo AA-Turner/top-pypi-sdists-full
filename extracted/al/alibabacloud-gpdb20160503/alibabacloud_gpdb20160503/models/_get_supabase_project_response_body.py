@@ -7,6 +7,7 @@ from darabonba.model import DaraModel
 class GetSupabaseProjectResponseBody(DaraModel):
     def __init__(
         self,
+        applied_idle_time_hours: str = None,
         auto_scale: str = None,
         create_time: str = None,
         dbsecurity_ip_list: str = None,
@@ -35,36 +36,38 @@ class GetSupabaseProjectResponseBody(DaraModel):
         vpc_id: str = None,
         zone_id: str = None,
     ):
-        # Indicates whether **auto start/stop** is enabled. Valid values:
-        # - true: Enabled. When enabled, Supabase automatically pauses and resumes based on traffic conditions.
-        # - false: Disabled. When disabled, the auto start/stop feature of Supabase is turned off.
+        self.applied_idle_time_hours = applied_idle_time_hours
+        # Indicates whether **auto start and stop** is enabled. Valid values:
+        # - true: Enabled. After this feature is enabled, Supabase automatically pauses and resumes based on traffic conditions.
+        # - false: Disabled. After this feature is disabled, the auto start and stop feature of Supabase is turned off.
         self.auto_scale = auto_scale
         # The creation time.
         self.create_time = create_time
         # The database whitelist.
         self.dbsecurity_ip_list = dbsecurity_ip_list
-        # The Supabase Dashboard password (not currently in use).
+        # The Supabase Dashboard password. This parameter is not in use.
         self.dashboard_password = dashboard_password
-        # The Supabase Dashboard username (not currently in use).
+        # The Supabase Dashboard username. This parameter is not in use.
         self.dashboard_user_name = dashboard_user_name
-        # The cloud disk performance level. Valid values:
+        # The performance level of the cloud disk. Valid values:
         # - PL0
         # - PL1
         self.disk_performance_level = disk_performance_level
         # The database engine type.
         self.engine = engine
-        # The DPI engine version.
+        # The database engine version.
         self.engine_version = engine_version
-        # The elastic network interfaces (ENIs) ID, which identifies the network interface controller (NIC).
+        # The elastic network interface (ENI) ID. The network interface controller (NIC) ID of the instance.
         self.eni = eni
         # The current instance version.
         self.instance_version = instance_version
+        # Indicates whether the project is a lightweight edition.
         self.lightweight = lightweight
         # The billing type. Valid values:
         # 
-        # - POSTPAY: Pay-as-you-go.
+        # - POSTPAY: pay-as-you-go.
         # 
-        # - PREPAY: Subscription.
+        # - PREPAY: subscription.
         self.pay_type = pay_type
         # The internal network connection string of the Supabase Dashboard.
         self.private_connect_url = private_connect_url
@@ -115,6 +118,9 @@ class GetSupabaseProjectResponseBody(DaraModel):
         _map = super().to_map()
         if _map is not None:
             result = _map
+        if self.applied_idle_time_hours is not None:
+            result['AppliedIdleTimeHours'] = self.applied_idle_time_hours
+
         if self.auto_scale is not None:
             result['AutoScale'] = self.auto_scale
 
@@ -200,6 +206,9 @@ class GetSupabaseProjectResponseBody(DaraModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('AppliedIdleTimeHours') is not None:
+            self.applied_idle_time_hours = m.get('AppliedIdleTimeHours')
+
         if m.get('AutoScale') is not None:
             self.auto_scale = m.get('AutoScale')
 

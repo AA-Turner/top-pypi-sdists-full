@@ -44,8 +44,9 @@ class TakeOverAutomationCommitAction:
     - No active Copilot coding session (don't race mid-work pushes)
 
     Workflow-file changes are intentionally allowed for this action when the
-    loop token (``SPECKIT_PR_TOKEN``) has ``workflow`` scope (as configured
-    for this repository). This scope requirement is an external prerequisite;
+    default workflow token (``DEFAULT_CLASSIC_REPO_WORKFLOW_PAT``) has
+    ``workflow`` scope (as configured for this repository). This scope
+    requirement is an external prerequisite;
     if missing, the
     force-push can fail in ``reclaim_copilot_commit`` and this action returns
     ``FAILED``.

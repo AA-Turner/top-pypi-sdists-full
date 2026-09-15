@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.54.5
+Version: 4.54.6
 Summary: SeleniumBase is a framework for web crawling, scraping, and testing. Supports pytest. CDP Mode adds stealth. Includes many tools.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -155,7 +155,7 @@ Requires-Dist: pyee>=13.0.1; extra == "playwright"
 Provides-Extra: pyautogui
 Requires-Dist: PyAutoGUI>=0.9.54; platform_system != "Linux" and extra == "pyautogui"
 Provides-Extra: uv
-Requires-Dist: uv>=0.12.12; extra == "uv"
+Requires-Dist: uv>=0.12.14; extra == "uv"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -184,7 +184,7 @@ def iter_distance_from_object(
 def iter_material_value(
     stroke: freestyle.types.Stroke,
     func: collections.abc.Callable[
-        [freestyle.types.Interface0DIterator], freestyle.types.Material
+        [freestyle.types.Interface0DIterator], bpy.types.Material
     ],
     attribute: str,
 ) -> None:
@@ -201,7 +201,7 @@ def iter_t2d_along_stroke(stroke: freestyle.types.Stroke) -> None:
     :param stroke: A stroke.
     """
 
-def material_from_fedge(fe: freestyle.types.FEdge) -> None | freestyle.types.Material:
+def material_from_fedge(fe: freestyle.types.FEdge) -> None | bpy.types.Material:
     """Get the diffuse RGBA color from an FEdge.
 
     :param fe: An FEdge.

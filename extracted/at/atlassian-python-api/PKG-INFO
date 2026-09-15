@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atlassian-python-api
-Version: 5.0.4
+Version: 5.0.5
 Summary: Python Atlassian REST API Wrapper
 Home-page: https://github.com/atlassian-api/atlassian-python-api
 Download-URL: https://github.com/atlassian-api/atlassian-python-api
@@ -405,12 +405,9 @@ In addition to all the contributors we would like to thank these vendors:
 * Atlassian_ for developing such a powerful ecosystem.
 * JetBrains_ for providing us with free licenses of PyCharm_
 * Microsoft_ for providing us with free licenses of VSCode_
-* Cursor.com_ for AI assistance in development
-* John B Batzel (batzel@upenn.edu) for implementing the Confluence Cloud v2 API support
 
 .. _Atlassian: https://www.atlassian.com/
 .. _JetBrains: http://www.jetbrains.com
 .. _PyCharm: http://www.jetbrains.com/pycharm/
 .. _Microsoft: https://www.microsoft.com
 .. _VSCode: https://code.visualstudio.com
-.. _Cursor.com: https://cursor.com

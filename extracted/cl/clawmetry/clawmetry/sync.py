@@ -1886,10 +1886,14 @@ def _sync_auto_update_with_plan(
     staleness rail). This is what makes "I'm on Pro, the node should just stay
     current" real without a manual ``pip install -U``.
 
-    Safety: respects an explicit opt-out (``CLAWMETRY_AUTO_UPDATE`` in
-    0/false/no/off), only ever ENABLES (never auto-disables, so a user's manual
-    choice survives a downgrade), and no-ops for free / inactive plans. Best
-    effort — never raises.
+    Safety: respects an explicit opt-out, either the env kill switch
+    (``CLAWMETRY_AUTO_UPDATE`` in 0/false/no/off) or a stored ``auto_update:
+    false`` a human actually POSTed (``auto_update_user_set``, set by
+    ``api_update_check_config_post``) -- otherwise every heartbeat on an
+    entitled plan would silently flip that choice back to True. Only ever
+    ENABLES (never auto-disables, so a user's manual choice survives a
+    downgrade), and no-ops for free / inactive plans. Best effort — never
+    raises.
 
     ``allow_provision=False`` keeps this side-effect-free over the network:
     the local auto-update flag is still reconciled, but the clawmetry-pro
@@ -1906,7 +1910,7 @@ def _sync_auto_update_with_plan(
             _set_update_check_config as _succ,
         )
         cfg = _gucc() or {}
-        if not cfg.get("auto_update"):
+        if not cfg.get("auto_update") and not cfg.get("auto_update_user_set"):
             _succ({"auto_update": True})
             log.info(
                 "auto-update enabled for entitled plan (%s) — this node will keep "
@@ -4155,10 +4159,10 @@ def _extract_cost_tokens_model(obj: dict) -> tuple:
                         pass
             return 0
 
-        _in = _utok("input_tokens", "inputTokens", "prompt_tokens", "promptTokens")
-        _out = _utok("output_tokens", "outputTokens", "completion_tokens", "completionTokens")
-        _cr = _utok("cache_read_input_tokens", "cacheReadInputTokens", "cache_read_tokens")
-        _cw = _utok("cache_creation_input_tokens", "cacheCreationInputTokens", "cache_write_tokens")
+        _in = _utok("input_tokens", "inputTokens", "prompt_tokens", "promptTokens", "input")
+        _out = _utok("output_tokens", "outputTokens", "completion_tokens", "completionTokens", "output")
+        _cr = _utok("cache_read_input_tokens", "cacheReadInputTokens", "cache_read_tokens", "cacheRead")
+        _cw = _utok("cache_creation_input_tokens", "cacheCreationInputTokens", "cache_write_tokens", "cacheWrite")
         if _in or _out or _cr or _cw:
             try:
                 from clawmetry.providers_pricing import estimate_event_cost_usd
@@ -7048,21 +7052,15 @@ def sync_voice_log_events(config: dict, state: dict, paths: dict) -> int:
     return len(rows)
 
 
-def sync_intercepted_events(config: dict, state: dict, paths: dict) -> int:
-    """Tail ~/.openclaw/clawmetry-intercepted.jsonl and ingest external_api_call
-    rows into the local DuckDB store. Uses a byte-offset cursor in state so
-    only new lines are read each tick. Returns the number of rows ingested."""
-    openclaw_dir = paths.get("openclaw_dir", str(Path.home() / ".openclaw"))
-    fpath = Path(openclaw_dir) / "clawmetry-intercepted.jsonl"
+def _tail_intercepted_file(fpath: Path, offset_key: str, state: dict, store, node_id: str) -> int:
+    """Tail one intercepted-events JSONL file from its byte-offset cursor in
+    state, ingesting external_api_call/llm_call rows. Shared by
+    sync_intercepted_events for the current and legacy file locations."""
     if not fpath.exists():
         return 0
-    node_id = config.get("node_id", "")
-    offset_key = "last_intercepted_offset"
     offset = state.get(offset_key, 0)
     ingested = 0
     try:
-        from clawmetry import local_store as _ls
-        store = _ls.get_store()
         with open(fpath, "r", errors="replace") as f:
             f.seek(0, 2)
             size = f.tell()
@@ -7091,7 +7089,34 @@ def sync_intercepted_events(config: dict, state: dict, paths: dict) -> int:
                         log.debug("ingest_external_call failed: %s", _ie)
             state[offset_key] = f.tell()
     except Exception as e:
+        log.warning("sync_intercepted_events error (%s): %s", fpath, e)
+    return ingested
+
+
+def sync_intercepted_events(config: dict, state: dict, paths: dict) -> int:
+    """Tail the interceptor's output file(s) and ingest external_api_call rows
+    into the local DuckDB store. The interceptor (clawmetry/interceptor.py)
+    writes to $CLAWMETRY_HOME/intercepted.jsonl (default ~/.clawmetry); older
+    installs may still have events under the legacy
+    ~/.openclaw/clawmetry-intercepted.jsonl location (#2969 moved the write
+    path but the daemon kept tailing only the old one — #5984). Both are
+    tailed, each with its own byte-offset cursor in state, so only new lines
+    are read each tick. Returns the number of rows ingested."""
+    node_id = config.get("node_id", "")
+    try:
+        from clawmetry import local_store as _ls
+        store = _ls.get_store()
+    except Exception as e:
         log.warning("sync_intercepted_events error: %s", e)
+        return 0
+
+    cm_home = os.environ.get("CLAWMETRY_HOME", str(Path.home() / ".clawmetry"))
+    current_fpath = Path(cm_home) / "intercepted.jsonl"
+    openclaw_dir = paths.get("openclaw_dir", str(Path.home() / ".openclaw"))
+    legacy_fpath = Path(openclaw_dir) / "clawmetry-intercepted.jsonl"
+
+    ingested = _tail_intercepted_file(current_fpath, "last_intercepted_offset", state, store, node_id)
+    ingested += _tail_intercepted_file(legacy_fpath, "last_intercepted_offset_legacy", state, store, node_id)
     return ingested
 
 
@@ -18869,8 +18894,9 @@ def _resolve_spending(daily_usage, state_spending):
     if all(live.get(src_key) is not None for _, src_key in keys):
         out = {out_key: float(live.get(src_key)) for out_key, src_key in keys}
         out["source"] = "live"
+        from clawmetry import cost_basis as _cb
         return _prov.stamp(out, {
-            k: _prov.derived(
+            k: _cb.published_rate(
                 "the runtime's own cost when it reported one, otherwise "
                 "measured token counts priced against the provider's "
                 "published rate card",
@@ -18883,12 +18909,14 @@ def _resolve_spending(daily_usage, state_spending):
     # presented as the current spend.
     out = {out_key: float(stale.get(out_key) or 0) for out_key, _ in keys}
     out["source"] = "state"
+    from clawmetry import cost_basis as _cb
     return _prov.stamp(out, {
-        k: _prov.estimated(
+        k: _cb.published_rate(
             "the last spend the daemon successfully recorded, standing in "
             "for a live read that did not answer this tick, so it may be out "
             "of date",
             "~/.clawmetry/state.json",
+            basis=_prov.ESTIMATED,
             window=windows[k])
         for k, _src in keys})
 
@@ -19038,6 +19066,7 @@ def _build_daily_usage(days=14):
 def _daily_usage_provenance():
     """Provenance entries for the ``dailyUsage`` snapshot slice."""
     from clawmetry import provenance as _prov
+    from clawmetry import cost_basis as _cb
     src = "DuckDB rollup_daily / rollup_runtime_daily on this node"
     formula = ("the runtime's own cost when it reported one, otherwise "
                "measured input, output and cache token counts priced against "
@@ -19049,15 +19078,15 @@ def _daily_usage_provenance():
     }
     entries = {}
     for w, text in windows.items():
-        entries[w + "Cost"] = _prov.derived(formula, src, window=text)
+        entries[w + "Cost"] = _cb.published_rate(formula, src, window=text)
         entries[w] = _prov.measured(
             "sum of token counts on deduped call events in the window",
             src, window=text)
-    entries["days[].cost_usd"] = _prov.derived(
+    entries["days[].cost_usd"] = _cb.published_rate(
         formula, src, window="one local calendar day per bucket")
-    entries["byRuntime[].cost_usd"] = _prov.derived(
+    entries["byRuntime[].cost_usd"] = _cb.published_rate(
         formula, src, window="one local calendar day per bucket")
-    entries["cost_usd"] = _prov.derived(formula, src,
+    entries["cost_usd"] = _cb.published_rate(formula, src,
                                         window="the row's own bucket")
     return entries
 
@@ -22273,6 +22302,18 @@ def _emit_detector_incidents(store, state: dict) -> int:
             log.warning("detectors: run_all errored for %s: %s", sid, e)
             incidents = []
         if incidents:
+            # A session whose whole tool stream was RECEIVED as telemetry was
+            # seen after each action ran; nothing held it. Say so on the
+            # incident rather than let a Guard row read as prevention
+            # (REQ-OBS-OTG-001).
+            try:
+                from clawmetry import otlp_guard as _og
+                _obs = _og.observation_label(events)
+                if _obs:
+                    for _inc in incidents:
+                        _og.label_incident(_inc, _obs)
+            except Exception as _oe:  # noqa: BLE001
+                log.debug("detectors: observation label skipped: %s", _oe)
             all_incidents.extend(incidents)
             # Remember when this session FIRST looked wrong, so the next tick
             # can say how long it has been that way (and price the stretch).
@@ -22364,6 +22405,12 @@ def _emit_detector_incidents(store, state: dict) -> int:
                         # cooldown latch held or nothing is configured; the
                         # incident_alerts table has the last delivery time.
                         "delivered_via": delivered_via,
+                        # Present only when the session was seen through
+                        # received telemetry alone: observed after the fact,
+                        # never prevented (REQ-OBS-OTG-001).
+                        "observation": inc.get("observation"),
+                        # Framework references, as stamped when it was found.
+                        "frameworks": inc.get("frameworks"),
                     },
                 )
                 memo[memo_key] = now
@@ -22516,6 +22563,7 @@ def _emit_fleet_incidents(store, state: dict, fleet_fps: dict, now: float) -> li
                         "spend_at_risk_usd": None,
                         "spend_basis": "unknown",
                         "delivered_via": delivered_via,
+                        "frameworks": per.get("frameworks"),
                     },
                 )
                 memo[memo_key] = now
@@ -23902,19 +23950,48 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
 
     # Behaviour Signals (WO-58): the same shape /api/signals serves, per
     # window (1d / 7d / 30d) and per runtime, so the hosted dashboard renders
-    # the identical numbers. No per-session lists ride the snapshot. Same
-    # store handle as above; a failure here leaves both slices empty and
-    # never breaks the snapshot.
+    # the identical numbers. `signalSessions` carries the drill-down lists
+    # (sessions and match counts, never the phrases), so a hosted "Sessions"
+    # click lists what the rate counted instead of reading as none. Same
+    # store handle as above; a failure here leaves the slices empty and never
+    # breaks the snapshot.
     _signals_slice: dict = {}
     _signals_by_rt: dict = {}
+    _signal_sessions_slice: dict = {}
     try:
         from clawmetry import behaviour_signals as _bsig_snap
         from clawmetry import local_store as _ls_sig
         _sig_store = _ls_sig.get_store()
         if _sig_store is not None:
             _signals_slice, _signals_by_rt = _bsig_snap.build_snapshot_slices(_sig_store)
+            _signal_sessions_slice = _bsig_snap.build_session_slice(
+                _sig_store, _signals_slice, _signals_by_rt)
     except Exception as _e_sig:
         log.debug("snapshot: signals slice failed: %s", _e_sig)
+
+    # Guard running sessions: the exact /api/guard/sessions body, built on
+    # this machine because only this machine has the store and the process
+    # table. Without it the hosted Guard tab asked a container with neither
+    # and printed "No sessions running right now" beside a node running 39.
+    # The builder is handed THIS store handle (never a read_only re-open --
+    # FLYWHEEL section 1). Rows carry the control verdict computed here; the
+    # cloud relays a click to this daemon, which re-resolves before acting.
+    _guard_sessions_slice: dict = {}
+    try:
+        from clawmetry import local_store as _ls_guard
+        _guard_store = _ls_guard.get_store()
+        if _guard_store is not None:
+            from routes.guard import build_guard_sessions_body as _bgsb
+
+            def _guard_call(method, **kw):
+                fn = getattr(_guard_store, method, None)
+                return fn(**kw) if callable(fn) else None
+
+            _guard_sessions_slice = json.loads(json.dumps(
+                _bgsb(50, call=_guard_call), default=str))
+            _guard_sessions_slice["generated_at"] = int(time.time() * 1000)
+    except Exception as _e_guard:
+        log.debug("snapshot: guardSessions slice failed: %s", _e_guard)
 
     # Signal shifts (WO-62): open issues + the last 20 resolved, each with
     # its plain-words headline, so the hosted Signals tab shows the same
@@ -23977,6 +24054,12 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         # for ?runtime= and falls back to the node-wide slice).
         "signals": _signals_slice,
         "signalsByRuntime": _signals_by_rt,
+        # Drill-down lists behind each rate: byRuntime[rt|"all"][window][signal]
+        # -> sessions with match counts (never the phrases).
+        "signalSessions": _signal_sessions_slice,
+        # The /api/guard/sessions body (running sessions, incidents, control
+        # verdicts) plus generated_at, for the hosted Guard tab.
+        "guardSessions": _guard_sessions_slice,
         # WO-62 Signal shifts: issues opened when a rate left its band.
         "signalIssues": _signal_issues_slice,
         # WO-62 Briefs: saved questions with a schedule and a channel, read-only

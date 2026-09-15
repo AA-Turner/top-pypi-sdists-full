@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "star-magic-program"
-version = "0.437.0"
-description = "Star-Magic UQFF calculator v0.437.0: THE CLOSEOUT INDEX SHIP - the Navier-Stokes proof set closed on its own terms (PAPER_2276): fifteen rungs B267-B281, Theorems A and B side by side, the derived cap 17/20, the domain ruling, the spine audit - theory rows open ZERO; every open data front given its instrument and access route (JHTDB full token, Kerr trefoil fields, ATR THz-TDS, MD current spectra + IXS/INS); Q-247 sound-cone speed flagged (c_inf/c_0 = 2.162); Clay not claimed; gate 6,106/0."
+version = "0.438.0"
+description = "Star-Magic UQFF calculator v0.438.0: THE KILL TEST SHIP - stages 1 and 2 of the Navier-Stokes kill test (PAPER_2277-2278): a million sampled gradient tensors, then full-resolution grid cubes around the most intense events of the two largest public DNS, graded with their own maxima - CAP HOLDS forty-fold on every chunk and forty-four-fold on every clean cube (peak 11,763x mean); the isotropic32768 zero blocks named, two false extremes rejected; whole-field front 1 open; Clay not claimed; gate 6,109/0."
 readme = "README.md"
 authors = [
     { name = "Daniel T. Murphy", email = "daniel.murphy00@enrgyone.com" }
@@ -181,7 +181,10 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "jhtdb_grade/README_PROVENANCE.md",
     "jhtdb_grade/jhtdb_cap_grade_2026-09-10.csv",
     "jhtdb_grade/jhtdb_channel_grade_2026-09-10.csv",
+    "jhtdb_grade/jhtdb_deep_tail_2026-09-13.csv",
+    "jhtdb_grade/jhtdb_kill_test_stage2_2026-09-15.csv",
     "jhtdb_grade/jhtdb_ladder_grade_2026-09-11.csv",
+    "jhtdb_grade/kt_stage2_cutouts.py",
 ]
 "share/star-magic-program/notebooks" = [
     "notebooks/00_quickstart.ipynb",
@@ -2047,6 +2050,8 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "whitepapers/PAPER_2274_THE_SPINE_AUDIT_S300_UQFF_LERAY_ARGUMENT_WHERE_IT_STOPS_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2275_THEOREM_B_CONTINUUM_UQFF_FLUID_PHONON_MOLLIFIED_TRANSPORT_THREE_FORMS_COMPOSED_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2276_THE_PROOF_SET_CLOSED_UQFF_NAVIER_STOKES_INDEX_TWO_THEOREMS_FOUR_FRONTS_INSTRUMENTS_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2277_THE_DEEP_TAIL_SAMPLE_ONE_MILLION_GRADIENT_TENSORS_PERSONAL_TOKEN_STAGE_1_KILL_TEST_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2278_THE_LOCAL_MAXIMUM_STAGE_2_KILL_TEST_FULL_RESOLUTION_CUBES_AND_THE_DATA_HOLE_UQFF_LANDMARK.md",
     "whitepapers/PAPER_227_Tapestry_LMC_Stellar_Wind_UQFF.md",
     "whitepapers/PAPER_228_Westerlund2_OB_StellarWind_MUGE.md",
     "whitepapers/PAPER_229_Pillars_Creation_Erosion_MUGE.md",

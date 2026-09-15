@@ -54,6 +54,7 @@ from unidiff.constants import (
     RE_NO_NEWLINE_MARKER,
     RE_BINARY_DIFF,
     RE_PATCH_FILE_PREFIX,
+    SUBMODULE_FILE_MODE,
     SYMLINK_FILE_MODE,
 )
 from unidiff.errors import UnidiffParseError
@@ -263,8 +264,12 @@ class PatchedFile(list[Hunk]):
                 line = line.decode(encoding)
 
             if metadata_only:
-                # quick line type detection, no regex required
-                line_type = line[0] if line else LINE_TYPE_CONTEXT
+                # quick line type detection, no regex required; a bare
+                # newline (including a DOS "\r\n") is an empty context line
+                if not line or line[0] in ('\r', '\n'):
+                    line_type = LINE_TYPE_CONTEXT
+                else:
+                    line_type = line[0]
                 if line_type not in (LINE_TYPE_ADDED,
                                      LINE_TYPE_REMOVED,
                                      LINE_TYPE_CONTEXT,
@@ -417,12 +422,21 @@ class PatchedFile(list[Hunk]):
         return not (self.is_added_file or self.is_removed_file)
 
     @property
-    def is_symlink(self) -> bool:
-        """Return True if the patched file is a symbolic link."""
+    def _file_mode(self) -> Optional[str]:
+        """Return the relevant git file mode, if known."""
         # prefer the target mode; fall back to the source mode (e.g. a
         # removed symlink only carries the old mode)
-        mode = self.target_mode if self.target_mode is not None else self.source_mode
-        return mode == SYMLINK_FILE_MODE
+        return self.target_mode if self.target_mode is not None else self.source_mode
+
+    @property
+    def is_symlink(self) -> bool:
+        """Return True if the patched file is a symbolic link."""
+        return self._file_mode == SYMLINK_FILE_MODE
+
+    @property
+    def is_submodule(self) -> bool:
+        """Return True if the patched file is a git submodule (gitlink)."""
+        return self._file_mode == SUBMODULE_FILE_MODE
 
 
 class PatchSet(list[PatchedFile]):
@@ -458,6 +472,9 @@ class PatchSet(list[PatchedFile]):
                metadata_only: bool) -> None:
         current_file = None
         patch_info = None
+        # pending source file header details, consumed by the target header
+        source_file = None
+        source_timestamp = None
 
         diff_lines = enumerate(diff, 1)
         for diff_line_no, line in diff_lines:
@@ -530,10 +547,11 @@ class PatchSet(list[PatchedFile]):
             if is_source_filename:
                 source_file = is_source_filename.group('filename')
                 source_timestamp = is_source_filename.group('timestamp')
-                # reset current file, unless we are processing a rename
-                # (in that case, source files should match)
-                if current_file is not None and not (
-                        current_file.source_file == source_file):
+                # a "---" line starts a new file, unless we are still inside a
+                # git header block (patch_info is only set while a "diff --git"
+                # header is being processed, in which case this line just
+                # restates the source of the file already being built)
+                if current_file is not None and patch_info is None:
                     current_file = None
                 elif current_file is not None:
                     current_file.source_timestamp = source_timestamp
@@ -547,6 +565,10 @@ class PatchSet(list[PatchedFile]):
                 if current_file is not None and not (current_file.target_file == target_file):
                     raise UnidiffParseError('Target without source: %s' % line)
                 if current_file is None:
+                    if source_file is None:
+                        # a target header requires a preceding source header
+                        raise UnidiffParseError(
+                            'Target without source: %s' % line)
                     # add current file to PatchSet
                     current_file = PatchedFile(
                         patch_info, source_file, target_file,
@@ -554,6 +576,9 @@ class PatchSet(list[PatchedFile]):
                         diff_line_no=diff_line_no)
                     self.append(current_file)
                     patch_info = None
+                    # the source header has been consumed by this file
+                    source_file = None
+                    source_timestamp = None
                 else:
                     current_file.target_timestamp = target_timestamp
                 continue
@@ -591,7 +616,10 @@ class PatchSet(list[PatchedFile]):
             is_binary_diff = RE_BINARY_DIFF.match(line)
             if is_binary_diff:
                 source_file = is_binary_diff.group('source_filename')
-                target_file = is_binary_diff.group('target_filename')
+                # formats like hg's "Binary file X has changed" carry no
+                # target filename; both sides refer to the same file
+                target_file = (is_binary_diff.group('target_filename')
+                               or source_file)
                 patch_info.append(line)
                 if current_file is not None:
                     current_file.is_binary_file = True

@@ -23,7 +23,7 @@ from mistralai.client.errors import MistralError
 from mistralai.client.models import AssistantMessage, ChatCompletionRequestMessage, SystemMessage, UserMessage
 from mistralai.client.types import UNSET, OptionalNullable
 from mistralai.client.utils import BackoffStrategy, RetryConfig
-from pydantic import BaseModel, Field, RootModel, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, model_validator
 
 from mistralai.workflows.client import get_mistral_client
 from mistralai.workflows.core.auth import get_token_provider
@@ -44,6 +44,10 @@ class SummariseError(Exception):
     """Raised when summarise_workflow fails after exhausting retries."""
 
 
+class SummariseTimeoutError(SummariseError):
+    """Raised when graph summary generation exceeds its deadline."""
+
+
 class _MalformedResponseError(Exception):
     """LLM response was structurally invalid (non-object JSON, all entries malformed)."""
 
@@ -61,6 +65,8 @@ _SKIP_TYPES = {"workflow", "entrypoint", "output"}
 _SOURCE_SNIPPET_LIMIT = 26_000
 _TOTAL_MESSAGE_BUDGET = 128_000
 _DEFAULT_TAG = "summary"
+_MAX_SUMMARY_NODES = 1_000
+_GRAPH_SUMMARY_INPUT_VERSION: Literal[1] = 1
 
 # Reserved key holding the whole-workflow summary. It is safe in both namespaces it
 # travels through: synthetic prompt ids are always ``node_<n>``, and real node ids are
@@ -188,6 +194,11 @@ def _redact_string_literals(source: str) -> str:
         for tok in _tokenize.generate_tokens(io.StringIO(source).readline):
             if tok.type == _tokenize.STRING:
                 tokens.append(_tokenize.TokenInfo(tok.type, "'...'", tok.start, tok.end, tok.line))
+            elif tok.type in {
+                getattr(_tokenize, "FSTRING_MIDDLE", -1),
+                getattr(_tokenize, "TSTRING_MIDDLE", -1),
+            }:
+                tokens.append(_tokenize.TokenInfo(tok.type, "...", tok.start, tok.end, tok.line))
             else:
                 tokens.append(tok)
         return _tokenize.untokenize(tokens)
@@ -207,6 +218,47 @@ class NodeSummary(BaseModel):
 
     def to_dict(self) -> dict[str, str]:
         return {"short": self.short, "long": self.long}
+
+
+class GraphSummarySource(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(max_length=512)
+    body: str = Field(max_length=_SOURCE_SNIPPET_LIMIT + 1)
+
+
+class GraphSummaryNode(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: str = Field(max_length=512)
+    type: str = Field(max_length=128)
+    name: str = Field(max_length=512)
+    source: str = Field(default="", max_length=_SOURCE_SNIPPET_LIMIT + 1)
+    callees: list[str] = Field(default_factory=list, max_length=100)
+    dispatch_label: str | None = Field(default=None, max_length=512)
+
+
+class GraphSummaryInput(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    version: Literal[1] = _GRAPH_SUMMARY_INPUT_VERSION
+    workflow_name: str = Field(max_length=512)
+    entrypoint: GraphSummarySource | None = None
+    activities: list[GraphSummarySource] = Field(default_factory=list, max_length=_MAX_SUMMARY_NODES)
+    nodes: list[GraphSummaryNode] = Field(max_length=_MAX_SUMMARY_NODES)
+
+    @model_validator(mode="after")
+    def validate_unique_ids(self) -> "GraphSummaryInput":
+        if len({node.id for node in self.nodes}) != len(self.nodes):
+            raise ValueError("summary nodes must have unique ids")
+        if len({activity.name for activity in self.activities}) != len(self.activities):
+            raise ValueError("summary activities must have unique names")
+        return self
+
+
+class GraphSummaryOutput(BaseModel):
+    summaries: dict[str, NodeSummary]
+    workflow_summary: NodeSummary | None = None
 
 
 # Kept for griffe public-API compatibility; no longer used at runtime.
@@ -386,6 +438,12 @@ def _get_node_source(node: FlatNode, source_bytes: bytes | None) -> str:
     return snippet.strip()
 
 
+def _truncate_summary_context(text: str) -> str:
+    if len(text) <= _SOURCE_SNIPPET_LIMIT:
+        return text
+    return text[:_SOURCE_SNIPPET_LIMIT] + "…"
+
+
 def _pick_tag(source_bytes: bytes | None) -> str:
     """Choose a tag name that doesn't appear in the source (tempname pattern)."""
     tag = _DEFAULT_TAG
@@ -429,6 +487,7 @@ def _build_user_message(
         ep_alias = san.alias(wire.entrypoint.name)
         ep_text = _sanitize_def_name(ep_text, wire.entrypoint.name, ep_alias)
         ep_text = _sanitize_name_tokens(ep_text, activity_names, san)
+        ep_text = _truncate_summary_context(ep_text)
         parts.append(f"# Entrypoint method: {ep_alias}\n{ep_text}")
 
     # Activity definitions as context (with sanitized def names)
@@ -440,17 +499,19 @@ def _build_user_message(
     node_blocks: list[str] = []
     id_map: dict[str, str] = {}  # synthetic → real
     used_activity_names: set[str] = set()
-    total = sum(len(p) for p in parts)
+    total = len("\n\n".join(parts))
     # A transform is one statement split out of an ellipsis, so it wants the
     # same "describe the step's role" guidance the prompt gives inline code.
     _TYPE_LABELS = {CONDITIONAL_TYPE: "cond", "unknown": "ellipsis", "transform": "ellipsis"}
     for n in filtered:
+        if len(id_map) >= _MAX_SUMMARY_NODES:
+            break
         syn_id = f"node_{len(id_map)}"
         type_attr = _TYPE_LABELS.get(n.type, n.type)
         source = _get_node_source(n, source_bytes)
         if n.type == "activity" and n.name in activity_defs:
             used_activity_names.add(n.name)
-            body = activity_defs[n.name]
+            body = _truncate_summary_context(activity_defs[n.name])
             block = f'<{tag} id="{syn_id}" type="{type_attr}">\n{body}\n</{tag}>'
         elif source:
             block = f'<{tag} id="{syn_id}" type="{type_attr}">\n{source}\n</{tag}>'
@@ -460,9 +521,10 @@ def _build_user_message(
                 label += f" (calls: {', '.join(san.alias(c) for c in n.callees)})"
             if n.dispatch_label:
                 label += f" (dispatch: {san.alias(n.dispatch_label)})"
+            label = _truncate_summary_context(label)
             block = f'<{tag} id="{syn_id}" type="{type_attr}">\n{label}\n</{tag}>'
-        total += len(block)
-        if total > _TOTAL_MESSAGE_BUDGET:
+        addition = len(block) + 2
+        if total + addition > _TOTAL_MESSAGE_BUDGET:
             logger.warning(
                 "Truncating user message for summarisation",
                 workflow_name=wire.workflow_name,
@@ -472,20 +534,139 @@ def _build_user_message(
             break
         id_map[syn_id] = n.id
         node_blocks.append(block)
+        total += addition
 
+    sibling_parts: list[str] = []
     for name, body in activity_defs.items():
         if name in used_activity_names:
             continue
         sig = body.split("\n")[0] + " ..."
-        parts.append(f"# Sibling activity\n{sig}")
+        sibling = f"# Sibling activity\n{sig}"
+        addition = len(sibling) + 2
+        if total + addition <= _TOTAL_MESSAGE_BUDGET:
+            sibling_parts.append(sibling)
+            total += addition
 
+    parts.extend(sibling_parts)
     parts.extend(node_blocks)
     return "\n\n".join(parts), tag, id_map
 
 
+def _build_user_message_from_input(summary_input: GraphSummaryInput) -> tuple[str, str, dict[str, str]]:
+    if not summary_input.nodes:
+        return "", _DEFAULT_TAG, {}
+
+    san = _NameSanitizer()
+    source_text = "\n".join(
+        [
+            summary_input.entrypoint.body if summary_input.entrypoint is not None else "",
+            *(activity.body for activity in summary_input.activities),
+            *(node.source for node in summary_input.nodes),
+        ]
+    )
+    tag = _pick_tag(source_text.encode())
+    parts = [f"Workflow: {san.alias(summary_input.workflow_name)}"]
+    activity_names = {node.name for node in summary_input.nodes if node.type == "activity"}
+
+    if summary_input.entrypoint is not None:
+        entrypoint = summary_input.entrypoint
+        entrypoint_alias = san.alias(entrypoint.name)
+        entrypoint_body = _sanitize_def_name(entrypoint.body, entrypoint.name, entrypoint_alias)
+        entrypoint_body = _sanitize_name_tokens(entrypoint_body, activity_names, san)
+        parts.append(f"# Entrypoint method: {entrypoint_alias}\n{entrypoint_body}")
+
+    activity_defs = {activity.name: activity.body for activity in summary_input.activities}
+    node_blocks: list[str] = []
+    id_map: dict[str, str] = {}
+    used_activity_names: set[str] = set()
+    total = len("\n\n".join(parts))
+    type_labels = {CONDITIONAL_TYPE: "cond", "unknown": "ellipsis", "transform": "ellipsis"}
+    for node in summary_input.nodes:
+        syn_id = f"node_{len(id_map)}"
+        type_attr = type_labels.get(node.type, node.type)
+        if node.type == "activity" and node.name in activity_defs:
+            used_activity_names.add(node.name)
+            body = _sanitize_def_name(activity_defs[node.name], node.name, san.alias(node.name))
+        elif node.source:
+            body = node.source
+        else:
+            body = f"[type={node.type} name={san.alias(node.name)}]"
+            if node.callees:
+                body += f" (calls: {', '.join(san.alias(callee) for callee in node.callees)})"
+            if node.dispatch_label:
+                body += f" (dispatch: {san.alias(node.dispatch_label)})"
+        body = _truncate_summary_context(body)
+        block = f'<{tag} id="{syn_id}" type="{type_attr}">\n{body}\n</{tag}>'
+        addition = len(block) + 2
+        if total + addition > _TOTAL_MESSAGE_BUDGET:
+            break
+        id_map[syn_id] = node.id
+        node_blocks.append(block)
+        total += addition
+
+    sibling_parts: list[str] = []
+    for name, body in activity_defs.items():
+        if name in used_activity_names:
+            continue
+        signature = _sanitize_def_name(body.split("\n")[0], name, san.alias(name)) + " ..."
+        sibling = f"# Sibling activity\n{signature}"
+        addition = len(sibling) + 2
+        if total + addition <= _TOTAL_MESSAGE_BUDGET:
+            sibling_parts.append(sibling)
+            total += addition
+
+    parts.extend(sibling_parts)
+    parts.extend(node_blocks)
+    return "\n\n".join(parts), tag, id_map
+
+
+def prepare_graph_summary_input(
+    wire: AtlasWireFormat,
+    extra_nodes: list[FlatNode] | None = None,
+) -> GraphSummaryInput:
+    """Prepare redacted graph context that is safe to send to the Workflows API."""
+    nodes = [*wire.nodes, *(extra_nodes or [])]
+    _, _, id_map = _build_user_message(wire, extra_nodes)
+    selected_ids = set(id_map.values())
+    selected_nodes = [
+        node for node in _bottom_up_order(nodes) if node.id in selected_ids and node.type not in _SKIP_TYPES
+    ][:_MAX_SUMMARY_NODES]
+    activity_names = {node.name for node in selected_nodes if node.type == "activity"}
+    activity_defs = extract_activity_defs(wire.sources, activity_names)
+
+    source_bytes = _concatenate_source_bytes(wire)
+    entrypoint = None
+    if source_bytes is not None and wire.entrypoint is not None:
+        entrypoint_body = source_bytes[wire.entrypoint.begin : wire.entrypoint.end].decode("utf-8", errors="replace")
+        entrypoint = GraphSummarySource(
+            name=wire.entrypoint.name,
+            body=_truncate_summary_context(_redact_string_literals(entrypoint_body)),
+        )
+
+    return GraphSummaryInput(
+        version=_GRAPH_SUMMARY_INPUT_VERSION,
+        workflow_name=wire.workflow_name,
+        entrypoint=entrypoint,
+        activities=[
+            GraphSummarySource(name=name, body=_truncate_summary_context(body)) for name, body in activity_defs.items()
+        ],
+        nodes=[
+            GraphSummaryNode(
+                id=node.id,
+                type=node.type,
+                name=node.name,
+                source=_get_node_source(node, source_bytes),
+                callees=node.callees or [],
+                dispatch_label=node.dispatch_label,
+            )
+            for node in selected_nodes
+        ],
+    )
+
+
 def _validate_domain_rules(
     summaries: dict[str, "NodeSummary"],
-    node_by_id: dict[str, FlatNode],
+    node_by_id: dict[str, GraphSummaryNode],
 ) -> dict[str, list[str]]:
     """Run deterministic domain validators on each summary, return {node_id: [violations]}."""
     violations: dict[str, list[str]] = {}
@@ -517,15 +698,15 @@ def _corrective_message(
     return "\n".join(parts)
 
 
-async def summarise_workflow(
-    wire: AtlasWireFormat,
+async def summarise_graph_summary_input(
+    summary_input: GraphSummaryInput,
     *,
     client: Mistral | None = None,
     model: str | None = None,
     attribute_usage: bool = False,
-    extra_nodes: list[FlatNode] | None = None,
+    deadline_s: float | None = None,
 ) -> SummaryResult:
-    """Call the Mistral API to generate summaries for non-skipped nodes.
+    """Generate summaries from redacted graph context prepared by a worker.
 
     When *client* is provided the SDK config checks are skipped and the given
     client is used directly — useful for CLI tooling that does not run the full
@@ -551,17 +732,17 @@ async def summarise_workflow(
         resolved_client = cached_client
         resolved_model = model if model is not None else config.worker.graph.graph_summarise_model
 
-    user_msg, tag, id_map = _build_user_message(wire, extra_nodes)
+    user_msg, tag, id_map = _build_user_message_from_input(summary_input)
     if not user_msg:
         return SummaryResult(status="ready", summaries={})
 
     logger.info(
         "Generating workflow node summaries",
-        workflow_name=wire.workflow_name,
+        workflow_name=summary_input.workflow_name,
         model=resolved_model,
     )
 
-    node_by_id = {n.id: n for n in (*wire.nodes, *(extra_nodes or []))}
+    node_by_id = {node.id: node for node in summary_input.nodes}
     real_to_syn = {real: syn for syn, real in id_map.items()}
 
     # UNSET rather than None: metadata is a nullable field, so None would serialise as an
@@ -580,8 +761,15 @@ async def summarise_workflow(
     # Track which node IDs were accepted from an attempt that also had structural
     # failures — those summaries came from a degraded response.
     from_degraded: set[str] = set()
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + deadline_s if deadline_s is not None else None
+    deadline_expired = False
 
     for attempt in range(_MAX_VALIDATION_RETRIES):
+        remaining_s = deadline - loop.time() if deadline is not None else None
+        if remaining_s is not None and remaining_s <= 0:
+            deadline_expired = True
+            break
         try:
             response = await asyncio.wait_for(
                 resolved_client.chat.complete_async(
@@ -593,7 +781,9 @@ async def summarise_workflow(
                     retries=_RETRY_CONFIG,
                 ),
                 # Covers SDK's internal retry/backoff budget so we don't cancel legitimate 429/5xx retries
-                timeout=_LLM_TIMEOUT_S + _RETRY_MAX_ELAPSED_S,
+                timeout=min(_LLM_TIMEOUT_S + _RETRY_MAX_ELAPSED_S, remaining_s)
+                if remaining_s is not None
+                else _LLM_TIMEOUT_S + _RETRY_MAX_ELAPSED_S,
             )
             message = response.choices[0].message if response.choices else None
             content = message.content if message is not None else None
@@ -671,7 +861,7 @@ async def summarise_workflow(
                 )
             logger.info(
                 "Workflow node summaries ready",
-                workflow_name=wire.workflow_name,
+                workflow_name=summary_input.workflow_name,
                 node_count=len(last_valid_summaries),
                 has_workflow_summary=last_workflow_summary is not None,
             )
@@ -682,6 +872,10 @@ async def summarise_workflow(
                 user_prompt=user_msg,
                 workflow_summary=last_workflow_summary,
             )
+        except TimeoutError as exc:
+            last_exc = exc
+            deadline_expired = deadline is not None
+            break
         except (ValidationError, json.JSONDecodeError, _MalformedResponseError) as exc:
             # No corrective prompt here — extra_msgs carries domain corrections;
             # mixing schema feedback degrades retries.
@@ -704,7 +898,7 @@ async def summarise_workflow(
     if last_valid_summaries is not None:
         logger.warning(
             "Returning best-effort summaries after mixed failure modes",
-            workflow_name=wire.workflow_name,
+            workflow_name=summary_input.workflow_name,
             node_count=len(last_valid_summaries),
         )
         return SummaryResult(
@@ -715,5 +909,24 @@ async def summarise_workflow(
             workflow_summary=last_workflow_summary,
         )
 
+    if deadline_expired:
+        raise SummariseTimeoutError("Graph summary generation timed out") from last_exc
+
     logger.warning("LLM summary failed after all attempts", attempts=_MAX_VALIDATION_RETRIES, exc_info=last_exc)
     raise SummariseError(f"Validation failed after {_MAX_VALIDATION_RETRIES} attempts: {last_exc}")
+
+
+async def summarise_workflow(
+    wire: AtlasWireFormat,
+    *,
+    client: Mistral | None = None,
+    model: str | None = None,
+    attribute_usage: bool = False,
+    extra_nodes: list[FlatNode] | None = None,
+) -> SummaryResult:
+    return await summarise_graph_summary_input(
+        prepare_graph_summary_input(wire, extra_nodes),
+        client=client,
+        model=model,
+        attribute_usage=attribute_usage,
+    )

@@ -37,7 +37,7 @@ class LibraryKeywordRunner:
     def __init__(
         self,
         keyword: "LibraryKeyword",
-        name: "str|None" = None,
+        name: "str | None" = None,
         languages=None,
     ):
         self.keyword = keyword
@@ -73,7 +73,7 @@ class LibraryKeywordRunner:
             doc=kw.short_doc,
             args=args,
             assign=tuple(assignment),
-            tags=kw.tags,
+            tags=kw.all_tags,
             type=data.type,
         )
 

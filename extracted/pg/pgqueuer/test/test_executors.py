@@ -3,13 +3,14 @@ import functools
 import inspect
 from datetime import timedelta
 from multiprocessing import Process, Queue as MPQueue
-from typing import Awaitable, Callable, cast
+from typing import Any, Awaitable, Callable, cast
 from unittest.mock import Mock
 
 import anyio
 import pytest
 
 from pgqueuer.db import Driver
+from pgqueuer.domain.types import QueueEntrypoint
 from pgqueuer.executors import (
     AbstractEntrypointExecutor,
     EntrypointExecutor,
@@ -69,7 +70,7 @@ async def test_entrypoint_executor_async_with_context(apgdriver: Driver) -> None
 
     async def async_function(job: Job, ctx: Context) -> None:
         marker = ctx.resources.get("marker")
-        if marker:
+        if isinstance(marker, str):
             markers.append(marker)
 
     executor = EntrypointExecutor(
@@ -151,7 +152,7 @@ async def handler_positional_only_context(job: Job, ctx: Context, /) -> None: ..
 async def handler_string_context(job: Job, ctx: "Context") -> None: ...
 async def handler_context_first(ctx: Context) -> None: ...
 async def handler_unannotated_second(job: Job, ctx) -> None: ...  # type: ignore[no-untyped-def]
-async def handler_unrelated_second(job: Job, config: dict | None = None) -> None: ...
+async def handler_unrelated_second(job: Job, config: dict[str, Any] | None = None) -> None: ...
 async def handler_keyword_only_context(job: Job, *, ctx: Context) -> None: ...
 async def handler_var_positional(job: Job, *args: object) -> None: ...
 async def handler_var_keyword(job: Job, **kwargs: object) -> None: ...
@@ -228,11 +229,13 @@ def test_entrypoint_auto_detects_context() -> None:
     async def without_context(job: Job) -> None: ...
 
     @qm.entrypoint("unrelated_second")
-    async def unrelated_second(job: Job, config: dict | None = None) -> None: ...
+    async def unrelated_second(job: Job, config: dict[str, Any] | None = None) -> None: ...
 
-    assert qm.entrypoint_registry["with_context"].parameters.accepts_context
-    assert not qm.entrypoint_registry["without_context"].parameters.accepts_context
-    assert not qm.entrypoint_registry["unrelated_second"].parameters.accepts_context
+    assert qm.entrypoint_registry[QueueEntrypoint("with_context")].parameters.accepts_context
+    assert not qm.entrypoint_registry[QueueEntrypoint("without_context")].parameters.accepts_context
+    assert not qm.entrypoint_registry[
+        QueueEntrypoint("unrelated_second")
+    ].parameters.accepts_context
 
 
 def test_entrypoint_explicit_flag_overrides_detection() -> None:
@@ -244,8 +247,8 @@ def test_entrypoint_explicit_flag_overrides_detection() -> None:
     @qm.entrypoint("forced_on", accepts_context=True)
     async def forced_on(job: Job) -> None: ...
 
-    assert not qm.entrypoint_registry["forced_off"].parameters.accepts_context
-    assert qm.entrypoint_registry["forced_on"].parameters.accepts_context
+    assert not qm.entrypoint_registry[QueueEntrypoint("forced_off")].parameters.accepts_context
+    assert qm.entrypoint_registry[QueueEntrypoint("forced_on")].parameters.accepts_context
 
 
 async def test_custom_threading_executor() -> None:

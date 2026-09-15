@@ -122,9 +122,9 @@ class TestGitHubActionsProviderGetPrTokenLogin:
     """Tests for GitHubActionsProvider.get_pr_token_login()."""
 
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
-    def test_returns_login_from_speckit_pr_token(self, mock_gh_api, monkeypatch) -> None:
-        """Returns the login resolved from SPECKIT_PR_TOKEN via GET /user."""
-        monkeypatch.setenv("SPECKIT_PR_TOKEN", "tok_abc123")
+    def test_returns_login_from_default_workflow_token(self, mock_gh_api, monkeypatch) -> None:
+        """Returns the login resolved from DEFAULT_CLASSIC_REPO_WORKFLOW_PAT via GET /user."""
+        monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "tok_abc123")
         mock_gh_api.return_value = json.dumps({"login": "dispatch-bot"})
 
         provider = GitHubActionsProvider(repo="owner/repo")
@@ -135,8 +135,8 @@ class TestGitHubActionsProviderGetPrTokenLogin:
 
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     def test_returns_empty_string_when_token_absent(self, mock_gh_api, monkeypatch) -> None:
-        """Returns empty string when SPECKIT_PR_TOKEN is not set."""
-        monkeypatch.delenv("SPECKIT_PR_TOKEN", raising=False)
+        """Returns empty string when DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is not set."""
+        monkeypatch.delenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", raising=False)
 
         provider = GitHubActionsProvider(repo="owner/repo")
         result = provider.get_pr_token_login()
@@ -146,8 +146,8 @@ class TestGitHubActionsProviderGetPrTokenLogin:
 
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     def test_returns_empty_string_when_token_whitespace_only(self, mock_gh_api, monkeypatch) -> None:
-        """Returns empty string when SPECKIT_PR_TOKEN is whitespace-only."""
-        monkeypatch.setenv("SPECKIT_PR_TOKEN", "   ")
+        """Returns empty string when DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is whitespace-only."""
+        monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "   ")
 
         provider = GitHubActionsProvider(repo="owner/repo")
         result = provider.get_pr_token_login()
@@ -158,7 +158,7 @@ class TestGitHubActionsProviderGetPrTokenLogin:
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     def test_returns_empty_string_when_api_call_fails(self, mock_gh_api, monkeypatch) -> None:
         """Returns empty string when the GET /user call raises an exception."""
-        monkeypatch.setenv("SPECKIT_PR_TOKEN", "tok_expired")
+        monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "tok_expired")
         mock_gh_api.side_effect = RuntimeError("401 Unauthorized")
 
         provider = GitHubActionsProvider(repo="owner/repo")
@@ -169,8 +169,11 @@ class TestGitHubActionsProviderGetPrTokenLogin:
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     def test_reraises_provider_rate_limit_error(self, mock_gh_api, monkeypatch) -> None:
         """Provider rate limits must propagate so callers can pause instead of failing soft."""
-        monkeypatch.setenv("SPECKIT_PR_TOKEN", "tok_abc123")
-        mock_gh_api.side_effect = ProviderRateLimitError(provider="github", credential_identity="SPECKIT_PR_TOKEN")
+        monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "tok_abc123")
+        mock_gh_api.side_effect = ProviderRateLimitError(
+            provider="github",
+            credential_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+        )
 
         provider = GitHubActionsProvider(repo="owner/repo")
 
@@ -180,7 +183,7 @@ class TestGitHubActionsProviderGetPrTokenLogin:
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     def test_returns_empty_string_when_login_missing_from_response(self, mock_gh_api, monkeypatch) -> None:
         """Returns empty string when the API response lacks a 'login' key."""
-        monkeypatch.setenv("SPECKIT_PR_TOKEN", "tok_abc123")
+        monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "tok_abc123")
         mock_gh_api.return_value = json.dumps({"id": 1, "name": "Bot"})
 
         provider = GitHubActionsProvider(repo="owner/repo")
@@ -191,7 +194,7 @@ class TestGitHubActionsProviderGetPrTokenLogin:
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     def test_returns_empty_string_when_login_is_non_string(self, mock_gh_api, monkeypatch) -> None:
         """Returns empty string when 'login' is not a string (e.g., None or int)."""
-        monkeypatch.setenv("SPECKIT_PR_TOKEN", "tok_abc123")
+        monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "tok_abc123")
         mock_gh_api.return_value = json.dumps({"login": None})
 
         provider = GitHubActionsProvider(repo="owner/repo")
@@ -202,7 +205,7 @@ class TestGitHubActionsProviderGetPrTokenLogin:
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     def test_caches_result_on_second_call(self, mock_gh_api, monkeypatch) -> None:
         """The resolved login is cached so GET /user is called at most once per instance."""
-        monkeypatch.setenv("SPECKIT_PR_TOKEN", "tok_abc123")
+        monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "tok_abc123")
         mock_gh_api.return_value = json.dumps({"login": "dispatch-bot"})
 
         provider = GitHubActionsProvider(repo="owner/repo")
@@ -215,7 +218,7 @@ class TestGitHubActionsProviderGetPrTokenLogin:
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     def test_caches_empty_string_result(self, mock_gh_api, monkeypatch) -> None:
         """The empty-string result (failure) is also cached to avoid repeated API calls."""
-        monkeypatch.setenv("SPECKIT_PR_TOKEN", "tok_bad")
+        monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "tok_bad")
         mock_gh_api.side_effect = RuntimeError("Unauthorized")
 
         provider = GitHubActionsProvider(repo="owner/repo")
@@ -531,10 +534,10 @@ class TestGitHubActionsProviderCollectThreadComments:
 class TestGitHubActionsProviderPostCommentAsPrToken:
     """Tests for GitHubActionsProvider.post_comment_as_pr_token."""
 
-    @patch.dict(os.environ, {"SPECKIT_PR_TOKEN": "pr-token"}, clear=False)
+    @patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "pr-token"}, clear=False)
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     def test_post_comment_as_pr_token_uses_pr_token(self, mock_run_safe) -> None:
-        """post_comment_as_pr_token authenticates with SPECKIT_PR_TOKEN via GH_TOKEN env var."""
+        """post_comment_as_pr_token authenticates with DEFAULT_CLASSIC_REPO_WORKFLOW_PAT."""
         mock_run_safe.return_value = _mock_run_safe_response({"id": 77})
 
         provider = GitHubActionsProvider(repo="owner/repo")
@@ -548,10 +551,10 @@ class TestGitHubActionsProviderPostCommentAsPrToken:
 
     @patch.dict(os.environ, {}, clear=True)
     def test_post_comment_as_pr_token_raises_without_token(self) -> None:
-        """post_comment_as_pr_token raises RuntimeError when SPECKIT_PR_TOKEN is not set."""
+        """post_comment_as_pr_token raises RuntimeError when DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is not set."""
         provider = GitHubActionsProvider(repo="owner/repo")
 
-        with pytest.raises(RuntimeError, match="SPECKIT_PR_TOKEN is required"):
+        with pytest.raises(RuntimeError, match="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is required"):
             provider.post_comment_as_pr_token(7, "token body")
 
 
@@ -701,7 +704,7 @@ class TestCreateDeferralIssue:
         mock_run_safe.return_value = _mock_run_safe_response({"number": 4242})
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             issue_number = provider.create_deferral_issue(
                 pr_number=11,
                 review_id=42,
@@ -721,10 +724,10 @@ class TestCreateDeferralIssue:
         assert "### Finding 1 — `specs/3672/spec.md`" in body
         assert "The criteria are ambiguous." in body
 
-    def test_raises_when_speckit_token_missing(self) -> None:
+    def test_raises_when_default_token_missing(self) -> None:
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(RuntimeError, match="SPECKIT_PR_TOKEN"):
+            with pytest.raises(RuntimeError, match="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"):
                 provider.create_deferral_issue(
                     pr_number=11,
                     review_id=42,
@@ -738,7 +741,7 @@ class TestCreateDeferralIssue:
         mock_run_safe.return_value = _mock_run_safe_response({})
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             with pytest.raises(RuntimeError, match="missing issue number"):
                 provider.create_deferral_issue(
                     pr_number=11,
@@ -753,7 +756,7 @@ class TestCreateDeferralIssue:
         mock_run_safe.return_value = _mock_run_safe_response({"number": 0})
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             with pytest.raises(RuntimeError, match="missing issue number"):
                 provider.create_deferral_issue(
                     pr_number=11,
@@ -768,7 +771,7 @@ class TestCreateDeferralIssue:
         mock_run_safe.return_value = _mock_run_safe_response({"number": -1})
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             with pytest.raises(RuntimeError, match="missing issue number"):
                 provider.create_deferral_issue(
                     pr_number=11,
@@ -784,7 +787,7 @@ class TestCreateDeferralIssue:
         mock_run_safe.return_value = _mock_run_safe_response({"number": True})
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             with pytest.raises(RuntimeError, match="missing issue number"):
                 provider.create_deferral_issue(
                     pr_number=11,
@@ -799,7 +802,7 @@ class TestCreateDeferralIssue:
         mock_gh_api.side_effect = RetryableError("GitHub API error: HTTP 503")
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             with pytest.raises(RetryableError, match="HTTP 503"):
                 provider.create_deferral_issue(
                     pr_number=11,
@@ -822,7 +825,7 @@ class TestDispatchSuppressedTriage:
         mock_assign.return_value = _assignment()
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             result = provider.dispatch_suppressed_triage(issue_number=4242, pr_number=11, review_id=42)
 
         assert result.success is True
@@ -830,16 +833,16 @@ class TestDispatchSuppressedTriage:
         assert kwargs["repo"] == "swai-factory/agentic-devtools"
         assert kwargs["issue_number"] == 4242
         assert kwargs["custom_agent"] == "agdt.suppressed-comment-triage.evaluate"
-        assert kwargs["token_env_vars"] == ("SPECKIT_PR_TOKEN",)
+        assert kwargs["token_env_vars"] == ("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "GH_TOKEN")
         assert "#11" in kwargs["problem_statement"]
         assert "42" in kwargs["problem_statement"]
         assert kwargs["problem_statement"] == kwargs["custom_instructions"]
 
     @patch("agentic_devtools.cli.ci.github_provider.assign_issue_to_agent")
-    def test_raises_when_speckit_token_missing(self, mock_assign) -> None:
+    def test_raises_when_default_token_missing(self, mock_assign) -> None:
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(RuntimeError, match="SPECKIT_PR_TOKEN"):
+            with pytest.raises(RuntimeError, match="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"):
                 provider.dispatch_suppressed_triage(issue_number=4242, pr_number=11, review_id=42)
         mock_assign.assert_not_called()
 
@@ -849,7 +852,7 @@ class TestDispatchSuppressedTriage:
         mock_read_repo_file.return_value = ""
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             with pytest.raises(RuntimeError, match="Could not read required agent prompt file"):
                 provider.dispatch_suppressed_triage(issue_number=4242, pr_number=11, review_id=42)
 
@@ -862,7 +865,7 @@ class TestDispatchSuppressedTriage:
         mock_assign.return_value = _assignment(success=False, error="all methods failed")
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             with pytest.raises(RuntimeError, match="all methods failed"):
                 provider.dispatch_suppressed_triage(issue_number=4242, pr_number=11, review_id=42)
 
@@ -880,7 +883,7 @@ class TestDispatchSuppressedTriage:
 
         with (
             caplog.at_level(logging.WARNING, logger="agentic_devtools.cli.ci.github_provider"),
-            patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True),
+            patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True),
         ):
             result = provider.dispatch_suppressed_triage(issue_number=4242, pr_number=11, review_id=42)
 

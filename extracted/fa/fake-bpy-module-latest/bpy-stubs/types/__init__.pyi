@@ -18041,7 +18041,7 @@ class BlendData(bpy_struct):
         ]
         | None,
         *,
-        subset: None | set[str] | None = None,
+        subset: None | set[ID] | None = None,
         visit_types: None | set[str] | None = None,
         flags: set[str] | None = {"SKIP_PACKED", "SKIP_WEAK_REFERENCES"},
     ) -> None:

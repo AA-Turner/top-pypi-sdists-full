@@ -56,6 +56,23 @@ class BacktestProgressMonitor(System.Object):
         ...
 
 
+class DeploymentDetailsHelper(System.Object):
+    """Helper to share deployment details with the user and the algorithm, see IResultHandler.add_deployment_detail"""
+
+    @staticmethod
+    def add(key: str, value: str) -> None:
+        """
+        Adds or updates a deployment detail entry on the result handler loaded in the Composer, if any.
+        Key value pairs the brokerage, data queue handler or any other component wants to share with the user,
+        through the results, and the algorithm, for example account information.
+        Sensitive data, like credentials, should never be added
+        
+        :param key: The deployment detail key
+        :param value: The deployment detail value
+        """
+        ...
+
+
 class ResultHandlerInitializeParameters(System.Object):
     """DTO parameters class to initialize a result handler"""
 
@@ -148,18 +165,18 @@ class IResultHandler(QuantConnect.Statistics.IStatisticsService, metaclass=abc.A
 
     @property
     @abc.abstractmethod
-    def brokerage_data(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
-        """Read only view of the brokerage data, see add_brokerage_data. Shared with the algorithm"""
+    def deployment_details(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+        """Read only view of the deployment details, see add_deployment_detail. Shared with the algorithm"""
         ...
 
-    def add_brokerage_data(self, key: str, value: str) -> None:
+    def add_deployment_detail(self, key: str, value: str) -> None:
         """
-        Adds or updates a brokerage data entry. Key value pairs the brokerage, data queue handler or any other component
+        Adds or updates a deployment detail entry. Key value pairs the brokerage, data queue handler or any other component
         wants to share with the user, through the results, and the algorithm, for example account information.
         Sensitive data, like credentials, should never be added
         
-        :param key: The brokerage data key
-        :param value: The brokerage data value
+        :param key: The deployment detail key
+        :param value: The deployment detail value
         """
         ...
 
@@ -605,8 +622,8 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @property
-    def brokerage_data(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
-        """Read only view of the brokerage data, see add_brokerage_data. Shared with the algorithm"""
+    def deployment_details(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+        """Read only view of the deployment details, see add_deployment_detail. Shared with the algorithm"""
         ...
 
     @property
@@ -794,14 +811,14 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
-    def add_brokerage_data(self, key: str, value: str) -> None:
+    def add_deployment_detail(self, key: str, value: str) -> None:
         """
-        Adds or updates a brokerage data entry. Key value pairs the brokerage, data queue handler or any other component
+        Adds or updates a deployment detail entry. Key value pairs the brokerage, data queue handler or any other component
         wants to share with the user, through the results, and the algorithm, for example account information.
         Sensitive data, like credentials, should never be added
         
-        :param key: The brokerage data key
-        :param value: The brokerage data value
+        :param key: The deployment detail key
+        :param value: The deployment detail value
         """
         ...
 
@@ -834,7 +851,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
 
     def create_algorithm_configuration(self, backtest_node_packet: QuantConnect.Packets.BacktestNodePacket = None) -> QuantConnect.AlgorithmConfiguration:
         """
-        Creates the algorithm configuration to include in the results, taking a snapshot of the current brokerage data
+        Creates the algorithm configuration to include in the results, taking a snapshot of the current deployment details
         
         
         This Class is protected.

@@ -33,6 +33,13 @@ def test_ai_pr_loop_supervisor_is_read_only_and_bounded() -> None:
     assert "--max-candidates 10" in run_step["run"]
 
 
+def test_ai_pr_loop_supervisor_checkout_uses_default_workflow_pat() -> None:
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    checkout = workflow["jobs"]["scan"]["steps"][0]
+
+    assert checkout["with"]["token"] == "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}"
+
+
 def test_ai_pr_loop_supervisor_scan_uses_only_allowlisted_read_operations() -> None:
     """The report-only scan must fail if it reaches an unapproved provider operation."""
 

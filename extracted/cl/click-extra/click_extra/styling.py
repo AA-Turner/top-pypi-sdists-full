@@ -38,9 +38,13 @@ intact and adds:
   a `Style` instance.
 - {meth}`Style.contrast_ratio` returning the WCAG contrast ratio between
   two foreground colors. Useful for theme designers checking accessibility.
-- {func}`split_ansi`, {func}`render_ansi` and {func}`wrap_ansi` for tokenizing
-  a string mixing text and ANSI escapes into styled runs, re-rendering those
-  runs through a markup emitter, and wrapping them to a visible width.
+- {func}`split_ansi` and {func}`render_ansi` for tokenizing a string mixing
+  text and ANSI escapes into styled runs, then re-rendering those runs through
+  a markup emitter. Wrapping them to a width lives in
+  {func}`~click_extra.layout.wrap_ansi`, with the rest of the terminal-grid
+  measures.
+- {func}`open_ansi` reporting the escapes a string leaves open, so a styled
+  fragment can be spliced into styled text without closing it.
 - The {func}`ansi_to_html`, {func}`ansi_to_jira`, {func}`ansi_to_latex` and
   {func}`ansi_to_textile` converters, translating ANSI styling to markup
   languages with native styling support.
@@ -50,7 +54,6 @@ from __future__ import annotations
 
 import os
 import re
-import textwrap
 from dataclasses import dataclass, fields, replace
 from functools import lru_cache
 
@@ -442,6 +445,25 @@ class Style(cloup.Style):
     See the module docstring for the full list of additions. The runtime
     contract (calling the instance to apply styling, equality, hashing,
     `with_()`) is otherwise identical to `cloup.Style`.
+
+    ```{todo}
+    Re-scope {meth}`__eq__` and {meth}`__hash__` once cloup ships the fix for
+    [janluke/cloup#224](https://github.com/janluke/cloup/issues/224). Cloup
+    declares its lazy `_style_kwargs` cache without `compare=False`, so a
+    `cloup.Style` stops comparing equal to its twin, and `hash()` raises
+    `TypeError`, from its first call onwards. Both methods stay after that fix,
+    for the cross-class comparison against `cloup.Style` the generated ones
+    refuse: only their cache rationale expires.
+    ```
+
+    ```{todo}
+    Drop the `# type: ignore[assignment]` on the `fg` and `bg` re-declarations
+    below once cloup widens its own annotations. It types both `Optional[str]`,
+    while `click.style` takes `int | tuple[int, int, int] | str | None`, so
+    covering a palette index and an RGB tuple here reads as an incompatible
+    override. Asked upstream at
+    [janluke/cloup#222](https://github.com/janluke/cloup/issues/222#issuecomment-5600354828).
+    ```
     """
 
     fg: str | tuple[int, int, int] | int | None = None  # type: ignore[assignment]
@@ -859,6 +881,39 @@ def split_ansi(text: str) -> Iterator[tuple[Style, str]]:
         yield current, "".join(buffer)
 
 
+def open_ansi(text: str, opened: str = "") -> str:
+    r"""Return the ANSI SGR escapes still in effect at the end of *text*.
+
+    Escapes accumulate in the order they were read. A full `0` reset (its
+    parameter-less `\x1b[m` form included) empties the accumulator, so the
+    result re-opens what *text* left dangling and nothing else. Escapes come
+    back verbatim rather than folded into a {class}`Style`, which keeps a
+    code this module does not model.
+
+    Use it to splice a styled fragment into styled text: the fragment closes
+    with a reset of its own, which would otherwise strip the surrounding
+    styling from everything after it. See
+    {func}`~click_extra.highlight.highlight`.
+
+    :param text: the string to read the escapes from.
+    :param opened: escapes already in effect before *text*, as returned by an
+        earlier call. Feeding a string one chunk at a time then costs one pass
+        over it, where re-reading the whole prefix per chunk costs one per
+        chunk. A chunk must not start or end in the middle of an escape: the
+        two halves match nothing, and the escape is lost.
+    """
+    active: list[str] = [opened] if opened else []
+    for match in _ANSI_SGR_RE.finditer(text):
+        codes = _sgr_params(match.group(1))
+        if 0 in codes:
+            active.clear()
+        # A bare reset opens nothing, so it is dropped rather than accumulated.
+        # One carrying more parameters still sets them: `\x1b[0;31m` reopens red.
+        if set(codes) != {0}:
+            active.append(match.group(0))
+    return "".join(active)
+
+
 def render_ansi(text: str, emitter: Callable[[Style, str], str]) -> str:
     """Rebuild *text*, replacing each ANSI-styled run by *emitter*'s markup.
 
@@ -881,80 +936,6 @@ def render_ansi(text: str, emitter: Callable[[Style, str], str]) -> str:
             if line:
                 chunks.append(emitter(style, line))
     return "".join(chunks)
-
-
-def _slice_ansi_runs(
-    runs: Sequence[tuple[Style, str]],
-    start: int,
-    end: int,
-) -> str:
-    """Re-style the `[start, end)` visible slice of already-split *runs*.
-
-    Offsets count visible characters, ignoring the escapes that carried the
-    styling. Each run overlapping the slice contributes its own portion, styled
-    on its own, so the returned string opens and closes every sequence it uses.
-    """
-    unstyled = Style()
-    chunks: list[str] = []
-    offset = 0
-    for style, run in runs:
-        run_start = offset
-        offset += len(run)
-        if offset <= start:
-            continue
-        if run_start >= end:
-            break
-        piece = run[max(start - run_start, 0) : min(end, offset) - run_start]
-        if piece:
-            chunks.append(piece if style == unstyled else style(piece))
-    return "".join(chunks)
-
-
-def wrap_ansi(text: str, width: int) -> list[str]:
-    """Wrap *text* to *width* visible columns, preserving its ANSI styling.
-
-    {func}`textwrap.wrap` counts every byte of an ANSI escape toward the line
-    length, so a styled string wraps far earlier than its visible width
-    warrants. Line breaks are computed here on the plain text, then mapped back
-    onto the styled runs of {func}`split_ansi`. Like {func}`render_ansi`, no
-    escape sequence crosses a line boundary: each returned line carries the
-    styling it needs, opened and closed within the line.
-
-    Returns a list of lines, empty *text* yielding a single empty one.
-
-    ```{note}
-    Where the breaks fall is still {func}`textwrap.wrap`'s decision, so
-    long-word breaking and whitespace handling match it exactly. It measures in
-    characters, which means a run of double-width characters occupies more
-    terminal columns than *width*, as it does everywhere else Click wraps text.
-    ```
-    """
-    runs = list(split_ansi(text))
-    plain = "".join(run for _, run in runs)
-    # Tab expansion would change the length of the text and break the offset
-    # mapping below. Disabled, `replace_whitespace` still substitutes a single
-    # space for each whitespace character, which preserves it.
-    lines = textwrap.wrap(plain, width=width, expand_tabs=False)
-    if not lines:
-        return [""]
-    # Nothing styled: the plain lines are already the answer.
-    if len(runs) <= 1 and (not runs or runs[0][0] == Style()):
-        return lines
-
-    # `textwrap` normalized whitespace, so the breaks are located on a copy
-    # normalized the same way, whose offsets still map one-to-one onto `plain`.
-    normalized = "".join(" " if char.isspace() else char for char in plain)
-    spans: list[tuple[int, int]] = []
-    cursor = 0
-    for line in lines:
-        start = normalized.find(line, cursor)
-        if start < 0:
-            # No mapping found: keep the layout and drop the styling, rather
-            # than raising on a string this parser did not anticipate.
-            return lines
-        spans.append((start, start + len(line)))
-        cursor = start + len(line)
-    return [_slice_ansi_runs(runs, start, end) for start, end in spans]
 
 
 def _html_emitter(style: Style, text: str) -> str:

@@ -35,7 +35,10 @@ _DEFAULT_CORS_ORIGIN_REGEX = (
     r"https://(?:[a-z0-9-]+\.)*aimatrx\.com"
     r"|https://(?:[a-z0-9-]+\.)*aidream\.ai"
     r"|https://(?:[a-z0-9-]+\.)*matrxserver\.com"
-    r"|https?://localhost(?::\d+)?"
+    # `<session>.localhost` too: matrx-frontend's one dev server gives every
+    # agent session its own host (cookies are per host). `.localhost` always
+    # resolves to loopback (RFC 6761), so this admits nothing remote.
+    r"|https?://(?:[a-z0-9-]+\.)*localhost(?::\d+)?"
     r"|https?://127\.0\.0\.1(?::\d+)?"
     r"|https?://\[::1\](?::\d+)?"
     r"|https://(?:[a-z0-9-]+\.)*vercel\.app"

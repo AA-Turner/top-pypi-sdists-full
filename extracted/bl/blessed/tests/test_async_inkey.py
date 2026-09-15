@@ -345,7 +345,7 @@ def test_async_read_byte_deadline_same_iteration_no_loss():
                     term._async_read_byte(loop, timeout=0.1))
             finally:
                 loop.close()
-            assert result == b'x', f'byte lost: _async_read_byte returned {result!r}'
+            assert result == b'x'
             return b'OK'
 
     def parent(master_fd):
@@ -380,3 +380,22 @@ def test_async_read_byte_deadline_wins_byte_stays():
 
     output = pty_test(child, parent, 'test_async_read_byte_deadline_wins_byte_stays')
     assert output == 'OK'
+
+
+@pytest.mark.parametrize('trailing,styling', [('n', True), ('', False)],
+                         ids=('precedes-keystroke', 'without-styling'))
+def test_async_inkey_late_xtgettcap_response(trailing, styling):
+    """A late XTGETTCAP reply is consumed by async_inkey() like inkey()."""
+    def child(term):
+        reply = '\x1bP1+r524742=382f382f38\x1b\\'
+        term._does_styling = styling
+        term.ungetch(reply + trailing)
+        loop = asyncio.new_event_loop()
+        try:
+            assert loop.run_until_complete(term.async_inkey(timeout=0)) == trailing
+        finally:
+            loop.close()
+        assert term.errors[-1] == f'errant/delayed XTGETTCAP_RESPONSE {reply!r}'
+        return b'OK'
+
+    assert 'OK' in pty_test(child)

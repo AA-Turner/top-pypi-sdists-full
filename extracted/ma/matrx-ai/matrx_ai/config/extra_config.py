@@ -162,3 +162,94 @@ class WebSearchCallContent:
         if self.action:
             result["metadata"] = {"action": self.action}
         return result
+
+
+def _strip_none(value: Any) -> Any:
+    """Drop ``None``-valued keys recursively. The SDK's ``model_dump`` emits every
+    optional field (``cache_control: None``, ``page_age: None``); Anthropic wants the
+    block back as it was on the wire, and a literal ``null`` is not that."""
+    if isinstance(value, dict):
+        return {k: _strip_none(v) for k, v in value.items() if v is not None}
+    if isinstance(value, list):
+        return [_strip_none(v) for v in value]
+    return value
+
+
+@dataclass
+class HostedToolContent:
+    """A provider-HOSTED tool block, carried verbatim so the turn can be replayed.
+
+    Anthropic runs its own ``web_search`` inside the assistant turn and returns
+    ``server_tool_use`` + ``web_search_tool_result`` blocks interleaved with the
+    model's ``thinking`` and ``tool_use`` blocks. When the model then calls one
+    of OUR tools in the same turn, the executor re-sends that assistant message
+    with the tool result appended — and Anthropic requires the latest assistant
+    message to come back block-for-block as it was produced. Until 2026-09-14
+    ``from_anthropic_content`` dropped the hosted blocks (they must never reach
+    the LOCAL executor, which was the only concern at the time), so the resent
+    message read ``[thinking, thinking, tool_use]`` instead of ``[thinking,
+    server_tool_use, web_search_tool_result, thinking, tool_use]`` and Anthropic
+    refused it: "`thinking` or `redacted_thinking` blocks in the latest
+    assistant message cannot be modified" (commerce-intake research, live
+    2026-09-14; the same class in chat on 2026-08-21 and the builder on
+    2026-08-26 — every time an agent with hosted search also had local tools).
+
+    This block is provider state, not a call: the local executor never
+    dispatches it (it is not a ``ToolCallContent``), ``to_anthropic`` returns
+    the block verbatim, and every other provider drops it — a hosted block only
+    means something to the provider that produced it.
+    """
+
+    type: Literal["hosted_tool"] = "hosted_tool"
+    provider: str = ""
+    block: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def block_type(self) -> str:
+        return str(self.block.get("type", "") or "")
+
+    def get_output(self) -> str | None:
+        return None
+
+    @classmethod
+    def from_anthropic(cls, block: dict[str, Any]) -> "HostedToolContent":
+        return cls(provider="anthropic", block=_strip_none(dict(block)))
+
+    def to_anthropic(self) -> dict[str, Any] | None:
+        if self.provider == "anthropic" and self.block:
+            return _strip_none(dict(self.block))
+        return None
+
+    def to_openai(self) -> dict[str, Any] | None:
+        """A hosted block belongs to the provider that produced it; another provider
+        cannot consume it, so it is dropped — and said so."""
+        vcprint(
+            {"provider": self.provider, "block_type": self.block_type},
+            "HostedToolContent to_openai: provider-hosted tool block dropped (only its "
+            "own provider can replay it)",
+            color="cyan",
+            verbose=True,
+        )
+        return None
+
+    def to_google(self) -> dict[str, Any] | None:
+        vcprint(
+            {"provider": self.provider, "block_type": self.block_type},
+            "HostedToolContent to_google: provider-hosted tool block dropped (only its "
+            "own provider can replay it)",
+            color="cyan",
+            verbose=True,
+        )
+        return None
+
+    def to_storage_dict(self) -> dict[str, Any]:
+        """Serialize to storage format for database persistence (cx_message.content JSONB)."""
+        result: dict[str, Any] = {
+            "type": "hosted_tool",
+            "provider": self.provider,
+            "block": _strip_none(dict(self.block)),
+        }
+        if self.metadata:
+            result["metadata"] = dict(self.metadata)
+        return result

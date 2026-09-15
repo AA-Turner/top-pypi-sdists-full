@@ -59,13 +59,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           ref: ${{ github.event.repository.default_branch }}
 
       - name: Get Issue Details
         id: issue
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = context.issue?.number || ${{ inputs.issue_number || 0 }};
 
@@ -483,6 +484,7 @@ jobs:
         if: steps.discover.outputs.found == 'true'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.issue.outputs.number }};
 
@@ -539,6 +541,7 @@ jobs:
         if: steps.check-pr.outputs.exists == 'true' && vars.SPECKIT_COMMENT_ON_ISSUE != 'false'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.issue.outputs.number }};
             const prUrl = ${{ toJSON(steps.check-pr.outputs.pr_url) }};
@@ -563,6 +566,7 @@ jobs:
         if: steps.check-pr.outputs.exists == 'true'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.issue.outputs.number }};
 
@@ -610,6 +614,7 @@ jobs:
         if: steps.discover.outputs.found != 'true' && steps.discover.outputs.skip_reason != 'epic' && steps.discover.outputs.skip_reason != 'unknown' && vars.SPECKIT_COMMENT_ON_ISSUE != 'false'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.issue.outputs.number }};
 
@@ -635,6 +640,7 @@ jobs:
         if: steps.discover.outputs.found != 'true' && steps.discover.outputs.skip_reason != 'epic' && steps.discover.outputs.skip_reason != 'unknown'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.issue.outputs.number }};
 
@@ -672,6 +678,7 @@ jobs:
         if: steps.discover.outputs.skip_reason == 'epic' || steps.discover.outputs.skip_reason == 'unknown'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.issue.outputs.number }};
 
@@ -697,6 +704,7 @@ jobs:
           SPEC_DIR: ${{ steps.discover.outputs.spec_dir }}
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const fs = require('fs');
             const path = require('path');
@@ -800,6 +808,7 @@ jobs:
         if: steps.final-gate.outputs.skip_reason == 'epic' || steps.final-gate.outputs.skip_reason == 'unknown'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.issue.outputs.number }};
             try {
@@ -883,7 +892,7 @@ jobs:
         if: steps.assign-agent.outputs.assigned == 'true'
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.issue.outputs.number }};
 
@@ -929,7 +938,7 @@ jobs:
         if: steps.assign-agent.outputs.assigned == 'true' && vars.SPECKIT_COMMENT_ON_ISSUE != 'false'
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.issue.outputs.number }};
             const specDir = ${{ toJSON(steps.discover.outputs.spec_dir) }};
@@ -959,6 +968,7 @@ jobs:
         if: failure() && steps.assign-agent.outputs.assigned != 'true' && vars.SPECKIT_COMMENT_ON_ISSUE != 'false'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = context.issue?.number || ${{ inputs.issue_number || 0 }};
 
@@ -988,6 +998,7 @@ jobs:
         if: failure() && steps.assign-agent.outputs.assigned != 'true'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = context.issue?.number || ${{ inputs.issue_number || 0 }};
 

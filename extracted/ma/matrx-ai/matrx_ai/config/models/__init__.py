@@ -26,6 +26,7 @@ from matrx_ai.config.models.content import (
 from matrx_ai.config.models.extra import (
     CodeExecutionContentModel,
     CodeExecutionResultContentModel,
+    HostedToolContentModel,
     ProviderChargeModel,
     WebSearchCallContentModel,
 )
@@ -37,13 +38,13 @@ from matrx_ai.config.models.media import (
     YouTubeVideoContentModel,
 )
 from matrx_ai.config.models.message import UnifiedMessageModel
-from matrx_ai.config.models.unified import UnifiedConfigModel
-from matrx_ai.config.models.usage import TokenUsageModel
+from matrx_ai.config.models.response import UnifiedResponseModel
 from matrx_ai.config.models.structured_input import (
     STRUCTURED_INPUT_MODEL_MAP,
     StructuredInputBaseModel,
 )
-from matrx_ai.config.models.response import UnifiedResponseModel
+from matrx_ai.config.models.unified import UnifiedConfigModel
+from matrx_ai.config.models.usage import TokenUsageModel
 
 __all__ = [
     "STRUCTURED_INPUT_MODEL_MAP",
@@ -61,6 +62,7 @@ __all__ = [
     "ToolResultContentModel",
     "VideoContentModel",
     "WebSearchCallContentModel",
+    "HostedToolContentModel",
     "YouTubeVideoContentModel",
     "UnifiedConfigModel",
     "UnifiedMessageModel",

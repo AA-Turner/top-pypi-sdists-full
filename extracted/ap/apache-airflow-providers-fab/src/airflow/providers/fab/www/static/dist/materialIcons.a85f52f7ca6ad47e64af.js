@@ -1,0 +1,1 @@
+"use strict";!function(o,e){"object"==typeof exports&&"object"==typeof module?module.exports=e():"function"==typeof define&&define.amd?define([],e):"object"==typeof exports?exports.Airflow=e():(o.Airflow=o.Airflow||{},o.Airflow.materialIcons=e())}(globalThis,()=>(globalThis.webpackChunkAirflow||=[]).push([[186],{825(o,e,t){t.r(e)}},o=>o(825)]));

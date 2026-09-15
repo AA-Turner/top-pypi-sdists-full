@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import timedelta
+from typing import Any
 
 import anyio
 import async_timeout
@@ -17,8 +18,8 @@ from pgqueuer.core.executors import (
 from pgqueuer.core.qm import QueueManager
 from pgqueuer.db import AsyncpgDriver
 from pgqueuer.domain.errors import RetryException, RetryRequested
-from pgqueuer.domain.models import Context, Job, JobId, TracebackRecord
-from pgqueuer.domain.types import QueueExecutionMode
+from pgqueuer.domain.models import Context, Job, TracebackRecord
+from pgqueuer.domain.types import JobId, QueueEntrypoint, QueueExecutionMode, QueueManagerId
 from pgqueuer.ports.repository import EntrypointExecutionParameter
 from pgqueuer.queries import Queries
 
@@ -58,10 +59,10 @@ def test_retry_requested_is_retry_exception() -> None:
 
 async def test_inmemory_retry_job_updates_state(queries: InMemoryQueries) -> None:
     ids = await queries.enqueue("ep", b"payload", priority=5)
-    qm_id = uuid.uuid4()
+    qm_id = QueueManagerId(uuid.uuid4())
     jobs = await queries.dequeue(
         10,
-        {"ep": EntrypointExecutionParameter(0)},
+        {QueueEntrypoint("ep"): EntrypointExecutionParameter(0)},
         qm_id,
         None,
         heartbeat_timeout=timedelta(seconds=30),
@@ -82,7 +83,7 @@ async def test_inmemory_retry_job_updates_state(queries: InMemoryQueries) -> Non
     # Verify via dequeue that the job is eligible again and has attempts=1
     jobs_again = await queries.dequeue(
         10,
-        {"ep": EntrypointExecutionParameter(0)},
+        {QueueEntrypoint("ep"): EntrypointExecutionParameter(0)},
         qm_id,
         None,
         heartbeat_timeout=timedelta(seconds=30),
@@ -95,10 +96,10 @@ async def test_inmemory_retry_job_updates_state(queries: InMemoryQueries) -> Non
 
 async def test_inmemory_retry_job_writes_log_entry(queries: InMemoryQueries) -> None:
     ids = await queries.enqueue("ep", b"x", priority=0)
-    qm_id = uuid.uuid4()
+    qm_id = QueueManagerId(uuid.uuid4())
     jobs = await queries.dequeue(
         10,
-        {"ep": EntrypointExecutionParameter(0)},
+        {QueueEntrypoint("ep"): EntrypointExecutionParameter(0)},
         qm_id,
         None,
         heartbeat_timeout=timedelta(seconds=30),
@@ -544,7 +545,7 @@ async def test_retry_preserves_priority() -> None:
 async def test_retry_preserves_headers() -> None:
     """Headers survive retry — UPDATE keeps the row intact."""
     pq = PgQueuer.in_memory()
-    seen_headers: list[dict | None] = []
+    seen_headers: list[dict[str, Any] | None] = []
 
     @pq.entrypoint("headers_ep")
     async def handler(job: Job) -> None:
@@ -572,8 +573,8 @@ async def test_retry_with_delay_prevents_immediate_dequeue(
 ) -> None:
     """A retried job with non-zero delay is not dequeued until execute_after passes."""
     await queries.enqueue("ep", b"x", priority=0)
-    qm_id = uuid.uuid4()
-    ep_params = {"ep": EntrypointExecutionParameter(0)}
+    qm_id = QueueManagerId(uuid.uuid4())
+    ep_params = {QueueEntrypoint("ep"): EntrypointExecutionParameter(0)}
 
     jobs = await queries.dequeue(
         10, ep_params, qm_id, None, heartbeat_timeout=timedelta(seconds=30)
@@ -631,19 +632,21 @@ async def test_multiple_jobs_only_one_retries() -> None:
 
 async def test_inmemory_retry_job_nonexistent_is_noop(queries: InMemoryQueries) -> None:
     """Calling retry_job on a nonexistent job is a silent no-op."""
-    fake_job = Job(
-        id=99999,
-        priority=0,
-        created="2024-01-01T00:00:00Z",
-        updated="2024-01-01T00:00:00Z",
-        heartbeat="2024-01-01T00:00:00Z",
-        execute_after="2024-01-01T00:00:00Z",
-        status="picked",
-        entrypoint="ghost",
-        payload=None,
-        attempts=0,
-        queue_manager_id=None,
-        headers=None,
+    fake_job = Job.model_validate(
+        {
+            "id": JobId(99999),
+            "priority": 0,
+            "created": "2024-01-01T00:00:00Z",
+            "updated": "2024-01-01T00:00:00Z",
+            "heartbeat": "2024-01-01T00:00:00Z",
+            "execute_after": "2024-01-01T00:00:00Z",
+            "status": "picked",
+            "entrypoint": QueueEntrypoint("ghost"),
+            "payload": None,
+            "attempts": 0,
+            "queue_manager_id": None,
+            "headers": None,
+        }
     )
     # Should not raise
     await queries.retry_job(fake_job, timedelta(0), None)
@@ -656,10 +659,10 @@ async def test_inmemory_retry_job_nonexistent_is_noop(queries: InMemoryQueries) 
 async def test_inmemory_retry_job_stores_traceback(queries: InMemoryQueries) -> None:
     """Traceback record is stored as JSON in the retry log entry."""
     await queries.enqueue("ep", b"x", priority=0)
-    qm_id = uuid.uuid4()
+    qm_id = QueueManagerId(uuid.uuid4())
     jobs = await queries.dequeue(
         10,
-        {"ep": EntrypointExecutionParameter(0)},
+        {QueueEntrypoint("ep"): EntrypointExecutionParameter(0)},
         qm_id,
         None,
         heartbeat_timeout=timedelta(seconds=30),
@@ -745,19 +748,21 @@ async def test_database_retry_executor_chains_cause() -> None:
 
     original = ValueError("the root cause")
 
-    fake_job = Job(
-        id=1,
-        priority=0,
-        created="2024-01-01T00:00:00Z",
-        updated="2024-01-01T00:00:00Z",
-        heartbeat="2024-01-01T00:00:00Z",
-        execute_after="2024-01-01T00:00:00Z",
-        status="picked",
-        entrypoint="cause_ep",
-        payload=None,
-        attempts=0,
-        queue_manager_id=None,
-        headers=None,
+    fake_job = Job.model_validate(
+        {
+            "id": JobId(1),
+            "priority": 0,
+            "created": "2024-01-01T00:00:00Z",
+            "updated": "2024-01-01T00:00:00Z",
+            "heartbeat": "2024-01-01T00:00:00Z",
+            "execute_after": "2024-01-01T00:00:00Z",
+            "status": "picked",
+            "entrypoint": QueueEntrypoint("cause_ep"),
+            "payload": None,
+            "attempts": 0,
+            "queue_manager_id": None,
+            "headers": None,
+        }
     )
 
     # Monkey-patch the executor's func to raise

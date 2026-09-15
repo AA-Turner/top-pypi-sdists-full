@@ -1,12 +1,14 @@
 Metadata-Version: 2.4
 Name: smda
-Version: 4.7.0
+Version: 4.8.0
 Summary: A recursive disassmbler optimized for CFG recovery from memory dumps. Based on capstone.
 Author-email: Daniel Plohmann <daniel.plohmann@mailbox.org>
-License: BSD 2-Clause
+License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://github.com/danielplohmann/smda
+Project-URL: Repository, https://github.com/danielplohmann/smda
+Project-URL: Issues, https://github.com/danielplohmann/smda/issues
+Project-URL: Changelog, https://github.com/danielplohmann/smda/blob/master/CHANGELOG.md
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
@@ -18,7 +20,6 @@ Classifier: Topic :: Software Development :: Disassemblers
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-License-File: NOTICE
 Requires-Dist: capstone<6
 Requires-Dist: dncil
 Requires-Dist: dnfile

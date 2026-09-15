@@ -10,7 +10,11 @@ def test_credential_identity_never_returns_token_contents() -> None:
         assert _credential_identity_for_token("secret") == "safe.id"
     with patch.dict(
         "os.environ",
-        {"AI_PR_LOOP_CREDENTIAL_IDENTITY": "SPECKIT_PR_TOKEN", "COPILOT_GITHUB_TOKEN": "secret"},
+        {
+            "AI_PR_LOOP_CREDENTIAL_IDENTITY": "SPECKIT_PR_TOKEN",
+            "COPILOT_GITHUB_TOKEN": "secret",
+            "GH_TOKEN": "secret",
+        },
         clear=True,
     ):
         assert _credential_identity_for_token("secret") == "COPILOT_GITHUB_TOKEN"
@@ -21,9 +25,24 @@ def test_credential_identity_never_returns_token_contents() -> None:
         assert _credential_identity_for_token("secret") == "explicit-token"
     with patch.dict("os.environ", {"GH_TOKEN": "secret"}, clear=True):
         assert _credential_identity_for_token("") == "GH_TOKEN"
+    with patch.dict(
+        "os.environ",
+        {
+            "GH_TOKEN": "secret",
+            "AI_PR_LOOP_CREDENTIAL_IDENTITY": "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+        },
+        clear=True,
+    ):
+        assert _credential_identity_for_token("secret") == "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"
     with patch.dict("os.environ", {}, clear=True):
         assert _credential_identity_for_token("") == "GH_TOKEN"
     with patch.dict("os.environ", {"REPO_VARIABLE_WRITER_PAT": "secret"}, clear=True):
         assert _credential_identity_for_token("secret") == "REPO_VARIABLE_WRITER_PAT"
-    with patch.dict("os.environ", {"AI_PR_LOOP_CREDENTIAL_IDENTITY": "bad:identity"}, clear=True):
-        assert _credential_identity_for_token("secret") == "explicit-token"
+    with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "secret"}, clear=True):
+        assert _credential_identity_for_token("secret") == "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"
+    with patch.dict(
+        "os.environ",
+        {"AI_PR_LOOP_CREDENTIAL_IDENTITY": "bad:identity", "GH_TOKEN": "secret"},
+        clear=True,
+    ):
+        assert _credential_identity_for_token("secret") == "GH_TOKEN"

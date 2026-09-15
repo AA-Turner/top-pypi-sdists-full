@@ -74,6 +74,7 @@ nav:
       - Details: extensions/blocks/plugins/details.md
       - HTML: extensions/blocks/plugins/html.md
       - Tab: extensions/blocks/plugins/tab.md
+    - BracketSpan: extensions/bracketspan.md
     - Caret: extensions/caret.md
     - Critic: extensions/critic.md
     - Details: extensions/details.md
@@ -170,7 +171,9 @@ markdown_extensions:
       repo: pymdown-extensions
       normalize_issue_symbols: true
   - pymdownx.tilde:
+      no_space: false
   - pymdownx.caret:
+      no_space: false
   - pymdownx.smartsymbols:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
@@ -260,6 +263,7 @@ markdown_extensions:
   - pymdownx.blocks.caption:
   - pymdownx.quotes:
       callouts: true
+  - pymdownx.bracketspan:
   - tools.collapse_code:
       expand_text: ''
       collapse_text: ''
@@ -271,7 +275,7 @@ extra:
 
 extra_css:
   # - https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex.min.css
-  - assets/pymdownx-extras/extra-e0f7eb4a0d.css
+  - assets/pymdownx-extras/extra-89d3960223.css
 extra_javascript:
   - assets/pymdownx-extras/extra-loader-BSCOcbUK.js
   - https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.min.js

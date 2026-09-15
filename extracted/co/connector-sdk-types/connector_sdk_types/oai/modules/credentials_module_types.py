@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, StrictBool, StrictStr
 
 # Import directly from modules to avoid circular import through generated/__init__.py
 from connector_sdk_types.generated.models.basic_credential import BasicCredential
+from connector_sdk_types.generated.models.empty_credential import EmptyCredential
 from connector_sdk_types.generated.models.error_response import ErrorResponse
 from connector_sdk_types.generated.models.jwt_credential import JWTCredential
 from connector_sdk_types.generated.models.key_pair_credential import KeyPairCredential
@@ -168,6 +169,9 @@ class AuthModel(str, Enum):
     SERVICE_ACCOUNT = "service_account"
     KEY_PAIR = "key_pair"
 
+    """Carries no payload - the connector host authenticates itself. Multi-auth only."""
+    EMPTY = "empty"
+
 
 """
 Map of authentication models (AuthModel) to their corresponding Pydantic models.
@@ -181,6 +185,7 @@ AUTH_TYPE_MAP: dict[AuthModel, type[BaseModel]] = {
     AuthModel.SERVICE_ACCOUNT: ServiceAccountCredential,
     AuthModel.KEY_PAIR: KeyPairCredential,
     AuthModel.OAUTH1: OAuth1Credential,
+    AuthModel.EMPTY: EmptyCredential,
 }
 
 """
@@ -195,4 +200,5 @@ AUTH_MODEL_TO_NAME: dict[AuthModel, str] = {
     AuthModel.SERVICE_ACCOUNT: "Service Account",
     AuthModel.KEY_PAIR: "Key Pair",
     AuthModel.OAUTH1: "OAuth 1.0",
+    AuthModel.EMPTY: "Empty Credentials",
 }

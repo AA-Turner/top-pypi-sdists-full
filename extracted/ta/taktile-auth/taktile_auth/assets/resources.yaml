@@ -161,6 +161,11 @@ workspace_connection_secret:
   # delete: can delete the connection secrets
   org_id: wildcard
   ws_id: wildcard
+workspace_connection_execution:
+  # write: can use a connection
+  org_id: wildcard
+  ws_id: wildcard
+  env: wildcard
 workspace_agent_management:
   # read: can view agents and agent versions
   # write: can create and update agents and agent versions

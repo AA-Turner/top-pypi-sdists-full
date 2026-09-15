@@ -4,13 +4,13 @@ import warnings
 from collections import defaultdict
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Callable, DefaultDict, List, Sequence, Type
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import structlog
 
 if TYPE_CHECKING:
-    from mistralai.client import Mistral
-
+    from mistralai.workflows.core.graph_summaries import SummaryResult
+    from mistralai.workflows.core.wire_format import AtlasWireFormat, FlatNode
 import temporalio.api.workflowservice.v1 as wsv1
 import tenacity
 from opentelemetry.instrumentation.utils import suppress_instrumentation
@@ -141,10 +141,12 @@ async def _register_workflow_specs(
             try:
                 body = json.loads(exc.body)
                 if admin_url := body.get("admin_panel_url"):
+                    # Relay the server's reason so later server-side wording changes reach workers
+                    # without an SDK upgrade.
                     logger.error(
-                        "Workflow registration failed: credential is not authorized for this deployment. "
-                        "Add an authorized credential at the link below",
-                        admin_panel_url=admin_url,
+                        "Workflow registration refused",
+                        reason=body.get("detail") or "this principal is not authorized for this deployment",
+                        remediation_url=admin_url,
                     )
             except (json.JSONDecodeError, ValueError, AttributeError, TypeError):
                 pass
@@ -468,21 +470,77 @@ def _create_temporal_workers(
 
 
 _GRAPH_PAYLOAD_VERSION = 3
+_GRAPH_SUMMARY_CONCURRENCY = 4
+_GRAPH_SUMMARY_REQUEST_TIMEOUT_S = 60.0
+_GRAPH_SUMMARY_MAX_ATTEMPTS = 3
+# A 429 carries the limiter's moving-window reset, so at worker startup — when every hit
+# lands within a few seconds — retry-after is close to the window length itself. Waiting
+# that out is the only way a workspace with more workflows than the per-minute allowance
+# gets summaries for all of them; a shorter budget drops every request past the burst.
+# Values far beyond one window (the daily limit's reset) are still not worth waiting for.
+_GRAPH_SUMMARY_MAX_RETRY_DELAY_S = 65.0
+# Budget for one workflow's summary, entered once its concurrency slot is held: every
+# attempt plus the waits between them. The wait for a slot stays outside the budget, so a
+# workflow queued behind several waves is not cancelled before it sends its first request.
+_GRAPH_SUMMARY_LIFECYCLE_TIMEOUT_S = (
+    _GRAPH_SUMMARY_MAX_ATTEMPTS * _GRAPH_SUMMARY_REQUEST_TIMEOUT_S
+    + (_GRAPH_SUMMARY_MAX_ATTEMPTS - 1) * _GRAPH_SUMMARY_MAX_RETRY_DELAY_S
+)
+_GRAPH_SUMMARY_RETRYABLE_STATUSES = {
+    HTTPStatus.TOO_MANY_REQUESTS,
+    HTTPStatus.BAD_GATEWAY,
+    HTTPStatus.SERVICE_UNAVAILABLE,
+    HTTPStatus.GATEWAY_TIMEOUT,
+}
+_GRAPH_SUMMARY_UNAVAILABLE_STATUSES = {HTTPStatus.NOT_FOUND, HTTPStatus.METHOD_NOT_ALLOWED}
 
 
-def _get_summary_config() -> tuple["Mistral", str] | None:
-    """Build a Mistral client and resolve the model for graph summaries.
+def _summaries_enabled() -> bool:
+    return config.worker.graph.graph_summarise_enabled and get_token_provider() is not None
 
-    Returns ``None`` when summaries are disabled or no API key is configured.
-    """
-    if not config.worker.graph.graph_summarise_enabled:
-        return None
-    provider = get_token_provider()
-    if provider is None:
-        return None
-    from mistralai.workflows.client import get_mistral_client
 
-    return get_mistral_client(token_provider=provider), config.worker.graph.graph_summarise_model
+async def _request_graph_summaries(
+    *,
+    base_url: str,
+    workflow_identifier: str,
+    workflow_registration_id: UUID,
+    graph_data: "AtlasWireFormat",
+    extra_nodes: list["FlatNode"] | None,
+    http_client: Any,
+) -> "SummaryResult":
+    from mistralai.workflows.core.graph_summaries import (
+        GraphSummaryOutput,
+        SummaryResult,
+        prepare_graph_summary_input,
+    )
+
+    summary_input = prepare_graph_summary_input(graph_data, extra_nodes)
+    url = f"{base_url}/v1/workflows/{workflow_identifier}/graphs/{workflow_registration_id}/summaries"
+    for attempt in range(_GRAPH_SUMMARY_MAX_ATTEMPTS):
+        request = http_client.build_request(
+            "POST",
+            url,
+            json=summary_input.model_dump(mode="json"),
+            timeout=_GRAPH_SUMMARY_REQUEST_TIMEOUT_S,
+        )
+        response = await http_client.send(request)
+        if response.status_code in _GRAPH_SUMMARY_UNAVAILABLE_STATUSES:
+            return SummaryResult(status="disabled", summaries={})
+        if response.status_code not in _GRAPH_SUMMARY_RETRYABLE_STATUSES or attempt == _GRAPH_SUMMARY_MAX_ATTEMPTS - 1:
+            break
+
+        retry_after = response.headers.get("retry-after")
+        try:
+            retry_delay = float(retry_after) if retry_after is not None else 2**attempt
+        except ValueError:
+            retry_delay = 2**attempt
+        if retry_delay > _GRAPH_SUMMARY_MAX_RETRY_DELAY_S:
+            break
+        await asyncio.sleep(max(0.0, retry_delay))
+
+    response.raise_for_status()
+    output = GraphSummaryOutput.model_validate(response.json())
+    return SummaryResult(status="ready", summaries=output.summaries, workflow_summary=output.workflow_summary)
 
 
 async def _upload_workflow_graphs(
@@ -493,7 +551,6 @@ async def _upload_workflow_graphs(
     # Deferred import: _graph pulls in ast/inspect/textwrap at module level, adding startup
     # cost to every worker process even when graph upload is disabled. Keep it lazy here.
     from mistralai.workflows.core._graph import build_graph_dynamically
-    from mistralai.workflows.core.graph_summaries import SummariseError, summarise_workflow
     from mistralai.workflows.core.wire_format import FlatNode
 
     base_url = client.sdk_configuration.server_url.rstrip("/")
@@ -502,9 +559,14 @@ async def _upload_workflow_graphs(
         logger.warning("Worker HTTP client unavailable, skipping graph upload")
         return
 
-    summary_config = _get_summary_config()
+    summaries_enabled = _summaries_enabled()
+    summary_semaphore = asyncio.Semaphore(_GRAPH_SUMMARY_CONCURRENCY)
 
     async def _upload_one(ref: WorkflowRegistrationRef, cls: ClassType) -> None:
+        if ref.workflow_registration_id is None:
+            logger.warning("Workflow registration has no id, skipping graph upload", workflow=cls.__name__)
+            return
+
         graph_data = None
         error: str | None = None
         try:
@@ -531,18 +593,21 @@ async def _upload_workflow_graphs(
             # groups — which would otherwise fall back to a generic label.
             extra_nodes = [FlatNode(**n) for n in dataflow_only_nodes(cf_dict, views)]
 
-        if graph_data is not None and summary_config is not None:
-            summary_client, summary_model = summary_config
+        workflow_identifier = get_workflow_definition(cls).name
+        if graph_data is not None and summaries_enabled:
             try:
-                result = await summarise_workflow(
-                    graph_data,
-                    client=summary_client,
-                    model=summary_model,
-                    attribute_usage=True,
-                    extra_nodes=extra_nodes,
-                )
+                async with summary_semaphore:
+                    async with asyncio.timeout(_GRAPH_SUMMARY_LIFECYCLE_TIMEOUT_S):
+                        result = await _request_graph_summaries(
+                            base_url=base_url,
+                            workflow_identifier=workflow_identifier,
+                            workflow_registration_id=ref.workflow_registration_id,
+                            graph_data=graph_data,
+                            extra_nodes=extra_nodes,
+                            http_client=http_client,
+                        )
                 if result.summaries:
-                    summaries = {nid: s.to_dict() for nid, s in result.summaries.items()}
+                    summaries = {nid: summary.to_dict() for nid, summary in result.summaries.items()}
                     # The control-flow payload keeps everything except the nodes
                     # only the data-flow views have; each data-flow view takes
                     # the subset matching its own nodes.
@@ -557,13 +622,14 @@ async def _upload_workflow_graphs(
                     graph_data.workflow_summary = result.workflow_summary.to_dict()
                     for view in views or ():
                         view["workflow_summary"] = graph_data.workflow_summary
-            except SummariseError as exc:
-                error = str(exc) or type(exc).__name__
+            except Exception as exc:
+                error = f"Graph summary generation failed ({type(exc).__name__})"
+                response = getattr(exc, "response", None)
                 logger.warning(
                     "Failed to generate node summaries",
                     workflow=cls.__name__,
-                    **extract_error_context(exc),
-                    exc_info=exc,
+                    error_type=type(exc).__name__,
+                    http_status=str(getattr(response, "status_code", "unknown")),
                 )
 
         graph_payload = None
@@ -587,7 +653,6 @@ async def _upload_workflow_graphs(
         }
 
         try:
-            workflow_identifier = get_workflow_definition(cls).name
             url = f"{base_url}/v1/workflows/{workflow_identifier}/graphs"
             request = http_client.build_request("POST", url, json=payload)
             response = await http_client.send(request)

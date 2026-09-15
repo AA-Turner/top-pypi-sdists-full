@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1024
+Version: 0.4.1025
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -99,6 +99,8 @@ Provides-Extra: shap-fast
 Requires-Dist: fasttreeshap>=0.1; extra == "shap-fast"
 Provides-Extra: powershap
 Requires-Dist: powershap>=0.0.10; extra == "powershap"
+Provides-Extra: mitra
+Requires-Dist: autogluon.tabular[mitra]<1.7,>=1.6; extra == "mitra"
 Provides-Extra: geospann
 Requires-Dist: geospaNN>=0.1; extra == "geospann"
 Provides-Extra: george
@@ -378,6 +380,8 @@ geocif supports the following model types (configured via `models` in `[DEFAULT]
 | TabPFN-GSA | `tabpfn_gsa` | TabPFN with geospatial sparse attention (local in-context sampling; git-only dep) |
 | george | `george` | Exact GP regression (dfm/george, fitted kernel + noise; `geocif[george]` extra) |
 | BNN | `bnn` | Bayesian NN (Ma et al. 2021 RSE): variational two-headed torch net with native heteroscedastic prediction intervals |
+| Mitra-v2 | `mitra` | In-context tabular foundation model (arXiv:2609.04540, Apache-2.0 weights); 1,000-bin regression head gives native prediction intervals; `geocif[mitra]` extra |
+| Mitra-v2 fine-tuned | `mitra_ft` | Same checkpoint under the released 50-step fine-tune — minutes per fold, GPU recommended |
 | GPR | `gpr` | sklearn Gaussian process regression |
 | Median | `median` | Median baseline |
 | Analog | `analog` | Analogous year baseline |
@@ -393,7 +397,7 @@ weight = global Moran's I of y), `tabpfn_gsa_K` / `tabpfn_gsa_s` (grid cells —
 rounded to a perfect square — and distant-sampling rate), `george_kernel`
 (`expsquared` | `matern32` | `matern52`) / `george_jitter`, and `bnn_epochs` /
 `bnn_batch_size` / `bnn_lr` / `bnn_prior_sigma` / `bnn_kl_weight` /
-`bnn_warmup_epochs` / `bnn_n_mc` / `bnn_calibrate_sigma`.
+`bnn_warmup_epochs` / `bnn_n_mc` / `bnn_calibrate_sigma`, and `mitra_hf_model` / `mitra_device` / `mitra_n_estimators` / `mitra_max_samples_support` / `mitra_max_samples_query` / `mitra_max_features` / `mitra_precision` (plus `mitra_fine_tune_steps` / `mitra_lr` / `mitra_warmup_steps` / `mitra_weight_decay` / `mitra_val_frac` for `mitra_ft`).
 
 The `bnn` model reports its own predictive uncertainty: total sigma =
 sqrt(aleatoric² + epistemic²) from Monte-Carlo weight sampling, rescaled by a
@@ -402,6 +406,30 @@ earlier years to estimate the scale, then refit on all years). `kl_weight`
 defaults to 0.05 — the paper's full-KL objective collapses the sigma head to a
 near-constant. Its intervals bypass the conformal wrapper and land in the same
 `"lower CI"` / `"upper CI"` columns.
+
+`mitra` / `mitra_ft` run **Mitra-v2** (Tao et al. 2026, arXiv:2609.04540), an
+in-context tabular foundation model pretrained only on synthetic data: a
+12-layer 2D Transformer (~76.7 M parameters) that attends across both rows and
+columns, with Apache-2.0 weights on the HuggingFace Hub
+(`autogluon/mitra-regressor-2`). The backbone ships inside
+`autogluon.tabular[mitra]`, installed via the `geocif[mitra]` extra; on the
+cluster it is side-installed with `--no-deps` and reached through `PYTHONPATH`
+so the production environment's pinned pandas/pyarrow are untouched.
+
+Two things make `geocif/ml/mitra.py` necessary rather than a thin call into
+AutoGluon. AutoGluon's public `MitraRegressor` hardcodes a scalar MSE head
+(`dim_output = 1`), which cannot drive the v2 regression checkpoint's
+**1,000-bin cross-entropy head**; and stock AutoGluon decodes that head with
+`argmax` over bins, whereas the released Mitra-v2 recipe uses the
+softmax-weighted **mean** over bin centres, which its authors identify as the
+only quality-critical difference. geocif implements both.
+
+The upside of the binned head is that Mitra's output is a genuine predictive
+distribution over the target range, so `mitra` gets **native** prediction
+intervals from its own quantiles with no conformal wrapper, like `bnn`. Keep
+folds inside the pretraining envelope — 160–5,120 support rows and **1–50
+features**, i.e. `feature_selection = gOMP_medium` — since above 256 features
+the model falls back to a train-only truncated-SVD reduction.
 
 ### Feature selection methods
 

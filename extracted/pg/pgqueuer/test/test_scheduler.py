@@ -1,11 +1,14 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
+from typing import MutableMapping
 from unittest.mock import Mock
 
 import pytest
 
-from pgqueuer.db import AsyncpgDriver, Driver
+from pgqueuer.adapters.inmemory import InMemoryQueries
+from pgqueuer.db import AsyncpgDriver
 from pgqueuer.domain.settings import DBSettings
+from pgqueuer.domain.types import ScheduleId
 from pgqueuer.executors import (
     ScheduleExecutor,
     ScheduleExecutorFactoryParameters,
@@ -21,14 +24,19 @@ from pgqueuer.queries import Queries
 from pgqueuer.sm import SchedulerManager
 
 
-async def inspect_schedule(connection: Driver) -> list[Schedule]:
+async def inspect_schedule(
+    scheduler_or_driver: SchedulerManager | AsyncpgDriver,
+) -> list[Schedule]:
+    if isinstance(scheduler_or_driver, SchedulerManager):
+        return await scheduler_or_driver.queries.peek_schedule()
+    # Legacy path for integration tests that inspect raw DB
     query = f"SELECT * FROM {DBSettings().schedules_table} ORDER BY id"
-    return [Schedule.model_validate(dict(x)) for x in await connection.fetch(query)]
+    return [Schedule.model_validate(dict(x)) for x in await scheduler_or_driver.fetch(query)]
 
 
 @pytest.fixture
-async def scheduler(apgdriver: AsyncpgDriver) -> SchedulerManager:
-    return SchedulerManager(Queries(apgdriver))
+def scheduler(queries: InMemoryQueries) -> SchedulerManager:
+    return SchedulerManager(queries)
 
 
 async def shutdown_Scheduler_after(
@@ -199,14 +207,14 @@ async def test_heartbeat_updates(scheduler: SchedulerManager, mocker: Mock) -> N
 
     scheduler.schedule("sample_task", "* * * * *")(sample_task)
 
-    before = await inspect_schedule(scheduler.queries.driver)
+    before = await inspect_schedule(scheduler)
     await asyncio.gather(
         *[
             scheduler.run(),
             shutdown_Scheduler_after(scheduler, timedelta(seconds=1)),
         ],
     )
-    after = await inspect_schedule(scheduler.queries.driver)
+    after = await inspect_schedule(scheduler)
 
     assert all(a.heartbeat > b.heartbeat for a, b in zip(after, before))
 
@@ -404,8 +412,8 @@ async def test_schedule_executor_without_context() -> None:
         received_schedules.append(schedule)
 
     params = ScheduleExecutorFactoryParameters(
-        entrypoint="no_ctx",
-        expression="* * * * *",
+        entrypoint=CronEntrypoint("no_ctx"),
+        expression=CronExpression("* * * * *"),
         func=handler,
         clean_old=False,
         accepts_context=False,
@@ -413,7 +421,7 @@ async def test_schedule_executor_without_context() -> None:
     executor = ScheduleExecutor(parameters=params)
 
     fake_schedule = Schedule(
-        id=1,
+        id=ScheduleId(1),
         expression=CronExpression("* * * * *"),
         heartbeat=datetime.now(timezone.utc),
         created=datetime.now(timezone.utc),
@@ -437,8 +445,8 @@ async def test_schedule_executor_with_context() -> None:
         received.append((schedule, ctx))
 
     params = ScheduleExecutorFactoryParameters(
-        entrypoint="with_ctx",
-        expression="* * * * *",
+        entrypoint=CronEntrypoint("with_ctx"),
+        expression=CronExpression("* * * * *"),
         func=handler,
         clean_old=False,
         accepts_context=True,
@@ -446,7 +454,7 @@ async def test_schedule_executor_with_context() -> None:
     executor = ScheduleExecutor(parameters=params)
 
     fake_schedule = Schedule(
-        id=1,
+        id=ScheduleId(1),
         expression=CronExpression("* * * * *"),
         heartbeat=datetime.now(timezone.utc),
         created=datetime.now(timezone.utc),
@@ -478,7 +486,7 @@ async def test_schedule_context_resources_via_scheduler(
     )
 
     scheduler.resources = {"shared_key": "shared_value"}
-    received_resources: list[dict] = []
+    received_resources: list[MutableMapping[str, object]] = []
 
     async def handler(schedule: Schedule, ctx: ScheduleContext) -> None:
         received_resources.append(dict(ctx.resources))

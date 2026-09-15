@@ -28,6 +28,10 @@ class Message(BodyItem):
 
     Can be a log message triggered by a keyword, or a warning or an error
     that occurred during parsing or test execution.
+
+    ``message`` is ``None`` only if explicitly set by listeners to remove messages
+    altogether. When working with results after execution, ``mesasage`` is always
+    a string.
     """
 
     type = BodyItem.MESSAGE
@@ -36,11 +40,11 @@ class Message(BodyItem):
 
     def __init__(
         self,
-        message: str = "",
+        message: "str | None" = "",
         level: MessageLevel = "INFO",
         html: bool = False,
-        timestamp: "datetime|str|None" = None,
-        parent: "BodyItem|None" = None,
+        timestamp: "datetime | str | None" = None,
+        parent: "BodyItem | None" = None,
     ):
         self.message = message
         self.level = level
@@ -49,7 +53,7 @@ class Message(BodyItem):
         self.parent = parent
 
     @setter
-    def timestamp(self, timestamp: "datetime|str|None") -> "datetime|None":
+    def timestamp(self, timestamp: "datetime | str | None") -> "datetime | None":
         if isinstance(timestamp, str):
             return datetime.fromisoformat(timestamp)
         return timestamp

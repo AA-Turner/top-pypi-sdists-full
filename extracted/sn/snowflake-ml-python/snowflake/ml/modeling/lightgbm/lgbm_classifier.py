@@ -950,7 +950,7 @@ class LGBMClassifier(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [lightgbm.LGBMClassifier.score]
         (https://lightgbm.readthedocs.io/en/v3.3.2/pythonapi/lightgbm.LGBMClassifier.html#lightgbm.LGBMClassifier.score)
 

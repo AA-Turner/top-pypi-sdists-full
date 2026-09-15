@@ -234,10 +234,6 @@ class TSNE(BaseTransformer):
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
         for more details.
-
-    n_iter: int
-        Maximum number of iterations for the optimization. Should be at
-        least 250.
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -247,7 +243,7 @@ class TSNE(BaseTransformer):
         perplexity=30.0,
         early_exaggeration=12.0,
         learning_rate="auto",
-        max_iter=None,
+        max_iter=1000,
         n_iter_without_progress=300,
         min_grad_norm=1e-07,
         metric="euclidean",
@@ -258,7 +254,6 @@ class TSNE(BaseTransformer):
         method="barnes_hut",
         angle=0.5,
         n_jobs=None,
-        n_iter="deprecated",
         input_cols: Optional[Union[str, Iterable[str]]] = None,
         output_cols: Optional[Union[str, Iterable[str]]] = None,
         label_cols: Optional[Union[str, Iterable[str]]] = None,
@@ -284,7 +279,7 @@ class TSNE(BaseTransformer):
             'perplexity':(perplexity, 30.0, False),
             'early_exaggeration':(early_exaggeration, 12.0, False),
             'learning_rate':(learning_rate, "auto", False),
-            'max_iter':(max_iter, None, False),
+            'max_iter':(max_iter, 1000, False),
             'n_iter_without_progress':(n_iter_without_progress, 300, False),
             'min_grad_norm':(min_grad_norm, 1e-07, False),
             'metric':(metric, "euclidean", False),
@@ -294,8 +289,7 @@ class TSNE(BaseTransformer):
             'random_state':(random_state, None, False),
             'method':(method, "barnes_hut", False),
             'angle':(angle, 0.5, False),
-            'n_jobs':(n_jobs, None, False),
-            'n_iter':(n_iter, "deprecated", False),}
+            'n_jobs':(n_jobs, None, False),}
         cleaned_up_init_args = validate_sklearn_args(
             args=init_args,
             klass=sklearn.manifold.TSNE

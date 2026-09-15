@@ -19,6 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           persist-credentials: false
       - run: pip install -e .
       - name: Reap stale in-progress audit labels
@@ -27,4 +28,6 @@ jobs:
             --repo "${{ github.repository }}" \
             --max-age-hours "${{ github.event.inputs.max_age_hours || '24' }}"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT

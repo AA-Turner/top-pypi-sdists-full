@@ -33,9 +33,14 @@ from airbyte_ops_webapp.pages.motherduck_diagnostics.defaults import (
     MOTHERDUCK_DIAGNOSTICS_EMOJI,
     MOTHERDUCK_DIAGNOSTICS_PATH,
 )
+from airbyte_ops_webapp.pages.platform_admin.defaults import (
+    PLATFORM_ADMIN_EMOJI,
+    PLATFORM_ADMIN_PATH,
+)
 from airbyte_ops_webapp.pages.shared_components.layout import (
     OPS_HOME_LABEL,
     render_breadcrumb_nav,
+    render_emoji_icon,
     render_environment_banners,
     render_page_hero,
     render_version_footer,
@@ -63,19 +68,13 @@ def _render_tool_icon(icon_svg: str, *, accent: str = AIRBYTE_PRIMARY) -> None:
         Svg(icon_svg, width="1.5rem", height="1.5rem")
 
 
-def _render_emoji_icon(emoji: str, *, accent: str = AIRBYTE_PRIMARY) -> None:
-    """Render an emoji inside the same styled container as SVG tool icons."""
-    with AbToolIcon(accent=accent):
-        Text(emoji, css_class="text-2xl leading-none")
-
-
 def _render_connector_version_manager_card(connector_query: str) -> None:
     with (
         AbToolCard(),
         CardContent(),
         Column(gap=3),
     ):
-        _render_emoji_icon(CONNECTOR_VERSION_MANAGER_EMOJI)
+        render_emoji_icon(CONNECTOR_VERSION_MANAGER_EMOJI)
         H3("Connector Version Manager")
         Text(
             "Manage connector rollout versions, scoped pins, and safe previews "
@@ -106,7 +105,7 @@ def _render_customer_billing_card() -> None:
         CardContent(),
         Column(gap=3),
     ):
-        _render_emoji_icon(CUSTOMER_BILLING_EMOJI)
+        render_emoji_icon(CUSTOMER_BILLING_EMOJI)
         H3("Customer Billing")
         Text(
             "Manage grace periods, billing waivers, and usage category overrides "
@@ -137,7 +136,7 @@ def _render_motherduck_diagnostics_card() -> None:
         CardContent(),
         Column(gap=3),
     ):
-        _render_emoji_icon(MOTHERDUCK_DIAGNOSTICS_EMOJI)
+        render_emoji_icon(MOTHERDUCK_DIAGNOSTICS_EMOJI)
         H3("MotherDuck Diagnostics")
         Text(
             "Compute-usage analytics, recent query outcomes, and live server "
@@ -175,6 +174,33 @@ def _render_more_tools_card() -> None:
             "Airbyte Ops."
         )
         Badge("Coming soon", css_class="w-fit bg-[#CECBF2] text-[#140F43]")
+
+
+def _render_platform_admin_card() -> None:
+    with AbToolCard(), CardContent(), Column(gap=3):
+        render_emoji_icon(PLATFORM_ADMIN_EMOJI)
+        H3("Platform Admin")
+        Text(
+            "Run instance-admin operations against the Config API, including "
+            "Data Worker allocation management."
+        )
+        with If(~STATE.oauth_authenticated):
+            Badge(
+                "Sign-in required",
+                css_class="w-fit bg-[#CECBF2] text-[#140F43]",
+            )
+            AbPrimaryLink(
+                "Log in with Airbyte",
+                href=OPS_AUTHORIZATION_PATH,
+                target="_top",
+            )
+        with If(STATE.oauth_authenticated):
+            Badge("Ready", variant="success")
+            AbPrimaryLink(
+                "Open tool",
+                href=PLATFORM_ADMIN_PATH,
+                target="_top",
+            )
 
 
 @home_app.ui(name=OPS_HOME_TOOL_NAME, title="Airbyte Ops")
@@ -227,6 +253,7 @@ def open_ops_home(
             _render_connector_version_manager_card(connector_query)
             _render_customer_billing_card()
             _render_motherduck_diagnostics_card()
+            _render_platform_admin_card()
             _render_more_tools_card()
         render_version_footer()
     return app

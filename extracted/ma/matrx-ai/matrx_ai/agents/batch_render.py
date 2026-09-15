@@ -116,7 +116,8 @@ def output_text_from_batch_result(provider: str, result_payload: dict[str, Any] 
 
     Shapes (as landed by matrx_batch.poller):
       * anthropic — ``{"message": {content: [{type: "text", text: ...}, ...]}}``
-      * openai    — ``{"response": {body: {choices: [{message: {content}}]}}}``
+      * openai    — ``{"response": {body: {choices: [{message: {content}}]}}}`` (chat)
+                    or ``{"response": {body: {output: [{type: "message", content: [{type: "output_text", text}]}]}}}`` (responses)
     """
     if not result_payload:
         return ""
@@ -131,6 +132,7 @@ def output_text_from_batch_result(provider: str, result_payload: dict[str, Any] 
     if provider == "openai":
         response = result_payload.get("response") or {}
         body = response.get("body") or response
+        # Chat Completions shape.
         choices = body.get("choices") or []
         if choices and isinstance(choices[0], dict):
             message = choices[0].get("message") or {}
@@ -139,7 +141,16 @@ def output_text_from_batch_result(provider: str, result_payload: dict[str, Any] 
                 return content
             if isinstance(content, list):
                 return "\n".join(str(c.get("text") or "") for c in content if isinstance(c, dict))
-        return ""
+        # Responses API shape (what the OpenAI translator emits; batch endpoint
+        # /v1/responses): output[] message items → content[] output_text parts.
+        parts: list[str] = []
+        for item in body.get("output") or []:
+            if not isinstance(item, dict) or item.get("type") not in (None, "message"):
+                continue
+            for part in item.get("content") or []:
+                if isinstance(part, dict) and part.get("type") == "output_text":
+                    parts.append(str(part.get("text") or ""))
+        return "\n".join(p for p in parts if p)
     if provider == "gemini":
         response = result_payload.get("response") or {}
         candidates = response.get("candidates") or []

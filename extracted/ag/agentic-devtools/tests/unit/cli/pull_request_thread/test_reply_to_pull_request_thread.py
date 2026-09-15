@@ -115,7 +115,7 @@ class TestReplyToPullRequestThread:
         mock_get_requests.assert_not_called()
 
     @pytest.mark.parametrize("status", [401, 403, 404, 409, 422, 429, 500])
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_normalizes_github_reply_http_errors(self, mock_get_requests: MagicMock, status: int) -> None:
         requests = MagicMock()
@@ -126,7 +126,7 @@ class TestReplyToPullRequestThread:
         assert str(status) in result.diagnostics[0]
 
     @pytest.mark.parametrize("payload", [{}, {"id": None}, []])
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_rejects_malformed_github_reply(self, mock_get_requests: MagicMock, payload: object) -> None:
         response = MagicMock(status_code=201)
@@ -141,10 +141,10 @@ class TestReplyToPullRequestThread:
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_reports_missing_github_credential(self, mock_get_requests: MagicMock) -> None:
         result = reply_to_pull_request_thread(PullRequestThreadReplyRequest("github", "owner/repo", 12, 34, "reply"))
-        assert "GH_TOKEN" in result.diagnostics[0]
+        assert "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" in result.diagnostics[0]
         mock_get_requests.assert_not_called()
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_reports_resolution_failure_without_retrying_reply(self, mock_get_requests: MagicMock) -> None:
         requests = MagicMock()
@@ -162,7 +162,7 @@ class TestReplyToPullRequestThread:
         assert result.resolution_status == "failed"
         assert requests.post.call_count == 3
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_successful_github_reply_without_resolution(self, mock_get_requests: MagicMock) -> None:
         response = MagicMock(status_code=201)
@@ -174,7 +174,7 @@ class TestReplyToPullRequestThread:
         assert result.mutation_status == "replied"
 
     @patch("agentic_devtools.cli.pull_request_thread.time.sleep")
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_retries_rate_limit_before_success(self, mock_get_requests: MagicMock, _mock_sleep: MagicMock) -> None:
         requests = MagicMock()
@@ -190,7 +190,7 @@ class TestReplyToPullRequestThread:
         assert requests.post.call_count == 2
 
     @patch("agentic_devtools.cli.pull_request_thread.time.sleep")
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_retries_github_403_rate_limit_before_success(
         self, mock_get_requests: MagicMock, _mock_sleep: MagicMock
@@ -208,7 +208,7 @@ class TestReplyToPullRequestThread:
         assert requests.post.call_count == 2
 
     @patch("agentic_devtools.cli.pull_request_thread.time.sleep")
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_reconciles_reply_after_transport_failure(
         self, mock_get_requests: MagicMock, _mock_sleep: MagicMock
@@ -231,7 +231,7 @@ class TestReplyToPullRequestThread:
         assert result.reply_id == 56
 
     @patch("agentic_devtools.cli.pull_request_thread.time.sleep")
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_does_not_reconcile_to_preexisting_matching_reply(
         self, mock_get_requests: MagicMock, _mock_sleep: MagicMock
@@ -249,7 +249,7 @@ class TestReplyToPullRequestThread:
 
         assert result.mutation_status == "failed"
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_reconciles_reply_after_github_5xx_response(self, mock_get_requests: MagicMock) -> None:
         requests = MagicMock()
@@ -270,7 +270,7 @@ class TestReplyToPullRequestThread:
         assert result.reply_id == 56
 
     @patch("agentic_devtools.cli.pull_request_thread.time.sleep")
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_stops_after_three_rate_limit_responses(self, mock_get_requests: MagicMock, _mock_sleep: MagicMock) -> None:
         requests = MagicMock()
@@ -283,7 +283,7 @@ class TestReplyToPullRequestThread:
         assert requests.post.call_count == 3
 
     @patch("agentic_devtools.cli.pull_request_thread.time.sleep")
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_reports_github_403_rate_limit_as_rate_limited(
         self, mock_get_requests: MagicMock, _mock_sleep: MagicMock
@@ -307,7 +307,7 @@ class TestReplyToPullRequestThread:
             {"data": {"resolveReviewThread": {"thread": {}}}},
         ],
     )
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_reports_unconfirmed_github_resolution(
         self, mock_get_requests: MagicMock, resolution_payload: dict[str, object]
@@ -326,7 +326,7 @@ class TestReplyToPullRequestThread:
         )
         assert result.resolution_status == "failed"
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_normalizes_github_resolution_http_error(self, mock_get_requests: MagicMock) -> None:
         requests = MagicMock()
@@ -341,7 +341,7 @@ class TestReplyToPullRequestThread:
         )
         assert result.resolution_status == "failed"
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_github_reply_uses_numeric_comment_and_graphql_thread(self, mock_get_requests: MagicMock) -> None:
         requests = MagicMock()
@@ -373,7 +373,7 @@ class TestReplyToPullRequestThread:
         assert requests.post.call_args_list[1].kwargs["json"] == {"body": "quote `x`\n✓"}
         assert requests.post.call_args_list[2].kwargs["json"]["variables"] == {"threadId": "PRRT_kwDO"}
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_github_resolution_preflight_blocks_mismatched_thread(self, mock_get_requests: MagicMock) -> None:
         requests = MagicMock()
@@ -503,7 +503,7 @@ class TestReplyToPullRequestThread:
             ),
         ],
     )
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_github_resolution_preflight_failure_paths(
         self,
@@ -527,7 +527,7 @@ class TestReplyToPullRequestThread:
         assert diagnostic_fragment in result.diagnostics[0]
         assert requests.post.call_count == 1
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_github_resolution_preflight_paginates_until_discussion_match(self, mock_get_requests: MagicMock) -> None:
         requests = MagicMock()
@@ -552,7 +552,7 @@ class TestReplyToPullRequestThread:
         assert requests.post.call_args_list[0].kwargs["json"]["variables"] == {"threadId": "PRRT_kwDO", "after": None}
         assert requests.post.call_args_list[1].kwargs["json"]["variables"] == {"threadId": "PRRT_kwDO", "after": "c1"}
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_github_resolution_failure_when_graphql_returns_errors(self, mock_get_requests: MagicMock) -> None:
         requests = MagicMock()
@@ -577,7 +577,7 @@ class TestReplyToPullRequestThread:
     def test_missing_github_thread_id_posts_reply_without_claiming_resolution(
         self, mock_get_requests: MagicMock, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("GITHUB_TOKEN", "token")
+        monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "token")
         requests = MagicMock()
         response = MagicMock(status_code=201)
         response.json.return_value = {"id": 56}

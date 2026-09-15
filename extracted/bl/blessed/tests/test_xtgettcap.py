@@ -11,7 +11,9 @@ import pytest
 from unittest import mock
 
 # local
-from blessed._capabilities import TermcapResponse, ITerm2Capabilities
+from blessed._capabilities import (XTGETTCAP_INIT_CAPABILITIES,
+                                   TermcapResponse,
+                                   ITerm2Capabilities)
 from blessed.terminal import Terminal
 from .conftest import IS_WINDOWS
 from .accessories import TestTerminal, pty_test, NO_XTGETTCAP_DATA
@@ -356,6 +358,51 @@ def test_does_xtgettcap_with_cached():
         supported=True, capabilities={'TN': 'test'})
 
     assert term.does_xtgettcap(timeout=0.1) is True
+
+
+@pytest.mark.parametrize('supported,capabilities,expected', [
+    (True, {'TN': 'xterm', 'colors': '256'}, True),
+    (True, {'TN': 'xterm', 'colors': None}, True),
+    (True, {'TN': 'xterm'}, True),
+    (False, dict.fromkeys(XTGETTCAP_INIT_CAPABILITIES), False),
+    (False, {}, False),
+], ids=('answered', 'answered-colors-unsupported', 'answered-without-colors',
+        'answered-nothing-supported', 'timed-out-or-skipped'))
+def test_does_xtgettcap_answers_from_init_probe(supported, capabilities, expected):
+    """does_xtgettcap() has relationship with the class initialization probe."""
+    # in pretty much all cases, does_xtgettcap() is non-blocking because some XTGETTCAP capabilities
+    # are queried on Terminal.__init__, does_xtgettcap() becomes a non-blocking call by default
+    # (force=True).
+    stream = io.StringIO()
+    term = TestTerminal(stream=stream, force_styling=True, is_a_tty=True,
+                        _xtgettcap_data=TermcapResponse(supported, capabilities))
+
+    assert term.does_xtgettcap(timeout=0) is expected
+    assert stream.getvalue() == ''
+
+
+@pytest.mark.parametrize('force', (False, True), ids=('cached', 'force'))
+def test_does_xtgettcap_without_tty(force):
+    """does_xtgettcap() is False without a tty, even by force, or with a supported cache."""
+    stream = io.StringIO()
+    term = TestTerminal(stream=stream, force_styling=True, is_a_tty=False,
+                        _xtgettcap_data=TermcapResponse(True, {'colors': '256'}))
+
+    assert term.does_xtgettcap(timeout=0.01, force=force) is False
+    assert stream.getvalue() == ''
+
+
+def test_does_xtgettcap_force_queries_only_colors():
+    """does_xtgettcap(force=True) re-queries, asking about 'colors' alone."""
+    # Even if previously answered, force=True always causes the terminal to be re-queried.
+    stream = io.StringIO()
+    term = TestTerminal(stream=stream, force_styling=True, is_a_tty=True,
+                        _xtgettcap_data=TermcapResponse(True, {'colors': '256'}))
+    assert 'colors' in XTGETTCAP_INIT_CAPABILITIES
+
+    term.does_xtgettcap(timeout=0.01, force=True)
+    assert stream.getvalue() == (
+        f"\x1bP+q{TermcapResponse.hex_encode('colors')}\x1b\\\x1b[6n")
 
 
 def test_does_xtgettcap_unsupported():
@@ -971,8 +1018,7 @@ def test_does_kitty_query_supported():
         resp = f'\x1bP1+r{hex_cap}={hex_val}\x1b\\'
         cpr = '\x1b[10;20R'
         term.ungetch(resp + cpr)
-        result = term.does_kitty_query(timeout=0.1)
-        assert result is True, (term._xtgettcap_cache, term.does_styling)
+        assert term.does_kitty_query(timeout=0.1)
         assert term._xtgettcap_cache is not None
         assert term._xtgettcap_cache.capabilities.get('kitty-query-name') == 'kitty'
         return b'OK'
@@ -1095,6 +1141,35 @@ def test_terminal_init_xtgettcap_unsupported():
     assert 'OK' in output
 
 
+@pytestmark_pty
+def test_does_xtgettcap_force_recovers_from_init_timeout():
+    """A probe that timed out at initialization is sticky, until does_xtgettcap(force=True)."""
+    def parent(master_fd):
+        def await_cpr():
+            data, stime = b'', time.time()
+            while b'\x1b[6n' not in data:
+                if (remaining := 2.0 - (time.time() - stime)) <= 0:
+                    return False
+                if select.select([master_fd], [], [], remaining)[0]:
+                    data += os.read(master_fd, 4096)
+            return True
+
+        await_cpr()  # the probe at initialization, left unanswered, it times out
+        if await_cpr():  # the does_xtgettcap(force=True) re-query, answered
+            os.write(master_fd, b'\x1bP1+r636f6c6f7273=323536\x1b\\\x1b[10;20R')
+
+    def child(term):
+        assert term._xtgettcap_cache.supported is False
+        assert term.does_xtgettcap(timeout=0) is False
+        assert term.does_xtgettcap(timeout=1) is False  # sticky, without force
+        assert term.does_xtgettcap(timeout=1, force=True) is True
+        assert term._xtgettcap_cache['colors'] == '256'
+        return b'OK'
+
+    assert 'OK' in pty_test(child, parent, _xtgettcap_data=NO_XTGETTCAP_DATA,
+                            _xtgettcap_timeout=0.05)
+
+
 def test_init_cache_populated_from_xtgettcap_data():
     """Injected XTGETTCAP data populates _xtgettcap_cache."""
     xt_data = TermcapResponse(
@@ -1215,7 +1290,63 @@ def test_query_boundary_multiple_unqueryable():
     """_query_boundary_multiple() returns None without a tty, or without styling."""
     term = TestTerminal(stream=io.StringIO(), force_styling=True)
     query = ('', TermcapResponse._RE_XTGETTCAP_RESPONSE, 0)
-    assert term._query_boundary_multiple(*query) is None, 'not a tty'
+    assert term._query_boundary_multiple(*query) is None
     term._is_a_tty = True
     term._does_styling = False
-    assert term._query_boundary_multiple(*query) is None, 'no styling'
+    assert term._query_boundary_multiple(*query) is None
+
+
+@pytest.mark.parametrize('env,build,skipped', [
+    ({}, 20348, True),
+    ({}, 26100, False),
+    ({'WT_SESSION': 'e6c4c1a9'}, 20348, False),
+    ({'TERM': 'xterm-256color'}, 20348, False),
+])
+def test_xtgettcap_skip_early_conhost(env, build, skipped):
+    """XTGETTCAP init probe skipped only for Windows console builds that leak DCS."""
+    with mock.patch.dict(os.environ, env, clear=True), \
+            mock.patch('blessed.terminal.IS_WINDOWS', True), \
+            mock.patch('blessed.terminal.get_console_input_encoding', create=True,
+                       return_value='UTF-8'), \
+            mock.patch.object(sys, 'getwindowsversion', create=True,
+                              return_value=mock.Mock(build=build)), \
+            mock.patch('os.isatty', return_value=True), \
+            mock.patch.object(Terminal, '_xtgettcap_batch',
+                              return_value=TermcapResponse(supported=False)) as mock_batch:
+        t = Terminal(stream=sys.__stdout__, force_styling=True)
+        assert any('conhost' in err for err in t.errors) is skipped
+        assert mock_batch.called is not skipped
+
+
+def test_xtgettcap_partial_response_defers():
+    """A partial XTGETTCAP reply resolves as bare KEY_ESCAPE, so inkey() awaits the rest."""
+    from blessed.keyboard import resolve_sequence
+    term = TestTerminal(stream=io.StringIO(), force_styling=True)
+    ks = resolve_sequence('\x1bP1+r524742', term._keymap, term._keycodes,
+                          term._keymap_prefixes, final=False)
+    assert (ks.name, len(ks)) == ('KEY_ESCAPE', 1)
+
+
+@pytest.mark.parametrize('reply,trailing,styling,expected_rgb', [
+    # success RGB replies,
+    ('\x1bP1+r524742=382f382f38\x1b\\', '', True, '8/8/8'),
+    ('\x1bP1+r524742=382f382f38\x1b\\', 'n', True, '8/8/8'),
+    ('\x1bP1+r524742=382f382f38\x1b\\', '', False, '8'),
+    # RGB non-reply,
+    ('\x1bP0+r524742\x1b\\', '', True, '8'),
+], ids=('updates-cache', 'precedes-keystroke', 'without-styling', 'failure-reply'))
+def test_xtgettcap_late_response(reply, trailing, styling, expected_rgb):
+    """A late XTGETTCAP reply is consumed by inkey() and folded into the capability cache."""
+    # The pty test terminal begins with 'RGB' of '8', which a late reply may replace.
+    def child(term):
+        term._does_styling = styling
+        tn_before = term._xtgettcap_cache.capabilities['TN']
+        term.ungetch(reply + trailing)
+        assert term.inkey(timeout=0) == trailing
+        # RGB value is updated, but note at this time we do not adjust number_of_colors
+        assert term._xtgettcap_cache.capabilities.get('RGB') == expected_rgb
+        assert term._xtgettcap_cache.capabilities['TN'] == tn_before
+        assert term.errors[-1] == f'errant/delayed XTGETTCAP_RESPONSE {reply!r}'
+        return b'OK'
+
+    assert 'OK' in pty_test(child)

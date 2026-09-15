@@ -71,11 +71,17 @@ class _SqlScopeFrame:
       same-query-level scopes (push_sql_scope), across which outer names remain
       fully visible.  Correlated resolution may cross at most one boundary,
       matching Spark's single-level correlation.
+    - ``is_correlation_scope`` marks scopes that can reference their enclosing
+      query. Relations reused across such a scope need distinct identifiers --
+      see sql_correlation_scope_key. LATERAL scopes do not add a
+      name-resolution boundary because their plan already contains one.
     """
 
     names: dict[str, int] = field(default_factory=dict)
     reg_db: dict[str, str | None] = field(default_factory=dict)
     is_boundary: bool = False
+    is_correlation_scope: bool = False
+    correlation_scope_key: tuple[int, ...] | None = None
 
 
 # Stack of lexical scopes for spark.sql() plan-name resolution.  The bottom of
@@ -86,6 +92,9 @@ class _SqlScopeFrame:
 # clear_context_data).
 _sql_plan_scope_stack: ContextVar[list[_SqlScopeFrame]] = ContextVar(
     "_sql_plan_scope_stack"
+)
+_next_sql_correlation_scope_id = ContextVar[int](
+    "_next_sql_correlation_scope_id", default=1
 )
 
 # Sentinel plan_id indicating that a qualifier maps to more than one relation.
@@ -446,7 +455,11 @@ def push_evaluating_join_condition(join_type, left_keys, right_keys):
 
 
 @contextmanager
-def push_sql_scope(is_boundary: bool = False):
+def push_sql_scope(
+    is_boundary: bool = False,
+    is_correlation_scope: bool = False,
+    shares_cte_cache_with_siblings: bool = False,
+):
     """
     Creates a new plan-name scope frame on the SQL scope stack.
 
@@ -468,10 +481,38 @@ def push_sql_scope(is_boundary: bool = False):
       frames remain available to is_out_of_scope_correlated_qualifier() so it
       can distinguish a grandparent reference (which Spark rejects) from a
       genuinely fully-qualified name.
+
+    ``is_correlation_scope`` marks a scope that can reference its enclosing
+    query. It is independent of ``is_boundary`` because LATERAL plans already
+    contain their own SubqueryAlias boundary.
+
+    ``shares_cte_cache_with_siblings`` groups isolated sibling expression
+    subqueries into one CTE collision domain. Nested expression subqueries and
+    LATERAL scopes still receive distinct domains.
     """
     stack = _sql_plan_scope_stack.get()
+    correlation_scope_key = None
+    if is_correlation_scope:
+        parent_scope_key = ()
+        for frame in reversed(stack):
+            if frame.correlation_scope_key is not None:
+                parent_scope_key = frame.correlation_scope_key
+                break
+        if shares_cte_cache_with_siblings:
+            correlation_scope_key = parent_scope_key + (0,)
+        else:
+            scope_id = _next_sql_correlation_scope_id.get()
+            _next_sql_correlation_scope_id.set(scope_id + 1)
+            correlation_scope_key = parent_scope_key + (scope_id,)
     stack_token = _sql_plan_scope_stack.set(
-        stack + [_SqlScopeFrame(is_boundary=is_boundary)]
+        stack
+        + [
+            _SqlScopeFrame(
+                is_boundary=is_boundary,
+                is_correlation_scope=is_correlation_scope,
+                correlation_scope_key=correlation_scope_key,
+            )
+        ]
     )
     agg_token = _sql_aggregate_function_count.set(0)
     try:
@@ -689,6 +730,14 @@ def get_sql_plan(name: str) -> int | None:
     return None
 
 
+def sql_correlation_scope_key() -> tuple[int, ...]:
+    """CTE collision domain of the innermost correlation-capable scope."""
+    for frame in reversed(_sql_plan_scope_stack.get()):
+        if frame.correlation_scope_key is not None:
+            return frame.correlation_scope_key
+    return ()
+
+
 def is_out_of_scope_correlated_qualifier(name: str) -> bool:
     """Return True if `name` is a relation alias visible only beyond the single
     correlation level Spark allows -- i.e. in a grandparent scope reachable only
@@ -828,6 +877,7 @@ def clear_context_data() -> None:
     _view_process_context.set([])
     _next_sql_plan_id.set(_STARTING_SQL_PLAN_ID)
     _sql_plan_scope_stack.set([_SqlScopeFrame()])
+    _next_sql_correlation_scope_id.set(1)
     _sql_aggregate_function_count.set(0)
     _sql_named_args.set({})
     _sql_pos_args.set({})

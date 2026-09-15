@@ -184,7 +184,7 @@ class TheilSenRegressor(BaseTransformer):
         self,
         *,
         fit_intercept=True,
-        copy_X=True,
+        copy_X="deprecated",
         max_subpopulation=10000.0,
         n_subsamples=None,
         max_iter=300,
@@ -214,7 +214,7 @@ class TheilSenRegressor(BaseTransformer):
         self._deps = list(deps)
         
         init_args = {'fit_intercept':(fit_intercept, True, False),
-            'copy_X':(copy_X, True, False),
+            'copy_X':(copy_X, "deprecated", False),
             'max_subpopulation':(max_subpopulation, 10000.0, False),
             'n_subsamples':(n_subsamples, None, False),
             'max_iter':(max_iter, 300, False),
@@ -971,7 +971,7 @@ class TheilSenRegressor(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.linear_model.TheilSenRegressor.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.TheilSenRegressor.html#sklearn.linear_model.TheilSenRegressor.score)
 

@@ -37,6 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           persist-credentials: false
 
       - name: Set up Python
@@ -52,8 +53,9 @@ jobs:
       - name: Check stop conditions
         id: check
         env:
-          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
         run: |
           agdt-ai-pr-loop-watchdog \
             --mode redispatch-stop-conditions \
@@ -64,9 +66,10 @@ jobs:
         if: steps.check.outputs.should_dispatch == 'true'
         id: timing
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
         run: |
           agdt-ai-pr-loop-watchdog \
             --mode redispatch-wait \
@@ -77,8 +80,9 @@ jobs:
         if: >-
           steps.check.outputs.should_dispatch == 'true' && steps.timing.outputs.should_dispatch == 'true'
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          FALLBACK_GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
         run: |
           agdt-ai-pr-loop-watchdog \
             --mode redispatch-dispatch-throttler \

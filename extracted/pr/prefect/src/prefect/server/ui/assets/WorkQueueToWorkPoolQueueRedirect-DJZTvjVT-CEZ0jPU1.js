@@ -1,0 +1,2 @@
+import{Fi as e,Xi as t,fi as n,kn as r,li as i,wt as a}from"./index-BD_kIOMy-DbSivZUD.js";var o=t({__name:`WorkQueueToWorkPoolQueueRedirect`,setup(t){let o=n(`workQueueId`),s=a(),c=i(s.workQueues.getWorkQueue,[o]),l=e(),u=r();return c.promise().then(({response:e})=>{if(!e.workPoolName){l.replace(u.workPools());return}l.replace(u.workPoolQueue(e.workPoolName,e.name))}),()=>{}}});export{o as default};
+//# sourceMappingURL=WorkQueueToWorkPoolQueueRedirect-DJZTvjVT-CEZ0jPU1.js.map

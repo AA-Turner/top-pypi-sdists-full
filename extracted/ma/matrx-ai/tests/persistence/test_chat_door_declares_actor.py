@@ -50,12 +50,27 @@ ASSISTANT_ACTOR = ("ai", "chat_assistant_turn")
 # --------------------------------------------------------------------------
 
 
-def _bind_message_model() -> type:
-    """The REAL chat.message Model, bound into the coordinator registry.
+class _MessageMeta:
+    primary_keys = ["id"]
+    foreign_keys: dict = {}
+    table_name = "message"
+    db_schema = "chat"
 
-    Leg 1 never opens a connection — queueing only reads the Model's metadata —
-    so the same binding serves both legs and neither test invents a table.
-    """
+
+class _PackageMessage:
+    _meta = _MessageMeta()
+
+
+def _bind_package_message_model() -> type:
+    """Bind the package-shaped chat.message seam without importing the host."""
+    from matrx_ai.persistence.registry import register_table
+
+    register_table("chat.message", _PackageMessage)
+    return _PackageMessage
+
+
+def _bind_host_message_model() -> type:
+    """Bind the real host model for the explicitly host-backed integration leg."""
     from db.models.chat import Message
 
     from matrx_ai.persistence.registry import register_table
@@ -71,7 +86,7 @@ async def test_the_door_declares_an_author_per_row() -> None:
         queue_message_create,
         queue_message_update,
     )
-    _bind_message_model()
+    _bind_package_message_model()
 
     coord = Coordinator(request_id=str(uuid.uuid4()))
     token = _coordinator_cv.set(coord)
@@ -144,7 +159,7 @@ async def test_the_flush_emits_each_rows_author_to_postgres() -> None:
     from matrx_ai.persistence.coordinator import Coordinator
     from matrx_ai.persistence.queue_helpers import _coordinator_cv, queue_message_create
 
-    Message = _bind_message_model()
+    Message = _bind_host_message_model()
 
     rows = await Conversation.filter(deleted_at=None).limit(1).values(
         "id", "organization_id", "created_by"

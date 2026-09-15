@@ -36,6 +36,29 @@ def _suggested_actors_response(*, include_copilot: bool = True) -> str:
 class TestAssignIssueToAgent:
     """Tests for shared coding-agent assignment orchestration."""
 
+    @patch(
+        "agentic_devtools.cli.ci.agent_assignment._validate_assignment_token",
+        return_value="stubbed preflight failure",
+    )
+    def test_uses_qualified_gh_token_identity(self, _mock_validate_token: MagicMock, _mock_sleep: MagicMock) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "GH_TOKEN": "token",
+                "AI_PR_LOOP_CREDENTIAL_IDENTITY": "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+            },
+            clear=True,
+        ):
+            result = assign_issue_to_agent(
+                repo="owner/repo",
+                issue_number=42,
+                problem_statement="test",
+                token_env_vars=("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "GH_TOKEN"),
+            )
+
+        assert result.success is False
+        assert result.token_identity == "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"
+
     def test_returns_failed_result_when_no_token_available(self, _mock_sleep: MagicMock) -> None:
         with patch.dict("os.environ", {}, clear=True):
             result = assign_issue_to_agent(

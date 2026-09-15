@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: trame-client
-Version: 4.0.1
+Version: 4.1.0
 Summary: Internal client of trame
 Author: Kitware Inc.
 License: MIT
@@ -32,7 +32,7 @@ Requires-Dist: trame-server>=3.15; extra == 'test'
 Requires-Dist: trame>=3.13; extra == 'test'
 Description-Content-Type: text/x-rst
 
-.. |pypi_download| image:: https://img.shields.io/pypi/dm/trame-client
+.. |pypi_download| image:: https://kitware.github.io/trame/downloads/trame-client.svg
 
 trame-client: core client for trame |pypi_download|
 ===========================================================================

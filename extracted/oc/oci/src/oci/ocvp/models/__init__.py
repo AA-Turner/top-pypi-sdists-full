@@ -51,6 +51,7 @@ from .downgrade_hcx_details import DowngradeHcxDetails
 from .esxi_host import EsxiHost
 from .esxi_host_collection import EsxiHostCollection
 from .esxi_host_summary import EsxiHostSummary
+from .generate_vmware_binary_download_info_details import GenerateVmwareBinaryDownloadInfoDetails
 from .hcx_license_summary import HcxLicenseSummary
 from .host_distribution_report_details import HostDistributionReportDetails
 from .initial_cluster_configuration import InitialClusterConfiguration
@@ -85,6 +86,9 @@ from .update_datastore_details import UpdateDatastoreDetails
 from .update_esxi_host_details import UpdateEsxiHostDetails
 from .update_management_appliance_details import UpdateManagementApplianceDetails
 from .update_sddc_details import UpdateSddcDetails
+from .vmware_binary import VmwareBinary
+from .vmware_binary_collection import VmwareBinaryCollection
+from .vmware_binary_download_info import VmwareBinaryDownloadInfo
 from .vsphere_license import VsphereLicense
 from .vsphere_upgrade_object import VsphereUpgradeObject
 from .work_request import WorkRequest
@@ -142,6 +146,7 @@ ocvp_type_mapping = {
     "EsxiHost": EsxiHost,
     "EsxiHostCollection": EsxiHostCollection,
     "EsxiHostSummary": EsxiHostSummary,
+    "GenerateVmwareBinaryDownloadInfoDetails": GenerateVmwareBinaryDownloadInfoDetails,
     "HcxLicenseSummary": HcxLicenseSummary,
     "HostDistributionReportDetails": HostDistributionReportDetails,
     "InitialClusterConfiguration": InitialClusterConfiguration,
@@ -176,6 +181,9 @@ ocvp_type_mapping = {
     "UpdateEsxiHostDetails": UpdateEsxiHostDetails,
     "UpdateManagementApplianceDetails": UpdateManagementApplianceDetails,
     "UpdateSddcDetails": UpdateSddcDetails,
+    "VmwareBinary": VmwareBinary,
+    "VmwareBinaryCollection": VmwareBinaryCollection,
+    "VmwareBinaryDownloadInfo": VmwareBinaryDownloadInfo,
     "VsphereLicense": VsphereLicense,
     "VsphereUpgradeObject": VsphereUpgradeObject,
     "WorkRequest": WorkRequest,

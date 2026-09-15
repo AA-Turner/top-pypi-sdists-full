@@ -1,6 +1,7 @@
 import contextlib
 import copy
 import csv
+import hashlib
 import json
 import logging
 import os
@@ -30,7 +31,8 @@ import os.path
 from packaging.version import Version, InvalidVersion
 from packaging.specifiers import SpecifierSet, InvalidSpecifier
 
-from typing import List, Dict, Tuple, Union, Optional, Set, TextIO, Type, TypeVar, TYPE_CHECKING
+from typing import Any, List, Dict, Tuple, Union, Optional, Set, TextIO, Type, TypeVar, \
+    TYPE_CHECKING
 from pathlib import Path
 
 from siliconcompiler.schema import BaseSchema, NamedSchema, DocsSchema, LazyLoad
@@ -683,6 +685,35 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         return self.__jobdir
 
     @property
+    def cachedir(self) -> str:
+        """str: The path to this tool's cache directory.
+
+        A place for whatever the tool carries from one run to the next -- a
+        compiler cache, an incremental build directory. Unlike
+        :attr:`nodeworkdir`, which is emptied before every run, this survives,
+        and it is shared by every task of the tool and every design built with
+        it: it holds a tool's own cache, not a node's outputs.
+
+        Nothing is created here and nothing collects it. A driver that wants the
+        directory points its tool at it, usually with an environment variable,
+        and relies on the tool to cap its own size.
+
+        It lives under :keypath:`option,cachedir`, so a container running the
+        task has it mounted and a cluster sharing that option shares the cache.
+        Override this to key the directory by something other than the tool
+        name -- by tool and version, say, or by :meth:`get_digest` where a
+        cached result is only valid for the configuration that produced it::
+
+            @property
+            def cachedir(self):
+                return os.path.join(super().cachedir, self.get_digest(length=16))
+
+        Sharing across designs is the default because that is what a compiler
+        cache wants; a digest is for the caches that cannot.
+        """
+        return os.path.join(paths.toolcachedir(self.project), self.tool())
+
+    @property
     def schema_record(self) -> RecordSchema:
         return self.__schema_record
 
@@ -915,10 +946,13 @@ class Task(NamedSchema, PathSchema, DocsSchema):
             dict: A dictionary of environment variable names to their values.
         """
 
-        # Add global environmental vars
+        # Add global environmental vars. A key can be declared without ever being
+        # given a value, which os.environ will not accept, so those are skipped.
         envvars: Dict[str, str] = {}
         for env in self.__schema_full.option.getkeys('env'):
-            envvars[env] = self.__schema_full.option.get_env(env)
+            value = self.__schema_full.option.get_env(env)
+            if value is not None:
+                envvars[env] = value
 
         # Add tool-specific license server vars
         for lic_env in self.getkeys('licenseserver'):
@@ -942,7 +976,9 @@ class Task(NamedSchema, PathSchema, DocsSchema):
 
         # Add task-specific vars
         for env in self.getkeys("env"):
-            envvars[env] = self.get("env", env)
+            value = self.get("env", env)
+            if value is not None:
+                envvars[env] = value
 
         return envvars
 
@@ -1689,8 +1725,11 @@ class Task(NamedSchema, PathSchema, DocsSchema):
             if self.schema_record.get('status', step=in_step, index=in_index) == \
                     NodeStatus.SKIPPED:
                 with task_obj.runtime(self.__node.switch_node(in_step, in_index)) as task:
-                    for file, nodes in task.get_files_from_input_nodes().items():
-                        inputs.setdefault(file, []).extend(nodes)
+                    # Not `nodes`: that name holds this loop's own membership
+                    # guard, and rebinding it here silently dropped every input
+                    # node ordered after a skipped one.
+                    for file, file_nodes in task.get_files_from_input_nodes().items():
+                        inputs.setdefault(file, []).extend(file_nodes)
                 continue
 
             for output in NamedSchema.get(task_obj, "output", step=in_step, index=in_index):
@@ -1718,6 +1757,74 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         in_task = self.schema_flow.get(in_step, in_index, "task")
         in_task_class = self.project.get("tool", in_tool, "task", in_task, field="schema")
         return list(in_task_class.get("output", step=in_step, index=in_index))
+
+    def _is_input_excused(self, in_step: str, in_index: str) -> bool:
+        """
+        Returns True when a failure in ``in_step``/``in_index`` is excused by
+        ``[option,continue]`` set on that node, so this task must proceed
+        without whatever it would have produced.
+
+        An excused branch is **dropped, not traversed**. Unlike a ``SKIPPED``
+        node -- whose own inputs stand in for it -- an excused node supplies
+        nothing at all, so a merge that loses one arm assembles the arms that
+        remain rather than inheriting the dead arm's grandparent.
+
+        The excuse lives with the node that failed, never with the node that
+        consumes it: a task asking this question is asking whether *its input's*
+        failure was sanctioned, not whether its own would be.
+
+        Args:
+            in_step (str): The step name of the upstream node.
+            in_index (str): The index of the upstream node.
+        """
+        if not NodeStatus.is_error(self.schema_record.get("status",
+                                                          step=in_step, index=in_index)):
+            return False
+        return self.project.option.get_continue(step=in_step, index=in_index)
+
+    def _get_required_inputs(self) -> List[str]:
+        """
+        Returns the declared input files this node must actually receive.
+
+        Every entry in ``input`` is required unless the only upstream nodes
+        that could have supplied it had their failure excused by
+        ``[option,continue]`` -- see :meth:`_is_input_excused`. A name that some
+        surviving upstream still provides stays required, so excusing one arm of
+        a builtin-style fan-in (where every arm offers the same file) drops
+        nothing.
+
+        ``input`` is declared once, before the run, when nothing has failed yet;
+        the requirement set can therefore only shrink here, at runtime, against
+        the statuses the run actually produced.
+
+        Returns:
+            list of str: The subset of ``input`` that must be present.
+        """
+        requirements = self.get("input")
+
+        in_nodes = self._io_runtime_flow.get_node_inputs(
+            self.step, self.index, record=self.schema_record)
+        excused = [node for node in in_nodes if self._is_input_excused(*node)]
+        if not excused:
+            return requirements
+
+        # A name is only dropped if every node offering it was excused, so
+        # partition the offers rather than subtracting node by node.
+        dead: Set[str] = set()
+        live: Set[str] = set()
+        for in_step, in_index in in_nodes:
+            offered = dead if (in_step, in_index) in excused else live
+            for inp in self._list_upstream_outputs(in_step, in_index):
+                offered.add(inp)
+                offered.add(self.compute_input_file_node_name(inp, in_step, in_index))
+
+        dropped = dead.difference(live)
+        for requirement in sorted(dropped.intersection(requirements)):
+            self.logger.warning(f'No longer requiring input {requirement} for '
+                                f'{self.step}/{self.index}: the node producing it was '
+                                'excused by [option,continue]')
+
+        return [requirement for requirement in requirements if requirement not in dropped]
 
     def _validate_io(self) -> bool:
         """
@@ -1834,6 +1941,164 @@ class Task(NamedSchema, PathSchema, DocsSchema):
             raise ValueError("key can only contain strings")
 
         return self.add("require", ",".join(key), step=step, index=index)
+
+    def get_digest_keys(self) -> Set[Tuple[str, ...]]:
+        '''
+        Returns every keypath that configures this task.
+
+        That is the task's own settings -- the command line, the thread count,
+        the scripts and the environment -- together with everything the driver
+        declared through :meth:`add_required_key`. Keypaths are complete: they
+        address the project, not the task, and are returned whether or not they
+        hold a value.
+
+        This is the one definition of what a task consists of:
+        :meth:`get_digest` hashes it, and
+        :meth:`.SchedulerNode.get_check_changed_keys` decides from it whether a
+        node has to run again. A driver that overrides this is answered by both.
+
+        Returns:
+            set of tuple of str: keypaths that configure this task.
+        '''
+
+        keys: Set[Tuple[str, ...]] = set()
+
+        for require in self.get("require"):
+            keys.add(tuple(require.split(",")))
+
+        # Built from tool()/task() rather than from _keypath, the way cachedir
+        # is, so that a task object standing in for the one attached to the
+        # project still names the keys the attached one would.
+        prefix = ("tool", self.tool(), "task", self.task())
+        for key in ("option", "threads", "prescript", "postscript", "refdir", "script"):
+            keys.add((*prefix, key))
+
+        for env_key in self.getkeys("env"):
+            keys.add((*prefix, "env", env_key))
+
+        return keys
+
+    def get_digest(self, length: Optional[int] = None) -> str:
+        '''
+        Returns a digest of this task's configuration, for naming things after it.
+
+        The digest answers *what configuration is this?* -- a value computed from
+        this task alone, which is what it takes to name a directory. It covers
+        the tool and task names, every keypath in :meth:`get_digest_keys`, and
+        the executable and version requirement, and it changes when any of their
+        values change.
+        Two tasks that differ only in a threshold, an effort level or a boolean
+        get different digests, which is the whole point: a cache key that ignored
+        scalars would hand one configuration's results to another.
+
+        It is deliberately cheap and total. Nothing is resolved, downloaded,
+        read or executed, and nothing depends on :keypath:`option,hash`:
+
+        * A path contributes the value **as written** plus its
+          :term:`dataroot` name, never a resolved absolute path -- so the digest
+          is the same on every machine, and a shared cache directory is shared
+          rather than partitioned by where each user keeps their files. The name
+          is all of the dataroot that is portable, so re-pointing or re-tagging
+          one leaves the digest alone; a driver that cannot live with that
+          requires ``dataroot,<name>,tag`` like any other key and gets it
+          counted.
+        * File **contents** are not hashed. That would be a provenance record,
+          not a cache key: it costs minutes of I/O on a real PDK, and the
+          ``filehash`` field it would read is only populated when
+          :keypath:`option,hash` is set, so the digest would change with a flag
+          rather than with the configuration.
+        * The tool **version found on the system** is not included either, since
+          reading it means running the executable. Only the requirement, and the
+          executable's name. A driver that wants its cache keyed by the
+          installed version has :meth:`get_exe_version`, and can compose the
+          two. The **directory** the executable was found in is left out for the
+          same reason a resolved path is: it differs per machine.
+
+        Values are read at this task's step and index, so two nodes running the
+        same task share a digest exactly when nothing was set per-node to tell
+        them apart.
+
+        The digest is a name, not a checksum: it says that two tasks are
+        configured the same way, not that a directory holds valid contents.
+
+        Args:
+            length (int): if given, truncate the digest to this many characters.
+                A directory name rarely wants all 64.
+
+        Raises:
+            RuntimeError: if the task has no runtime, since the required
+                keypaths cannot be read without a project to read them from.
+            KeyError: if a required keypath is not in the schema.
+            ValueError: if `length` is not between 1 and the digest's length.
+
+        Returns:
+            str: hex digest.
+
+        Examples:
+            >>> os.path.join(task.cachedir, task.get_digest(length=16))
+            A cache directory for this tool, private to this configuration.
+        '''
+
+        hashobj = hashlib.sha256()
+
+        if length is not None and not 0 < length <= hashobj.digest_size * 2:
+            raise ValueError(f"length must be between 1 and {hashobj.digest_size * 2}")
+
+        project = self.project
+        if project is None:
+            raise RuntimeError("get_digest() requires a runtime, "
+                               "call it on the task yielded by Task.runtime()")
+
+        # Which binary this is, and which versions of it are acceptable, are
+        # part of what a cache belongs to: a cache named for a task pinned to
+        # >=v2.0 must not be handed to the same task pinned to <v2.0.
+        #
+        # Neither is added to get_digest_keys(), because that set also decides
+        # whether a node has to run again, and neither makes an existing result
+        # wrong: the executable is resolved and its version checked before every
+        # execution, and both are recorded in [record,toolpath] and
+        # [record,toolversion].
+        #
+        # [tool,<t>,task,<t>,path] is deliberately absent. It is the directory
+        # the executable was found in -- klayout sets it to
+        # ~/AppData/Roaming/KLayout or /Applications/klayout.app/... -- so
+        # hashing it would give the same task a different digest on every
+        # machine, partitioning the shared cache this digest exists to name. It
+        # is also a 'dir', so putting it in the key set would have the rerun
+        # check hash or mtime-walk an entire tool installation per node.
+        keys = set(self.get_digest_keys())
+        prefix = ("tool", self.tool(), "task", self.task())
+        keys.update((*prefix, key) for key in ("exe", "version"))
+
+        keys = sorted(keys)
+        # Add keys
+        hashobj.update(json.dumps(keys, default=repr).encode("utf-8"))
+
+        # The keypath travels with the value so that moving a setting from one
+        # key to another is a change, and sorting makes the digest independent
+        # of the order the driver happened to require things in.
+        material: List[Any] = [self.tool(), self.task()]
+        for keypath in keys:
+            if not project.valid(*keypath, default_valid=True):
+                raise KeyError(f"[{','.join(keypath)}] not found")
+
+            param = project.get(*keypath, field=None)
+            step, index = self.__step, self.__index
+            if param.get(field="pernode").is_never():
+                step, index = None, None
+
+            entry: List[Any] = [",".join(keypath), param.get(step=step, index=index)]
+            if param.is_path:
+                # Which dataroot a path is relative to is part of the path.
+                entry.append(param.get(field="dataroot", step=step, index=index))
+            material.append(entry)
+
+        # default=repr rather than an error: a driver's own parameter type is
+        # not worth refusing to name a directory over, and repr is stable and
+        # tells two types apart.
+        hashobj.update(json.dumps(material, default=repr).encode("utf-8"))
+
+        return hashobj.hexdigest()[:length]
 
     def set_threads(self, max_threads: Optional[int] = None,
                     step: Optional[str] = None, index: Optional[Union[str, int]] = None,
@@ -2647,9 +2912,14 @@ class Task(NamedSchema, PathSchema, DocsSchema):
     def select_input_nodes(self) -> List[Tuple[str, str]]:
         """
         Determines which preceding nodes are inputs to this task.
+
+        Nodes whose failure was excused by ``[option,continue]`` are dropped --
+        see :meth:`_is_input_excused` -- so this task consumes nothing from a
+        branch it has been told to proceed without.
         """
-        return self.schema_flowruntime.get_node_inputs(
-            self.step, self.index, record=self.schema_record)
+        return [node for node in self.schema_flowruntime.get_node_inputs(
+                    self.step, self.index, record=self.schema_record)
+                if not self._is_input_excused(*node)]
 
     def pre_process(self) -> None:
         """

@@ -17,7 +17,7 @@ async def _register_execution(
     temporal_parent_workflow_id: str | None,
     temporal_root_workflow_id: str | None,
     execution_token_hash: str,
-    search_key_metadata: dict[str, str] | None = None,
+    search_key_metadata: dict[str, str | None] | None = None,
 ) -> bool:
     """Register an execution. Returns True on success, False if the endpoint is not available (404/405)."""
     client = get_worker_client(headers=config.worker.mistral_api_headers)

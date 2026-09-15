@@ -253,7 +253,7 @@ class XGBRFRegressor(BaseTransformer):
         scale_pos_weight: typing.Optional[float]
             Balancing of positive and negative weights.
 
-        base_score: typing.Optional[float]
+        base_score: typing.Union[float, typing.List[float], NoneType]
 
             The initial prediction score of all instances, global bias.
 
@@ -310,9 +310,15 @@ class XGBRFRegressor(BaseTransformer):
         feature_types: typing.Optional[typing.Sequence[str]]
 
             Used for specifying feature types without constructing a dataframe. See
-            :py:class:`DMatrix` for details.
+            the :py:class:`DMatrix` for details.
 
-        max_cat_to_onehot: typing.Optional[int]
+        feature_weights: Optional[ArrayLike]
+
+            Weight for each feature, defines the probability of each feature being selected
+            when colsample is being used.  All values must be greater than 0, otherwise a
+            `ValueError` is thrown.
+
+        max_cat_to_onehot: Optional[int]
 
             A threshold for deciding whether XGBoost should use one-hot encoding based split
             for categorical data.  When number of categories is lesser than the threshold
@@ -337,11 +343,11 @@ class XGBRFRegressor(BaseTransformer):
             - ``one_output_per_tree``: One model for each target.
             - ``multi_output_tree``:  Use multi-target trees.
 
-        eval_metric: typing.Union[str, typing.List[str], typing.Callable, NoneType]
+        eval_metric: typing.Union[str, typing.List[typing.Union[str, typing.Callable]], typing.Callable, NoneType]
 
             Metric used for monitoring the training result and early stopping.  It can be a
             string or list of strings as names of predefined metric in XGBoost (See
-            doc/parameter.rst), one of the metrics in :py:mod:`sklearn.metrics`, or any
+            :doc:`/parameter`), one of the metrics in :py:mod:`sklearn.metrics`, or any
             other user defined metric that looks like `sklearn.metrics`.
 
             If custom objective is also provided, then custom metric should implement the
@@ -430,6 +436,11 @@ class XGBRFRegressor(BaseTransformer):
                     The value of the gradient for each sample point.
                 hess: array_like of shape [n_samples]
                     The value of the second derivative for each sample point
+
+                Note that, if the custom objective produces negative values for
+                the Hessian, these will be clipped. If the objective is non-convex,
+                one might also consider using the expected Hessian (Fisher
+                information) instead.
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -1217,7 +1228,7 @@ class XGBRFRegressor(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [xgboost.XGBRFRegressor.score]
         (https://xgboost.readthedocs.io/en/stable/python/python_api.html#xgboost.XGBRFRegressor.score)
 

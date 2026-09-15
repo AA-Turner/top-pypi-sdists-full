@@ -77,6 +77,19 @@ class DefaultRequirements(SuiteRequirements):
         return skip_if(no_support("mssql", "not supported"))
 
     @property
+    def repeated_column_foreign_keys(self):
+        """Target database must support a FOREIGN KEY constraint which names
+        the same local column more than once, e.g.
+        ``FOREIGN KEY (a, a) REFERENCES r (b, c)``.
+
+        """
+
+        return only_on(
+            ["postgresql", "sqlite"],
+            "not supported by database",
+        )
+
+    @property
     def foreign_keys_reflect_as_index(self):
         return only_on(["mysql", "mariadb"])
 
@@ -94,6 +107,22 @@ class DefaultRequirements(SuiteRequirements):
             lambda config: against(config, ["mysql", "mariadb"])
             and not self._mysql_80(config)
             and not self._mariadb_105(config)
+        )
+
+    @property
+    def update_returning_dialect_not_supported(self):
+        """target database rejects UPDATE ... RETURNING when the dialect
+        reports that ``update_returning`` is not supported.
+
+        MariaDB 13.0 added UPDATE ... RETURNING for single-table
+        UPDATE statements; until the dialect reports it, the server
+        accepts the statement rather than raising.
+
+        """
+
+        return skip_if(
+            lambda config: self._mariadb_130(config)
+            and not config.db.dialect.update_returning
         )
 
     @property
@@ -1883,6 +1912,13 @@ class DefaultRequirements(SuiteRequirements):
             and config.db.dialect._mariadb_normalized_version_info >= (10, 5)
         )
 
+    def _mariadb_130(self, config):
+        return (
+            against(config, ["mysql", "mariadb"])
+            and config.db.dialect._is_mariadb
+            and config.db.dialect.server_version_info >= (13,)
+        )
+
     def _mysql_and_check_constraints_exist(self, config):
         # 1. we have mysql / mariadb and
         # 2. it enforces check constraints
@@ -2153,7 +2189,7 @@ class DefaultRequirements(SuiteRequirements):
 
     @property
     def reflect_table_options(self):
-        return only_on(["mysql", "mariadb", "oracle"])
+        return only_on(["mysql", "mariadb", "oracle", "sqlite"])
 
     @property
     def materialized_views(self):

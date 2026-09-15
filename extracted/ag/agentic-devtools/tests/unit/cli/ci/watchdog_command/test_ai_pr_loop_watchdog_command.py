@@ -3,12 +3,15 @@
 import json
 import os
 import sys
+from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
-from unittest.mock import call, patch
+from typing import Any, cast
+from unittest.mock import patch
 
 import pytest
 
 from agentic_devtools.cli.ci.cooldown import CooldownRecord
+from agentic_devtools.cli.ci.github_provider import GitHubActionsProvider
 from agentic_devtools.cli.ci.reconciliation.models import CooldownProbe, CooldownState, ProbeStatus, QueueState
 from agentic_devtools.cli.ci.retry import ProviderRateLimitError, RetryableError
 from agentic_devtools.cli.ci.scheduler import EligiblePR
@@ -16,6 +19,67 @@ from agentic_devtools.cli.ci.scheduler import EligiblePR
 
 class TestAiPrLoopWatchdogCommand:
     """CLI entry point for agdt-ai-pr-loop-watchdog."""
+
+    @pytest.mark.parametrize(
+        ("mode", "helper", "resolver", "workflow"),
+        [
+            ("redispatch-stop-conditions", "_run_redispatch_stop_conditions", None, None),
+            (
+                "redispatch-dispatch-throttler",
+                "_dispatch_throttler_for_redispatch",
+                "_resolve_default_branch_for_throttler_dispatch",
+                "ai-pr-loop-throttler.yml",
+            ),
+            (
+                "redispatch-dispatch-redispatch",
+                "_dispatch_redispatch_from_loop",
+                "_resolve_default_branch_for_redispatch_dispatch",
+                "ai-pr-loop-redispatch.yml",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("default_branch", [None, "main"])
+    @pytest.mark.parametrize("dispatch_status", [0, 1])
+    def test_handles_redispatch_modes(
+        self,
+        mode: str,
+        helper: str,
+        resolver: str | None,
+        workflow: str | None,
+        default_branch: str | None,
+        dispatch_status: int,
+        capsys,
+    ) -> None:
+        from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+        helper_path = f"agentic_devtools.cli.ci.watchdog_command.{helper}"
+        argv = ["agdt-ai-pr-loop-watchdog", "--mode", mode, "--repo", "o/r"]
+        if default_branch is not None:
+            argv.extend(["--default-branch", default_branch])
+        patches: list[Any] = [
+            patch.object(sys, "argv", argv),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch(helper_path, return_value=dispatch_status),
+        ]
+        if resolver is not None:
+            patches.append(patch(f"agentic_devtools.cli.ci.watchdog_command.{resolver}", return_value="main"))
+        with ExitStack() as stack:
+            for context in patches:
+                stack.enter_context(context)
+            if workflow is None or dispatch_status == 0:
+                ai_pr_loop_watchdog_command()
+            else:
+                with pytest.raises(SystemExit) as exc_info:
+                    ai_pr_loop_watchdog_command()
+                assert exc_info.value.code == dispatch_status
+
+        if workflow is None:
+            assert capsys.readouterr().out == ""
+        else:
+            payload = json.loads(capsys.readouterr().out.splitlines()[-1])
+            assert payload == {"dispatch_status": dispatch_status, "workflow": workflow}
 
     def test_seeds_cooldown_state_from_latest_throttler_run(self) -> None:
         from agentic_devtools.cli.ci.watchdog_command import _seed_cooldown_state
@@ -32,6 +96,7 @@ class TestAiPrLoopWatchdogCommand:
         )
 
         assert state is not None
+        assert state.credential_identity == "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"
         assert state.cooldown_generation_id == "throttler-123"
         assert state.resume_at == now - timedelta(seconds=30) + timedelta(seconds=60)
 
@@ -40,7 +105,7 @@ class TestAiPrLoopWatchdogCommand:
         now = datetime(2026, 7, 27, 10, 5, 0, tzinfo=UTC)
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r", "--default-branch", "main"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -81,7 +146,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_skips_when_throttled_in_progress(self, capsys) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -118,7 +183,7 @@ class TestAiPrLoopWatchdogCommand:
         now = datetime(2026, 7, 27, 10, 5, 0, tzinfo=UTC)
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -147,7 +212,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_retries_immediately_when_last_run_failed(self, capsys) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -196,7 +261,7 @@ class TestAiPrLoopWatchdogCommand:
         now = datetime(2026, 7, 27, 10, 0, 30, tzinfo=UTC)
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -229,7 +294,7 @@ class TestAiPrLoopWatchdogCommand:
         now = datetime(2026, 7, 27, 10, 0, 30, tzinfo=UTC)
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r", "--default-branch", "main"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -309,7 +374,7 @@ class TestAiPrLoopWatchdogCommand:
         now = datetime(2026, 7, 27, 10, 0, 30, tzinfo=UTC)
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r", "--default-branch", "main"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -409,7 +474,7 @@ class TestAiPrLoopWatchdogCommand:
         now = datetime(2026, 7, 27, 10, 0, 30, tzinfo=UTC)
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -441,7 +506,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_dispatches_when_no_prior_runs(self, capsys) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -467,7 +532,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_dispatches_when_latest_run_payload_is_not_dict(self, capsys) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -493,7 +558,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_dispatches_when_latest_run_timestamp_is_invalid(self, capsys) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -625,7 +690,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_exits_one_when_default_branch_missing(self) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -659,7 +724,7 @@ class TestAiPrLoopWatchdogCommand:
         now = datetime(2026, 7, 27, 10, 0, 0, tzinfo=UTC)
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -693,7 +758,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_blocks_dispatch_when_cooldown_not_available(self, capsys) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -722,7 +787,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_blocks_dispatch_when_due_probe_wakeup_raises(self, capsys) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -748,7 +813,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_preserves_due_probe_count_when_cooldown_lookup_raises(self, capsys) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -976,8 +1041,7 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["sleep_seconds"] == 180
         assert payload["throttle_reason"] == "provider_cooldown"
         assert payload["cooldown_key"] == "github:SPECKIT_PR_TOKEN"
-        assert mock_gh_api.call_count == 1
-        assert mock_gh_api.call_args.kwargs["token"] == "writer"
+        mock_gh_api.assert_not_called()
         assert github_output.read_text(encoding="utf-8").splitlines() == ["should_dispatch=true", "sleep_seconds=180"]
 
     def test_redispatch_recheck_blocks_dispatch_when_cooldown_still_active(self, tmp_path, capsys) -> None:
@@ -1170,7 +1234,7 @@ class TestAiPrLoopWatchdogCommand:
                     "main",
                 ],
             ),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1245,7 +1309,7 @@ class TestAiPrLoopWatchdogCommand:
                     "main",
                 ],
             ),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1270,7 +1334,7 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["sleep_seconds"] == 0
         assert payload["throttle_reason"] == "last_run_not_success"
 
-    def test_redispatch_timing_defers_throttler_read_until_cooldown_expires(self, capsys) -> None:
+    def test_redispatch_timing_skips_throttler_lookup_during_cooldown(self, capsys) -> None:
         now = datetime(2026, 7, 27, 10, 0, 0, tzinfo=UTC)
         with (
             patch.object(
@@ -1286,7 +1350,7 @@ class TestAiPrLoopWatchdogCommand:
                     "main",
                 ],
             ),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1319,7 +1383,7 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["throttle_reason"] == "provider_cooldown"
         mock_gh_api.assert_not_called()
 
-    def test_redispatch_timing_keeps_throttler_wait_when_writer_token_available(self, capsys) -> None:
+    def test_redispatch_timing_skips_throttler_lookup_when_writer_token_available(self, capsys) -> None:
         now = datetime(2026, 7, 27, 10, 0, 0, tzinfo=UTC)
         with (
             patch.object(
@@ -1356,7 +1420,7 @@ class TestAiPrLoopWatchdogCommand:
                         ]
                     }
                 ),
-            ),
+            ) as mock_gh_api,
         ):
             from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
 
@@ -1364,8 +1428,9 @@ class TestAiPrLoopWatchdogCommand:
 
         payload = json.loads(capsys.readouterr().out.splitlines()[-1])
         assert payload["should_dispatch"] is True
-        assert payload["sleep_seconds"] == 15
-        assert payload["throttle_reason"] == "cooldown"
+        assert payload["sleep_seconds"] == 10
+        assert payload["throttle_reason"] == "provider_cooldown"
+        mock_gh_api.assert_not_called()
 
     def test_redispatch_timing_resolves_default_branch_when_not_provided(self, capsys) -> None:
         now = datetime(2026, 7, 27, 10, 0, 0, tzinfo=UTC)
@@ -1381,7 +1446,11 @@ class TestAiPrLoopWatchdogCommand:
                     "o/r",
                 ],
             ),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(
+                os.environ,
+                {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"},
+                clear=True,
+            ),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1404,6 +1473,22 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["sleep_seconds"] == 0
         assert payload["throttle_reason"] == "no_prior_run"
         assert mock_gh_api.call_count == 2
+        assert all(call.kwargs["token"] == "workflow-token" for call in mock_gh_api.call_args_list)
+
+    def test_redispatch_timing_skips_run_lookup_when_branch_resolution_returns_none(self) -> None:
+        from agentic_devtools.cli.ci.watchdog_command import _calculate_redispatch_timing
+
+        now = datetime(2026, 7, 27, 10, 0, 0, tzinfo=UTC)
+        with (
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command._provider_cooldown", return_value=None),
+            patch("agentic_devtools.cli.ci.watchdog_command._get_default_branch", return_value=None),
+            patch("agentic_devtools.cli.ci.watchdog_command._get_latest_throttler_run") as mock_latest_run,
+        ):
+            result = _calculate_redispatch_timing(cast(GitHubActionsProvider, object()), "o/r", None, now)
+
+        assert result["throttle_reason"] == "no_prior_run"
+        mock_latest_run.assert_not_called()
 
     def test_redispatch_timing_treats_invalid_timestamp_as_no_prior_run(self, capsys) -> None:
         with (
@@ -1420,7 +1505,7 @@ class TestAiPrLoopWatchdogCommand:
                     "main",
                 ],
             ),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1457,7 +1542,11 @@ class TestAiPrLoopWatchdogCommand:
                     "main",
                 ],
             ),
-            patch.dict(os.environ, {"GITHUB_OUTPUT": str(github_output)}, clear=True),
+            patch.dict(
+                os.environ,
+                {"GITHUB_OUTPUT": str(github_output), "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"},
+                clear=True,
+            ),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1491,7 +1580,11 @@ class TestAiPrLoopWatchdogCommand:
                     "main",
                 ],
             ),
-            patch.dict(os.environ, {"GITHUB_OUTPUT": "/tmp/blocked"}, clear=True),
+            patch.dict(
+                os.environ,
+                {"GITHUB_OUTPUT": "/tmp/blocked", "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"},
+                clear=True,
+            ),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1523,7 +1616,11 @@ class TestAiPrLoopWatchdogCommand:
                     "o/r",
                 ],
             ),
-            patch.dict(os.environ, {"GITHUB_OUTPUT": str(github_output)}, clear=True),
+            patch.dict(
+                os.environ,
+                {"GITHUB_OUTPUT": str(github_output), "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"},
+                clear=True,
+            ),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1562,7 +1659,11 @@ class TestAiPrLoopWatchdogCommand:
                     "main",
                 ],
             ),
-            patch.dict(os.environ, {"GITHUB_OUTPUT": str(github_output)}, clear=True),
+            patch.dict(
+                os.environ,
+                {"GITHUB_OUTPUT": str(github_output), "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"},
+                clear=True,
+            ),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1612,7 +1713,7 @@ class TestAiPrLoopWatchdogCommand:
         )
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r", "--default-branch", "main"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -1661,7 +1762,7 @@ class TestAiPrLoopWatchdogCommand:
         )
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r", "--default-branch", "main"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -1697,7 +1798,7 @@ class TestAiPrLoopWatchdogCommand:
         now = datetime(2026, 7, 27, 10, 5, 0, tzinfo=UTC)
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1725,7 +1826,7 @@ class TestAiPrLoopWatchdogCommand:
         now = datetime(2026, 7, 27, 10, 5, 0, tzinfo=UTC)
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1753,7 +1854,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_non_rate_limit_provider_error_exits_failure(self) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -1775,7 +1876,7 @@ class TestAiPrLoopWatchdogCommand:
     def test_non_rate_limit_retryable_error_exits_failure(self) -> None:
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1799,7 +1900,7 @@ class TestAiPrLoopWatchdogCommand:
                 "argv",
                 ["agdt-ai-pr-loop-watchdog", "--mode", "due-probe-only", "--repo", "o/r", "--default-branch", "main"],
             ),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -1827,7 +1928,7 @@ class TestAiPrLoopWatchdogCommand:
         now = datetime(2026, 7, 27, 10, 0, 30, tzinfo=UTC)
         with (
             patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--mode", "due-probe-only", "--repo", "o/r"]),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider") as mock_provider_cls,
@@ -1860,7 +1961,7 @@ class TestAiPrLoopWatchdogCommand:
                 "argv",
                 ["agdt-ai-pr-loop-watchdog", "--mode", "due-probe-only", "--repo", "o/r", "--default-branch", "main"],
             ),
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
             patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
             patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
             patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
@@ -1882,249 +1983,3 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["due_probe_count"] == 0
         assert "::notice::ai-pr-loop-watchdog evaluated" not in out
         mock_gh_api.assert_not_called()
-
-    def test_redispatch_stop_conditions_mode_delegates_to_helper(self) -> None:
-        with (
-            patch.object(
-                sys,
-                "argv",
-                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-stop-conditions", "--repo", "o/r"],
-            ),
-            patch.dict(os.environ, {}, clear=True),
-            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
-            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
-            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
-            patch("agentic_devtools.cli.ci.watchdog_command._run_redispatch_stop_conditions") as run_check,
-        ):
-            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
-
-            ai_pr_loop_watchdog_command()
-
-        run_check.assert_called_once_with("o/r", None)
-
-    def test_redispatch_dispatch_throttler_mode_warns_on_failure(self, capsys) -> None:
-        with (
-            patch.object(
-                sys,
-                "argv",
-                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-throttler", "--repo", "o/r"],
-            ),
-            patch.dict(os.environ, {}, clear=True),
-            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
-            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
-            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
-            patch("agentic_devtools.cli.ci.watchdog_command._get_default_branch", return_value="main"),
-            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_throttler_with_fallback", return_value=2),
-        ):
-            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
-
-            ai_pr_loop_watchdog_command()
-
-        output_lines = capsys.readouterr().out.splitlines()
-        assert output_lines[0].startswith("::warning::Could not dispatch ai-pr-loop-throttler.yml")
-        payload = json.loads(output_lines[-1])
-        assert payload["dispatch_status"] == 2
-        assert payload["workflow"] == "ai-pr-loop-throttler.yml"
-
-    def test_redispatch_dispatch_throttler_mode_resolves_default_branch_with_fallback_token_when_preferred_missing(
-        self,
-        capsys,
-    ) -> None:
-        with (
-            patch.object(
-                sys,
-                "argv",
-                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-throttler", "--repo", "o/r"],
-            ),
-            patch.dict(
-                os.environ,
-                {
-                    "GH_TOKEN": "",
-                    "FALLBACK_GH_TOKEN": "fallback-token",
-                },
-                clear=True,
-            ),
-            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
-            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
-            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
-            patch(
-                "agentic_devtools.cli.ci.watchdog_command._get_default_branch",
-                return_value="main",
-            ) as resolve_branch,
-            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_throttler_with_fallback", return_value=0),
-        ):
-            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
-
-            ai_pr_loop_watchdog_command()
-
-        _ = capsys.readouterr().out
-        resolve_branch.assert_called_once_with("o/r", token="fallback-token")
-
-    def test_redispatch_dispatch_throttler_mode_retries_default_branch_with_fallback_on_auth_failure(
-        self,
-        capsys,
-    ) -> None:
-        with (
-            patch.object(
-                sys,
-                "argv",
-                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-throttler", "--repo", "o/r"],
-            ),
-            patch.dict(
-                os.environ,
-                {
-                    "GH_TOKEN": "preferred-token",
-                    "FALLBACK_GH_TOKEN": "fallback-token",
-                },
-                clear=True,
-            ),
-            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
-            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
-            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
-            patch(
-                "agentic_devtools.cli.ci.watchdog_command._get_default_branch",
-                side_effect=[RuntimeError("HTTP 403"), "main"],
-            ) as resolve_branch,
-            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_throttler_with_fallback", return_value=0),
-        ):
-            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
-
-            ai_pr_loop_watchdog_command()
-
-        _ = capsys.readouterr().out
-        assert resolve_branch.call_args_list == [
-            call("o/r", token="preferred-token"),
-            call("o/r", token="fallback-token"),
-        ]
-
-    def test_redispatch_dispatch_throttler_mode_exits_on_non_authorization_default_branch_failure(self) -> None:
-        with (
-            patch.object(
-                sys,
-                "argv",
-                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-throttler", "--repo", "o/r"],
-            ),
-            patch.dict(
-                os.environ,
-                {
-                    "GH_TOKEN": "preferred-token",
-                    "FALLBACK_GH_TOKEN": "fallback-token",
-                },
-                clear=True,
-            ),
-            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
-            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
-            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
-            patch(
-                "agentic_devtools.cli.ci.watchdog_command._get_default_branch",
-                side_effect=RuntimeError("network down"),
-            ),
-        ):
-            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
-
-            with pytest.raises(SystemExit, match="1"):
-                ai_pr_loop_watchdog_command()
-
-    def test_redispatch_dispatch_redispatch_mode_warns_on_failure(self, capsys) -> None:
-        with (
-            patch.object(
-                sys,
-                "argv",
-                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-redispatch", "--repo", "o/r"],
-            ),
-            patch.dict(os.environ, {}, clear=True),
-            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
-            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
-            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
-            patch("agentic_devtools.cli.ci.watchdog_command._get_default_branch", return_value="main"),
-            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_redispatch_from_loop", return_value=2),
-        ):
-            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
-
-            ai_pr_loop_watchdog_command()
-
-        output_lines = capsys.readouterr().out.splitlines()
-        assert output_lines[0] == "::warning::Failed to dispatch ai-pr-loop-redispatch.yml; continuing"
-        payload = json.loads(output_lines[-1])
-        assert payload["dispatch_status"] == 2
-        assert payload["workflow"] == "ai-pr-loop-redispatch.yml"
-
-    def test_redispatch_dispatch_redispatch_mode_resolves_default_branch_with_fallback_when_preferred_missing(
-        self,
-        capsys,
-    ) -> None:
-        with (
-            patch.object(
-                sys,
-                "argv",
-                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-redispatch", "--repo", "o/r"],
-            ),
-            patch.dict(
-                os.environ,
-                {
-                    "GH_TOKEN": "",
-                    "FALLBACK_GH_TOKEN": "fallback-token",
-                },
-                clear=True,
-            ),
-            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
-            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
-            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
-            patch(
-                "agentic_devtools.cli.ci.watchdog_command._get_default_branch",
-                return_value="main",
-            ) as resolve_branch,
-            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_redispatch_from_loop", return_value=0),
-        ):
-            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
-
-            ai_pr_loop_watchdog_command()
-
-        _ = capsys.readouterr().out
-        resolve_branch.assert_called_once_with("o/r", token="fallback-token")
-
-    def test_redispatch_dispatch_throttler_mode_omits_warning_on_success(self, capsys) -> None:
-        with (
-            patch.object(
-                sys,
-                "argv",
-                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-throttler", "--repo", "o/r"],
-            ),
-            patch.dict(os.environ, {}, clear=True),
-            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
-            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
-            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
-            patch("agentic_devtools.cli.ci.watchdog_command._get_default_branch", return_value="main"),
-            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_throttler_with_fallback", return_value=0),
-        ):
-            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
-
-            ai_pr_loop_watchdog_command()
-
-        output_lines = capsys.readouterr().out.splitlines()
-        assert len(output_lines) == 1
-        payload = json.loads(output_lines[-1])
-        assert payload["dispatch_status"] == 0
-
-    def test_redispatch_dispatch_redispatch_mode_omits_warning_on_success(self, capsys) -> None:
-        with (
-            patch.object(
-                sys,
-                "argv",
-                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-redispatch", "--repo", "o/r"],
-            ),
-            patch.dict(os.environ, {}, clear=True),
-            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
-            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
-            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
-            patch("agentic_devtools.cli.ci.watchdog_command._get_default_branch", return_value="main"),
-            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_redispatch_from_loop", return_value=0),
-        ):
-            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
-
-            ai_pr_loop_watchdog_command()
-
-        output_lines = capsys.readouterr().out.splitlines()
-        assert len(output_lines) == 1
-        payload = json.loads(output_lines[-1])
-        assert payload["dispatch_status"] == 0

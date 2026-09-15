@@ -3,9 +3,9 @@
 The nine standalone ``cloud_browser_*`` tools were consolidated into a single
 ``cloud_browser`` tool on 2026-08-21 (canonical tool-count rule: fewer tools
 with actions built in). Each former tool is now one variant of the
-``CloudBrowserArgs`` discriminated union, selected by ``action``. Every
-pre-existing argument name, type, default and bound is UNCHANGED — only the
-required ``action`` discriminator is new.
+``CloudBrowserArgs`` discriminated union, selected by ``action``. Forwarded
+constrained-enum arguments match their worker command's accepted values, while
+the required ``action`` discriminator selects the applicable public contract.
 
 🚨 S6 (tool surface) invariants still hold on every variant:
 
@@ -38,7 +38,10 @@ class BrowserNavigateArgs(BaseModel):
 
     action: Literal["navigate"]
     url: str
-    wait_for: str = "load"
+    # Keep the public navigate contract identical to the worker command.  A
+    # loose string used to reach ``NavigateCommand`` and turn model input such
+    # as ``body`` into a production ERROR instead of a normal argument refusal.
+    wait_for: Literal["load", "domcontentloaded", "networkidle"] = "load"
     extract_text: bool = True
     session_id: str = ""
     profile_id: str = _PROFILE_FIELD_DEFAULT
@@ -96,7 +99,7 @@ class BrowserWaitForArgs(BaseModel):
     selector: str = ""
     text: str = ""
     timeout_ms: int = Field(default=10000, ge=500, le=60000)
-    state: str = "visible"
+    state: Literal["visible", "attached", "detached", "hidden"] = "visible"
     profile_id: str = _PROFILE_FIELD_DEFAULT
 
 
@@ -116,7 +119,7 @@ class BrowserScrollArgs(BaseModel):
 
     action: Literal["scroll"]
     session_id: str
-    direction: str = "down"
+    direction: Literal["up", "down", "top", "bottom"] = "down"
     amount_px: int = Field(default=500, ge=0, le=10000)
     selector: str = ""
     profile_id: str = _PROFILE_FIELD_DEFAULT

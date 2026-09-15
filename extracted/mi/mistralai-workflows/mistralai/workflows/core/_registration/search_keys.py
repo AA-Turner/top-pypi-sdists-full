@@ -174,7 +174,7 @@ def _coerce_leaf(value: Any) -> str:
     return str(value)
 
 
-def extract_search_key_metadata(params: Any, search_keys: Sequence[str]) -> dict[str, str]:
+def extract_search_key_metadata(params: Any, search_keys: Sequence[str]) -> dict[str, str | None]:
     """Non-raising: metadata must never fail the workflow. Deterministic result, so sandbox-safe."""
     if not search_keys:
         return {}
@@ -183,7 +183,7 @@ def extract_search_key_metadata(params: Any, search_keys: Sequence[str]) -> dict
     if not isinstance(params, dict):
         return {}
 
-    metadata: dict[str, str] = {}
+    metadata: dict[str, str | None] = {}
     for path in search_keys:
         try:
             current: Any = params

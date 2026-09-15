@@ -42,6 +42,8 @@ from matrx_graph.content_ir.sdk import kind
         "label": None,
         "size_hint": None,
         "mutable": None,
+        "persisted": True,
+        "persist_error": None,
     },
     maturity="placeholder",
 )
@@ -68,6 +70,16 @@ class ContextWriteResult(KindModel):
     size_hint: str | None = None
     #: Create branch only: whether the created object is editable.
     mutable: bool | None = None
+    #: Did the write reach durable storage? ``True`` when the host's write-back
+    #: dispatcher accepted it, ``False`` when it could NOT be delivered (the
+    #: tool result is a failure in that case and ``persist_error`` says why),
+    #: ``None`` when the object asked for no durable write at all
+    #: (``persist`` is ``never``/``client``). DD-246: a lost write-back used to
+    #: return a plain success receipt.
+    persisted: bool | None = None
+    #: The honest sentence explaining an undelivered write-back — what was not
+    #: saved, why, and the remedy. None whenever ``persisted`` is not False.
+    persist_error: str | None = None
 
 
 class ContextBatchEntry(KindSubModel):
@@ -152,6 +164,13 @@ class ContextToolResult(KindModel):
     mutable: bool | None = None
     matched_at_pass: str | None = None
     new_size_chars: int | None = None
+    #: Mirrors ``context_write_result``: True when the write reached durable
+    #: storage, False when it could NOT be delivered (``persist_error`` says
+    #: why and the tool result is a failure), None when no durable write was
+    #: asked for.
+    persisted: bool | None = None
+    #: The honest sentence for an undelivered write-back (DD-246).
+    persist_error: str | None = None
 
     #: Alias-coercion / arg-decode notice the model must learn from.
     arg_coercion_notice: str | None = None

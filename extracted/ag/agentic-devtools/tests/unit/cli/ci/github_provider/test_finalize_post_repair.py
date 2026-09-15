@@ -1569,7 +1569,7 @@ class TestFinalizePostRepair:
     def test_dispatch_repair_uses_token_and_returns_comment_id(self, mock_gh_api) -> None:
         mock_gh_api.return_value = json.dumps({"id": 3001})
         provider = GitHubActionsProvider(repo="owner/repo")
-        with patch.dict(os.environ, {"SPECKIT_PR_TOKEN": "token-123"}, clear=False):
+        with patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-123"}, clear=False):
             comment_id = provider.dispatch_repair(
                 pr_number=42,
                 head_sha="abc123def456",
@@ -1581,10 +1581,10 @@ class TestFinalizePostRepair:
         assert mock_gh_api.call_args[1]["token"] == "token-123"
 
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
-    def test_dispatch_repair_raises_when_speckit_token_missing(self, mock_gh_api) -> None:
+    def test_dispatch_repair_raises_when_default_token_missing(self, mock_gh_api) -> None:
         provider = GitHubActionsProvider(repo="owner/repo")
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(RuntimeError, match="SPECKIT_PR_TOKEN"):
+            with pytest.raises(RuntimeError, match="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"):
                 provider.dispatch_repair(
                     pr_number=42,
                     head_sha="abc123def456",
@@ -1596,7 +1596,7 @@ class TestFinalizePostRepair:
 
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    @patch.dict(os.environ, {"SPECKIT_PR_TOKEN": "token-123"}, clear=False)
+    @patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-123"}, clear=False)
     def test_dispatch_repair_links_skill_files_without_reading_them(self, mock_read, mock_gh_api) -> None:
         """The repair comment links both skill files and never inlines either file."""
         mock_read.return_value = "SKILL_FILE_CONTENT"
@@ -1628,7 +1628,7 @@ class TestFinalizePostRepair:
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file", return_value="")
     @patch("agentic_devtools.cli.ci.job_logs.fetch_failed_check_context")
-    @patch.dict(os.environ, {"SPECKIT_PR_TOKEN": "token-123"}, clear=False)
+    @patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-123"}, clear=False)
     def test_dispatch_repair_ci_builds_check_contexts(self, mock_ctx, _mock_read, mock_gh_api) -> None:
         mock_gh_api.return_value = json.dumps({"id": 9002})
         mock_ctx.side_effect = lambda check, **kwargs: (
@@ -1674,7 +1674,7 @@ class TestFinalizePostRepair:
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file", return_value="")
     @patch("agentic_devtools.cli.ci.job_logs.fetch_failed_check_context")
-    @patch.dict(os.environ, {"SPECKIT_PR_TOKEN": "token-123"}, clear=False)
+    @patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-123"}, clear=False)
     def test_dispatch_repair_review_skips_context_fetch(self, mock_ctx, _mock_read, mock_gh_api) -> None:
         mock_gh_api.return_value = json.dumps({"id": 9003})
         provider = GitHubActionsProvider(repo="owner/repo")
@@ -1692,7 +1692,7 @@ class TestFinalizePostRepair:
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file", return_value="")
     @patch("agentic_devtools.cli.ci.job_logs.fetch_failed_check_context")
     @patch("agentic_devtools.cli.ci.retry.time.sleep")
-    @patch.dict(os.environ, {"SPECKIT_PR_TOKEN": "token-123"}, clear=False)
+    @patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-123"}, clear=False)
     def test_dispatch_repair_retries_only_post_comment(self, _mock_sleep, mock_ctx, _mock_read, mock_gh_api) -> None:
         mock_ctx.return_value = FailedCheckContext(
             display_name="WF / check-one (pull_request)",

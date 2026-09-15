@@ -311,15 +311,12 @@ def _cloud_agent_pr_matches(pr: object, *, issue_number: int, phase: int) -> boo
     return _shared_cloud_agent_pr_matches(pr, issue_number=issue_number, phase=phase)
 
 
-def _cloud_agent_in_flight(
-    *, repo: str, issue_number: int, phase: int, token: str, hierarchy_level: str = "feature"
-) -> bool:
+def _cloud_agent_in_flight(*, repo: str, issue_number: int, phase: int, hierarchy_level: str = "feature") -> bool:
     return check_cloud_agent_in_flight(
         repo=repo,
         issue_number=issue_number,
         phase=phase,
         hierarchy_level=hierarchy_level,
-        token=token,
         api_call=_gh_api_call,
     ).in_flight
 
@@ -393,6 +390,7 @@ def assign_speckit_agent_command() -> None:
             sys.exit(1)
     else:
         correlation_id = str(uuid.uuid4())
+    _, tracking_token = _resolve_assignment_token(("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",))
     model = (
         args.model or os.environ.get("SPECKIT_COPILOT_MODEL") or os.environ.get("COPILOT_MODEL") or "claude-opus-4.6"
     ).strip()
@@ -460,7 +458,6 @@ def assign_speckit_agent_command() -> None:
             issue_number=args.issue_number,
             phase=phase,
             hierarchy_level=hierarchy_level,
-            token=token,
         ):
             result = AgentAssignmentResult(
                 success=True,
@@ -541,18 +538,18 @@ def assign_speckit_agent_command() -> None:
         sys.exit(1)
 
     try:
-        _ensure_speckit_tracking_labels(repo=repo, phase=phase, token=token)
+        _ensure_speckit_tracking_labels(repo=repo, phase=phase, token=tracking_token)
         _gh_api_call(
             f"/repos/{repo}/issues/{args.issue_number}/labels",
             method="POST",
             body={"labels": [f"speckit:agent-assigned-phase-{phase}", "speckit:processing"]},
-            token=token,
+            token=tracking_token,
         )
         _post_cloud_agent_issue_mutation(
             repo=repo,
             issue_number=args.issue_number,
             body=marker,
-            token=token,
+            token=tracking_token,
         )
     except (RetryableError, RuntimeError, json.JSONDecodeError) as exc:
         result = AgentAssignmentResult(
@@ -587,7 +584,7 @@ def assign_speckit_agent_command() -> None:
                 f"🚀 Cloud Agent started SpecKit phase {phase} for hierarchy `{hierarchy_level}` "
                 f"against `{args.base_branch}` (correlation ID `{correlation_id}`)."
             ),
-            token=token,
+            token=tracking_token,
         )
     except (RetryableError, RuntimeError, json.JSONDecodeError) as exc:
         notice_warning = f"Non-authoritative notice failed: {exc}"

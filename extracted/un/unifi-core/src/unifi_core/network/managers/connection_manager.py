@@ -3,7 +3,6 @@ import logging
 import re
 import time
 import time as _time
-import traceback
 from collections.abc import Iterable, Mapping
 from typing import Any, Dict, Optional
 
@@ -40,21 +39,37 @@ from unifi_core.support_transport import no_retry_support_request
 
 logger = logging.getLogger("unifi-network-mcp")
 
+
+def _silence_aiounifi_logs() -> None:
+    """Prevent dependency records from exposing controller data.
+
+    aiounifi logs raw event/message payloads and connection URLs.  Project-owned
+    log records preserve safe operation context, so dependency records are
+    discarded at their namespace boundary instead of being rendered.
+    """
+    dependency_logger = logging.getLogger("aiounifi")
+    dependency_logger.handlers.clear()
+    dependency_logger.addHandler(logging.NullHandler())
+    dependency_logger.propagate = False
+
+    # These current aiounifi loggers emit the known sensitive records. Disabling
+    # them also prevents an application-supplied child handler from rendering
+    # those records before they reach the namespace boundary above.
+    for logger_name in (
+        "aiounifi.interfaces.connectivity",
+        "aiounifi.models.event",
+        "aiounifi.models.message",
+    ):
+        logging.getLogger(logger_name).disabled = True
+
+
 # Auth-circuit cool-down: first terminal failure blocks reconnects for the base
 # interval, doubling per consecutive failure up to the cap. Rate-limit lockouts
 # clear on the controller in minutes, so the circuit half-opens instead of
 # requiring a process restart.
 _RECONNECT_BLOCK_BASE_SECONDS = 60.0
 _RECONNECT_BLOCK_MAX_SECONDS = 900.0
-
-# aiounifi v92 logs the complete login JSON (including password) at DEBUG.
-# Keep that dependency logger at INFO even when application diagnostics use DEBUG.
-_aiounifi_connectivity_logger = logging.getLogger("aiounifi.interfaces.connectivity")
-
-
-if _aiounifi_connectivity_logger.level == logging.NOTSET or _aiounifi_connectivity_logger.level < logging.INFO:
-    _aiounifi_connectivity_logger.setLevel(logging.INFO)
-
+_REAUTHENTICATION_MIN_INTERVAL_SECONDS = 60.0
 
 # aiounifi's ResponseError carries no status attribute. Its message is built as
 # ``Call <url> received <status>[ <reason>|: <body>]`` (interfaces/connectivity.py),
@@ -317,6 +332,7 @@ class ConnectionManager:
         auth: UniFiAuth | None = None,
     ):
         """Initialize the Connection Manager."""
+        _silence_aiounifi_logs()
         self.host = host
         self.username = username
         self.password = password
@@ -343,6 +359,8 @@ class ConnectionManager:
         self._last_cache_update: Dict[str, float] = {}
         self._last_connection_error: Optional[str] = None
         self._reconnect_block_error: Optional[str] = None
+        self._last_reauthentication_attempt_at: float | None = None
+        self._reauthentication_clock = _time.monotonic
         self._reconnect_block_until: float = 0.0
         self._reconnect_block_count: int = 0
         self._auth_generation = 0
@@ -819,17 +837,41 @@ class ConnectionManager:
         except Exception as error:
             raise UniFiAuthError(f"Invalid Network public inventory ({type(error).__name__}).") from None
 
-    async def _initialize_session(self) -> bool:
+    def _reauthentication_deferred(self) -> bool:
+        """Whether a listener-triggered login must wait for its safety floor."""
+        if self._last_reauthentication_attempt_at is None:
+            return False
+        return (
+            self._reauthentication_clock() - self._last_reauthentication_attempt_at
+            < _REAUTHENTICATION_MIN_INTERVAL_SECONDS
+        )
+
+    def _claim_reauthentication_attempt(self) -> bool:
+        """Reserve one controller login in the current reauthentication window."""
+        now = self._reauthentication_clock()
+        if (
+            self._last_reauthentication_attempt_at is not None
+            and now - self._last_reauthentication_attempt_at < _REAUTHENTICATION_MIN_INTERVAL_SECONDS
+        ):
+            return False
+        self._last_reauthentication_attempt_at = now
+        return True
+
+    async def _initialize_session(self, *, rate_limit_login: bool = False) -> bool:
         """Initialize the controller connection (correct for attached aiounifi version)."""
         blocked = self._reconnect_block_active()
         if blocked:
             logger.error("Automatic reconnect remains blocked after authentication failure; waiting for cooldown.")
+            return False
+        if rate_limit_login and self._reauthentication_deferred():
             return False
         if self._initialized and self.controller and self._aiohttp_session and not self._aiohttp_session.closed:
             return True
 
         async with self._connect_lock:
             if self._reconnect_block_active():
+                return False
+            if rate_limit_login and self._reauthentication_deferred():
                 return False
             if self._initialized and self.controller and self._aiohttp_session and not self._aiohttp_session.closed:
                 return True
@@ -907,6 +949,9 @@ class ConnectionManager:
                         self.controller.connectivity.is_unifi_os = self._unifi_os_override
                         logger.debug("Pre-login is_unifi_os set to: %s", self._unifi_os_override)
 
+                    if rate_limit_login and not self._claim_reauthentication_attempt():
+                        await self._discard_connection()
+                        return False
                     await self.controller.login()
                     # Core owns session-expiry retries so concurrent requests share
                     # the generation-locked _reauthenticate() path below.
@@ -1009,6 +1054,32 @@ class ConnectionManager:
 
         return True
 
+    async def ensure_session_connected(self) -> bool:
+        """Ensure a session-authenticated controller is available.
+
+        Event websockets are session-only. Retry the configured username and
+        password route after a failed boot connection, but leave an active
+        API-key inventory fallback intact.
+        """
+        auth_status = self.authentication_status
+        if not auth_status.session_configured or auth_status.api_key_available:
+            return False
+        if auth_status.session_available:
+            return await self.ensure_connected()
+        if self._last_reauthentication_attempt_at is not None and self._reauthentication_deferred():
+            return False
+
+        async with self._initialize_lock:
+            auth_status = self.authentication_status
+            if auth_status.api_key_available:
+                return False
+            if auth_status.session_available:
+                return True
+            rate_limit_login = self._last_reauthentication_attempt_at is not None
+            if rate_limit_login and self._reauthentication_deferred():
+                return False
+            return await self._initialize_session(rate_limit_login=rate_limit_login)
+
     async def reauthenticate(self) -> bool:
         """Refresh the controller login for the current session generation.
 
@@ -1016,9 +1087,9 @@ class ConnectionManager:
         their own, such as the event websocket after a rejected handshake.
         Honours the reconnect circuit like every other login path.
         """
-        return await self._reauthenticate(self._auth_generation)
+        return await self._reauthenticate(self._auth_generation, rate_limit_login=True)
 
-    async def _reauthenticate(self, expected_generation: int) -> bool:
+    async def _reauthenticate(self, expected_generation: int, *, rate_limit_login: bool = False) -> bool:
         """Refresh an expired controller login once, deduplicating concurrent attempts."""
         if self._key_mode:
             self._last_connection_error = (
@@ -1040,6 +1111,8 @@ class ConnectionManager:
             ):
                 return True
             if not self.controller or not self._aiohttp_session or self._aiohttp_session.closed:
+                return False
+            if rate_limit_login and not self._claim_reauthentication_attempt():
                 return False
 
             try:
@@ -1074,6 +1147,7 @@ class ConnectionManager:
             self._last_connection_error = None
             self._clear_reconnect_block()
             self._auth_generation = 0
+            self._last_reauthentication_attempt_at = None
             self._key_mode = False
             self._key_retry_until = 0.0
             self._integration_prefix = None
@@ -1140,33 +1214,12 @@ class ConnectionManager:
         level: int,
         what: str,
         api_request: ApiRequest | ApiRequestV2,
-        detail: str,
-        *,
-        with_traceback: bool = False,
-        secrets: Mapping[str, bool] | Iterable[str] = (),
+        error: BaseException,
     ) -> None:
-        """Log a failed request with every address and credential masked.
-
-        ``/stat/user/<mac>`` carries the address in the path itself and
-        aiounifi repeats the URL in its error text, so the path, the detail and
-        the traceback all pass through :meth:`_sanitize_text`. The traceback is
-        rendered here so it passes the mask too; ``exc_info=True`` would append
-        it unmasked.
-        """
+        """Log operation context and exception class without controller data."""
         if not logger.isEnabledFor(level):
             return
-        if api_request.path.startswith(("/get/setting/", "/set/setting/")):
-            # Settings can contain controller-only secrets absent from the
-            # submitted payload. Neither redaction by key nor known-value
-            # scrubbing can make arbitrary response text safe to log.
-            logger.log(level, "%s: settings request failed", what)
-            return
-        message = f"{what}: %s %s - %s"
-        args = [api_request.method.upper(), mask_macs(api_request.path), self._sanitize_text(detail, secrets)]
-        if with_traceback:
-            message += "\n%s"
-            args.append(self._sanitize_text(traceback.format_exc(), secrets))
-        logger.log(level, message, *args)
+        logger.log(level, "%s: %s request failed: %s", what, api_request.method.upper(), type(error).__name__)
 
     @staticmethod
     def _rejection_level(api_request: ApiRequest | ApiRequestV2) -> int:
@@ -1264,14 +1317,12 @@ class ConnectionManager:
                         pass
                     return retry_response if return_raw else retry_response.get("data")
                 except Exception as retry_e:
-                    secrets = self._scrub_error(retry_e, api_request)
-                    retry_error = str(retry_e) or type(retry_e).__name__
+                    self._scrub_error(retry_e, api_request)
                     self._log_request_failure(
                         logging.ERROR,
                         "API request failed even after re-authentication",
                         api_request,
-                        retry_error,
-                        secrets=secrets,
+                        retry_e,
                     )
                     # A second LoginRequired means the refreshed session was not
                     # accepted. Treat it as terminal so later tool calls cannot
@@ -1290,15 +1341,13 @@ class ConnectionManager:
             # place, and a submitted value that collides with the status text
             # would otherwise change how the reply is read.
             status = response_status(e)
-            secrets = self._scrub_error(e, api_request)
+            self._scrub_error(e, api_request)
             if status == 404:
                 # The controller answered: it does not serve this path. That is
                 # a negative reply the caller interprets, not a transport fault.
-                self._log_request_failure(
-                    self._rejection_level(api_request), "Controller answered 404", api_request, str(e), secrets=secrets
-                )
+                self._log_request_failure(self._rejection_level(api_request), "Controller answered 404", api_request, e)
             else:
-                self._log_request_failure(logging.ERROR, "API request error", api_request, str(e), secrets=secrets)
+                self._log_request_failure(logging.ERROR, "API request error", api_request, e)
             try:
                 from unifi_core.diagnostics import diagnostics_enabled, log_api_request
 
@@ -1318,27 +1367,25 @@ class ConnectionManager:
         except Exception as e:
             # Classified before the scrub, for the same reason as above.
             code = controller_error_code(e)
-            secrets = self._scrub_error(e, api_request)
+            self._scrub_error(e, api_request)
             if code is not None:
                 # A controller-reported api.err.* is a negative reply, not an
                 # operator event: routine on a read (an unknown MAC on a
                 # per-MAC lookup), worth a warning on a write. The body can
-                # echo request values, so only the code is logged.
+                # echo request values, so the log keeps only operation context
+                # and the exception class.
                 self._log_request_failure(
                     self._rejection_level(api_request),
                     "Controller rejected request",
                     api_request,
-                    code,
-                    secrets=secrets,
+                    e,
                 )
             else:
                 self._log_request_failure(
                     logging.ERROR,
                     "Unexpected error during API request",
                     api_request,
-                    str(e),
-                    with_traceback=True,
-                    secrets=secrets,
+                    e,
                 )
             try:
                 from unifi_core.diagnostics import diagnostics_enabled, log_api_request

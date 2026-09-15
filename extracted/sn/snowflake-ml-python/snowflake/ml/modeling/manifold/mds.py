@@ -151,10 +151,9 @@ class MDS(BaseTransformer):
     verbose: int, default=0
         Level of verbosity.
 
-    eps: float, default=1e-3
-        Relative tolerance with respect to stress at which to declare
-        convergence. The value of `eps` should be tuned separately depending
-        on whether or not `normalized_stress` is being used.
+    eps: float, default=1e-6
+        The tolerance with respect to stress (normalized by the sum of squared
+        embedding distances) at which to declare convergence.
 
     n_jobs: int, default=None
         The number of jobs to use for the computation. If multiple
@@ -181,8 +180,9 @@ class MDS(BaseTransformer):
             ``fit_transform``.
 
     normalized_stress: bool or "auto" default="auto"
-        Whether use and return normed stress value (Stress-1) instead of raw
-        stress calculated by default. Only supported in non-metric MDS.
+        Whether to return normalized stress value (Stress-1) instead of raw
+        stress. By default, metric MDS returns raw stress while non-metric MDS
+        returns normalized stress.
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -190,10 +190,10 @@ class MDS(BaseTransformer):
         *,
         n_components=2,
         metric=True,
-        n_init=4,
+        n_init="warn",
         max_iter=300,
         verbose=0,
-        eps=0.001,
+        eps=1e-06,
         n_jobs=None,
         random_state=None,
         dissimilarity="euclidean",
@@ -221,10 +221,10 @@ class MDS(BaseTransformer):
         
         init_args = {'n_components':(n_components, 2, False),
             'metric':(metric, True, False),
-            'n_init':(n_init, 4, False),
+            'n_init':(n_init, "warn", False),
             'max_iter':(max_iter, 300, False),
             'verbose':(verbose, 0, False),
-            'eps':(eps, 0.001, False),
+            'eps':(eps, 1e-06, False),
             'n_jobs':(n_jobs, None, False),
             'random_state':(random_state, None, False),
             'dissimilarity':(dissimilarity, "euclidean", False),

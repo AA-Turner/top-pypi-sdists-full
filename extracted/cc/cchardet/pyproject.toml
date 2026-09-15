@@ -1,0 +1,79 @@
+[project]
+name = "cchardet"
+authors = [{ name = "PyYoshi", email = "myoshi321go@gmail.com" }]
+urls.Homepage = 'https://github.com/PyYoshi/cChardet'
+description = 'cChardet is high speed universal character encoding detector.'
+readme = { file = 'README.md', content-type = 'text/markdown' }
+license = "MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later"
+license-files = ["COPYING"]
+classifiers = [
+    'Programming Language :: Cython',
+    'Programming Language :: Python',
+    'Topic :: Software Development :: Libraries',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
+]
+requires-python = ">=3.11"
+dynamic = ["version"]
+
+[build-system]
+requires = ["setuptools>=77", "Cython>=3.2.9,<3.4"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+cchardetect = "cchardet.cli.cchardetect:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "cchardet.__version__" }
+
+[dependency-groups]
+dev = [
+    "build>=1.6.1",
+    "chardet>=7.6.0",
+    "charset-normalizer>=3.5.1",
+    "cython>=3.2.9,<3.4",
+    "mypy>=1.15",
+    "pyperf>=2.10.0",
+    "pytest>=9.1.1",
+    "ruff>=0.16.7",
+    "setuptools>=77",
+    "twine>=7.0.0",
+]
+
+[tool.uv]
+required-version = ">=0.9.26"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/cchardet", "tests/test_typing.py"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.setuptools.package-data]
+cchardet = ["*.pyi", "py.typed"]
+
+[tool.ruff]
+exclude = ["src/ext"]
+line-length = 100
+target-version = "py311"
+lint.select = ["E", "F", "I", "N"]
+format.quote-style = "double"
+format.indent-style = "space"
+
+[tool.cibuildwheel]
+build = "cp311-* cp312-* cp313-* cp314-*"
+skip = "*-musllinux_*"
+archs = "auto"
+test-command = "python tools/wheel_smoke.py"
+test-sources = ["tools/wheel_smoke.py"]
+
+[tool.cibuildwheel.linux]
+archs = ["auto", "aarch64"]
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]

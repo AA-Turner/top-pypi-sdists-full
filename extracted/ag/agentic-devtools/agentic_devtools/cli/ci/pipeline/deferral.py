@@ -470,10 +470,10 @@ def _find_matching_deferral_comment(
     masking the current review's state.
 
     The effective allowed-author set is ``_DEFERRAL_ALLOWED_AUTHORS`` extended
-    with the PR token login resolved from the provider.  This ensures that
-    markers posted by the workflow identity (e.g. the ``SPECKIT_PR_TOKEN``
-    account that authors the PR comment) are recognised on subsequent reads even
-    when that identity is not a Copilot bot or ``github-actions[bot]``.
+    with the default workflow-token login resolved from the provider.  This
+    ensures that markers posted by the workflow identity are recognised on
+    subsequent reads even when that identity is not a Copilot bot or
+    ``github-actions[bot]``.
     """
     try:
         comments = provider.list_issue_comments(pr_number)

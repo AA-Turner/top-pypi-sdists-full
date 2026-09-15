@@ -202,8 +202,13 @@ class ChronosSessionMixin:
     # -- State persistence -------------------------------------------------
 
     async def save_state(self) -> None:
-        """Persist world state to Chronos DB."""
-        if not self.config.state.enabled or self._state is None:
+        """Persist world state to Chronos DB.
+
+        A no-op unless ``config.state.persist`` is set: uploading the whole
+        ``WorldState`` dump on every checkpoint is legacy behaviour that
+        Chronos no longer accepts (``PUT /sessions/{id}/state`` -> 410).
+        """
+        if not self.config.state.enabled or not self.config.state.persist or self._state is None:
             return
 
         ws_snapshots: dict[str, WorkspaceSnapshot] = {}

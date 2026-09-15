@@ -11,6 +11,7 @@ from prefab_ui.components import SelectOption
 from prefab_ui.rx import ERROR, RESULT
 
 from airbyte_ops_webapp.auth.mock_session import mock_oauth_is_authenticated
+from airbyte_ops_webapp.auth.oauth import hydrate_oauth_action
 from airbyte_ops_webapp.state import (
     AIRBYTE_BEARER_TOKEN_ENV_VAR,
     AIRBYTE_CONFIG_API_ROOT_ENV_VAR,
@@ -72,9 +73,15 @@ def render_select_options(options: list[dict[str, str]]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def start_tool_call(message: str) -> list[SetState]:
-    """Set loading state before a tool call."""
+def start_tool_call(message: str) -> list[Any]:
+    """Refresh the OAuth session and set loading state before a tool call.
+
+    The session is re-hydrated first so the `auth_bearer_token` passed to the
+    tool is the current access token rather than the one captured on page load,
+    which may have expired while the page sat open.
+    """
     return [
+        hydrate_oauth_action(),
         SetState("is_loading", True),
         SetState("loading_message", message),
         SetState("tool_error", ""),

@@ -17,7 +17,9 @@
 
 from __future__ import annotations
 
+import dataclasses
 import importlib.metadata
+import re
 import textwrap
 
 import click
@@ -26,16 +28,17 @@ import pytest
 from boltons.strutils import strip_ansi
 
 from click_extra import Style
+from click_extra.layout import wrap_ansi
 from click_extra.styling import (
     _nearest_256,
     ansi_to_html,
     ansi_to_jira,
     ansi_to_latex,
     ansi_to_textile,
+    open_ansi,
     render_ansi,
     split_ansi,
     supports_truecolor,
-    wrap_ansi,
 )
 
 CLICK_VERSION = tuple(
@@ -70,6 +73,19 @@ Click ``8.5.0`` started rejecting falsy non-``None`` color values with
 colors unrecognized by ``_interpret_color``. Both are caught here since
 development snapshots with version numbers >= ``8.5`` may not yet enforce
 this validation, or may enforce it with either exception class.
+"""
+
+CLOUP_STYLE_HAS_KWARGS_CACHE = any(
+    f.name == "_style_kwargs" for f in dataclasses.fields(cloup.Style)
+)
+"""True when ``cloup.Style`` still carries its lazy ``_style_kwargs`` cache.
+
+Cloup builds that cache on the first ``__call__`` and declares it without
+``compare=False``, so a called style stops comparing equal to its twin and
+``hash()`` raises. Cloup removed the cache to fix `janluke/cloup#224
+<https://github.com/janluke/cloup/issues/224>`_, so the field is absent from
+development snapshots. The invariant the cache threatened is checked on both,
+and only the probes reading the field itself are gated on this flag.
 """
 
 # --- 1. Hex string color shorthand ------------------------------------------
@@ -386,8 +402,9 @@ def test_eq_ignores_style_kwargs_cache():
     a = Style(fg="red")
     b = Style(fg="red")
     a("trigger")  # primes a's _style_kwargs
-    assert b._style_kwargs is None
-    assert a._style_kwargs is not None
+    if CLOUP_STYLE_HAS_KWARGS_CACHE:
+        assert b._style_kwargs is None
+        assert a._style_kwargs is not None
     assert a == b
     assert hash(a) == hash(b)
 
@@ -604,7 +621,72 @@ def test_split_ansi_preserves_text():
     assert "".join(run for _, run in split_ansi(text)) == strip_ansi(text)
 
 
-# --- 14. render_ansi() -------------------------------------------------------
+# --- 14. open_ansi() ---------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    (
+        pytest.param("", "", id="empty"),
+        pytest.param("no escapes at all", "", id="unstyled"),
+        pytest.param("\x1b[31mred\x1b[0m", "", id="closed-by-reset"),
+        pytest.param("\x1b[31mred\x1b[m", "", id="closed-by-bare-reset"),
+        pytest.param("\x1b[93mopen", "\x1b[93m", id="one-code-left-open"),
+        pytest.param(
+            "\x1b[93m\x1b[1mopen", "\x1b[93m\x1b[1m", id="two-codes-left-open"
+        ),
+        pytest.param(
+            "\x1b[93mout \x1b[36min\x1b[0m back",
+            "",
+            id="reset-clears-the-whole-stack",
+        ),
+        pytest.param(
+            "\x1b[93mout \x1b[36min\x1b[0m\x1b[93m back",
+            "\x1b[93m",
+            id="reopened-after-a-reset",
+        ),
+        pytest.param("\x1b[0;31mred", "\x1b[0;31m", id="reset-carrying-a-color"),
+        pytest.param(
+            "\x1b[93mold\x1b[0;31mnew", "\x1b[0;31m", id="reset-carrying-a-color-clears"
+        ),
+    ),
+)
+def test_open_ansi(text, expected):
+    assert open_ansi(text) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    (
+        pytest.param("", "\x1b[93m", id="empty-chunk-keeps-what-was-open"),
+        pytest.param("plain", "\x1b[93m", id="unstyled-chunk-keeps-what-was-open"),
+        pytest.param(
+            "\x1b[1mbold", "\x1b[93m\x1b[1m", id="chunk-adds-to-what-was-open"
+        ),
+        pytest.param("closed\x1b[0m", "", id="chunk-closes-what-was-open"),
+    ),
+)
+def test_open_ansi_resumes_from_an_opened_state(text, expected):
+    assert open_ansi(text, "\x1b[93m") == expected
+
+
+def test_open_ansi_chunked_matches_one_shot():
+    """Reading a string in two chunks answers like reading it whole.
+
+    Every cut is tried except the ones splitting an escape in half, which no
+    parser can carry across a chunk boundary.
+    """
+    text = "\x1b[93mrain \x1b[36mon\x1b[0m Monday \x1b[1mand\x1b[0m\x1b[93m Tuesday"
+    inside = {
+        index
+        for match in re.finditer(r"\x1b\[[0-9;]*m", text)
+        for index in range(match.start() + 1, match.end())
+    }
+    for cut in set(range(len(text) + 1)) - inside:
+        assert open_ansi(text[cut:], open_ansi(text[:cut])) == open_ansi(text), cut
+
+
+# --- 15. render_ansi() -------------------------------------------------------
 
 
 def test_render_ansi_passthrough_unstyled():
@@ -623,7 +705,7 @@ def test_render_ansi_splits_runs_at_newlines():
     assert result == "<two>\n<lines>"
 
 
-# --- 15. wrap_ansi() ---------------------------------------------------------
+# --- 16. wrap_ansi() ---------------------------------------------------------
 
 WRAP_TEXT = "A very long note about the weather that will certainly need wrapping."
 
@@ -684,7 +766,7 @@ def test_wrap_ansi_edge_cases(text, width, expected):
     assert wrap_ansi(text, width) == expected
 
 
-# --- 16. ANSI-to-markup converters -------------------------------------------
+# --- 17. ANSI-to-markup converters -------------------------------------------
 
 BLUE = "\x1b[34mSummer\x1b[0m"
 BLUE_BOLD = "\x1b[34m\x1b[1mSummer\x1b[0m"

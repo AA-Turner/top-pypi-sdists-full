@@ -139,9 +139,10 @@ class MultiTaskLassoCV(BaseTransformer):
     n_alphas: int, default=100
         Number of alphas along the regularization path.
 
-    alphas: array-like, default=None
-        List of alphas where to compute the models.
-        If not provided, set automatically.
+    alphas: array-like or int, default=None
+        Values of alphas to test along the regularization path.
+        If int, `alphas` values are generated automatically.
+        If array-like, list of alpha values to use.
 
     fit_intercept: bool, default=True
         Whether to calculate the intercept for this model. If set
@@ -201,8 +202,8 @@ class MultiTaskLassoCV(BaseTransformer):
         self,
         *,
         eps=0.001,
-        n_alphas=100,
-        alphas=None,
+        n_alphas="deprecated",
+        alphas="warn",
         fit_intercept=True,
         max_iter=1000,
         tol=0.0001,
@@ -234,8 +235,8 @@ class MultiTaskLassoCV(BaseTransformer):
         self._deps = list(deps)
         
         init_args = {'eps':(eps, 0.001, False),
-            'n_alphas':(n_alphas, 100, False),
-            'alphas':(alphas, None, False),
+            'n_alphas':(n_alphas, "deprecated", False),
+            'alphas':(alphas, "warn", False),
             'fit_intercept':(fit_intercept, True, False),
             'max_iter':(max_iter, 1000, False),
             'tol':(tol, 0.0001, False),
@@ -994,7 +995,7 @@ class MultiTaskLassoCV(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.linear_model.MultiTaskLassoCV.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.MultiTaskLassoCV.html#sklearn.linear_model.MultiTaskLassoCV.score)
 

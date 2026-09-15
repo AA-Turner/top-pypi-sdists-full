@@ -181,7 +181,7 @@ class HistGradientBoostingClassifier(BaseTransformer):
         Features with a small number of unique values may use less than
         ``max_bins`` bins. In addition to the ``max_bins`` bins, one more bin
         is always reserved for missing values. Must be no larger than 255.
-    categorical_features: array-like of {bool, int, str} of shape (n_features)             or shape (n_categorical_features,), default=None
+    categorical_features: array-like of {bool, int, str} of shape (n_features)             or shape (n_categorical_features,), default='from_dtype'
         Indicates the categorical features.
 
         - None: no feature will be considered categorical.
@@ -236,6 +236,8 @@ class HistGradientBoostingClassifier(BaseTransformer):
         and specifies that each branch of a tree will either only split
         on features 0 and 1 or only split on features 2, 3 and 4.
 
+        See :ref:`this example<ice-vs-pdp>` on how to use `interaction_cst`.
+
     warm_start: bool, default=False
         When set to ``True``, reuse the solution of the previous call to fit
         and add more estimators to the ensemble. For results to be valid, the
@@ -243,19 +245,25 @@ class HistGradientBoostingClassifier(BaseTransformer):
         See :term:`the Glossary <warm_start>`.
     early_stopping: 'auto' or bool, default='auto'
         If 'auto', early stopping is enabled if the sample size is larger than
-        10000. If True, early stopping is enabled, otherwise early stopping is
-        disabled.
+        10000 or if `X_val` and `y_val` are passed to `fit`. If True, early stopping
+        is enabled, otherwise early stopping is disabled.
 
     scoring: str or callable or None, default='loss'
-        Scoring parameter to use for early stopping. It can be a single
-        string (see :ref:`scoring_parameter`) or a callable (see
-        :ref:`scoring`). If None, the estimator's default scorer
-        is used. If ``scoring='loss'``, early stopping is checked
-        w.r.t the loss value. Only used if early stopping is performed.
+        Scoring method to use for early stopping. Only used if `early_stopping`
+        is enabled. Options:
+
+        - str: see :ref:`scoring_string_names` for options.
+        - callable: a scorer callable object (e.g., function) with signature
+          ``scorer(estimator, X, y)``. See :ref:`scoring_callable` for details.
+        - `None`: :ref:`accuracy <accuracy_score>` is used.
+        - 'loss': early stopping is checked w.r.t the loss value.
+
     validation_fraction: int or float or None, default=0.1
         Proportion (or absolute size) of training data to set aside as
         validation data for early stopping. If None, early stopping is done on
-        the training data. Only used if early stopping is performed.
+        the training data.
+        The value is ignored if either early stopping is not performed, e.g.
+        `early_stopping=False`, or if `X_val` and `y_val` are passed to fit.
     n_iter_no_change: int, default=10
         Used to determine when to "early stop". The fitting process is
         stopped when none of the last ``n_iter_no_change`` scores are better
@@ -268,7 +276,8 @@ class HistGradientBoostingClassifier(BaseTransformer):
         considered an improvement upon the reference score.
     verbose: int, default=0
         The verbosity level. If not zero, print some information about the
-        fitting process.
+        fitting process. ``1`` prints only summary info, ``2`` prints info per
+        iteration.
     random_state: int, RandomState instance or None, default=None
         Pseudo-random number generator to control the subsampling in the
         binning process, and the train/validation data split if early stopping
@@ -297,7 +306,7 @@ class HistGradientBoostingClassifier(BaseTransformer):
         l2_regularization=0.0,
         max_features=1.0,
         max_bins=255,
-        categorical_features="warn",
+        categorical_features="from_dtype",
         monotonic_cst=None,
         interaction_cst=None,
         warm_start=False,
@@ -339,7 +348,7 @@ class HistGradientBoostingClassifier(BaseTransformer):
             'l2_regularization':(l2_regularization, 0.0, False),
             'max_features':(max_features, 1.0, False),
             'max_bins':(max_bins, 255, False),
-            'categorical_features':(categorical_features, "warn", False),
+            'categorical_features':(categorical_features, "from_dtype", False),
             'monotonic_cst':(monotonic_cst, None, False),
             'interaction_cst':(interaction_cst, None, False),
             'warm_start':(warm_start, False, False),
@@ -1106,7 +1115,7 @@ class HistGradientBoostingClassifier(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.ensemble.HistGradientBoostingClassifier.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.HistGradientBoostingClassifier.html#sklearn.ensemble.HistGradientBoostingClassifier.score)
 

@@ -5,7 +5,7 @@ from typing import Any, Optional, Union
 from matrx_utils import vcprint
 
 from .enums import Role
-from .extra_config import WebSearchCallContent
+from .extra_config import HostedToolContent, WebSearchCallContent
 from .media_config import (
     AudioContent,
     ImageContent,
@@ -441,11 +441,15 @@ class UnifiedMessage:
             elif block_type == "thinking":
                 content_blocks.append(ThinkingContent.from_anthropic(block))
             elif block_type in {"server_tool_use", "web_search_tool_result"}:
-                # Provider-hosted tool state. It is preserved in raw_response
-                # and, on pause_turn, replayed directly to Anthropic by the
-                # provider adapter. Never turn it into ToolCallContent or the
-                # local executor would try to dispatch a provider-owned call.
-                continue
+                # Provider-hosted tool state. Carried VERBATIM as
+                # HostedToolContent — never ToolCallContent, or the local
+                # executor would try to dispatch a provider-owned call — so the
+                # executor's tool loop re-sends this assistant message exactly
+                # as Anthropic produced it. Dropping these blocks (the
+                # behaviour until 2026-09-14) changed the block sequence around
+                # the thinking blocks, and Anthropic refuses a modified latest
+                # assistant message the moment a local tool result follows it.
+                content_blocks.append(HostedToolContent.from_anthropic(block))
             else:
                 vcprint(
                     block,

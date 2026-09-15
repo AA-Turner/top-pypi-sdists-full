@@ -101,6 +101,7 @@ from snowflake.snowpark_connect.relation.catalogs.utils import (
     _get_current_temp_objects,
 )
 from snowflake.snowpark_connect.relation.iceberg_branch_ddl import (
+    normalize_branch_name,
     translate_create_or_replace_branch,
     translate_drop_branch,
 )
@@ -143,10 +144,16 @@ from snowflake.snowpark_connect.relation.utils import (
 )
 from snowflake.snowpark_connect.relation.write.map_write import (
     _build_base_location_clause,
+    _build_table_properties_clause,
     _coerce_to_unstructured_complex_target,
+    _column_order_for_write,
+    _create_cld_iceberg_table,
     _extract_iceberg_format_version,
+    _get_writer_for_table_creation,
+    _iceberg_table_properties_ddl_enabled,
     _is_unstructured_array,
     _is_unstructured_object,
+    _reject_max_snapshot_age_for_cld,
     _store_assignment_is_legacy,
     _store_assignment_policy,
 )
@@ -172,6 +179,7 @@ from snowflake.snowpark_connect.utils.context import (
     set_plan_id_map,
     set_sql_args,
     set_sql_plan_name,
+    sql_correlation_scope_key,
 )
 from snowflake.snowpark_connect.utils.jvm_udf_utils import UdfKind
 from snowflake.snowpark_connect.utils.scala_udf_utils import (
@@ -234,6 +242,12 @@ from .catalogs import SNOWFLAKE_CATALOG
 
 _ctes = ContextVar[dict[str, relation_proto.Relation]]("_ctes", default={})
 _cte_definitions = ContextVar[dict[str, any]]("_cte_definitions", default={})
+# CTE name -> one reusable proto per correlation scope. Different correlation
+# scopes need distinct plan IDs, while repeated references in one scope should
+# remain eligible for Snowpark CTE elimination.
+_cte_reference_protos = ContextVar[
+    dict[str, dict[tuple[int, ...], relation_proto.Relation]]
+]("_cte_reference_protos", default={})
 _having_condition = ContextVar[expressions_proto.Expression | None](
     "_having_condition", default=None
 )
@@ -273,30 +287,133 @@ def _extract_alter_table_name(snowflake_sql: str) -> str:
     return m.group(1) if m else ""
 
 
-def _execute_alter(session: Session, sql: str, table_name: str) -> None:
+def _alter_target_is_iceberg(session: Session, table_name: str) -> bool:
+    """Whether an ALTER target is an Iceberg table.
+
+    * **CLD session** — every target is an Iceberg CLD table; report ``True``
+      from the session-level hint (``is_in_cld_context()``) and skip the
+      catalog round-trip.
+    * **Non-CLD session** — probe the table type via :func:`get_table_type`.
+      ``get_table_type`` already suppresses lookup failures and returns
+      ``"TABLE"`` for the FDN default, so a missing table or transient catalog
+      error degrades to ``False`` (treat as a regular table) and lets the real
+      error surface from Snowflake instead of masking it. SNOW-2118744.
+    """
+    return is_in_cld_context() or (
+        bool(table_name) and get_table_type(table_name, session).upper() == "ICEBERG"
+    )
+
+
+def _execute_alter(
+    session: Session,
+    sql: str,
+    table_name: str,
+    known_iceberg: bool | None = None,
+) -> None:
     """Execute ALTER TABLE, promoting to ALTER ICEBERG TABLE on Iceberg targets.
 
     Snowflake rejects ``ALTER TABLE ...`` against Iceberg tables (error
     091367 / 42601: *"is an Iceberg table. Iceberg tables should use
-    ALTER ICEBERG TABLE commands"*). Two cases need the promote:
+    ALTER ICEBERG TABLE commands"*), so promote to ``ALTER ICEBERG TABLE``
+    when the target is Iceberg (see :func:`_alter_target_is_iceberg`).
 
-    * **CLD session** — every target is an Iceberg CLD table; promote
-      upfront from the session-level hint (``is_in_cld_context()``) and
-      skip the catalog round-trip.
-    * **Non-CLD session targeting a managed Iceberg table** — probe the
-      table type via :func:`get_table_type` and promote when Snowflake
-      reports ``ICEBERG``. ``get_table_type`` already suppresses lookup
-      failures and returns ``"TABLE"`` for the FDN default, so a missing
-      table or transient catalog error degrades to "send plain
-      ALTER TABLE" and surfaces the real error from Snowflake instead
-      of masking it. SNOW-2118744.
+    ``known_iceberg`` lets a caller that already resolved the target type pass
+    it in to skip the repeat :func:`get_table_type` probe.
     """
-    needs_iceberg_keyword = is_in_cld_context() or (
-        bool(table_name) and get_table_type(table_name, session).upper() == "ICEBERG"
+    is_iceberg = (
+        known_iceberg
+        if known_iceberg is not None
+        else _alter_target_is_iceberg(session, table_name)
     )
-    if needs_iceberg_keyword:
+    if is_iceberg:
         sql = sql.replace("ALTER TABLE ", "ALTER ICEBERG TABLE ", 1)
     session.sql(sql).collect()
+
+
+def _build_set_table_properties_sql(
+    table_name: str, props: dict[str, str]
+) -> str | None:
+    """Build ``ALTER TABLE <t> SET TABLE_PROPERTIES = ('k'='v', ...)`` for an
+    Iceberg target, or ``None`` when there are no properties.
+
+    Grammar per GS PR snowflake-eng/snowflake#495449 (SNOW-3892688): ``SET``
+    carries an ``=`` before the paren list; every name/value is an escaped
+    single-quoted literal.
+    """
+    if not props:
+        return None
+    pairs = ", ".join(
+        f"'{escape_sql_comment(k)}'='{escape_sql_comment(v)}'" for k, v in props.items()
+    )
+    return f"ALTER TABLE {table_name} SET TABLE_PROPERTIES = ({pairs})"
+
+
+def _build_unset_table_properties_sql(table_name: str, keys: list[str]) -> str | None:
+    """Build ``ALTER TABLE <t> UNSET TABLE_PROPERTIES('k1', ...)`` for an
+    Iceberg target, or ``None`` when there are no keys."""
+    if not keys:
+        return None
+    key_list = ", ".join(f"'{escape_sql_comment(k)}'" for k in keys)
+    return f"ALTER TABLE {table_name} UNSET TABLE_PROPERTIES({key_list})"
+
+
+def _translate_and_execute_alter_via_sqlglot(session: Session, sql_string: str) -> None:
+    """Translate a Spark DDL string to the Snowflake dialect via sqlglot and
+    execute it, promoting ``ALTER TABLE`` to ``ALTER ICEBERG TABLE`` on Iceberg
+    targets. This is the pre-existing generic handler for ``Alter``/``Set``/...
+    plans; ``SET``/``UNSET TBLPROPERTIES`` on a non-Iceberg table falls back
+    here so ``comment`` maps to a Snowflake ``COMMENT`` (the rest is dropped),
+    preserving prior behavior for regular tables.
+    """
+    parsed_sql = sqlglot.parse_one(sql_string, dialect="spark").transform(
+        _normalize_identifiers
+    )
+    snowflake_sql = parsed_sql.sql(dialect="snowflake")
+    if snowflake_sql.upper().startswith("ALTER TABLE "):
+        table_name = _extract_alter_table_name(snowflake_sql)
+        _execute_alter(session, snowflake_sql, table_name)
+    else:
+        session.sql(snowflake_sql).collect()
+
+
+def _dispatch_set_table_properties(
+    session: Session, logical_plan, sql_string: str
+) -> None:
+    """Route ``ALTER TABLE ... SET TBLPROPERTIES``. On an Iceberg target emit
+    native ``SET TABLE_PROPERTIES = (...)`` so leftover Spark properties reach
+    the catalog; on a non-Iceberg target fall back to sqlglot (maps ``comment``
+    to a Snowflake ``COMMENT`` and drops the rest), preserving prior behavior for
+    regular tables (e.g. ``test_truncate_option``). SNOW-3974370.
+    """
+    table_name = get_relation_identifier_name(logical_plan.table(), True)
+    if not _alter_target_is_iceberg(session, table_name):
+        _translate_and_execute_alter_via_sqlglot(session, sql_string)
+        return
+    props: dict[str, str] = {}
+    props_iter = logical_plan.properties().iterator()
+    while props_iter.hasNext():
+        pair = props_iter.next()
+        props[str(pair._1())] = str(pair._2())
+    snowflake_sql = _build_set_table_properties_sql(table_name, props)
+    if snowflake_sql:
+        _execute_alter(session, snowflake_sql, table_name, known_iceberg=True)
+
+
+def _dispatch_unset_table_properties(
+    session: Session, logical_plan, sql_string: str
+) -> None:
+    """Route ``ALTER TABLE ... UNSET TBLPROPERTIES``. Iceberg target -> native
+    ``UNSET TABLE_PROPERTIES(...)``; non-Iceberg -> sqlglot fallback. ``ifExists()``
+    is not translated yet (GS UNSET IF EXISTS semantics unverified). SNOW-3974370.
+    """
+    table_name = get_relation_identifier_name(logical_plan.table(), True)
+    if not _alter_target_is_iceberg(session, table_name):
+        _translate_and_execute_alter_via_sqlglot(session, sql_string)
+        return
+    keys = [str(k) for k in as_java_list(logical_plan.propertyKeys())]
+    snowflake_sql = _build_unset_table_properties_sql(table_name, keys)
+    if snowflake_sql:
+        _execute_alter(session, snowflake_sql, table_name, known_iceberg=True)
 
 
 def _drop_table_should_use_cld_iceberg_purge(purge: bool) -> bool:
@@ -460,11 +577,64 @@ def _push_cte_scope():
     cur_definitions = _cte_definitions.get()
     cte_token = _ctes.set(cur_ctes.copy())
     def_token = _cte_definitions.set(cur_definitions.copy())
+    reference_protos_token = _cte_reference_protos.set(
+        {
+            name: dict(scope_protos)
+            for name, scope_protos in _cte_reference_protos.get().items()
+        }
+    )
     try:
         yield
     finally:
         _ctes.reset(cte_token)
         _cte_definitions.reset(def_token)
+        _cte_reference_protos.reset(reference_protos_token)
+
+
+def _get_cached_cte_reference(
+    name: str, cte_proto: relation_proto.Relation
+) -> relation_proto.Relation | None:
+    """Return this scope's reusable CTE proto, if one has been assigned.
+
+    Snowpark column names embed the plan id
+    (``"<sparkName>-<planId>-<ordinal>"``) and are required to be unique across
+    DataFrames so that correlated subqueries resolve. With CTE optimization on,
+    every reference to a CTE reuses one stored proto -- and therefore one plan
+    id -- which breaks that invariant as soon as a subquery references a CTE its
+    enclosing query also references. TPC-DS q1/q30/q81 are that shape::
+
+        WITH ctr AS (...)
+        SELECT ... FROM ctr ctr1
+        WHERE ctr1.total > (SELECT avg(total) FROM ctr ctr2 WHERE ctr1.k = ctr2.k)
+
+    Both sides of ``ctr1.k = ctr2.k`` lowered to the same identifier, Snowflake
+    bound both to the inner scope, and the predicate degenerated to ``k = k``:
+    the subquery decorrelated (one aggregate over the whole CTE instead of one
+    per key) and stopped eliminating outer rows with a NULL correlation key.
+
+    Each correlation scope gets one proto. The first scope to reference a CTE
+    uses its stored definition proto; later scopes re-evaluate the definition
+    once, then reuse that fresh proto for repeated references in that scope.
+    """
+    scope_key = sql_correlation_scope_key()
+    scope_protos = _cte_reference_protos.get().setdefault(name, {})
+    cached_proto = scope_protos.get(scope_key)
+    if cached_proto is not None:
+        return copy.deepcopy(cached_proto)
+    if not scope_protos:
+        scope_protos[scope_key] = cte_proto
+        return copy.deepcopy(cte_proto)
+    return None
+
+
+def _cache_cte_reference(name: str, proto: relation_proto.Relation) -> None:
+    scope_key = sql_correlation_scope_key()
+    _cte_reference_protos.get().setdefault(name, {})[scope_key] = proto
+
+
+def _seed_cte_reference_cache(name: str, proto: relation_proto.Relation) -> None:
+    scope_key = sql_correlation_scope_key()
+    _cte_reference_protos.get()[name] = {scope_key: proto}
 
 
 def _process_cte_relations(cte_relations):
@@ -498,6 +668,7 @@ def _process_cte_relations(cte_relations):
             with push_sql_scope():
                 cte_proto = map_logical_plan_relation(cte._2(), cte_plan_id)
             _ctes.get()[name] = cte_proto
+            _seed_cte_reference_cache(name, cte_proto)
         finally:
             _having_condition.set(saved_having)
 
@@ -851,8 +1022,8 @@ def _parse_fast_forward_args(logical_plan: object) -> tuple[str, str, str]:
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
         raise exception
 
-    branch = str(branch_val)
-    to_branch = str(to_val)
+    branch = normalize_branch_name(str(branch_val))
+    to_branch = normalize_branch_name(str(to_val))
     _validate_iceberg_branch_name(branch)
     _validate_iceberg_branch_name(to_branch)
     return str(table_val), branch, to_branch
@@ -1034,15 +1205,20 @@ def _create_table_as_select(logical_plan, mode: str) -> None:
     # all columns nullable.
     force_nullable_schema(df)
 
-    write_kwargs = {
-        "comment": None if comment.isEmpty() else comment.get(),
-        "mode": mode,
-    }
-    if data_source == "iceberg":
-        write_kwargs["iceberg_config"] = _build_managed_iceberg_config_for_sql(
-            logical_plan
-        )
-    df.write.save_as_table(name, **write_kwargs)
+    comment_str = None if comment.isEmpty() else comment.get()
+
+    if data_source == "iceberg" and is_in_cld_context():
+        _create_cld_iceberg_table_as_select(logical_plan, df, name, comment_str, mode)
+    else:
+        write_kwargs = {
+            "comment": comment_str,
+            "mode": mode,
+        }
+        if data_source == "iceberg":
+            write_kwargs["iceberg_config"] = _build_managed_iceberg_config_for_sql(
+                logical_plan
+            )
+        df.write.save_as_table(name, **write_kwargs)
 
     # Record table metadata for CREATE TABLE AS SELECT
     # These are typically considered v2 tables and support RENAME COLUMN
@@ -1051,6 +1227,74 @@ def _create_table_as_select(logical_plan, mode: str) -> None:
         table_type="v2",
         data_source=data_source,
         supports_column_rename=True,
+    )
+
+
+def _create_cld_iceberg_table_as_select(
+    logical_plan: typing.Any,
+    df: "snowpark.DataFrame",
+    name: str,
+    comment: str | None,
+    mode: str,
+) -> None:
+    """CLD (unmanaged) ``CREATE/REPLACE TABLE AS SELECT`` for Iceberg targets.
+
+    Snowpark's ``save_as_table(iceberg_config=...)`` path forces
+    ``CATALOG='SNOWFLAKE'``, which a catalog-linked database rejects (094104), so
+    it cannot serve CTAS on a CLD. Route through the CLD-aware create+load helper
+    instead (:func:`_create_cld_iceberg_table`), which emits
+    ``TABLE_PROPERTIES(...)`` for the leftover Spark table properties
+    (SNOW-4061004; GS commit SNOW-3892694) and lower-cases/quotes identifiers for
+    case-insensitive Glue/Unity catalogs. Then append the query rows.
+
+    ``mode`` follows :func:`_create_table_as_select`: ``"overwrite"`` (RTAS) drops
+    first; ``"ignore"`` (``CREATE TABLE IF NOT EXISTS AS SELECT``) is a no-op when
+    the table already exists; ``"errorifexists"`` (plain CTAS) lets the CREATE
+    surface the "already exists" error. SNOW-4064096.
+    """
+    session = get_or_create_snowpark_session()
+    properties = _extract_table_properties(logical_plan)
+    # Parity with the df.write CLD paths: reject max-snapshot-age.ms up front
+    # with the explicit unsupported error (it is otherwise silently filtered).
+    _reject_max_snapshot_age_for_cld(True, properties)
+    iceberg_version = _extract_iceberg_format_version(properties)
+    partition_cols = _extract_identity_partition_columns(logical_plan)
+    # Thread a Spark LOCATION clause into BASE_LOCATION (consumed key, so it is
+    # not re-emitted inside TABLE_PROPERTIES).
+    options = dict(properties)
+    location = _extract_table_location(logical_plan)
+    if location:
+        options["location"] = location
+    writer = _get_writer_for_table_creation(df)
+
+    if mode == "overwrite":
+        session.sql(f"DROP TABLE IF EXISTS {name}").collect()
+
+    try:
+        _create_cld_iceberg_table(
+            session,
+            writer._dataframe,
+            name,
+            options=options,
+            partition_cols=partition_cols or None,
+            iceberg_version=iceberg_version,
+            comment=comment,
+        )
+    except SnowparkSQLException as e:
+        # CREATE TABLE IF NOT EXISTS AS SELECT: 2002 = "object already exists".
+        # Treat as a no-op (no create, no append), matching Spark. Key off the
+        # Snowflake error code rather than message text.
+        if mode == "ignore" and getattr(e, "sql_error_code", None) == 2002:
+            return
+        raise
+
+    # table_exists=True: the CREATE above already made the table, so Snowpark
+    # appends without re-attempting a CREATE (matches the V1 CLD paths).
+    writer.saveAsTable(
+        table_name=name,
+        mode="append",
+        column_order=_column_order_for_write,
+        table_exists=True,
     )
 
 
@@ -1449,7 +1693,7 @@ def _insert_into_table(logical_plan, session: Session) -> int | None:
                 raise exception
 
             pos = target_column_positions[match_key]
-            new_snowpark_name = spark_to_sf_single_id(partition_col)
+            new_snowpark_name = spark_to_sf_single_id(partition_col, is_column=True)
             target_field = target_schema.fields[pos]
             # SNOW-2677699: partition values arrive as raw strings from the
             # Spark parser; cast to the target column type so df.schema
@@ -1481,7 +1725,9 @@ def _insert_into_table(logical_plan, session: Session) -> int | None:
                 snowpark_names.append(new_snowpark_name)
             elif source_columns:
                 scol = source_columns.pop()
-                new_snowpark_name = spark_to_sf_single_id(scol.spark_name)
+                new_snowpark_name = spark_to_sf_single_id(
+                    scol.spark_name, is_column=True
+                )
                 columns_for_insert.append(
                     snowpark_fn.col(scol.snowpark_name).alias(new_snowpark_name)
                 )
@@ -1737,13 +1983,18 @@ def _confirm_partition_columns_are_in_spec(
     If any column is not present, the function raises an exception.
     Column ordering is not relevant.
     """
-    allowed_raw = [spark_to_sf_single_id(c) for c in partition_spec.columns()]
+    allowed_raw = [
+        spark_to_sf_single_id(c, is_column=True) for c in partition_spec.columns()
+    ]
     if should_use_cld_identifier_rules():
         # CLD passthrough may emit Category while the table spec still carries
         # CATEGORY from metastore (same as map_write partition validation).
         allowed_partition_columns = {c.lower() for c in allowed_raw}
         for pc in partition_columns:
-            if spark_to_sf_single_id(pc).lower() not in allowed_partition_columns:
+            if (
+                spark_to_sf_single_id(pc, is_column=True).lower()
+                not in allowed_partition_columns
+            ):
                 exception = AnalysisException(
                     f"[NON_PARTITION_COLUMN] PARTITION clause cannot contain the non-partition column: `{pc}`."
                 )
@@ -1753,7 +2004,7 @@ def _confirm_partition_columns_are_in_spec(
 
     allowed_partition_columns = set(allowed_raw)
     for pc in partition_columns:
-        if spark_to_sf_single_id(pc) not in allowed_partition_columns:
+        if spark_to_sf_single_id(pc, is_column=True) not in allowed_partition_columns:
             exception = AnalysisException(
                 f"[NON_PARTITION_COLUMN] PARTITION clause cannot contain the non-partition column: `{pc}`."
             )
@@ -3635,24 +3886,17 @@ def map_sql_to_pandas_df(
                 snowflake_sql = f"ALTER TABLE {full_table_identifier} RENAME COLUMN {old_column_name} TO {new_column_name}"
                 # Use helper to handle Iceberg tables automatically
                 _execute_alter(session, snowflake_sql, full_table_identifier)
+            case "SetTableProperties":
+                _dispatch_set_table_properties(session, logical_plan, sql_string)
+            case "UnsetTableProperties":
+                _dispatch_unset_table_properties(session, logical_plan, sql_string)
             case "RenameTable":
                 name = get_relation_identifier_name(logical_plan.child(), True)
                 new_name = _spark_to_snowflake(logical_plan.newName())
-
-                try:
-                    session.sql(f"ALTER TABLE {name} RENAME TO {new_name}").collect()
-                except Exception as e:
-                    # This is a trick to rename iceberg tables without having to first sacrifice a query to determine
-                    # whether the source table is an iceberg table.
-                    # TODO(SNOW-2118744): such keyword is required for other ALTER TABLE commands against Iceberg tables
-                    # too.
-                    if str(e).find("is an Iceberg table") >= 0:
-                        session.sql(
-                            f"ALTER ICEBERG TABLE {name} RENAME TO {new_name}"
-                        ).collect()
-                    else:
-                        attach_custom_error_code(e, ErrorCodes.INTERNAL_ERROR)
-                        raise e
+                # SNOW-3485110: same Iceberg keyword promote as ADD/DROP/RENAME COLUMN.
+                _execute_alter(
+                    session, f"ALTER TABLE {name} RENAME TO {new_name}", name
+                )
             case "ReplaceTableAsSelect":
                 _create_table_as_select(logical_plan, mode="overwrite")
             case "ResetCommand":
@@ -3897,15 +4141,7 @@ def map_sql_to_pandas_df(
                 or command.startswith("Truncate")
                 or command.startswith("AddColumns")
             ):
-                parsed_sql = sqlglot.parse_one(sql_string, dialect="spark").transform(
-                    _normalize_identifiers
-                )
-                snowflake_sql = parsed_sql.sql(dialect="snowflake")
-                if snowflake_sql.upper().startswith("ALTER TABLE "):
-                    table_name = _extract_alter_table_name(snowflake_sql)
-                    _execute_alter(session, snowflake_sql, table_name)
-                else:
-                    session.sql(snowflake_sql).collect()
+                _translate_and_execute_alter_via_sqlglot(session, sql_string)
             case command if command.startswith("Describe") or command.startswith(
                 "Show"
             ):
@@ -4255,7 +4491,9 @@ def _map_union_strip_inner_distinct(union_rel: typing.Any) -> relation_proto.Rel
 
 
 def map_logical_plan_relation(
-    rel, plan_id: int | None = None
+    rel,
+    plan_id: int | None = None,
+    having_condition_exp: typing.Any | None = None,
 ) -> relation_proto.Relation:
     if plan_id is None:
         plan_id = gen_sql_plan_id()
@@ -4266,6 +4504,11 @@ def map_logical_plan_relation(
         case "Aggregate":
             with push_sql_scope():
                 input = map_logical_plan_relation(rel.child())
+                having_condition = (
+                    map_logical_plan_expression(having_condition_exp)
+                    if having_condition_exp is not None
+                    else _having_condition.get()
+                )
 
                 # For LCA support in GROUP BY, we need to extract aliases from the aggregate expressions
                 # In Spark SQL, when you write "SELECT a as k, COUNT(b) FROM table GROUP BY k",
@@ -4404,7 +4647,7 @@ def map_logical_plan_relation(
                             grouping_expressions=grouping_expressions,
                             aggregate_expressions=aggregate_expressions,
                             grouping_sets=grouping_sets,
-                            having_condition=_having_condition.get(),
+                            having_condition=having_condition,
                         )
                     )
                 )
@@ -4546,6 +4789,7 @@ def map_logical_plan_relation(
         case "OneRowRelation":
             proto = relation_proto.Relation(project=relation_proto.Project())
         case "Pivot":
+            input = map_logical_plan_relation(rel.child())
             pivot_column = map_logical_plan_expression(rel.pivotColumn())
             session = snowpark.Session.get_active_session()
             m = ColumnNameMap([], [])
@@ -4619,7 +4863,7 @@ def map_logical_plan_relation(
             any_proto.Pack(
                 snowflake_proto.Extension(
                     aggregate=snowflake_proto.Aggregate(
-                        input=map_logical_plan_relation(rel.child()),
+                        input=input,
                         group_type=relation_proto.Aggregate.GroupType.GROUP_TYPE_PIVOT,
                         aggregate_expressions=aggregate_expressions,
                         having_condition=_having_condition.get(),
@@ -4983,7 +5227,6 @@ def map_logical_plan_relation(
                 )
             )
         case "UnresolvedHaving":
-            # Store the having condition in context and process the child aggregate
             child_relation = rel.child()
             if str(child_relation.getClass().getSimpleName()) != "Aggregate":
                 exception = SnowparkConnectNotImplementedError(
@@ -4992,18 +5235,11 @@ def map_logical_plan_relation(
                 attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
                 raise exception
 
-            # Store having condition in a context variable for the Aggregate case to pick up
-            having_condition = map_logical_plan_expression(rel.havingCondition())
-
-            # Store in thread-local context (similar to how _ctes works)
-            token = _having_condition.set(having_condition)
-
-            try:
-                # Recursively call map_logical_plan_relation on the child Aggregate
-                # The Aggregate case will pick up the having condition from context
-                proto = map_logical_plan_relation(child_relation, plan_id)
-            finally:
-                _having_condition.reset(token)
+            proto = map_logical_plan_relation(
+                child_relation,
+                plan_id,
+                having_condition_exp=rel.havingCondition(),
+            )
         case "UnresolvedHint":
             hint_name = str(rel.name())
             params = as_java_list(rel.parameters())
@@ -5084,15 +5320,15 @@ def map_logical_plan_relation(
 
             cte_proto = _ctes.get().get(name)
             if cte_proto is not None:
-                if (
-                    session.cte_optimization_enabled
-                ):  # do not use get_cte_optimization_enabled() here, it will return None if user has not set it
-                    """
-                    the optimization serves two purposes:
-                    1. avoid re-computing the same logic plan when the CTE is referenced multiple times
-                    2. have the same plan id for the CTE such that snowpark CTE optimization can identify the same plan and eliminate the repeated nodes
-                    """
-                    proto = copy.deepcopy(cte_proto)
+                # Do not use get_cte_optimization_enabled() here; it returns None
+                # when the user has not explicitly set the option.
+                cached_cte_reference = (
+                    _get_cached_cte_reference(name, cte_proto)
+                    if session.cte_optimization_enabled
+                    else None
+                )
+                if cached_cte_reference is not None:
+                    proto = cached_cte_reference
                 else:
                     # The name corresponds to a `WITH` alias rather than a table.
                     # TODO: We currently evaluate the query each time its alias is used;
@@ -5146,6 +5382,8 @@ def map_logical_plan_relation(
                             )
                         )
                         proto.common.plan_id = gen_sql_plan_id()
+                        if session.cte_optimization_enabled:
+                            _cache_cte_reference(name, proto)
                     else:
                         # Fallback to stored CTE if definition not found
                         proto = cte_proto
@@ -5322,7 +5560,8 @@ def map_logical_plan_relation(
                 proto = map_logical_plan_relation(rel.child())
         case "LateralJoin":
             left = map_logical_plan_relation(rel.left())
-            right = map_logical_plan_relation(rel.right().plan())
+            with push_sql_scope(is_correlation_scope=True):
+                right = map_logical_plan_relation(rel.right().plan())
             any_proto = Any()
             any_proto.Pack(
                 snowflake_proto.Extension(
@@ -5775,6 +6014,16 @@ def _build_create_iceberg_table_clauses(
     base_location_clause = _build_base_location_clause(explicit=explicit)
     if base_location_clause:
         parts.append(base_location_clause)
+
+    # SNOW-4061004: on the unmanaged (CLD) path GS commits leftover Spark table
+    # properties to the external catalog, so forward them as TABLE_PROPERTIES.
+    # Managed targets reject the clause (SNOW-3974372 / SNOW-3899188), so gate on CLD.
+    # Only emit when ENABLE_ICEBERG_TABLE_PROPERTIES_DDL is set — with the flag
+    # off GS hard-rejects the whole CREATE ("invalid property 'TABLE_PROPERTIES'").
+    if is_cld and _iceberg_table_properties_ddl_enabled():
+        table_properties_clause = _build_table_properties_clause(properties)
+        if table_properties_clause:
+            parts.append(table_properties_clause)
 
     if not parts:
         return ""

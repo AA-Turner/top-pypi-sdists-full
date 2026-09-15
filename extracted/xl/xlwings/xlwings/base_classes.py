@@ -26,6 +26,15 @@ BorderSide = Literal[
     "diagonal_up",
 ]
 BorderGroup = Literal["outside", "inside", "all", "everything"]
+
+# Office.js limits range get operations to 5,000,000 cells on all platforms.
+# A lower cross-engine default also reduces timeout and memory pressure on
+# desktop engines. Individual engines may override or disable it.
+DEFAULT_MAX_CELLS_PER_READ = 4_000_000
+
+# Initial write heuristic; cell count does not guarantee a payload byte size.
+# Engines can tune this independently of the read budget.
+DEFAULT_MAX_CELLS_PER_WRITE = 100_000
 BorderLineStyle = Literal[
     "continuous",
     "dash",
@@ -45,6 +54,139 @@ BorderWeight = Literal["hairline", "thin", "medium", "thick"]
 # individually only.
 BORDER_SIDES: tuple[str, ...] = get_args(BorderSide)
 BORDER_GRID_SIDES = BORDER_SIDES[:6]
+
+# The chart vocabulary, same idea as the borders: lowercase strings are the API,
+# main.Chart validates them so engines only ever see the canonical names.
+ChartLegendPosition = Literal["top", "bottom", "left", "right", "corner"]
+ChartPlotBy = Literal["rows", "columns"]
+CHART_LEGEND_POSITIONS: tuple[str, ...] = get_args(ChartLegendPosition)
+CHART_PLOT_BY: tuple[str, ...] = get_args(ChartPlotBy)
+
+# The pivot table vocabulary. PivotFunction lists Excel's "Summarize Values By"
+# options, named after the worksheet functions: note that "count" counts
+# non-empty cells (COUNTA), while "count_numbers" is the worksheet COUNT.
+# main.PivotTables/PivotValueFields validate them so engines only ever see the
+# canonical names.
+PivotFunction = Literal[
+    "sum",
+    "count",
+    "average",
+    "max",
+    "min",
+    "product",
+    "count_numbers",
+    "stdev",
+    "stdevp",
+    "var",
+    "varp",
+]
+PivotLayout = Literal["compact", "outline", "tabular"]
+PIVOT_FUNCTIONS: tuple[str, ...] = get_args(PivotFunction)
+PIVOT_LAYOUTS: tuple[str, ...] = get_args(PivotLayout)
+# The three field areas that PivotFields can stand for (the values area is a
+# separate class); engines receive these names.
+PIVOT_AREAS: tuple[str, ...] = ("rows", "columns", "filters")
+
+# The alignment vocabulary. Excel, macOS and Office.js all support the same
+# eight horizontal and five vertical values; main.Range validates them so
+# engines only ever see the canonical names.
+HorizontalAlignment = Literal[
+    "general",
+    "left",
+    "center",
+    "right",
+    "fill",
+    "justify",
+    "center_across_selection",
+    "distributed",
+]
+VerticalAlignment = Literal[
+    "top",
+    "center",
+    "bottom",
+    "justify",
+    "distributed",
+]
+HORIZONTAL_ALIGNMENTS: tuple[str, ...] = get_args(HorizontalAlignment)
+VERTICAL_ALIGNMENTS: tuple[str, ...] = get_args(VerticalAlignment)
+# The documented chart type names (see main.Chart.chart_type); the desktop
+# engines map all of them, the remote engine all but "combination".
+CHART_TYPES: tuple[str, ...] = (
+    "3d_area",
+    "3d_area_stacked",
+    "3d_area_stacked_100",
+    "3d_bar_clustered",
+    "3d_bar_stacked",
+    "3d_bar_stacked_100",
+    "3d_column",
+    "3d_column_clustered",
+    "3d_column_stacked",
+    "3d_column_stacked_100",
+    "3d_line",
+    "3d_pie",
+    "3d_pie_exploded",
+    "area",
+    "area_stacked",
+    "area_stacked_100",
+    "bar_clustered",
+    "bar_of_pie",
+    "bar_stacked",
+    "bar_stacked_100",
+    "bubble",
+    "bubble_3d_effect",
+    "column_clustered",
+    "column_stacked",
+    "column_stacked_100",
+    "combination",
+    "cone_bar_clustered",
+    "cone_bar_stacked",
+    "cone_bar_stacked_100",
+    "cone_col",
+    "cone_col_clustered",
+    "cone_col_stacked",
+    "cone_col_stacked_100",
+    "cylinder_bar_clustered",
+    "cylinder_bar_stacked",
+    "cylinder_bar_stacked_100",
+    "cylinder_col",
+    "cylinder_col_clustered",
+    "cylinder_col_stacked",
+    "cylinder_col_stacked_100",
+    "doughnut",
+    "doughnut_exploded",
+    "line",
+    "line_markers",
+    "line_markers_stacked",
+    "line_markers_stacked_100",
+    "line_stacked",
+    "line_stacked_100",
+    "pie",
+    "pie_exploded",
+    "pie_of_pie",
+    "pyramid_bar_clustered",
+    "pyramid_bar_stacked",
+    "pyramid_bar_stacked_100",
+    "pyramid_col",
+    "pyramid_col_clustered",
+    "pyramid_col_stacked",
+    "pyramid_col_stacked_100",
+    "radar",
+    "radar_filled",
+    "radar_markers",
+    "stock_hlc",
+    "stock_ohlc",
+    "stock_vhlc",
+    "stock_vohlc",
+    "surface",
+    "surface_top_view",
+    "surface_top_view_wireframe",
+    "surface_wireframe",
+    "xy_scatter",
+    "xy_scatter_lines",
+    "xy_scatter_lines_no_markers",
+    "xy_scatter_smooth",
+    "xy_scatter_smooth_no_markers",
+)
 
 
 class Apps:
@@ -407,6 +549,14 @@ class Sheet:
         raise NotImplementedError()
 
     @property
+    def show_gridlines(self):
+        raise NotImplementedError()
+
+    @show_gridlines.setter
+    def show_gridlines(self, value):
+        raise NotImplementedError()
+
+    @property
     def page_setup(self):
         raise NotImplementedError()
 
@@ -436,6 +586,16 @@ class Range:
 
     async def get_wrap_text(self):
         raise NotImplementedError("get_wrap_text() is only supported in xlwings Lite")
+
+    async def get_horizontal_alignment(self):
+        raise NotImplementedError(
+            "get_horizontal_alignment() is only supported in xlwings Lite"
+        )
+
+    async def get_vertical_alignment(self):
+        raise NotImplementedError(
+            "get_vertical_alignment() is only supported in xlwings Lite"
+        )
 
     async def get_column_width(self):
         raise NotImplementedError(
@@ -516,6 +676,20 @@ class Range:
     @raw_value.setter
     def raw_value(self, value):
         raise NotImplementedError()
+
+    @property
+    def max_cells_per_read(self):
+        """Cell budget above which value reads are chunked automatically when the
+        user hasn't passed an explicit ``chunksize``. Engines may override this;
+        ``None`` disables implicit read chunking for the engine."""
+        return DEFAULT_MAX_CELLS_PER_READ
+
+    @property
+    def max_cells_per_write(self):
+        """Cell budget above which value writes are chunked automatically when the
+        user hasn't passed an explicit ``chunksize``. Engines may override this;
+        ``None`` disables implicit write chunking for the engine."""
+        return DEFAULT_MAX_CELLS_PER_WRITE
 
     def clear_contents(self):
         raise NotImplementedError()
@@ -701,6 +875,22 @@ class Range:
 
     @wrap_text.setter
     def wrap_text(self, value):
+        raise NotImplementedError()
+
+    @property
+    def horizontal_alignment(self):
+        raise NotImplementedError()
+
+    @horizontal_alignment.setter
+    def horizontal_alignment(self, value):
+        raise NotImplementedError()
+
+    @property
+    def vertical_alignment(self):
+        raise NotImplementedError()
+
+    @vertical_alignment.setter
+    def vertical_alignment(self, value):
         raise NotImplementedError()
 
     @property
@@ -1331,7 +1521,7 @@ class Chart:
     def parent(self):
         raise NotImplementedError()
 
-    def set_source_data(self, rng):
+    def set_source_data(self, rng, plot_by=None):
         raise NotImplementedError()
 
     @property
@@ -1340,6 +1530,34 @@ class Chart:
 
     @chart_type.setter
     def chart_type(self, chart_type):
+        raise NotImplementedError()
+
+    @property
+    def title(self):
+        raise NotImplementedError()
+
+    @title.setter
+    def title(self, value):
+        raise NotImplementedError()
+
+    @property
+    def legend(self):
+        raise NotImplementedError()
+
+    @property
+    def plot_by(self):
+        raise NotImplementedError()
+
+    @plot_by.setter
+    def plot_by(self, value):
+        raise NotImplementedError()
+
+    @property
+    def style(self):
+        raise NotImplementedError()
+
+    @style.setter
+    def style(self, value):
         raise NotImplementedError()
 
     @property
@@ -1387,11 +1605,199 @@ class Chart:
         raise NotImplementedError("get_png() is only supported in xlwings Lite")
 
 
+class ChartLegend:
+    @property
+    def api(self):
+        raise NotImplementedError()
+
+    @property
+    def visible(self):
+        raise NotImplementedError()
+
+    @visible.setter
+    def visible(self, value):
+        raise NotImplementedError()
+
+    @property
+    def position(self):
+        raise NotImplementedError()
+
+    @position.setter
+    def position(self, value):
+        raise NotImplementedError()
+
+
 class Charts:
     def _wrap(self, xl):
         raise NotImplementedError()
 
-    def add(self, left, top, width, height):
+    def add(
+        self,
+        left,
+        top,
+        width,
+        height,
+        chart_type=None,
+        source=None,
+        plot_by=None,
+        name=None,
+        anchor=None,
+    ):
+        raise NotImplementedError()
+
+
+class PivotTable:
+    @property
+    def api(self):
+        raise NotImplementedError()
+
+    @property
+    def parent(self):
+        raise NotImplementedError()
+
+    @property
+    def name(self):
+        raise NotImplementedError()
+
+    @name.setter
+    def name(self, value):
+        raise NotImplementedError()
+
+    @property
+    def field_names(self):
+        raise NotImplementedError()
+
+    @property
+    def rows(self):
+        raise NotImplementedError()
+
+    @property
+    def columns(self):
+        raise NotImplementedError()
+
+    @property
+    def filters(self):
+        raise NotImplementedError()
+
+    @property
+    def values(self):
+        raise NotImplementedError()
+
+    @property
+    def layout(self):
+        raise NotImplementedError()
+
+    @layout.setter
+    def layout(self, value):
+        raise NotImplementedError()
+
+    @property
+    def show_row_grand_totals(self):
+        raise NotImplementedError()
+
+    @show_row_grand_totals.setter
+    def show_row_grand_totals(self, value):
+        raise NotImplementedError()
+
+    @property
+    def show_column_grand_totals(self):
+        raise NotImplementedError()
+
+    @show_column_grand_totals.setter
+    def show_column_grand_totals(self, value):
+        raise NotImplementedError()
+
+    @property
+    def range(self):
+        raise NotImplementedError()
+
+    @property
+    def data_body_range(self):
+        raise NotImplementedError()
+
+    def refresh(self):
+        raise NotImplementedError()
+
+    def delete(self):
+        raise NotImplementedError()
+
+
+class PivotTables(Collection):
+    def add(self, source, destination, name=None):
+        raise NotImplementedError()
+
+
+class PivotFields(Collection):
+    """One of the rows/columns/filters areas of a pivot table."""
+
+    @property
+    def area(self):
+        raise NotImplementedError()
+
+    def add(self, name):
+        raise NotImplementedError()
+
+
+class PivotField:
+    @property
+    def api(self):
+        raise NotImplementedError()
+
+    @property
+    def parent(self):
+        raise NotImplementedError()
+
+    @property
+    def name(self):
+        raise NotImplementedError()
+
+    def remove(self):
+        raise NotImplementedError()
+
+
+class PivotValueFields(Collection):
+    def add(self, field, function=None, name=None, number_format=None):
+        raise NotImplementedError()
+
+
+class PivotValueField:
+    @property
+    def api(self):
+        raise NotImplementedError()
+
+    @property
+    def parent(self):
+        raise NotImplementedError()
+
+    @property
+    def name(self):
+        raise NotImplementedError()
+
+    @name.setter
+    def name(self, value):
+        raise NotImplementedError()
+
+    @property
+    def source_field(self):
+        raise NotImplementedError()
+
+    @property
+    def function(self):
+        raise NotImplementedError()
+
+    @function.setter
+    def function(self, value):
+        raise NotImplementedError()
+
+    @property
+    def number_format(self):
+        raise NotImplementedError()
+
+    @number_format.setter
+    def number_format(self, value):
+        raise NotImplementedError()
+
+    def remove(self):
         raise NotImplementedError()
 
 

@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import os
 
+import click
 import pytest
+import requests
 from extra_platforms.pytest import skip_windows
 
 from click_extra.color import COLOR_ENVVARS
@@ -30,6 +32,10 @@ from click_extra.pytest import (  # noqa: F401
     runner,
 )
 from click_extra.theme import THEME_ENVVAR
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @pytest.fixture(scope="session")
@@ -75,3 +81,62 @@ See:
 - https://github.com/pallets/click/issues/2111
 - https://github.com/pallets/click/issues/2110
 """
+
+
+#: Status codes a host answers with when it is refusing *this* request rather
+#: than reporting something about the resource: a rate limit, a proxy hiccup,
+#: or a service that is briefly down.
+TRANSIENT_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
+
+
+def fetch_or_skip(url: str, timeout: float = 60) -> requests.Response:
+    """Fetch `url`, skipping the test when the failure says nothing about it.
+
+    A network-dependent test asserts something about what a host serves. It
+    cannot assert it while the host is rate-limiting, timing out, or down, and
+    a bare `assert response.ok` there reports `assert False`: a red run that
+    looks like the finding the test exists to make, with nothing naming the
+    cause. GitHub throttles anonymous archive downloads, so a full-suite run
+    hits this on its own schedule and reads as an order-dependent flake.
+
+    A response that *is* about the resource still fails, loudly and with its
+    status: a 404 means the URL these tests build no longer resolves, which is
+    the finding, not the weather.
+    """
+    try:
+        response = requests.get(url, timeout=timeout)
+    except requests.RequestException as error:
+        pytest.skip(f"cannot reach {url}: {error}")
+
+    if response.status_code in TRANSIENT_STATUS_CODES:
+        pytest.skip(f"{url} answered {response.status_code} {response.reason}")
+
+    assert response.ok, f"{url} answered {response.status_code} {response.reason}"
+    return response
+
+
+def walk_commands(
+    command: click.Command,
+    ctx: click.Context | None = None,
+    path: tuple[str, ...] = (),
+) -> Iterator[tuple[tuple[str, ...], click.Command]]:
+    """Yield every `(path, command)` pair under `command`, itself included.
+
+    `path` holds the subcommand names leading to the command, the root's own
+    name excluded, so joining it names the invocation a user would type.
+
+    :param command: the command to walk, a group or a leaf.
+    :param ctx: the context `command` is looked up in. Built from the command
+        itself when omitted, which is what a walk starting at the root wants.
+    :param path: the names already walked through, for the recursion.
+    """
+    if ctx is None:
+        ctx = click.Context(command, info_name=command.name)
+    yield path, command
+    if isinstance(command, click.Group):
+        for name in command.list_commands(ctx):
+            sub = command.get_command(ctx, name)
+            if sub is None:
+                continue
+            sub_ctx = click.Context(sub, parent=ctx, info_name=name)
+            yield from walk_commands(sub, sub_ctx, (*path, name))

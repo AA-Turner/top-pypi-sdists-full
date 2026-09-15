@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 from pathlib import Path
@@ -208,8 +209,6 @@ class APIKeyChecker:
             return result
         result['api_key_found'] = True
         try:
-            from vnii import lc_init
-            import os
             original_env = os.environ.get('VNSTOCK_API_KEY')
             os.environ['VNSTOCK_API_KEY'] = api_key
             try:
@@ -239,7 +238,7 @@ class APIKeyChecker:
         except SystemExit as e:
             error_msg = str(e)
             if 'device limit exceeded' in error_msg.lower():
-                logger.warning(f"Device limit exceeded but user is paid")
+                logger.warning("Device limit exceeded but user is paid")
                 result['status'] = 'device_limit_exceeded'
                 result['is_paid'] = True
                 result['error'] = error_msg

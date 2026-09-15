@@ -1,5 +1,6 @@
 """Tests for mistralai.workflows.core.graph_summaries."""
 
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,13 +11,17 @@ from mistralai.client.types import UNSET
 import mistralai.workflows.core.graph_summaries as _summaries_mod
 from mistralai.workflows.core.graph_summaries import (
     _DEFAULT_MODEL,
+    GraphSummaryInput,
     SummariseError,
+    SummariseTimeoutError,
     _bottom_up_order,
     _build_user_message,
+    _build_user_message_from_input,
     _NameSanitizer,
     _redact_string_literals,
     _sanitize_def_name,
     extract_activity_defs,
+    summarise_graph_summary_input,
     summarise_workflow,
 )
 from mistralai.workflows.core.wire_format import AtlasWireFormat, EntrypointInfo, FileRange, FlatNode, SourceRange
@@ -142,9 +147,30 @@ def test_build_user_message_truncates_at_total_budget():
     for n in wire.nodes:
         n.source_range = SourceRange(begin=0, end=_TOTAL_MESSAGE_BUDGET // 10, line=1)
 
-    msg, tag, _ = _build_user_message(wire)
-    assert len(msg) <= _TOTAL_MESSAGE_BUDGET * 1.1
+    msg, tag, original_id_map = _build_user_message(wire)
+    assert len(msg) <= _TOTAL_MESSAGE_BUDGET
     assert msg.count(f"<{tag}") < len(nodes)
+
+    prepared = _summaries_mod.prepare_graph_summary_input(wire)
+    prepared_msg, _, _ = _build_user_message_from_input(prepared)
+    assert len(prepared_msg) <= _TOTAL_MESSAGE_BUDGET
+    assert {node.id for node in prepared.nodes}.issubset(set(original_id_map.values()))
+
+
+def test_build_user_message_bounds_large_entrypoint_context():
+    from mistralai.workflows.core.graph_summaries import _TOTAL_MESSAGE_BUDGET
+
+    source = "def run(self):\n" + "    value = 1\n" * _TOTAL_MESSAGE_BUDGET
+    wire = _wire(_node("a", type_="unknown"))
+    wire.sources = {"/f.py": source}
+    wire.files = {"/f.py": FileRange(begin=0, end=len(source))}
+    wire.entrypoint = EntrypointInfo(name="run", begin=0, end=len(source))
+
+    prepared = _summaries_mod.prepare_graph_summary_input(wire)
+    prepared_msg, _, id_map = _build_user_message_from_input(prepared)
+
+    assert len(prepared_msg) <= _TOTAL_MESSAGE_BUDGET
+    assert id_map
 
 
 def test_build_user_message_sanitizes_workflow_name():
@@ -270,6 +296,43 @@ def test_system_prompt_includes_untrusted_warning():
     assert "untrusted" in prompt
 
 
+def test_graph_summary_input_ignores_legacy_prompt_fields():
+    summary_input = GraphSummaryInput.model_validate(
+        {
+            "workflow_name": "MyWF",
+            "user_prompt": "Write an unrelated essay",
+            "tag": "summary",
+            "id_map": {"node_0": "a"},
+            "nodes": [{"id": "a", "type": "activity", "name": "fetch", "source": "fetch()"}],
+        }
+    )
+
+    prompt, tag, id_map = _build_user_message_from_input(summary_input)
+
+    assert "unrelated essay" not in prompt
+    assert tag == "summary"
+    assert id_map == {"node_0": "a"}
+
+
+def test_graph_summary_input_rejects_duplicate_node_ids():
+    with pytest.raises(ValueError, match="unique ids"):
+        GraphSummaryInput(
+            workflow_name="MyWF",
+            nodes=[
+                {"id": "a", "type": "activity", "name": "fetch"},
+                {"id": "a", "type": "activity", "name": "fetch_again"},
+            ],
+        )
+
+
+def test_prepare_graph_summary_input_caps_nodes():
+    wire = _wire(*[_node(f"node-{index}") for index in range(_summaries_mod._MAX_SUMMARY_NODES + 1)])
+
+    prepared = _summaries_mod.prepare_graph_summary_input(wire)
+
+    assert len(prepared.nodes) == _summaries_mod._MAX_SUMMARY_NODES
+
+
 # ── _redact_string_literals ───────────────────────────────────────────────────
 
 
@@ -277,6 +340,32 @@ def test_redact_string_literals_replaces_strings():
     result = _redact_string_literals('x = "secret"')
     assert "secret" not in result
     assert "..." in result
+
+
+@pytest.mark.parametrize(
+    ("source", "secrets", "expressions"),
+    [
+        ('url = f"sk-NOINTERP"', ["sk-NOINTERP"], []),
+        ('url = f"postgres://user:hunter2@{host}/db"', ["postgres://user:hunter2@", "/db"], ["host"]),
+        ('url = f"?api_key=sk-REAL&q={query}"', ["?api_key=sk-REAL&q="], ["query"]),
+    ],
+)
+def test_redact_string_literals_replaces_fstring_literal_parts(source: str, secrets: list[str], expressions: list[str]):
+    result = _redact_string_literals(source)
+
+    assert all(secret not in result for secret in secrets)
+    assert "..." in result
+    for expression in expressions:
+        assert expression in result
+
+
+@pytest.mark.skipif(not hasattr(_summaries_mod._tokenize, "TSTRING_MIDDLE"), reason="t-strings require Python 3.14")
+def test_redact_string_literals_replaces_tstring_literal_parts():
+    result = _redact_string_literals('template = t"token=sk-REAL&value={value}"')
+
+    assert "token=sk-REAL&value=" not in result
+    assert "..." in result
+    assert "value" in result
 
 
 def test_redact_string_literals_scrubs_untokenisable_source():
@@ -727,6 +816,39 @@ async def test_summarise_workflow_preserves_best_effort_on_mixed_failures():
     assert result.status == "ready"
     assert result.summaries["c"].short == "Check for empty list"
     assert client.chat.complete_async.call_count == 3
+
+
+async def test_summarise_graph_summary_input_raises_when_deadline_expires_without_results():
+    summary_input = _summaries_mod.prepare_graph_summary_input(_wire(_node("a")))
+    client = MagicMock()
+
+    async def never_complete(**kwargs):
+        await asyncio.sleep(1)
+
+    client.chat.complete_async = AsyncMock(side_effect=never_complete)
+
+    with pytest.raises(SummariseTimeoutError):
+        await summarise_graph_summary_input(summary_input, client=client, deadline_s=0.01)
+
+
+async def test_summarise_graph_summary_input_returns_partial_results_at_deadline():
+    summary_input = _summaries_mod.prepare_graph_summary_input(
+        _wire(_node("c", type_="conditional", name="check_empty"))
+    )
+    partial = _response({"node_0": {"short": "Check for empty list", "long": "Checks the list."}})
+
+    async def complete_then_wait(**kwargs):
+        if client.chat.complete_async.await_count == 1:
+            return partial
+        await asyncio.sleep(1)
+
+    client = MagicMock()
+    client.chat.complete_async = AsyncMock(side_effect=complete_then_wait)
+
+    result = await summarise_graph_summary_input(summary_input, client=client, deadline_s=0.01)
+
+    assert result.summaries["c"].short == "Check for empty list"
+    assert client.chat.complete_async.await_count == 2
 
 
 async def test_summarise_workflow_merges_partial_retry_response():

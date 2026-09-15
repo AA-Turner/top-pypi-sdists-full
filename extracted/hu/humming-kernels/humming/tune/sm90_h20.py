@@ -4,7 +4,9 @@ import numpy as np
 
 from humming import dtypes
 from humming.config import GemmType, LayerConfig
+from humming.device import current_device
 from humming.tune.base import DeviceHeuristics
+from humming.utils.math import ceil_div, round_up
 from humming.utils.smem import estimate_smem_size_layer
 
 
@@ -31,7 +33,7 @@ class Sm90H20Heuristics(DeviceHeuristics):
         if a_bits == 8 and (not layer_config.b_dtype.is_integer_type or b_bits > 4):
             return None
 
-        num_sms = cls.get_num_sms()
+        num_sms = current_device.sm_count
         warp_k = 512 // a_bits
         reference_k = 2 * warp_k
         reference_tiles = math.ceil(shape_m / block_shape_m) * (shape_n // 128) * (shape_k // reference_k)
@@ -56,7 +58,7 @@ class Sm90H20Heuristics(DeviceHeuristics):
         max_output_values = 6 * 1024
         wide_k = 2 * reference_k if a_bits == 16 or b_bits >= 4 else reference_k
         wide_num_iters = math.ceil(shape_m / block_shape_m) * (shape_n // 256) * (shape_k // wide_k)
-        stage4_slice = max(4, math.ceil(wide_num_iters / num_sms / 4) * 4)
+        stage4_slice = max(4, round_up(ceil_div(wide_num_iters, num_sms), 4))
         stage4_active_ctas = min(num_sms, math.ceil(wide_num_iters / stage4_slice))
         if (
             block_shape_m * 256 <= max_output_values
@@ -71,7 +73,7 @@ class Sm90H20Heuristics(DeviceHeuristics):
                 smem_size = estimate_smem_size_layer(layer_config, block_shape, GemmType.DENSE, num_stages)
                 if smem_size > cls.max_smem_size * 0.8:
                     continue
-                slice_iters = math.ceil(wide_num_iters / num_sms / num_stages) * num_stages
+                slice_iters = round_up(ceil_div(wide_num_iters, num_sms), num_stages)
                 active_ctas = min(num_sms, math.ceil(wide_num_iters / slice_iters))
                 pipeline_gain = 0.05 * min(b_bits, 4) / 4
                 stage_scores.append((active_ctas * (1 + pipeline_gain * num_stages), num_stages))
@@ -106,16 +108,16 @@ class Sm90H20Heuristics(DeviceHeuristics):
         stream_k_grid_gain = 1.0
         current_output_tiles = current_m_tiles * num_n_tiles
         if layer_config.shape_k <= 1024:
-            if current_output_tiles >= math.ceil(cls.get_num_sms() * 0.5):
+            if current_output_tiles >= math.ceil(current_device.sm_count * 0.5):
                 return block_m
         else:
-            if current_output_tiles >= math.ceil(cls.get_num_sms() * 0.2):
+            if current_output_tiles >= math.ceil(current_device.sm_count * 0.2):
                 return block_m
             stream_k_grid_gain = min(4.5, layer_config.shape_k / (12 * block_k))
         target_wave_fraction = 0.8
         if layer_config.shape_k > 1024:
             target_wave_fraction = max(0.5, 1 - layer_config.shape_k / (8 * 1024))
-        target_output_tiles = math.ceil(cls.get_num_sms() * target_wave_fraction / stream_k_grid_gain)
+        target_output_tiles = math.ceil(current_device.sm_count * target_wave_fraction / stream_k_grid_gain)
         if current_output_tiles >= target_output_tiles:
             return block_m
 
@@ -177,7 +179,7 @@ class Sm90H20Heuristics(DeviceHeuristics):
         else:
             blocks_per_expert = math.ceil(shape_m / num_experts / block_m)
             estimated_m_blocks = num_experts * blocks_per_expert
-        num_sms_physical = cls.get_num_sms()
+        num_sms_physical = current_device.sm_count
 
         if layer_config.shape_n >= 1024 and layer_config.shape_n % 512 == 0:
             wide_block_n = 512
@@ -334,12 +336,12 @@ class Sm90H20Heuristics(DeviceHeuristics):
 
         if not layer_config.num_experts:
             if shape_m <= block_shape_m:
-                block_shape_m = math.ceil(shape_m / 8) * 8
+                block_shape_m = round_up(shape_m, 8)
             else:
                 blocks = [math.ceil(shape_m / ((i + 1) * 8)) for i in range(block_shape_m // 8)]
                 block_shape_m = np.argmin(blocks).item() * 8 + 8
             if layer_config.a_dtype == dtypes.int8 and block_shape_m > 32 and block_shape_m % 16 != 0:
-                block_shape_m = math.ceil(block_shape_m / 16) * 16
+                block_shape_m = round_up(block_shape_m, 16)
         else:
             block_size_configs = [(8, 0.7), (16, 0.8), (32, 0.9), (48, 0.9), (64, 0.9)]
             for moe_block_size, threshold in block_size_configs:
@@ -349,9 +351,9 @@ class Sm90H20Heuristics(DeviceHeuristics):
             new_shape_m = int(shape_m / layer_config.num_experts / 0.9)
             new_shape_m = max(new_shape_m, 1)
             if block_shape_m == 128:
-                if np.ceil(new_shape_m / 96) * 96 < np.ceil(new_shape_m / 64) * 64:
+                if round_up(new_shape_m, 96) < round_up(new_shape_m, 64):
                     block_shape_m = 96
-                elif np.ceil(new_shape_m / 128) * 128 < np.ceil(new_shape_m / 64) * 64 * 1.05:
+                elif round_up(new_shape_m, 128) < round_up(new_shape_m, 64) * 1.05:
                     block_shape_m = 128
                 else:
                     block_shape_m = moe_block_size
@@ -364,7 +366,7 @@ class Sm90H20Heuristics(DeviceHeuristics):
         num_blocks_n = layer_config.shape_n // block_shape_n
         num_blocks_m = cls.estimate_num_blocks_m(layer_config, shape_m, block_shape_m)
 
-        num_sms = cls.get_num_sms()
+        num_sms = current_device.sm_count
         while num_blocks_n * num_blocks_m * 2 < num_sms * num_ctas_per_sm:
             if warp_shape_n == 64:
                 warp_shape_n = warp_shape_n // 2

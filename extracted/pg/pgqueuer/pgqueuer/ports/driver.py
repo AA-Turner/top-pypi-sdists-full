@@ -3,19 +3,47 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable, Protocol
+from typing import Callable, Protocol, runtime_checkable
 
 from typing_extensions import Self
+
+
+@runtime_checkable
+class SqlStateError(Protocol):
+    """Driver exception carrying a PostgreSQL SQLSTATE code.
+
+    Both asyncpg and psycopg errors expose ``sqlstate``; matching on the
+    shape keeps the persistence layer free of driver imports.
+    """
+
+    @property
+    def sqlstate(self) -> str | None: ...
+
+
+@runtime_checkable
+class ConstraintNamed(Protocol):
+    """Exception or diagnostic that names the violated constraint."""
+
+    @property
+    def constraint_name(self) -> str | None: ...
+
+
+@runtime_checkable
+class DiagnosticError(Protocol):
+    """psycopg-style error whose ``diag`` carries constraint details."""
+
+    @property
+    def diag(self) -> object: ...
 
 
 class TaskManagerPort(Protocol):
     """Protocol for managing background asyncio tasks."""
 
-    tasks: set[asyncio.Task]
+    tasks: set[asyncio.Task[object]]
 
-    def add(self, task: asyncio.Task) -> None: ...
+    def add(self, task: asyncio.Task[object]) -> None: ...
 
-    async def gather_tasks(self, return_exceptions: bool = True) -> list[BaseException | None]: ...
+    async def gather_tasks(self, return_exceptions: bool = True) -> list[object]: ...
 
     async def __aenter__(self) -> "TaskManagerPort": ...
 
@@ -28,14 +56,14 @@ class Driver(Protocol):
     async def fetch(
         self,
         query: str,
-        *args: Any,
-    ) -> list[dict]:
+        *args: object,
+    ) -> list[dict[str, object]]:
         raise NotImplementedError
 
     async def execute(
         self,
         query: str,
-        *args: Any,
+        *args: object,
     ) -> str:
         raise NotImplementedError
 
@@ -74,6 +102,6 @@ class SyncDriver(Protocol):
     def fetch(
         self,
         query: str,
-        *args: Any,
-    ) -> list[dict]:
+        *args: object,
+    ) -> list[dict[str, object]]:
         raise NotImplementedError

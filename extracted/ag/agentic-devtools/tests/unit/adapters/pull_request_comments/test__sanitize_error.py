@@ -8,7 +8,7 @@ from agentic_devtools.adapters.pull_request_comments import _sanitize_error
 
 
 def test_sanitizes_token_and_environment_values(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SPECKIT_PR_TOKEN", "primary-secret")
+    monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "primary-secret")
     monkeypatch.setenv("GH_TOKEN", "environment-secret")
     assert _sanitize_error("primary-secret and environment-secret and explicit-secret", "explicit-secret") == (
         "[REDACTED] and [REDACTED] and [REDACTED]"

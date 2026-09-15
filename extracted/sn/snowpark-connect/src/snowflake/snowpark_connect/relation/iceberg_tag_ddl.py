@@ -146,6 +146,7 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.utils.identifiers import strip_spark_identifier_quotes
 from snowflake.snowpark_connect.utils.telemetry import telemetry
 
 
@@ -178,16 +179,6 @@ _CREATE_TAG_AS_OF_TIMESTAMP_SQL = re.compile(
     """,
     re.VERBOSE,
 )
-
-
-def _strip_spark_identifier_quotes(identifier: str) -> str:
-    text = identifier.strip()
-    if len(text) >= 2 and text[0] == text[-1] and text[0] in {"`", '"', "'"}:
-        inner = text[1:-1]
-        if text[0] == "`":
-            return inner.replace("``", "`")
-        return inner.replace(text[0] * 2, text[0])
-    return text
 
 
 def _format_tag_as_of_timestamp_literal(value: TypingAny) -> str:
@@ -290,7 +281,7 @@ def match_create_tag_as_of_timestamp_sql(
         return None
     return CreateTagAsOfTimestampMatch(
         table_sql=match.group("table").strip(),
-        tag_name=_strip_spark_identifier_quotes(match.group("tag")),
+        tag_name=strip_spark_identifier_quotes(match.group("tag")),
         if_not_exists=match.group("if_not_exists") is not None,
         create_or_replace=match.group("or_replace") is not None,
         timestamp_sql=match.group("timestamp").strip(),

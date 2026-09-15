@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyblu"
-version = "2.1.0"
+version = "2.2.0"
 description = ""
 license = "MIT"
 authors = [{ name = "Louis Christ", email = "mail@louischrist.de" }]
@@ -12,7 +12,9 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "aiohttp >= 3.11.11",
-    "lxml >= 5.0.0"]
+    "lxml >= 5.0.0",
+    "yarl>=1.17.0",
+]
 
 [project.urls]
 repository = "https://github.com/LouisChrist/pyblu"
@@ -35,7 +37,6 @@ dev = [
     "packaging >= 24.0",
     "questionary >= 2.1.0",
     "mypy >= 1.11.2",
-    "pygithub >= 2.4.0",
     "types-lxml >= 2024.8.7"
     ]
 

@@ -82,13 +82,15 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, NoReturn, overload
+from http import HTTPStatus
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, overload
 
 from airbyte import exceptions as exc
 from airbyte._util import api_util
 from airbyte.cloud._credentials import _AirbyteCredentials
 from airbyte.cloud.models import (
     CloudDefaultContextInfo,
+    CloudDefaultWorkspaceUpdateInfo,
     CloudOrganizationInfo,
     CloudWorkspaceInfo,
     WorkspacePrivilegeScope,
@@ -105,7 +107,7 @@ if TYPE_CHECKING:
 
 
 MAX_ORGANIZATION_CANDIDATES = 10
-MAX_MEMBER_WORKSPACES = 25
+MAX_WORKSPACES_TO_VALIDATE = 25
 
 
 @dataclass(init=False, kw_only=True)
@@ -116,6 +118,8 @@ class CloudClient:
     _membership_organization_ids: tuple[str, ...] | None
     _user_permissions: tuple[dict[str, Any], ...] | None
     _direct_workspace_infos: dict[str, CloudWorkspaceInfo | None]
+    _workspace_organizations: dict[str, CloudOrganizationInfo | None]
+    _validated_direct_workspace_result: tuple[list[CloudWorkspaceInfo], int] | None
     _authenticated_user_info: dict[str, Any] | None = field(repr=False)
     _authenticated_user_id: str | None = field(repr=False)
     _authenticated_bearer_token: SecretString | None
@@ -145,6 +149,8 @@ class CloudClient:
         self._membership_organization_ids = None
         self._user_permissions = None
         self._direct_workspace_infos = {}
+        self._workspace_organizations = {}
+        self._validated_direct_workspace_result = None
         self._authenticated_user_info = None
         self._authenticated_user_id = None
         self._authenticated_bearer_token = None
@@ -460,23 +466,31 @@ class CloudClient:
         limit: int | None = None,
     ) -> list[CloudWorkspaceInfo]:
         """List workspaces granted directly to the authenticated user."""
-        workspace_ids = self._get_direct_workspace_ids()
-        workspaces: list[CloudWorkspaceInfo] = []
+        workspaces, unvalidated_count = self._validate_direct_workspaces()
         name_substring = name_contains.casefold() if name_contains is not None else None
-        for direct_workspace_id in workspace_ids:
-            workspace = self._get_direct_workspace_info(direct_workspace_id)
-            if workspace is None:
-                continue
+        filtered_workspaces: list[CloudWorkspaceInfo] = []
+
+        def accepts(workspace: CloudWorkspaceInfo) -> bool:
             if name is not None and workspace.name != name:
-                continue
+                return False
             if name_substring is not None and name_substring not in workspace.name.casefold():
-                continue
-            if name_filter is not None and not name_filter(workspace.name):
-                continue
-            workspaces.append(workspace)
-            if limit is not None and len(workspaces) == limit:
+                return False
+            return name_filter is None or name_filter(workspace.name)
+
+        for workspace in workspaces:
+            if accepts(workspace):
+                filtered_workspaces.append(workspace)
+            if limit is not None and len(filtered_workspaces) == limit:
                 break
-        return workspaces
+        if unvalidated_count > 0 and (limit is None or len(filtered_workspaces) < limit):
+            for workspace_id in self._get_direct_workspace_ids()[MAX_WORKSPACES_TO_VALIDATE:]:
+                workspace = self._get_direct_workspace_info(workspace_id)
+                if workspace is None or not accepts(workspace):
+                    continue
+                filtered_workspaces.append(workspace)
+                if limit is not None and len(filtered_workspaces) == limit:
+                    break
+        return filtered_workspaces
 
     def _list_unscoped_workspaces(
         self,
@@ -690,16 +704,14 @@ class CloudClient:
         if user_default_workspace_id:
             return user_default_workspace_id
         try:
-            direct_workspace_ids = self._get_direct_workspace_ids()
+            live_workspaces, unvalidated_count = self._validate_direct_workspaces()
         except (AirbyteError, exc.PyAirbyteInputError):
             return None
-        if len(direct_workspace_ids) != 1:
-            return None
-        try:
-            workspace_info = self._get_direct_workspace_info(direct_workspace_ids[0])
-        except (AirbyteError, exc.PyAirbyteInputError):
-            return None
-        return direct_workspace_ids[0] if workspace_info is not None else None
+        return (
+            live_workspaces[0].workspace_id
+            if unvalidated_count == 0 and len(live_workspaces) == 1
+            else None
+        )
 
     def _get_user_permissions(self) -> tuple[dict[str, Any], ...]:
         """Get and cache permissions for the authenticated user."""
@@ -764,6 +776,67 @@ class CloudClient:
         self._direct_workspace_infos[workspace_id] = workspace_info
         return workspace_info
 
+    def _get_workspace_organization(self, workspace_id: str) -> CloudOrganizationInfo | None:
+        """Fetch and cache organization info for a workspace."""
+        if workspace_id in self._workspace_organizations:
+            return self._workspace_organizations[workspace_id]
+        try:
+            organization = api_util.get_workspace_organization_info(
+                workspace_id=workspace_id,
+                api_root=self.public_api_root,
+                config_api_root=self.config_api_root,
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+                bearer_token=self._get_config_api_bearer_token(),
+            )
+        except (AirbyteError, NotImplementedError):
+            # The workspace is readable via the public API but its organization is not
+            # (e.g. the caller lacks org-level read, or no Config API root can be derived
+            # from a custom public API root). Keep the live workspace and leave the
+            # organization unknown.
+            self._workspace_organizations[workspace_id] = None
+            return None
+        organization_id = organization.get("organizationId")
+        if not isinstance(organization_id, str) or not organization_id:
+            self._workspace_organizations[workspace_id] = None
+            return None
+        organization_info = CloudOrganizationInfo(
+            organization_id=organization_id,
+            organization_name=(
+                organization.get("organizationName")
+                if isinstance(organization.get("organizationName"), str)
+                else None
+            ),
+        )
+        self._workspace_organizations[workspace_id] = organization_info
+        return organization_info
+
+    def _validate_direct_workspaces(self) -> tuple[list[CloudWorkspaceInfo], int]:
+        """Validate direct workspace grants once within the configured cap."""
+        if self._validated_direct_workspace_result is not None:
+            return self._validated_direct_workspace_result
+        workspace_ids = self._get_direct_workspace_ids()
+        live_workspaces: list[CloudWorkspaceInfo] = []
+        for workspace_id in workspace_ids[:MAX_WORKSPACES_TO_VALIDATE]:
+            workspace = self._get_direct_workspace_info(workspace_id)
+            if workspace is None:
+                continue
+            organization = self._get_workspace_organization(workspace_id)
+            if organization is not None:
+                workspace = workspace.model_copy(
+                    update={
+                        "organization_id": organization.organization_id,
+                        "organization_name": organization.organization_name,
+                    }
+                )
+            live_workspaces.append(workspace)
+        result = (
+            live_workspaces,
+            max(0, len(workspace_ids) - MAX_WORKSPACES_TO_VALIDATE),
+        )
+        self._validated_direct_workspace_result = result
+        return result
+
     def _is_instance_admin(self) -> bool:
         """Return whether the caller has an instance-admin permission."""
         return any(
@@ -776,6 +849,7 @@ class CloudClient:
         user_id: str | None = None
         user_name: str | None = None
         user_email: str | None = None
+        user: dict[str, Any] | None = None
         try:
             user = self._get_authenticated_user_info()
         except (AirbyteError, exc.PyAirbyteInputError):
@@ -793,22 +867,18 @@ class CloudClient:
             membership_organization_ids = ()
             member_workspaces = []
             member_organizations_truncated = False
-            member_workspaces_truncated = False
+            unvalidated_workspace_count = 0
         else:
             membership_organization_ids = self._get_membership_organization_ids()
             member_organizations_truncated = (
                 len(membership_organization_ids) > MAX_ORGANIZATION_CANDIDATES
             )
-            member_workspaces_truncated = (
-                len(self._get_direct_workspace_ids()) > MAX_MEMBER_WORKSPACES
-            )
             try:
-                member_workspaces = self.list_workspaces(
-                    privilege_scope=WorkspacePrivilegeScope.MEMBER_OF,
-                    limit=MAX_MEMBER_WORKSPACES,
-                )
+                member_workspaces, unvalidated_workspace_count = self._validate_direct_workspaces()
             except (AirbyteError, exc.PyAirbyteInputError):
                 member_workspaces = []
+                unvalidated_workspace_count = 0
+            member_workspaces = member_workspaces[:]
 
         member_organizations = [
             CloudOrganizationInfo.model_validate(candidate)
@@ -816,6 +886,17 @@ class CloudClient:
                 membership_organization_ids[:MAX_ORGANIZATION_CANDIDATES]
             )
         ]
+        default_workspace_info: CloudWorkspaceInfo | None = None
+        default_workspace_organization: CloudOrganizationInfo | None = None
+        if default_workspace_id is not None:
+            try:
+                default_workspace_info = self._get_direct_workspace_info(default_workspace_id)
+            except (AirbyteError, exc.PyAirbyteInputError):
+                default_workspace_info = None
+            if default_workspace_info is not None:
+                default_workspace_organization = self._get_workspace_organization(
+                    default_workspace_id
+                )
         discovery_hints: list[str] = []
         if any(permission.get("permissionType") == "instance_admin" for permission in permissions):
             discovery_hints.append(
@@ -829,18 +910,196 @@ class CloudClient:
                 "organizations. Use list_cloud_workspaces(organization_id=<id>) to "
                 "discover workspaces."
             )
+        if user is not None and not isinstance(user.get("defaultWorkspaceId"), str):
+            discovery_hints.append(
+                "No default workspace is set. Use "
+                "set_default_cloud_workspace(user_email=<your email>, "
+                "workspace_id=<id>) to durably set one; it applies to both MCP "
+                "sessions and the Airbyte Cloud web app."
+            )
         return CloudDefaultContextInfo(
             user_id=user_id,
             user_name=user_name,
             user_email=user_email,
             default_workspace_id=default_workspace_id,
+            default_workspace_name=(
+                default_workspace_info.name if default_workspace_info else None
+            ),
+            default_workspace_verified=default_workspace_info is not None,
+            default_organization_id=(
+                default_workspace_organization.organization_id
+                if default_workspace_organization is not None
+                else None
+            ),
+            default_organization_name=(
+                default_workspace_organization.organization_name
+                if default_workspace_organization is not None
+                else None
+            ),
             configured_workspace_id=self.default_workspace_id,
             configured_organization_id=self.organization_id,
             member_organizations=member_organizations,
             member_workspaces=member_workspaces,
             member_organizations_truncated=member_organizations_truncated,
-            member_workspaces_truncated=member_workspaces_truncated,
+            member_workspaces_truncated=unvalidated_workspace_count > 0,
+            unvalidated_workspace_count=unvalidated_workspace_count,
             discovery_hints=discovery_hints,
+        )
+
+    def set_default_workspace_for_user(
+        self,
+        *,
+        user_email: str,
+        workspace_id: str,
+    ) -> CloudDefaultWorkspaceUpdateInfo:
+        """Durably set the authenticated user's default workspace.
+
+        This is a persistent, account-level change: it updates the user's stored
+        default workspace in Airbyte Cloud, affecting future sessions and the
+        Airbyte Cloud web app. Validation fails closed: the requested email must
+        match the authenticated user, the workspace must be live (not
+        tombstoned), and the user must be an explicit member of the workspace or
+        its parent organization.
+        """
+        user = self._get_authenticated_user_info()
+        user_id = user.get("userId")
+        authenticated_email = user.get("email")
+        if not isinstance(user_id, str) or not user_id:
+            raise exc.PyAirbyteInputError(
+                message="The Airbyte user response did not include a user ID.",
+                context={"response": user},
+            )
+        if not isinstance(authenticated_email, str) or not authenticated_email:
+            raise exc.PyAirbyteInputError(
+                message="The Airbyte user response did not include an email.",
+                context={"response": user},
+            )
+        if user.get("status") == "disabled":
+            raise exc.PyAirbyteInputError(
+                message=(
+                    "The authenticated user is disabled/deactivated and cannot update "
+                    "a default workspace."
+                ),
+                context={"user_id": user_id, "email": authenticated_email},
+            )
+
+        if user_email.strip().lower() != authenticated_email.strip().lower():
+            raise exc.PyAirbyteInputError(
+                message=("The provided `user_email` does not match the authenticated user."),
+                guidance=(
+                    "Call get_default_cloud_context to see the authenticated user "
+                    "context, then pass that user's email."
+                ),
+                context={
+                    "user_id": user_id,
+                    "email": authenticated_email,
+                    "name": user.get("name"),
+                },
+            )
+
+        try:
+            workspace = api_util.get_workspace_config_api(
+                workspace_id,
+                api_root=self.public_api_root,
+                config_api_root=self.config_api_root,
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+                bearer_token=self._get_config_api_bearer_token(),
+            )
+        except exc.AirbyteMissingResourceError as error:
+            raise exc.PyAirbyteInputError(
+                message=f"Workspace {workspace_id} was not found.",
+                guidance=("Call get_default_cloud_context to see your member workspaces."),
+                context={"workspace_id": workspace_id},
+            ) from error
+        except exc.AirbyteError as error:
+            if (error.context or {}).get("status_code") == HTTPStatus.NOT_FOUND:
+                raise exc.PyAirbyteInputError(
+                    message=f"Workspace {workspace_id} was not found.",
+                    guidance=("Call get_default_cloud_context to see your member workspaces."),
+                    context={"workspace_id": workspace_id},
+                ) from error
+            raise
+        if workspace.get("tombstone"):
+            raise exc.PyAirbyteInputError(
+                message=f"Workspace {workspace_id} is tombstoned (deleted).",
+                guidance=("Call get_default_cloud_context to see your member workspaces."),
+                context={"workspace_id": workspace_id},
+            )
+        workspace_organization_id = workspace.get("organizationId")
+        if not isinstance(workspace_organization_id, str) or not workspace_organization_id:
+            workspace_organization_id = None
+
+        direct = workspace_id in self._get_direct_workspace_ids()
+        via_org = (
+            workspace_organization_id is not None
+            and workspace_organization_id in self._get_membership_organization_ids()
+        )
+        if not direct and not via_org:
+            raise exc.PyAirbyteInputError(
+                message=(
+                    f"You are not an explicit member of workspace {workspace_id} "
+                    f"or its organization {workspace_organization_id}."
+                ),
+                guidance=(
+                    "Call get_default_cloud_context to see your member_workspaces "
+                    "and member_organizations, then choose a workspace you are a "
+                    "member of."
+                ),
+                context={
+                    "workspace_id": workspace_id,
+                    "organization_id": workspace_organization_id,
+                },
+            )
+        membership_basis: Literal["workspace", "organization"] = (
+            "workspace" if direct else "organization"
+        )
+
+        if workspace_organization_id is None:
+            raise exc.PyAirbyteInputError(
+                message=(f"Workspace {workspace_id} does not belong to an organization."),
+                guidance=(
+                    "Every Airbyte Cloud workspace must belong to a live "
+                    "organization; the workspace record did not include one."
+                ),
+                context={"workspace_id": workspace_id},
+            )
+        previous_default_workspace_id = user.get("defaultWorkspaceId")
+        if not isinstance(previous_default_workspace_id, str):
+            previous_default_workspace_id = None
+
+        updated_user = api_util.update_user_default_workspace(
+            user_id,
+            workspace_id,
+            api_root=self.public_api_root,
+            config_api_root=self.config_api_root,
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            bearer_token=self._get_config_api_bearer_token(),
+        )
+        if updated_user.get("defaultWorkspaceId") != workspace_id:
+            raise AirbyteError(
+                message="Default workspace update did not persist.",
+                context={
+                    "workspace_id": workspace_id,
+                    "response": updated_user,
+                },
+            )
+        self._authenticated_user_info = None
+
+        organization = self._get_workspace_organization(workspace_id)
+        workspace_name = workspace.get("name")
+        return CloudDefaultWorkspaceUpdateInfo(
+            user_id=user_id,
+            user_email=authenticated_email,
+            previous_default_workspace_id=previous_default_workspace_id,
+            default_workspace_id=workspace_id,
+            default_workspace_name=(workspace_name if isinstance(workspace_name, str) else None),
+            organization_id=(organization.organization_id if organization is not None else None),
+            organization_name=(
+                organization.organization_name if organization is not None else None
+            ),
+            membership_basis=membership_basis,
         )
 
     def _get_organization_candidates(

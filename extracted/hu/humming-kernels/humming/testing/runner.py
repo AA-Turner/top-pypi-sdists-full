@@ -11,6 +11,7 @@ from filelock import FileLock
 import humming.utils.jit as jit_utils
 from humming import dtypes, ops
 from humming.config import ComputeConfig, GemmType, LayerConfig, MmaType, TuningConfig
+from humming.device import current_device
 from humming.kernel.humming import HummingKernel
 from humming.schema import HummingWeightSchema
 from humming.testing.data import (
@@ -28,11 +29,6 @@ from humming.transform import transform_humming_tensors
 _DEFAULT_SHAPE_MS = (1, 17, 64, 257, 1024, 4096)
 TEST_TUNING_SOURCE_ENV = "HUMMING_TEST_TUNING_SOURCE"
 NUMERICAL_ERROR_LOG_ENV = "HUMMING_TEST_NUMERICAL_ERROR_LOG"
-M_MAJOR_INPUT_SCALE_M_ALIGNMENT = 4
-
-
-def _round_up(value: int, alignment: int) -> int:
-    return (value + alignment - 1) // alignment * alignment
 
 
 def assert_kernel_test_shape_coverage(
@@ -76,17 +72,12 @@ class KernelTestCase:
     def resolve_expert_max_tokens(self, shape_m: int) -> int:
         if self.expert_max_tokens is not None:
             return self.expert_max_tokens
-        expert_max_tokens = shape_m * self.top_k
-        if self.uses_m_major_input_scale:
-            expert_max_tokens = _round_up(expert_max_tokens, M_MAJOR_INPUT_SCALE_M_ALIGNMENT)
-        return expert_max_tokens
+        return shape_m * self.top_k
 
     @property
     def uses_m_major_input_scale(self) -> bool:
         return self.compute_config.use_m_major_input_scale or (
-            self.layer_config.has_input_scale
-            and self.layer_config.input_scale_group_size == 0
-            and self.layer_config.mma_type != MmaType.MXMMA
+            self.layer_config.is_token_input_scale and self.layer_config.mma_type != MmaType.MXMMA
         )
 
 
@@ -104,6 +95,7 @@ class KernelTestRunner:
         self.test_case = test_case
         self.layer_config = test_case.layer_config
         self.compute_config = test_case.compute_config
+        self.device = torch.cuda.current_device()
         self.weight_ref: torch.Tensor
         self.bias_ref: torch.Tensor | None = None
         self.kernel_tensors: dict[str, torch.Tensor]
@@ -146,6 +138,7 @@ class KernelTestRunner:
             self.layer_config.to_str(),
             self.compute_config.to_str(),
             [(0, 1 << 30, values) for values in tuning_configs],
+            device=self.device,
         ).reshape(-1, 4)
         assert kernel_configs.shape[0] == len(tuning_configs)
         for kernel_id in set(kernel_configs[:, 2].tolist()):
@@ -170,6 +163,7 @@ class KernelTestRunner:
             dtype=config.param_dtype,
             std_scale=self.test_case.weight_std_scale,
             group_size=config.weight_scale_group_size,
+            device=self.device,
         )
 
         schema = HummingWeightSchema(
@@ -192,6 +186,7 @@ class KernelTestRunner:
                 bias_shape,
                 dtype=config.param_dtype,
                 std_scale=self.test_case.bias_std_scale,
+                device=self.device,
             )
             tensors["bias"] = self.bias_ref
         self.kernel_tensors = transform_humming_tensors(config, tensors)
@@ -199,38 +194,48 @@ class KernelTestRunner:
     def prepare_inputs(
         self,
         inputs_orig: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
         config = self.layer_config
         shape_k = config.shape_k - config.pad_shape_k
         assert inputs_orig.shape[1] == shape_k
 
         if config.a_dtype.num_bits == 16:
             inputs = inputs_orig.to(dtypes.torch_dtype_map[config.a_dtype])
-            return inputs.float(), inputs, None
+            return inputs.float(), inputs, None, None
 
-        input_tensors = ops.quant_input(
-            inputs_orig,
-            str(config.a_dtype),
-            group_size=config.input_scale_group_size,
-            scale_dtype=str(config.as_dtype),
-        )
-        inputs, scale_ref = input_tensors
-        use_m_major_input_layout = self.test_case.uses_m_major_input_scale and (
-            config.input_scale_group_size > 0 or config.mma_type == MmaType.MXMMA
-        )
-        if use_m_major_input_layout:
-            m_major_input_tensors = ops.quant_input(
+        static_scale = None
+        if config.input_quant_mode.has_tensor_scale:
+            target_maximum = 448.0 if config.a_dtype == dtypes.float8e4m3 else 127.0
+            static_scale = (inputs_orig.abs().amax() / target_maximum).reshape(1).float()
+
+        def process(m_major_scale: bool = False):
+            result = ops.process_input(
                 inputs_orig,
-                str(config.a_dtype),
-                group_size=config.input_scale_group_size,
-                scale_dtype=str(config.as_dtype),
-                m_major_scale=True,
+                quant_mode=config.input_quant_mode.value,
+                quant_dtype=str(config.a_dtype),
+                quant_group_size=config.input_scale_group_size or None,
+                group_scale_dtype=str(config.as_dtype),
+                use_m_major_input_scale=m_major_scale,
+                token_scales=static_scale,
             )
-            _, input_scale = m_major_input_tensors
-        elif config.mma_type == MmaType.MXMMA and config.input_scale_group_size > 0:
-            input_scale = scale_ref.view(torch.int32).contiguous()
+            return result
+
+        inputs, group_scale_ref, token_scale_ref = process()
+        use_m_major_input_layout = self.test_case.uses_m_major_input_scale
+        if use_m_major_input_layout:
+            _, major_groups, major_tokens = process(m_major_scale=True)
+            input_scale = major_groups if config.input_quant_mode.has_group_scale else major_tokens
+            input_scale_2 = major_tokens if config.input_quant_mode.has_secondary_scale else None
         else:
-            input_scale = scale_ref
+            input_scale = group_scale_ref if group_scale_ref is not None else token_scale_ref
+            input_scale_2 = token_scale_ref if config.input_quant_mode.has_secondary_scale else None
+
+        if config.input_quant_mode.has_tensor_scale:
+            tensor_scale = static_scale
+            if config.input_quant_mode.has_secondary_scale:
+                input_scale_2 = tensor_scale
+            else:
+                input_scale = tensor_scale
 
         if config.a_dtype.num_bits == 4:
             codes = ops.unpack_weight(inputs.view(torch.int32), 4)
@@ -252,9 +257,18 @@ class KernelTestRunner:
         else:
             dequant_inputs = inputs.float()
 
-        group_size = config.input_scale_group_size or shape_k
-        inputs_ref = dequant_inputs.float() * scale_ref.float().repeat_interleave(group_size, 1)
-        return inputs_ref, inputs, input_scale
+        if group_scale_ref is not None:
+            scale_ref = group_scale_ref.view(dtypes.torch_dtype_map[config.as_dtype])
+            scale_ref = scale_ref[:, : shape_k // config.input_scale_group_size].float()
+            if token_scale_ref is not None:
+                scale_ref = scale_ref * token_scale_ref.float().reshape(-1, 1)
+            group_size = config.input_scale_group_size
+        else:
+            assert token_scale_ref is not None
+            scale_ref = token_scale_ref.float().reshape(-1, 1)
+            group_size = shape_k
+        inputs_ref = dequant_inputs.float() * scale_ref.repeat_interleave(group_size, 1)
+        return inputs_ref, inputs, input_scale, input_scale_2
 
     def _sample_inputs(
         self,
@@ -293,15 +307,6 @@ class KernelTestRunner:
 
         assert topk_ids is not None
         expert_alignment = 1
-        expert_max_tokens = None
-        if self.test_case.uses_m_major_input_scale:
-            if gemm_type == GemmType.GROUPED_MASKED:
-                expert_max_tokens = self.test_case.resolve_expert_max_tokens(shape_m)
-                if expert_max_tokens % M_MAJOR_INPUT_SCALE_M_ALIGNMENT:
-                    raise RuntimeError("input-scale M dimension 16-byte aligned requirement is not met")
-            if gemm_type == GemmType.GROUPED_CONTIGUOUS:
-                expert_alignment = M_MAJOR_INPUT_SCALE_M_ALIGNMENT
-
         moe_tensors = generate_moe_tensors(
             topk_ids,
             config.num_experts,
@@ -483,11 +488,12 @@ class KernelTestRunner:
             dtype=self.layer_config.param_dtype,
             std_scale=self.test_case.input_std_scale,
             group_size=self.layer_config.input_scale_group_size,
+            device=self.device,
         )
         base_topk_ids = None
         if self.compute_config.gemm_type != GemmType.DENSE:
             num_experts, top_k = self.layer_config.num_experts, self.test_case.top_k
-            base_topk_ids = generate_random_topk_ids(max_shape_m, num_experts, top_k)
+            base_topk_ids = generate_random_topk_ids(max_shape_m, num_experts, top_k, device=self.device)
 
         max_kernel = kernels[max_shape_m][0]
         base_outputs = None
@@ -495,8 +501,12 @@ class KernelTestRunner:
             block_shape_m = max_kernel[1]["block_shape"][0]
             base_problem = self._prepare_problem(max_shape_m, base_inputs, base_topk_ids, block_shape_m)
             base_problem_inputs, base_launch_tensors, base_output_ids = base_problem
-            _, inputs, input_scale = self.prepare_inputs(base_problem_inputs)
-            base_launch_tensors |= {"inputs": inputs, "input_scale": input_scale}
+            _, inputs, input_scale, input_scale_2 = self.prepare_inputs(base_problem_inputs)
+            base_launch_tensors |= {
+                "inputs": inputs,
+                "input_scale": input_scale,
+                "input_scale_2": input_scale_2,
+            }
             base_outputs = self._launch_kernel(max_shape_m, base_launch_tensors, max_kernel[0])
             base_outputs = base_outputs[base_output_ids].view(max_shape_m, output_top_k, -1)
 
@@ -509,8 +519,12 @@ class KernelTestRunner:
             moe_block_size = test_kernel[1]["block_shape"][0]
             problem = self._prepare_problem(shape_m, inputs, topk_ids, moe_block_size)
             problem_inputs, launch_tensors, output_ids = problem
-            inputs_ref, inputs, input_scale = self.prepare_inputs(problem_inputs)
-            launch_tensors |= {"inputs": inputs, "input_scale": input_scale}
+            inputs_ref, inputs, input_scale, input_scale_2 = self.prepare_inputs(problem_inputs)
+            launch_tensors |= {
+                "inputs": inputs,
+                "input_scale": input_scale,
+                "input_scale_2": input_scale_2,
+            }
             outputs_ref = self.make_reference(inputs_ref, topk_ids, output_ids)
 
             for kernel in kernels[shape_m]:
@@ -520,8 +534,11 @@ class KernelTestRunner:
                     kernel_problem = self._prepare_problem(shape_m, problem_inputs, topk_ids, block_shape_m)
                     _, kernel_launch_tensors, kernel_output_ids = kernel_problem
                     assert torch.equal(kernel_output_ids, output_ids)
-                    kernel_launch_tensors |= {"inputs": inputs, "input_scale": input_scale}
-
+                    kernel_launch_tensors |= {
+                        "inputs": inputs,
+                        "input_scale": input_scale,
+                        "input_scale_2": input_scale_2,
+                    }
                 result = self._run_kernel(shape_m, kernel_launch_tensors, kernel, outputs_ref, output_ids)
 
                 if base_outputs is not None:
@@ -555,7 +572,7 @@ class KernelTestRunner:
             "tuning_source": os.environ.get(TEST_TUNING_SOURCE_ENV, "heuristic"),
             "tuning_index": tuning_index,
             "tuning_config": tuning_values,
-            "device": torch.cuda.get_device_name(),
+            "device": current_device.name,
             "error": str(error),
         }
         line = json.dumps(record, default=str, sort_keys=True)
@@ -571,5 +588,5 @@ class KernelTestRunner:
             f"\nlayer_config={self.layer_config.to_str()}"
             f"\ncompute_config={self.compute_config.to_str()}"
             f"\ntuning_config={json.dumps(tuning_values)}"
-            f"\ndevice={torch.cuda.get_device_name()}"
+            f"\ndevice={current_device.name}"
         )

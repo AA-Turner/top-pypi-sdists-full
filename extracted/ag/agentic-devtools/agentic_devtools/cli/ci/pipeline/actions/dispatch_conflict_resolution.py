@@ -29,11 +29,11 @@ So a cloud-agent reply can never *manufacture* a well-formed marker.
 
 It can still *quote* one verbatim.  Because both
 ``should_dispatch_conflict_repair`` and ``count_conflict_repair_dispatches``
-are identity-scoped to the ``SPECKIT_PR_TOKEN`` login (resolved via
+are identity-scoped to the default workflow-token login (resolved via
 ``get_pr_token_login``), a Copilot-authored quote is ignored entirely — it
 neither triggers deduplication nor inflates the attempt count.  A malformed
-marker makes the TTL check fail *open* (re-dispatch allowed) by design;
-the per-HEAD attempt cap is what bounds the resulting retries.
+marker makes the TTL check fail *open* (re-dispatch allowed) by design; the
+per-HEAD attempt cap is what bounds the resulting retries.
 """
 
 from __future__ import annotations

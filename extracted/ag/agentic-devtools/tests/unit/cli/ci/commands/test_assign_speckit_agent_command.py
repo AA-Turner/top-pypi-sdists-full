@@ -16,6 +16,11 @@ from agentic_devtools.cli.ci.retry import RetryableError
 from agentic_devtools.cli.shared.retry import ProviderRateLimitError
 
 
+@pytest.fixture(autouse=True)
+def _default_repository_workflow_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "default-secret")
+
+
 def _invoke(argv: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[dict, int]:
     with (
         patch.object(sys, "argv", ["agdt-assign-speckit-agent", *argv]),
@@ -116,6 +121,8 @@ class TestAssignSpeckitAgentCommand:
         assert payload["issue_number"] == 42
         assert payload["task_id"] == "event-1"
         assert payload["token_identity"] == "SPECKIT_PR_TOKEN"
+        assert {call.kwargs["token"] for call in mock_api.call_args_list[:2]} == {"default-secret"}
+        assert all(call.kwargs["token"] == "default-secret" for call in mock_api.call_args_list[2:])
         assert payload["status"] == "dispatched"
         assert payload["correlation_id"] == "11111111-1111-4111-8111-aaaaaaaaaaaa"
         instructions = mock_assign.call_args.kwargs["custom_instructions"]

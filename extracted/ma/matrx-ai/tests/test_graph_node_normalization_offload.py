@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import threading
 from types import SimpleNamespace
 
@@ -63,8 +64,11 @@ def test_every_async_graph_action_offloads_completed_normalization() -> None:
         "_strict_json.py": "normalize_completed",
         "chat_action.py": "normalize_completed_result",
         "mandate_action.py": "normalize_completed_result",
-        "agent_assignment_action.py": "normalize_completed",
+        "agent_assignment_action.py": "normalize_completed_result",
     }
     for filename, normalizer in expected.items():
         source = (root / filename).read_text()
-        assert f"await asyncio.to_thread({normalizer}, completed" in source, filename
+        assert re.search(
+            rf"await asyncio\.to_thread\(\s*{normalizer},\s*completed",
+            source,
+        ), filename

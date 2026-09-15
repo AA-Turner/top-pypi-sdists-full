@@ -13,11 +13,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import re
 from pathlib import Path
-from typing import Any, Literal, Mapping, Sequence, TYPE_CHECKING
+from typing import Any, Final, Literal, Mapping, Sequence, TYPE_CHECKING
 
+from robot.errors import DataError
 from robot.model import ModelObject, Tags
-from robot.utils import eq, getshortdoc, setter
+from robot.running.docstringparser import parse_docstring
+from robot.utils import eq, getshortdoc, setter, unescape
 
 from .arguments import ArgInfo, ArgumentSpec, EmbeddedArguments
 from .model import BodyItemParent, Keyword
@@ -34,23 +37,24 @@ if TYPE_CHECKING:
 class KeywordImplementation(ModelObject):
     """Base class for different keyword implementations."""
 
-    USER_KEYWORD = "USER KEYWORD"
-    LIBRARY_KEYWORD = "LIBRARY KEYWORD"
-    INVALID_KEYWORD = "INVALID KEYWORD"
+    USER_KEYWORD: Final = "USER KEYWORD"
+    LIBRARY_KEYWORD: Final = "LIBRARY KEYWORD"
+    INVALID_KEYWORD: Final = "INVALID KEYWORD"
     type: Literal["USER KEYWORD", "LIBRARY KEYWORD", "INVALID KEYWORD"]
     repr_args = ("name", "args")
+    _has_tags = re.compile(r"^Tags:|\nTags:", re.IGNORECASE).search
     __slots__ = ("_name", "embedded", "_doc", "_lineno", "owner", "parent", "error")
 
     def __init__(
         self,
         name: str = "",
-        args: "ArgumentSpec|None" = None,
+        args: "ArgumentSpec | None" = None,
         doc: str = "",
-        tags: "Tags|Sequence[str]" = (),
-        lineno: "int|None" = None,
-        owner: "ResourceFile|TestLibrary|None" = None,
-        parent: "BodyItemParent|None" = None,
-        error: "str|None" = None,
+        tags: "Tags | Sequence[str]" = (),
+        lineno: "int | None" = None,
+        owner: "ResourceFile | TestLibrary | None" = None,
+        parent: "BodyItemParent | None" = None,
+        error: "str | None" = None,
     ):
         self._name = name
         self.embedded = self._get_embedded(name)
@@ -62,7 +66,7 @@ class KeywordImplementation(ModelObject):
         self.parent = parent
         self.error = error
 
-    def _get_embedded(self, name) -> "EmbeddedArguments|None":
+    def _get_embedded(self, name) -> "EmbeddedArguments | None":
         return EmbeddedArguments.from_name(name)
 
     @property
@@ -83,7 +87,7 @@ class KeywordImplementation(ModelObject):
         return self.name
 
     @setter
-    def args(self, spec: "ArgumentSpec|None") -> ArgumentSpec:
+    def args(self, spec: "ArgumentSpec | None") -> ArgumentSpec:
         """Information about accepted arguments.
 
         It would be more correct to use term *parameter* instead of
@@ -117,15 +121,31 @@ class KeywordImplementation(ModelObject):
         return getshortdoc(self.doc)
 
     @setter
-    def tags(self, tags: "Tags|Sequence[str]") -> Tags:
+    def tags(self, tags: "Tags | Sequence[str]") -> Tags:
         return Tags(tags)
 
     @property
-    def lineno(self) -> "int|None":
+    def all_tags(self) -> Tags:
+        """Return tags taking possible tags in documentation into account.
+
+        Returned tags should not be modified. Use :attr:`tags` instead if
+        that is needed.
+
+        New in Robot Framework 7.5.
+        """
+        if self._has_tags(self.doc):
+            info = parse_docstring(self.doc, self.name)
+            tags = Tags(self.tags)
+            tags.add(info.tags, remove_negated=self.type == self.USER_KEYWORD)
+            return tags
+        return self.tags
+
+    @property
+    def lineno(self) -> "int | None":
         return self._lineno
 
     @lineno.setter
-    def lineno(self, lineno: "int|None"):
+    def lineno(self, lineno: "int | None"):
         self._lineno = lineno
 
     @property
@@ -133,8 +153,40 @@ class KeywordImplementation(ModelObject):
         return bool(self.tags and self.tags.robot("private"))
 
     @property
-    def source(self) -> "Path|None":
+    def source(self) -> "Path | None":
         return self.owner.source if self.owner is not None else None
+
+    def update_docs(self, user_keyword_unescape: bool = False):
+        """Parse information from docstring and update it accordingly.
+
+        :param user_keyword_unescape: When true, remove backslash
+            escapes from user keyword documentation.
+
+        Updates argument, return value and exception documentation as well
+        as tags. The information is defined in appropriate sections using
+        the Google Python Style Guide docstring conventions.
+
+        All this information is needed by Libdoc. During execution, we only
+        need tags, and they can be got via :attr:`all_tags`.
+
+        New in Robot Framework 7.5.
+        """
+        if self.type == self.USER_KEYWORD:
+            doc = unescape(self.doc) if user_keyword_unescape else self.doc
+            remove_negated_tags = True
+        else:
+            doc = self.doc
+            remove_negated_tags = False
+        result = parse_docstring(doc, self.name)
+        self.doc = result.doc
+        try:
+            self.args.docs = result.args
+        except DataError as err:
+            self.args.docs = {}
+            self.error = str(err)
+        self.args.return_doc = result.returns
+        self.args.raises = result.raises
+        self.tags.add(result.tags, remove_negated=remove_negated_tags)
 
     def matches(self, name: str) -> bool:
         """Returns true if ``name`` matches the keyword name.
@@ -149,8 +201,8 @@ class KeywordImplementation(ModelObject):
 
     def resolve_arguments(
         self,
-        args: "Sequence[str|Any]",
-        named_args: "Mapping[str, Any]|None" = None,
+        args: "Sequence[str | Any]",
+        named_args: "Mapping[str, Any] | None" = None,
         variables=None,
         languages: "LanguagesLike" = None,
     ) -> "tuple[list, list]":
@@ -158,9 +210,9 @@ class KeywordImplementation(ModelObject):
 
     def create_runner(
         self,
-        name: "str|None",
+        name: "str | None",
         languages: "LanguagesLike" = None,
-    ) -> "LibraryKeywordRunner|UserKeywordRunner":
+    ) -> "LibraryKeywordRunner | UserKeywordRunner":
         raise NotImplementedError
 
     def bind(self, data: Keyword) -> "KeywordImplementation":

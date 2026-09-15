@@ -13,7 +13,7 @@ from typing import Callable, Literal
 from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from pgqueuer.domain.models import Channel
+from pgqueuer.domain.types import Channel
 
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -160,6 +160,7 @@ class DBSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="PGQUEUER_",
         extra="ignore",
+        populate_by_name=True,
     )
 
     # Prepended to every object name not explicitly overridden; lets multiple

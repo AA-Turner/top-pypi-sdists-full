@@ -149,8 +149,9 @@ class StackingRegressor(BaseTransformer):
         * None, to use the default 5-fold cross validation,
         * integer, to specify the number of folds in a (Stratified) KFold,
         * An object to be used as a cross-validation generator,
-        * An iterable yielding train, test splits.
-        * "prefit" to assume the `estimators` are prefit, and skip cross validation
+        * An iterable yielding train, test splits,
+        * `"prefit"`, to assume the `estimators` are prefit. In this case, the
+          estimators will not be refitted.
 
         For integer/None inputs, if the estimator is a classifier and y is
         either binary or multiclass,
@@ -171,7 +172,7 @@ class StackingRegressor(BaseTransformer):
     n_jobs: int, default=None
         The number of jobs to run in parallel for `fit` of all `estimators`.
         `None` means 1 unless in a `joblib.parallel_backend` context. -1 means
-        using all processors. See Glossary for more details.
+        using all processors. See :term:`Glossary <n_jobs>` for more details.
 
     passthrough: bool, default=False
         When False, only the predictions of estimators will be used as
@@ -974,7 +975,7 @@ class StackingRegressor(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.ensemble.StackingRegressor.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.StackingRegressor.html#sklearn.ensemble.StackingRegressor.score)
 

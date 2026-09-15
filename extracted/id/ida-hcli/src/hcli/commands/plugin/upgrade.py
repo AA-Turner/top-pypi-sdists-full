@@ -28,6 +28,20 @@ from hcli.lib.ida.python import PIP_OPTIONS_DEFAULT, PipOptions
 logger = logging.getLogger(__name__)
 
 
+def _resolve_effective_repo(plugin_repo: BasePluginRepo, plugin_name: str, host: str) -> BasePluginRepo:
+    """When the repo is an aggregate, return the child that owns the plugin."""
+    from hcli.lib.ida.plugin.repo.aggregate import AggregatePluginRepo
+
+    if not isinstance(plugin_repo, AggregatePluginRepo):
+        return plugin_repo
+
+    plugin = plugin_repo.get_plugin_by_name(plugin_name, host=host)
+    owner_name = plugin_repo.repo_of(plugin)
+    if owner_name is not None:
+        return plugin_repo.get_child_repo(owner_name)
+    return plugin_repo
+
+
 @click.command()
 @click.pass_context
 @click.argument("plugin")
@@ -88,7 +102,16 @@ def upgrade_plugin(ctx, plugin: str, no_build_isolation: bool) -> None:
         # when the repository has a colliding name.
         bare_spec = ref.name + ref.version_spec
         logger.info("finding plugin in repository")
-        plugin_repo: BasePluginRepo = ctx.obj["plugin_repo"]
+        # An upgrade is anchored to the installed name@host, so it may resolve
+        # across every configured repository -- the plugin's identity, not the
+        # default scope, decides which one answers. An explicit prefix narrows
+        # that to one repository, mirroring the @host check above.
+        if ref.repo:
+            from hcli.commands.plugin import repo_for_reference
+
+            plugin_repo: BasePluginRepo = repo_for_reference(ctx, ref)
+        else:
+            plugin_repo = ctx.obj["plugin_repo"]
         try:
             plugin_name, buf = plugin_repo.fetch_compatible_plugin_from_spec(
                 bare_spec, current_ida_platform, current_ida_version, host=installed.host
@@ -98,13 +121,14 @@ def upgrade_plugin(ctx, plugin: str, no_build_isolation: bool) -> None:
             console.print("Please check your internet connection.")
             raise click.Abort()
 
-        if isinstance(plugin_repo, PluginBundleRepo) and not pip_options.has_custom_sources:
+        effective_repo = _resolve_effective_repo(plugin_repo, plugin_name, installed.host)
+        if isinstance(effective_repo, PluginBundleRepo) and not pip_options.has_custom_sources:
             from hcli.lib.ida.python import detect_current_python_version, merge_bundle_pip_options
 
             current_python_version = detect_current_python_version()
-            with bundle_dependency_source(plugin_repo, current_ida_platform, current_python_version) as bundle_opts:
+            with bundle_dependency_source(effective_repo, current_ida_platform, current_python_version) as bundle_opts:
                 if bundle_opts is None:
-                    available = ", ".join(plugin_repo.target_ids) or "none"
+                    available = ", ".join(effective_repo.target_ids) or "none"
                     console.print(
                         f"[red]Error[/red]: plugin bundle does not include dependencies"
                         f" for {current_ida_platform}, Python {current_python_version}."
@@ -127,6 +151,17 @@ def upgrade_plugin(ctx, plugin: str, no_build_isolation: bool) -> None:
 
     except FailedToDetectIDAVersion:
         explain_failed_to_detect_ida_version(console)
+        raise click.Abort()
+
+    except KeyError as e:
+        # get_plugins() drops repositories it could not consult, so a miss here
+        # may mean "your session expired", not "no such plugin". Say which.
+        logger.debug("error: %s", e, exc_info=True)
+        console.print(f"[red]Error[/red]: {e}")
+        aggregate = ctx.obj.get("plugin_repos")
+        if aggregate is not None:
+            for note in aggregate.notes():
+                console.print(f"[yellow]Warning:[/yellow] repository {note}")
         raise click.Abort()
 
     except click.Abort:

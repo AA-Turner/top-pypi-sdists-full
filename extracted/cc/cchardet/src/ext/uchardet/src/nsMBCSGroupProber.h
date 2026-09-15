@@ -44,20 +44,29 @@
 #include "nsEUCJPProber.h"
 #include "nsGB2312Prober.h"
 #include "nsEUCKRProber.h"
+#include "nsJohabProber.h"
 #include "nsBig5Prober.h"
 #include "nsEUCTWProber.h"
 
-#define NUM_OF_PROBERS    7
+#include "nsLanguageDetector-generated.h"
+
+#define NUM_OF_PROBERS    8
+/* All the generated language model + the CJK detector.  */
+#define NUM_OF_LANGUAGES  (NUM_OF_LANGUAGE_MODELS + 1)
 
 class nsMBCSGroupProber: public nsCharSetProber {
 public:
   nsMBCSGroupProber(PRUint32 aLanguageFilter);
   virtual ~nsMBCSGroupProber();
-  nsProbingState HandleData(const char* aBuf, PRUint32 aLen);
-  const char* GetCharSetName();
+  nsProbingState HandleData(const char* aBuf, PRUint32 aLen,
+                            int** codePointBuffer,
+                            int*  codePointBufferIdx);
+  int         GetCandidates();
+  const char* GetCharSetName(int candidate);
+  const char* GetLanguage(int candidate);
   nsProbingState GetState(void) {return mState;}
   void      Reset(void);
-  float     GetConfidence(void);
+  float     GetConfidence(int candidate);
   void      SetOpion() {}
 
 #ifdef DEBUG_chardet
@@ -71,9 +80,19 @@ protected:
   nsProbingState mState;
   nsCharSetProber* mProbers[NUM_OF_PROBERS];
   PRBool          mIsActive[NUM_OF_PROBERS];
-  PRInt32 mBestGuess;
   PRUint32 mActiveNum;
   PRUint32 mKeepNext;
+
+  PRBool   candidates[NUM_OF_PROBERS][NUM_OF_LANGUAGES];
+
+  int *codePointBuffer[NUM_OF_PROBERS];
+  int  codePointBufferSize[NUM_OF_PROBERS];
+  int  codePointBufferIdx[NUM_OF_PROBERS];
+
+  nsLanguageDetector *langDetectors[NUM_OF_PROBERS][NUM_OF_LANGUAGES];
+
+private:
+  void CheckCandidates();
 };
 
 #endif /* nsMBCSGroupProber_h__ */

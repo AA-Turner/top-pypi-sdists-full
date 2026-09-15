@@ -21,11 +21,11 @@ class TestCreateAuditTrackingIssue:
     """Tests for create_audit_tracking_issue behavior."""
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
-    def test_creates_issue_with_speckit_token(self, mock_run_safe) -> None:
+    def test_creates_issue_with_default_workflow_token(self, mock_run_safe) -> None:
         mock_run_safe.return_value = _mock_run_safe_response({"number": 2042})
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             issue_number = provider.create_audit_tracking_issue(batch_id="1234567890", pr_numbers=[10, 11])
 
         assert issue_number == 2042
@@ -34,10 +34,10 @@ class TestCreateAuditTrackingIssue:
         assert "/repos/swai-factory/agentic-devtools/issues" in cmd
         assert call.kwargs["env"]["GH_TOKEN"] == "token-value"
 
-    def test_raises_when_speckit_token_missing(self) -> None:
+    def test_raises_when_default_workflow_token_missing(self) -> None:
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(RuntimeError, match="SPECKIT_PR_TOKEN"):
+            with pytest.raises(RuntimeError, match="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"):
                 provider.create_audit_tracking_issue(batch_id="1234567890", pr_numbers=[10])
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
@@ -45,6 +45,6 @@ class TestCreateAuditTrackingIssue:
         mock_run_safe.return_value = _mock_run_safe_response({})
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             with pytest.raises(RuntimeError, match="missing issue number"):
                 provider.create_audit_tracking_issue(batch_id="1234567890", pr_numbers=[10])

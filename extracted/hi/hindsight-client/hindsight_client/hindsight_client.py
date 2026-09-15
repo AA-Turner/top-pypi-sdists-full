@@ -7,13 +7,16 @@ easy-to-use interface on top of the auto-generated OpenAPI client.
 
 import asyncio
 import json
+import random
 import warnings
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
+from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
 import hindsight_client_api
+from hindsight_client_api.exceptions import ApiException
 
 try:
     _CLIENT_VERSION = metadata.version("hindsight-client")
@@ -21,6 +24,21 @@ except metadata.PackageNotFoundError:
     _CLIENT_VERSION = "0.0.0"
 
 DEFAULT_USER_AGENT = f"hindsight-client-python/{_CLIENT_VERSION}"
+
+#: One element of a multimodal retain item's content.
+#:
+#: Retain accepts either a plain string or an ordered list of these, so an
+#: attachment sits inline where it actually appears and the extractor reads it
+#: alongside the prose that refers to it::
+#:
+#:     [{"type": "text",  "text": "click the button shown:"},
+#:      {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "..."}},
+#:      {"type": "file",  "source": {"type": "base64", "media_type": "application/pdf", "data": "..."},
+#:       "filename": "policy.pdf"}]
+#:
+#: Requires a vision-capable retain LLM server-side; otherwise the retain is
+#: refused with 422 rather than silently dropping the attachments.
+ContentBlock = dict[str, Any]
 from hindsight_client_api.api import (
     banks_api,
     directives_api,
@@ -79,6 +97,92 @@ def _warn_if_operation_id_dropped(retain_async: bool, operation_id: str | None) 
             "operation_id is ignored for synchronous retain; pass retain_async=True to enable idempotent retries.",
             stacklevel=3,
         )
+
+
+def _trigger_input(trigger: dict[str, Any]) -> Any:
+    """Build a MentalModelTriggerInput carrying ONLY the settings the caller named.
+
+    The routes that take a trigger patch it over what is already there — the
+    page defaults on page creation, the stored trigger on either update — and
+    they read "named" from the fields the request actually carried
+    (``model_dump(exclude_unset=True)``, #3506/#3549). The generated model
+    defeats that on its own: ``to_dict`` drops ``None`` but keeps defaults, so a
+    caller asking for one setting also shipped ``mode="full"``,
+    ``refresh_after_consolidation=False``, ``exclude_mental_models=False`` and
+    ``keep_trace=False`` — quietly rebuilding a delta page from scratch, over
+    its sibling pages, which is the very bug #3506 fixed one layer up.
+
+    Passing ``None`` for the defaulted fields the caller left out makes
+    ``to_dict`` drop them. Only fields whose default is non-None need this: a
+    nullable field left unset is already omitted, while explicitly passing it as
+    ``None`` would serialize a null and clear the stored value.
+    """
+    from hindsight_client_api.models import mental_model_trigger_input
+
+    model = mental_model_trigger_input.MentalModelTriggerInput
+    unnamed_defaults = {
+        name: None
+        for name, field in model.model_fields.items()
+        if name not in trigger and field.default is not None
+    }
+    return model(**unnamed_defaults, **trigger)
+
+
+#: Attempts a retryable call makes in total, including the first.
+DEFAULT_MAX_ATTEMPTS = 3
+
+#: Fallback backoff when the server sends 503 without a usable ``Retry-After``.
+_FALLBACK_BACKOFF_SECONDS = 0.5
+
+
+async def _retry_on_capacity(
+    call: "Callable[[], Awaitable[Any]]",
+    max_attempts: int,
+    rng: "random.Random",
+) -> Any:
+    """Run ``call``, retrying while the server reports it is at capacity.
+
+    Only for **idempotent** operations. Recall and reflect are reads, so a repeat is
+    free; synchronous retain is not, and is deliberately excluded — its
+    ``operation_id`` is ignored, so a retry there could duplicate a write.
+
+    Two things matter more than the retry itself:
+
+    ``Retry-After`` is honoured. The server sends it precisely because it knows how
+    long its queue is; retrying sooner just earns another 503.
+
+    The wait is **jittered**. A burst of clients that all receive ``Retry-After: 1``
+    and obey it exactly will come back in lockstep and rebuild the spike that caused
+    the rejection. Spreading them over the interval is what makes retrying safe, and
+    it is the part the generated client's ``ExponentialRetry`` does not do.
+    """
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await call()
+        except ApiException as e:
+            at_capacity = e.status in (429, 503)
+            if not at_capacity or attempt == max_attempts:
+                raise
+            wait = _retry_after_seconds(e) or _FALLBACK_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            # Full jitter: sleep somewhere in [0, wait], so a synchronised burst
+            # spreads out instead of returning together.
+            await asyncio.sleep(rng.uniform(0, wait))
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _retry_after_seconds(e: "ApiException") -> float | None:
+    """Parse ``Retry-After`` (delta-seconds form) from a response, if present."""
+    headers = getattr(e, "headers", None)
+    if not headers:
+        return None
+    raw = headers.get("Retry-After") or headers.get("retry-after")
+    if raw is None:
+        return None
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        # HTTP-date form; the fallback backoff is a better answer than parsing dates.
+        return None
 
 
 class Hindsight:
@@ -155,6 +259,7 @@ class Hindsight:
         api_key: str | None = None,
         timeout: float = 300.0,
         user_agent: str | None = None,
+        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     ):
         """
         Initialize the Hindsight client.
@@ -167,11 +272,19 @@ class Hindsight:
                 should set this to identify themselves (e.g.
                 ``"hindsight-crewai/1.2.0"``). Defaults to
                 ``hindsight-client-python/<version>``.
+            max_attempts: Total attempts for *idempotent* calls (recall, reflect)
+                when the server reports it is at capacity (429/503). 1 disables
+                retrying. Waits honour ``Retry-After`` and are jittered; writes are
+                never retried here.
         """
         config = hindsight_client_api.Configuration(host=base_url, access_token=api_key)
         self._api_client = hindsight_client_api.ApiClient(config)
         self._api_client.user_agent = user_agent or DEFAULT_USER_AGENT
         self._timeout = timeout
+        self._max_attempts = max(1, max_attempts)
+        # Per-client RNG so jitter is injectable in tests and independent of any
+        # seeding the calling application does to the global `random` module.
+        self._retry_rng = random.Random()
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         if api_key:
@@ -302,7 +415,7 @@ class Hindsight:
     def retain(
         self,
         bank_id: str,
-        content: str,
+        content: str | list[ContentBlock],
         timestamp: datetime | None = None,
         context: str | None = None,
         document_id: str | None = None,
@@ -319,7 +432,10 @@ class Hindsight:
 
         Args:
             bank_id: The memory bank ID
-            content: Memory content
+            content: Memory content. Either a plain string, or an ordered list of
+                content blocks so an image sits inline where it actually appears —
+                see :data:`ContentBlock`. The block form needs a vision-capable
+                retain LLM server-side.
             timestamp: Optional event timestamp
             context: Optional context description
             document_id: Optional document ID for grouping
@@ -404,7 +520,28 @@ class Hindsight:
         files_metadata: list[dict[str, Any]] | None = None,
     ) -> FileRetainResponse:
         """
-        Upload files and retain their contents as memories (sync wrapper).
+        Upload files and retain their contents as memories (sync wrapper — prefer :meth:`aretain_files` in async code).
+
+        See :meth:`aretain_files` for the full argument and return documentation.
+        """
+        return _run_async(
+            self.aretain_files(
+                bank_id=bank_id,
+                files=files,
+                context=context,
+                files_metadata=files_metadata,
+            )
+        )
+
+    async def aretain_files(
+        self,
+        bank_id: str,
+        files: list[str | Path],
+        context: str | None = None,
+        files_metadata: list[dict[str, Any]] | None = None,
+    ) -> FileRetainResponse:
+        """
+        Upload files and retain their contents as memories (async — preferred over :meth:`retain_files`).
 
         Files are automatically converted to text (PDF, DOCX, images via OCR, audio via
         transcription, and more) and ingested as memories. Processing is always asynchronous
@@ -429,10 +566,8 @@ class Hindsight:
 
         request_body = json.dumps({"files_metadata": meta})
 
-        return _run_async(
-            self._files_api.file_retain(
-                bank_id=bank_id, files=file_data, request=request_body, _request_timeout=self._timeout
-            )
+        return await self._files_api.file_retain(
+            bank_id=bank_id, files=file_data, request=request_body, _request_timeout=self._timeout
         )
 
     def recall(
@@ -535,6 +670,7 @@ class Hindsight:
         include_tool_calls: bool = False,
         include_tool_call_output: bool = True,
         tag_groups: list[dict[str, Any]] | None = None,
+        apply_all_directives: bool = False,
         fact_types: list[str] | None = None,
         exclude_mental_models: bool = False,
         exclude_mental_model_ids: list[str] | None = None,
@@ -564,6 +700,9 @@ class Hindsight:
                 outputs are included in the trace. Set to False for a smaller payload (inputs only).
                 Ignored when ``include_tool_calls`` is False (default: True).
             tag_groups: Optional list of tag group filters for advanced boolean tag matching.
+            apply_all_directives: Apply every active directive regardless of tags. By default
+                directives are tag-scoped like memories: untagged ones always apply, tagged ones
+                only when the request's tags match (default: False).
             fact_types: Optional list of fact types to include (world, experience, observation).
             exclude_mental_models: If True, exclude all mental models from reflection (default: False).
             exclude_mental_model_ids: Optional list of specific mental model IDs to exclude.
@@ -587,6 +726,7 @@ class Hindsight:
                 include_tool_calls=include_tool_calls,
                 include_tool_call_output=include_tool_call_output,
                 tag_groups=tag_groups,
+                apply_all_directives=apply_all_directives,
                 fact_types=fact_types,
                 exclude_mental_models=exclude_mental_models,
                 exclude_mental_model_ids=exclude_mental_model_ids,
@@ -602,21 +742,44 @@ class Hindsight:
         limit: int = 100,
         offset: int = 0,
     ) -> ListMemoryUnitsResponse:
-        """List memory units with pagination (sync wrapper — use ``await client.memory.list_memories(...)`` in async code).
+        """
+        List memory units with pagination (sync wrapper — prefer :meth:`alist_memories` in async code).
+
+        See :meth:`alist_memories` for the full argument and return documentation.
+        """
+        return _run_async(
+            self.alist_memories(
+                bank_id=bank_id,
+                type=type,
+                search_query=search_query,
+                entity_id=entity_id,
+                limit=limit,
+                offset=offset,
+            )
+        )
+
+    async def alist_memories(
+        self,
+        bank_id: str,
+        type: str | None = None,
+        search_query: str | None = None,
+        entity_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> ListMemoryUnitsResponse:
+        """List memory units with pagination (async — preferred over :meth:`list_memories`).
 
         entity_id: filter to memory units linked to this entity ID (stored links,
         not text/semantic match).
         """
-        return _run_async(
-            self._memory_api.list_memories(
-                bank_id=bank_id,
-                type=type,
-                q=search_query,
-                entity_id=entity_id,
-                limit=limit,
-                offset=offset,
-                _request_timeout=self._timeout,
-            )
+        return await self._memory_api.list_memories(
+            bank_id=bank_id,
+            type=type,
+            q=search_query,
+            entity_id=entity_id,
+            limit=limit,
+            offset=offset,
+            _request_timeout=self._timeout,
         )
 
     def create_bank(
@@ -633,8 +796,10 @@ class Hindsight:
         retain_custom_instructions: str | None = None,
         retain_chunk_size: int | None = None,
         retain_structured_chunk_size: int | None = None,
+        retain_max_attachments_per_chunk: int | None = None,
         enable_observations: bool | None = None,
         observations_mission: str | None = None,
+        enable_text_search: bool | None = None,
         enable_temporal_retrieval: bool | None = None,
         enable_graph_retrieval: bool | None = None,
         enable_reranking: bool | None = None,
@@ -657,8 +822,14 @@ class Hindsight:
             retain_chunk_size: Target maximum characters for each content chunk during retain.
             retain_structured_chunk_size: Maximum characters for a single JSONL line or conversation
                 turn to keep whole during retain. Defaults to retain_chunk_size when unset.
+            retain_max_attachments_per_chunk: Maximum inline attachments one extraction chunk may
+                carry. retain_chunk_size budgets text only — a placeholder costs the characters it
+                occupies and nothing more — so this is what bounds attachments. Match it to the
+                provider's per-request limit.
             enable_observations: Toggle automatic observation consolidation after retain().
             observations_mission: Controls what gets synthesised into observations. Replaces built-in rules.
+            enable_text_search: Run the keyword (BM25) retrieval arm during recall. False
+                leaves pure vector search — the arm is left out of the query entirely.
             enable_temporal_retrieval: Run the temporal retrieval arm during recall. False also
                 skips the date-aware query analysis that feeds it.
             enable_graph_retrieval: Run the entity/link graph traversal arm during recall.
@@ -682,8 +853,10 @@ class Hindsight:
                 retain_custom_instructions=retain_custom_instructions,
                 retain_chunk_size=retain_chunk_size,
                 retain_structured_chunk_size=retain_structured_chunk_size,
+                retain_max_attachments_per_chunk=retain_max_attachments_per_chunk,
                 enable_observations=enable_observations,
                 observations_mission=observations_mission,
+                enable_text_search=enable_text_search,
                 enable_temporal_retrieval=enable_temporal_retrieval,
                 enable_graph_retrieval=enable_graph_retrieval,
                 enable_reranking=enable_reranking,
@@ -706,8 +879,10 @@ class Hindsight:
         retain_custom_instructions: str | None = None,
         retain_chunk_size: int | None = None,
         retain_structured_chunk_size: int | None = None,
+        retain_max_attachments_per_chunk: int | None = None,
         enable_observations: bool | None = None,
         observations_mission: str | None = None,
+        enable_text_search: bool | None = None,
         enable_temporal_retrieval: bool | None = None,
         enable_graph_retrieval: bool | None = None,
         enable_reranking: bool | None = None,
@@ -747,10 +922,14 @@ class Hindsight:
             body["retain_chunk_size"] = retain_chunk_size
         if retain_structured_chunk_size is not None:
             body["retain_structured_chunk_size"] = retain_structured_chunk_size
+        if retain_max_attachments_per_chunk is not None:
+            body["retain_max_attachments_per_chunk"] = retain_max_attachments_per_chunk
         if enable_observations is not None:
             body["enable_observations"] = enable_observations
         if observations_mission is not None:
             body["observations_mission"] = observations_mission
+        if enable_text_search is not None:
+            body["enable_text_search"] = enable_text_search
         if enable_temporal_retrieval is not None:
             body["enable_temporal_retrieval"] = enable_temporal_retrieval
         if enable_graph_retrieval is not None:
@@ -792,8 +971,10 @@ class Hindsight:
         retain_custom_instructions: str | None = None,
         retain_chunk_size: int | None = None,
         retain_structured_chunk_size: int | None = None,
+        retain_max_attachments_per_chunk: int | None = None,
         enable_observations: bool | None = None,
         observations_mission: str | None = None,
+        enable_text_search: bool | None = None,
         enable_temporal_retrieval: bool | None = None,
         enable_graph_retrieval: bool | None = None,
         enable_reranking: bool | None = None,
@@ -816,8 +997,14 @@ class Hindsight:
             retain_chunk_size: Target maximum characters for each content chunk during retain.
             retain_structured_chunk_size: Maximum characters for a single JSONL line or conversation
                 turn to keep whole during retain. Defaults to retain_chunk_size when unset.
+            retain_max_attachments_per_chunk: Maximum inline attachments one extraction chunk may
+                carry. retain_chunk_size budgets text only — a placeholder costs the characters it
+                occupies and nothing more — so this is what bounds attachments. Match it to the
+                provider's per-request limit.
             enable_observations: Toggle automatic observation consolidation after retain().
             observations_mission: Controls what gets synthesised into observations. Replaces built-in rules.
+            enable_text_search: Run the keyword (BM25) retrieval arm during recall. False
+                leaves pure vector search — the arm is left out of the query entirely.
             enable_temporal_retrieval: Run the temporal retrieval arm during recall. False also
                 skips the date-aware query analysis that feeds it.
             enable_graph_retrieval: Run the entity/link graph traversal arm during recall.
@@ -840,8 +1027,10 @@ class Hindsight:
             retain_custom_instructions=retain_custom_instructions,
             retain_chunk_size=retain_chunk_size,
             retain_structured_chunk_size=retain_structured_chunk_size,
+            retain_max_attachments_per_chunk=retain_max_attachments_per_chunk,
             enable_observations=enable_observations,
             observations_mission=observations_mission,
+            enable_text_search=enable_text_search,
             enable_temporal_retrieval=enable_temporal_retrieval,
             enable_graph_retrieval=enable_graph_retrieval,
             enable_reranking=enable_reranking,
@@ -882,6 +1071,7 @@ class Hindsight:
         Returns:
             RetainResponse with success status and item count
         """
+        from hindsight_client_api.models.content import Content
         from hindsight_client_api.models.entity_input import EntityInput
         from hindsight_client_api.models.observation_scopes import ObservationScopes
         from hindsight_client_api.models.timestamp import Timestamp
@@ -898,7 +1088,11 @@ class Hindsight:
                 obs_scopes = ObservationScopes(actual_instance=item["observation_scopes"])
             memory_items.append(
                 memory_item.MemoryItem(
-                    content=item["content"],
+                    # `content` is a generated anyOf wrapper since retain accepted
+                    # inline images (str | ContentBlock[]), so it is constructed the
+                    # same way as the Timestamp/ObservationScopes unions below.
+                    # Passing the raw value straight through fails validation.
+                    content=Content(actual_instance=item["content"]),
                     timestamp=timestamp_val,
                     context=item.get("context"),
                     metadata=item.get("metadata"),
@@ -928,7 +1122,7 @@ class Hindsight:
     async def aretain(
         self,
         bank_id: str,
-        content: str,
+        content: str | list[ContentBlock],
         timestamp: datetime | None = None,
         context: str | None = None,
         document_id: str | None = None,
@@ -945,7 +1139,10 @@ class Hindsight:
 
         Args:
             bank_id: The memory bank ID
-            content: Memory content
+            content: Memory content. Either a plain string, or an ordered list of
+                content blocks so an image sits inline where it actually appears —
+                see :data:`ContentBlock`. The block form needs a vision-capable
+                retain LLM server-side.
             timestamp: Optional event timestamp
             context: Optional context description
             document_id: Optional document ID for grouping
@@ -1070,9 +1267,14 @@ class Hindsight:
 
         tag_groups_objs = None
         if tag_groups is not None:
-            from hindsight_client_api.models.recall_request_tag_groups_inner import RecallRequestTagGroupsInner
+            # The generator emits one union model for every tag_groups field and names it after
+            # the first schema that used it; there is no RecallRequest-specific class. Importing
+            # the non-existent name raised ModuleNotFoundError for every caller passing tag_groups.
+            from hindsight_client_api.models.mental_model_trigger_input_tag_groups_inner import (
+                MentalModelTriggerInputTagGroupsInner,
+            )
 
-            tag_groups_objs = [RecallRequestTagGroupsInner.from_dict(tg) for tg in tag_groups]
+            tag_groups_objs = [MentalModelTriggerInputTagGroupsInner.from_dict(tg) for tg in tag_groups]
 
         min_scores_obj = None
         if min_scores is not None:
@@ -1111,7 +1313,11 @@ class Hindsight:
             temporal_window=temporal_window_obj,
         )
 
-        return await self._memory_api.recall_memories(bank_id, request_obj, _request_timeout=self._timeout)
+        return await _retry_on_capacity(
+            lambda: self._memory_api.recall_memories(bank_id, request_obj, _request_timeout=self._timeout),
+            self._max_attempts,
+            self._retry_rng,
+        )
 
     async def areflect(
         self,
@@ -1127,6 +1333,7 @@ class Hindsight:
         include_tool_calls: bool = False,
         include_tool_call_output: bool = True,
         tag_groups: list[dict[str, Any]] | None = None,
+        apply_all_directives: bool = False,
         fact_types: list[str] | None = None,
         exclude_mental_models: bool = False,
         exclude_mental_model_ids: list[str] | None = None,
@@ -1156,6 +1363,9 @@ class Hindsight:
                 outputs are included in the trace. Set to False for a smaller payload (inputs only).
                 Ignored when ``include_tool_calls`` is False (default: True).
             tag_groups: Optional list of tag group filters for advanced boolean tag matching.
+            apply_all_directives: Apply every active directive regardless of tags. By default
+                directives are tag-scoped like memories: untagged ones always apply, tagged ones
+                only when the request's tags match (default: False).
             fact_types: Optional list of fact types to include (world, experience, observation).
             exclude_mental_models: If True, exclude all mental models from reflection (default: False).
             exclude_mental_model_ids: Optional list of specific mental model IDs to exclude.
@@ -1174,9 +1384,14 @@ class Hindsight:
 
         tag_groups_objs = None
         if tag_groups is not None:
-            from hindsight_client_api.models.recall_request_tag_groups_inner import RecallRequestTagGroupsInner
+            # The generator emits one union model for every tag_groups field and names it after
+            # the first schema that used it; there is no RecallRequest-specific class. Importing
+            # the non-existent name raised ModuleNotFoundError for every caller passing tag_groups.
+            from hindsight_client_api.models.mental_model_trigger_input_tag_groups_inner import (
+                MentalModelTriggerInputTagGroupsInner,
+            )
 
-            tag_groups_objs = [RecallRequestTagGroupsInner.from_dict(tg) for tg in tag_groups]
+            tag_groups_objs = [MentalModelTriggerInputTagGroupsInner.from_dict(tg) for tg in tag_groups]
 
         request_obj = reflect_request.ReflectRequest(
             query=query,
@@ -1188,12 +1403,17 @@ class Hindsight:
             tags_match=tags_match,
             include=include,
             tag_groups=tag_groups_objs,
+            apply_all_directives=apply_all_directives or None,
             fact_types=fact_types,
             exclude_mental_models=exclude_mental_models or None,
             exclude_mental_model_ids=exclude_mental_model_ids,
         )
 
-        return await self._memory_api.reflect(bank_id, request_obj, _request_timeout=self._timeout)
+        return await _retry_on_capacity(
+            lambda: self._memory_api.reflect(bank_id, request_obj, _request_timeout=self._timeout),
+            self._max_attempts,
+            self._retry_rng,
+        )
 
     # Mental Models methods
 
@@ -1208,7 +1428,34 @@ class Hindsight:
         id: str | None = None,
     ):
         """
-        Create a mental model (sync wrapper — use ``await client.mental_models.create_mental_model(...)`` in async code).
+        Create a mental model (sync wrapper — prefer :meth:`acreate_mental_model` in async code).
+
+        See :meth:`acreate_mental_model` for the full argument and return documentation.
+        """
+        return _run_async(
+            self.acreate_mental_model(
+                bank_id=bank_id,
+                name=name,
+                source_query=source_query,
+                tags=tags,
+                max_tokens=max_tokens,
+                trigger=trigger,
+                id=id,
+            )
+        )
+
+    async def acreate_mental_model(
+        self,
+        bank_id: str,
+        name: str,
+        source_query: str,
+        tags: list[str] | None = None,
+        max_tokens: int | None = None,
+        trigger: dict[str, Any] | None = None,
+        id: str | None = None,
+    ):
+        """
+        Create a mental model (async — preferred over :meth:`create_mental_model`).
 
         Args:
             bank_id: The memory bank ID
@@ -1222,11 +1469,9 @@ class Hindsight:
         Returns:
             CreateMentalModelResponse with operation_id
         """
-        from hindsight_client_api.models import create_mental_model_request, mental_model_trigger_input
+        from hindsight_client_api.models import create_mental_model_request
 
-        trigger_obj = None
-        if trigger:
-            trigger_obj = mental_model_trigger_input.MentalModelTriggerInput(**trigger)
+        trigger_obj = _trigger_input(trigger) if trigger else None
 
         request_obj = create_mental_model_request.CreateMentalModelRequest(
             id=id,
@@ -1237,9 +1482,7 @@ class Hindsight:
             trigger=trigger_obj,
         )
 
-        return _run_async(
-            self._mental_models_api.create_mental_model(bank_id, request_obj, _request_timeout=self._timeout)
-        )
+        return await self._mental_models_api.create_mental_model(bank_id, request_obj, _request_timeout=self._timeout)
 
     def list_mental_models(
         self,
@@ -1251,32 +1494,56 @@ class Hindsight:
         offset: int | None = None,
     ):
         """
-        List all mental models in a bank (sync wrapper — use ``await client.mental_models.list_mental_models(...)`` in async code).
+        List all mental models in a bank (sync wrapper — prefer :meth:`alist_mental_models` in async code).
+
+        See :meth:`alist_mental_models` for the full argument and return documentation.
+        """
+        return _run_async(
+            self.alist_mental_models(
+                bank_id=bank_id,
+                tags=tags,
+                tags_match=tags_match,
+                detail=detail,
+                limit=limit,
+                offset=offset,
+            )
+        )
+
+    async def alist_mental_models(
+        self,
+        bank_id: str,
+        tags: list[str] | None = None,
+        tags_match: Literal["any", "all", "exact"] | None = None,
+        detail: Literal["metadata", "content", "full"] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ):
+        """
+        List all mental models in a bank (async — preferred over :meth:`list_mental_models`).
 
         Args:
             bank_id: The memory bank ID
             tags: Optional tags to filter by
             tags_match: How to match tags ("any", "all", or "exact")
-            detail: Detail level — "metadata" (names/tags only), "content" (adds
-                content/config), or "full" (includes the large reflect_response
-                provenance chains). Defaults server-side to "full"; pass a lighter
-                level to avoid pulling large payloads you don't need.
+            detail: Detail level — "metadata" (names/tags/staleness), "content"
+                (adds content/config), or "full" (includes the large
+                reflect_response provenance chains). Defaults server-side to
+                "metadata"; pass "content" or "full" when you need the models'
+                text, or read a single model with get_mental_model.
             limit: Maximum number of mental models to return
             offset: Number of mental models to skip (for pagination)
 
         Returns:
             ListMentalModelsResponse with items
         """
-        return _run_async(
-            self._mental_models_api.list_mental_models(
-                bank_id,
-                tags=tags,
-                tags_match=tags_match,
-                detail=detail,
-                limit=limit,
-                offset=offset,
-                _request_timeout=self._timeout,
-            )
+        return await self._mental_models_api.list_mental_models(
+            bank_id,
+            tags=tags,
+            tags_match=tags_match,
+            detail=detail,
+            limit=limit,
+            offset=offset,
+            _request_timeout=self._timeout,
         )
 
     def get_mental_model(
@@ -1286,7 +1553,20 @@ class Hindsight:
         detail: Literal["metadata", "content", "full"] | None = None,
     ):
         """
-        Get a specific mental model (sync wrapper — use ``await client.mental_models.get_mental_model(...)`` in async code).
+        Get a specific mental model (sync wrapper — prefer :meth:`aget_mental_model` in async code).
+
+        See :meth:`aget_mental_model` for the full argument and return documentation.
+        """
+        return _run_async(self.aget_mental_model(bank_id=bank_id, mental_model_id=mental_model_id, detail=detail))
+
+    async def aget_mental_model(
+        self,
+        bank_id: str,
+        mental_model_id: str,
+        detail: Literal["metadata", "content", "full"] | None = None,
+    ):
+        """
+        Get a specific mental model (async — preferred over :meth:`get_mental_model`).
 
         Args:
             bank_id: The memory bank ID
@@ -1299,15 +1579,21 @@ class Hindsight:
         Returns:
             MentalModelResponse
         """
-        return _run_async(
-            self._mental_models_api.get_mental_model(
-                bank_id, mental_model_id, detail=detail, _request_timeout=self._timeout
-            )
+        return await self._mental_models_api.get_mental_model(
+            bank_id, mental_model_id, detail=detail, _request_timeout=self._timeout
         )
 
     def refresh_mental_model(self, bank_id: str, mental_model_id: str):
         """
-        Refresh a mental model (sync wrapper — use ``await client.mental_models.refresh_mental_model(...)`` in async code).
+        Refresh a mental model (sync wrapper — prefer :meth:`arefresh_mental_model` in async code).
+
+        See :meth:`arefresh_mental_model` for the full argument and return documentation.
+        """
+        return _run_async(self.arefresh_mental_model(bank_id=bank_id, mental_model_id=mental_model_id))
+
+    async def arefresh_mental_model(self, bank_id: str, mental_model_id: str):
+        """
+        Refresh a mental model (async — preferred over :meth:`refresh_mental_model`).
 
         Args:
             bank_id: The memory bank ID
@@ -1316,14 +1602,21 @@ class Hindsight:
         Returns:
             RefreshMentalModelResponse with operation_id
         """
-        return _run_async(
-            self._mental_models_api.refresh_mental_model(bank_id, mental_model_id, _request_timeout=self._timeout)
+        return await self._mental_models_api.refresh_mental_model(
+            bank_id, mental_model_id, _request_timeout=self._timeout
         )
 
     def dry_run_refresh_mental_model(self, bank_id: str, mental_model_id: str):
         """
-        Preview a mental model refresh without changing anything (sync wrapper — use
-        ``await client.mental_models.dry_run_refresh_mental_model(...)`` in async code).
+        Preview a mental model refresh without changing anything (sync wrapper — prefer :meth:`adry_run_refresh_mental_model` in async code).
+
+        See :meth:`adry_run_refresh_mental_model` for the full argument and return documentation.
+        """
+        return _run_async(self.adry_run_refresh_mental_model(bank_id=bank_id, mental_model_id=mental_model_id))
+
+    async def adry_run_refresh_mental_model(self, bank_id: str, mental_model_id: str):
+        """
+        Preview a mental model refresh without changing anything (async — preferred over :meth:`dry_run_refresh_mental_model`).
 
         The production refresh pipeline with two writes skipped — the content and the
         watermark — so what it reports is what the next refresh will do. Reports the
@@ -1338,13 +1631,19 @@ class Hindsight:
         Returns:
             MentalModelDryRunRefreshResult
         """
-        return _run_async(
-            self._mental_models_api.dry_run_refresh_mental_model(
-                bank_id, mental_model_id, _request_timeout=self._timeout
-            )
+        return await self._mental_models_api.dry_run_refresh_mental_model(
+            bank_id, mental_model_id, _request_timeout=self._timeout
         )
 
     def clear_mental_model(self, bank_id: str, mental_model_id: str):
+        """
+        Clear a mental model's content so the next refresh performs a full re-synthesis (sync wrapper — prefer :meth:`aclear_mental_model` in async code).
+
+        See :meth:`aclear_mental_model` for the full argument and return documentation.
+        """
+        return _run_async(self.aclear_mental_model(bank_id=bank_id, mental_model_id=mental_model_id))
+
+    async def aclear_mental_model(self, bank_id: str, mental_model_id: str):
         """
         Clear a mental model's content so the next refresh performs a full re-synthesis.
 
@@ -1355,8 +1654,8 @@ class Hindsight:
         Returns:
             MentalModelResponse with cleared content
         """
-        return _run_async(
-            self._mental_models_api.clear_mental_model(bank_id, mental_model_id, _request_timeout=self._timeout)
+        return await self._mental_models_api.clear_mental_model(
+            bank_id, mental_model_id, _request_timeout=self._timeout
         )
 
     def update_mental_model(
@@ -1370,7 +1669,34 @@ class Hindsight:
         trigger: dict[str, Any] | None = None,
     ):
         """
-        Update a mental model's metadata (sync wrapper — use ``await client.mental_models.update_mental_model(...)`` in async code).
+        Update a mental model's metadata (sync wrapper — prefer :meth:`aupdate_mental_model` in async code).
+
+        See :meth:`aupdate_mental_model` for the full argument and return documentation.
+        """
+        return _run_async(
+            self.aupdate_mental_model(
+                bank_id=bank_id,
+                mental_model_id=mental_model_id,
+                name=name,
+                source_query=source_query,
+                tags=tags,
+                max_tokens=max_tokens,
+                trigger=trigger,
+            )
+        )
+
+    async def aupdate_mental_model(
+        self,
+        bank_id: str,
+        mental_model_id: str,
+        name: str | None = None,
+        source_query: str | None = None,
+        tags: list[str] | None = None,
+        max_tokens: int | None = None,
+        trigger: dict[str, Any] | None = None,
+    ):
+        """
+        Update a mental model's metadata (async — preferred over :meth:`update_mental_model`).
 
         Args:
             bank_id: The memory bank ID
@@ -1384,11 +1710,9 @@ class Hindsight:
         Returns:
             MentalModelResponse
         """
-        from hindsight_client_api.models import mental_model_trigger_input, update_mental_model_request
+        from hindsight_client_api.models import update_mental_model_request
 
-        trigger_obj = None
-        if trigger:
-            trigger_obj = mental_model_trigger_input.MentalModelTriggerInput(**trigger)
+        trigger_obj = _trigger_input(trigger) if trigger else None
 
         request_obj = update_mental_model_request.UpdateMentalModelRequest(
             name=name,
@@ -1398,27 +1722,41 @@ class Hindsight:
             trigger=trigger_obj,
         )
 
-        return _run_async(
-            self._mental_models_api.update_mental_model(
-                bank_id, mental_model_id, request_obj, _request_timeout=self._timeout
-            )
+        return await self._mental_models_api.update_mental_model(
+            bank_id, mental_model_id, request_obj, _request_timeout=self._timeout
         )
 
     def delete_mental_model(self, bank_id: str, mental_model_id: str):
         """
-        Delete a mental model (sync wrapper — use ``await client.mental_models.delete_mental_model(...)`` in async code).
+        Delete a mental model (sync wrapper — prefer :meth:`adelete_mental_model` in async code).
+
+        See :meth:`adelete_mental_model` for the full argument and return documentation.
+        """
+        return _run_async(self.adelete_mental_model(bank_id=bank_id, mental_model_id=mental_model_id))
+
+    async def adelete_mental_model(self, bank_id: str, mental_model_id: str):
+        """
+        Delete a mental model (async — preferred over :meth:`delete_mental_model`).
 
         Args:
             bank_id: The memory bank ID
             mental_model_id: The mental model ID
         """
-        return _run_async(
-            self._mental_models_api.delete_mental_model(bank_id, mental_model_id, _request_timeout=self._timeout)
+        return await self._mental_models_api.delete_mental_model(
+            bank_id, mental_model_id, _request_timeout=self._timeout
         )
 
     def get_mental_model_history(self, bank_id: str, mental_model_id: str):
         """
-        Get the content change history of a mental model (sync wrapper — use ``await client.mental_models.get_mental_model_history(...)`` in async code).
+        Get the content change history of a mental model (sync wrapper — prefer :meth:`aget_mental_model_history` in async code).
+
+        See :meth:`aget_mental_model_history` for the full argument and return documentation.
+        """
+        return _run_async(self.aget_mental_model_history(bank_id=bank_id, mental_model_id=mental_model_id))
+
+    async def aget_mental_model_history(self, bank_id: str, mental_model_id: str):
+        """
+        Get the content change history of a mental model (async — preferred over :meth:`get_mental_model_history`).
 
         Returns a list of history entries (most recent first), each with
         ``previous_content`` and ``changed_at`` fields.
@@ -1427,16 +1765,23 @@ class Hindsight:
             bank_id: The memory bank ID
             mental_model_id: The mental model ID
         """
-        return _run_async(
-            self._mental_models_api.get_mental_model_history(bank_id, mental_model_id, _request_timeout=self._timeout)
+        return await self._mental_models_api.get_mental_model_history(
+            bank_id, mental_model_id, _request_timeout=self._timeout
         )
 
     # Knowledge base methods
 
     def get_knowledge_base_tree(self, bank_id: str):
         """
-        Get the knowledge base as a nested folder/page tree (sync wrapper — use
-        ``await client.knowledge_base.get_knowledge_base_tree(...)`` in async code).
+        Get the knowledge base as a nested folder/page tree (sync wrapper — prefer :meth:`aget_knowledge_base_tree` in async code).
+
+        See :meth:`aget_knowledge_base_tree` for the full argument and return documentation.
+        """
+        return _run_async(self.aget_knowledge_base_tree(bank_id=bank_id))
+
+    async def aget_knowledge_base_tree(self, bank_id: str):
+        """
+        Get the knowledge base as a nested folder/page tree (async — preferred over :meth:`get_knowledge_base_tree`).
 
         Page bodies are not included; fetch a page with :meth:`get_knowledge_page`.
 
@@ -1446,12 +1791,19 @@ class Hindsight:
         Returns:
             KnowledgeTreeResponse with roots
         """
-        return _run_async(self._knowledge_base_api.get_knowledge_base_tree(bank_id, _request_timeout=self._timeout))
+        return await self._knowledge_base_api.get_knowledge_base_tree(bank_id, _request_timeout=self._timeout)
 
     def create_knowledge_folder(self, bank_id: str, name: str, parent_id: str | None = None):
         """
-        Create a knowledge-base folder (sync wrapper — use
-        ``await client.knowledge_base.create_knowledge_folder(...)`` in async code).
+        Create a knowledge-base folder (sync wrapper — prefer :meth:`acreate_knowledge_folder` in async code).
+
+        See :meth:`acreate_knowledge_folder` for the full argument and return documentation.
+        """
+        return _run_async(self.acreate_knowledge_folder(bank_id=bank_id, name=name, parent_id=parent_id))
+
+    async def acreate_knowledge_folder(self, bank_id: str, name: str, parent_id: str | None = None):
+        """
+        Create a knowledge-base folder (async — preferred over :meth:`create_knowledge_folder`).
 
         Args:
             bank_id: The memory bank ID
@@ -1465,8 +1817,8 @@ class Hindsight:
 
         request_obj = create_folder_request.CreateFolderRequest(name=name, parent_id=parent_id)
 
-        return _run_async(
-            self._knowledge_base_api.create_knowledge_folder(bank_id, request_obj, _request_timeout=self._timeout)
+        return await self._knowledge_base_api.create_knowledge_folder(
+            bank_id, request_obj, _request_timeout=self._timeout
         )
 
     def create_knowledge_page(
@@ -1480,8 +1832,34 @@ class Hindsight:
         trigger: dict[str, Any] | None = None,
     ):
         """
-        Create a knowledge-base page (sync wrapper — use
-        ``await client.knowledge_base.create_knowledge_page(...)`` in async code).
+        Create a knowledge-base page (sync wrapper — prefer :meth:`acreate_knowledge_page` in async code).
+
+        See :meth:`acreate_knowledge_page` for the full argument and return documentation.
+        """
+        return _run_async(
+            self.acreate_knowledge_page(
+                bank_id=bank_id,
+                name=name,
+                source_query=source_query,
+                parent_id=parent_id,
+                tags=tags,
+                max_tokens=max_tokens,
+                trigger=trigger,
+            )
+        )
+
+    async def acreate_knowledge_page(
+        self,
+        bank_id: str,
+        name: str,
+        source_query: str,
+        parent_id: str | None = None,
+        tags: list[str] | None = None,
+        max_tokens: int | None = None,
+        trigger: dict[str, Any] | None = None,
+    ):
+        """
+        Create a knowledge-base page (async — preferred over :meth:`create_knowledge_page`).
 
         Content is generated asynchronously; poll the returned ``operation_id``
         to know when the first build has finished.
@@ -1507,11 +1885,9 @@ class Hindsight:
         Returns:
             CreateKnowledgePageResponse with page_id, mental_model_id and operation_id
         """
-        from hindsight_client_api.models import create_page_request, mental_model_trigger_input
+        from hindsight_client_api.models import create_page_request
 
-        trigger_obj = None
-        if trigger:
-            trigger_obj = mental_model_trigger_input.MentalModelTriggerInput(**trigger)
+        trigger_obj = _trigger_input(trigger) if trigger else None
 
         request_obj = create_page_request.CreatePageRequest(
             name=name,
@@ -1522,14 +1898,21 @@ class Hindsight:
             trigger=trigger_obj,
         )
 
-        return _run_async(
-            self._knowledge_base_api.create_knowledge_page(bank_id, request_obj, _request_timeout=self._timeout)
+        return await self._knowledge_base_api.create_knowledge_page(
+            bank_id, request_obj, _request_timeout=self._timeout
         )
 
     def get_knowledge_page(self, bank_id: str, page_id: str):
         """
-        Get a knowledge page rendered as a markdown document (sync wrapper — use
-        ``await client.knowledge_base.get_knowledge_page(...)`` in async code).
+        Get a knowledge page rendered as a markdown document (sync wrapper — prefer :meth:`aget_knowledge_page` in async code).
+
+        See :meth:`aget_knowledge_page` for the full argument and return documentation.
+        """
+        return _run_async(self.aget_knowledge_page(bank_id=bank_id, page_id=page_id))
+
+    async def aget_knowledge_page(self, bank_id: str, page_id: str):
+        """
+        Get a knowledge page rendered as a markdown document (async — preferred over :meth:`get_knowledge_page`).
 
         Args:
             bank_id: The memory bank ID
@@ -1538,14 +1921,19 @@ class Hindsight:
         Returns:
             KnowledgePageResponse with body and full markdown (frontmatter + body)
         """
-        return _run_async(
-            self._knowledge_base_api.get_knowledge_page(bank_id, page_id, _request_timeout=self._timeout)
-        )
+        return await self._knowledge_base_api.get_knowledge_page(bank_id, page_id, _request_timeout=self._timeout)
 
     def search_knowledge_base(self, bank_id: str, q: str, limit: int | None = None):
         """
-        Hybrid search over knowledge pages (sync wrapper — use
-        ``await client.knowledge_base.search_knowledge_base(...)`` in async code).
+        Hybrid search over knowledge pages (sync wrapper — prefer :meth:`asearch_knowledge_base` in async code).
+
+        See :meth:`asearch_knowledge_base` for the full argument and return documentation.
+        """
+        return _run_async(self.asearch_knowledge_base(bank_id=bank_id, q=q, limit=limit))
+
+    async def asearch_knowledge_base(self, bank_id: str, q: str, limit: int | None = None):
+        """
+        Hybrid search over knowledge pages (async — preferred over :meth:`search_knowledge_base`).
 
         Args:
             bank_id: The memory bank ID
@@ -1555,8 +1943,8 @@ class Hindsight:
         Returns:
             KnowledgePageSearchResponse with ranked results
         """
-        return _run_async(
-            self._knowledge_base_api.search_knowledge_base(bank_id, q, limit=limit, _request_timeout=self._timeout)
+        return await self._knowledge_base_api.search_knowledge_base(
+            bank_id, q, limit=limit, _request_timeout=self._timeout
         )
 
     def update_knowledge_node(
@@ -1571,8 +1959,36 @@ class Hindsight:
         trigger: dict[str, Any] | None = None,
     ):
         """
-        Rename/move a knowledge node and/or update a page's options (sync wrapper —
-        use ``await client.knowledge_base.update_knowledge_node(...)`` in async code).
+        Rename/move a knowledge node and/or update a page's options (sync wrapper — prefer :meth:`aupdate_knowledge_node` in async code).
+
+        See :meth:`aupdate_knowledge_node` for the full argument and return documentation.
+        """
+        return _run_async(
+            self.aupdate_knowledge_node(
+                bank_id=bank_id,
+                node_id=node_id,
+                name=name,
+                parent_id=parent_id,
+                source_query=source_query,
+                tags=tags,
+                max_tokens=max_tokens,
+                trigger=trigger,
+            )
+        )
+
+    async def aupdate_knowledge_node(
+        self,
+        bank_id: str,
+        node_id: str,
+        name: str | None = None,
+        parent_id: str | None = _UNSET,
+        source_query: str | None = None,
+        tags: list[str] | None = None,
+        max_tokens: int | None = None,
+        trigger: dict[str, Any] | None = None,
+    ):
+        """
+        Rename/move a knowledge node and/or update a page's options (async — preferred over :meth:`update_knowledge_node`).
 
         Only the fields you pass are applied. ``parent_id`` is only sent when
         provided, so passing ``None`` explicitly moves the node to the root.
@@ -1609,33 +2025,46 @@ class Hindsight:
         if max_tokens is not None:
             fields["max_tokens"] = max_tokens
         if trigger is not None:
-            fields["trigger"] = trigger
+            # Built through the helper rather than handed over as a dict: pydantic
+            # would fill the unnamed fields with the model's defaults and the page
+            # would lose the settings this patch never mentioned.
+            fields["trigger"] = _trigger_input(trigger)
 
         request_obj = update_node_request.UpdateNodeRequest(**fields)
 
-        return _run_async(
-            self._knowledge_base_api.update_knowledge_node(
-                bank_id, node_id, request_obj, _request_timeout=self._timeout
-            )
+        return await self._knowledge_base_api.update_knowledge_node(
+            bank_id, node_id, request_obj, _request_timeout=self._timeout
         )
 
     def delete_knowledge_node(self, bank_id: str, node_id: str):
         """
-        Delete a knowledge folder or page and its whole subtree (sync wrapper — use
-        ``await client.knowledge_base.delete_knowledge_node(...)`` in async code).
+        Delete a knowledge folder or page and its whole subtree (sync wrapper — prefer :meth:`adelete_knowledge_node` in async code).
+
+        See :meth:`adelete_knowledge_node` for the full argument and return documentation.
+        """
+        return _run_async(self.adelete_knowledge_node(bank_id=bank_id, node_id=node_id))
+
+    async def adelete_knowledge_node(self, bank_id: str, node_id: str):
+        """
+        Delete a knowledge folder or page and its whole subtree (async — preferred over :meth:`delete_knowledge_node`).
 
         Args:
             bank_id: The memory bank ID
             node_id: The folder or page ID
         """
-        return _run_async(
-            self._knowledge_base_api.delete_knowledge_node(bank_id, node_id, _request_timeout=self._timeout)
-        )
+        return await self._knowledge_base_api.delete_knowledge_node(bank_id, node_id, _request_timeout=self._timeout)
 
     def export_knowledge_base(self, bank_id: str):
         """
-        Export the knowledge base as a portable markdown bundle (sync wrapper — use
-        ``await client.knowledge_base.export_knowledge_base(...)`` in async code).
+        Export the knowledge base as a portable markdown bundle (sync wrapper — prefer :meth:`aexport_knowledge_base` in async code).
+
+        See :meth:`aexport_knowledge_base` for the full argument and return documentation.
+        """
+        return _run_async(self.aexport_knowledge_base(bank_id=bank_id))
+
+    async def aexport_knowledge_base(self, bank_id: str):
+        """
+        Export the knowledge base as a portable markdown bundle (async — preferred over :meth:`export_knowledge_base`).
 
         Args:
             bank_id: The memory bank ID
@@ -1643,7 +2072,7 @@ class Hindsight:
         Returns:
             KnowledgePageBundleResponse with files (index.md, one file per page, history logs)
         """
-        return _run_async(self._knowledge_base_api.export_knowledge_base(bank_id, _request_timeout=self._timeout))
+        return await self._knowledge_base_api.export_knowledge_base(bank_id, _request_timeout=self._timeout)
 
     # Document transfer (export / import between banks — no LLM re-extraction)
 
@@ -1657,6 +2086,7 @@ class Hindsight:
         bank_id: str,
         document_ids: list[str] | None = None,
         include_observations: bool = False,
+        include_knowledge_base: bool = False,
         *,
         poll_interval: float = 2.0,
         timeout: float = 300.0,
@@ -1673,6 +2103,7 @@ class Hindsight:
             bank_id: Source bank.
             document_ids: Specific document ids to export; omit for the whole bank.
             include_observations: Also export consolidated observations (whole-bank only).
+            include_knowledge_base: Also export Mental Models and Knowledge Pages (whole-bank only).
             poll_interval: Seconds between operation-status polls.
             timeout: Maximum seconds to wait for the export to finish.
 
@@ -1688,6 +2119,7 @@ class Hindsight:
                 bank_id,
                 document_ids,
                 include_observations,
+                include_knowledge_base,
                 poll_interval=poll_interval,
                 timeout=timeout,
             )
@@ -1698,6 +2130,7 @@ class Hindsight:
         bank_id: str,
         document_ids: list[str] | None = None,
         include_observations: bool = False,
+        include_knowledge_base: bool = False,
         *,
         poll_interval: float = 2.0,
         timeout: float = 300.0,
@@ -1707,6 +2140,7 @@ class Hindsight:
             bank_id,
             document_id=document_ids,
             include_observations=include_observations,
+            include_knowledge_base=include_knowledge_base,
             _request_timeout=self._timeout,
         )
         operation_id = submission.operation_id
@@ -1756,7 +2190,32 @@ class Hindsight:
         tags: list[str] | None = None,
     ):
         """
-        Create a directive (sync wrapper — use ``await client.directives.create_directive(...)`` in async code).
+        Create a directive (sync wrapper — prefer :meth:`acreate_directive` in async code).
+
+        See :meth:`acreate_directive` for the full argument and return documentation.
+        """
+        return _run_async(
+            self.acreate_directive(
+                bank_id=bank_id,
+                name=name,
+                content=content,
+                priority=priority,
+                is_active=is_active,
+                tags=tags,
+            )
+        )
+
+    async def acreate_directive(
+        self,
+        bank_id: str,
+        name: str,
+        content: str,
+        priority: int = 0,
+        is_active: bool = True,
+        tags: list[str] | None = None,
+    ):
+        """
+        Create a directive (async — preferred over :meth:`create_directive`).
 
         Args:
             bank_id: The memory bank ID
@@ -1779,7 +2238,7 @@ class Hindsight:
             tags=tags,
         )
 
-        return _run_async(self._directives_api.create_directive(bank_id, request_obj, _request_timeout=self._timeout))
+        return await self._directives_api.create_directive(bank_id, request_obj, _request_timeout=self._timeout)
 
     def list_directives(
         self,
@@ -1789,7 +2248,21 @@ class Hindsight:
         offset: int | None = None,
     ):
         """
-        List all directives in a bank (sync wrapper — use ``await client.directives.list_directives(...)`` in async code).
+        List all directives in a bank (sync wrapper — prefer :meth:`alist_directives` in async code).
+
+        See :meth:`alist_directives` for the full argument and return documentation.
+        """
+        return _run_async(self.alist_directives(bank_id=bank_id, tags=tags, limit=limit, offset=offset))
+
+    async def alist_directives(
+        self,
+        bank_id: str,
+        tags: list[str] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ):
+        """
+        List all directives in a bank (async — preferred over :meth:`list_directives`).
 
         Args:
             bank_id: The memory bank ID
@@ -1800,19 +2273,25 @@ class Hindsight:
         Returns:
             ListDirectivesResponse with items and the total matching the filter
         """
-        return _run_async(
-            self._directives_api.list_directives(
-                bank_id,
-                tags=tags,
-                limit=limit,
-                offset=offset,
-                _request_timeout=self._timeout,
-            )
+        return await self._directives_api.list_directives(
+            bank_id,
+            tags=tags,
+            limit=limit,
+            offset=offset,
+            _request_timeout=self._timeout,
         )
 
     def get_directive(self, bank_id: str, directive_id: str):
         """
-        Get a specific directive (sync wrapper — use ``await client.directives.get_directive(...)`` in async code).
+        Get a specific directive (sync wrapper — prefer :meth:`aget_directive` in async code).
+
+        See :meth:`aget_directive` for the full argument and return documentation.
+        """
+        return _run_async(self.aget_directive(bank_id=bank_id, directive_id=directive_id))
+
+    async def aget_directive(self, bank_id: str, directive_id: str):
+        """
+        Get a specific directive (async — preferred over :meth:`get_directive`).
 
         Args:
             bank_id: The memory bank ID
@@ -1821,7 +2300,7 @@ class Hindsight:
         Returns:
             DirectiveResponse
         """
-        return _run_async(self._directives_api.get_directive(bank_id, directive_id, _request_timeout=self._timeout))
+        return await self._directives_api.get_directive(bank_id, directive_id, _request_timeout=self._timeout)
 
     def update_directive(
         self,
@@ -1834,7 +2313,34 @@ class Hindsight:
         tags: list[str] | None = None,
     ):
         """
-        Update a directive (sync wrapper — use ``await client.directives.update_directive(...)`` in async code).
+        Update a directive (sync wrapper — prefer :meth:`aupdate_directive` in async code).
+
+        See :meth:`aupdate_directive` for the full argument and return documentation.
+        """
+        return _run_async(
+            self.aupdate_directive(
+                bank_id=bank_id,
+                directive_id=directive_id,
+                name=name,
+                content=content,
+                priority=priority,
+                is_active=is_active,
+                tags=tags,
+            )
+        )
+
+    async def aupdate_directive(
+        self,
+        bank_id: str,
+        directive_id: str,
+        name: str | None = None,
+        content: str | None = None,
+        priority: int | None = None,
+        is_active: bool | None = None,
+        tags: list[str] | None = None,
+    ):
+        """
+        Update a directive (async — preferred over :meth:`update_directive`).
 
         Args:
             bank_id: The memory bank ID
@@ -1858,25 +2364,42 @@ class Hindsight:
             tags=tags,
         )
 
-        return _run_async(
-            self._directives_api.update_directive(bank_id, directive_id, request_obj, _request_timeout=self._timeout)
+        return await self._directives_api.update_directive(
+            bank_id, directive_id, request_obj, _request_timeout=self._timeout
         )
 
     def delete_directive(self, bank_id: str, directive_id: str):
         """
-        Delete a directive (sync wrapper — use ``await client.directives.delete_directive(...)`` in async code).
+        Delete a directive (sync wrapper — prefer :meth:`adelete_directive` in async code).
+
+        See :meth:`adelete_directive` for the full argument and return documentation.
+        """
+        return _run_async(self.adelete_directive(bank_id=bank_id, directive_id=directive_id))
+
+    async def adelete_directive(self, bank_id: str, directive_id: str):
+        """
+        Delete a directive (async — preferred over :meth:`delete_directive`).
 
         Args:
             bank_id: The memory bank ID
             directive_id: The directive ID
         """
-        return _run_async(self._directives_api.delete_directive(bank_id, directive_id, _request_timeout=self._timeout))
+        return await self._directives_api.delete_directive(bank_id, directive_id, _request_timeout=self._timeout)
 
     def get_bank_config(self, bank_id: str) -> dict[str, Any]:
         """
-        Get the resolved configuration for a bank (sync wrapper — use ``await client.banks.get_bank_config(...)`` in async code).
+        Get the resolved configuration for a bank (sync wrapper — prefer :meth:`aget_bank_config` in async code).
 
-        Can be disabled on the server by setting ``HINDSIGHT_API_ENABLE_BANK_CONFIG_API=false``.
+        See :meth:`aget_bank_config` for the full argument and return documentation.
+        """
+        return _run_async(self.aget_bank_config(bank_id=bank_id))
+
+    async def aget_bank_config(self, bank_id: str) -> dict[str, Any]:
+        """
+        Get the resolved configuration for a bank (async — preferred over :meth:`get_bank_config`).
+
+        Always available: ``HINDSIGHT_API_ENABLE_BANK_CONFIG_API=false`` disables only
+        the config *writes*, not this read.
 
         Args:
             bank_id: The memory bank ID
@@ -1884,7 +2407,7 @@ class Hindsight:
         Returns:
             dict with ``bank_id``, ``config`` (fully resolved), and ``overrides`` (bank-level only)
         """
-        return _run_async(self._aget_bank_config(bank_id))
+        return await self._aget_bank_config(bank_id)
 
     async def _aget_bank_config(self, bank_id: str) -> dict[str, Any]:
         import aiohttp
@@ -1909,20 +2432,43 @@ class Hindsight:
         retain_custom_instructions: str | None = None,
         retain_chunk_size: int | None = None,
         retain_structured_chunk_size: int | None = None,
+        retain_max_attachments_per_chunk: int | None = None,
         retain_default_strategy: str | None = None,
         retain_strategies: dict[str, Any] | None = None,
+        retain_chunk_batch_size: int | None = None,
+        store_document_text: bool | None = None,
         # Entity settings
-        entity_labels: list[str] | None = None,
+        entity_labels: list[dict[str, Any]] | None = None,
         entities_allow_free_form: bool | None = None,
         # Observation / consolidation settings
         enable_observations: bool | None = None,
         observations_mission: str | None = None,
+        max_observations_per_scope: int | None = None,
+        observation_scope_limits: list[dict[str, Any]] | None = None,
+        enable_auto_consolidation: bool | None = None,
+        consolidation_llm_parallelism: int | None = None,
+        consolidation_max_memories_per_round: int | None = None,
+        mental_model_min_refresh_interval_seconds: int | None = None,
+        enable_text_search: bool | None = None,
         enable_temporal_retrieval: bool | None = None,
         enable_graph_retrieval: bool | None = None,
         enable_reranking: bool | None = None,
         consolidation_llm_batch_size: int | None = None,
         consolidation_source_facts_max_tokens: int | None = None,
         consolidation_source_facts_max_tokens_per_observation: int | None = None,
+        # Recall settings
+        recall_max_tokens: int | None = None,
+        recall_include_chunks: bool | None = None,
+        recall_chunks_max_tokens: int | None = None,
+        recall_budget_function: str | None = None,
+        recall_budget_fixed_low: int | None = None,
+        recall_budget_fixed_mid: int | None = None,
+        recall_budget_fixed_high: int | None = None,
+        recall_budget_adaptive_low: float | None = None,
+        recall_budget_adaptive_mid: float | None = None,
+        recall_budget_adaptive_high: float | None = None,
+        recall_budget_min: int | None = None,
+        recall_budget_max: int | None = None,
         # Disposition settings
         disposition_skepticism: int | None = None,
         disposition_literalism: int | None = None,
@@ -1930,10 +2476,134 @@ class Hindsight:
         # MCP settings
         mcp_enabled_tools: list[str] | None = None,
         # Gemini safety settings
-        llm_gemini_safety_settings: dict[str, str] | None = None,
+        llm_gemini_safety_settings: list[dict[str, str]] | None = None,
+        # Security / audit
+        memory_defense: dict[str, Any] | None = None,
+        audit_log_enabled: bool | None = None,
     ) -> dict[str, Any]:
         """
-        Update configuration overrides for a bank (sync wrapper — use ``await client.banks.update_bank_config(...)`` in async code).
+        Update configuration overrides for a bank (sync wrapper — prefer :meth:`aupdate_bank_config` in async code).
+
+        See :meth:`aupdate_bank_config` for the full argument and return documentation.
+        """
+        return _run_async(
+            self.aupdate_bank_config(
+                bank_id=bank_id,
+                reflect_mission=reflect_mission,
+                reflect_source_facts_max_tokens=reflect_source_facts_max_tokens,
+                retain_mission=retain_mission,
+                retain_extraction_mode=retain_extraction_mode,
+                retain_custom_instructions=retain_custom_instructions,
+                retain_chunk_size=retain_chunk_size,
+                retain_structured_chunk_size=retain_structured_chunk_size,
+                retain_max_attachments_per_chunk=retain_max_attachments_per_chunk,
+                retain_default_strategy=retain_default_strategy,
+                retain_strategies=retain_strategies,
+                retain_chunk_batch_size=retain_chunk_batch_size,
+                store_document_text=store_document_text,
+                entity_labels=entity_labels,
+                entities_allow_free_form=entities_allow_free_form,
+                enable_observations=enable_observations,
+                observations_mission=observations_mission,
+                max_observations_per_scope=max_observations_per_scope,
+                observation_scope_limits=observation_scope_limits,
+                enable_auto_consolidation=enable_auto_consolidation,
+                consolidation_llm_parallelism=consolidation_llm_parallelism,
+                consolidation_max_memories_per_round=consolidation_max_memories_per_round,
+                mental_model_min_refresh_interval_seconds=mental_model_min_refresh_interval_seconds,
+                enable_text_search=enable_text_search,
+                enable_temporal_retrieval=enable_temporal_retrieval,
+                enable_graph_retrieval=enable_graph_retrieval,
+                enable_reranking=enable_reranking,
+                consolidation_llm_batch_size=consolidation_llm_batch_size,
+                consolidation_source_facts_max_tokens=consolidation_source_facts_max_tokens,
+                consolidation_source_facts_max_tokens_per_observation=consolidation_source_facts_max_tokens_per_observation,
+                recall_max_tokens=recall_max_tokens,
+                recall_include_chunks=recall_include_chunks,
+                recall_chunks_max_tokens=recall_chunks_max_tokens,
+                recall_budget_function=recall_budget_function,
+                recall_budget_fixed_low=recall_budget_fixed_low,
+                recall_budget_fixed_mid=recall_budget_fixed_mid,
+                recall_budget_fixed_high=recall_budget_fixed_high,
+                recall_budget_adaptive_low=recall_budget_adaptive_low,
+                recall_budget_adaptive_mid=recall_budget_adaptive_mid,
+                recall_budget_adaptive_high=recall_budget_adaptive_high,
+                recall_budget_min=recall_budget_min,
+                recall_budget_max=recall_budget_max,
+                disposition_skepticism=disposition_skepticism,
+                disposition_literalism=disposition_literalism,
+                disposition_empathy=disposition_empathy,
+                mcp_enabled_tools=mcp_enabled_tools,
+                llm_gemini_safety_settings=llm_gemini_safety_settings,
+                memory_defense=memory_defense,
+                audit_log_enabled=audit_log_enabled,
+            )
+        )
+
+    async def aupdate_bank_config(
+        self,
+        bank_id: str,
+        *,
+        # Reflect settings
+        reflect_mission: str | None = None,
+        reflect_source_facts_max_tokens: int | None = None,
+        # Retain settings
+        retain_mission: str | None = None,
+        retain_extraction_mode: str | None = None,
+        retain_custom_instructions: str | None = None,
+        retain_chunk_size: int | None = None,
+        retain_structured_chunk_size: int | None = None,
+        retain_max_attachments_per_chunk: int | None = None,
+        retain_default_strategy: str | None = None,
+        retain_strategies: dict[str, Any] | None = None,
+        retain_chunk_batch_size: int | None = None,
+        store_document_text: bool | None = None,
+        # Entity settings
+        entity_labels: list[dict[str, Any]] | None = None,
+        entities_allow_free_form: bool | None = None,
+        # Observation / consolidation settings
+        enable_observations: bool | None = None,
+        observations_mission: str | None = None,
+        max_observations_per_scope: int | None = None,
+        observation_scope_limits: list[dict[str, Any]] | None = None,
+        enable_auto_consolidation: bool | None = None,
+        consolidation_llm_parallelism: int | None = None,
+        consolidation_max_memories_per_round: int | None = None,
+        mental_model_min_refresh_interval_seconds: int | None = None,
+        enable_text_search: bool | None = None,
+        enable_temporal_retrieval: bool | None = None,
+        enable_graph_retrieval: bool | None = None,
+        enable_reranking: bool | None = None,
+        consolidation_llm_batch_size: int | None = None,
+        consolidation_source_facts_max_tokens: int | None = None,
+        consolidation_source_facts_max_tokens_per_observation: int | None = None,
+        # Recall settings
+        recall_max_tokens: int | None = None,
+        recall_include_chunks: bool | None = None,
+        recall_chunks_max_tokens: int | None = None,
+        recall_budget_function: str | None = None,
+        recall_budget_fixed_low: int | None = None,
+        recall_budget_fixed_mid: int | None = None,
+        recall_budget_fixed_high: int | None = None,
+        recall_budget_adaptive_low: float | None = None,
+        recall_budget_adaptive_mid: float | None = None,
+        recall_budget_adaptive_high: float | None = None,
+        recall_budget_min: int | None = None,
+        recall_budget_max: int | None = None,
+        # Disposition settings
+        disposition_skepticism: int | None = None,
+        disposition_literalism: int | None = None,
+        disposition_empathy: int | None = None,
+        # MCP settings
+        mcp_enabled_tools: list[str] | None = None,
+        # Gemini safety settings
+        llm_gemini_safety_settings: list[dict[str, str]] | None = None,
+        # Security / audit
+        memory_defense: dict[str, Any] | None = None,
+        audit_log_enabled: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Update configuration overrides for a bank (async — preferred over :meth:`update_bank_config`).
 
         Can be disabled on the server by setting ``HINDSIGHT_API_ENABLE_BANK_CONFIG_API=false``.
 
@@ -1948,13 +2618,31 @@ class Hindsight:
             retain_chunk_size: Target maximum characters for each content chunk during retain.
             retain_structured_chunk_size: Maximum characters for a single JSONL line or conversation
                 turn to keep whole during retain. Defaults to retain_chunk_size when unset.
+            retain_max_attachments_per_chunk: Maximum inline attachments one extraction chunk may
+                carry. retain_chunk_size budgets text only — a placeholder costs the characters it
+                occupies and nothing more — so this is what bounds attachments. Match it to the
+                provider's per-request limit.
             retain_default_strategy: Default retain strategy name.
             retain_strategies: Named strategy definitions (dict of strategy name to config).
-            entity_labels: Controlled vocabulary for entity type classification.
-                When set, extracted entities are classified into these labels.
+            retain_chunk_batch_size: Number of chunks per sub-batch in chunks extraction mode.
+            store_document_text: Persist the original document text alongside extracted facts.
+            entity_labels: Controlled vocabulary for entity labels — a list of label-group
+                dicts, each with a ``key`` and a ``type``: ``"value"``/``"multi-values"`` pick
+                from the group's declared ``values``, while ``"text"``/``"multi-text"`` are
+                open-vocabulary (one string / any number of strings). With ``tag: True`` the
+                extracted ``key:value`` labels are also written as tags, so they are
+                filterable via ``tags``/``tags_match`` at recall.
             entities_allow_free_form: Whether to allow entity types outside entity_labels (default: True).
+            max_observations_per_scope: Cap on observations retained per scope (-1 for unlimited).
+            observation_scope_limits: Per-scope observation caps, overriding max_observations_per_scope.
+            enable_auto_consolidation: Consolidate automatically after retain() rather than on demand.
+            consolidation_llm_parallelism: Concurrent LLM calls during consolidation.
+            consolidation_max_memories_per_round: Memories consolidated per round.
+            mental_model_min_refresh_interval_seconds: Debounce between mental-model refreshes.
             enable_observations: Toggle automatic observation consolidation after retain().
             observations_mission: Controls what gets synthesised into observations.
+            enable_text_search: Run the keyword (BM25) retrieval arm during recall. False
+                leaves pure vector search.
             enable_temporal_retrieval: Run the temporal retrieval arm during recall.
             enable_graph_retrieval: Run the entity/link graph traversal arm during recall.
             enable_reranking: Rerank fused candidates with the cross-encoder.
@@ -1963,11 +2651,26 @@ class Hindsight:
                 in a consolidation pass.
             consolidation_source_facts_max_tokens_per_observation: Max tokens of source facts per
                 individual observation in the consolidation prompt.
+            recall_max_tokens: Token budget for facts returned by recall.
+            recall_include_chunks: Include source chunks in recall results.
+            recall_chunks_max_tokens: Token budget for those chunks.
+            recall_budget_function: How the per-query result budget is derived: 'fixed' or 'adaptive'.
+            recall_budget_fixed_low: Fixed budget for low-breadth queries.
+            recall_budget_fixed_mid: Fixed budget for medium-breadth queries.
+            recall_budget_fixed_high: Fixed budget for high-breadth queries.
+            recall_budget_adaptive_low: Adaptive budget fraction for low-breadth queries.
+            recall_budget_adaptive_mid: Adaptive budget fraction for medium-breadth queries.
+            recall_budget_adaptive_high: Adaptive budget fraction for high-breadth queries.
+            recall_budget_min: Lower clamp on the resolved budget.
+            recall_budget_max: Upper clamp on the resolved budget.
             disposition_skepticism: How skeptical vs trusting (1=trusting, 5=skeptical).
             disposition_literalism: How literally to interpret information (1=flexible, 5=literal).
             disposition_empathy: How much to consider emotional context (1=detached, 5=empathetic).
             mcp_enabled_tools: List of MCP tool names to enable for this bank.
-            llm_gemini_safety_settings: Gemini/VertexAI safety setting overrides (category → threshold).
+            llm_gemini_safety_settings: Gemini/VertexAI safety overrides, as a list of
+                ``{"category": ..., "threshold": ...}`` dicts (the shape the provider takes).
+            memory_defense: Memory-defense (prompt-injection / secret redaction) settings.
+            audit_log_enabled: Write an audit log entry for each operation on this bank.
 
         Returns:
             dict with ``bank_id``, ``config`` (fully resolved), and ``overrides`` (bank-level only)
@@ -1982,27 +2685,51 @@ class Hindsight:
                 "retain_custom_instructions": retain_custom_instructions,
                 "retain_chunk_size": retain_chunk_size,
                 "retain_structured_chunk_size": retain_structured_chunk_size,
+                "retain_max_attachments_per_chunk": retain_max_attachments_per_chunk,
                 "retain_default_strategy": retain_default_strategy,
                 "retain_strategies": retain_strategies,
+                "retain_chunk_batch_size": retain_chunk_batch_size,
+                "store_document_text": store_document_text,
                 "entity_labels": entity_labels,
                 "entities_allow_free_form": entities_allow_free_form,
                 "enable_observations": enable_observations,
                 "observations_mission": observations_mission,
+                "max_observations_per_scope": max_observations_per_scope,
+                "observation_scope_limits": observation_scope_limits,
+                "enable_auto_consolidation": enable_auto_consolidation,
+                "consolidation_llm_parallelism": consolidation_llm_parallelism,
+                "consolidation_max_memories_per_round": consolidation_max_memories_per_round,
+                "mental_model_min_refresh_interval_seconds": mental_model_min_refresh_interval_seconds,
+                "enable_text_search": enable_text_search,
                 "enable_temporal_retrieval": enable_temporal_retrieval,
                 "enable_graph_retrieval": enable_graph_retrieval,
                 "enable_reranking": enable_reranking,
                 "consolidation_llm_batch_size": consolidation_llm_batch_size,
                 "consolidation_source_facts_max_tokens": consolidation_source_facts_max_tokens,
                 "consolidation_source_facts_max_tokens_per_observation": consolidation_source_facts_max_tokens_per_observation,
+                "recall_max_tokens": recall_max_tokens,
+                "recall_include_chunks": recall_include_chunks,
+                "recall_chunks_max_tokens": recall_chunks_max_tokens,
+                "recall_budget_function": recall_budget_function,
+                "recall_budget_fixed_low": recall_budget_fixed_low,
+                "recall_budget_fixed_mid": recall_budget_fixed_mid,
+                "recall_budget_fixed_high": recall_budget_fixed_high,
+                "recall_budget_adaptive_low": recall_budget_adaptive_low,
+                "recall_budget_adaptive_mid": recall_budget_adaptive_mid,
+                "recall_budget_adaptive_high": recall_budget_adaptive_high,
+                "recall_budget_min": recall_budget_min,
+                "recall_budget_max": recall_budget_max,
                 "disposition_skepticism": disposition_skepticism,
                 "disposition_literalism": disposition_literalism,
                 "disposition_empathy": disposition_empathy,
                 "mcp_enabled_tools": mcp_enabled_tools,
                 "llm_gemini_safety_settings": llm_gemini_safety_settings,
+                "memory_defense": memory_defense,
+                "audit_log_enabled": audit_log_enabled,
             }.items()
             if v is not None
         }
-        return _run_async(self._aupdate_bank_config(bank_id, updates))
+        return await self._aupdate_bank_config(bank_id, updates)
 
     async def _aupdate_bank_config(self, bank_id: str, updates: dict[str, Any]) -> dict[str, Any]:
         import aiohttp
@@ -2018,7 +2745,15 @@ class Hindsight:
 
     def reset_bank_config(self, bank_id: str) -> dict[str, Any]:
         """
-        Reset all bank-level config overrides (sync wrapper — use ``await client.banks.reset_bank_config(...)`` in async code).
+        Reset all bank-level config overrides (sync wrapper — prefer :meth:`areset_bank_config` in async code).
+
+        See :meth:`areset_bank_config` for the full argument and return documentation.
+        """
+        return _run_async(self.areset_bank_config(bank_id=bank_id))
+
+    async def areset_bank_config(self, bank_id: str) -> dict[str, Any]:
+        """
+        Reset all bank-level config overrides (async — preferred over :meth:`reset_bank_config`).
 
         Can be disabled on the server by setting ``HINDSIGHT_API_ENABLE_BANK_CONFIG_API=false``.
 
@@ -2028,7 +2763,7 @@ class Hindsight:
         Returns:
             dict with ``bank_id``, ``config`` (fully resolved), and ``overrides`` (now empty)
         """
-        return _run_async(self._areset_bank_config(bank_id))
+        return await self._areset_bank_config(bank_id)
 
     async def _areset_bank_config(self, bank_id: str) -> dict[str, Any]:
         import aiohttp

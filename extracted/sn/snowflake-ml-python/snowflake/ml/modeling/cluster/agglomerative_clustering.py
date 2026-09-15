@@ -140,7 +140,12 @@ class AgglomerativeClustering(BaseTransformer):
         Metric used to compute the linkage. Can be "euclidean", "l1", "l2",
         "manhattan", "cosine", or "precomputed". If linkage is "ward", only
         "euclidean" is accepted. If "precomputed", a distance matrix is needed
-        as input for the fit method.
+        as input for the fit method. If connectivity is None, linkage is
+        "single" and affinity is not "precomputed" any valid pairwise distance
+        metric can be assigned.
+
+        For an example of agglomerative clustering with different metrics, see
+        :ref:`sphx_glr_auto_examples_cluster_plot_agglomerative_clustering_metrics.py`.
 
     memory: str or object with the joblib.Memory interface, default=None
         Used to cache the output of the computation of the tree.

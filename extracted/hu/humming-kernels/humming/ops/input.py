@@ -1,387 +1,193 @@
 import torch
-import triton
-import triton.language as tl
 from torch._subclasses.fake_tensor import FakeTensor
-from triton.language.extra.cuda import gdc_wait
 
-# Hidden float formats the hardware supports but PTX cannot emit: quantize using
-# the base PTX type below and patch the cubin's cvt to the hidden format.
-_HIDDEN_BASE = {"float8e3m4": "float8e5m2", "float4e0m3": "float4e2m1"}
-_HIDDEN_PATCH_MODE = {"float8e3m4": "cvt_e3m4", "float4e0m3": "cvt_e0m3"}
-
-
-@triton.jit
-def gdc_launch_dependents():
-    tl.inline_asm_elementwise(
-        asm="""{
-        .reg .pred p;
-        .reg .u32 tid;
-        mov.u32 tid, %tid.x;
-        setp.eq.u32 p, tid, 0;
-        @p griddepcontrol.launch_dependents;
-        mov.u32 $0, 0;
-        }""",
-        constraints="=r",
-        args=[],
-        dtype=tl.int32,
-        is_pure=False,
-        pack=1,
-    )
+from humming import dtypes
+from humming.config import ActivationType, ProcessInputLayoutType, ProcessInputProblemConfig
+from humming.kernel.process_input import ProcessInputKernel
+from humming.ops.utils import init_humming_launcher, register_op
+from humming.tune.process_input import get_process_input_tuning_intervals
+from humming.utils.math import round_up
 
 
-@triton.jit
-def calc_scale(tensor, dtype):
-    if dtype == "float8e4m3":
-        absmax = tl.maximum(tl.max(tl.abs(tensor)), 1e-30)
-        scale_x = absmax / 448
-    elif dtype == "float8e5m2":
-        absmax = tl.maximum(tl.max(tl.abs(tensor)), 1e-30)
-        scale_x = absmax / 57344
-    elif dtype == "float4e2m1":
-        absmax = tl.maximum(tl.max(tl.abs(tensor)), 1e-30)
-        scale_x = absmax / 6
-    elif dtype == "float8e3m4":
-        absmax = tl.maximum(tl.max(tl.abs(tensor)), 1e-30)
-        scale_x = absmax / 30
-    elif dtype == "float4e0m3":
-        absmax = tl.maximum(tl.max(tl.abs(tensor)), 1e-30)
-        scale_x = absmax / 7
-    elif dtype == "int8":
-        maxval = tl.maximum(tl.max(tensor), 1e-30)
-        minval = tl.minimum(tl.min(tensor), -1e-30)
-        scale_x = tl.maximum(maxval / 127, -minval / 128)
-    elif dtype == "int4":
-        maxval = tl.maximum(tl.max(tensor), 1e-30)
-        minval = tl.minimum(tl.min(tensor), -1e-30)
-        scale_x = tl.maximum(maxval / 7, -minval / 8)
-    else:
-        tl.static_assert(False, "unsupported dtype: " + dtype)
-    return scale_x
-
-
-@triton.jit
-def finalize_scale(scale, scale_dtype: tl.constexpr, gs, inv_gs):
-    if scale_dtype == "float8e8m0":
-        scale = scale * inv_gs
-        s_uint = scale.to(tl.uint32, bitcast=True)
-        s_uint = (s_uint + 0x007FFFFF) & 0x7F800000
-        scale = s_uint.to(tl.float32, bitcast=True)
-        s_store = (s_uint >> 23).to(tl.uint8)
-        scale = scale * gs
-    elif scale_dtype == "float8e4m3":
-        scale = scale * inv_gs
-        s_store = scale.to(tl.float8e4nv)
-        scale = s_store.to(tl.float32) * gs
-    else:
-        s_store = scale
-    return scale, s_store
-
-
-@triton.jit
-def quant_tensor(tensor, dtype):
-    if dtype == "float8e4m3":
-        tensor = tensor.to(tl.float8e4nv)
-    elif dtype == "float8e5m2" or dtype == "float8e3m4":
-        # float8e3m4 emits the e5m2 cvt; the cubin is patched to e3m4 afterwards.
-        tensor = tensor.to(tl.float8e5)
-    elif dtype == "int8":
-        tensor = tl.inline_asm_elementwise(
-            asm="cvt.rni.s8.f32 $0, $1;",
-            constraints="=r,f",
-            args=[tensor],
-            dtype=tl.int32,
-            is_pure=True,
-            pack=1,
-        )
-        tensor = tensor.to(tl.int8)
-    else:
-        tl.static_assert(False, "unsupported dtype: " + dtype)
-
-    return tensor
-
-
-@triton.jit
-def quant_tensor_x2(tensor1, tensor2, dtype):
-    if dtype == "int4":
-        tensor = tl.inline_asm_elementwise(
-            asm="""{
-            .reg .s32 r1, r2, a1, a2;
-            cvt.rni.s32.f32 r1, $1;
-            cvt.rni.s32.f32 r2, $2;
-            and.b32 a1, r1, 0xF;
-            and.b32 a2, r2, 0xF;
-            mad.lo.s32 $0, a2, 16, a1;
-            }""",
-            constraints="=r,f,f",
-            args=[tensor1, tensor2],
-            dtype=tl.int32,
-            is_pure=True,
-            pack=1,
-        )
-        tensor = tensor.to(tl.uint8)
-    elif dtype == "float4e2m1" or dtype == "float4e0m3":
-        tensor = tl.inline_asm_elementwise(
-            asm="""{
-            .reg .b8 t;
-            cvt.rn.satfinite.e2m1x2.f32 t, $2, $1;
-            cvt.u16.u8 $0, t;
-            }""",
-            constraints="=h,f,f",
-            args=[tensor1, tensor2],
-            dtype=tl.int16,
-            is_pure=True,
-            pack=1,
-        )
-        tensor = tensor.to(tl.uint8)
-    else:
-        tl.static_assert(False, "unsupported dtype: " + dtype)
-
-    return tensor
-
-
-@triton.jit
-def _quant_tensor_kernel(
-    x_ptr,
-    xq_ptr,
-    scale_ptr,
-    stride_x,
-    num_blocks,
-    is_dynamic: tl.constexpr,
-    N: tl.constexpr,
-    GROUP_SIZE: tl.constexpr,
-    BLOCK: tl.constexpr,
-    GROUPS_PER_BLOCK: tl.constexpr,
-    dtype: tl.constexpr,
-    M_ROWS,
-    M_MAJOR: tl.constexpr,
-    SCALE_DTYPE: tl.constexpr,
-    HAS_GLOBAL_SCALE: tl.constexpr,
-    global_scale_ptr,
-    MX_PACK: tl.constexpr,
-    USE_PDL: tl.constexpr = False,
-):
-    if USE_PDL:
-        gdc_wait()
-
-    block_id = tl.program_id(0).to(tl.int64)
-    tl.static_assert(N % GROUP_SIZE == 0)
-
-    gs = 1.0
-    if HAS_GLOBAL_SCALE:
-        gs = tl.load(global_scale_ptr).to(tl.float32)
-    inv_gs = 1.0 / gs
-
-    row_num_blocks = N // GROUP_SIZE
-
-    for g in tl.static_range(GROUPS_PER_BLOCK):
-        group_id = block_id * GROUPS_PER_BLOCK + g
-        in_range = group_id < num_blocks
-        row_id = group_id // row_num_blocks
-        col_block_id = group_id % row_num_blocks
-        offset = row_id * stride_x + col_block_id * GROUP_SIZE
-        if MX_PACK:
-            # byte offset into the (num_groups/4, M_ROWS) int32 buffer: 4 K-groups
-            # share a word, M is contiguous within a word-row.
-            scale_off = (col_block_id // 4) * (M_ROWS * 4) + row_id * 4 + (col_block_id % 4)
-        elif M_MAJOR:
-            scale_off = col_block_id * M_ROWS + row_id
-        else:
-            scale_off = row_id * row_num_blocks + col_block_id
-
-        if dtype == "int4" or dtype == "float4e2m1" or dtype == "float4e0m3":
-            cols = tl.arange(0, BLOCK // 2)
-            mask = (cols < GROUP_SIZE // 2) & in_range
-            cols1 = cols * 2
-            cols2 = cols * 2 + 1
-
-            x1 = tl.load(x_ptr + (offset + cols1), mask=mask, other=0.0).to(tl.float32)
-            x2 = tl.load(x_ptr + (offset + cols2), mask=mask, other=0.0).to(tl.float32)
-            if is_dynamic:
-                scale = tl.maximum(calc_scale(x1, dtype), calc_scale(x2, dtype))
-                scale, s_store = finalize_scale(scale, SCALE_DTYPE, gs, inv_gs)
-            else:
-                scale = tl.load(scale_ptr + col_block_id, mask=in_range)
-            inv_scale = 1 / scale
-            x_q = quant_tensor_x2(x1 * inv_scale, x2 * inv_scale, dtype)
-            tl.store(xq_ptr + group_id * GROUP_SIZE // 2 + cols, x_q, mask=mask)
-
-            if is_dynamic:
-                if MX_PACK:
-                    s_store = s_store.to(tl.uint8, bitcast=True)
-                tl.store(scale_ptr + scale_off, s_store, mask=in_range)
-        else:
-            cols = tl.arange(0, BLOCK)
-            mask = (cols < GROUP_SIZE) & in_range
-            x = tl.load(x_ptr + offset + cols, mask=mask, other=0.0).to(tl.float32)
-            if is_dynamic:
-                scale = calc_scale(x, dtype)
-                scale, s_store = finalize_scale(scale, SCALE_DTYPE, gs, inv_gs)
-            else:
-                scale = tl.load(scale_ptr + col_block_id, mask=in_range)
-            inv_scale = 1 / scale
-            x_q = quant_tensor(x * inv_scale, dtype)
-            tl.store(xq_ptr + group_id * GROUP_SIZE + cols, x_q, mask=mask)
-
-            if is_dynamic:
-                if MX_PACK:
-                    s_store = s_store.to(tl.uint8, bitcast=True)
-                tl.store(scale_ptr + scale_off, s_store, mask=in_range)
-
-    if USE_PDL:
-        # Trigger after every output store has been issued.  On SM120, waking a
-        # waiting GEMM while quantization still owns substantial resources can
-        # starve the producer and cost far more than the launch latency hidden.
-        gdc_launch_dependents()
-
-
-def quant_input(
+@register_op("humming::prepare_process_input")
+def _prepare_process_input_op(
     inputs: torch.Tensor,
-    dtype: str,
-    scales: torch.Tensor | None = None,
     outputs: torch.Tensor | None = None,
-    group_size: int | None = None,
+    group_scales: torch.Tensor | None = None,
+    token_scales: torch.Tensor | None = None,
+    quant_mode: str = "none",
+    quant_dtype: str | None = None,
+    quant_group_size: int | None = None,
+    group_scale_dtype: str | None = None,
+    activation_type: str = "none",
+    activation_impl: str | None = None,
+    hadamard_block_size: int | None = None,
+    layout: str = "normal",
+    scatter_idx: torch.Tensor | None = None,
+    zero_invalid: bool = False,
+    use_m_major_input_scale: bool = False,
     use_pdl: bool = False,
-    m_major_scale: bool = False,
-    scale_dtype: str = "float32",
-    global_scale: torch.Tensor | None = None,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    storage_dtype = _HIDDEN_BASE.get(dtype, dtype)
-    if storage_dtype in ["int4", "float4e2m1"]:
-        output_shape = (*inputs.shape[:-1], inputs.size(-1) // 2)
-        output_dtype = torch.uint8
-    elif storage_dtype == "int8":
-        output_shape = inputs.shape
-        output_dtype = torch.int8
-    elif storage_dtype == "float8e4m3":
-        output_shape = inputs.shape
-        output_dtype = torch.float8_e4m3fn
-    elif storage_dtype == "float8e5m2":
-        output_shape = inputs.shape
-        output_dtype = torch.float8_e5m2
-    else:
-        raise ValueError("unsupported dtype: " + dtype)
+) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None, torch.Tensor | None]:
+    assert inputs.ndim == 2, "process_input requires 2D inputs"
+    activation_type = ActivationType(activation_type)
+    input_width = int(inputs.size(1))
+    assert not activation_type.is_binary or input_width % 2 == 0
+
+    hidden_size = input_width
+    if activation_type.is_binary:
+        hidden_size //= 2
+
+    layout = ProcessInputLayoutType(layout)
+    scatter_width = 1
+    if layout == ProcessInputLayoutType.Scatter:
+        assert scatter_idx is not None and scatter_idx.ndim == 2, "scatter requires 2D scatter_idx"
+        scatter_width = int(scatter_idx.size(1))
+
+    if group_scale_dtype is None and group_scales is not None and group_scales.dtype != torch.int32:
+        group_scale_dtype = dtypes.DataType.from_torch_dtype(group_scales.dtype)
+
+    config = ProcessInputProblemConfig(
+        input_dtype=dtypes.DataType.from_torch_dtype(inputs.dtype),
+        hidden_size=hidden_size,
+        quant_mode=quant_mode,
+        quant_dtype=quant_dtype,
+        quant_group_size=quant_group_size,
+        group_scale_dtype=group_scale_dtype,
+        activation_type=activation_type,
+        activation_impl=activation_impl,
+        hadamard_block_size=hadamard_block_size,
+        layout=layout,
+        scatter_width=scatter_width,
+        zero_invalid=zero_invalid,
+        use_m_major_input_scale=use_m_major_input_scale,
+    )
+    num_input_rows = inputs.size(0)
+    num_output_rows = num_input_rows
+    if layout == ProcessInputLayoutType.Scatter:
+        num_output_rows = num_input_rows * scatter_width
+        if outputs is not None:
+            num_output_rows = outputs.size(0)
+
+    allocated_outputs = None
+    if outputs is None:
+        allocated_outputs = torch.empty(
+            (num_output_rows, config.output_row_size),
+            dtype=config.output_torch_dtype,
+            device=inputs.device,
+        )
+
+    allocated_group_scales = None
+    if config.quant_mode.has_group_scale and group_scales is None:
+        allocated_group_scales = torch.empty(
+            config.get_group_scale_shape(num_output_rows),
+            dtype=config.group_scale_torch_dtype,
+            device=inputs.device,
+        )
+
+    allocated_token_scales = None
+    if config.quant_mode.has_token_scale and token_scales is None:
+        token_scale_storage = torch.empty(
+            round_up(num_output_rows, 4),
+            dtype=torch.float32,
+            device=inputs.device,
+        )
+        token_scale_shape = (num_output_rows, 1)
+        if config.use_m_major_input_scale:
+            token_scale_shape = (1, num_output_rows)
+
+        allocated_token_scales = token_scale_storage[:num_output_rows].view(token_scale_shape)
+
+    assert inputs.is_cuda
+    with torch.cuda.device(inputs.device):
+        if isinstance(inputs, FakeTensor):
+            init_humming_launcher()
+            tuning_intervals = get_process_input_tuning_intervals(config, use_pdl)
+            configs = torch.empty((len(tuning_intervals) * 4,), dtype=torch.int64, device="cpu")
+        else:
+            family_key = (inputs.device.index, config, use_pdl)
+            configs = ProcessInputKernel._str2kernel_cache.get(family_key)
+            if configs is None:
+                tuning_intervals = get_process_input_tuning_intervals(config, use_pdl)
+                configs = ProcessInputKernel.prepare_kernels(
+                    config, tuning_intervals, inputs.device, family_key
+                )
+
+    return configs, allocated_outputs, allocated_group_scales, allocated_token_scales
+
+
+def process_input(
+    inputs: torch.Tensor,
+    *,
+    outputs: torch.Tensor | None = None,
+    quant_mode: str = "none",
+    quant_dtype: str | None = None,
+    quant_group_size: int | None = None,
+    group_scales: torch.Tensor | None = None,
+    group_scale_dtype: str | None = None,
+    token_scales: torch.Tensor | None = None,
+    activation_type: str = "none",
+    activation_impl: str | None = None,
+    hadamard_block_size: int | None = None,
+    layout: str = "normal",
+    expert_tokens: torch.Tensor | None = None,
+    scatter_idx: torch.Tensor | None = None,
+    num_valid_tokens: torch.Tensor | None = None,
+    zero_invalid: bool = False,
+    use_m_major_input_scale: bool = False,
+    use_pdl: bool = False,
+) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
+    """Process inputs and return quantization scales.
+
+    FP8 group scales store four consecutive groups per int32, low byte first.
+    Their numerical format is selected by group_scale_dtype, not the tensor dtype.
+    Scatter targets outside [0, scatter_idx.numel()) are ignored. Targets at or
+    above num_valid_tokens are zeroed when zero_invalid is set, otherwise ignored.
+    Normal layout applies the same valid-token bound to input row indices.
+    Omitting num_valid_tokens makes all in-range targets valid.
+    """
+    options = dict(
+        quant_mode=quant_mode,
+        quant_dtype=quant_dtype,
+        quant_group_size=quant_group_size,
+        group_scale_dtype=group_scale_dtype,
+        activation_type=activation_type,
+        activation_impl=activation_impl,
+        hadamard_block_size=hadamard_block_size,
+        layout=layout,
+        scatter_idx=scatter_idx,
+        zero_invalid=zero_invalid,
+        use_m_major_input_scale=use_m_major_input_scale,
+        use_pdl=use_pdl,
+    )
+    prepare_process_input = _prepare_process_input_op
+    if torch.compiler.is_compiling() or isinstance(inputs, FakeTensor):
+        prepare_process_input = torch.ops.humming.prepare_process_input
+
+    prepared_tensors = prepare_process_input(inputs, outputs, group_scales, token_scales, **options)
+    configs, allocated_outputs, allocated_group_scales, allocated_token_scales = prepared_tensors
+
+    if outputs is inputs:
+        torch.ops.humming.launch_process_input.inplace(
+            configs, inputs, expert_tokens, scatter_idx, num_valid_tokens
+        )
+        return inputs, None, None
 
     if outputs is None:
-        outputs = torch.empty(output_shape, dtype=output_dtype, device=inputs.device)
+        outputs = allocated_outputs
+    if group_scales is None:
+        group_scales = allocated_group_scales
+    if token_scales is None:
+        token_scales = allocated_token_scales
 
-    assert inputs.dtype in [torch.float16, torch.bfloat16, torch.float32]
-    assert outputs.shape == output_shape
-    assert outputs.dtype == output_dtype
-    assert outputs.device == inputs.device
-
-    is_dynamic = scales is None
-    inputs = inputs.view(-1, inputs.size(-1))
-    if group_size is None or group_size == 0:
-        group_size = inputs.size(1)
-    assert inputs.size(1) % group_size == 0
-    num_blocks = inputs.nelement() // group_size
-
-    m_rows = inputs.size(0)
-    num_groups = inputs.size(1) // group_size
-    m_rows_stride = (m_rows + 3) // 4 * 4 if m_major_scale else m_rows
-    if m_major_scale:
-        assert is_dynamic, "m_major_scale requires dynamic quantization"
-
-    mx_pack_m_major = m_major_scale and scale_dtype in ("float8e8m0", "float8e4m3") and is_dynamic
-    num_groups_packed = (num_groups + 3) // 4
-
-    if scale_dtype == "float32":
-        scale_torch_dtype = torch.float32
-    elif scale_dtype == "float8e4m3":
-        scale_torch_dtype = torch.float8_e4m3fn
-    elif scale_dtype == "float8e8m0":
-        scale_torch_dtype = torch.uint8
-    else:
-        raise ValueError("unsupported scale_dtype: " + scale_dtype)
-
-    if scale_dtype != "float32":
-        assert is_dynamic, "non-float32 scale_dtype requires dynamic quantization"
-
-    has_global_scale = global_scale is not None
-
-    scales_packed = None
-    if is_dynamic:
-        if mx_pack_m_major:
-            scales_packed = torch.empty(
-                (num_groups_packed, m_rows_stride),
-                dtype=torch.int32,
-                device=inputs.device,
-            )
-            scales = scales_packed.view(torch.uint8)
-        else:
-            shape = (num_groups, m_rows_stride) if m_major_scale else (m_rows, num_groups)
-            scales = torch.empty(shape, dtype=scale_torch_dtype, device=inputs.device)
-
-    if not isinstance(inputs, FakeTensor):
-        assert inputs.is_cuda
-        BLOCK = triton.next_power_of_2(group_size)
-        # Merge multiple groups per block to reduce scheduling overhead.
-        groups_per_block = 1
-        if group_size <= 256 and num_blocks >= 131072:
-            # Small group_size (e.g. 128) with massive block count
-            groups_per_block = min(1024 // group_size, num_blocks)
-        grid_blocks = (num_blocks + groups_per_block - 1) // groups_per_block
-        packed = storage_dtype in ("int4", "float4e2m1")
-        effective_block = BLOCK // 2 if packed else BLOCK
-        num_warps = min(max(effective_block // 256, 1), 8)
-        num_stages = 1
-
-        launch_args = (
-            inputs,
-            outputs,
-            scales,
-            inputs.stride(0),
-            num_blocks,
-            is_dynamic,
-            inputs.size(1),
-            group_size,
-            BLOCK,
-            groups_per_block,
-            dtype,
-            m_rows_stride,
-            m_major_scale,
-            scale_dtype,
-            has_global_scale,
-            global_scale,
-            mx_pack_m_major,
-        )
-
-        effective_use_pdl = use_pdl and torch.cuda.get_device_capability(inputs.device)[0] >= 9
-        launch_kwargs = dict(
-            num_warps=num_warps,
-            num_stages=num_stages,
-            launch_pdl=effective_use_pdl,
-            USE_PDL=effective_use_pdl,
-        )
-
-        patch_mode = _HIDDEN_PATCH_MODE.get(dtype)
-        if patch_mode is not None:
-            from humming.utils.cubin import triton_warmup_and_patch
-
-            triton_warmup_and_patch(
-                _quant_tensor_kernel,
-                *launch_args,
-                mode=patch_mode,
-                grid=(grid_blocks,),
-                **launch_kwargs,
-            )
-
-        _quant_tensor_kernel[(grid_blocks,)](*launch_args, **launch_kwargs)
-
-    if scales is None:
-        scales = torch.empty(0)
-    elif mx_pack_m_major:
-        scales = scales_packed
-    elif m_major_scale:
-        scales = scales.view(num_groups, m_rows_stride)
-    else:
-        scales = scales.view(*outputs.shape[:-1], scales.size(-1))
-
-    if scale_dtype == "float8e8m0" and scales.numel() > 0 and not mx_pack_m_major:
-        scales = scales.view(torch.float8_e8m0fnu)
-
-    # Hidden formats are raw bytes reinterpreted by the MMA; expose them as uint8.
-    if dtype in _HIDDEN_BASE and outputs.dtype != torch.uint8:
-        outputs = outputs.view(torch.uint8)
-
-    return outputs, scales
+    assert outputs is not None
+    torch.ops.humming.launch_process_input.default(
+        configs,
+        inputs,
+        outputs,
+        group_scales,
+        token_scales,
+        expert_tokens,
+        scatter_idx,
+        num_valid_tokens,
+    )
+    return outputs, group_scales, token_scales

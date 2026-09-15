@@ -15,6 +15,7 @@ from agentic_devtools.adapters.base import (
     is_valid_github_repository,
 )
 from agentic_devtools.background_tasks import run_function_in_background
+from agentic_devtools.cli.ci.credential_roles import require_default_repo_workflow_token
 from agentic_devtools.config import load_platform_config
 from agentic_devtools.state import get_value, load_state_locked
 from agentic_devtools.task_state import print_task_tracking_info
@@ -213,6 +214,7 @@ def _sanitize_diagnostic(message: object) -> str:
         "GH_TOKEN",
         "GITHUB_TOKEN",
         "COPILOT_GITHUB_TOKEN",
+        "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
     ):
         secret = os.environ.get(name)
         if secret:
@@ -265,11 +267,7 @@ def _failure(request: PullRequestThreadReplyRequest, diagnostic: str) -> PullReq
 
 
 def _github_token() -> str:
-    for name in ("GH_TOKEN", "GITHUB_TOKEN", "COPILOT_GITHUB_TOKEN"):
-        token = os.environ.get(name, "").strip()
-        if token:
-            return token
-    raise OSError("Set GH_TOKEN, GITHUB_TOKEN, or COPILOT_GITHUB_TOKEN for GitHub replies")
+    return require_default_repo_workflow_token("post GitHub review-thread replies")
 
 
 def _github_reconcile_reply(

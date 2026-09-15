@@ -158,6 +158,7 @@ from routes.spend_flow import bp_spend_flow
 from routes.entitlement import bp_entitlement
 from routes.extensions import bp_extensions
 from routes.otel_export import bp_otel_export
+from routes.pricing import bp_pricing
 from routes.device import bp_device
 from routes.runtime_ingest import bp_runtime_ingest
 from routes.audit import bp_audit
@@ -339,7 +340,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.876"
+__version__ = "0.12.879"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -4603,7 +4604,31 @@ def _otel_to_row(span, resource_attrs):
     tool_name = _pick("gen_ai.tool.name", "tool.name", "code.function",
                       *(_al.get("tool_name") or ()))
     # session/conversation: semconv uses gen_ai.conversation.id.
-    session_id = _pick("gen_ai.conversation.id", "session.id", "openclaw.session_id", "session_id")
+    #
+    # REQ-OBS-OTR-001 (AC-OBS-OTR-001.3): OpenLLMetry's LangGraph
+    # instrumentation (measured on opentelemetry-instrumentation-langchain
+    # 0.62.3 + langgraph 1.2.11) stamps the run's thread as
+    # ``gen_ai.conversation.id`` on the top ``invoke_agent`` span ONLY. Every
+    # span beneath it (the model calls with the tokens, the execute_tool
+    # spans) carries the same value as
+    # ``traceloop.association.properties.thread_id`` and no conversation id.
+    # Reading only the semconv key split one run into two sessions: the top
+    # span under ``t-1`` with 0 tokens, and everything else under the per-trace
+    # fallback ``<app>:trace:<id>`` below. The thread association is the same
+    # identifier the top span sends, so it is read right after the
+    # conversation id and recorded as sent, which makes the top span and its
+    # children agree.
+    #
+    # AC-OBS-OTR-001.4: the thread outranks ``session.id`` wherever it is
+    # sent, on the span as well as on the resource. ``_pick`` walks KEYS in
+    # order and checks span-then-resource per key, so every key listed here
+    # beats every later key at both levels. That is deliberate: if a
+    # ``session.id`` on a child span beat the thread, an app that stamps
+    # ``session.id`` on every span would split the run again (top span via
+    # the conversation id, children via ``session.id``).
+    session_id = _pick("gen_ai.conversation.id",
+                       "traceloop.association.properties.thread_id",
+                       "session.id", "openclaw.session_id", "session_id")
     agent_id = _pick("gen_ai.agent.id", "agent.id", "openclaw.agent_id", "agent_id") or "main"
     service_name = resource_attrs.get("service.name") or attrs.get("service.name")
     # Runtime identity. An explicit agent.type wins (OpenClaw / clawmetry-pro
@@ -4813,6 +4838,9 @@ def _process_otlp_traces(pb_data, content_encoding=None, content_type=None):
     # on the session so turn anatomy can sum them.
     _otlp_wait_events = []
     _wait_tool_by_span = {}  # span_id -> tool_name, to name a wait by its parent
+    # REQ-OBS-OTG-001: tool spans normalised into the tool_call / tool_result
+    # events Guard's detectors read (clawmetry/otlp_guard.py).
+    _otlp_tool_events = []
 
     # Resolve the local store lazily so unit tests that monkeypatch the
     # singleton in advance (or run without DuckDB) don't pay the import
@@ -4944,6 +4972,16 @@ def _process_otlp_traces(pb_data, content_encoding=None, content_type=None):
                         _wsuf = (_wprof.wait_span_suffix if _wprof is not None else "") or ""
                         if _wprof is not None and _row.get("tool_name"):
                             _wait_tool_by_span[str(_hex(span.span_id))] = _row.get("tool_name")
+                        # A tool span becomes the tool_call / tool_result events
+                        # Guard evaluates. A wait span is a human, not a tool.
+                        if not (_wsuf and span.name.lower().endswith(_wsuf.lower())):
+                            try:
+                                from clawmetry import otlp_guard as _og
+                                _otlp_tool_events.extend(_og.tool_events_from_span(
+                                    _row, attrs, profiled=_wprof is not None,
+                                    received_at=ts))
+                            except Exception:
+                                pass
                         if (_wsuf and _sid
                                 and span.name.lower().endswith(_wsuf.lower())):
                             try:
@@ -4996,7 +5034,7 @@ def _process_otlp_traces(pb_data, content_encoding=None, content_type=None):
                         except Exception:
                             pass
 
-    if _store is not None and _otlp_wait_events:
+    if _store is not None and (_otlp_wait_events or _otlp_tool_events):
         # A wait span may carry no tool name of its own (measured live); its
         # parent tool span does.
         for _wev in _otlp_wait_events:
@@ -5020,12 +5058,15 @@ def _process_otlp_traces(pb_data, content_encoding=None, content_type=None):
             except Exception:
                 pass
         try:
-            _store.put_otlp_batch(records=[], events=_otlp_wait_events)
+            # One hop for the whole export batch: wait events and the tool
+            # events Guard reads (the proxy forwards kwargs only).
+            _store.put_otlp_batch(
+                records=[], events=_otlp_wait_events + _otlp_tool_events)
         except Exception as e:
             try:
                 import logging as _lg
                 _lg.getLogger("clawmetry.dashboard").warning(
-                    "waiting_on_user events write failed: %s", e)
+                    "OTLP span events write failed: %s", e)
             except Exception:
                 pass
 
@@ -6096,6 +6137,7 @@ def detect_config(args=None):
     app.register_blueprint(bp_memory)
     app.register_blueprint(bp_otel)
     app.register_blueprint(bp_otel_export)
+    app.register_blueprint(bp_pricing)
     # Custom-runtime HTTP ingest is a Pro feature; the impl lives in
     # clawmetry-pro. When that package is installed, its blueprint was
     # already registered by ``_ext_load(app)`` above and won the URL
@@ -7730,6 +7772,17 @@ def _check_auth():
         # else fall through to the standard token check below
     if request.path.startswith("/api/nodes"):
         return  # Fleet API uses its own X-Fleet-Key authentication
+    # Self-hosted server routes authenticate the caller themselves (node token
+    # or admin Basic auth). Behind a container port every caller is
+    # non-loopback, so the gateway-token rule below refused them even with
+    # valid admin credentials. The allowlist lives in clawmetry/selfhosted.py.
+    try:
+        from clawmetry.selfhosted import route_carries_own_auth as _sh_own_auth
+
+        if _sh_own_auth(request.endpoint):
+            return
+    except Exception:
+        pass  # fall through to the standard gate: never fail open on an import error
     # OTLP ingestion (/v1/metrics|traces|logs) accepts UNTRUSTED data that lands
     # in cost/usage analytics, so it must not be open to the network. Gate it
     # like /api/*: loopback is trusted (zero-config local exporters keep working),
@@ -8268,6 +8321,11 @@ def _get_billing_coverage(model_billing, today_cost, week_cost, month_cost,
         # token usage looks OAuth/included).
         "all_covered": bool(any_sub) and not any_metered and ratio > 0.999,
         "covered_token_share": round(ratio, 4),
+        # The plan fee, included allowance and overages are not exposed by
+        # any provider we detect. None (never 0.0): a plan whose fee we
+        # cannot see is not a free plan (REQ-OBS-CEA-025.6).
+        "plan_fee_usd": None,
+        "plan_terms_known": False,
         "today": _split(today_cost),
         "week": _split(week_cost),
         "month": _split(month_cost),

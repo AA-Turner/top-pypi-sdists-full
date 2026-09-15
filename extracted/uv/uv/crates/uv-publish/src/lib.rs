@@ -40,7 +40,7 @@ use uv_distribution_filename::{DistFilename, SourceDistExtension, SourceDistFile
 use uv_distribution_types::{IndexCapabilities, IndexUrl};
 use uv_extract::hash::Hasher;
 use uv_fs::{ProgressReader, Simplified};
-use uv_metadata::read_metadata_async_seek;
+use uv_metadata::read_archive_metadata;
 use uv_preview::PreviewFeature;
 use uv_pypi_types::{HashAlgorithm, HashDigest, Metadata23, MetadataError};
 use uv_redacted::{DisplaySafeUrl, DisplaySafeUrlError};
@@ -397,9 +397,9 @@ impl PublishSendError {
     ///
     /// ```text
     /// error: Failed to publish `dist/astral_test_1-0.1.0-py3-none-any.whl` to `https://test.pypi.org/legacy/`
-    ///   Caused by: Incorrect credentials (status code 403 Forbidden): 403 Username/Password
-    ///     authentication is no longer supported. Migrate to API Tokens or Trusted Publishers
-    ///     instead. See https://test.pypi.org/help/#apitoken and https://test.pypi.org/help/#trusted-publishers
+    ///   └── Incorrect credentials (status code 403 Forbidden): 403 Username/Password
+    ///       authentication is no longer supported. Migrate to API Tokens or Trusted Publishers
+    ///       instead. See https://test.pypi.org/help/#apitoken and https://test.pypi.org/help/#trusted-publishers
     /// ```
     fn extract_error_message(body: String, content_type: Option<&str>) -> String {
         if content_type == Some("application/json") {
@@ -1099,8 +1099,15 @@ async fn metadata(file: &Path, filename: &DistFilename) -> Result<Metadata23, Pu
             source_dist_pkg_info(file).await?
         }
         DistFilename::WheelFilename(wheel) => {
-            let reader = BufReader::new(File::open(&file).await?);
-            read_metadata_async_seek(wheel, reader).await?
+            let file = file.to_path_buf();
+            let wheel = wheel.clone();
+            return tokio::task::spawn_blocking(move || {
+                let reader = io::BufReader::new(fs_err::File::open(file)?);
+                let contents = read_archive_metadata(&wheel, reader)?;
+                Ok(Metadata23::parse(&contents)?)
+            })
+            .await
+            .map_err(io::Error::from)?;
         }
     };
     Ok(Metadata23::parse(&contents)?)
@@ -2246,7 +2253,7 @@ mod tests {
         let mut capture = String::new();
         write_error_chain_with_options(
             &err,
-            Hints::none(),
+            &Hints::none(),
             ErrorOptions::default().with_stream(&mut capture),
         )
         .unwrap();
@@ -2258,7 +2265,7 @@ mod tests {
             &capture,
             @"
         error: Failed to publish `../../test/links/tqdm-4.66.1-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.musllinux_1_1_x86_64.whl` to [SERVER]/final
-          Caused by: Too many redirects, only 10 redirects are allowed
+          cause: Too many redirects, only 10 redirects are allowed
         "
         );
     }
@@ -2280,7 +2287,7 @@ mod tests {
         let mut capture = String::new();
         write_error_chain_with_options(
             &err,
-            Hints::none(),
+            &Hints::none(),
             ErrorOptions::default().with_stream(&mut capture),
         )
         .unwrap();
@@ -2292,7 +2299,7 @@ mod tests {
             &capture,
             @"
         error: Failed to publish `../../test/links/tqdm-4.66.1-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.musllinux_1_1_x86_64.whl` to https://different.auth.tld/final/
-          Caused by: Redirected URL is not in the same realm. Redirected to: https://different.auth.tld/final/
+          cause: Redirected URL is not in the same realm. Redirected to: https://different.auth.tld/final/
         "
         );
     }
@@ -2319,7 +2326,7 @@ mod tests {
         let mut capture = String::new();
         write_error_chain_with_options(
             &err,
-            Hints::none(),
+            &Hints::none(),
             ErrorOptions::default().with_stream(&mut capture),
         )
         .unwrap();
@@ -2331,7 +2338,7 @@ mod tests {
             &capture,
             @"
         error: Failed to publish `../../test/links/tqdm-4.66.1-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.musllinux_1_1_x86_64.whl` to [SERVER]/final
-          Caused by: Server returned status code 400 Bad Request. Server says: 400 Error: Use 'source' as Python version for an sdist.
+          cause: Server returned status code 400 Bad Request. Server says: 400 Error: Use 'source' as Python version for an sdist.
         "
         );
     }
@@ -2361,7 +2368,7 @@ mod tests {
         let mut capture = String::new();
         write_error_chain_with_options(
             &err,
-            Hints::none(),
+            &Hints::none(),
             ErrorOptions::default().with_stream(&mut capture),
         )
         .unwrap();
@@ -2373,7 +2380,7 @@ mod tests {
             &capture,
             @"
         error: Failed to publish `../../test/links/tqdm-4.66.1-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.musllinux_1_1_x86_64.whl` to [SERVER]/final
-          Caused by: Server returned status code 400 Bad Request. Server message: Bad Request, Missing required field `name`
+          cause: Server returned status code 400 Bad Request. Server message: Bad Request, Missing required field `name`
         "
         );
     }

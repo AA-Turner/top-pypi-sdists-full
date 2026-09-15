@@ -77,7 +77,7 @@ public:
   }
   PRUint32  GetCurrentCharLen(void) {return mCurrentCharLen;}
   void      Reset(void) {mCurrentState = eStart;}
-  const char * GetCodingStateMachine() {return mModel->name;}
+  const SMModel* GetCodingStateMachine() {return mModel;}
 
 protected:
   PRUint32 mCurrentState;
@@ -88,9 +88,9 @@ protected:
 };
 
 extern const SMModel UTF8SMModel;
-extern const SMModel Big5SMModel;
 extern const SMModel EUCJPSMModel;
 extern const SMModel EUCKRSMModel;
+extern const SMModel JohabSMModel;
 extern const SMModel EUCTWSMModel;
 extern const SMModel GB18030SMModel;
 extern const SMModel SJISSMModel;

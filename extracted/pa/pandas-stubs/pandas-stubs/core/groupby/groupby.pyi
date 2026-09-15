@@ -41,6 +41,7 @@ from pandas.core.window import (
     ExponentialMovingWindowGroupby,
     RollingGroupby,
 )
+from typing_extensions import override
 
 from pandas._libs.lib import NoDefault
 from pandas._libs.tslibs import BaseOffset
@@ -80,7 +81,7 @@ ResamplerGroupBy: TypeAlias = (
 )
 
 class GroupBy(BaseGroupBy[NDFrameT]):
-    def __getattr__(self, attr: str) -> Any: ...
+    def __getattr__(self, attr: str, /) -> Any: ...
     def apply(
         self,
         func: Callable[Concatenate[NDFrameT, P], Any] | str,
@@ -352,7 +353,6 @@ class GroupBy(BaseGroupBy[NDFrameT]):
     def pct_change(
         self,
         periods: int = 1,
-        fill_method: None = None,
         freq: Frequency | None = None,
     ) -> NDFrameT: ...
     @final
@@ -379,12 +379,13 @@ class GroupByPlot(PlotAccessor, Generic[_GroupByT]):
     def __init__(self, groupby: _GroupByT) -> None: ...
     # The following methods are inherited from the fake parent class PlotAccessor
     # def __call__(self, *args: Any, **kwargs: Any): ...
-    # def __getattr__(self, name: str): ...
+    # def __getattr__(self, name: str, /): ...
 
 class BaseGroupBy(GroupByIndexingMixin, Generic[NDFrameT]):
     @final
     def __len__(self) -> int: ...
     @final
+    @override
     def __repr__(self) -> str: ...  # noqa: PYI029 __repr__ here is final
     @final
     @property
@@ -415,16 +416,17 @@ class BaseGroupBy(GroupByIndexingMixin, Generic[NDFrameT]):
     def __iter__(self) -> Iterator[tuple[Hashable, NDFrameT]]: ...
     @overload
     def __getitem__(
-        self: BaseGroupBy[DataFrame], key: Scalar
+        self: BaseGroupBy[DataFrame], key: Scalar, /
     ) -> SeriesGroupBy[Any, Any]: ...
     @overload
     def __getitem__(
-        self: BaseGroupBy[DataFrame], key: CovariantList[Hashable]
+        self: BaseGroupBy[DataFrame], key: CovariantList[Hashable], /
     ) -> DataFrameGroupBy[Any, Any]: ...
     @overload
     def __getitem__(
         self: BaseGroupBy[Series[S1]],
         idx: list[str] | Index | Series[S1] | MaskType | tuple[Hashable | slice, ...],
+        /,
     ) -> SeriesGroupBy[Any, Any]: ...
     @overload
-    def __getitem__(self: BaseGroupBy[Series[S1]], idx: Scalar) -> S1: ...
+    def __getitem__(self: BaseGroupBy[Series[S1]], idx: Scalar, /) -> S1: ...

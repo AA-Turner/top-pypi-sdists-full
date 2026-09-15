@@ -14,9 +14,9 @@ from typing import Any, Never, cast
 
 from agentic_devtools.cli.ci.agent_assignment import (
     _gh_api_call,
-    _resolve_assignment_token,
     _validate_repo_format,
 )
+from agentic_devtools.cli.ci.credential_roles import require_default_repo_workflow_token
 from agentic_devtools.cli.ci.retry import RetryableError, retry_with_backoff
 from agentic_devtools.cli.shared.retry import ProviderRateLimitError
 
@@ -145,7 +145,7 @@ def check_cloud_agent_in_flight(
     issue_number: int,
     phase: int = 0,
     hierarchy_level: str = "feature",
-    token: str = "",
+    token: str | None = None,
     *,
     api_call: _ApiCall | None = None,
 ) -> CloudAgentGuardResult:
@@ -159,10 +159,9 @@ def check_cloud_agent_in_flight(
     if phase not in {0, *_VALID_PHASES}:
         raise ValueError("phase must be 0, 1, 2, or 3")
     normalized_hierarchy_level = _normalize_hierarchy_level(hierarchy_level)
-    resolved_token = (
-        token.strip()
-        or _resolve_assignment_token(("SPECKIT_PR_TOKEN", "COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"))[1]
-    )
+    resolved_token = token.strip() if token and token.strip() else None
+    if resolved_token is None:
+        resolved_token = require_default_repo_workflow_token("check Cloud Agent assignments")
     labels = _parse_paginated_documents(
         _call_api(
             api_call,

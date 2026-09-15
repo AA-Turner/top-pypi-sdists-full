@@ -1600,7 +1600,7 @@ class BrowserWorker:
             if path:
                 data = await asyncio.to_thread(_read_bytes, path)
                 dl.byte_count = len(data)
-                dl.content_hash = hashlib.sha256(data).hexdigest()
+                dl.content_hash = await asyncio.to_thread(_sha256_hex, data)
                 dl.state = "completed"
                 dl.completed_at = _now()
                 # The download really is complete ON THIS HOST, and that is all
@@ -1770,7 +1770,7 @@ class BrowserWorker:
                 WorkerProtocolError("worker_degraded", message="screenshot failed"),
             )
 
-        content_hash = hashlib.sha256(png).hexdigest()
+        content_hash = await asyncio.to_thread(_sha256_hex, png)
         inline = None
         uploaded = False
         if request.upload_target is not None:
@@ -2058,16 +2058,15 @@ class BrowserWorker:
                 chromium_exited_cleanly=True,
                 zeroized=False,
             )
-        plaintext_hash = hashlib.sha256(plaintext).hexdigest()
-
         # Encrypt with the manager-supplied DEK (WS-3 owns the full crypto; the
         # worker holds the plaintext DEK for the archive operation only and zeroizes it).
-        dek = bytearray(base64.b64decode(request.dek_plaintext_b64))
         nonce = base64.b64decode(request.nonce_b64)
-        ciphertext, ciphertext_hash, encrypted = _encrypt(bytes(dek), nonce, plaintext)
-        # Zeroize the plaintext DEK immediately.
-        for i in range(len(dek)):
-            dek[i] = 0
+        plaintext_hash, ciphertext, ciphertext_hash, encrypted = await asyncio.to_thread(
+            _encrypt_checkpoint,
+            request.dek_plaintext_b64,
+            nonce,
+            plaintext,
+        )
         zeroized = request.zeroize_after
 
         if not encrypted:
@@ -2329,6 +2328,10 @@ def _read_bytes(path: str) -> bytes:
         return fh.read()
 
 
+def _sha256_hex(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
 def _archive_dir(user_data_dir: str) -> bytes:
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w") as tar:
@@ -2350,6 +2353,49 @@ def _encrypt(dek: bytes, nonce: bytes, plaintext: bytes) -> tuple[bytes, str, bo
         return plaintext, hashlib.sha256(b"noenc:" + plaintext).hexdigest(), False
 
 
+def _zeroize(dek: bytearray) -> None:
+    for index in range(len(dek)):
+        dek[index] = 0
+
+
+def _encrypt_checkpoint(
+    dek_plaintext_b64: str, nonce: bytes, plaintext: bytes
+) -> tuple[str, bytes, str, bool]:
+    """Hash and encrypt a checkpoint entirely outside the worker event loop.
+
+    ``asyncio.to_thread`` cancellation does not stop already-submitted work.  The
+    thread therefore owns the mutable DEK and zeroizes it in ``finally``; a
+    cancelled request cannot race the event-loop coroutine into clearing a key
+    before encryption reads it, nor leave the worker-owned buffer uncleared.
+    """
+    dek = bytearray(base64.b64decode(dek_plaintext_b64))
+    try:
+        plaintext_hash = _sha256_hex(plaintext)
+        ciphertext, ciphertext_hash, encrypted = _encrypt(bytes(dek), nonce, plaintext)
+        return plaintext_hash, ciphertext, ciphertext_hash, encrypted
+    finally:
+        _zeroize(dek)
+
+
+def _decrypt_and_verify_checkpoint(restore: M.CheckpointRestore, ciphertext: bytes) -> bytes:
+    """Verify and decrypt in one thread that owns and always clears the DEK."""
+    dek = bytearray(base64.b64decode(restore.dek_plaintext_b64))
+    try:
+        if _sha256_hex(ciphertext) != restore.ciphertext_hash:
+            raise ValueError("checkpoint ciphertext hash mismatch")
+
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        plaintext = AESGCM(bytes(dek)).decrypt(
+            base64.b64decode(restore.nonce_b64), ciphertext, None
+        )
+        if _sha256_hex(plaintext) != restore.plaintext_hash:
+            raise ValueError("checkpoint plaintext hash mismatch")
+        return plaintext
+    finally:
+        _zeroize(dek)
+
+
 async def _restore_profile(user_data_dir: str, restore: M.CheckpointRestore) -> None:
     """Download, authenticate, and safely replace a closed profile directory."""
     if await asyncio.to_thread(
@@ -2360,21 +2406,7 @@ async def _restore_profile(user_data_dir: str, restore: M.CheckpointRestore) -> 
         response = await client.get(restore.download_url, headers=restore.headers)
         response.raise_for_status()
     ciphertext = response.content
-    if hashlib.sha256(ciphertext).hexdigest() != restore.ciphertext_hash:
-        raise ValueError("checkpoint ciphertext hash mismatch")
-
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
-    dek = bytearray(base64.b64decode(restore.dek_plaintext_b64))
-    try:
-        plaintext = AESGCM(bytes(dek)).decrypt(
-            base64.b64decode(restore.nonce_b64), ciphertext, None
-        )
-    finally:
-        for index in range(len(dek)):
-            dek[index] = 0
-    if hashlib.sha256(plaintext).hexdigest() != restore.plaintext_hash:
-        raise ValueError("checkpoint plaintext hash mismatch")
+    plaintext = await asyncio.to_thread(_decrypt_and_verify_checkpoint, restore, ciphertext)
 
     await asyncio.to_thread(_install_restored_profile, user_data_dir, plaintext)
     await asyncio.to_thread(

@@ -47,7 +47,7 @@ from .file import FileMetadataCRUD
 
 
 @final
-class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
+class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, StreamlitYAML]):
     folder_name = "streamlit"
     resource_cls = StreamlitResponse
     resource_write_cls = StreamlitRequest
@@ -105,11 +105,6 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
         return id.external_id
 
     @classmethod
-    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:
-        if "dataSetExternalId" in item:
-            yield DataSetsIO, ExternalId(external_id=item["dataSetExternalId"])
-
-    @classmethod
     def get_dependencies(cls, resource: StreamlitYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
@@ -154,6 +149,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
             suffix=".json",
             content=content,
             description="Streamlit application code",
+            resource_field=None,
         )
         try:
             streamlit_request = StreamlitRequest.model_validate(item)
@@ -182,6 +178,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse]):
                 suffix=f".{FileMetadataCRUD.kind}.yaml",
                 content=file_metadata,
                 description="Streamlit app",
+                resource_field=None,
             )
 
     def load_resource_file(

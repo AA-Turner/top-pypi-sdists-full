@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandas-stubs
-Version: 3.0.5.260730
+Version: 3.0.5.260914
 Summary: Type annotations for pandas
 License-Expression: BSD-3-Clause
 License-File: LICENSE

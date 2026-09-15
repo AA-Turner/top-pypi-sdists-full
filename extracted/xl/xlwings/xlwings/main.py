@@ -26,7 +26,9 @@ from typing import (
     Generator,
     Generic,
     Iterator,
+    Mapping,
     TypeVar,
+    cast,
     get_args,
     overload,
 )
@@ -38,10 +40,23 @@ from .base_classes import (
     _UNSET,
     BORDER_GRID_SIDES,
     BORDER_SIDES,
+    CHART_LEGEND_POSITIONS,
+    CHART_PLOT_BY,
+    CHART_TYPES,
+    HORIZONTAL_ALIGNMENTS,
+    PIVOT_FUNCTIONS,
+    PIVOT_LAYOUTS,
+    VERTICAL_ALIGNMENTS,
     BorderGroup,
     BorderLineStyle,
     BorderSide,
     BorderWeight,
+    ChartLegendPosition,
+    ChartPlotBy,
+    HorizontalAlignment,
+    PivotFunction,
+    PivotLayout,
+    VerticalAlignment,
 )
 
 # Optional imports
@@ -1116,8 +1131,8 @@ class Book:
             import xlwings as xw
 
             def my_macro():
-            sht = xw.Book.caller().sheets[0]
-            sht.range('A1').value = 'Hello xlwings!'
+            sheet = xw.Book.caller().sheets[0]
+            sheet.range('A1').value = 'Hello xlwings!'
 
             if __name__ == '__main__':
             xw.Book('file.xlsm').set_mock_caller()
@@ -1774,7 +1789,7 @@ class Sheet:
 
     @property
     def charts(self) -> Charts:
-        """See `Charts`
+        """See {class}`Charts <xlwings.main.Charts>`
 
         ```{versionadded} 0.9.0
         ```
@@ -1783,7 +1798,7 @@ class Sheet:
 
     @property
     def shapes(self) -> Shapes:
-        """See `Shapes`
+        """See {class}`Shapes <xlwings.main.Shapes>`
 
         ```{versionadded} 0.9.0
         ```
@@ -1792,7 +1807,7 @@ class Sheet:
 
     @property
     def tables(self) -> Tables:
-        """See `Tables`
+        """See {class}`Tables <xlwings.main.Tables>`
 
         ```{versionadded} 0.21.0
         ```
@@ -1800,8 +1815,17 @@ class Sheet:
         return Tables(impl=self.impl.tables)
 
     @property
+    def pivot_tables(self) -> PivotTables:
+        """See {class}`PivotTables <xlwings.PivotTables>`
+
+        ```{versionadded} 0.37.3
+        ```
+        """
+        return PivotTables(impl=self.impl.pivot_tables)
+
+    @property
     def pictures(self) -> Pictures:
-        """See `Pictures`
+        """See {class}`Pictures <xlwings.main.Pictures>`
 
         ```{versionadded} 0.9.0
         ```
@@ -1829,6 +1853,29 @@ class Sheet:
     @visible.setter
     def visible(self, value: bool) -> None:
         self.impl.visible = value
+
+    @property
+    def show_gridlines(self) -> bool:
+        """Gets or sets whether the sheet displays gridlines. This only
+        affects what is shown on screen, not what is printed.
+
+        With classic xlwings (Python running locally), the sheet must
+        be (temporarily) activated by xlwings, which means that you can't use this
+        with hidden sheets. xlwings Server and xlwings Lite don't have this restriction.
+
+        Examples:
+            ```pycon
+            >>> mysheet.show_gridlines = False
+            ```
+
+        ```{versionadded} 0.37.3
+        ```
+        """
+        return self.impl.show_gridlines
+
+    @show_gridlines.setter
+    def show_gridlines(self, value: bool) -> None:
+        self.impl.show_gridlines = value
 
     @property
     def page_setup(self) -> PageSetup:
@@ -2006,10 +2053,14 @@ class Range:
             empty: Transformation of empty cells.
             transpose: Transpose values.
             expand: One of `'table'`, `'down'`, `'right'`.
-            chunksize: Use a chunksize, e.g. `10000` to prevent timeout or
-                memory issues when reading or writing large amounts of data.
-                Works with all formats, including DataFrames, NumPy arrays,
-                and list of lists.
+            chunksize: Number of rows per chunk when reading or writing large
+                amounts of data, e.g. `10000`. Large ranges are chunked
+                automatically (reads above 4,000,000 cells, writes above
+                100,000 cells on desktop Excel and the remote engines); set
+                `chunksize` explicitly to tune the row count, e.g. to prevent
+                timeout, memory or payload-size issues, or `chunksize=None` to
+                disable chunking. Works with all formats, including DataFrames,
+                NumPy arrays, and list of lists.
             err_to_str: If `True`, will include cell errors such as `#N/A` as
                 strings. By default, they will be converted to `None`.
                 *New in version 0.28.0.*
@@ -2546,6 +2597,24 @@ class Range:
         """
         return await self._impl.get_wrap_text()
 
+    async def get_horizontal_alignment(self) -> HorizontalAlignment | None:
+        """Fetch the horizontal alignment on demand.
+
+        `None` if the cells in the range don't all have the same alignment.
+
+        Requires xlwings Lite.
+        """
+        return await self._impl.get_horizontal_alignment()
+
+    async def get_vertical_alignment(self) -> VerticalAlignment | None:
+        """Fetch the vertical alignment on demand.
+
+        `None` if the cells in the range don't all have the same alignment.
+
+        Requires xlwings Lite.
+        """
+        return await self._impl.get_vertical_alignment()
+
     async def get_column_width(self) -> float | None:
         """Fetch the column width on demand, in points.
 
@@ -3011,6 +3080,66 @@ class Range:
         self.impl.wrap_text = value
 
     @property
+    def horizontal_alignment(self) -> HorizontalAlignment | None:
+        """Returns or sets the horizontal alignment of the range.
+
+        One of `'general'`, `'left'`, `'center'`, `'right'`, `'fill'`,
+        `'justify'`, `'center_across_selection'` or `'distributed'`. Returns
+        `None` if the cells in the range don't all have the same alignment.
+        The default is `'general'`, which right-aligns numbers and dates and
+        left-aligns text.
+
+        Reading this property synchronously requires a locally installed Excel.
+        Setting it is also supported on xlwings Lite
+        and xlwings Server; in xlwings Lite, read it via
+        {meth}`get_horizontal_alignment() <xlwings.Range.get_horizontal_alignment>`.
+
+        Examples:
+            ```pycon
+            >>> sheet["A1"].horizontal_alignment = "center"
+            >>> sheet["A1"].horizontal_alignment
+            'center'
+            ```
+
+        ```{versionadded} 0.37.3
+        ```
+        """
+        return self.impl.horizontal_alignment
+
+    @horizontal_alignment.setter
+    def horizontal_alignment(self, value: HorizontalAlignment) -> None:
+        self.impl.horizontal_alignment = _horizontal_alignment(value)
+
+    @property
+    def vertical_alignment(self) -> VerticalAlignment | None:
+        """Returns or sets the vertical alignment of the range.
+
+        One of `'top'`, `'center'`, `'bottom'`, `'justify'` or `'distributed'`.
+        Returns `None` if the cells in the range don't all have the same
+        alignment. The default is `'bottom'`.
+
+        Reading this property synchronously requires a locally installed Excel.
+        Setting it is alos supported with xlwings Lite
+        and xlwings Server; in xlwings Lite, read it via
+        {meth}`get_vertical_alignment() <xlwings.Range.get_vertical_alignment>`.
+
+        Examples:
+            ```pycon
+            >>> sheet["A1"].vertical_alignment = "top"
+            >>> sheet["A1"].vertical_alignment
+            'top'
+            ```
+
+        ```{versionadded} 0.37.3
+        ```
+        """
+        return self.impl.vertical_alignment
+
+    @vertical_alignment.setter
+    def vertical_alignment(self, value: VerticalAlignment) -> None:
+        self.impl.vertical_alignment = _vertical_alignment(value)
+
+    @property
     def note(self) -> Note | None:
         """Returns a Note object.
         Before the introduction of threaded comments, a Note was called a Comment.
@@ -3265,9 +3394,9 @@ class Shape:
 
     ```pycon
     >>> import xlwings as xw
-    >>> sht = xw.books['Book1'].sheets[0]
-    >>> sht.shapes[0]  # or sht.shapes['ShapeName']
-    <Shape 'Rectangle 1' in <Sheet [Book1]Sheet1>>
+    >>> sheet = xw.books['Book1'].sheets[0]
+    >>> sheet.shapes[0]  # or sheet.shapes['ShapeName']
+    <Shape 'Rectangle 1' in Sheet1>
     ```
 
     ```{versionchanged} 0.9.0
@@ -3484,7 +3613,7 @@ class Shape:
         return not self.__eq__(other)
 
     def __repr__(self) -> str:
-        return "<Shape '{0}' in {1}>".format(self.name, self.parent)
+        return "<Shape '{0}' in {1}>".format(self.name, self.parent.name)
 
     async def get_text(self) -> str | None:
         """Fetch the shape's text on demand.
@@ -3502,8 +3631,8 @@ class Shapes(Collection[Shape]):
     ```pycon
     >>> import xlwings as xw
     >>> xw.books['Book1'].sheets[0].shapes
-    Shapes([<Shape 'Oval 1' in <Sheet [Book1]Sheet1>>,
-            <Shape 'Rectangle 1' in <Sheet [Book1]Sheet1>>])
+    Shapes([<Shape 'Oval 1' in Sheet1>,
+            <Shape 'Rectangle 1' in Sheet1>])
     ```
 
     ```{versionadded} 0.9.0
@@ -3617,9 +3746,9 @@ class Table:
 
     ```pycon
     >>> import xlwings as xw
-    >>> sht = xw.books['Book1'].sheets[0]
-    >>> sht.tables[0]  # or sht.tables['TableName']
-    <Table 'Table 1' in <Sheet [Book1]Sheet1>>
+    >>> sheet = xw.books['Book1'].sheets[0]
+    >>> sheet.tables[0]  # or sheet.tables['TableName']
+    <Table 'Table 1' in Sheet1>
     ```
 
     ```{versionadded} 0.21.0
@@ -3908,7 +4037,7 @@ class Table:
         return not self.__eq__(other)
 
     def __repr__(self) -> str:
-        return "<Table '{0}' in {1}>".format(self.name, self.parent)
+        return "<Table '{0}' in {1}>".format(self.name, self.parent.name)
 
 
 class Tables(Collection[Table]):
@@ -3917,8 +4046,8 @@ class Tables(Collection[Table]):
     ```pycon
     >>> import xlwings as xw
     >>> xw.books['Book1'].sheets[0].tables
-    Tables([<Table 'Table1' in <Sheet [Book11]Sheet1>>,
-            <Table 'Table2' in <Sheet [Book11]Sheet1>>])
+    Tables([<Table 'Table1' in Sheet1>,
+            <Table 'Table2' in Sheet1>])
     ```
 
     ```{versionadded} 0.21.0
@@ -3962,7 +4091,7 @@ class Tables(Collection[Table]):
             >>> sheet['A1'].value = [['a', 'b'], [1, 2]]
             >>> table = sheet.tables.add(source=sheet['A1'].expand(), name='MyTable')
             >>> table
-            <Table 'MyTable' in <Sheet [Book1]Sheet1>>
+            <Table 'MyTable' in Sheet1>
             ```
         """
 
@@ -3979,14 +4108,52 @@ class Tables(Collection[Table]):
         return Table(impl=impl)
 
 
+def _chart_type(value: Any) -> str:
+    if isinstance(value, str) and str(value) in CHART_TYPES:
+        return str(value)
+    raise ValueError(
+        f"Invalid chart type {value!r}. Must be one of: "
+        f"{', '.join(repr(v) for v in CHART_TYPES)}."
+    )
+
+
+def _chart_plot_by(value: Any) -> str:
+    if isinstance(value, str) and str(value) in CHART_PLOT_BY:
+        return str(value)
+    raise ValueError(
+        f"Invalid plot_by {value!r}. Valid values are: "
+        f"{', '.join(repr(v) for v in CHART_PLOT_BY)}."
+    )
+
+
+def _chart_legend_position(value: Any) -> str:
+    if isinstance(value, str) and str(value) in CHART_LEGEND_POSITIONS:
+        return str(value)
+    raise ValueError(
+        f"Invalid legend position {value!r}. Valid values are: "
+        f"{', '.join(repr(v) for v in CHART_LEGEND_POSITIONS)}."
+    )
+
+
+def _chart_style(value: Any) -> int:
+    # bool is an Integral subclass, but True/False as a chart style is a bug
+    if (
+        isinstance(value, numbers.Integral)
+        and not isinstance(value, bool)
+        and 1 <= int(value) <= 48
+    ):
+        return int(value)
+    raise ValueError(f"Invalid style {value!r}. Must be an integer between 1 and 48.")
+
+
 class Chart:
     """The chart object is a member of the `charts` collection:
 
     ```pycon
     >>> import xlwings as xw
-    >>> sht = xw.books['Book1'].sheets[0]
-    >>> sht.charts[0]  # or sht.charts['ChartName']
-    <Chart 'Chart 1' in <Sheet [Book1]Sheet1>>
+    >>> sheet = xw.books['Book1'].sheets[0]
+    >>> sheet.charts[0]  # or sheet.charts['ChartName']
+    <Chart 'Chart 1' in Sheet1>
     ```
     """
 
@@ -4116,15 +4283,97 @@ class Chart:
 
     @chart_type.setter
     def chart_type(self, value: str) -> None:
-        self.impl.chart_type = value
+        self.impl.chart_type = _chart_type(value)
 
-    def set_source_data(self, source: Range) -> None:
+    @property
+    def title(self) -> str | None:
+        """Returns or sets the chart title. Setting it to `None` hides the title,
+        setting it to a string shows it.
+
+        ```pycon
+        >>> chart.title = "Sales 2026"
+        >>> chart.title = None  # hides the title
+        ```
+
+        On xlwings Lite and xlwings Server, reading the title only works after it
+        has been set in the same script.
+
+        ```{versionadded} 0.37.3
+        ```
+        """
+        return self.impl.title
+
+    @title.setter
+    def title(self, value: str | None) -> None:
+        if value is not None and not isinstance(value, str):
+            raise ValueError(
+                f"Invalid title {value!r}. Must be a string or None to hide it."
+            )
+        self.impl.title = value
+
+    @property
+    def legend(self) -> ChartLegend:
+        """Returns the {class}`ChartLegend <xlwings.main.ChartLegend>` of the
+        chart.
+
+        ```pycon
+        >>> chart.legend.visible = True
+        >>> chart.legend.position = "bottom"
+        ```
+
+        ```{versionadded} 0.37.3
+        ```
+        """
+        return ChartLegend(impl=self.impl.legend)
+
+    @property
+    def plot_by(self) -> str:
+        """Returns or sets whether the data series come from the rows or from the
+        columns of the source data: either `"rows"` or `"columns"`.
+
+        On xlwings Lite and xlwings Server, reading it only works after it has
+        been set in the same script, either via this property or via
+        `set_source_data(plot_by=...)`.
+
+        ```{versionadded} 0.37.3
+        ```
+        """
+        return self.impl.plot_by
+
+    @plot_by.setter
+    def plot_by(self, value: ChartPlotBy) -> None:
+        self.impl.plot_by = _chart_plot_by(value)
+
+    @property
+    def style(self) -> int:
+        """Returns or sets the built-in chart style, an integer between 1 and 48.
+
+        On xlwings Lite and xlwings Server, reading it only works after it has
+        been set in the same script.
+
+        ```{versionadded} 0.37.3
+        ```
+        """
+        return self.impl.style
+
+    @style.setter
+    def style(self, value: int) -> None:
+        self.impl.style = _chart_style(value)
+
+    def set_source_data(
+        self, source: Range, plot_by: ChartPlotBy | None = None
+    ) -> None:
         """Sets the source data range for the chart.
 
         Args:
             source: Range object, e.g. `xw.books['Book1'].sheets[0].range('A1')`
+            plot_by: Whether the data series come from the `"rows"` or from the
+                `"columns"` of the source range. Defaults to letting Excel decide.
+                *New in version 0.37.3.*
         """
-        self.impl.set_source_data(source.impl)
+        self.impl.set_source_data(
+            source.impl, None if plot_by is None else _chart_plot_by(plot_by)
+        )
 
     @property
     def left(self) -> float:
@@ -4216,7 +4465,7 @@ class Chart:
         return utils.to_pdf(self, path=path, show=show, quality=quality)
 
     def __repr__(self) -> str:
-        return "<Chart '{0}' in {1}>".format(self.name, self.parent)
+        return "<Chart '{0}' in {1}>".format(self.name, self.parent.name)
 
     async def get_png(self) -> str:
         """Fetch the chart as a base64-encoded PNG, on demand.
@@ -4229,14 +4478,69 @@ class Chart:
         return await self.impl.get_png()
 
 
+class ChartLegend:
+    """The legend of a chart, accessed via `mychart.legend`:
+
+    ```pycon
+    >>> chart = xw.books['Book1'].sheets[0].charts[0]
+    >>> chart.legend.position = "bottom"
+    >>> chart.legend.visible = False
+    ```
+
+    ```{versionadded} 0.37.3
+    ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def api(self) -> Any:
+        """Returns the native object (`pywin32` or `appscript` obj)
+        of the engine being used.
+        """
+        return self.impl.api
+
+    @property
+    def visible(self) -> bool:
+        """Returns or sets whether the legend is shown.
+
+        On xlwings Lite and xlwings Server, reading it only works after it has
+        been set in the same script.
+        """
+        return self.impl.visible
+
+    @visible.setter
+    def visible(self, value: bool) -> None:
+        self.impl.visible = bool(value)
+
+    @property
+    def position(self) -> str | None:
+        """Returns or sets the position of the legend: `"top"`, `"bottom"`,
+        `"left"`, `"right"` or `"corner"`. Returns `None` if the legend is hidden.
+        Setting a position shows the legend.
+
+        On xlwings Lite and xlwings Server, reading it only works after it has
+        been set in the same script.
+        """
+        return self.impl.position
+
+    @position.setter
+    def position(self, value: ChartLegendPosition) -> None:
+        self.impl.position = _chart_legend_position(value)
+
+    def __repr__(self) -> str:
+        return "<ChartLegend>"
+
+
 class Charts(Collection[Chart]):
     """A collection of all `chart` objects on the specified sheet:
 
     ```pycon
     >>> import xlwings as xw
     >>> xw.books['Book1'].sheets[0].charts
-    Charts([<Chart 'Chart 1' in <Sheet [Book1]Sheet1>>,
-            <Chart 'Chart 1' in <Sheet [Book1]Sheet1>>])
+    Charts([<Chart 'Chart 1' in Sheet1>,
+            <Chart 'Chart 1' in Sheet1>])
     ```
 
     ```{versionadded} 0.9.0
@@ -4245,33 +4549,710 @@ class Charts(Collection[Chart]):
 
     _wrap = Chart
 
+    @property
+    def parent(self) -> Sheet:
+        return Sheet(impl=self.impl.parent)
+
     def add(
-        self, left: float = 0, top: float = 0, width: float = 355, height: float = 211
+        self,
+        left: float = 0,
+        top: float = 0,
+        width: float = 355,
+        height: float = 211,
+        chart_type: str | None = None,
+        source: Range | None = None,
+        plot_by: ChartPlotBy | None = None,
+        name: str | None = None,
+        anchor: Range | None = None,
     ) -> Chart:
         """Creates a new chart on the specified sheet.
 
         Args:
-            left: left position in points
-            top: top position in points
+            left: left position in points. If you use `top`/`left`, you must not
+                provide a value for `anchor`.
+            top: top position in points. If you use `top`/`left`, you must not
+                provide a value for `anchor`.
             width: width in points
             height: height in points
+            chart_type: Chart type, see {attr}`Chart.chart_type
+                <xlwings.Chart.chart_type>`. *New in version 0.37.3.*
+            source: Source data range, see {meth}`Chart.set_source_data
+                <xlwings.Chart.set_source_data>`. *New in version 0.37.3.*
+            plot_by: `"rows"` or `"columns"`, requires `source`.
+                *New in version 0.37.3.*
+            name: Excel chart name. Defaults to Excel standard name if not provided,
+                e.g., 'Chart 1'. *New in version 0.37.3.*
+            anchor: The xlwings Range object of where you want to insert the chart.
+                If you use `anchor`, you must not provide values for `top`/`left`.
+                *New in version 0.37.3.*
 
         Examples:
             ```pycon
             >>> import xlwings as xw
-            >>> sht = xw.Book().sheets[0]
-            >>> sht.range('A1').value = [['Foo1', 'Foo2'], [1, 2]]
-            >>> chart = sht.charts.add()
-            >>> chart.set_source_data(sht.range('A1').expand())
+            >>> sheet = xw.Book().sheets[0]
+            >>> sheet.range('A1').value = [['Foo1', 'Foo2'], [1, 2]]
+            >>> chart = sheet.charts.add(
+            ...     source=sheet.range('A1').expand(),
+            ...     chart_type='line',
+            ...     anchor=sheet.range('D1'),
+            ... )
+            >>> chart.title = 'My chart'
+            ```
+
+            The same in steps:
+
+            ```pycon
+            >>> chart = sheet.charts.add()
+            >>> chart.set_source_data(sheet.range('A1').expand())
             >>> chart.chart_type = 'line'
             >>> chart.name
-            'Chart1'
+            'Chart 1'
             ```
         """
+        if anchor:
+            if top or left:
+                raise ValueError(
+                    "You must either provide 'anchor' or 'top'/'left', but not both."
+                )
+        if chart_type is not None:
+            chart_type = _chart_type(chart_type)
+        if plot_by is not None:
+            if source is None:
+                raise ValueError("'plot_by' requires 'source'.")
+            plot_by = _chart_plot_by(plot_by)
+        if name and name in self:
+            raise ShapeAlreadyExists(
+                f"'{name}' is already present on {self.parent.name}."
+            )
 
-        impl = self.impl.add(left, top, width, height)
+        impl = self.impl.add(
+            left,
+            top,
+            width,
+            height,
+            chart_type=chart_type,
+            source=None if source is None else source.impl,
+            plot_by=plot_by,
+            name=name,
+            anchor=anchor,
+        )
 
         return Chart(impl=impl)
+
+
+def _pivot_function(value: Any) -> PivotFunction:
+    if isinstance(value, str) and str(value) in PIVOT_FUNCTIONS:
+        return cast(PivotFunction, str(value))
+    raise ValueError(
+        f"Invalid function {value!r}. Valid values are: "
+        f"{', '.join(repr(v) for v in PIVOT_FUNCTIONS)}."
+    )
+
+
+def _pivot_layout(value: Any) -> PivotLayout:
+    if isinstance(value, str) and str(value) in PIVOT_LAYOUTS:
+        return cast(PivotLayout, str(value))
+    raise ValueError(
+        f"Invalid layout {value!r}. Valid values are: "
+        f"{', '.join(repr(v) for v in PIVOT_LAYOUTS)}."
+    )
+
+
+def _pivot_field_list(value: Any, what: str) -> list[str]:
+    """Normalize the rows/columns/filters arguments of PivotTables.add()."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    names = list(value)
+    for name in names:
+        if not isinstance(name, str):
+            raise TypeError(f"'{what}' must be a field name or a list of field names.")
+    return names
+
+
+def _pivot_value_specs(values: Any) -> list[tuple[str, PivotFunction | None]]:
+    """Normalize the `values` argument of PivotTables.add() into
+    (field, function) tuples."""
+    if values is None:
+        return []
+    if isinstance(values, str):
+        return [(values, None)]
+    if isinstance(values, Mapping):
+        items = list(values.items())
+    else:
+        items = []
+        for item in values:
+            if isinstance(item, str):
+                items.append((item, None))
+            else:
+                try:
+                    field, function = item
+                except (TypeError, ValueError):
+                    raise TypeError(
+                        "'values' must be a field name, a list of field names or "
+                        "(field, function) tuples, or a {field: function} mapping."
+                    ) from None
+                items.append((field, function))
+    for field, _ in items:
+        if not isinstance(field, str):
+            raise TypeError("The field name must be a string.")
+    return [
+        (field, None if function is None else _pivot_function(function))
+        for field, function in items
+    ]
+
+
+class PivotTable:
+    """The pivot table object is a member of the
+    {attr}`pivot_tables <xlwings.Sheet.pivot_tables>` collection:
+
+    ```pycon
+    >>> import xlwings as xw
+    >>> mysheet = xw.books['Book1'].sheets[0]
+    >>> mysheet.pivot_tables[0]  # or mysheet.pivot_tables['PivotTable1']
+    <PivotTable 'PivotTable1' in Sheet1>
+    ```
+
+    Fields are placed via the four areas of Excel's field list, see
+    {attr}`rows <xlwings.PivotTable.rows>`,
+    {attr}`columns <xlwings.PivotTable.columns>`,
+    {attr}`filters <xlwings.PivotTable.filters>` and
+    {attr}`values <xlwings.PivotTable.values>`:
+
+    ```pycon
+    >>> pt = mysheet.pivot_tables['PivotTable1']
+    >>> pt.rows.add('Region')
+    >>> pt.values.add('Sales', function='sum', number_format='#,##0')
+    >>> pt.layout = 'tabular'
+    >>> pt.refresh()
+    ```
+
+    ```{versionadded} 0.37.3
+    ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def api(self) -> Any:
+        """Returns the native object (`pywin32` or `appscript` obj)
+        of the engine being used.
+        """
+        return self.impl.api
+
+    @property
+    def parent(self) -> Sheet:
+        """Returns the sheet the pivot table is on."""
+        return Sheet(impl=self.impl.parent)
+
+    @property
+    def name(self) -> str:
+        """Returns or sets the name of the pivot table."""
+        return self.impl.name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self.impl.name = value
+
+    @property
+    def field_names(self) -> list[str]:
+        """The names of the source fields (the column headers of the source
+        data), i.e. what can be passed to `rows.add()`, `columns.add()`,
+        `filters.add()` and `values.add()`.
+        """
+        return list(self.impl.field_names)
+
+    @property
+    def rows(self) -> PivotFields:
+        """The fields in the *Rows* area, see
+        {class}`PivotFields <xlwings.PivotFields>`.
+        """
+        return PivotFields(impl=self.impl.rows)
+
+    @property
+    def columns(self) -> PivotFields:
+        """The fields in the *Columns* area, see
+        {class}`PivotFields <xlwings.PivotFields>`.
+        """
+        return PivotFields(impl=self.impl.columns)
+
+    @property
+    def filters(self) -> PivotFields:
+        """The fields in the *Filters* area, see
+        {class}`PivotFields <xlwings.PivotFields>`.
+        """
+        return PivotFields(impl=self.impl.filters)
+
+    @property
+    def values(self) -> PivotValueFields:
+        """The fields in the *Values* area, see
+        {class}`PivotValueFields <xlwings.PivotValueFields>`.
+        """
+        return PivotValueFields(impl=self.impl.values)
+
+    @property
+    def layout(self) -> PivotLayout | None:
+        """Returns or sets the report layout: `"compact"`, `"outline"` or
+        `"tabular"`. Returns `None` if the row fields use mixed layouts.
+
+        On xlwings Lite and xlwings Server, reading it returns the layout as it
+        was when the script started, or the value set in the same script.
+        """
+        return self.impl.layout
+
+    @layout.setter
+    def layout(self, value: PivotLayout) -> None:
+        self.impl.layout = _pivot_layout(value)
+
+    @property
+    def show_row_grand_totals(self) -> bool:
+        """Returns or sets whether the grand totals for rows are shown."""
+        return self.impl.show_row_grand_totals
+
+    @show_row_grand_totals.setter
+    def show_row_grand_totals(self, value: bool) -> None:
+        self.impl.show_row_grand_totals = bool(value)
+
+    @property
+    def show_column_grand_totals(self) -> bool:
+        """Returns or sets whether the grand totals for columns are shown."""
+        return self.impl.show_column_grand_totals
+
+    @show_column_grand_totals.setter
+    def show_column_grand_totals(self, value: bool) -> None:
+        self.impl.show_column_grand_totals = bool(value)
+
+    @property
+    def range(self) -> Range:
+        """The range of the pivot table report, excluding the filters area.
+
+        Not yet available on xlwings Lite and xlwings Server.
+        """
+        return Range(impl=self.impl.range)
+
+    @property
+    def data_body_range(self) -> Range | None:
+        """The range of the values area, or `None` if the pivot table has no
+        value fields.
+
+        Not yet available on xlwings Lite and xlwings Server.
+        """
+        impl = self.impl.data_body_range
+        return Range(impl=impl) if impl is not None else None
+
+    def refresh(self) -> None:
+        """Refreshes the pivot table from its source data."""
+        self.impl.refresh()
+
+    def delete(self) -> None:
+        """Deletes the pivot table."""
+        self.impl.delete()
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, PivotTable)
+            and other.parent == self.parent
+            and other.name == self.name
+        )
+
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
+
+    def __repr__(self) -> str:
+        return "<PivotTable '{0}' in {1}>".format(self.name, self.parent.name)
+
+
+class PivotField:
+    """A source field placed in the *Rows*, *Columns* or *Filters* area of a
+    pivot table, accessed via the {class}`PivotFields <xlwings.PivotFields>`
+    collections:
+
+    ```pycon
+    >>> pt = xw.books['Book1'].sheets[0].pivot_tables[0]
+    >>> field = pt.rows.add('Region')
+    >>> field.name
+    'Region'
+    >>> field.parent
+    <PivotTable 'PivotTable1' in Sheet1>
+    >>> field.remove()
+    ```
+
+    ```{versionadded} 0.37.3
+    ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def api(self) -> Any:
+        """Returns the native object (`pywin32` or `appscript` obj)
+        of the engine being used.
+        """
+        return self.impl.api
+
+    @property
+    def parent(self) -> PivotTable:
+        """Returns the pivot table the field belongs to."""
+        return PivotTable(impl=self.impl.parent)
+
+    @property
+    def name(self) -> str:
+        """The name of the source field."""
+        return self.impl.name
+
+    def remove(self) -> None:
+        """Removes the field from its area."""
+        self.impl.remove()
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, PivotField)
+            and other.parent == self.parent
+            and other.name == self.name
+        )
+
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
+
+    def __repr__(self) -> str:
+        return "<PivotField '{0}' in '{1}'>".format(self.name, self.parent.name)
+
+
+class PivotFields(Collection[PivotField]):
+    """The fields in one area of a pivot table, i.e. `pt.rows`, `pt.columns`
+    or `pt.filters`. Iteration follows the field order.
+
+    ```pycon
+    >>> pt = xw.books['Book1'].sheets[0].pivot_tables[0]
+    >>> pt.rows
+    PivotFields([<PivotField 'Region' in 'PivotTable1'>])
+    >>> pt.rows[0]  # or pt.rows['Region']
+    <PivotField 'Region' in 'PivotTable1'>
+    ```
+
+    ```{versionadded} 0.37.3
+    ```
+    """
+
+    _wrap = PivotField
+
+    @property
+    def parent(self) -> PivotTable:
+        """Returns the pivot table the area belongs to."""
+        return PivotTable(impl=self.impl.parent)
+
+    def add(self, name: str) -> PivotField:
+        """Places a source field in this area, after the existing fields.
+
+        A field that is already in this area stays where it is; a field in
+        another of the rows/columns/filters areas is moved here.
+
+        Args:
+            name: Name of the source field, see
+                {attr}`PivotTable.field_names <xlwings.PivotTable.field_names>`.
+        """
+        if not isinstance(name, str):
+            raise TypeError("The field name must be a string.")
+        return PivotField(impl=self.impl.add(name))
+
+
+class PivotValueField:
+    """A field in the *Values* area of a pivot table, accessed via {class}`PivotValueFields <xlwings.PivotValueFields>`:
+
+    ```pycon
+    >>> pt = xw.books['Book1'].sheets[0].pivot_tables[0]
+    >>> value_field = pt.values.add('Sales')
+    >>> value_field.name, value_field.function
+    ('Sum of Sales', 'sum')
+    >>> value_field.function = 'average'
+    >>> value_field.number_format = '#,##0.00'
+    >>> value_field.name = 'Average Sales'
+    >>> pt.values['Average Sales'].source_field
+    'Sales'
+    ```
+
+    ```{versionadded} 0.37.3
+    ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def api(self) -> Any:
+        """Returns the native object (`pywin32` or `appscript` obj)
+        of the engine being used.
+        """
+        return self.impl.api
+
+    @property
+    def parent(self) -> PivotTable:
+        """Returns the pivot table the field belongs to."""
+        return PivotTable(impl=self.impl.parent)
+
+    @property
+    def name(self) -> str:
+        """Returns or sets the caption, e.g. `"Sum of Sales"`. Excel rejects a
+        name that equals the name of a source field.
+
+        On xlwings Lite and xlwings Server, reading it only works for value
+        fields that already existed when the script started or if the name
+        was set in the same script. The automatic caption of a value field
+        added in the same script can't be read.
+        """
+        return self.impl.name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self.impl.name = value
+
+    @property
+    def source_field(self) -> str:
+        """The name of the source field this value field summarizes."""
+        return self.impl.source_field
+
+    @property
+    def function(self) -> PivotFunction | None:
+        """Returns or sets the summary function: `"sum"`, `"count"`,
+        `"average"`, `"max"`, `"min"`, `"product"`, `"count_numbers"`,
+        `"stdev"`, `"stdevp"`, `"var"` or `"varp"`. Returns `None` if the
+        engine only knows that Excel picked the default.
+        """
+        return self.impl.function
+
+    @function.setter
+    def function(self, value: PivotFunction) -> None:
+        self.impl.function = _pivot_function(value)
+
+    @property
+    def number_format(self) -> str:
+        """Returns or sets the number format of the value field.
+
+        On xlwings Lite and xlwings Server, reading it only works for value
+        fields that already existed when the script started or if the format
+        was set in the same script.
+        """
+        return self.impl.number_format
+
+    @number_format.setter
+    def number_format(self, value: str) -> None:
+        self.impl.number_format = value
+
+    def remove(self) -> None:
+        """Removes the field from the values area."""
+        self.impl.remove()
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, PivotValueField)
+            and other.parent == self.parent
+            and other.name == self.name
+        )
+
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
+
+    def __repr__(self) -> str:
+        try:
+            name = self.name
+        except NotImplementedError:
+            name = "?"
+        return "<PivotValueField '{0}' in '{1}'>".format(name, self.parent.name)
+
+
+class PivotValueFields(Collection[PivotValueField]):
+    """The fields in the *Values* area of a pivot table, i.e. `pt.values`.
+    Iteration follows the field order.
+
+    ```pycon
+    >>> pt = xw.books['Book1'].sheets[0].pivot_tables[0]
+    >>> pt.values
+    PivotValueFields([<PivotValueField 'Sum of Sales' in 'PivotTable1'>])
+    >>> pt.values[0]  # or pt.values['Sum of Sales']
+    <PivotValueField 'Sum of Sales' in 'PivotTable1'>
+    ```
+
+    ```{versionadded} 0.37.3
+    ```
+    """
+
+    _wrap = PivotValueField
+
+    @property
+    def parent(self) -> PivotTable:
+        """Returns the pivot table the area belongs to."""
+        return PivotTable(impl=self.impl.parent)
+
+    def add(
+        self,
+        field: str,
+        function: PivotFunction | None = None,
+        name: str | None = None,
+        number_format: str | None = None,
+    ) -> PivotValueField:
+        """Adds a source field to the values area, after the existing value
+        fields. The same source field can be added more than once, e.g. as a
+        sum and as a count.
+
+        Args:
+            field: Name of the source field, see
+                {attr}`PivotTable.field_names <xlwings.PivotTable.field_names>`.
+            function: Summary function, see
+                {attr}`PivotValueField.function <xlwings.PivotValueField.function>`.
+                Defaults to Excel's choice: `"sum"` for numeric fields,
+                `"count"` otherwise.
+            name: Caption, e.g. `"Total Sales"`. Defaults to Excel's caption,
+                e.g. `"Sum of Sales"`. Excel rejects a name that equals the
+                name of a source field.
+            number_format: Number format, e.g. `"#,##0.00"`.
+        """
+        if not isinstance(field, str):
+            raise TypeError("The field name must be a string.")
+        if function is not None:
+            function = _pivot_function(function)
+        return PivotValueField(
+            impl=self.impl.add(
+                field, function=function, name=name, number_format=number_format
+            )
+        )
+
+
+class PivotTables(Collection[PivotTable]):
+    """A collection of all {class}`PivotTable <xlwings.PivotTable>`
+    objects on the specified sheet:
+
+    ```pycon
+    >>> import xlwings as xw
+    >>> xw.books['Book1'].sheets[0].pivot_tables
+    PivotTables([<PivotTable 'PivotTable1' in Sheet1>])
+    ```
+
+    ```{versionadded} 0.37.3
+    ```
+    """
+
+    _wrap = PivotTable
+
+    @property
+    def parent(self) -> Sheet:
+        """Returns the sheet the collection belongs to."""
+        return Sheet(impl=self.impl.parent)
+
+    def add(
+        self,
+        source: Range | Table,
+        destination: Range,
+        name: str | None = None,
+        rows: str | list[str] | None = None,
+        columns: str | list[str] | None = None,
+        filters: str | list[str] | None = None,
+        values: (
+            str
+            | list[str | tuple[str, PivotFunction | None]]
+            | dict[str, PivotFunction | None]
+            | None
+        ) = None,
+        layout: PivotLayout | None = None,
+    ) -> PivotTable:
+        """Creates a pivot table on the sheet of this collection.
+
+        On macOS, only the first pivot table on a sheet can be created; a
+        second one on the same sheet raises `NotImplementedError`. Existing
+        pivot tables can be modified without that restriction.
+
+        Args:
+            source: The source data, either a range including the header row
+                or a {class}`Table <xlwings.main.Table>`. Can be on another sheet.
+                On xlwings Lite, `expand()` doesn't see values written in the
+                same script until you run `await book.flush()` followed by
+                `await sheet.load()`; on xlwings Server, spell out the range.
+            destination: The cell where the top-left corner of the pivot
+                table goes. Must be on the sheet of this collection.
+            name: Name of the pivot table. Defaults to Excel's standard
+                name, e.g. `"PivotTable1"`.
+            rows: Field name(s) for the *Rows* area.
+            columns: Field name(s) for the *Columns* area.
+            filters: Field name(s) for the *Filters* area.
+            values: Field name(s) for the *Values* area. Use a mapping
+                (`{"Sales": "sum"}`) or `(field, function)` tuples to pick the
+                summary function; `None` keeps Excel's default. The same field
+                can only be listed twice via tuples, see
+                {meth}`PivotValueFields.add <xlwings.PivotValueFields.add>`.
+            layout: `"compact"`, `"outline"` or `"tabular"`.
+
+        Examples:
+            ```pycon
+            >>> import xlwings as xw
+            >>> book = xw.Book()
+            >>> data = book.sheets[0]
+            >>> report = book.sheets.add('Report', after=data)
+            >>> data['A1'].value = [['Region', 'Year', 'Sales'],
+            ...                     ['North', 2023, 100], ['South', 2024, 200]]
+            >>> pt = report.pivot_tables.add(
+            ...     source=data['A1:C3'],
+            ...     destination=report['A3'],
+            ...     rows='Region',
+            ...     columns='Year',
+            ...     values={'Sales': 'sum'},
+            ... )
+            >>> pt.values[0].number_format = '#,##0'
+            ```
+
+            The same in steps:
+
+            ```pycon
+            >>> pt = report.pivot_tables.add(data['A1:C3'], report['A3'])
+            >>> pt.rows.add('Region')
+            >>> pt.columns.add('Year')
+            >>> pt.values.add('Sales', function='sum', number_format='#,##0')
+            ```
+        """
+        if not isinstance(source, (Range, Table)):
+            raise TypeError("'source' must be a Range or a Table.")
+        if not isinstance(destination, Range):
+            raise TypeError("'destination' must be a Range.")
+        if destination.sheet != self.parent:
+            raise ValueError(
+                "'destination' must be on the sheet of this collection "
+                f"({self.parent.name!r}), not on {destination.sheet.name!r}."
+            )
+        if isinstance(source, Range) and source.shape == (1, 1):
+            raise ValueError(
+                f"'source' must cover the header row and the data, but is the "
+                f"single cell {source.address}. On xlwings Lite, expand() only "
+                "sees values written in the same script after 'await "
+                "book.flush()' and 'await sheet.load()'; on xlwings Server, use "
+                "an explicit range."
+            )
+        rows = _pivot_field_list(rows, "rows")
+        columns = _pivot_field_list(columns, "columns")
+        filters = _pivot_field_list(filters, "filters")
+        value_specs = _pivot_value_specs(values)
+        if layout is not None:
+            layout = _pivot_layout(layout)
+        if name and name in self:
+            raise XlwingsError(
+                f"A pivot table named {name!r} already exists on {self.parent.name!r}."
+            )
+
+        impl = self.impl.add(
+            source=source.impl, destination=destination.impl, name=name
+        )
+        pt = PivotTable(impl=impl)
+        for field in rows:
+            pt.rows.add(field)
+        for field in columns:
+            pt.columns.add(field)
+        for field in filters:
+            pt.filters.add(field)
+        for field, function in value_specs:
+            pt.values.add(field, function=function)
+        if layout is not None:
+            pt.layout = layout
+        return pt
 
 
 class Picture:
@@ -4280,9 +5261,9 @@ class Picture:
 
     ```pycon
     >>> import xlwings as xw
-    >>> sht = xw.books['Book1'].sheets[0]
-    >>> sht.pictures[0]  # or sht.charts['PictureName']
-    <Picture 'Picture 1' in <Sheet [Book1]Sheet1>>
+    >>> sheet = xw.books['Book1'].sheets[0]
+    >>> sheet.pictures[0]  # or sheet.charts['PictureName']
+    <Picture 'Picture 1' in Sheet1>
     ```
 
     ```{versionchanged} 0.9.0
@@ -4406,7 +5387,7 @@ class Picture:
         return not self.__eq__(other)
 
     def __repr__(self) -> str:
-        return "<Picture '{0}' in {1}>".format(self.name, self.parent)
+        return "<Picture '{0}' in {1}>".format(self.name, self.parent.name)
 
     def update(
         self,
@@ -4465,8 +5446,8 @@ class Pictures(Collection[Picture]):
     ```pycon
     >>> import xlwings as xw
     >>> xw.books['Book1'].sheets[0].pictures
-    Pictures([<Picture 'Picture 1' in <Sheet [Book1]Sheet1>>,
-              <Picture 'Picture 2' in <Sheet [Book1]Sheet1>>])
+    Pictures([<Picture 'Picture 1' in Sheet1>,
+              <Picture 'Picture 2' in Sheet1>])
     ```
 
     ```{versionadded} 0.9.0
@@ -4532,9 +5513,9 @@ class Pictures(Collection[Picture]):
 
             ```pycon
             >>> import xlwings as xw
-            >>> sht = xw.Book().sheets[0]
-            >>> sht.pictures.add(r'C:\\path\\to\\file.png')
-            <Picture 'Picture 1' in <Sheet [Book1]Sheet1>>
+            >>> sheet = xw.Book().sheets[0]
+            >>> sheet.pictures.add(r'C:\\path\\to\\file.png')
+            <Picture 'Picture 1' in Sheet1>
             ```
 
             2. Matplotlib
@@ -4543,8 +5524,8 @@ class Pictures(Collection[Picture]):
             >>> import matplotlib.pyplot as plt
             >>> fig = plt.figure()
             >>> plt.plot([1, 2, 3, 4, 5])
-            >>> sht.pictures.add(fig, name='MyPlot', update=True)
-            <Picture 'MyPlot' in <Sheet [Book1]Sheet1>>
+            >>> sheet.pictures.add(fig, name='MyPlot', update=True)
+            <Picture 'MyPlot' in Sheet1>
             ```
         """
         if anchor:
@@ -4705,8 +5686,8 @@ class Names:
     def add(self, name: str, refers_to: str) -> Name:
         """Defines a new name for a range, constant, or formula (including a LAMBDA).
 
-        Full support for named constants and formulas requires Excel desktop or an
-        Office.js client (xlwings Lite or Server). Google Sheets supports named
+        Full support for named constants and formulas requires Excel desktop or xlwings
+        Lite or Server. Google Sheets supports named
         ranges only; Office Scripts only returns named ranges in its snapshot.
 
         Args:
@@ -4767,8 +5748,8 @@ class Name:
 
     ```pycon
     >>> import xlwings as xw
-    >>> sht = xw.books['Book1'].sheets[0]
-    >>> sht.names[0]  # or sht.names['MyName']
+    >>> sheet = xw.books['Book1'].sheets[0]
+    >>> sheet.names[0]  # or sheet.names['MyName']
     <Name 'MyName': =Sheet1!$A$3>
     ```
 
@@ -5293,6 +6274,24 @@ def _border_weight(value: Any) -> str:
     raise ValueError(
         f"Invalid weight {value!r}. Valid values are: "
         f"{', '.join(repr(weight) for weight in _BORDER_WEIGHTS)}."
+    )
+
+
+def _horizontal_alignment(value: Any) -> str:
+    if isinstance(value, str) and str(value) in HORIZONTAL_ALIGNMENTS:
+        return str(value)
+    raise ValueError(
+        f"Invalid horizontal_alignment {value!r}. Valid values are: "
+        f"{', '.join(repr(v) for v in HORIZONTAL_ALIGNMENTS)}."
+    )
+
+
+def _vertical_alignment(value: Any) -> str:
+    if isinstance(value, str) and str(value) in VERTICAL_ALIGNMENTS:
+        return str(value)
+    raise ValueError(
+        f"Invalid vertical_alignment {value!r}. Valid values are: "
+        f"{', '.join(repr(v) for v in VERTICAL_ALIGNMENTS)}."
     )
 
 

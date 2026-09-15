@@ -59,6 +59,15 @@ class WebSearchCallContentModel(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class HostedToolContentModel(BaseModel):
+    model_config = _BLOCK
+
+    type: Literal["hosted_tool"] = "hosted_tool"
+    provider: str = ""
+    block: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ProviderChargeModel(BaseModel):
     """Independent reconciliation evidence for a provider's own stated charge.
 

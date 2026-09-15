@@ -9,11 +9,15 @@ from pgqueuer.domain.types import (
     Channel,
     CronEntrypoint,
     CronExpression,
+    HealthCheckId,
     JobId,
     OnConflict,
     OnFailure,
+    QueueEntrypoint,
     QueueExecutionMode,
+    QueueManagerId,
     ScheduleId,
+    Slot,
 )
 
 __all__ = [
@@ -23,9 +27,13 @@ __all__ = [
     "Channel",
     "CronEntrypoint",
     "CronExpression",
+    "HealthCheckId",
     "JobId",
     "OnConflict",
     "OnFailure",
+    "QueueEntrypoint",
     "QueueExecutionMode",
+    "QueueManagerId",
     "ScheduleId",
+    "Slot",
 ]

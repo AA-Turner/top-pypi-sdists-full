@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-projects
-Version: 2.6.0
+Version: 2.6.1
 Summary: Microsoft Corporation Azure AI Projects Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -200,6 +200,7 @@ The table below lists the operation groups supported by the client library, with
 | Topic | Foundry documentation | Samples folder |
 |---|---|---|
 | Agents (create, run, stream) | [Agents overview](https://learn.microsoft.com/azure/foundry/agents/overview) | `samples/agents/` |
+| Agent Insights (preview) | | [On-demand analysis and scheduled monitors](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/ai/azure-ai-projects/samples/agent_insights) |
 | Hosted agents | [Hosted agents concepts](https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agents), [Deploy your first hosted agent](https://learn.microsoft.com/azure/foundry/agents/quickstarts/quickstart-hosted-agent) | `samples/hosted_agents/` |
 | Agents tools | [Tool catalog](https://learn.microsoft.com/azure/foundry/agents/concepts/tool-catalog) | `samples/agents/tools/` |
 | Agents optimization | [Prompt optimizer](https://learn.microsoft.com/azure/foundry/observability/how-to/prompt-optimizer), [Agent optimizer overview](https://learn.microsoft.com/azure/foundry/agents/concepts/agent-optimizer-overview) | `samples/agents/optimization/` |
@@ -332,6 +333,18 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 [azure_sub]: https://azure.microsoft.com/free/
 
 # Release History
+
+## 2.6.1 (2026-09-14)
+
+### Sample updates
+
+* Added `sample_agent_insights_on_demand.py` and `sample_agent_insights_scheduled.py` under `samples/agent_insights/` to demonstrate on-demand analysis, insight lifecycle updates, and scheduled monitor setup with temporary external agents, fictional traces, and owned-resource cleanup.
+* Added `sample_agent_web_iq.py` under `samples/agents/tools/`, demonstrating a Prompt Agent using the `WebIQPreviewTool`.
+
+### Bugs Fixed
+
+* Fixed Agent Insights run pollers to stop and raise an error when the service reports a cancelled run.
+* Fixed Agent Insights run pollers to preserve request headers, including the preview feature header, on polling requests.
 
 ## 2.6.0 (2026-09-04)
 

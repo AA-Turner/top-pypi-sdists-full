@@ -487,9 +487,13 @@ class OptionSchema(BaseSchema):
                     "cli: -cachedir /home/user/.sc/cache",
                     "api: option.set('cachedir', '/home/user/.sc/cache')"],
                 help="""
-                Filepath to cache used for package data sources. If the
-                cache parameter is empty, ".sc/cache" directory in the user's home
-                directory will be used."""))
+                Filepath to the cache SiliconCompiler keeps between runs. It holds
+                one subdirectory per kind of cached data: "dataroot" for downloaded
+                package data sources, and "tools" for the caches tools keep for
+                themselves, such as the compiler cache a Verilator build writes to.
+                Cached data goes in those subdirectories, not in the directory
+                itself. If the cache parameter is empty, the ".sc/cache" directory
+                in the user's home directory will be used."""))
 
         schema.insert(
             'nice',
@@ -755,9 +759,22 @@ class OptionSchema(BaseSchema):
                 help="""
                 Attempt to continue even when errors are encountered in the SC
                 implementation. The default behavior is to quit executing the flow
-                if a task ends and the errors metric is greater than 0. Note that
-                the flow will always cease executing if the tool returns a nonzero
-                status code.
+                if a task ends and the errors metric is greater than 0.
+
+                Set this on the node that may fail, not on the node that consumes
+                it: the option excuses a failure for the benefit of everything
+                downstream. Nodes that take input from an excused node are still
+                launched and run on whatever inputs did arrive -- a failed branch
+                is dropped, not substituted, so a merge assembles the branches
+                that survived. A node whose every input was excused still fails,
+                having nothing left to run on, and the excuse does not propagate:
+                a node that fails as a consequence of an excused failure upstream
+                needs an excuse of its own.
+
+                Note that the failing task itself always stops if the tool returns
+                a nonzero status code; what this option relaxes is whether the rest
+                of the flow proceeds without it. A run that finishes over a failed
+                branch still reports that branch as an error.
                 """))
 
         schema.insert(

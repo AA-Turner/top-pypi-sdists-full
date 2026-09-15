@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import inspect
-import asyncio
 import builtins
 import enum
 
@@ -20,6 +19,7 @@ from typing_extensions import ParamSpec
 
 from ..aiter_utils import AsyncExitStack, anext
 from ..core import sources_operator, streamcontext, pipable_operator
+from ..manager import TaskGroup
 
 from . import create
 from . import select
@@ -72,7 +72,7 @@ async def zip(
     if not sources:
         return
 
-    # One sources
+    # One source
     if len(sources) == 1:
         (source,) = sources
         async with streamcontext(source) as streamer:
@@ -82,29 +82,48 @@ async def zip(
 
     # N sources
     async with AsyncExitStack() as stack:
+
         # Handle resources
         streamers = [
             await stack.enter_async_context(streamcontext(source)) for source in sources
         ]
+
         # Loop over items
-        items: list[T]
         while True:
-            if strict:
-                coros = (anext(streamer, STOP_SENTINEL) for streamer in streamers)
-                _items = await asyncio.gather(*coros)
-                if all(item is STOP_SENTINEL for item in _items):
-                    break
-                elif any(item is STOP_SENTINEL for item in _items):
-                    raise ValueError("The provided sources have different lengths")
-                # This holds because we've ruled out STOP_SENTINEL above:
-                items = cast("list[T]", _items)
-            else:
-                coros = (anext(streamer) for streamer in streamers)
-                try:
-                    items = await asyncio.gather(*coros)
-                except StopAsyncIteration:
-                    break
-            yield tuple(items)
+
+            # Concurrency is handled with a TaskGroup to avoid leaving pending tasks if an exception is raised
+            async with TaskGroup["T | _StopSentinelType"]() as group:
+
+                # Strict mode requires that we wait for all sources to either produce an item or terminate
+                if strict:
+                    coros = (anext(streamer, STOP_SENTINEL) for streamer in streamers)
+                    tasks = [group.create_task(coro) for coro in coros]
+                    done = await group.wait_first_exception(tasks)
+                    maybe_items = tuple(task.result() for task in done)
+                    if all(item is STOP_SENTINEL for item in maybe_items):
+                        break
+                    elif any(item is STOP_SENTINEL for item in maybe_items):
+                        raise ValueError("The provided sources have different lengths")
+
+                # Non-strict mode requires that we stop at the first terminating source
+                else:
+                    coros = (anext(streamer) for streamer in streamers)
+                    tasks = [group.create_task(coro) for coro in coros]
+                    done = await group.wait_first_exception(tasks)
+                    # Explicitly retrieve all exceptions to avoid warnings
+                    exceptions = [task.exception() for task in done]
+                    # Explicitly ignore other exceptions if one source is exhausted
+                    if any(isinstance(e, StopAsyncIteration) for e in exceptions):
+                        break
+                    # Raise other exceptions here if any
+                    maybe_items = tuple(task.result() for task in done)
+
+            # `group.wait_first exception` guarantees order
+            # and that all tasks have completed when no exception occurred
+            assert len(maybe_items) == len(sources)
+
+            # This holds because we've ruled out STOP_SENTINEL above
+            yield cast("tuple[T, ...]", maybe_items)
 
 
 X = TypeVar("X", contravariant=True)

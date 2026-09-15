@@ -10,7 +10,7 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="django-vite",
-    version="3.1.0",
+    version="3.2.0",
     description="Integration of Vite in a Django project.",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -18,7 +18,7 @@ setup(
     url="https://github.com/MrBin99/django-vite",
     license="Apache License, Version 2.0",
     include_package_data=True,
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests", "tests.*"]),
     requires=[
         "Django (>=3.2)",
     ],

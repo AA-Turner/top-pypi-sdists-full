@@ -1,0 +1,1 @@
+import{Fi as e,Mi as t,ha as n,li as r,pi as i,va as a}from"./lucide-DJ7aTkmi.js";import{t as o}from"./utils-B6KiDbIe.js";var s=i({__name:`CardContent`,props:{class:{type:[Boolean,null,String,Object,Array]}},setup(i){let s=i;return(i,c)=>(t(),r(`div`,{"data-slot":`card-content`,class:a(n(o)(`px-6`,s.class))},[e(i.$slots,`default`)],2))}});export{s as t};

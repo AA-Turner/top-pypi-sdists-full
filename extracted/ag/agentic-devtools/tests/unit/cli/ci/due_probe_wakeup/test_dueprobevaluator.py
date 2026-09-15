@@ -146,6 +146,40 @@ def test_claim_and_execute_probe_uses_availability_checker_and_persists_failure(
     assert store.load().probes[0] == result
 
 
+@pytest.mark.parametrize(
+    "credential_identity",
+    ["COPILOT_GITHUB_TOKEN", "AGDT_PR_APPROVER_PAT", "REPO_VARIABLE_WRITER_PAT"],
+)
+def test_claim_and_execute_probe_rejects_role_scoped_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+    credential_identity: str,
+) -> None:
+    monkeypatch.setenv(credential_identity, "restricted-token")
+    calls: list[tuple[str, str | None]] = []
+
+    monkeypatch.setattr(
+        "agentic_devtools.cli.ci.due_probe_wakeup._gh_api",
+        lambda endpoint, token=None: calls.append((endpoint, token)),
+    )
+    store = _make_store()
+    now = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
+    probe = _make_probe(
+        scheduled_at=now - timedelta(minutes=1),
+        credential_identity=credential_identity,
+    )
+    _save_probes(store, [probe])
+    evaluator = DueProbeEvaluator(
+        store=store,
+        adapter=CooldownProbeAdapter(),
+        availability_checker=_build_availability_checker("owner/repo"),
+    )
+
+    result = evaluator.claim_and_execute_probe("owner/repo", probe, now)
+
+    assert result.status == ProbeStatus.FAILED
+    assert calls == []
+
+
 def test_claim_and_execute_probe_accepts_renewed_cooldown_metadata() -> None:
     store = _make_store()
     now = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
@@ -314,7 +348,7 @@ def test_evaluate_due_probes_executes_failed_probe_when_next_probe_is_due() -> N
 
 def test_build_availability_checker_caches_true_result(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = {"count": 0}
-    monkeypatch.setenv("COPILOT_GITHUB_TOKEN", "token")
+    monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "token")
 
     def _fake_gh_api(_endpoint: str, token: str | None = None) -> str:
         calls["count"] += 1
@@ -325,16 +359,45 @@ def test_build_availability_checker_caches_true_result(monkeypatch: pytest.Monke
         _fake_gh_api,
     )
     checker = _build_availability_checker("owner/repo")
-    probe = _make_probe(scheduled_at=datetime.now(UTC), credential_identity="COPILOT_GITHUB_TOKEN")
+    probe = _make_probe(
+        scheduled_at=datetime.now(UTC),
+        credential_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+    )
 
     assert checker(probe) is True
     assert checker(probe) is True
     assert calls["count"] == 1
 
 
+@pytest.mark.parametrize(
+    "credential_identity",
+    ["COPILOT_GITHUB_TOKEN", "AGDT_PR_APPROVER_PAT", "REPO_VARIABLE_WRITER_PAT"],
+)
+def test_build_availability_checker_rejects_role_scoped_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+    credential_identity: str,
+) -> None:
+    monkeypatch.setenv(credential_identity, "restricted-token")
+    calls: list[tuple[str, str | None]] = []
+
+    def _fake_gh_api(endpoint: str, token: str | None = None) -> str:
+        calls.append((endpoint, token))
+        return "[]"
+
+    monkeypatch.setattr("agentic_devtools.cli.ci.due_probe_wakeup._gh_api", _fake_gh_api)
+    checker = _build_availability_checker("owner/repo")
+    probe = _make_probe(
+        scheduled_at=datetime.now(UTC),
+        credential_identity=credential_identity,
+    )
+
+    assert checker(probe) is False
+    assert calls == []
+
+
 def test_build_availability_checker_retries_after_provider_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = {"count": 0}
-    monkeypatch.setenv("COPILOT_GITHUB_TOKEN", "token")
+    monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "token")
 
     def _fake_gh_api(_endpoint: str, token: str | None = None) -> str:
         assert token == "token"
@@ -345,7 +408,10 @@ def test_build_availability_checker_retries_after_provider_failure(monkeypatch: 
 
     monkeypatch.setattr("agentic_devtools.cli.ci.due_probe_wakeup._gh_api", _fake_gh_api)
     checker = _build_availability_checker("owner/repo")
-    probe = _make_probe(scheduled_at=datetime.now(UTC), credential_identity="COPILOT_GITHUB_TOKEN")
+    probe = _make_probe(
+        scheduled_at=datetime.now(UTC),
+        credential_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+    )
 
     assert checker(probe) is False
     assert checker(probe) is True
@@ -355,7 +421,7 @@ def test_build_availability_checker_retries_after_provider_failure(monkeypatch: 
 def test_build_availability_checker_preserves_rate_limit_resume_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("COPILOT_GITHUB_TOKEN", "token")
+    monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "token")
     reset_timestamp = datetime.now(UTC).timestamp() + 120
 
     def _fake_gh_api(_endpoint: str, token: str | None = None) -> str:
@@ -364,7 +430,10 @@ def test_build_availability_checker_preserves_rate_limit_resume_metadata(
 
     monkeypatch.setattr("agentic_devtools.cli.ci.due_probe_wakeup._gh_api", _fake_gh_api)
     checker = _build_availability_checker("owner/repo")
-    probe = _make_probe(scheduled_at=datetime.now(UTC), credential_identity="COPILOT_GITHUB_TOKEN")
+    probe = _make_probe(
+        scheduled_at=datetime.now(UTC),
+        credential_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+    )
 
     result = checker(probe)
 
@@ -397,7 +466,10 @@ def test_build_availability_checker_rejects_unsupported_provider(monkeypatch: py
     assert called["value"] is False
 
 
-def test_build_availability_checker_rejects_missing_credential_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_availability_checker_rejects_unsupported_credential_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UNKNOWN_TOKEN", "unexpected-token")
     called = {"value": False}
 
     def _fake_gh_api(_endpoint: str, token: str | None = None) -> str:
@@ -412,7 +484,29 @@ def test_build_availability_checker_rejects_missing_credential_env(monkeypatch: 
     probe = _make_probe(
         scheduled_at=datetime.now(UTC),
         provider_identity="gh",
-        credential_identity="COPILOT_GITHUB_TOKEN",
+        credential_identity="UNKNOWN_TOKEN",
+    )
+
+    assert checker(probe) is False
+    assert called["value"] is False
+
+
+def test_build_availability_checker_rejects_missing_supported_credential_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for env_var in ("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "GH_TOKEN", "AI_PR_LOOP_CREDENTIAL_IDENTITY"):
+        monkeypatch.delenv(env_var, raising=False)
+    called = {"value": False}
+
+    def _fake_gh_api(_endpoint: str, token: str | None = None) -> str:
+        called["value"] = True
+        return "[]"
+
+    monkeypatch.setattr("agentic_devtools.cli.ci.due_probe_wakeup._gh_api", _fake_gh_api)
+    checker = _build_availability_checker("owner/repo")
+    probe = _make_probe(
+        scheduled_at=datetime.now(UTC),
+        credential_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
     )
 
     assert checker(probe) is False
@@ -423,7 +517,7 @@ def test_build_availability_checker_uses_gh_token_alias_for_configured_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = {"count": 0}
-    monkeypatch.setenv("AI_PR_LOOP_CREDENTIAL_IDENTITY", "SPECKIT_PR_TOKEN")
+    monkeypatch.setenv("AI_PR_LOOP_CREDENTIAL_IDENTITY", "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT")
     monkeypatch.setenv("GH_TOKEN", "gh-token")
 
     def _fake_gh_api(_endpoint: str, token: str | None = None) -> str:
@@ -433,16 +527,38 @@ def test_build_availability_checker_uses_gh_token_alias_for_configured_identity(
 
     monkeypatch.setattr("agentic_devtools.cli.ci.due_probe_wakeup._gh_api", _fake_gh_api)
     checker = _build_availability_checker("owner/repo")
-    probe = _make_probe(scheduled_at=datetime.now(UTC), credential_identity="SPECKIT_PR_TOKEN")
+    probe = _make_probe(
+        scheduled_at=datetime.now(UTC),
+        credential_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+    )
 
     assert checker(probe) is True
     assert calls["count"] == 1
 
 
+def test_build_availability_checker_rejects_legacy_identity_without_api_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AI_PR_LOOP_CREDENTIAL_IDENTITY", "SPECKIT_PR_TOKEN")
+    monkeypatch.setenv("GH_TOKEN", "legacy-token")
+    called = {"value": False}
+
+    def _fake_gh_api(_endpoint: str, token: str | None = None) -> str:
+        called["value"] = True
+        return "[]"
+
+    monkeypatch.setattr("agentic_devtools.cli.ci.due_probe_wakeup._gh_api", _fake_gh_api)
+    checker = _build_availability_checker("owner/repo")
+    probe = _make_probe(scheduled_at=datetime.now(UTC), credential_identity="SPECKIT_PR_TOKEN")
+
+    assert checker(probe) is False
+    assert called["value"] is False
+
+
 def test_build_availability_checker_preserves_rate_limit_metadata_from_retryable_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("COPILOT_GITHUB_TOKEN", "token")
+    monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "token")
     reset_timestamp = datetime.now(UTC).timestamp() + 90
 
     def _fake_gh_api(_endpoint: str, token: str | None = None) -> str:
@@ -451,13 +567,16 @@ def test_build_availability_checker_preserves_rate_limit_metadata_from_retryable
             "rate limited",
             reset_timestamp=reset_timestamp,
             provider="github",
-            credential_identity="COPILOT_GITHUB_TOKEN",
+            credential_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
             is_rate_limit=True,
         )
 
     monkeypatch.setattr("agentic_devtools.cli.ci.due_probe_wakeup._gh_api", _fake_gh_api)
     checker = _build_availability_checker("owner/repo")
-    probe = _make_probe(scheduled_at=datetime.now(UTC), credential_identity="COPILOT_GITHUB_TOKEN")
+    probe = _make_probe(
+        scheduled_at=datetime.now(UTC),
+        credential_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+    )
 
     result = checker(probe)
 
@@ -471,7 +590,7 @@ def test_build_availability_checker_preserves_rate_limit_metadata_from_retryable
 def test_build_availability_checker_handles_non_rate_limit_retryable_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("COPILOT_GITHUB_TOKEN", "token")
+    monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "token")
 
     def _fake_gh_api(_endpoint: str, token: str | None = None) -> str:
         assert token == "token"
@@ -479,6 +598,9 @@ def test_build_availability_checker_handles_non_rate_limit_retryable_error(
 
     monkeypatch.setattr("agentic_devtools.cli.ci.due_probe_wakeup._gh_api", _fake_gh_api)
     checker = _build_availability_checker("owner/repo")
-    probe = _make_probe(scheduled_at=datetime.now(UTC), credential_identity="COPILOT_GITHUB_TOKEN")
+    probe = _make_probe(
+        scheduled_at=datetime.now(UTC),
+        credential_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+    )
 
     assert checker(probe) is False

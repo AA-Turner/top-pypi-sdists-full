@@ -106,9 +106,10 @@ def _rpc_call_index(connection: _RecordingConnection) -> int:
 
 def _assert_rpc_has_named_actor_gucs(connection: _RecordingConnection) -> int:
     rpc_index = _rpc_call_index(connection)
-    assert connection.calls[rpc_index - 2 : rpc_index] == [
+    assert connection.calls[rpc_index - 3 : rpc_index] == [
         ("execute", "SELECT set_config($1, $2, true)", ("app.actor_tier", "code")),
         ("execute", "SELECT set_config($1, $2, true)", ("app.actor_system", "mcp_sync")),
+        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_agent", "")),
     ], (
         "catalog reconciliation RPC must be preceded by named actor GUCs on the "
         "same connection"
@@ -202,6 +203,7 @@ async def test_catalog_reconciliation_sets_named_actor_gucs_on_its_rpc_connectio
         ("execute", "BEGIN", ()),
         ("execute", "SELECT set_config($1, $2, true)", ("app.actor_tier", "code")),
         ("execute", "SELECT set_config($1, $2, true)", ("app.actor_system", "mcp_sync")),
+        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_agent", "")),
         recording_connection.calls[rpc_index],
         ("execute", "COMMIT", ()),
     ]
@@ -236,7 +238,7 @@ async def test_catalog_reconciliation_rolls_back_when_rpc_fails(
     result = await mcp_sync.sync_server("public-docs", force=True)
 
     assert "catalog RPC refused" in (result.error or "")
-    assert _assert_rpc_has_named_actor_gucs(recording_connection) == 3
+    assert _assert_rpc_has_named_actor_gucs(recording_connection) == 4
     assert recording_connection.calls[-1] == ("execute", "ROLLBACK", ())
     assert ("execute", "COMMIT", ()) not in recording_connection.calls
 
@@ -270,6 +272,7 @@ async def test_catalog_reconciliation_restores_outer_actor_declaration(
         assert declared_actor_gucs() == {
             "app.actor_tier": "human",
             "app.actor_system": "outer",
+            "app.actor_agent": "",
         }
 
     assert current_actor() is None

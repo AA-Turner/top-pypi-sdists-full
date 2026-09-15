@@ -16,6 +16,7 @@ import logging
 import os
 import sqlite3
 import sys
+import threading
 import time
 import warnings
 from collections.abc import Iterable
@@ -2120,6 +2121,11 @@ def _mark_notified_local(
     # override events above pass (no row matches that string), so this is
     # safe to call unconditionally.
     release_review_claim_if_row_is_review(assignment_id)
+    # #3333: same reasoning, for a #3182 fan-out leg's own smoke-dispatch
+    # claim (coord.state.claim_smoke_dispatch) — see
+    # release_smoke_claim_if_row_is_smoke_leg's docstring. Also a no-op for
+    # every non-fan-out-leg row, so safe to call unconditionally here too.
+    release_smoke_claim_if_row_is_smoke_leg(assignment_id)
 
     # #1036: this is the single funnel every notify.py call site (completion,
     # failure, advisory, stuck, needs-attention, stalled, liveness) reaches —
@@ -2442,6 +2448,459 @@ def release_review_claim_if_row_is_review(assignment_id: str) -> None:
         pass
 
 
+# ── Atomic smoke fan-out dispatch claim (#3333) ──────────────────────────────
+
+
+def claim_smoke_dispatch(work_assignment_id: str, capability_partition: str) -> bool:
+    """Atomically claim the right to dispatch a Test-stage leg for
+    *capability_partition* on *work_assignment_id* — the #3182 fan-out's peer
+    of :func:`claim_review_dispatch` (#3113), keyed on the pair rather than on
+    the work assignment alone because a fan-out legitimately dispatches
+    several legs for ONE parent (one per capability partition), never two for
+    the SAME partition.
+
+    Returns ``True`` when THIS call wins the claim, ``False`` when another
+    caller already holds it.
+
+    Before this, ``dispatch_smoke``'s only per-partition dedupe was
+    :func:`coord.smoke._find_leg_for_partition` — a read of the board, so two
+    ticks that both read before either writes both dispatch the same
+    partition. This is the DB-level conditional insert that closes the gap,
+    exactly like ``claim_review_dispatch`` does for reviews: a single
+    ``INSERT ... OR IGNORE`` is atomic even across two separate
+    processes/machines, so exactly one caller ever sees ``rowcount > 0`` for
+    a given ``(work_assignment_id, capability_partition)`` pair. This is what
+    the quadraui#952 incident needed — two ticks 8 seconds apart both
+    dispatched the same ``[smoke:macos]`` partition to a ``max_workers=1``
+    host, and the second leg's write silently overwrote the first leg's
+    ``[[smoke-fanout:...]]`` manifest entry.
+
+    Routes to the daemon when ``board_service`` is configured (the claim
+    table lives on the shared canonical DB, same as ``assignments``), else
+    writes the local DB directly.
+
+    Released by :func:`release_smoke_dispatch_claim` — call sites are
+    ``coord.smoke._dispatch_smoke_fanout`` itself (a partition whose claim it
+    won but then failed to dispatch on, e.g. no reachable machine this tick)
+    and :func:`release_smoke_claim_if_row_is_smoke_leg` (the leg's own
+    terminal-status write), so a legitimate later retry of the same
+    partition (an environmental death, or an operator ``coord stop``) is
+    never permanently stranded by a claim nothing will ever release.
+    """
+    if not work_assignment_id or not capability_partition:
+        return True
+    svc = _board_service()
+    resp = _route_write(
+        svc,
+        "/smoke-claim",
+        {
+            "work_assignment_id": work_assignment_id,
+            "capability_partition": capability_partition,
+        },
+    )
+    if resp is not None:
+        return bool(resp.get("claimed", False))
+    return _claim_smoke_dispatch_local(work_assignment_id, capability_partition)
+
+
+def _claim_smoke_dispatch_local(work_assignment_id: str, capability_partition: str) -> bool:
+    """Local-DB write for :func:`claim_smoke_dispatch`.
+
+    Called directly by the daemon endpoint so it never re-routes back over
+    HTTP — mirrors :func:`_claim_review_dispatch_local`.
+    """
+    conn = get_connection()
+    cur = sql.insert_ignore(
+        conn, "smoke_claims",
+        ["work_assignment_id", "capability_partition", "claimed_at"],
+        (work_assignment_id, capability_partition, time.time()),
+    )
+    conn.commit()
+    return (cur.rowcount or 0) > 0
+
+
+def release_smoke_dispatch_claim(work_assignment_id: str, capability_partition: str) -> None:
+    """Release a claim taken by :func:`claim_smoke_dispatch`.
+
+    Idempotent — deleting an absent row is a no-op. Routes to the daemon
+    exactly like :func:`claim_smoke_dispatch` does: a thin client that
+    claimed via the ``/smoke-claim`` POST above must release through the same
+    seam, or the claim it took on the daemon's canonical DB would never
+    actually clear.
+    """
+    if not work_assignment_id or not capability_partition:
+        return
+    svc = _board_service()
+    resp = _route_write(
+        svc,
+        "/smoke-claim-release",
+        {
+            "work_assignment_id": work_assignment_id,
+            "capability_partition": capability_partition,
+        },
+    )
+    if resp is not None:
+        return
+    _release_smoke_dispatch_claim_local(work_assignment_id, capability_partition)
+
+
+def _release_smoke_dispatch_claim_local(
+    work_assignment_id: str, capability_partition: str,
+) -> None:
+    """Local-DB write for :func:`release_smoke_dispatch_claim`.
+
+    Called directly by the daemon endpoint so it never re-routes back over
+    HTTP, and by :func:`release_smoke_claim_if_row_is_smoke_leg` (which
+    always runs against whatever DB is local to that process).
+    """
+    conn = get_connection()
+    sql.execute(
+        conn,
+        "DELETE FROM smoke_claims WHERE work_assignment_id=? AND capability_partition=?",
+        (work_assignment_id, capability_partition),
+    )
+    conn.commit()
+
+
+def release_smoke_claim_if_row_is_smoke_leg(assignment_id: str) -> None:
+    """Release *assignment_id*'s own smoke-dispatch claim, iff that row is
+    itself a #3182 fan-out leg (``type="smoke"`` with a capability tag in its
+    ``issue_title``) (#3333).
+
+    Mirrors :func:`release_review_claim_if_row_is_review` exactly — the ONE
+    "did a smoke fan-out leg just reach a terminal status, and if so release
+    the claim it took" check, called from the same two chokepoints that
+    function is: ``coord.issue_store._update_local_state`` (the worker
+    self-report / git-floor backstop path) and this module's own
+    :func:`_mark_notified_local` (the ``coord notify`` polling path a
+    reaped/cancelled leg's terminal write goes through when no daemon
+    reconcile tick got there first). One shared function closes the gap for
+    both existing callers and any future one, same #2096/#3206 reasoning.
+
+    A no-op for every non-fan-out-leg row (an ordinary single-partition smoke
+    row, a work/review row, the composite ``f"{aid}:stuck"``-style keys
+    ``_mark_notified_local``'s override events pass) — none of those match
+    ``type == "smoke"`` with a parseable capability tag, so this is safe to
+    call unconditionally from either chokepoint.
+
+    Best-effort: a lookup failure here must never turn a successful status
+    write into a raised exception.
+    """
+    if not assignment_id:
+        return
+    conn = get_connection()
+    try:
+        row = sql.execute(
+            conn,
+            "SELECT type, review_of_assignment_id, issue_title FROM assignments "
+            "WHERE assignment_id=?",
+            (assignment_id,),
+        ).fetchone()
+        if row is None:
+            return
+        row_type = row["type"] if hasattr(row, "keys") else row[0]
+        row_of_id = (
+            row["review_of_assignment_id"] if hasattr(row, "keys") else row[1]
+        )
+        row_title = row["issue_title"] if hasattr(row, "keys") else row[2]
+        if row_type != "smoke" or not row_of_id:
+            return
+        from coord.smoke import smoke_leg_capabilities  # noqa: PLC0415
+
+        caps = smoke_leg_capabilities(row_title)
+        if caps is None:
+            return  # an ordinary untagged single-leg smoke row — never claimed
+        _release_smoke_dispatch_claim_local(row_of_id, "+".join(sorted(caps)))
+    except Exception:  # noqa: BLE001 — best-effort; never break the status write
+        pass
+
+
+# #3333 review: serializes the read-merge-write cycle in
+# `_merge_smoke_fanout_manifest_local` below — the analogue of
+# `serve_app._merge_lock`'s "any caller that does the same load->mutate->save
+# cycle on shared state must take the same lock" rule, applied here to the
+# #3182 fan-out's `[[smoke-fanout:...]]` manifest instead of the merge-queue
+# table.
+#
+# TWO locks, because one process boundary is not enough (#3333 fix round 2).
+# The first round guarded this with a bare `threading.Lock()` on the
+# assumption that every caller reaches the canonical DB through the board
+# daemon and therefore runs in one process. That assumption is false for the
+# exact topology this issue is about: `docs/AGENT_OPERATIONS.md` requires the
+# daemon host to have NO `client.toml` (so `_board_service()` there is always
+# `None` and every caller runs `_merge_smoke_fanout_manifest_local` directly),
+# and it runs `coord notify` and `coord drive-queue tick` on that host as two
+# SEPARATE `Type=oneshot` systemd units — i.e. two sibling OS processes, each
+# with its own unrelated `threading.Lock()` object in its own memory. That is
+# precisely the pair of PIDs named in the original incident. A process-local
+# lock cannot serialize them, and the SELECT-then-UPDATE below has no
+# DB-engine-level atomicity of its own (unlike `claim_smoke_dispatch`, which
+# is a single `INSERT ... OR IGNORE` statement and so is genuinely atomic
+# across processes).
+#
+# So the read-merge-write takes `coord.filelock.FileLock` — the `flock(2)`
+# advisory lock every coord process already shares for exactly this class of
+# problem (`coord/confirm_test.py`, `coord/drive.py`, `coord/notify.py`) —
+# and the `threading.Lock()` stays *inside* it purely so two threads of one
+# process (two concurrent daemon requests) serialize on a cheap in-memory
+# primitive instead of spinning on `flock`'s 0.25s retry granularity.
+_SMOKE_FANOUT_MANIFEST_LOCK = threading.Lock()
+
+# How long to wait for the cross-process lock before giving up on it. The
+# critical section is two statements against a local database, so sustained
+# contention past this means something is badly wrong rather than merely
+# busy; see `_merge_smoke_fanout_manifest_local` for what happens then.
+_SMOKE_FANOUT_MANIFEST_LOCK_TIMEOUT = 30.0
+
+
+def smoke_fanout_manifest_lock_path() -> Path:
+    """Path of the cross-process lock guarding the fan-out manifest (#3333).
+
+    Lives beside the database it guards (``$COORD_DIR``), not in a fixed
+    ``~/.coord``: two processes pointed at different ``COORD_DIR``s are
+    working on different databases and have no reason to contend on one
+    lock.
+
+    ``$COORD_SMOKE_FANOUT_MANIFEST_LOCK`` overrides it outright — the same
+    env-var seam ``coord.notifier.store``/``coord.github_throttle`` expose,
+    and for the same reason: it is what lets the test suite's autouse
+    ``_no_real_smoke_fanout_manifest_lock`` fixture keep a test from ever
+    creating (or flock-ing) a file in the OPERATOR's real ``~/.coord`` while
+    a live fleet is merging manifests through it.
+
+    A function rather than a module constant for the same reason
+    :func:`coord.filelock.notify_lock_path` is one — a constant captured at
+    import would freeze whatever ``COORD_DIR`` was when this module first
+    loaded, which on the daemon is process start.
+    """
+    override = os.environ.get("COORD_SMOKE_FANOUT_MANIFEST_LOCK")
+    if override:
+        return Path(override)
+    return Path(sys.modules[__name__].COORD_DIR) / "smoke-fanout-manifest.lock"
+
+
+def merge_smoke_fanout_manifest(
+    *,
+    assignment_id: str,
+    new_entries: list[tuple[str, tuple[str, ...], str | None]],
+    total_partitions: int,
+) -> tuple[str | None, str | None]:
+    """Atomically merge *new_entries* — the legs THIS call itself found
+    already-existing or claimed-and-dispatched this round — into
+    *assignment_id*'s ``[[smoke-fanout:...]]`` manifest, and (re)stamp the
+    parent row ``running`` with the MERGED text (#3333 review).
+
+    Closes the gap the previous plain ``record_test_verdict(test_state=
+    "running", ...)`` write in ``coord.smoke._dispatch_smoke_fanout`` left
+    open: two concurrent ticks racing on the SAME multi-partition work row
+    can each win :func:`claim_smoke_dispatch` for a DIFFERENT capability
+    partition — the claim is scoped per-partition, not per-row, precisely
+    because a fan-out legitimately dispatches several legs for one parent.
+    Each call's own ``leg_manifest`` then names only ITS partition; writing
+    that straight to ``test_reason`` let whichever call's write landed LAST
+    silently erase the other's real, live leg from the parent's manifest
+    forever — nothing else ever re-derives it, so the dropped leg's eventual
+    pass/fail was never folded into the aggregate at all (the exact gap
+    named in the #3333 review: "today the last writer silently wins").
+
+    This performs the read-current-manifest / merge-in-*new_entries* /
+    write-back cycle as ONE step, guarded for its duration by a
+    **cross-process** ``flock`` (:func:`smoke_fanout_manifest_lock_path`) —
+    so two calls racing each other always serialize rather than interleaving
+    their own read and write, and the LAST one to run always folds in every
+    partition any earlier one has already committed. The lock is taken by
+    whichever process actually touches the canonical DB, which is the point:
+    a thin client routes here to the daemon via ``/smoke-fanout-merge`` and
+    never runs the cycle itself, while on the daemon host — where
+    ``client.toml`` is deliberately absent, so `_board_service()` is always
+    ``None`` and every ``coord`` CLI invocation runs the cycle locally — the
+    several sibling `coord notify` / `coord drive-queue tick` processes
+    contend on the one lock FILE rather than on a process-local primitive
+    none of them shares. See ``_SMOKE_FANOUT_MANIFEST_LOCK`` above for why
+    the process-local lock alone was not enough.
+
+    Returns the row's own authoritative ``(test_state, test_reason)`` AFTER
+    this call — which may not be ``("running", <this call's own text>)``: a
+    row that already carries a terminal verdict (a human's ``coord test``
+    override, or ``finalize_smoke_fanout`` beating this call to it) is left
+    untouched, and its CURRENT values are returned unchanged. Callers MUST
+    mirror this return onto their own in-memory ``Assignment.test_state``/
+    ``test_reason`` rather than assuming their own locally-computed text
+    won — a later bulk ``write_board()`` upsert of the whole in-memory board
+    would otherwise re-overwrite the merged/terminal DB row with the
+    caller's own stale, partial view, reproducing this exact bug through a
+    different seam. Returns ``(None, None)`` only when there is nothing to
+    merge at all (no *assignment_id* or no *new_entries*) — a nonexistent
+    row still yields a computed ``("running", <merged text>)`` so a caller
+    (production or a unit test exercising this against a bare in-memory
+    ``Assignment``) always has a value to mirror, mirroring how every other
+    verdict writer in this module tolerates a no-op write against an absent
+    row.
+    """
+    if not assignment_id or not new_entries:
+        return None, None
+    svc = _board_service()
+    payload = {
+        "assignment_id": assignment_id,
+        "total_partitions": total_partitions,
+        "new_entries": [
+            [leg_id, list(caps), command] for leg_id, caps, command in new_entries
+        ],
+    }
+    resp = _route_write(svc, "/smoke-fanout-merge", payload)
+    if resp is not None:
+        return resp.get("test_state"), resp.get("test_reason")
+    return _merge_smoke_fanout_manifest_local(
+        assignment_id=assignment_id,
+        new_entries=new_entries,
+        total_partitions=total_partitions,
+    )
+
+
+def _merge_smoke_fanout_manifest_local(
+    *,
+    assignment_id: str,
+    new_entries: list[tuple[str, tuple[str, ...], str | None]],
+    total_partitions: int,
+) -> tuple[str | None, str | None]:
+    """Local-DB read-merge-write for :func:`merge_smoke_fanout_manifest`.
+
+    Called directly by the daemon's ``/smoke-fanout-merge`` endpoint so it
+    never re-routes back over HTTP — mirrors every other ``_*_local`` write
+    in this module.
+
+    Holds BOTH locks for the full read-merge-write: the ``flock`` at
+    :func:`smoke_fanout_manifest_lock_path`, so two sibling ``coord``
+    *processes* on the DB-owning host (the documented `coord notify` /
+    `coord drive-queue tick` timer pair) cannot interleave their own read and
+    write, and ``_SMOKE_FANOUT_MANIFEST_LOCK`` inside it so two *threads* of
+    one process (two concurrent daemon requests) settle it in memory without
+    touching the filesystem at all.
+
+    If the cross-process lock is still held after
+    ``_SMOKE_FANOUT_MANIFEST_LOCK_TIMEOUT`` this proceeds **unlocked** rather
+    than failing the dispatch — the same deliberate degradation
+    ``coord/confirm_test.py`` and ``serve_app.post_notify`` already document
+    for their own ``FileLock``s ("running anyway"). Refusing to write would
+    leave the parent row with no manifest naming the legs that are already
+    live, which is a strictly worse outcome than falling back to the
+    pre-#3333 last-writer-wins behaviour on a lock that has been contended
+    for 30 continuous seconds over a two-statement critical section.
+    """
+    from coord.filelock import FileLock, LockBusy  # noqa: PLC0415
+
+    file_lock: FileLock | None = FileLock(smoke_fanout_manifest_lock_path())
+    try:
+        file_lock.acquire(timeout=_SMOKE_FANOUT_MANIFEST_LOCK_TIMEOUT)
+    except LockBusy:
+        _log.warning(
+            "smoke fan-out manifest lock at %s still held after %.0fs; merging "
+            "%s's manifest unlocked — a concurrent merge may be lost (#3333)",
+            smoke_fanout_manifest_lock_path(),
+            _SMOKE_FANOUT_MANIFEST_LOCK_TIMEOUT,
+            assignment_id,
+        )
+        file_lock = None
+    except OSError as exc:  # unwritable $COORD_DIR, exotic filesystem, ...
+        _log.warning(
+            "could not take the smoke fan-out manifest lock at %s (%s); "
+            "merging %s's manifest unlocked (#3333)",
+            smoke_fanout_manifest_lock_path(), exc, assignment_id,
+        )
+        file_lock = None
+
+    try:
+        return _merge_smoke_fanout_manifest_locked(
+            assignment_id=assignment_id,
+            new_entries=new_entries,
+            total_partitions=total_partitions,
+        )
+    finally:
+        if file_lock is not None:
+            file_lock.release()
+
+
+def _merge_smoke_fanout_manifest_locked(
+    *,
+    assignment_id: str,
+    new_entries: list[tuple[str, tuple[str, ...], str | None]],
+    total_partitions: int,
+) -> tuple[str | None, str | None]:
+    """The read-merge-write itself, run with the cross-process ``flock``
+    already held by :func:`_merge_smoke_fanout_manifest_local` (#3333).
+
+    Split out only so the lock acquisition above stays readable; it is not a
+    separate entry point and must never be called without that lock.
+    """
+    from coord.smoke import (  # noqa: PLC0415
+        TEST_STATE_BLOCKED,
+        _build_fanout_running_reason,
+        _parse_fanout_manifest,
+        environmental_smoke_legs,
+    )
+
+    with _SMOKE_FANOUT_MANIFEST_LOCK:
+        conn = get_connection()
+        row = sql.execute(
+            conn,
+            "SELECT test_state, test_reason FROM assignments WHERE assignment_id=?",
+            (assignment_id,),
+        ).fetchone()
+        # A missing row (the parent work assignment was never persisted —
+        # true of nothing in production, where `completed` always already
+        # went through `record_dispatched_assignment` when the work itself
+        # was dispatched, but true of plenty of unit tests that exercise
+        # `_dispatch_smoke_fanout` against a bare in-memory `Assignment`)
+        # is treated as "no prior manifest, nothing terminal" rather than a
+        # reason to bail — `_record_test_verdict_local` below already
+        # tolerates writing to a nonexistent assignment_id as a silent
+        # no-op UPDATE (mirroring every other verdict writer in this
+        # module), and the caller still needs a computed "running" value
+        # back to mirror onto its own in-memory row either way.
+        if row is None:
+            current_state, current_reason = None, None
+        else:
+            current_state = row["test_state"] if hasattr(row, "keys") else row[0]
+            current_reason = row["test_reason"] if hasattr(row, "keys") else row[1]
+
+        if current_state in ("passed", "skipped", "failed", TEST_STATE_BLOCKED):
+            # #1819: never clobber a terminal verdict already on the row — a
+            # human's `coord test` override, or `finalize_smoke_fanout`
+            # having already folded every leg (possibly including a
+            # partition this very call just dispatched) into an aggregate.
+            # Return it UNCHANGED so the caller mirrors the real current
+            # state onto its own in-memory row rather than a stale
+            # "running".
+            return current_state, current_reason
+
+        existing = _parse_fanout_manifest(current_reason) or []
+        # Merge keyed on the (sorted) capability tag, never on leg id — a
+        # given partition has exactly one live leg at a time (the atomic
+        # `claim_smoke_dispatch` guarantees that), so this call's own entry
+        # for a partition IS the authoritative one for that partition;
+        # anything already in `existing` for a DIFFERENT partition came from
+        # a sibling call and must survive the merge untouched.
+        merged: dict[tuple[str, ...], tuple[str, tuple[str, ...], str | None]] = {
+            tuple(sorted(caps)): (leg_id, caps, command)
+            for leg_id, caps, command in existing
+        }
+        for leg_id, caps, command in new_entries:
+            merged[tuple(sorted(caps))] = (leg_id, caps, command)
+        leg_manifest = list(merged.values())
+
+        running_reason = _build_fanout_running_reason(
+            leg_manifest,
+            total_partitions=total_partitions,
+            prior_env_legs=environmental_smoke_legs(current_reason),
+        )
+        _record_test_verdict_local(
+            assignment_id=assignment_id,
+            test_state="running",
+            test_reason=running_reason,
+        )
+        return "running", running_reason
+
+
 # ── Review-findings tracking ──────────────────────────────────────────────────
 
 def update_assignment_review_findings(
@@ -2733,23 +3192,57 @@ def reset_work_test_state(
     caller that doesn't know which specific row it means (``assignment_id``
     left as ``None``) leaves them untouched rather than risk clobbering a
     sibling slice's genuine verdict.
+
+    #3333: also releases any outstanding #3182 fan-out ``smoke_claims`` for
+    every row this clears — read from the OLD ``test_reason`` (which carries
+    the ``[[smoke-fanout:...]]`` manifest, see
+    :func:`coord.smoke._encode_fanout_manifest`) BEFORE the ``UPDATE`` below
+    wipes it. Without this, ``coord diagnose --stage test --reset``'s whole
+    point — force a fresh Test-stage dispatch — would silently do nothing
+    for a partition whose phantom fan-out leg died without ever reaching a
+    terminal status write of its own (the one thing that otherwise releases
+    a claim, via :func:`release_smoke_claim_if_row_is_smoke_leg`): the reset
+    clears the row's verdict, but :func:`coord.state.claim_smoke_dispatch`
+    still finds that partition claimed on the very next dispatch attempt and
+    the row never actually re-dispatches — the exact "permanently stranded"
+    failure mode :func:`claim_review_dispatch` was built to avoid for
+    reviews. Best-effort: a manifest-parse failure here never blocks the
+    reset itself.
     """
     conn = get_connection()
     if assignment_id is not None:
-        cur = sql.execute(conn,
-            "UPDATE assignments SET test_state=NULL, test_reason=NULL "
-            "WHERE repo_name=? AND issue_number=? AND ("
+        where = (
+            "repo_name=? AND issue_number=? AND ("
             "type IN ('work','plan','epic-decompose') OR "
             "(type IN ('test-author','mock-author') AND assignment_id=?)"
-            ")",
-            (repo_name, issue_number, assignment_id),
+            ")"
         )
+        params: tuple = (repo_name, issue_number, assignment_id)
     else:
-        cur = sql.execute(conn,
-            "UPDATE assignments SET test_state=NULL, test_reason=NULL "
-            "WHERE repo_name=? AND issue_number=? AND type IN ('work','plan','epic-decompose')",
-            (repo_name, issue_number),
-        )
+        where = "repo_name=? AND issue_number=? AND type IN ('work','plan','epic-decompose')"
+        params = (repo_name, issue_number)
+
+    try:
+        from coord.smoke import _parse_fanout_manifest  # noqa: PLC0415
+
+        rows = sql.execute(
+            conn,
+            f"SELECT assignment_id, test_reason FROM assignments WHERE {where}",
+            params,
+        ).fetchall()
+        for row in rows:
+            aid = row["assignment_id"] if hasattr(row, "keys") else row[0]
+            reason = row["test_reason"] if hasattr(row, "keys") else row[1]
+            if not aid or not reason:
+                continue
+            for _leg_id, caps, _cmd in _parse_fanout_manifest(reason) or []:
+                _release_smoke_dispatch_claim_local(aid, "+".join(sorted(caps)))
+    except Exception:  # noqa: BLE001 — best-effort; never block the reset itself
+        pass
+
+    cur = sql.execute(
+        conn, f"UPDATE assignments SET test_state=NULL, test_reason=NULL WHERE {where}", params,
+    )
     conn.commit()
     return cur.rowcount
 
@@ -3833,6 +4326,60 @@ def _update_assignment_stop_reason_local(assignment_id: str, stop_reason: str) -
         # function. Nothing uncommitted is lost: the only statement in the
         # transaction is the UPDATE that just failed (the `commit()` above
         # is the last thing in the block).
+        rollback_after_driver_error(conn, exc)
+
+
+def mark_premise_rechecked(assignment_id: str, reason: str) -> None:
+    """#3339: record the operator's explicit assertion that a terminal
+    ``refused_premise`` row's prerequisite has since landed — routes to the
+    daemon when set.
+
+    A `refused_premise` row (`coord.agent.REFUSED_PREMISE`, #3164) has no
+    mechanical staleness check the way `refused_policy` does: rewriting the
+    issue's title cannot make a missing prerequisite exist, so
+    `coord.drive.decide()`'s `refused_premise` branch has nothing to compare
+    against on its own. This is the signal that fills that gap — written by
+    `coord drive-queue clear-refusal`, an explicit, auditable human claim
+    ("I rechecked, the premise holds now"), never inferred. `decide()` reads
+    it back (`IssueState.work_premise_rechecked_at`, populated from this
+    column) and bypasses the `_die()` exactly once, for THIS assignment id
+    only — a fresh dispatch that refuses again produces a new assignment id
+    with this column unset, so the bypass never becomes a standing override.
+
+    *reason* is required (the CLI enforces non-empty) so the audit trail
+    always carries the operator's own justification, not just a timestamp.
+    Overwrite-idempotent (unlike `update_assignment_stop_reason`'s
+    first-writer-wins): an operator asserting a second time — say, after
+    fixing a typo'd upstream issue reference — should not have their
+    correction silently dropped.
+    """
+    if not assignment_id or not reason:
+        return
+    svc = _board_service()
+    resp = _route_assignment_patch(
+        svc, assignment_id, {"premise_rechecked_reason": reason},
+        rpc_endpoint="/assignment-usage",
+    )
+    if resp is not None:
+        return
+    _mark_premise_rechecked_local(assignment_id, reason)
+
+
+def _mark_premise_rechecked_local(assignment_id: str, reason: str) -> None:
+    """Write ``premise_rechecked_at``/``premise_rechecked_reason`` directly
+    to the local DB.  Called by the daemon endpoint."""
+    if not assignment_id or not reason:
+        return
+    conn = get_connection()
+    try:
+        sql.execute(conn,
+            "UPDATE assignments SET premise_rechecked_at=?, "
+            "premise_rechecked_reason=? WHERE assignment_id=?",
+            (time.time(), reason, assignment_id),
+        )
+        conn.commit()
+    except sql.driver_errors() as exc:  # #2784: was sqlite3.OperationalError only
+        # Column may not exist yet (pre-migration DB or test fixtures).
         rollback_after_driver_error(conn, exc)
 
 

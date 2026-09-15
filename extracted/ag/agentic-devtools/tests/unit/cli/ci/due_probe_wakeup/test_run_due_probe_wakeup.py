@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -109,6 +110,16 @@ def test_persists_initial_probe_for_cooldown_state() -> None:
     assert probes[0].cooldown_generation_id == "generation-1"
     assert probes[0].scheduled_at == resume_at
     assert run_due_probe_wakeup("owner/repo", store=store, cooldown_state=cooldown) == 0
+
+
+def test_migrates_legacy_github_probe_identity() -> None:
+    probe = _make_probe(scheduled_at=datetime.now(UTC) + timedelta(minutes=5))
+    probe = replace(probe, credential_identity="SPECKIT_PR_TOKEN")
+    store = _make_store()
+    _save_probe(store, probe)
+
+    assert run_due_probe_wakeup("owner/repo", store=store) == 0
+    assert store.load().probes[0].credential_identity == "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"
 
 
 def test_disabled_feature_flag_returns_zero(monkeypatch: pytest.MonkeyPatch) -> None:

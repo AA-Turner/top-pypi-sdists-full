@@ -65,6 +65,7 @@ from click_extra import (
     show_params_option,
     table_format_option,
 )
+from click_extra.commands import default_params
 from click_extra.config import NO_CONFIG
 from click_extra.parameters import (
     canonical_param_name,
@@ -1248,6 +1249,40 @@ def test_show_params_config_file_column_is_opt_in(invoke):
     assert "Config file" not in result.stdout
 
 
+def test_show_params_subclass_widens_the_default_columns(invoke):
+    """A subclass widening `default_columns()` draws the column it added.
+
+    That hook is the only way to reach an opt-in column on a CLI exposing no
+    `--columns` option of its own, or one whose `--columns` belongs to its
+    subcommands and carries a different vocabulary.
+    """
+
+    class SourcedParams(ShowParamsOption):
+        @classmethod
+        def default_columns(cls):
+            return tuple(
+                col
+                for col in cls.TABLE_HEADERS
+                if not col.optional or col.id == "config_file"
+            )
+
+    # Swap the instance in place rather than handing `params` a list of its own,
+    # which would drop every other default option, `--table-format` included.
+    swapped = [
+        SourcedParams() if isinstance(p, ShowParamsOption) else p
+        for p in default_params()
+    ]
+
+    @command(params=swapped)
+    @option("--int-param", type=int, default=10)
+    def provenance_cli(int_param):
+        echo(f"int_param = {int_param!r}")
+
+    result = invoke(provenance_cli, "--params", "--table-format", "csv", color=False)
+    assert result.exit_code == 0
+    assert "Config file" in result.stdout.splitlines()[0]
+
+
 def test_column_registry_is_consistent():
     """TABLE_HEADERS exposes parallel ``column_labels()`` / ``column_ids()``."""
     headers = ShowParamsOption.TABLE_HEADERS
@@ -2157,6 +2192,78 @@ def test_help_column_paints_the_deprecation_marker(invoke):
     assert structured.exit_code == 0
     rows = {row["ID"]: row["Help"] for row in json.loads(structured.stdout)}
     assert rows["weather.city"] == "Where to look up. (DEPRECATED)"
+
+
+def test_option_deprecation_notice_names_every_spelling(invoke):
+    """The notice names the flags a user types, not the identifier Click derived.
+
+    Click reports `human_readable_name`, which for an option is `self.name`: the
+    one spelling that appears nowhere on the command line.
+    """
+
+    @command
+    @option("--apt-cyg/--no-apt-cyg", default=False, deprecated="upstream is gone")
+    def weather(apt_cyg):
+        echo(apt_cyg)
+
+    result = invoke(weather, "--apt-cyg", color=False)
+    assert result.exit_code == 0
+    assert (
+        "DeprecationWarning: The option '--apt-cyg / --no-apt-cyg' is deprecated."
+        " upstream is gone" in result.stderr
+    )
+
+
+def test_deprecation_notice_reaches_a_configuration_file(invoke, create_config):
+    """A file switching a deprecated parameter on gets the notice too.
+
+    Click stops one rank short of the configuration, so the one place a
+    selection outlives the project it names said nothing.
+    """
+
+    @command
+    @option("--apt-cyg/--no-apt-cyg", default=False, deprecated="upstream is gone")
+    def weather(apt_cyg):
+        echo(apt_cyg)
+
+    conf = create_config("weather.toml", "[weather]\napt-cyg = true\n")
+
+    result = invoke(weather, "--config", str(conf), color=False)
+    assert result.exit_code == 0
+    assert result.stdout.endswith("True\n")
+    assert result.stderr.count("DeprecationWarning") == 1
+    assert (
+        "DeprecationWarning: The option '--apt-cyg / --no-apt-cyg' is deprecated."
+        " upstream is gone" in result.stderr
+    )
+
+
+def test_deprecation_notice_stays_silent_on_the_default(invoke):
+    """Nobody asked for the parameter, so nothing announces it."""
+
+    @command
+    @option("--apt-cyg/--no-apt-cyg", default=False, deprecated="upstream is gone")
+    def weather(apt_cyg):
+        echo(apt_cyg)
+
+    result = invoke(weather, "--no-config", color=False)
+    assert result.exit_code == 0
+    assert "DeprecationWarning" not in result.stderr
+
+
+def test_deprecation_notice_is_emitted_once(invoke, create_config):
+    """A parameter named on both the command line and in a file warns once."""
+
+    @command
+    @option("--apt-cyg/--no-apt-cyg", default=False, deprecated="upstream is gone")
+    def weather(apt_cyg):
+        echo(apt_cyg)
+
+    conf = create_config("weather.toml", "[weather]\napt-cyg = true\n")
+
+    result = invoke(weather, "--config", str(conf), "--apt-cyg", color=False)
+    assert result.exit_code == 0
+    assert result.stderr.count("DeprecationWarning") == 1
 
 
 def test_help_column_is_documented():

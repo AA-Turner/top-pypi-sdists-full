@@ -5,12 +5,16 @@ use crate::{
 use http::Uri;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use temporalio_common::{
-    ActivityCloseTimeouts, RetryPolicy,
-    data_converters::DataConverter,
+    ActivityCloseTimeouts, MemoValues, RetryPolicy,
+    data_converters::{
+        DataConverter, GenericPayloadConverter, PayloadConversionError, PayloadConverter,
+        SerializationContext, SerializationContextData,
+    },
+    payload_visitor::encode_payloads,
     protos::temporal::api::{
         common::{
             self,
-            v1::{Header, Payloads},
+            v1::{Header, Memo as ProtoMemo, Payloads},
         },
         enums::v1::{
             ActivityIdConflictPolicy as ProtoActivityIdConflictPolicy,
@@ -19,6 +23,7 @@ use temporalio_common::{
             WorkflowIdReusePolicy,
         },
         replication::v1::ClusterReplicationConfig,
+        sdk::v1::UserMetadata,
         workflowservice::v1::RegisterNamespaceRequest,
     },
     search_attributes::SearchAttributes,
@@ -421,10 +426,6 @@ pub struct WorkflowStartOptions {
     #[builder(into)]
     pub retry_policy: Option<RetryPolicy>,
 
-    /// If set, send a signal to the workflow atomically with start.
-    /// The workflow will receive this signal before its first task.
-    pub start_signal: Option<WorkflowStartSignal>,
-
     /// Links to associate with the workflow. Ex: References to a nexus operation.
     #[builder(default)]
     pub links: Vec<common::v1::Link>,
@@ -441,6 +442,9 @@ pub struct WorkflowStartOptions {
     /// Headers to include with the start request.
     pub header: Option<Header>,
 
+    /// Non-indexed values attached to the workflow, serialized with the client's data converter.
+    pub memo: Option<MemoValues>,
+
     /// Single-line static summary for the workflow, shown in the Temporal UI.
     pub static_summary: Option<String>,
 
@@ -452,19 +456,183 @@ pub struct WorkflowStartOptions {
     pub rpc_options: RpcOptions,
 }
 
-/// A signal to send atomically when starting a workflow.
-/// Use with `WorkflowStartOptions::start_signal` to achieve signal-with-start behavior.
+impl WorkflowStartOptions {
+    pub(crate) async fn encoded_memo(
+        &self,
+        data_converter: &DataConverter,
+    ) -> Result<Option<ProtoMemo>, PayloadConversionError> {
+        let Some(memo) = &self.memo else {
+            return Ok(None);
+        };
+
+        let payload_converter = data_converter.payload_converter();
+        let context =
+            SerializationContext::new(&SerializationContextData::Workflow, payload_converter);
+        let mut memo = ProtoMemo {
+            fields: memo
+                .iter()
+                .map(|(key, value)| {
+                    payload_converter
+                        .to_payload(&context, value)
+                        .map(|payload| (key.to_owned(), payload))
+                })
+                .collect::<Result<_, _>>()?,
+        };
+        encode_payloads(
+            &mut memo,
+            data_converter.codec(),
+            &SerializationContextData::Workflow,
+        )
+        .await?;
+        Ok(Some(memo))
+    }
+
+    pub(crate) fn user_metadata(&self) -> Option<UserMetadata> {
+        (self.static_summary.is_some() || self.static_details.is_some()).then(|| {
+            let payload_converter = PayloadConverter::default();
+            let context =
+                SerializationContext::new(&SerializationContextData::Workflow, &payload_converter);
+            UserMetadata {
+                summary: self.static_summary.as_ref().map(|summary| {
+                    payload_converter
+                        .to_payload(&context, summary)
+                        .expect("String-to-JSON payload serialization is infallible")
+                }),
+                details: self.static_details.as_ref().map(|details| {
+                    payload_converter
+                        .to_payload(&context, details)
+                        .expect("String-to-JSON payload serialization is infallible")
+                }),
+            }
+        })
+    }
+}
+
+/// Options for starting a workflow and sending it an update in one atomic operation.
+///
+/// See [crate::Client::start_update_with_start_workflow] and
+/// [crate::Client::execute_update_with_start_workflow].
 #[derive(Debug, Clone, bon::Builder)]
 #[builder(start_fn = new, on(String, into))]
 #[non_exhaustive]
-pub struct WorkflowStartSignal {
-    /// Name of the signal to send.
+pub struct WorkflowUpdateWithStartOptions {
+    /// The task queue to run the workflow on.
     #[builder(start_fn)]
-    pub signal_name: String,
-    /// Payload for the signal.
-    pub input: Option<Payloads>,
-    /// Headers for the signal.
-    pub header: Option<Header>,
+    pub task_queue: String,
+
+    /// The workflow ID.
+    #[builder(start_fn)]
+    pub workflow_id: String,
+
+    /// How to resolve a conflict with an already-running workflow. This is required so callers
+    /// explicitly choose whether an update may attach to an existing workflow.
+    #[builder(start_fn)]
+    pub id_conflict_policy: WorkflowIdConflictPolicy,
+
+    /// The policy for reusing the workflow ID after a workflow closes.
+    #[builder(default)]
+    pub id_reuse_policy: WorkflowIdReusePolicy,
+
+    /// The workflow execution timeout.
+    pub execution_timeout: Option<Duration>,
+
+    /// The workflow run timeout.
+    pub run_timeout: Option<Duration>,
+
+    /// The workflow task timeout.
+    pub task_timeout: Option<Duration>,
+
+    /// Search attributes for the workflow.
+    pub search_attributes: Option<SearchAttributes>,
+
+    /// The workflow retry policy.
+    #[builder(into)]
+    pub retry_policy: Option<RetryPolicy>,
+
+    /// Links to associate with the workflow.
+    #[builder(default)]
+    pub links: Vec<common::v1::Link>,
+
+    /// Callbacks invoked when the workflow completes.
+    #[builder(default)]
+    pub completion_callbacks: Vec<common::v1::Callback>,
+
+    /// Priority for the workflow. Defaults to all-inherited (empty).
+    #[builder(default)]
+    pub priority: Priority,
+
+    /// Headers to include with the start operation.
+    pub start_header: Option<Header>,
+
+    /// Headers to include with the update operation.
+    pub update_header: Option<Header>,
+
+    /// Non-indexed values attached to the workflow, serialized with the client's data converter.
+    pub memo: Option<MemoValues>,
+
+    /// Single-line static summary for the workflow, shown in the Temporal UI.
+    pub static_summary: Option<String>,
+
+    /// Multi-line static details for the workflow, shown in the Temporal UI.
+    pub static_details: Option<String>,
+
+    /// Update ID for idempotency. If not provided, a UUID will be generated.
+    pub update_id: Option<String>,
+
+    /// Controls for the multi-operation RPC and, when executing the update, subsequent polling.
+    #[builder(default)]
+    pub rpc_options: RpcOptions,
+}
+
+impl WorkflowUpdateWithStartOptions {
+    pub(crate) fn into_parts(self) -> (WorkflowStartOptions, Option<String>, Option<Header>) {
+        let Self {
+            task_queue,
+            workflow_id,
+            id_conflict_policy,
+            id_reuse_policy,
+            execution_timeout,
+            run_timeout,
+            task_timeout,
+            search_attributes,
+            retry_policy,
+            links,
+            completion_callbacks,
+            priority,
+            start_header,
+            update_header,
+            memo,
+            static_summary,
+            static_details,
+            update_id,
+            rpc_options: _,
+        } = self;
+        (
+            WorkflowStartOptions {
+                task_queue,
+                workflow_id,
+                id_reuse_policy,
+                id_conflict_policy,
+                execution_timeout,
+                run_timeout,
+                task_timeout,
+                cron_schedule: None,
+                search_attributes,
+                enable_eager_workflow_start: false,
+                retry_policy,
+                links,
+                completion_callbacks,
+                priority,
+                header: start_header,
+                memo,
+                static_summary,
+                static_details,
+                rpc_options: RpcOptions::default(),
+            },
+            update_id,
+            update_header,
+        )
+    }
 }
 
 pub use temporalio_common::Priority;
@@ -668,6 +836,17 @@ pub struct WorkflowStartUpdateOptions {
     /// Controls for the start-update RPC.
     #[builder(default)]
     pub rpc_options: RpcOptions,
+}
+
+impl From<WorkflowExecuteUpdateOptions> for WorkflowStartUpdateOptions {
+    /// Execute-update is start-update followed by waiting for the update result.
+    fn from(options: WorkflowExecuteUpdateOptions) -> Self {
+        Self::builder()
+            .maybe_update_id(options.update_id)
+            .maybe_header(options.header)
+            .rpc_options(options.rpc_options)
+            .build()
+    }
 }
 
 /// Options for listing workflows.

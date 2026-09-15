@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: pypcd4
-Version: 1.4.3
+Version: 1.5.0
 Summary: Read and write PCL .pcd files in python
 Project-URL: Release Notes, https://github.com/MapIV/pypcd4/releases
 Project-URL: Source, https://github.com/MapIV/pypcd4
@@ -37,6 +37,7 @@ License: BSD 3-Clause License
         CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
         OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-File: LICENSE.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -50,27 +51,24 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8.2
+Requires-Python: >=3.8
 Requires-Dist: numpy>=1.21.0
 Requires-Dist: pydantic<3.0.0,>=1.10.8
 Requires-Dist: python-neo-lzf>=0.3.5
-Provides-Extra: dev
-Requires-Dist: mypy; extra == 'dev'
-Requires-Dist: ruff; extra == 'dev'
-Requires-Dist: setuptools-scm; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # pypcd4
 
 [![Test](https://github.com/MapIV/pypcd4/actions/workflows/test.yaml/badge.svg)](https://github.com/MapIV/pypcd4/actions/workflows/test.yaml)
-![PyPI - Version](https://img.shields.io/pypi/v/pypcd4)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pypcd4)
-![GitHub License](https://img.shields.io/github/license/MapIV/pypcd4)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/pypcd4)
+[![PyPI - Version](https://img.shields.io/pypi/v/pypcd4)](https://pypi.org/project/pypcd4/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pypcd4)](https://pypi.org/project/pypcd4/)
+[![GitHub License](https://img.shields.io/github/license/MapIV/pypcd4)](https://github.com/MapIV/pypcd4/blob/main/LICENSE.txt)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/pypcd4)](https://pypistats.org/packages/pypcd4)
 
 ## Table of Contents
 
@@ -91,7 +89,7 @@ Description-Content-Type: text/markdown
       - [Using Field Names](#using-field-names)
     - [Saving Your Work](#saving-your-work)
   - [Contributing](#contributing)
-    - [Using Rye (Recommended)](#using-rye-recommended)
+    - [Using uv (Recommended)](#using-uv-recommended)
     - [Using pip](#using-pip)
   - [License](#license)
 
@@ -286,13 +284,16 @@ pc.save("nice_point_cloud.pcd")
 We are always looking for contributors. If you are interested in contributing,
 please run the lint and test before submitting a pull request:
 
-### Using Rye (Recommended)
+### Using uv (Recommended)
 
-Just run the following command:
+Just run the following commands:
 
 ```bash
-rye sync
-rye run lint
+uv sync
+uv run ruff check --fix src
+uv run ruff format src
+uv run mypy src
+uv run tox
 ```
 
 ### Using pip

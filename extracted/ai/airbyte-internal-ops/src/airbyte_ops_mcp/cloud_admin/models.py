@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConnectorVersionInfo(BaseModel):
@@ -34,6 +34,40 @@ class ConnectorVersionInfo(BaseModel):
         return (
             f"{self.connector_type} {self.connector_id}: {self.version}{pinned_suffix}"
         )
+
+
+class DataWorkerAllocation(BaseModel):
+    """Allocated Data Worker capacity for a dataplane group."""
+
+    dataplane_group_id: str
+    allocated_capacity: float
+
+
+class DataWorkerAllocationList(BaseModel):
+    """Data Worker capacity allocations for an organization."""
+
+    organization_id: str
+    total_allocated_capacity: float
+    allocations: list[DataWorkerAllocation]
+
+
+class DataplaneGroup(BaseModel):
+    """A dataplane group (region) an organization can hold capacity in."""
+
+    dataplane_group_id: str
+    name: str
+
+
+class DataplaneGroupList(BaseModel):
+    """Dataplane groups an organization can use."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    # Only this wrapper key is camelCase; the fields inside are snake_case.
+    dataplane_groups: list[DataplaneGroup] = Field(
+        default_factory=list,
+        alias="dataplaneGroups",
+    )
 
 
 class ConnectionResourceRequirementsInfo(BaseModel):

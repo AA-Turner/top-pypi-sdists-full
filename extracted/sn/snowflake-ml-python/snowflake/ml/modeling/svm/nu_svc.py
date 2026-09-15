@@ -205,6 +205,8 @@ class NuSVC(BaseTransformer):
         :term:`decision_function`; otherwise the first class among the tied
         classes is returned. Please note that breaking ties comes at a
         relatively high computational cost compared to a simple predict.
+        See :ref:`sphx_glr_auto_examples_svm_plot_svm_tie_breaking.py` for an
+        example of its usage with ``decision_function_shape='ovr'``.
 
     random_state: int, RandomState instance or None, default=None
         Controls the pseudo random number generation for shuffling the data for
@@ -1022,7 +1024,7 @@ class NuSVC(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.svm.NuSVC.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.svm.NuSVC.html#sklearn.svm.NuSVC.score)
 

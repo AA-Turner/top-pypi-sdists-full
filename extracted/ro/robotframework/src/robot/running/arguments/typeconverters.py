@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import sys
 from ast import literal_eval
 from collections import OrderedDict
 from collections.abc import Collection, Mapping, Sequence, Set
@@ -30,6 +31,11 @@ from robot.utils import (
     eq, get_error_message, plural_or_not as s, safe_str, Secret, seq2str, type_name
 )
 
+if sys.version_info >= (3, 12):
+    from .typealiasresolver import RecursiveAlias
+else:
+    RecursiveAlias = type("RecursiveAlias", (), {})
+
 if TYPE_CHECKING:
     from .customconverters import ConverterInfo, CustomArgumentConverters
     from .typeinfo import TypedDictInfo, TypeInfo
@@ -44,14 +50,14 @@ class TypeConverter:
     abc = None
     value_types = (str,)
     doc = None
-    nested: "list[TypeConverter]|dict[str, TypeConverter]|None"
+    nested: "list[TypeConverter] | dict[str, TypeConverter] | None"
     _converters = OrderedDict()
 
     def __init__(
         self,
         type_info: "TypeInfo",
-        custom_converters: "CustomArgumentConverters|None" = None,
-        languages: "Languages|None" = None,
+        custom_converters: "CustomArgumentConverters | None" = None,
+        languages: "Languages | None" = None,
     ):
         self.type_info = type_info
         self.custom_converters = custom_converters
@@ -62,9 +68,9 @@ class TypeConverter:
     def _get_nested(
         self,
         type_info: "TypeInfo",
-        custom_converters: "CustomArgumentConverters|None",
-        languages: "Languages|None",
-    ) -> "list[TypeConverter]|None":
+        custom_converters: "CustomArgumentConverters | None",
+        languages: "Languages | None",
+    ) -> "list[TypeConverter] | None":
         if not type_info.nested:
             return None
         return [
@@ -85,7 +91,7 @@ class TypeConverter:
         return self._languages
 
     @languages.setter
-    def languages(self, languages: "Languages|None"):
+    def languages(self, languages: "Languages | None"):
         self._languages = languages
 
     @classmethod
@@ -97,8 +103,8 @@ class TypeConverter:
     def converter_for(
         cls,
         type_info: "TypeInfo",
-        custom_converters: "CustomArgumentConverters|None" = None,
-        languages: "Languages|None" = None,
+        custom_converters: "CustomArgumentConverters | None" = None,
+        languages: "Languages | None" = None,
     ) -> "TypeConverter":
         if type_info.type is None:
             return UnknownConverter(type_info)
@@ -121,10 +127,10 @@ class TypeConverter:
 
     def convert(
         self,
-        value: Any,
-        name: "str|None" = None,
+        value: object,
+        name: "str | None" = None,
         kind: str = "Argument",
-    ) -> Any:
+    ) -> object:
         if self.no_conversion_needed(value):
             return value
         if not self._handles_value(value):
@@ -136,13 +142,16 @@ class TypeConverter:
         except ValueError as error:
             return self._handle_error(value, name, kind, error)
 
-    def no_conversion_needed(self, value: Any) -> bool:
+    def no_conversion_needed(self, value: object) -> bool:
         try:
             return isinstance(value, self.type_info.type)
-        except TypeError:
-            # Used type wasn't a class. Compare to generic type instead.
+        except (TypeError, AttributeError):
+            # Used type wasn't a proper class. Compare to generic type instead.
             if self.type and self.type is not self.type_info.type:
-                return isinstance(value, self.type)
+                try:
+                    return isinstance(value, self.type)
+                except AttributeError:
+                    return False
             return False
 
     def validate(self):
@@ -154,16 +163,19 @@ class TypeConverter:
         for converter in nested:
             converter.validate()
 
-    def _handles_value(self, value):
-        return isinstance(value, self.value_types)
+    def _handles_value(self, value) -> bool:
+        try:
+            return isinstance(value, self.value_types)
+        except AttributeError:
+            return False
 
-    def _non_string_convert(self, value):
+    def _non_string_convert(self, value) -> object:
         return self._convert(value)
 
-    def _string_convert(self, value):
+    def _string_convert(self, value) -> object:
         return self._convert(value)
 
-    def _convert(self, value):
+    def _convert(self, value) -> object:
         raise NotImplementedError
 
     def _handle_error(self, value, name, kind, error=None):
@@ -178,7 +190,7 @@ class TypeConverter:
             f"{kind} '{name}' got value '{value}'{typ} that {cannot_be_converted}"
         )
 
-    def _literal_eval(self, value, expected, name=None):
+    def _literal_eval(self, value, expected, name=None) -> object:
         try:
             value = literal_eval(value)
         except (ValueError, SyntaxError):
@@ -285,6 +297,9 @@ class StringConverter(TypeConverter):
 
     def _handles_value(self, value):
         return True
+
+    def _string_convert(self, value):
+        return value
 
     def _non_string_convert(self, value):
         if isinstance(value, Secret):
@@ -487,7 +502,7 @@ class NoneConverter(TypeConverter):
     def handles(cls, type_info: "TypeInfo") -> bool:
         return type_info.type in (NoneType, None)
 
-    def _string_convert(self, value):
+    def _string_convert(self, value) -> None:
         if value.upper() in ("NONE", ""):
             return None
         raise ValueError
@@ -613,8 +628,8 @@ class TypedDictConverter(TypeConverter):
     def _get_nested(
         self,
         type_info: "TypedDictInfo",
-        custom_converters: "CustomArgumentConverters|None",
-        languages: "Languages|None",
+        custom_converters: "CustomArgumentConverters | None",
+        languages: "Languages | None",
     ) -> "dict[str, TypeConverter]":
         return {
             name: self.converter_for(info, custom_converters, languages)
@@ -626,7 +641,10 @@ class TypedDictConverter(TypeConverter):
         return type_info.is_typed_dict
 
     def no_conversion_needed(self, value):
-        if not isinstance(value, Mapping):
+        try:
+            if not isinstance(value, Mapping):
+                return False
+        except AttributeError:
             return False
         for key in value:
             try:
@@ -832,8 +850,8 @@ class LiteralConverter(TypeConverter):
     def converter_for(
         cls,
         type_info: "TypeInfo",
-        custom_converters: "CustomArgumentConverters|None" = None,
-        languages: "Languages|None" = None,
+        custom_converters: "CustomArgumentConverters | None" = None,
+        languages: "Languages | None" = None,
     ) -> TypeConverter:
         info = type(type_info)(type_info.name, type(type_info.type))
         return super().converter_for(info, custom_converters, languages)
@@ -842,7 +860,7 @@ class LiteralConverter(TypeConverter):
     def handles(cls, type_info: "TypeInfo") -> bool:
         return type_info.type is Literal
 
-    def no_conversion_needed(self, value: Any) -> bool:
+    def no_conversion_needed(self, value: object) -> bool:
         for info in self.type_info.nested:
             expected = info.type
             if value == expected and type(value) is type(expected):
@@ -892,13 +910,34 @@ class SecretConverter(TypeConverter):
         raise ValueError(f"{kind} '{name}' must have type 'Secret', got {typ}.")
 
 
+@TypeConverter.register
+class RecursiveConverter(TypeConverter):
+    type = RecursiveAlias
+
+    def _get_type_name(self) -> str:
+        return self.type_info.name
+
+    def _handles_value(self, value):
+        return True
+
+    def _get_nested(self, type_info, custom_converters, languages):
+        return None
+
+    def _convert(self, value):
+        from .typeinfo import TypeInfo
+
+        info = TypeInfo.from_type_hint(self.type_info.nested[0])
+        converter = TypeConverter.converter_for(info)
+        return converter.convert(value)
+
+
 class CustomConverter(TypeConverter):
 
     def __init__(
         self,
         type_info: "TypeInfo",
         converter_info: "ConverterInfo",
-        languages: "Languages|None" = None,
+        languages: "Languages | None" = None,
     ):
         self.converter_info = converter_info
         super().__init__(type_info, languages=languages)

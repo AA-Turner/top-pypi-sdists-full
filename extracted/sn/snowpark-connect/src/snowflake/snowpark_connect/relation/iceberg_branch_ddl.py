@@ -22,11 +22,14 @@ Snowflake's surface (internal design doc, branch section) uses the same
 ``ALTER ICEBERG TABLE``::
 
     ALTER ICEBERG TABLE <tbl> CREATE BRANCH '<name>'
+    ALTER ICEBERG TABLE <tbl> CREATE BRANCH '<name>' AS OF VERSION <id>
     ALTER ICEBERG TABLE <tbl> DROP BRANCH '<name>'
     ALTER ICEBERG TABLE <tbl> DROP BRANCH IF EXISTS '<name>'
 
 Branch names are emitted as single-quoted SQL string literals, matching the
-Snowflake doc examples (``'dev'``, ``'dev'`` with ``IF EXISTS``).
+Snowflake doc examples (``'dev'``, ``'dev'`` with ``IF EXISTS``). Spark may
+pass branch identifiers with surrounding ``'…'``, ``"…"``, or backtick quotes;
+those wrappers are stripped before quoting so Snowflake never sees ``''name''``.
 
 Translation policy
 ------------------
@@ -35,10 +38,11 @@ Translation policy
   explicit ``AS OF VERSION`` clause today.
 * ``IF NOT EXISTS`` / ``IF EXISTS`` pass through on create / drop.
 * ``CREATE OR REPLACE BRANCH`` passes through when Iceberg emits it.
-* ``AS OF VERSION`` and other ``BranchOptions`` bindings (``numSnapshots``,
-  retention knobs) raise ``UNSUPPORTED_OPERATION`` — the Snowflake branch
-  DDL doc (10.26.x) documents bare create/drop only; snapshot-pinned branch
-  create is deferred until the server surface is confirmed (target 10.29.100).
+* ``AS OF VERSION <id>`` (snapshot-pinned branch create) is translated to a
+  trailing ``AS OF VERSION <id>`` clause on the Snowflake ``CREATE BRANCH``
+  statement (server-supported from 10.29.100).
+* Other ``BranchOptions`` bindings (``numSnapshots``, retention knobs) raise
+  ``UNSUPPORTED_OPERATION``.
 * Bare ``REPLACE BRANCH`` (without ``CREATE``) raises ``UNSUPPORTED_OPERATION``
   for the same semantic reasons as tag DDL.
 * Creating a branch named ``main`` (exact match, Iceberg's default ref name)
@@ -80,23 +84,28 @@ from pyspark.errors.exceptions.base import AnalysisException
 
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.utils.identifiers import strip_spark_identifier_quotes
 from snowflake.snowpark_connect.utils.telemetry import telemetry
 
 _RESERVED_BRANCH_NAMES = frozenset({"main"})
 
 
-def _quote_branch_name_sql(branch_name: str) -> str:
-    """Emit a Snowflake branch identifier as a single-quoted string literal."""
+def normalize_branch_name(branch_name: str) -> str:
+    """Return the bare branch ref name for Snowflake ``BRANCH => '…'`` literals."""
+    return strip_spark_identifier_quotes(str(branch_name))
+
+
+def quote_branch_name_sql(branch_name: str) -> str:
+    """Emit a Snowflake branch identifier as a single-quoted string literal.
+
+    Expects a already-normalized bare name; callers normalize at the boundary.
+    """
     escaped = branch_name.replace("'", "''")
     return f"'{escaped}'"
 
 
 def _branch_options_has_unsupported_binding(options: TypingAny) -> str | None:
     """Return a human-readable binding name if ``options`` carries an unsupported field."""
-    snapshot_id_opt = options.snapshotId()
-    if snapshot_id_opt.isDefined():
-        return "AS OF VERSION"
-
     for accessor, label in (
         ("numSnapshots", "numSnapshots"),
         ("snapshotRetain", "snapshotRetain"),
@@ -155,7 +164,7 @@ def _build_create_branch_action(
 
 def translate_create_or_replace_branch(rel: TypingAny, table_name_sql: str) -> str:
     """Translate ``ALTER TABLE … CREATE/REPLACE BRANCH …`` to Snowflake SQL."""
-    branch_name = str(rel.branch())
+    branch_name = normalize_branch_name(rel.branch())
     if branch_name in _RESERVED_BRANCH_NAMES:
         telemetry.report_iceberg_wap(
             op="unsupported",
@@ -188,19 +197,25 @@ def translate_create_or_replace_branch(rel: TypingAny, table_name_sql: str) -> s
             ddl_action="create",
             outcome="rejected",
             error_code="UNSUPPORTED_OPERATION",
-            detail="snapshot_pinned_branch",
+            detail=unsupported,
         )
         exception = AnalysisException(
             f"Iceberg 'ALTER TABLE … CREATE BRANCH {branch_name!r}' with "
-            f"{unsupported} binding is not translated by Snowpark Connect yet: "
+            f"{unsupported} binding is not translated by Snowpark Connect: "
             "Snowflake's documented branch DDL surface supports bare "
-            "CREATE BRANCH / DROP BRANCH today. Snapshot-pinned branch "
-            "create is tracked for a future Snowflake release (target "
-            "10.29.100). Use bare 'CREATE BRANCH <name>' or Snowflake-native "
-            "DDL directly."
+            "CREATE BRANCH / DROP BRANCH and snapshot-pinned "
+            "'CREATE BRANCH … AS OF VERSION <id>' today. Configure branch "
+            "retention directly through Snowflake."
         )
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
+
+    snapshot_id_opt = options.snapshotId()
+    snapshot_id: int | None
+    if snapshot_id_opt.isDefined():
+        snapshot_id = int(snapshot_id_opt.get())
+    else:
+        snapshot_id = None
 
     action = _build_create_branch_action(
         branch_name=branch_name,
@@ -208,25 +223,28 @@ def translate_create_or_replace_branch(rel: TypingAny, table_name_sql: str) -> s
         replace=replace,
         if_not_exists=if_not_exists,
     )
-    quoted_branch = _quote_branch_name_sql(branch_name)
+    quoted_branch = quote_branch_name_sql(branch_name)
     telemetry.report_iceberg_wap(
         op="branch_ddl",
         surface="sql_call",
         ref_type="branch",
         ddl_action="create",
     )
-    return f"ALTER ICEBERG TABLE {table_name_sql} {action} {quoted_branch}"
+    sql = f"ALTER ICEBERG TABLE {table_name_sql} {action} {quoted_branch}"
+    if snapshot_id is not None:
+        sql += f" AS OF VERSION {snapshot_id}"
+    return sql
 
 
 def translate_drop_branch(rel: TypingAny, table_name_sql: str) -> str:
     """Translate ``ALTER TABLE … DROP BRANCH [IF EXISTS] <name>`` to Snowflake."""
-    branch_name = str(rel.branch())
+    branch_name = normalize_branch_name(rel.branch())
     if_exists = bool(rel.ifExists())
 
     action = "DROP BRANCH"
     if if_exists:
         action += " IF EXISTS"
-    quoted_branch = _quote_branch_name_sql(branch_name)
+    quoted_branch = quote_branch_name_sql(branch_name)
     telemetry.report_iceberg_wap(
         op="branch_ddl",
         surface="sql_call",

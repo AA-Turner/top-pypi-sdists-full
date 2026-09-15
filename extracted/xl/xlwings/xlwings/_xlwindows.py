@@ -57,15 +57,25 @@ import xlwings
 from . import base_classes, constants, utils
 from .constants import (
     ColorIndex,
+    ConsolidationFunction,
     DeleteShiftDirection,
     FileFormat,
     FixedFormatType,
+    HAlign,
     HtmlType,
     InsertFormatOrigin,
     InsertShiftDirection,
+    LayoutFormType,
+    LayoutRowType,
+    LegendPosition,
     ListObjectSourceType,
+    PivotFieldOrientation,
+    PivotTableSourceType,
+    ReferenceStyle,
+    RowCol,
     SourceType,
     UpdateLinks,
+    VAlign,
 )
 from .utils import (
     col_name,
@@ -1096,6 +1106,10 @@ class Sheet(base_classes.Sheet):
         return Tables(xl=self.xl.ListObjects)
 
     @property
+    def pivot_tables(self):
+        return PivotTables(xl=self.xl.PivotTables())
+
+    @property
     def pictures(self):
         return Pictures(xl=self.xl.Pictures())
 
@@ -1110,6 +1124,54 @@ class Sheet(base_classes.Sheet):
     @visible.setter
     def visible(self, value):
         self.xl.Visible = value
+
+    def _window_property(self, name, *value):
+        """Get (no `value`) or set (one `value`) a property of the book's window.
+
+        Gridlines and the like are window properties in COM, applying to the
+        sheet that the window currently shows. A sheet that isn't active is
+        therefore activated for the duration of the call and the previously
+        active sheet restored afterwards, with screen updating off.
+        """
+        book = self.xl.Parent
+        window = book.Windows(1)
+        previous_book_sheet = book.ActiveSheet
+        if previous_book_sheet.Name != self.xl.Name:
+            if self.xl.Visible != constants.SheetVisibility.xlSheetVisible:
+                raise ValueError(
+                    f"Sheet.{name}: hidden sheets can't be activated. Set "
+                    "sheet.visible = True first."
+                )
+            app = self.xl.Application
+            previous_sheet = app.ActiveSheet
+            previous_screen_updating = app.ScreenUpdating
+            app.ScreenUpdating = False
+            try:
+                self.xl.Activate()
+                if value:
+                    setattr(window, name, value[0])
+                    return None
+                return getattr(window, name)
+            finally:
+                try:
+                    previous_book_sheet.Activate()
+                finally:
+                    try:
+                        previous_sheet.Activate()
+                    finally:
+                        app.ScreenUpdating = previous_screen_updating
+        if value:
+            setattr(window, name, value[0])
+            return None
+        return getattr(window, name)
+
+    @property
+    def show_gridlines(self):
+        return bool(self._window_property("DisplayGridlines"))
+
+    @show_gridlines.setter
+    def show_gridlines(self, value):
+        self._window_property("DisplayGridlines", bool(value))
 
     @property
     def page_setup(self):
@@ -1533,6 +1595,23 @@ class Range(base_classes.Range):
     @wrap_text.setter
     def wrap_text(self, value):
         self.xl.WrapText = value
+
+    @property
+    def horizontal_alignment(self):
+        # COM returns None for a range whose cells disagree.
+        return horizontal_alignments_i2s.get(self.xl.HorizontalAlignment)
+
+    @horizontal_alignment.setter
+    def horizontal_alignment(self, value):
+        self.xl.HorizontalAlignment = horizontal_alignments_s2i[value]
+
+    @property
+    def vertical_alignment(self):
+        return vertical_alignments_i2s.get(self.xl.VerticalAlignment)
+
+    @vertical_alignment.setter
+    def vertical_alignment(self, value):
+        self.xl.VerticalAlignment = vertical_alignments_s2i[value]
 
     @property
     def note(self):
@@ -2260,8 +2339,11 @@ class Chart(base_classes.Chart):
         else:
             return Sheet(xl=self.xl_obj.Parent)
 
-    def set_source_data(self, rng):
-        self.xl.SetSourceData(rng.xl)
+    def set_source_data(self, rng, plot_by=None):
+        if plot_by is None:
+            self.xl.SetSourceData(rng.xl)
+        else:
+            self.xl.SetSourceData(rng.xl, plot_by_s2i[plot_by])
 
     @property
     def chart_type(self):
@@ -2270,6 +2352,39 @@ class Chart(base_classes.Chart):
     @chart_type.setter
     def chart_type(self, chart_type):
         self.xl.ChartType = chart_types_s2i[chart_type]
+
+    @property
+    def title(self):
+        return self.xl.ChartTitle.Text if self.xl.HasTitle else None
+
+    @title.setter
+    def title(self, value):
+        if value is None:
+            self.xl.HasTitle = False
+        else:
+            # ChartTitle is only reachable once HasTitle is True
+            self.xl.HasTitle = True
+            self.xl.ChartTitle.Text = value
+
+    @property
+    def legend(self):
+        return ChartLegend(self)
+
+    @property
+    def plot_by(self):
+        return plot_by_i2s[self.xl.PlotBy]
+
+    @plot_by.setter
+    def plot_by(self, value):
+        self.xl.PlotBy = plot_by_s2i[value]
+
+    @property
+    def style(self):
+        return self.xl.ChartStyle
+
+    @style.setter
+    def style(self, value):
+        self.xl.ChartStyle = value
 
     @property
     def left(self):
@@ -2320,8 +2435,11 @@ class Chart(base_classes.Chart):
         self.xl_obj.Height = value
 
     def delete(self):
-        # todo: what about chart sheets?
-        self.xl_obj.Delete()
+        if self.xl_obj is None:
+            # chart sheet
+            self.xl.Delete()
+        else:
+            self.xl_obj.Delete()
 
     def to_png(self, path):
         self.xl.Export(path)
@@ -2342,12 +2460,396 @@ class Chart(base_classes.Chart):
             pass
 
 
+class ChartLegend(base_classes.ChartLegend):
+    def __init__(self, parent):
+        self.parent = parent
+
+    @property
+    def xl(self):
+        return self.parent.xl
+
+    @property
+    def api(self):
+        return self.xl.Legend if self.xl.HasLegend else None
+
+    @property
+    def visible(self):
+        return bool(self.xl.HasLegend)
+
+    @visible.setter
+    def visible(self, value):
+        self.xl.HasLegend = value
+
+    @property
+    def position(self):
+        if not self.xl.HasLegend:
+            # Legend.Position raises on a hidden legend
+            return None
+        return legend_positions_i2s.get(self.xl.Legend.Position)
+
+    @position.setter
+    def position(self, value):
+        self.xl.HasLegend = True
+        self.xl.Legend.Position = legend_positions_s2i[value]
+
+
 class Charts(Collection, base_classes.Charts):
+    @property
+    def parent(self):
+        return Sheet(xl=self.xl.Parent)
+
     def _wrap(self, xl):
         return Chart(xl_obj=xl)
 
-    def add(self, left, top, width, height):
-        return Chart(xl_obj=self.xl.Add(left, top, width, height))
+    def add(
+        self,
+        left,
+        top,
+        width,
+        height,
+        chart_type=None,
+        source=None,
+        plot_by=None,
+        name=None,
+        anchor=None,
+    ):
+        if anchor:
+            top, left = anchor.top, anchor.left
+        chart = Chart(xl_obj=self.xl.Add(left, top, width, height))
+        # data before type: stock/xy types need series to exist
+        if source is not None:
+            chart.set_source_data(source, plot_by)
+        if chart_type is not None:
+            chart.chart_type = chart_type
+        if name is not None:
+            chart.name = name
+        return chart
+
+
+class PivotTable(base_classes.PivotTable):
+    def __init__(self, xl):
+        self.xl = xl
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def parent(self):
+        return Sheet(xl=self.xl.Parent)
+
+    @property
+    def name(self):
+        return self.xl.Name
+
+    @name.setter
+    def name(self, value):
+        self.xl.Name = value
+
+    def _values_pseudo_field_name(self):
+        """The name of the "Values" pseudo field that Excel places in the
+        columns (or rows) area once there are two or more value fields."""
+        try:
+            return self.xl.DataPivotField.Name
+        except pywintypes.com_error:
+            return None
+
+    @property
+    def field_names(self):
+        # PivotFields lists the source fields plus the "Values" pseudo field;
+        # value fields themselves have the data orientation.
+        values_name = self._values_pseudo_field_name()
+        return [
+            field.Name
+            for field in self.xl.PivotFields()
+            if field.Name != values_name
+            and field.Orientation != PivotFieldOrientation.xlDataField
+        ]
+
+    @property
+    def rows(self):
+        return PivotFields(pivot=self, area="rows")
+
+    @property
+    def columns(self):
+        return PivotFields(pivot=self, area="columns")
+
+    @property
+    def filters(self):
+        return PivotFields(pivot=self, area="filters")
+
+    @property
+    def values(self):
+        return PivotValueFields(pivot=self)
+
+    @property
+    def layout(self):
+        # LayoutRowDefault only applies to fields added later, so read the
+        # actual layout off the row fields; None when they disagree.
+        row_fields = list(self.xl.RowFields)
+        if not row_fields:
+            return layout_row_types_i2s.get(self.xl.LayoutRowDefault)
+        layouts = set()
+        for field in row_fields:
+            if field.LayoutCompactRow:
+                layouts.add("compact")
+            elif field.LayoutForm == LayoutFormType.xlTabular:
+                layouts.add("tabular")
+            else:
+                layouts.add("outline")
+        return layouts.pop() if len(layouts) == 1 else None
+
+    @layout.setter
+    def layout(self, value):
+        self.xl.RowAxisLayout(layout_row_types_s2i[value])
+        self.xl.LayoutRowDefault = layout_row_types_s2i[value]
+
+    @property
+    def show_row_grand_totals(self):
+        return bool(self.xl.RowGrand)
+
+    @show_row_grand_totals.setter
+    def show_row_grand_totals(self, value):
+        self.xl.RowGrand = value
+
+    @property
+    def show_column_grand_totals(self):
+        return bool(self.xl.ColumnGrand)
+
+    @show_column_grand_totals.setter
+    def show_column_grand_totals(self, value):
+        self.xl.ColumnGrand = value
+
+    @property
+    def range(self):
+        return Range(xl=self.xl.TableRange1)
+
+    @property
+    def data_body_range(self):
+        if self.xl.DataFields.Count == 0:
+            return None
+        return Range(xl=self.xl.DataBodyRange)
+
+    def refresh(self):
+        self.xl.RefreshTable()
+
+    def delete(self):
+        # There is no PivotTable.Delete; clearing the full report range
+        # (incl. the filters area) removes it.
+        self.xl.TableRange2.Clear()
+
+
+class PivotField(base_classes.PivotField):
+    def __init__(self, xl, pivot):
+        # xl is the source field (PivotFields(name)), so the wrapper follows
+        # the field when it is moved to another area
+        self.xl = xl
+        self._pivot = pivot
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    @property
+    def name(self):
+        return self.xl.Name
+
+    def remove(self):
+        self.xl.Orientation = PivotFieldOrientation.xlHidden
+
+
+class PivotFields(base_classes.PivotFields):
+    def __init__(self, pivot, area):
+        self._pivot = pivot
+        self._area = area
+
+    @property
+    def xl(self):
+        # RowFields/ColumnFields/PageFields are parameterized properties, which
+        # pywin32's early binding exposes as plain attributes (calling the
+        # returned collection fails). They're snapshots, so fetch them on
+        # every access.
+        return getattr(self._pivot.xl, pivot_area_collections[self._area])
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    @property
+    def area(self):
+        return self._area
+
+    def _fields(self):
+        # Excel's "Values" pseudo field isn't a source field: hide it, like
+        # field_names does and like Office.js
+        values_name = self._pivot._values_pseudo_field_name()
+        return [xl for xl in self.xl if xl.Name != values_name]
+
+    def __call__(self, key):
+        fields = self._fields()
+        if isinstance(key, numbers.Number):
+            if key < 1 or key > len(fields):
+                raise KeyError(key)
+            return PivotField(xl=fields[key - 1], pivot=self._pivot)
+        for xl in fields:
+            if xl.Name == key:
+                return PivotField(xl=xl, pivot=self._pivot)
+        raise KeyError(key)
+
+    def __len__(self):
+        return len(self._fields())
+
+    def __iter__(self):
+        for xl in self._fields():
+            yield PivotField(xl=xl, pivot=self._pivot)
+
+    def __contains__(self, key):
+        if isinstance(key, numbers.Number):
+            return 1 <= key <= len(self)
+        return any(xl.Name == key for xl in self._fields())
+
+    def add(self, name):
+        try:
+            field = self._pivot.xl.PivotFields(name)
+        except pywintypes.com_error:
+            raise KeyError(name)
+        orientation = pivot_area_orientations[self._area]
+        # setting the orientation appends the field to the area; leave a
+        # field that is already here where it is
+        if field.Orientation != orientation:
+            field.Orientation = orientation
+        return PivotField(xl=field, pivot=self._pivot)
+
+
+class PivotValueField(base_classes.PivotValueField):
+    def __init__(self, xl, pivot):
+        self.xl = xl
+        self._pivot = pivot
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    @property
+    def name(self):
+        return self.xl.Name
+
+    @name.setter
+    def name(self, value):
+        self.xl.Name = value
+
+    @property
+    def source_field(self):
+        return self.xl.SourceName
+
+    @property
+    def function(self):
+        return pivot_functions_i2s.get(self.xl.Function)
+
+    @function.setter
+    def function(self, value):
+        self.xl.Function = pivot_functions_s2i[value]
+
+    @property
+    def number_format(self):
+        return self.xl.NumberFormat
+
+    @number_format.setter
+    def number_format(self, value):
+        self.xl.NumberFormat = value
+
+    def remove(self):
+        self.xl.Orientation = PivotFieldOrientation.xlHidden
+
+
+class PivotValueFields(base_classes.PivotValueFields):
+    def __init__(self, pivot):
+        self._pivot = pivot
+
+    @property
+    def xl(self):
+        # a parameterized property, see PivotFields.xl
+        return self._pivot.xl.DataFields
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    def __call__(self, key):
+        try:
+            return PivotValueField(xl=self.xl.Item(key), pivot=self._pivot)
+        except pywintypes.com_error:
+            raise KeyError(key)
+
+    def __len__(self):
+        return self.xl.Count
+
+    def __iter__(self):
+        for xl in self.xl:
+            yield PivotValueField(xl=xl, pivot=self._pivot)
+
+    def __contains__(self, key):
+        try:
+            self.xl.Item(key)
+            return True
+        except pywintypes.com_error:
+            return False
+
+    def add(self, field, function=None, name=None, number_format=None):
+        try:
+            source = self._pivot.xl.PivotFields(field)
+        except pywintypes.com_error:
+            raise KeyError(field)
+        kwargs = {}
+        if name is not None:
+            kwargs["Caption"] = name
+        if function is not None:
+            kwargs["Function"] = pivot_functions_s2i[function]
+        xl = self._pivot.xl.AddDataField(source, **kwargs)
+        if number_format is not None:
+            xl.NumberFormat = number_format
+        return PivotValueField(xl=xl, pivot=self._pivot)
+
+
+class PivotTables(Collection, base_classes.PivotTables):
+    _wrap = PivotTable
+
+    @property
+    def parent(self):
+        return Sheet(xl=self.xl.Parent)
+
+    def add(self, source, destination, name=None):
+        if isinstance(source, Table):
+            source_data = source.xl.Name
+        else:
+            # Microsoft's docs warn that passing a Range object as SourceData
+            # can raise a type mismatch, so pass an external R1C1 address
+            # (GetAddress: pywin32's form of the parameterized Address property)
+            source_data = source.xl.GetAddress(True, True, ReferenceStyle.xlR1C1, True)
+        book = self.xl.Parent.Parent
+        cache = book.PivotCaches().Create(
+            SourceType=PivotTableSourceType.xlDatabase, SourceData=source_data
+        )
+        kwargs = {"TableDestination": destination.xl.Cells(1, 1)}
+        if name:
+            kwargs["TableName"] = name
+        return PivotTable(xl=cache.CreatePivotTable(**kwargs))
 
 
 class Picture(base_classes.Picture):
@@ -2594,6 +3096,76 @@ chart_types_s2i = {
 }
 
 chart_types_i2s = {v: k for k, v in chart_types_s2i.items()}
+
+plot_by_s2i = {"rows": RowCol.xlRows, "columns": RowCol.xlColumns}
+plot_by_i2s = {v: k for k, v in plot_by_s2i.items()}
+
+legend_positions_s2i = {
+    "top": LegendPosition.xlLegendPositionTop,
+    "bottom": LegendPosition.xlLegendPositionBottom,
+    "left": LegendPosition.xlLegendPositionLeft,
+    "right": LegendPosition.xlLegendPositionRight,
+    "corner": LegendPosition.xlLegendPositionCorner,
+}
+legend_positions_i2s = {v: k for k, v in legend_positions_s2i.items()}
+# only ever read back, e.g. after a user dragged the legend
+legend_positions_i2s[LegendPosition.xlLegendPositionCustom] = "custom"
+
+horizontal_alignments_s2i = {
+    "general": HAlign.xlHAlignGeneral,
+    "left": HAlign.xlHAlignLeft,
+    "center": HAlign.xlHAlignCenter,
+    "right": HAlign.xlHAlignRight,
+    "fill": HAlign.xlHAlignFill,
+    "justify": HAlign.xlHAlignJustify,
+    "center_across_selection": HAlign.xlHAlignCenterAcrossSelection,
+    "distributed": HAlign.xlHAlignDistributed,
+}
+horizontal_alignments_i2s = {v: k for k, v in horizontal_alignments_s2i.items()}
+
+vertical_alignments_s2i = {
+    "top": VAlign.xlVAlignTop,
+    "center": VAlign.xlVAlignCenter,
+    "bottom": VAlign.xlVAlignBottom,
+    "justify": VAlign.xlVAlignJustify,
+    "distributed": VAlign.xlVAlignDistributed,
+}
+vertical_alignments_i2s = {v: k for k, v in vertical_alignments_s2i.items()}
+
+pivot_functions_s2i = {
+    "sum": ConsolidationFunction.xlSum,
+    "count": ConsolidationFunction.xlCount,
+    "average": ConsolidationFunction.xlAverage,
+    "max": ConsolidationFunction.xlMax,
+    "min": ConsolidationFunction.xlMin,
+    "product": ConsolidationFunction.xlProduct,
+    "count_numbers": ConsolidationFunction.xlCountNums,
+    "stdev": ConsolidationFunction.xlStDev,
+    "stdevp": ConsolidationFunction.xlStDevP,
+    "var": ConsolidationFunction.xlVar,
+    "varp": ConsolidationFunction.xlVarP,
+}
+pivot_functions_i2s = {v: k for k, v in pivot_functions_s2i.items()}
+
+layout_row_types_s2i = {
+    "compact": LayoutRowType.xlCompactRow,
+    "outline": LayoutRowType.xlOutlineRow,
+    "tabular": LayoutRowType.xlTabularRow,
+}
+layout_row_types_i2s = {v: k for k, v in layout_row_types_s2i.items()}
+
+# xlwings' field areas -> the PivotTable collection method / the orientation
+pivot_area_collections = {
+    "rows": "RowFields",
+    "columns": "ColumnFields",
+    "filters": "PageFields",
+}
+pivot_area_orientations = {
+    "rows": PivotFieldOrientation.xlRowField,
+    "columns": PivotFieldOrientation.xlColumnField,
+    "filters": PivotFieldOrientation.xlPageField,
+}
+
 
 directions_s2i = {
     "d": -4121,

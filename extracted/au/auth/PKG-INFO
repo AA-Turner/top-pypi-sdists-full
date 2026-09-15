@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auth
-Version: 3.1.0
+Version: 3.1.1
 Summary: Authorization for humans
 Author-email: Farshid Ashouri <farsheed.ashouri@gmail.com>
 License-Expression: MIT
@@ -29,7 +29,7 @@ Requires-Dist: flask<4,>=2.0.0
 Requires-Dist: flask-cors<7,>=3.0.0
 Requires-Dist: sqlalchemy<3,>=2.0.0
 Requires-Dist: waitress<4,>=2.0.0
-Requires-Dist: cryptography<48,>=3.0.0
+Requires-Dist: cryptography>=3.0.0
 Requires-Dist: APScheduler<4,>=3.0.0
 Requires-Dist: psycopg[binary]<4,>=3.0.0
 Requires-Dist: pydantic<3,>=2.0.0

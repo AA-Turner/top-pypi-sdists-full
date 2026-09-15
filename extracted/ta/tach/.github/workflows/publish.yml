@@ -27,6 +27,9 @@ jobs:
   linux:
     needs: test
     runs-on: ubuntu-22.04
+    env:
+      # https://github.com/rust-lang/stacker/issues/79#issuecomment-1497479267
+      CFLAGS_s390x_unknown_linux_gnu: -march=z10
     strategy:
       fail-fast: false
       matrix:
@@ -82,6 +85,8 @@ jobs:
             target: x86
     steps:
       - uses: actions/checkout@v4
+      - name: Enable long paths
+        run: git config --system core.longpaths true
       - uses: actions/setup-python@v5
         with:
           architecture: ${{ matrix.platform.target }}

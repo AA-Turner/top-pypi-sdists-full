@@ -24,14 +24,21 @@ class UpdateStorageDetailsParams(object):
             The value to assign to the iops property of this UpdateStorageDetailsParams.
         :type iops: int
 
+        :param kms_key_id:
+            The value to assign to the kms_key_id property of this UpdateStorageDetailsParams.
+        :type kms_key_id: str
+
         """
         self.swagger_types = {
-            'iops': 'int'
+            'iops': 'int',
+            'kms_key_id': 'str'
         }
         self.attribute_map = {
-            'iops': 'iops'
+            'iops': 'iops',
+            'kms_key_id': 'kmsKeyId'
         }
         self._iops = None
+        self._kms_key_id = None
 
     @property
     def iops(self):
@@ -58,6 +65,30 @@ class UpdateStorageDetailsParams(object):
         :type: int
         """
         self._iops = iops
+
+    @property
+    def kms_key_id(self):
+        """
+        Gets the kms_key_id of this UpdateStorageDetailsParams.
+        The OCID of the Vault service key to assign as the master encryption key for the database system.
+
+
+        :return: The kms_key_id of this UpdateStorageDetailsParams.
+        :rtype: str
+        """
+        return self._kms_key_id
+
+    @kms_key_id.setter
+    def kms_key_id(self, kms_key_id):
+        """
+        Sets the kms_key_id of this UpdateStorageDetailsParams.
+        The OCID of the Vault service key to assign as the master encryption key for the database system.
+
+
+        :param kms_key_id: The kms_key_id of this UpdateStorageDetailsParams.
+        :type: str
+        """
+        self._kms_key_id = kms_key_id
 
     def __repr__(self):
         return formatted_flat_dict(self)

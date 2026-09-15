@@ -115,6 +115,37 @@ async def test_working_session_is_preserved_when_both_credentials_configured():
 
 
 @pytest.mark.asyncio
+async def test_session_only_connection_rejects_key_only_configuration():
+    cm = connection()
+    with patch.object(cm, "_initialize_session", new_callable=AsyncMock) as session:
+        assert await cm.ensure_session_connected() is False
+        session.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_session_only_connection_retries_failed_session_startup():
+    cm = connection("user", "password")
+    with patch.object(cm, "_initialize_session", new=AsyncMock(return_value=True)) as session:
+        assert await cm.ensure_session_connected() is True
+        session.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_session_only_connection_preserves_a_key_fallback():
+    cm = connection("user", "password")
+    cm._key_mode = True
+    cm._initialized = True
+    cm.controller = Mock()
+    cm._aiohttp_session = Mock(closed=False)
+
+    with patch.object(cm, "_initialize_session", new_callable=AsyncMock) as session:
+        assert await cm.ensure_session_connected() is False
+        session.assert_not_awaited()
+        assert cm._key_mode is True
+        assert cm._initialized is True
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "method,path",
     [

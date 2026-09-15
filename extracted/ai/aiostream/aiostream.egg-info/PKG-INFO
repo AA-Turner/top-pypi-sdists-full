@@ -1,19 +1,18 @@
 Metadata-Version: 2.4
 Name: aiostream
-Version: 0.7.2
+Version: 0.8.0
 Summary: Generator-based operators for asynchronous iteration
 Author-email: Vincent Michel <vxgmichel@gmail.com>
 License-Expression: GPL-3.0-or-later
 Project-URL: Homepage, https://github.com/vxgmichel/aiostream
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: typing-extensions

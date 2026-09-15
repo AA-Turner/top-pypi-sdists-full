@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "auth"
-version = "3.1.0"
+version = "3.1.1"
 description = "Authorization for humans"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -41,7 +41,7 @@ dependencies = [
     "flask-cors>=3.0.0,<7",
     "sqlalchemy>=2.0.0,<3",
     "waitress>=2.0.0,<4",
-    "cryptography>=3.0.0,<48",
+    "cryptography>=3.0.0",
     "APScheduler>=3.0.0,<4",
     "psycopg[binary]>=3.0.0,<4",
     "pydantic>=2.0.0,<3",
@@ -85,6 +85,10 @@ include = ["auth*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.rst"]
+# The documentation blobs served at /, /docs, /llms.txt and /claude are data
+# files, not source (issuedb #3). They must ship in the wheel or the landing
+# page raises FileNotFoundError on an installed copy.
+"auth.static_docs" = ["*.md", "*.html"]
 
 [tool.ruff]
 line-length = 88

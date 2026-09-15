@@ -31,3 +31,8 @@ class TestDiscoverWorkflowModules:
     def test_no_examples_anywhere(self, discovered: tuple[str, ...]) -> None:
         examples = [m for m in discovered if ".examples" in m]
         assert examples == [], f"Example modules leaked into passthrough: {examples}"
+
+    def test_structlog_is_passed_through(self, discovered: tuple[str, ...]) -> None:
+        # structlog must run host-side so workflow code can log without hitting the
+        # sandbox's import restrictions on structlog's own dependencies.
+        assert "structlog" in discovered

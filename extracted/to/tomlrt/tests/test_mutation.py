@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections import deque
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
@@ -16,6 +17,11 @@ import pytest
 
 import tomlrt
 from tomlrt import AoT, Array, Table
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:  # pragma: no cover -- backport for Python < 3.12
+    from typing_extensions import override
 
 # A value with no TOML representation, for rejection tests.
 _OPAQUE: Any = object()
@@ -849,6 +855,72 @@ def test_inline_table_replace() -> None:
     assert out == "obj = { a = 99, b = 2 }\n"
 
 
+def test_inline_table_value_replacement_preserves_entry() -> None:
+    source = td("""
+        t = {
+            # above a
+            'a'  =  { x = 1 }, # keep me
+            b = 2, # sibling
+        }
+        """)
+    doc = tomlrt.loads(source)
+    assert tomlrt.dumps(doc) == source
+    doc.table("t")["a"] = 3
+    expected = td("""
+        t = {
+            # above a
+            'a'  =  3, # keep me
+            b = 2, # sibling
+        }
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
+def test_inline_dotted_value_replacement_preserves_entry() -> None:
+    source = td("""
+        t = {
+            # above a
+            p . 'a'  =  { x = 1 }, # keep me
+            b = 2, # sibling
+        }
+        """).replace("\n", "\r\n")
+    doc = tomlrt.loads(source)
+    assert tomlrt.dumps(doc) == source
+    doc.table(("t", "p"))["a"] = [4]
+    expected = td("""
+        t = {
+            # above a
+            p . 'a'  =  [4], # keep me
+            b = 2, # sibling
+        }
+        """).replace("\n", "\r\n")
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
+def test_inline_table_replacement_detaches_old_and_attaches_new() -> None:
+    doc = tomlrt.loads("t = { a = { items = [1] }, b = 2 }\n")
+    host = doc.table("t")
+    old = host.table("a")
+    held = old.array("items")
+    replacement = Table.inline({"new": [3]})
+    host["a"] = replacement
+    assert host.table("a") is replacement
+    held.append(2)
+    replacement.array("new").append(4)
+    host["a"] = replacement
+    expected = "t = { a = { new = [3, 4] }, b = 2 }\n"
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+    other = tomlrt.Document()
+    other["old"] = old
+    assert other.table("old") is old
+    assert old.array("items") is held
+    assert tomlrt.dumps(other) == "old = { items = [1, 2] }\n"
+    assert tomlrt.dumps(doc) == expected
+
+
 def test_inline_table_append() -> None:
     src = "obj = { a = 1 }\n"
     doc = tomlrt.loads(src)
@@ -1106,8 +1178,9 @@ def test_array_indices_and_repeat_counts_require_supports_index() -> None:
 def test_array_remove_missing_raises_valueerror() -> None:
     doc = tomlrt.loads("xs = [1, 2, 3]\n")
     xs = doc.array("xs")
-    with pytest.raises(ValueError, match="not in array"):
+    with pytest.raises(ValueError, match=r"^Array\.remove\(x\): x not in array$"):
         xs.remove(99)
+    assert tomlrt.dumps(doc) == "xs = [1, 2, 3]\n"
 
 
 def test_array_delitem_out_of_range_raises_indexerror() -> None:
@@ -1704,6 +1777,56 @@ def test_array_remove() -> None:
     out = tomlrt.dumps(doc)
     assert out == "xs = [1, 3, 2]\n"
     assert _reparses(out) == {"xs": [1, 3, 2]}
+
+
+def test_array_remove_matches_the_same_nan_object() -> None:
+    nan = float("nan")
+    array = Array([nan])
+    doc = tomlrt.Document()
+    doc["xs"] = array
+    array.remove(nan)
+    assert tomlrt.dumps(doc) == "xs = []\n"
+
+
+def test_array_remove_does_not_match_a_different_nan() -> None:
+    doc = tomlrt.loads("xs = [nan]\n")
+    with pytest.raises(ValueError, match=r"^Array\.remove\(x\): x not in array$"):
+        doc.array("xs").remove(float("nan"))
+    assert tomlrt.dumps(doc) == "xs = [nan]\n"
+
+
+def test_array_remove_preserves_comparison_exceptions() -> None:
+    failure = ValueError("comparison failed")
+
+    class RaisingInt(int):
+        @override
+        def __eq__(self, _other: object) -> bool:
+            raise failure
+
+        __hash__ = int.__hash__
+
+    value = RaisingInt(1)
+    doc = tomlrt.Document()
+    doc["xs"] = Array([value])
+    with pytest.raises(ValueError, match="comparison failed") as exc:
+        doc.array("xs").remove(1)
+    assert exc.value is failure
+    assert tomlrt.dumps(doc) == "xs = [1]\n"
+    doc.array("xs").remove(value)
+    assert tomlrt.dumps(doc) == "xs = []\n"
+
+
+def test_array_remove_detaches_the_held_inline_view() -> None:
+    doc = tomlrt.loads("xs = [{ items = [1] }, 2]\n")
+    held = doc.array("xs").table(0)
+    doc.array("xs").remove(held)
+    held.array("items").append(3)
+    assert tomlrt.dumps(doc) == "xs = [2]\n"
+    other = tomlrt.Document()
+    other["held"] = held
+    assert other.table("held") is held
+    assert tomlrt.dumps(other) == "held = { items = [1, 3] }\n"
+    assert tomlrt.dumps(doc) == "xs = [2]\n"
 
 
 def test_array_insert() -> None:
@@ -4519,8 +4642,17 @@ def test_aot_remove_drops_first_matching_entry_from_cst() -> None:
 def test_aot_remove_missing_raises_value_error() -> None:
     doc = tomlrt.loads("[[t]]\nx = 1\n")
     aot = doc.aot("t")
-    with pytest.raises(ValueError, match="not in list"):
+    with pytest.raises(ValueError, match=r"^list\.remove\(x\): x not in list$"):
         aot.remove({"x": 999})
+    assert tomlrt.dumps(doc) == "[[t]]\nx = 1\n"
+
+
+def test_aot_extend_checks_mapping_shapes_before_contents() -> None:
+    doc = tomlrt.loads("[[t]]\nx = 1\n")
+    entries: Any = iter([{"x": _OPAQUE}, None])
+    with pytest.raises(TypeError, match=r"^AoT entry must be a Mapping, got NoneType$"):
+        doc.aot("t").extend(entries)
+    assert tomlrt.dumps(doc) == "[[t]]\nx = 1\n"
 
 
 def test_aot_slice_replace_contiguous() -> None:
@@ -8464,6 +8596,169 @@ def test_standalone_array_multiline_property() -> None:
     assert arr_single.multiline is False
     arr_multi = Array([1, 2], multiline=True)
     assert arr_multi.multiline is True
+
+
+def test_empty_multiline_constructor_and_toggle_share_layout() -> None:
+    constructed = Array([], multiline=True, indent=2)
+    toggled = Array([]).set_multiline(multiline=True, indent=2)
+    doc = tomlrt.Document()
+    doc["constructed"] = constructed
+    doc["toggled"] = toggled
+    assert tomlrt.dumps(doc) == td("""
+        constructed = [
+        ]
+        toggled = [
+        ]
+        """)
+    constructed.append(1)
+    toggled.append(1)
+    expected = td("""
+        constructed = [
+            1,
+        ]
+        toggled = [
+            1,
+        ]
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
+def test_nonempty_multiline_constructor_and_toggle_keep_item_indentation() -> None:
+    constructed = Array([1], multiline=True, indent=2)
+    toggled = Array([1]).set_multiline(multiline=True, indent=2)
+    doc = tomlrt.Document()
+    doc["constructed"] = constructed
+    doc["toggled"] = toggled
+    assert tomlrt.dumps(doc) == td("""
+        constructed = [
+          1,
+        ]
+        toggled = [
+          1,
+        ]
+        """)
+    constructed.append(2)
+    toggled.append(2)
+    expected = td("""
+        constructed = [
+          1,
+          2,
+        ]
+        toggled = [
+          1,
+          2,
+        ]
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
+def test_multiline_construction_preserves_nested_comments_and_crlf() -> None:
+    source_text = td("""
+        t = [
+          { # opening
+            x=0x1, # keep
+            y='text',
+          },
+        ]
+        """)
+    source = tomlrt.loads(source_text)
+    child = source.array("t").table(0)
+    constructed = Array([child], multiline=True, indent=2)
+    toggled = Array([child]).set_multiline(multiline=True, indent=2)
+    constructed_doc = tomlrt.loads("prefix = 0\r\n")
+    toggled_doc = tomlrt.loads("prefix = 0\r\n")
+    constructed_doc["array"] = constructed
+    toggled_doc["array"] = toggled
+    expected = td("""
+        prefix = 0
+        array = [
+          { # opening
+            x=0x1, # keep
+            y='text',
+          },
+        ]
+        """).replace("\n", "\r\n")
+    assert tomlrt.dumps(constructed_doc) == expected
+    assert tomlrt.dumps(toggled_doc) == expected
+    assert _reparses(expected) == constructed_doc.to_dict()
+    assert tomlrt.dumps(source) == source_text
+
+
+def test_negative_constructor_indent_rejects_before_attaching_child() -> None:
+    child = Table.inline({"x": 1})
+    with pytest.raises(ValueError, match=r"^indent must be non-negative$"):
+        Array([child], multiline=True, indent=-1)
+    doc = tomlrt.Document()
+    doc["child"] = child
+    assert doc.table("child") is child
+    child["x"] = 2
+    assert tomlrt.dumps(doc) == "child = { x = 2 }\n"
+
+
+def test_noninteger_constructor_indent_rejects_before_attaching_child() -> None:
+    child = Array([1])
+    invalid: Any = 1.5
+    with pytest.raises(TypeError):
+        Array([child], multiline=True, indent=invalid)
+    doc = tomlrt.Document()
+    doc["child"] = child
+    assert doc.array("child") is child
+    child.append(2)
+    assert tomlrt.dumps(doc) == "child = [1, 2]\n"
+
+
+def test_negative_expansion_indent_leaves_layout_unchanged() -> None:
+    source = td("""
+        a = [1,2] # array
+        t = { x=3 } # table
+        """)
+    doc = tomlrt.loads(source)
+    with pytest.raises(ValueError, match=r"^indent must be non-negative$"):
+        doc.array("a").set_multiline(multiline=True, indent=-1)
+    assert tomlrt.dumps(doc) == source
+    with pytest.raises(ValueError, match=r"^indent must be non-negative$"):
+        doc.table("t").set_multiline(multiline=True, indent=-1)
+    assert tomlrt.dumps(doc) == source
+
+
+def test_single_line_layout_ignores_unused_indentation() -> None:
+    invalid: Any = object()
+    single = Array([1], indent=invalid)
+    doc = tomlrt.loads(
+        td("""
+        a = [
+          1,
+        ]
+        t = {
+          x = 2,
+        }
+        """)
+    )
+    doc["single"] = single
+    doc.array("a").set_multiline(multiline=False, indent=invalid)
+    doc.table("t").set_multiline(multiline=False, indent=invalid)
+    expected = td("""
+        a = [1]
+        t = { x = 2 }
+        single = [1]
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
+def test_multiline_construction_accepts_zero_indent() -> None:
+    doc = tomlrt.Document()
+    doc["values"] = Array([1, 2], multiline=True, indent=0)
+    expected = td("""
+        values = [
+        1,
+        2,
+        ]
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
 
 
 def test_standalone_array_set_multiline_then_attach() -> None:

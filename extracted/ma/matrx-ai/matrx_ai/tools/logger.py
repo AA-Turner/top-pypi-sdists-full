@@ -12,6 +12,7 @@ from matrx_utils import vcprint
 
 from matrx_ai.db.ownership_fields import stamp_row_owner
 from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolResult
+from matrx_ai.tools.turn_ledger import record_tool_outcome, record_tool_started
 from matrx_ai.utils.cache import TTLCache
 
 # (conversation_id:call_id) -> cx_tool_call.id, populated the instant a tool call
@@ -188,6 +189,21 @@ class ToolExecutionLogger:
         now = datetime.now(UTC)
 
         safe_arguments = self._truncate_arguments(arguments)
+
+        # THE LEDGER (in-process mirror of this row) — recorded at the same
+        # instant the chat.tool_call INSERT is decided, and BEFORE the
+        # store=False early return, so an ephemeral run reports just as
+        # honestly as a persisted one. Read mid-turn by the structured-output
+        # chokepoint to fill an agent's tools_worked / tools_failed /
+        # commands_run from truth instead of from the model's memory.
+        # Keyed by call_id (not row_id): log_completed / log_error receive a
+        # ToolResult, and row_id is "" whenever persistence is off.
+        record_tool_started(
+            key=ctx.call_id or row_id,
+            tool_name=tool_def.name,
+            arguments=arguments,
+            tool_def=tool_def,
+        )
 
         # ``tool_name`` always stores the canonical identity (the registry
         # row's name). ``tool_name_as_called`` (added by migration 0022)
@@ -463,6 +479,13 @@ class ToolExecutionLogger:
         canonical = canonical_name or tool_name
         err = result.error
 
+        record_tool_outcome(
+            key=ctx.call_id or row_id,
+            tool_name=canonical,
+            status="rejected",
+            error_text=(err.message if err else None),
+        )
+
         started = datetime.fromtimestamp(result.started_at, tz=UTC) if result.started_at else now
         completed = (
             datetime.fromtimestamp(result.completed_at, tz=UTC) if result.completed_at else now
@@ -576,6 +599,17 @@ class ToolExecutionLogger:
         *,
         coordinator: Any = None,
     ) -> None:
+        # The LEDGER reads the RESULT, not the method name: one call site
+        # (handle_tool_calls' blocked-handoff audit row) routes a FAILED
+        # ToolResult through log_completed, and a failure recorded as a success
+        # is exactly the lie this ledger exists to stop.
+        record_tool_outcome(
+            key=result.call_id or row_id,
+            tool_name=result.tool_name or "",
+            status="completed" if result.success else "error",
+            error_text=(result.error.message if result.error else None),
+        )
+
         output_str, output_type, output_chars = self._serialize_output(result.output)
 
         # Use whatever is already on result (prepare_metadata sets this synchronously
@@ -637,6 +671,13 @@ class ToolExecutionLogger:
         *,
         coordinator: Any = None,
     ) -> None:
+        record_tool_outcome(
+            key=result.call_id or row_id,
+            tool_name=result.tool_name or "",
+            status="error",
+            error_text=(result.error.message if result.error else None),
+        )
+
         # Ensure output_chars / output_preview are consistent on error results too
         # (prepare_metadata should already have run in executor.py, but guard here).
         if not result.output_chars and result.output is not None:

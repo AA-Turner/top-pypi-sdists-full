@@ -20,6 +20,10 @@ from airbyte_ops_webapp.pages.login.page import OPS_LOGIN_PATH
 from airbyte_ops_webapp.pages.motherduck_diagnostics.defaults import (
     MOTHERDUCK_DIAGNOSTICS_PATH,
 )
+from airbyte_ops_webapp.pages.platform_admin.data_worker_allocation.defaults import (
+    DATA_WORKER_ALLOCATION_PATH,
+)
+from airbyte_ops_webapp.pages.platform_admin.defaults import PLATFORM_ADMIN_PATH
 from airbyte_ops_webapp.serve import add_oauth_routes
 
 _IMPORTMAP = "<script type='importmap'>{}</script>"
@@ -40,6 +44,16 @@ _PROTECTED_ROUTES = [
         serve_module.add_motherduck_diagnostics_routes,
         MOTHERDUCK_DIAGNOSTICS_PATH,
         id="motherduck_diagnostics",
+    ),
+    pytest.param(
+        serve_module.add_platform_admin_routes,
+        PLATFORM_ADMIN_PATH,
+        id="platform_admin",
+    ),
+    pytest.param(
+        serve_module.add_data_worker_allocation_routes,
+        DATA_WORKER_ALLOCATION_PATH,
+        id="data_worker_allocation",
     ),
 ]
 

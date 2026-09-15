@@ -27,14 +27,14 @@ def _unsafe_request(
 
 
 class TestHelper:
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_rejects_invalid_github_repository(self, mock_get_requests: MagicMock) -> None:
         result = _github_reply(_unsafe_request("repo"))
         assert result.mutation_status == "failed"
         mock_get_requests.assert_not_called()
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_fails_when_reply_response_id_is_zero(self, mock_get_requests: MagicMock) -> None:
         """A zero reply ID is treated as malformed and triggers reconciliation/failure."""
@@ -49,7 +49,7 @@ class TestHelper:
 
         assert result.mutation_status == "failed"
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_fails_when_reply_response_id_is_string(self, mock_get_requests: MagicMock) -> None:
         """A string reply ID is treated as malformed and triggers reconciliation/failure."""
@@ -64,7 +64,7 @@ class TestHelper:
 
         assert result.mutation_status == "failed"
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_fails_when_reply_response_id_is_negative(self, mock_get_requests: MagicMock) -> None:
         """A negative reply ID is treated as malformed and triggers reconciliation/failure."""
@@ -79,7 +79,7 @@ class TestHelper:
 
         assert result.mutation_status == "failed"
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_fails_when_reply_response_id_is_bool(self, mock_get_requests: MagicMock) -> None:
         """A boolean True reply ID must be excluded even though bool is a subclass of int in Python."""
@@ -94,7 +94,7 @@ class TestHelper:
 
         assert result.mutation_status == "failed"
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_skips_reconciliation_when_baseline_fetch_raises_on_5xx(self, mock_get_requests: MagicMock) -> None:
         """Reconciliation must not run when the pre-POST baseline fetch itself raised; a concurrent
@@ -111,7 +111,7 @@ class TestHelper:
         assert result.mutation_status == "failed"
         mock_requests.get.assert_called_once()
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_skips_reconciliation_when_baseline_fetch_raises_on_exception(self, mock_get_requests: MagicMock) -> None:
         """Reconciliation must not run when the pre-POST baseline fetch raised and the POST itself
@@ -126,7 +126,7 @@ class TestHelper:
         assert result.mutation_status == "failed"
         mock_requests.get.assert_called_once()
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_skips_reconciliation_when_baseline_fetch_returns_http_failure(self, mock_get_requests: MagicMock) -> None:
         """A non-2xx baseline response must not mark the baseline as trustworthy."""
@@ -140,7 +140,7 @@ class TestHelper:
         assert result.mutation_status == "failed"
         mock_requests.get.assert_called_once()
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_skips_reconciliation_when_baseline_fetch_returns_malformed_payload(
         self, mock_get_requests: MagicMock
@@ -158,7 +158,7 @@ class TestHelper:
         assert result.mutation_status == "failed"
         mock_requests.get.assert_called_once()
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_returns_failed_when_reconcile_raises_after_5xx_despite_valid_baseline(
         self, mock_get_requests: MagicMock
@@ -177,7 +177,7 @@ class TestHelper:
 
         assert result.mutation_status == "failed"
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_returns_failed_when_reconcile_raises_after_post_exception_despite_valid_baseline(
         self, mock_get_requests: MagicMock
@@ -194,7 +194,7 @@ class TestHelper:
 
         assert result.mutation_status == "failed"
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_fails_before_reply_when_graphql_preflight_request_raises(self, mock_get_requests: MagicMock) -> None:
         mock_requests = MagicMock()
@@ -210,7 +210,7 @@ class TestHelper:
         assert result.diagnostics
         assert "graphql timeout" in result.diagnostics[0]
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_fails_before_reply_when_graphql_preflight_json_decode_fails(self, mock_get_requests: MagicMock) -> None:
         mock_requests = MagicMock()
@@ -228,7 +228,7 @@ class TestHelper:
         assert result.diagnostics
         assert "bad json" in result.diagnostics[0]
 
-    @patch.dict("os.environ", {"GH_TOKEN": "token"}, clear=True)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token"}, clear=True)
     @patch("agentic_devtools.cli.pull_request_thread._get_requests")
     def test_accepts_repository_casing_from_github_preflight(self, mock_get_requests: MagicMock) -> None:
         """GitHub repository identity matching is case-insensitive."""

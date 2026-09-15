@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "aioautomower"
 # The version is set by GH action on release
-version = "2.8.1"
+version = "3.0.0"
 description = "MPython module to talk to Husqvarna Automower."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -52,20 +52,20 @@ packages = ["src/aioautomower"]
 
 [dependency-groups]
 dev = [
-  "aiointercept==0.1.9",
+  "aiointercept==0.1.10",
   "codespell==2.4.3",
   "covdefaults==2.3.0",
-  "coverage[toml]==7.15.4",
-  "prek==0.4.14",
+  "coverage[toml]==7.16.1",
+  "prek==0.5.3",
   "pre-commit-hooks==6.0.0",
   "pytest==9.1.1",
   "pytest-asyncio==1.4.0",
   "pytest-codspeed==5.0.3",
   "pytest-cov==7.1.0",
-  "ruff==0.16.4",
+  "ruff==0.16.7",
   "syrupy==6.0.0",
-  "time-machine==3.4.0",
-  "ty==0.0.74",
+  "time-machine==3.5.1",
+  "ty==0.0.80",
   "yamllint==1.38.0",
 ]
 

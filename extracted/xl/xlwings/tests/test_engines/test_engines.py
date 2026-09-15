@@ -453,6 +453,12 @@ def test_sheets_iteration(book):
         assert sheet.name == "Sheet 1" if ix == 0 else "Sheet2"
 
 
+@pytest.mark.skipif(engine != "calamine", reason="requires calamine engine")
+def test_sheet_used_range(book):
+    assert book.sheets[0].used_range.address == "$A$1:$D$17"
+    assert book.sheets[1].used_range.address == "$A$1:$B$2"
+
+
 @pytest.mark.skipif(engine == "calamine", reason="unsupported by calamine")
 def test_sheet_page_setup_print_area(book):
     assert book.sheets[0].page_setup.print_area == "$A$1:$B$3"
@@ -579,6 +585,83 @@ def test_sheet_visible_added_sheet():
     assert book.json()["actions"][-1]["func"] == "setSheetVisibility"
     assert book.json()["actions"][-1]["args"] == ["Hidden"]
     assert sheet.visible is False
+
+
+def _gridlines_book(payload):
+    from xlwings.pro import _xlremote
+
+    app = _xlremote.App(_xlremote.Apps(), add_book=False)
+    return xw.Book(impl=app.books.open(payload))
+
+
+@pytest.fixture
+def gridlines_book():
+    payload = json.loads(json.dumps(data))
+    payload["client"] = "Office.js"
+    for sheet, value in zip(payload["sheets"], [True, False, True]):
+        sheet["show_gridlines"] = value
+    book = _gridlines_book(payload)
+    yield book
+    book.close()
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_sheet_show_gridlines(gridlines_book):
+    book = gridlines_book
+    assert book.sheets[0].show_gridlines is True
+    assert book.sheets[1].show_gridlines is False
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_sheet_show_gridlines_set(gridlines_book):
+    book = gridlines_book
+    book.sheets[0].show_gridlines = False
+    assert book.json()["actions"][0]["func"] == "setShowGridlines"
+    assert book.json()["actions"][0]["args"] == [False]
+    assert book.json()["actions"][0]["sheet_position"] == 0
+    # written through, so a read-after-write in the same script is correct
+    assert book.sheets[0].show_gridlines is False
+    book.sheets[0].show_gridlines = True
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_sheet_show_gridlines_added_sheet(gridlines_book):
+    book = gridlines_book
+    sheet = book.sheets.add(name="gridsheet")
+    assert sheet.show_gridlines is True
+    sheet.show_gridlines = False
+    assert book.json()["actions"][-1]["func"] == "setShowGridlines"
+    assert book.json()["actions"][-1]["args"] == [False]
+    assert sheet.show_gridlines is False
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_sheet_show_gridlines_missing_key(gridlines_book):
+    book = gridlines_book
+    del book.sheets[0].impl.api["show_gridlines"]
+    with pytest.raises(NotImplementedError):
+        book.sheets[0].show_gridlines
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "client", ["Microsoft Office Scripts", "Google Apps Script", "VBA"]
+)
+@pytest.mark.parametrize("added_sheet", [False, True])
+def test_sheet_show_gridlines_unsupported_client(client, added_sheet):
+    payload = json.loads(json.dumps(data))
+    payload["client"] = client
+    book = _gridlines_book(payload)
+    try:
+        sheet = book.sheets.add() if added_sheet else book.sheets[0]
+        actions = list(book.json()["actions"])
+        with pytest.raises(NotImplementedError, match="Office.js"):
+            sheet.show_gridlines = False
+        assert book.json()["actions"] == actions
+        with pytest.raises(NotImplementedError, match="Office.js"):
+            sheet.show_gridlines
+    finally:
+        book.close()
 
 
 # book name
@@ -851,6 +934,376 @@ def test_chart_to_pdf_and_get_png_not_supported(book):
         chart.to_pdf("out.pdf")
     with pytest.raises(NotImplementedError, match="only supported in xlwings Lite"):
         asyncio.run(chart.get_png())
+
+
+def _fresh_book():
+    return xw.Book(json=json.loads(json.dumps(data)))
+
+
+def _actions(book):
+    return book.json()["actions"]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "attribute,func,value,expected_args",
+    [
+        ("title", "setChartTitle", "Sales", [0, "Sales"]),
+        ("title", "setChartTitle", None, [0, None]),
+        ("plot_by", "setChartPlotBy", "rows", [0, "Rows"]),
+        ("plot_by", "setChartPlotBy", "columns", [0, "Columns"]),
+        ("style", "setChartStyle", 5, [0, 5]),
+    ],
+)
+def test_chart_format_setters(attribute, func, value, expected_args):
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    setattr(chart, attribute, value)
+    action = _actions(book)[-1]
+    assert action["func"] == func
+    assert action["args"] == expected_args
+    assert action["sheet_position"] == 0
+    # written through, so read-after-write works on this and a fresh wrapper
+    assert getattr(chart, attribute) == value
+    assert getattr(book.sheets[0].charts[0], attribute) == value
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_format_getters_raise_before_write():
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    for attribute in ["title", "plot_by", "style"]:
+        with pytest.raises(NotImplementedError, match="isn't supported"):
+            getattr(chart, attribute)
+    with pytest.raises(NotImplementedError, match="legend visibility"):
+        chart.legend.visible
+    with pytest.raises(NotImplementedError, match="legend position"):
+        chart.legend.position
+    assert _actions(book) == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("value", [0, 49, 12.9, 12.0, True, False, "12", None])
+def test_chart_style_invalid(value):
+    book = _fresh_book()
+    with pytest.raises(ValueError, match="Invalid style"):
+        book.sheets[0].charts[0].style = value
+    assert _actions(book) == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_style_bounds_and_normalization():
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    chart.style = 1
+    chart.style = 48
+    assert _actions(book)[-1]["args"] == [0, 48]
+    if np is not None:
+        chart.style = np.int64(7)
+        assert _actions(book)[-1]["args"] == [0, 7]
+        assert isinstance(_actions(book)[-1]["args"][1], int)
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_invalid_plot_by_title_and_legend_position():
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    with pytest.raises(ValueError, match="Invalid plot_by"):
+        chart.plot_by = "cols"
+    with pytest.raises(ValueError, match="Invalid plot_by"):
+        chart.set_source_data(book.sheets[0]["A1:B2"], plot_by="cols")
+    with pytest.raises(ValueError, match="Invalid legend position"):
+        chart.legend.position = "middle"
+    with pytest.raises(ValueError, match="Invalid title"):
+        chart.title = 1
+    assert _actions(book) == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_legend_position_shows_legend():
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    chart.legend.position = "bottom"
+    assert [(a["func"], a["args"]) for a in _actions(book)] == [
+        ("setChartLegend", [0, "position", "Bottom"])
+    ]
+    assert _actions(book)[0]["sheet_position"] == 0
+    assert chart.legend.visible is True
+    assert chart.legend.position == "bottom"
+    assert book.sheets[0].charts[0].legend.position == "bottom"
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_legend_position_then_hide():
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    chart.legend.position = "bottom"
+    chart.legend.visible = False
+    assert [a["args"] for a in _actions(book)] == [
+        [0, "position", "Bottom"],
+        [0, "visible", False],
+    ]
+    assert chart.legend.visible is False
+    assert chart.legend.position is None
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_legend_hide_then_position():
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    chart.legend.visible = False
+    chart.legend.position = "top"
+    assert [a["args"] for a in _actions(book)] == [
+        [0, "visible", False],
+        [0, "position", "Top"],
+    ]
+    assert chart.legend.visible is True
+    assert chart.legend.position == "top"
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_legend_hide_then_show_forgets_position():
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    chart.legend.position = "left"
+    chart.legend.visible = False
+    chart.legend.visible = True
+    assert _actions(book)[-1]["args"] == [0, "visible", True]
+    assert chart.legend.visible is True
+    with pytest.raises(NotImplementedError, match="legend position"):
+        chart.legend.position
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_legend_api_not_available():
+    book = _fresh_book()
+    with pytest.raises(NotImplementedError):
+        book.sheets[0].charts[0].legend.api
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_charts_add_with_source_creates_immediately():
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    before = len(sheet.charts)
+    chart = sheet.charts.add(
+        source=sheet["A1:B2"], chart_type="line", plot_by="rows", name="Mine"
+    )
+    assert len(sheet.charts) == before + 1
+    assert [a["func"] for a in _actions(book)] == ["addChart"]
+    args = _actions(book)[0]["args"]
+    assert args[0] == "Mine"
+    assert args[1] == "Line"
+    assert args[2] == sheet.name
+    assert args[3] == "$A$1:$B$2"
+    assert args[4:8] == [0, 0, 355, 211]
+    assert args[8] == "Rows"
+    assert args[9] is None
+    assert chart.name == "Mine"
+    assert chart.chart_type == "line"
+    assert chart.plot_by == "rows"
+    assert sheet.charts["Mine"].plot_by == "rows"
+    # follow-up calls address the created chart
+    chart.title = "T"
+    assert _actions(book)[-1]["args"] == [before, "T"]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_charts_add_explicit_name_survives_deferred_creation():
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    chart = sheet.charts.add(name="Mine")
+    assert _actions(book) == []
+    chart.set_source_data(sheet["A1:B2"])
+    assert _actions(book)[0]["func"] == "addChart"
+    assert _actions(book)[0]["args"][0] == "Mine"
+    assert "setChartName" not in [a["func"] for a in _actions(book)]
+    assert chart.name == "Mine"
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("other_has_source", [False, True])
+def test_charts_deferred_creation_rechecks_name_and_can_retry(other_has_source):
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    source = sheet["A1:B2"]
+    chart = sheet.charts.add(name="Mine", anchor=sheet["D4"])
+    chart.plot_by = "rows"
+    chart.title = "Pending title"
+    other = sheet.charts.add(name="Mine", source=source if other_has_source else None)
+    if not other_has_source:
+        other.set_source_data(source)
+
+    pending_before = dict(chart.impl.api)
+    formatting_before = list(chart.impl._pending_actions)
+    actions_before = list(_actions(book))
+    count_before = len(sheet.charts)
+    with pytest.raises(xw.ShapeAlreadyExists, match="'Mine' is already present"):
+        chart.set_source_data(source, plot_by="columns")
+
+    assert len(sheet.charts) == count_before
+    assert _actions(book) == actions_before
+    assert chart.impl._pending is not None
+    assert chart.impl.api == pending_before
+    assert chart.impl._pending_actions == formatting_before
+
+    chart.name = "Mine2"
+    chart.set_source_data(source)
+    assert len(sheet.charts) == count_before + 1
+    assert sheet.charts["Mine"].name == other.name
+    assert sheet.charts["Mine2"].title == "Pending title"
+    assert chart.plot_by == "rows"
+    add_action, title_action = _actions(book)[len(actions_before) :]
+    assert add_action["func"] == "addChart"
+    assert add_action["args"][0] == "Mine2"
+    assert add_action["args"][8:] == ["Rows", "$D$4"]
+    assert title_action["func"] == "setChartTitle"
+    assert title_action["args"] == [count_before, "Pending title"]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_charts_add_existing_name_raises():
+    book = _fresh_book()
+    with pytest.raises(xw.ShapeAlreadyExists):
+        book.sheets[0].charts.add(name="mychart1")
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_charts_add_invalid_chart_type():
+    book = _fresh_book()
+    with pytest.raises(ValueError, match="Invalid chart type"):
+        book.sheets[0].charts.add(chart_type="nonsense")
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_charts_add_anchor():
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    chart = sheet.charts.add(source=sheet["A1:B2"], anchor=sheet["D4"])
+    args = _actions(book)[-1]["args"]
+    assert args[4] is None
+    assert args[5] is None
+    assert args[6:8] == [355, 211]
+    assert args[8] is None
+    assert args[9] == "$D$4"
+    assert chart.left is None
+    assert "anchor" not in chart.impl.api
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_charts_add_anchor_and_position_raises():
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    with pytest.raises(ValueError, match="anchor"):
+        sheet.charts.add(left=10, anchor=sheet["D4"])
+    with pytest.raises(ValueError, match="anchor"):
+        sheet.charts.add(top=10, anchor=sheet["D4"])
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_charts_add_plot_by_requires_source():
+    book = _fresh_book()
+    with pytest.raises(ValueError, match="requires 'source'"):
+        book.sheets[0].charts.add(plot_by="rows")
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_pending_formatting_flushes_in_order():
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    chart = sheet.charts.add()
+    chart.title = "First"
+    chart.title = None
+    chart.legend.position = "top"
+    chart.legend.visible = False
+    chart.style = 3
+    chart.title = "Final"
+    assert _actions(book) == []
+    # local state already reflects the full sequence
+    assert chart.title == "Final"
+    assert chart.legend.visible is False
+    assert chart.legend.position is None
+    assert chart.style == 3
+
+    chart.set_source_data(sheet["A1:B2"])
+    ix = len(sheet.charts) - 1
+    assert [(a["func"], a["args"]) for a in _actions(book)] == [
+        ("addChart", _actions(book)[0]["args"]),
+        ("setChartTitle", [ix, "First"]),
+        ("setChartTitle", [ix, None]),
+        ("setChartLegend", [ix, "position", "Top"]),
+        ("setChartLegend", [ix, "visible", False]),
+        ("setChartStyle", [ix, 3]),
+        ("setChartTitle", [ix, "Final"]),
+    ]
+    # the buffer is cleared: nothing is replayed twice
+    chart.style = 4
+    assert _actions(book)[-1]["args"] == [ix, 4]
+    assert len(_actions(book)) == 8
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_delete_pending_chart_discards_formatting():
+    book = _fresh_book()
+    chart = book.sheets[0].charts.add()
+    chart.title = "T"
+    chart.legend.position = "bottom"
+    chart.delete()
+    assert _actions(book) == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_pending_plot_by_rides_on_add_chart():
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    chart = sheet.charts.add()
+    chart.plot_by = "rows"
+    assert _actions(book) == []
+    chart.set_source_data(sheet["A1:B2"])
+    assert [a["func"] for a in _actions(book)] == ["addChart"]
+    assert _actions(book)[0]["args"][8] == "Rows"
+    assert chart.plot_by == "rows"
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_pending_plot_by_overridden_by_source_data_argument():
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    chart = sheet.charts.add()
+    chart.plot_by = "rows"
+    chart.set_source_data(sheet["A1:B2"], plot_by="columns")
+    assert [a["func"] for a in _actions(book)] == ["addChart"]
+    assert _actions(book)[0]["args"][8] == "Columns"
+    assert chart.plot_by == "columns"
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_no_plot_by_means_auto():
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    chart = sheet.charts.add()
+    chart.set_source_data(sheet["A1:B2"])
+    assert _actions(book)[0]["args"][8] is None
+    with pytest.raises(NotImplementedError, match="plot_by"):
+        chart.plot_by
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_set_source_data_plot_by_on_existing_chart():
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    chart = sheet.charts[0]
+    chart.set_source_data(sheet["A1:B2"], plot_by="rows")
+    assert _actions(book)[-1]["func"] == "setChartSourceData"
+    assert _actions(book)[-1]["args"] == [0, sheet.name, "$A$1:$B$2", "Rows"]
+    assert chart.plot_by == "rows"
+    assert sheet.charts[0].plot_by == "rows"
+    # replacing the data without an orientation lets Office.js pick (Auto),
+    # so the cached value is gone
+    chart.set_source_data(sheet["A1:B2"])
+    assert _actions(book)[-1]["args"] == [0, sheet.name, "$A$1:$B$2"]
+    with pytest.raises(NotImplementedError, match="plot_by"):
+        chart.plot_by
 
 
 @pytest.mark.skipif(engine == "calamine", reason="calamine engine")
@@ -3313,6 +3766,161 @@ def test_borders_sync_getters_point_at_async(book, prop, hint):
         getattr(book.sheets[0].range("A1").borders, prop)
 
 
+# Alignment
+
+_HORIZONTAL_ALIGNMENTS = [
+    ("general", "General"),
+    ("left", "Left"),
+    ("center", "Center"),
+    ("right", "Right"),
+    ("fill", "Fill"),
+    ("justify", "Justify"),
+    ("center_across_selection", "CenterAcrossSelection"),
+    ("distributed", "Distributed"),
+]
+_VERTICAL_ALIGNMENTS = [
+    ("top", "Top"),
+    ("center", "Center"),
+    ("bottom", "Bottom"),
+    ("justify", "Justify"),
+    ("distributed", "Distributed"),
+]
+
+
+def _officejs_book():
+    payload = json.loads(json.dumps(data))
+    payload["client"] = "Office.js"
+    return xw.Book(json=payload)
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("value,expected", _HORIZONTAL_ALIGNMENTS)
+def test_horizontal_alignment_setter(value, expected):
+    book = _officejs_book()
+    book.sheets[0].range("B3:C4").horizontal_alignment = value
+    action = book.json()["actions"][-1]
+    assert action["func"] == "setHorizontalAlignment"
+    assert action["args"] == [expected]
+    assert action["sheet_position"] == 0
+    # B3:C4, zero-based
+    assert action["start_row"] == 2
+    assert action["start_column"] == 1
+    assert action["row_count"] == 2
+    assert action["column_count"] == 2
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("value,expected", _VERTICAL_ALIGNMENTS)
+def test_vertical_alignment_setter(value, expected):
+    book = _officejs_book()
+    book.sheets[0].range("B3:C4").vertical_alignment = value
+    action = book.json()["actions"][-1]
+    assert action["func"] == "setVerticalAlignment"
+    assert action["args"] == [expected]
+    assert action["sheet_position"] == 0
+    # B3:C4, zero-based
+    assert action["start_row"] == 2
+    assert action["start_column"] == 1
+    assert action["row_count"] == 2
+    assert action["column_count"] == 2
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "client", ["Microsoft Office Scripts", "Google Apps Script", "VBA"]
+)
+@pytest.mark.parametrize(
+    "attribute,value",
+    [("horizontal_alignment", "center"), ("vertical_alignment", "top")],
+)
+def test_alignment_setters_unsupported_client(client, attribute, value):
+    # Only the Office.js client implements these callbacks; the others must
+    # raise rather than queue an action that would fail in the client.
+    payload = json.loads(json.dumps(data))
+    payload["client"] = client
+    book = xw.Book(json=payload)
+    rng = book.sheets[0].range("A1")
+    actions = list(book.json()["actions"])
+    with pytest.raises(NotImplementedError, match="Office.js"):
+        setattr(rng, attribute, value)
+    assert book.json()["actions"] == actions
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "attribute,valid_values",
+    [
+        ("horizontal_alignment", _HORIZONTAL_ALIGNMENTS),
+        ("vertical_alignment", _VERTICAL_ALIGNMENTS),
+    ],
+)
+@pytest.mark.parametrize("value", [None, 1, True, [], {}, "centre", "Center"])
+def test_alignment_invalid_values_do_not_queue_actions(attribute, valid_values, value):
+    book = _officejs_book()
+    rng = book.sheets[0].range("A1")
+    with pytest.raises(ValueError, match=f"Invalid {attribute}") as exc:
+        setattr(rng, attribute, value)
+    for name, _ in valid_values:
+        assert repr(name) in str(exc.value)
+    assert book.json()["actions"] == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "attribute,hint",
+    [
+        ("horizontal_alignment", "await myrange.get_horizontal_alignment()"),
+        ("vertical_alignment", "await myrange.get_vertical_alignment()"),
+    ],
+)
+def test_alignment_sync_getters_point_at_async(book, attribute, hint):
+    with pytest.raises(NotImplementedError, match=re.escape(hint)):
+        getattr(book.sheets[0].range("A1"), attribute)
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "getter,key,js_value,expected",
+    [
+        ("get_horizontal_alignment", "horizontal_alignment", js, py)
+        for py, js in _HORIZONTAL_ALIGNMENTS
+    ]
+    + [
+        ("get_vertical_alignment", "vertical_alignment", js, py)
+        for py, js in _VERTICAL_ALIGNMENTS
+    ]
+    # a range whose cells disagree reports None
+    + [
+        ("get_horizontal_alignment", "horizontal_alignment", None, None),
+        ("get_vertical_alignment", "vertical_alignment", None, None),
+    ],
+)
+def test_alignment_async_getters(book, getter, key, js_value, expected):
+    requested = []
+
+    async def fake(self, attr):
+        requested.append(attr)
+        return js_value
+
+    rng = book.sheets[0].range("A1:B2")
+    with mock.patch.object(xw.pro._xlremote.Range, "_get_range_data", fake):
+        assert asyncio.run(getattr(rng, getter)()) == expected
+    assert requested == [key]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "getter", ["get_horizontal_alignment", "get_vertical_alignment"]
+)
+def test_alignment_async_getters_require_lite(book, getter):
+    # Without the mock, _get_range_data raises the Lite-only error off-Emscripten
+    with pytest.raises(
+        NotImplementedError,
+        match=re.escape(f"{getter}() is only supported in xlwings Lite"),
+    ):
+        asyncio.run(getattr(book.sheets[0].range("A1"), getter)())
+
+
 def test_get_value_not_supported(book):
     with pytest.raises(NotImplementedError):
         asyncio.run(book.sheets[0].range("A1").get_value())
@@ -3367,3 +3975,416 @@ def test_pipeline_async_call_mixed_stages():
     asyncio.run(pipeline.async_call(ctx))
     assert ctx["value"] == 12
     assert log == ["sync", "async", "sync"]
+
+
+# --- pivot tables (Office.js only) ---
+
+
+def _pivot_payload():
+    payload = json.loads(json.dumps(data))
+    payload["client"] = "Office.js"
+    for sheet in payload["sheets"]:
+        sheet["pivot_tables"] = []
+    payload["sheets"][0]["pivot_tables"] = [
+        {
+            "name": "PivotTable1",
+            "field_names": ["Region", "Product", "Year", "Sales", "Qty"],
+            "rows": ["Region"],
+            "columns": ["Year"],
+            "filters": [],
+            "values": [
+                {
+                    "name": "Sum of Sales",
+                    "source_field": "Sales",
+                    "function": "Sum",
+                    "number_format": "General",
+                },
+                {
+                    "name": "Count of Qty",
+                    "source_field": "Qty",
+                    "function": "Automatic",
+                    "number_format": "0",
+                },
+            ],
+            "layout": "Compact",
+            "show_row_grand_totals": True,
+            "show_column_grand_totals": True,
+        },
+        {
+            "name": "PivotTable2",
+            "field_names": ["a", "b"],
+            "rows": [],
+            "columns": [],
+            "filters": [],
+            "values": [],
+            # Office.js reports null for mixed layouts
+            "layout": None,
+            "show_row_grand_totals": False,
+            "show_column_grand_totals": True,
+        },
+    ]
+    return payload
+
+
+@pytest.fixture
+def pivot_book():
+    book = _gridlines_book(_pivot_payload())
+    yield book
+    book.close()
+
+
+def _actions(book, start=0):
+    return book.json()["actions"][start:]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_tables_collection(pivot_book):
+    sheet = pivot_book.sheets[0]
+    pts = sheet.pivot_tables
+    assert len(pts) == 2
+    assert [pt.name for pt in pts] == ["PivotTable1", "PivotTable2"]
+    assert pts[0].name == "PivotTable1"
+    assert pts[-1].name == "PivotTable2"
+    assert pts["PivotTable2"].name == "PivotTable2"
+    assert pts(1).name == "PivotTable1"
+    assert "PivotTable1" in pts
+    assert "PivotTable9" not in pts
+    assert pts.parent == sheet
+    assert pts[0].parent == sheet
+    assert pts[0] == pts["PivotTable1"]
+    assert pts[0] != pts[1]
+    assert repr(pts[0]) == "<PivotTable 'PivotTable1' in Sheet 1>"
+    with pytest.raises(KeyError):
+        pts["nope"]
+    assert len(pivot_book.sheets[1].pivot_tables) == 0
+    assert _actions(pivot_book) == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_table_getters(pivot_book):
+    pt = pivot_book.sheets[0].pivot_tables[0]
+    assert pt.field_names == ["Region", "Product", "Year", "Sales", "Qty"]
+    assert [f.name for f in pt.rows] == ["Region"]
+    assert [f.name for f in pt.columns] == ["Year"]
+    assert list(pt.filters) == []
+    assert len(pt.rows) == 1
+    assert "Region" in pt.rows
+    assert pt.rows["Region"].name == "Region"
+    assert pt.rows[0].parent == pt
+    assert repr(pt.rows[0]) == "<PivotField 'Region' in 'PivotTable1'>"
+    with pytest.raises(KeyError):
+        pt.rows["Year"]
+    values = pt.values
+    assert len(values) == 2
+    assert [v.name for v in values] == ["Sum of Sales", "Count of Qty"]
+    assert values["Sum of Sales"].source_field == "Sales"
+    assert values[0].function == "sum"
+    assert values[0].number_format == "General"
+    # "Automatic" only says that Excel picked the function
+    assert values[1].function is None
+    assert values[1].number_format == "0"
+    assert "Count of Qty" in values
+    assert values[0].parent == pt
+    assert pt.layout == "compact"
+    assert pt.show_row_grand_totals is True
+    assert pt.show_column_grand_totals is True
+    pt2 = pivot_book.sheets[0].pivot_tables[1]
+    assert pt2.layout is None
+    assert pt2.show_row_grand_totals is False
+    assert list(pt2.values) == []
+    with pytest.raises(NotImplementedError):
+        pt.range
+    with pytest.raises(NotImplementedError):
+        pt.data_body_range
+    with pytest.raises(NotImplementedError):
+        pt.rows[0].api
+    assert _actions(pivot_book) == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_table_setters(pivot_book):
+    pt = pivot_book.sheets[0].pivot_tables[0]
+    pt.name = "Sales"
+    assert pt.name == "Sales"
+    assert pivot_book.sheets[0].pivot_tables["Sales"].name == "Sales"
+    pt.layout = "tabular"
+    assert pt.layout == "tabular"
+    pt.show_row_grand_totals = False
+    assert pt.show_row_grand_totals is False
+    pt.show_column_grand_totals = False
+    pt.refresh()
+    with pytest.raises(ValueError, match="Invalid layout"):
+        pt.layout = "fancy"
+    actions = _actions(pivot_book)
+    assert [(a["func"], a["args"], a["sheet_position"]) for a in actions] == [
+        ("setPivotTableName", [0, "Sales"], 0),
+        ("setPivotLayout", [0, "layout", "Tabular"], 0),
+        ("setPivotLayout", [0, "show_row_grand_totals", False], 0),
+        ("setPivotLayout", [0, "show_column_grand_totals", False], 0),
+        ("refreshPivotTable", [0], 0),
+    ]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_fields_add_move_remove(pivot_book):
+    pt = pivot_book.sheets[0].pivot_tables[0]
+    field = pt.rows.add("Product")
+    assert field.name == "Product"
+    assert [f.name for f in pt.rows] == ["Region", "Product"]
+    # already there: no-op, position kept
+    pt.rows.add("Region")
+    assert [f.name for f in pt.rows] == ["Region", "Product"]
+    assert len(_actions(pivot_book)) == 1
+    # moving between areas
+    year = pt.columns["Year"]
+    pt.rows.add("Year")
+    assert [f.name for f in pt.rows] == ["Region", "Product", "Year"]
+    assert list(pt.columns) == []
+    pt.filters.add("Year")
+    assert [f.name for f in pt.filters] == ["Year"]
+    assert [f.name for f in pt.rows] == ["Region", "Product"]
+    # a retained wrapper follows the field and removes it from where it is
+    year.remove()
+    assert list(pt.filters) == []
+    year.remove()  # already gone: no-op
+    pt.rows["Product"].remove()
+    assert [f.name for f in pt.rows] == ["Region"]
+    assert [(a["func"], a["args"]) for a in _actions(pivot_book)] == [
+        ("addPivotField", [0, "rows", "Product"]),
+        ("addPivotField", [0, "rows", "Year"]),
+        ("addPivotField", [0, "filters", "Year"]),
+        ("removePivotField", [0, "filters", "Year"]),
+        ("removePivotField", [0, "rows", "Product"]),
+    ]
+    with pytest.raises(TypeError):
+        pt.rows.add(1)
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_value_fields_add(pivot_book):
+    pt = pivot_book.sheets[0].pivot_tables[0]
+    count = pt.values.add("Sales", function="count")
+    assert len(pt.values) == 3
+    assert count.source_field == "Sales"
+    assert count.function == "count"
+    # Excel picks the caption, which isn't known until the next payload
+    with pytest.raises(NotImplementedError):
+        count.name
+    with pytest.raises(NotImplementedError):
+        count.number_format
+    assert repr(count) == "<PivotValueField '?' in 'PivotTable1'>"
+    assert pt.values[2].source_field == "Sales"
+    with pytest.raises(KeyError):
+        pt.values["Count of Sales"]
+    count.number_format = "0.0"
+    assert count.number_format == "0.0"
+    count.name = "Sales Count"
+    assert count.name == "Sales Count"
+    assert pt.values["Sales Count"].function == "count"
+    # an explicit name survives a function change
+    count.function = "average"
+    assert count.name == "Sales Count"
+    full = pt.values.add("Qty", function="sum", name="Total Qty", number_format="#,##0")
+    assert full.name == "Total Qty"
+    assert full.number_format == "#,##0"
+    assert full.function == "sum"
+    plain = pt.values.add("Qty")
+    assert plain.function is None
+    # an automatic caption changes with the function, so it's unknown now
+    auto = pt.values["Sum of Sales"]
+    auto.function = "max"
+    with pytest.raises(NotImplementedError):
+        auto.name
+    with pytest.raises(ValueError, match="Invalid function"):
+        pt.values.add("Qty", function="total")
+    with pytest.raises(ValueError, match="Invalid function"):
+        auto.function = "total"
+    assert [(a["func"], a["args"]) for a in _actions(pivot_book)] == [
+        ("addPivotValueField", [0, "Sales", "Count", None, None]),
+        ("setPivotValueField", [0, 2, "number_format", "0.0"]),
+        ("setPivotValueField", [0, 2, "name", "Sales Count"]),
+        ("setPivotValueField", [0, 2, "function", "Average"]),
+        ("addPivotValueField", [0, "Qty", "Sum", "Total Qty", "#,##0"]),
+        ("addPivotValueField", [0, "Qty", None, None, None]),
+        ("setPivotValueField", [0, 0, "function", "Max"]),
+    ]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_value_field_remove(pivot_book):
+    pt = pivot_book.sheets[0].pivot_tables[0]
+    first, second = pt.values[0], pt.values[1]
+    alias = pt.values["Sum of Sales"]
+    first.remove()
+    assert [v.name for v in pt.values] == ["Count of Qty"]
+    # the retained wrapper resolves its shifted position
+    second.number_format = "0.00"
+    assert pt.values[0].number_format == "0.00"
+    with pytest.raises(KeyError):
+        alias.name = "x"
+    with pytest.raises(KeyError):
+        first.remove()
+    assert [(a["func"], a["args"]) for a in _actions(pivot_book)] == [
+        ("removePivotValueField", [0, 0]),
+        ("setPivotValueField", [0, 0, "number_format", "0.00"]),
+    ]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_table_delete(pivot_book):
+    sheet = pivot_book.sheets[0]
+    first, second = sheet.pivot_tables[0], sheet.pivot_tables["PivotTable2"]
+    row_field = first.rows[0]
+    first.delete()
+    assert [pt.name for pt in sheet.pivot_tables] == ["PivotTable2"]
+    # the retained wrapper of the other pivot table resolves its new index
+    second.name = "Remaining"
+    assert sheet.pivot_tables[0].name == "Remaining"
+    for fn in (lambda: first.delete(), lambda: setattr(first, "name", "x")):
+        with pytest.raises(KeyError):
+            fn()
+    with pytest.raises(KeyError):
+        row_field.remove()
+    assert [(a["func"], a["args"]) for a in _actions(pivot_book)] == [
+        ("deletePivotTable", [0]),
+        ("setPivotTableName", [0, "Remaining"]),
+    ]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_tables_add(pivot_book):
+    report = pivot_book.sheets[0]
+    source = pivot_book.sheets[1]["A1:C3"]
+    pt = report.pivot_tables.add(source=source, destination=report["E3"])
+    assert pt.name == "PivotTable3"
+    assert pt.parent == report
+    assert len(report.pivot_tables) == 3
+    assert pt.field_names == []
+    assert pt.layout == "compact"
+    assert pt.show_row_grand_totals is True
+    assert list(pt.rows) == []
+    # default names are unique across the workbook
+    pivot_book.sheets[1].api["pivot_tables"].append({"name": "pivottable4"})
+    pt2 = report.pivot_tables.add(
+        source=report.tables[0],
+        destination=report["H3"],
+        rows="Region",
+        columns=["Year"],
+        filters="Product",
+        values={"Sales": "sum", "Qty": None},
+        layout="outline",
+    )
+    assert pt2.name == "PivotTable5"
+    assert [f.name for f in pt2.rows] == ["Region"]
+    assert [f.name for f in pt2.columns] == ["Year"]
+    assert [f.name for f in pt2.filters] == ["Product"]
+    assert [v.source_field for v in pt2.values] == ["Sales", "Qty"]
+    assert pt2.layout == "outline"
+    pt3 = report.pivot_tables.add(
+        source,
+        report["K3"],
+        name="Twice",
+        values=[("Sales", "sum"), ("Sales", "count")],
+    )
+    assert [(v.source_field, v.function) for v in pt3.values] == [
+        ("Sales", "sum"),
+        ("Sales", "count"),
+    ]
+    actions = [
+        (a["func"], a["args"], a["sheet_position"]) for a in _actions(pivot_book)
+    ]
+    assert actions[0] == (
+        "addPivotTable",
+        ["PivotTable3", "range", "'Sheet2'!$A$1:$C$3", "$E$3"],
+        0,
+    )
+    assert actions[1] == (
+        "addPivotTable",
+        ["PivotTable5", "table", report.tables[0].name, "$H$3"],
+        0,
+    )
+    # pt2 is the fourth pivot table on the sheet
+    assert [a[:2] for a in actions[2:8]] == [
+        ("addPivotField", [3, "rows", "Region"]),
+        ("addPivotField", [3, "columns", "Year"]),
+        ("addPivotField", [3, "filters", "Product"]),
+        ("addPivotValueField", [3, "Sales", "Sum", None, None]),
+        ("addPivotValueField", [3, "Qty", None, None, None]),
+        ("setPivotLayout", [3, "layout", "Outline"]),
+    ]
+    assert actions[8] == (
+        "addPivotTable",
+        ["Twice", "range", "'Sheet2'!$A$1:$C$3", "$K$3"],
+        0,
+    )
+    # a source on a sheet with a quote-worthy name
+    pt4 = pivot_book.sheets[1].pivot_tables.add(
+        report["A1:B2"], pivot_book.sheets[1]["A10"]
+    )
+    assert pt4.parent == pivot_book.sheets[1]
+    last = _actions(pivot_book)[-1]
+    assert last["args"][2] == "'Sheet 1'!$A$1:$B$2"
+    assert last["sheet_position"] == 1
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_tables_add_errors(pivot_book):
+    from xlwings import XlwingsError
+
+    report = pivot_book.sheets[0]
+    source = pivot_book.sheets[1]["A1:C3"]
+    with pytest.raises(ValueError, match="destination"):
+        report.pivot_tables.add(source, pivot_book.sheets[1]["A3"])
+    with pytest.raises(XlwingsError, match="already exists"):
+        report.pivot_tables.add(source, report["E3"], name="PivotTable1")
+    with pytest.raises(TypeError):
+        report.pivot_tables.add("A1:C3", report["E3"])
+    with pytest.raises(ValueError, match="Invalid function"):
+        report.pivot_tables.add(source, report["E3"], values={"Sales": "total"})
+    with pytest.raises(ValueError, match="Invalid layout"):
+        report.pivot_tables.add(source, report["E3"], layout="wide")
+    with pytest.raises(TypeError):
+        report.pivot_tables.add(source, report["E3"], rows=[1])
+    for values in ({42: "sum"}, [("Sales", "sum"), (42, "sum")], [(None, None)]):
+        with pytest.raises(TypeError, match="field name must be a string"):
+            report.pivot_tables.add(source, report["E3"], values=values)
+    assert _actions(pivot_book) == []
+    assert len(report.pivot_tables) == 2
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_tables_added_sheet(pivot_book):
+    sheet = pivot_book.sheets.add("fresh")
+    assert len(sheet.pivot_tables) == 0
+    pt = sheet.pivot_tables.add(pivot_book.sheets[0]["A1:B2"], sheet["A1"])
+    assert pt.name == "PivotTable3"
+    assert _actions(pivot_book)[-1]["sheet_position"] == sheet.index - 1
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("client", ["Microsoft Office Scripts", "Google Apps Script"])
+def test_pivot_tables_unsupported_client(client):
+    payload = json.loads(json.dumps(data))
+    payload["client"] = client
+    book = _gridlines_book(payload)
+    try:
+        for sheet in (book.sheets[0], book.sheets.add()):
+            with pytest.raises(NotImplementedError, match="Office.js"):
+                sheet.pivot_tables
+        assert book.json()["actions"][-1]["func"] == "addSheet"
+    finally:
+        book.close()
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_tables_unsupported_excel():
+    # the client sends null when Excel lacks the ExcelApi 1.8 pivot API
+    payload = _pivot_payload()
+    payload["sheets"][0]["pivot_tables"] = None
+    book = _gridlines_book(payload)
+    try:
+        with pytest.raises(NotImplementedError, match="1.8"):
+            book.sheets[0].pivot_tables
+        assert len(book.sheets[1].pivot_tables) == 0
+    finally:
+        book.close()

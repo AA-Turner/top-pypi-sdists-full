@@ -3,17 +3,18 @@ import re
 from sqlalchemy import Column
 from sqlalchemy import event
 from sqlalchemy import ForeignKey
+from sqlalchemy import func
 from sqlalchemy import inspect
 from sqlalchemy import Integer
 from sqlalchemy import MetaData
 from sqlalchemy import select
 from sqlalchemy import Table
 from sqlalchemy import testing
+from sqlalchemy import true
 from sqlalchemy.engine import result
 from sqlalchemy.ext.hybrid import hybrid_method
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import aliased
-from sqlalchemy.orm import clear_mappers
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
@@ -164,7 +165,6 @@ class AliasedClassTest(fixtures.MappedTest, AssertsCompiledSQL):
             Column("x", Integer),
             Column("y", Integer),
         )
-        clear_mappers()
         self.mapper_registry.map_imperatively(
             cls, table, properties=properties
         )
@@ -207,6 +207,41 @@ class AliasedClassTest(fixtures.MappedTest, AssertsCompiledSQL):
 
         self.assert_compile(
             select(alias), "SELECT pp.id, pp.x, pp.y FROM point AS pp"
+        )
+
+    def test_named_flat_entity_join_of_anon_aliases(self):
+        """test #13583"""
+
+        class Point:
+            pass
+
+        m = MetaData()
+        point = Table(
+            "point",
+            m,
+            Column("id", Integer(), primary_key=True),
+            Column("x", Integer),
+        )
+        point_detail = Table(
+            "point_detail",
+            m,
+            Column("pid", ForeignKey("point.id"), primary_key=True),
+            Column("z", Integer),
+        )
+        p_a = point.alias()
+        pd_a = point_detail.alias()
+
+        self.mapper_registry.map_imperatively(
+            Point, p_a.join(pd_a, p_a.c.id == pd_a.c.pid)
+        )
+
+        alias = aliased(Point, name="pp", flat=True)
+
+        self.assert_compile(
+            select(alias),
+            "SELECT anon_1.id, anon_1.x, anon_2.pid, anon_2.z "
+            "FROM point AS anon_1 JOIN point_detail AS anon_2 "
+            "ON anon_1.id = anon_2.pid",
         )
 
     def test_not_instantiatable(self):
@@ -598,6 +633,130 @@ class AliasedClassTest(fixtures.MappedTest, AssertsCompiledSQL):
             "SELECT point_alias.x FROM (SELECT point.x AS x "
             "FROM point WHERE point.id = :id_1) AS point_alias",
         )
+
+
+class IsAliasOfSelectableTest(fixtures.TestBase):
+    """test the _is_alias_of_selectable() function used by aliased() to
+    determine if an aliased() entity refers to the mapped selectable,
+    #13583"""
+
+    @testing.fixture
+    def t(self):
+        m = MetaData()
+        a = Table("a", m, Column("id", Integer, primary_key=True))
+        b = Table("b", m, Column("id", ForeignKey("a.id"), primary_key=True))
+        c = Table("c", m, Column("id", ForeignKey("a.id"), primary_key=True))
+
+        # a LEFT OUTER JOIN b
+        j = a.outerjoin(b)
+
+        return dict(
+            a=a,
+            b=b,
+            c=c,
+            j=j,
+            # (a LEFT OUTER JOIN b) LEFT OUTER JOIN c, against the same
+            # "j" join object
+            j_c=j.outerjoin(c),
+            # (a LEFT OUTER JOIN b) LEFT OUTER JOIN c
+            j3=a.outerjoin(b).outerjoin(c),
+            # a LEFT OUTER JOIN (b JOIN c)
+            jr=a.outerjoin(b.join(c, b.c.id == c.c.id), a.c.id == b.c.id),
+        )
+
+    @testing.combinations(
+        ("table", lambda a: (a, a), True),
+        ("table_alias", lambda a: (a.alias(), a), True),
+        ("table_named_alias", lambda a: (a.alias("x"), a), True),
+        ("table_alias_of_alias", lambda a: (a.alias().alias(), a), False),
+        ("other_table", lambda a, b: (b, a), False),
+        ("other_table_alias", lambda a, b: (b.alias(), a), False),
+        ("subquery", lambda a: (select(a).subquery(), a), False),
+        ("cte", lambda a: (select(a).cte(), a), False),
+        (
+            "tablesample",
+            lambda a: (a.tablesample(func.bernoulli(1)), a),
+            False,
+        ),
+        ("join", lambda j: (j, j), True),
+        (
+            "join_flat_alias",
+            lambda j: (j._anonymous_fromclause(flat=True), j),
+            True,
+        ),
+        ("join_alias", lambda j: (j.alias(), j), True),
+        ("join_alias_three_tables", lambda j3: (j3.alias(), j3), True),
+        (
+            "join_subquery",
+            lambda j: (j.select().subquery(), j),
+            False,
+        ),
+        (
+            "join_inner_vs_outer",
+            lambda a, b, j: (a.join(b)._anonymous_fromclause(flat=True), j),
+            False,
+        ),
+        (
+            "join_full_vs_outer",
+            lambda a, b, j: (
+                a.outerjoin(b, full=True)._anonymous_fromclause(flat=True),
+                j,
+            ),
+            False,
+        ),
+        (
+            "join_other_table",
+            lambda a, c, j: (
+                a.outerjoin(c)._anonymous_fromclause(flat=True),
+                j,
+            ),
+            False,
+        ),
+        (
+            "join_more_tables",
+            lambda j, j3: (j3._anonymous_fromclause(flat=True), j),
+            False,
+        ),
+        (
+            "join_fewer_tables",
+            lambda j, j3: (j._anonymous_fromclause(flat=True), j3),
+            False,
+        ),
+        (
+            "join_w_grouping_flat_alias",
+            lambda jr: (jr._anonymous_fromclause(flat=True), jr),
+            True,
+        ),
+        (
+            "join_w_grouping_vs_join",
+            lambda j3, jr: (jr._anonymous_fromclause(flat=True), j3),
+            False,
+        ),
+        (
+            "join_vs_join_w_grouping",
+            lambda j3, jr: (j3._anonymous_fromclause(flat=True), jr),
+            False,
+        ),
+        (
+            # the alias of "j" matches "j" itself, however the target
+            # continues on to the tables within "j"
+            "join_w_nested_alias_vs_join",
+            lambda c, j, j_c: (j.alias().outerjoin(c, true()), j_c),
+            False,
+        ),
+        ("table_vs_join", lambda a, j: (a.alias(), j), False),
+        (
+            "join_vs_table",
+            lambda a, j: (j._anonymous_fromclause(flat=True), a),
+            False,
+        ),
+        id_="iaa",
+        argnames="make_selectables, expected",
+    )
+    def test_is_alias_of_selectable(self, t, make_selectables, expected):
+        selectable, target = testing.resolve_lambda(make_selectables, **t)
+
+        eq_(orm_util._is_alias_of_selectable(selectable, target), expected)
 
 
 class IdentityKeyTest(_fixtures.FixtureTest):

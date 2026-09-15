@@ -38,7 +38,6 @@ import os
 import platform
 import re
 import shutil
-import socket
 import subprocess
 import sys
 import sysconfig
@@ -52,14 +51,14 @@ from pathlib import Path
 
 import click
 from boltons.formatutils import BaseFormatField, tokenize_format_str
-from boltons.strutils import strip_ansi
 from click import echo, get_current_context
 from click._utils import UNSET
 from extra_platforms import current_architecture, current_platform
 
-from ._utils import memoize_enums, patch_attr
+from ._utils import memoize_enums
 from .color import invocation_color, is_a_tty
 from .context import ACCESSIBLE, _LazyMetaDict, get
+from .layout import cell_width
 from .parameters import ExtraOption
 from .styling import Style
 from .theme import get_current_theme
@@ -170,6 +169,7 @@ if TYPE_CHECKING:
     from types import FrameType, ModuleType
     from typing import Any, ClassVar, TypeAlias
 
+    from click import Command
     from cloup.styling import IStyle
 
     Facts: TypeAlias = Mapping[str, str]
@@ -554,7 +554,7 @@ def resolve_license(meta: PackageMetadata | None) -> str | None:
     for classifier in meta.get_all("Classifier") or []:
         text = str(classifier)
         if text.startswith("License ::"):
-            return text.split("::")[-1].strip()
+            return text.rsplit("::", maxsplit=1)[-1].strip()
 
     # Free-form legacy field (may hold the full license text).
     return meta_value(meta, "License")
@@ -573,15 +573,6 @@ def env_summary() -> str:
     draw a screen at all: `@version_option(fields={"env_info": env_summary()})`.
     """
     return f"Python {platform.python_version()}, {platform_label()}"
-
-
-def _scrubbed_host(*args: Any) -> str:
-    """Stand in for a host name lookup, returning what `scrub` would write.
-
-    Takes the arguments `socket.getfqdn()` accepts, so it can answer for both
-    it and `socket.gethostname()`. See {attr}`VersionOption.env_info`.
-    """
-    return "-"
 
 
 def dependency_versions() -> str:
@@ -619,16 +610,12 @@ def default_facts() -> dict[str, str]:
 
 
 def visible_width(text: str) -> int:
-    """Columns *text* occupies once its escape sequences are discounted.
+    """Cells *text* occupies once its escape sequences are discounted.
 
-    ```{caution}
-    Counts characters, not display cells, so a logo drawn with double-width
-    characters (CJK, emoji) measures short and its screen lays out ragged. Every
-    character a terminal renders one cell wide is fine, which covers ASCII, the
-    block and box-drawing ranges, and braille.
-    ```
+    Kept as the name this module has always measured with;
+    {func}`~click_extra.layout.cell_width` is where the measure lives.
     """
-    return len(strip_ansi(text))
+    return cell_width(text)
 
 
 @dataclass(frozen=True)
@@ -938,9 +925,18 @@ class VersionOption(ExtraOption):
                 )
                 raise ValueError(msg)
 
+        self._field_overrides: frozenset[str] = frozenset()
+        """Fields the caller pinned, which no later resolution may reconsider.
+
+        An override lands in the instance dict under the name of the
+        `cached_property` it shadows, so nothing distinguishes the two by
+        inspection. {meth}`reset_resolution` needs the difference: it drops a
+        resolved field and must leave a pinned one alone.
+        """
+
         # A field value override shadows the cached_property of the same name.
         for field_id, field_value in field_overrides.items():
-            setattr(self, field_id, field_value)
+            self.pin_field(field_id, field_value)
 
         # Per-field styles: class defaults overridden by user-provided styles.
         self.styles: dict[str, IStyle | None] = {
@@ -958,6 +954,46 @@ class VersionOption(ExtraOption):
             help=help,
             **kwargs,
         )
+
+    def pin_field(self, field_id: str, value: Any) -> None:
+        """Pin a template field to a caller-supplied value.
+
+        The value shadows the `cached_property` that would otherwise resolve
+        the field, and is recorded so {meth}`reset_resolution` can tell the two
+        apart. Every caller that pins a field goes through here: a bare
+        `setattr` sets the value without the record, and the next reset then
+        discards it.
+
+        :param field_id: Name of the template field to pin.
+        :param value: Value the field reports from now on.
+        """
+        setattr(self, field_id, value)
+        self._field_overrides = self._field_overrides | {field_id}
+
+    def reset_resolution(self) -> None:
+        """Drop every memoized field, so the next read resolves from scratch.
+
+        The resolution chain starts on a stack walk, and the option is built
+        once at decoration time, so the first read in a process fixes the
+        answer for every later one. That is what a CLI wants: one invocation,
+        one process, one walk.
+
+        A documentation build breaks the assumption. It renders many commands
+        in one process, and a render that carries no CLI frame (writing roff
+        for a command tree, say) resolves the chain from a stack the walk
+        cannot read. The wrong answer then stands for the rest of the build,
+        and a later `--version` example publishes it. Clearing the memo hands
+        the next reader its own walk, at the cost of repeating one.
+
+        A field the caller pinned through `fields=` is not a resolution and
+        survives: see {attr}`_field_overrides`.
+        """
+        cls = type(self)
+        for key in list(self.__dict__):
+            if key in self._field_overrides:
+                continue
+            if isinstance(getattr(cls, key, None), cached_property):
+                del self.__dict__[key]
 
     def __deepcopy__(self, memo: dict[int, Any]) -> VersionOption:
         """Copy the option, dropping every cached field value.
@@ -1644,20 +1680,14 @@ class VersionOption(ExtraOption):
         # path. Do not hoist this back to module scope.
         from boltons.ecoutils import get_profile
 
-        # `get_profile()` resolves the host's name and fully-qualified name,
-        # then overwrites both with "-" because `scrub` is set. The second of
-        # those is a reverse DNS lookup, so a host whose resolver does not
-        # answer pays that timeout in full for a value already thrown away:
-        # ~35 s per call on a GitHub macOS runner, which is what made a
-        # `--verbosity DEBUG` run there take over an hour. Answering both from
-        # a stub returns the very string `scrub` would have written. `ecoutils`
-        # reaches them through its own `import socket`, so patching the module
-        # here patches the object it reads.
-        with (
-            patch_attr(socket, "gethostname", _scrubbed_host),
-            patch_attr(socket, "getfqdn", _scrubbed_host),
-        ):
-            return get_profile(scrub=True)
+        # `scrub` does more than keep the user, host and working directory out
+        # of a profile meant to be pasted into a bug report: since `boltons`
+        # `26.2.0` it also skips the lookups behind them. One of those is a
+        # reverse DNS query costing ~35 s per call on a GitHub macOS runner
+        # whose resolver never answered, which made a `--verbosity DEBUG` run
+        # there take over an hour. Another is `os.getcwd()`, which raises once
+        # the working directory is gone. Never drop this argument.
+        return get_profile(scrub=True)
 
     def field_style(self, field_id: str | None = None) -> IStyle:
         """Style painting the *field_id* segment of a rendered message.
@@ -1835,3 +1865,28 @@ class VersionOption(ExtraOption):
 
         echo(self.render_message(), color=ctx.color)
         ctx.exit()
+
+
+def reset_version_resolution(command: Command) -> None:
+    """Reset every {class}`VersionOption` in a command tree.
+
+    Walks the tree once, cycle-safe, and calls
+    {meth}`VersionOption.reset_resolution` on each option it finds.
+
+    Written for a documentation build, which renders many commands in one
+    process where a CLI renders one. See that method for what a stale
+    resolution costs a published page.
+    """
+    seen: set[int] = set()
+
+    def walk(cmd: Command) -> None:
+        if id(cmd) in seen:
+            return
+        seen.add(id(cmd))
+        for param in cmd.params:
+            if isinstance(param, VersionOption):
+                param.reset_resolution()
+        for sub in getattr(cmd, "commands", {}).values():
+            walk(sub)
+
+    walk(command)

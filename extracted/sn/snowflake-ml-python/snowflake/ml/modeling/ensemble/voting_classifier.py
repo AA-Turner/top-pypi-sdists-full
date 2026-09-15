@@ -960,7 +960,7 @@ class VotingClassifier(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.ensemble.VotingClassifier.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.VotingClassifier.html#sklearn.ensemble.VotingClassifier.score)
 

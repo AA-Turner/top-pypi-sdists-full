@@ -3,19 +3,28 @@ from __future__ import annotations
 import functools
 import inspect
 import logging
-import warnings
 from inspect import Parameter, Signature
 from pathlib import Path
 from types import MethodType, ModuleType
 from typing import TYPE_CHECKING, Callable, Protocol, Type
 
+from huggingface_hub import constants
+
+from kernels._rust import KernelDependency, KernelLocks
+from kernels.resolver import LockedHubCacheResolver, LockedHubResolver
+
 from .._versions import select_revision_or_version
-from ..utils import (
-    _get_caller_locked_kernel,
-    _get_locked_kernel,
+from ..hf_hub import _get_hf_api
+from ..load import (
     get_kernel,
+    get_kernel_with_resolver,
     get_local_kernel,
 )
+from ..locking import (
+    get_caller_locked_kernel_revision,
+    get_locked_kernel_revision,
+)
+from ..validate import AllValidator, default_metadata_validators
 from .device import Device
 from .globals import _DISABLE_KERNEL_MAPPING, _KERNEL_MAPPING
 from .mode import Mode
@@ -23,6 +32,8 @@ from .repos import RepositoryProtocol, _select_repository
 
 if TYPE_CHECKING:
     from torch import nn
+
+logger = logging.getLogger(__name__)
 
 
 class LayerRepositoryProtocol(RepositoryProtocol, Protocol):
@@ -45,9 +56,12 @@ class LayerRepository:
             The kernel version to download. Cannot be used together with `revision`.
             Either `version` or `revision` must be specified.
         trust_remote_code (`bool | list[str]`, *optional*, defaults to `False`):
-            Whether to allow loading kernels from untrusted organisations. A list
-            of signing identities can be provided for future verification support;
-            until then it warns and falls back to the default trust check.
+            Whether to allow loading kernels from untrusted organisations. When `False`,
+            only kernels from trusted organisations are allowed. When `True`, all
+            repositories are allowed. A list of repository IDs allows only those
+            repositories in addition to repositories from trusted organisations.
+        user_agent (`Union[str, dict]`, *optional*):
+            Optional application metadata to include in the user-agent for Hub requests.
 
     Example:
         ```python
@@ -70,6 +84,7 @@ class LayerRepository:
         revision: str | None = None,
         version: int | None = None,
         trust_remote_code: bool | list[str] = False,
+        user_agent: str | dict | None = None,
     ):
         if revision is not None and version is not None:
             raise ValueError("Either a revision or a version must be specified, not both.")
@@ -78,7 +93,10 @@ class LayerRepository:
 
         self._repo_id = repo_id
         self.layer_name = layer_name
-        self._trust_remote_code = trust_remote_code
+        self._trust_remote_code = (
+            trust_remote_code.copy() if isinstance(trust_remote_code, list) else trust_remote_code
+        )
+        self._user_agent = user_agent
 
         # We are going to resolve these lazily, since we do not want
         # to do a network request for every registered LayerRepository.
@@ -91,6 +109,7 @@ class LayerRepository:
             repo_id=self._repo_id,
             revision=self._revision,
             version=self._version,
+            local_files_only=constants.HF_HUB_OFFLINE,
         )
 
     def load(self) -> Type["nn.Module"]:
@@ -98,6 +117,7 @@ class LayerRepository:
             self._repo_id,
             revision=self._resolve_revision(),
             trust_remote_code=self._trust_remote_code,
+            user_agent=self._user_agent,
         )
         return _get_kernel_layer(self, kernel)
 
@@ -118,7 +138,9 @@ class LayerRepository:
                 self._repo_id,
                 self._revision,
                 self._version,
-                self._trust_remote_code,
+                tuple(self._trust_remote_code)
+                if isinstance(self._trust_remote_code, list)
+                else self._trust_remote_code,
             )
         )
 
@@ -202,26 +224,37 @@ class LockedLayerRepository:
         self._repo_id = repo_id
         self._lockfile = lockfile
         self.layer_name = layer_name
-        self._trust_remote_code = trust_remote_code
-        self._revision = self._resolve_revision()
+        self._trust_remote_code = (
+            trust_remote_code.copy() if isinstance(trust_remote_code, list) else trust_remote_code
+        )
+        kernel_locks, kernel_dep = self._get_lock()
+        self.kernel_locks = kernel_locks
+        self.kernel_dep = kernel_dep
 
-    def _resolve_revision(self) -> str:
+    def _get_lock(self) -> tuple[KernelLocks, KernelDependency]:
         if self._lockfile is None:
-            locked_sha = _get_caller_locked_kernel(self._repo_id)
+            return get_caller_locked_kernel_revision(self._repo_id)
         else:
-            with open(self._lockfile, "r") as f:
-                locked_sha = _get_locked_kernel(self._repo_id, f.read())
-
-        if locked_sha is None:
-            raise ValueError(f"Kernel `{self._repo_id}` is not locked")
-
-        return locked_sha
+            return get_locked_kernel_revision(self._repo_id, self._lockfile)
 
     def load(self) -> Type["nn.Module"]:
-        kernel = get_kernel(
-            repo_id=self._repo_id,
-            revision=self._revision,
-            trust_remote_code=self._trust_remote_code,
+        resolver = (
+            LockedHubCacheResolver(
+                kernel_locks=self.kernel_locks,
+                trust_remote_code=self._trust_remote_code,
+            )
+            if constants.HF_HUB_OFFLINE
+            else LockedHubResolver(
+                kernel_locks=self.kernel_locks,
+                trust_remote_code=self._trust_remote_code,
+            )
+        )
+        kernel = get_kernel_with_resolver(
+            api=_get_hf_api(),
+            backend=None,
+            kernel=self.kernel_dep,
+            resolver=resolver,
+            metadata_validator=AllValidator(validators=default_metadata_validators()),
         )
         return _get_kernel_layer(self, kernel)
 
@@ -230,24 +263,33 @@ class LockedLayerRepository:
             isinstance(other, LockedLayerRepository)
             and self.layer_name == other.layer_name
             and self._repo_id == other._repo_id
-            and self._revision == other._revision
+            and self.kernel_dep == other.kernel_dep
+            and self.kernel_locks == other.kernel_locks
             and self._trust_remote_code == other._trust_remote_code
         )
 
     def __hash__(self):
-        return hash((self.layer_name, self._repo_id, self._revision, self._trust_remote_code))
+        return hash(
+            (
+                self.layer_name,
+                self._repo_id,
+                self.kernel_dep,
+                self.kernel_locks,
+                tuple(self._trust_remote_code)
+                if isinstance(self._trust_remote_code, list)
+                else self._trust_remote_code,
+            )
+        )
 
     def __str__(self) -> str:
-        return f"`{self._repo_id}` (revision: {self._revision}), layer `{self.layer_name}`"
+        commit = self.kernel_locks[self.kernel_dep].commit
+        return f"`{self._repo_id}` (revision: {commit}), layer `{self.layer_name}`)"
 
 
 _CACHED_LAYER: dict[RepositoryProtocol, Type["nn.Module"]] = {}
 
 
-def replace_kernel_forward_from_hub(
-    cls,
-    layer_name: str,
-):
+def replace_kernel_forward_from_hub(cls, layer_name: str, condition: Callable[["nn.Module"], bool] | None = None):
     """
     Function that prepares a layer class to use kernels from the Hugging Face Hub.
 
@@ -255,6 +297,15 @@ def replace_kernel_forward_from_hub(
     This function should only be used as a last resort to extend third-party layers,
     it is inherently fragile since the member variables and `forward` signature
     of such a layer can change.
+
+    Args:
+        layer_name (`str`):
+            The name of the layer to use for kernel lookup in registered mappings.
+        condition (`Callable[["nn.Module"], bool]`, *optional*):
+            Additional condition that is checked during kernelization. The callable
+            is passed the module instance and is evaluated for every instance of
+            the layer when [`~kernels.kernelize`] is called. If it returns `False`,
+            kernelization is skipped for that instance.
 
     Example:
         ```python
@@ -265,9 +316,12 @@ def replace_kernel_forward_from_hub(
         ```
     """
     cls.kernel_layer_name = layer_name
+    # Wrap in `staticmethod` so that access through an instance does not bind
+    # it as a method (the condition takes the module as its only argument).
+    cls.kernel_condition = staticmethod(condition if condition is not None else lambda module: True)
 
 
-def use_kernel_forward_from_hub(layer_name: str):
+def use_kernel_forward_from_hub(layer_name: str, condition: Callable[["nn.Module"], bool] | None = None):
     """
     Decorator factory that makes a layer extensible using the specified layer name.
 
@@ -283,6 +337,11 @@ def use_kernel_forward_from_hub(layer_name: str):
     Args:
         layer_name (`str`):
             The name of the layer to use for kernel lookup in registered mappings.
+        condition (`Callable[["nn.Module"], bool]`, *optional*):
+            Additional condition that is checked during kernelization. The callable
+            is passed the module instance and is evaluated for every instance of
+            the layer when [`~kernels.kernelize`] is called. If it returns `False`,
+            kernelization is skipped for that instance.
 
     Returns:
         `Callable`: A decorator function that can be applied to layer classes.
@@ -328,10 +387,10 @@ def use_kernel_forward_from_hub(layer_name: str):
     def decorator(ty):
         if inspect.isfunction(ty):
             Func = _create_func_module(ty)
-            replace_kernel_forward_from_hub(Func, layer_name)
+            replace_kernel_forward_from_hub(Func, layer_name, condition)
             return Func()
         elif inspect.isclass(ty):
-            replace_kernel_forward_from_hub(ty, layer_name)
+            replace_kernel_forward_from_hub(ty, layer_name, condition)
             return ty
         else:
             raise TypeError("@use_kernel_forward_from_hub can only be applied to classes or functions")
@@ -420,7 +479,7 @@ def kernelize_layer(module: "nn.Module", *, mode: Mode, device_type: Device, use
     kernel = _KERNEL_MAPPING.get().get(str(layer_name))
 
     if kernel is None:
-        warnings.warn(
+        logger.warning(
             "\n"
             f"No kernel mapping found for layer `{layer_name}`. "
             f"Check if the layer name matches one of the kernels in the mapping or add the kernel "

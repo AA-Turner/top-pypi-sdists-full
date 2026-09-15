@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vnai"
-version = "2.5.9"
+version = "2.6.0"
 description = "Vnstock Analytics Interface"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,7 +16,8 @@ urls = {"Homepage" = "https://vnstocks.com"}
 dependencies = [
     "requests>=2.25.0",
     "psutil>=5.8.0",
-    "cffi>=1.17.1"
+    "cffi>=1.17.1",
+    "pandas>=1.5.0"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -28,8 +29,13 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=6.0.0"
+    "pytest>=6.0.0",
+    "pyflakes>=3.0.0",
+    "build>=1.0.0"
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["."]

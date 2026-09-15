@@ -6,6 +6,21 @@ import requests
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+TELEMETRY_ENV_VAR = "VNSTOCK_TELEMETRY"
+_OFF_VALUES = {"0", "off", "false", "no", "disable", "disabled"}
+
+def telemetry_enabled() -> bool:
+    import os
+    raw = os.environ.get(TELEMETRY_ENV_VAR)
+    if raw is not None and raw.strip().lower() in _OFF_VALUES:
+        return False
+    try:
+        from vnai.scope.state import tracker
+        if tracker.get_privacy_level() == "minimal":
+            return False
+    except Exception:
+        pass
+    return True
 
 class Conduit:
     _instance = None
@@ -161,8 +176,6 @@ class Conduit:
                 d["segment"] = segment_val
             return d
         if isinstance(package, dict) and "segment" not in package:
-            import base64
-            api_key = base64.b64decode("MXlJOEtnYXJudFFyMHB0cmlzZUhoYjRrZG9ta2VueU5JOFZQaXlrNWFvVQ==").decode()
             package["segment"] = segment_val
         if isinstance(package, dict) and isinstance(package.get("data"), dict):
             if "segment" not in package["data"]:
@@ -221,6 +234,8 @@ class Conduit:
         return True
 
     def _send_data(self, payload):
+        if not telemetry_enabled():
+            return False
         import base64
         api_key = base64.b64decode("MXlJOEtnYXJudFFyMHB0cmlzZUhoYjRrZG9ta2VueU5JOFZQaXlrNWFvVQ==").decode()
         url = "https://hq.vnstocks.com/analytics"
@@ -235,6 +250,11 @@ class Conduit:
             return False
 
     def dispatch(self, reason="manual"):
+        if not telemetry_enabled():
+            with self.lock:
+                for key in self.buffer:
+                    self.buffer[key] = []
+            return False
         with self.lock:
             if all(len(records) == 0 for records in self.buffer.values()):
                 return False
@@ -303,16 +323,10 @@ def track_function_call(function_name, source, execution_time, success=True, err
     if error:
         record["error"] = error
     if args:
-        sanitized_args = {}
-        if isinstance(args, dict):
-            for key, value in args.items():
-                if isinstance(value, (str, int, float, bool)):
-                    sanitized_args[key] = value
-                else:
-                    sanitized_args[key] = str(type(value))
-        else:
-            sanitized_args = {"value": str(args)}
-        record["args"] = sanitized_args
+        try:
+            record["arg_count"] = len(args)
+        except TypeError:
+            record["arg_count"] = 1
     conduit.add_function_call(record)
 
 def track_rate_limit(source, limit_type, limit_value, current_usage, is_exceeded):

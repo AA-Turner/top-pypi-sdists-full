@@ -1,6 +1,6 @@
 [package]
 name = "uv-distribution"
-version = "0.0.80"
+version = "0.0.81"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -48,6 +48,7 @@ anyhow = { workspace = true }
 either = { workspace = true }
 fs-err = { workspace = true }
 futures = { workspace = true }
+http-content-range = { workspace = true }
 owo-colors = { workspace = true }
 rayon = { workspace = true }
 reqwest = { workspace = true }

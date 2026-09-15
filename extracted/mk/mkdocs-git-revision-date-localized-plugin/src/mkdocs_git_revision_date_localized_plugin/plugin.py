@@ -5,7 +5,6 @@ https://www.mkdocs.org/
 https://github.com/timvink/mkdocs-git-revision-date-localized-plugin/
 """
 
-import logging
 import os
 import re
 import time
@@ -16,7 +15,7 @@ from mkdocs import __version__ as mkdocs_version
 from mkdocs.config import config_options
 from mkdocs.config.defaults import MkDocsConfig
 from mkdocs.exceptions import ConfigurationError
-from mkdocs.plugins import BasePlugin
+from mkdocs.plugins import BasePlugin, get_plugin_logger
 from mkdocs.structure.files import Files
 from mkdocs.structure.nav import Page
 from mkdocs.utils import copy_file
@@ -25,7 +24,11 @@ from packaging.version import Version
 from mkdocs_git_revision_date_localized_plugin.exclude import exclude
 from mkdocs_git_revision_date_localized_plugin.util import Util
 
+logger = get_plugin_logger(__name__)
+
 HERE = Path(__file__).parent.absolute()
+
+DATE_TYPES = ("date", "datetime", "iso_date", "iso_datetime", "timeago", "custom")
 
 
 class GitRevisionDateLocalizedPlugin(BasePlugin):
@@ -37,8 +40,8 @@ class GitRevisionDateLocalizedPlugin(BasePlugin):
 
     config_scheme = (
         ("fallback_to_build_date", config_options.Type(bool, default=False)),
-        ("locale", config_options.Type(str, default=None)),
-        ("type", config_options.Type(str, default="date")),
+        ("locale", config_options.Optional(config_options.Type(str))),
+        ("type", config_options.Choice(DATE_TYPES, default="date")),
         ("custom_format", config_options.Type(str, default="%d. %B %Y")),
         ("timezone", config_options.Type(str, default="UTC")),
         ("exclude", config_options.Type(list, default=[])),
@@ -46,7 +49,7 @@ class GitRevisionDateLocalizedPlugin(BasePlugin):
         ("enabled", config_options.Type(bool, default=True)),
         ("strict", config_options.Type(bool, default=True)),
         ("enable_git_follow", config_options.Type(bool, default=True)),
-        ("ignored_commits_file", config_options.Type(str, default=None)),
+        ("ignored_commits_file", config_options.Optional(config_options.Type(str))),
         ("enable_parallel_processing", config_options.Type(bool, default=True)),
     )
 
@@ -96,8 +99,6 @@ class GitRevisionDateLocalizedPlugin(BasePlugin):
         if not self.config.get("enabled"):
             return config
 
-        assert self.config["type"] in ["date", "datetime", "iso_date", "iso_datetime", "timeago", "custom"]
-
         config_file_path = config.get("config_file_path") or ""
         self.util = Util(config=self.config, mkdocs_dir=os.path.abspath(os.path.dirname(config_file_path)))
 
@@ -129,28 +130,28 @@ class GitRevisionDateLocalizedPlugin(BasePlugin):
                 if Version(mkdocs_version) >= Version("1.6.0")
                 else custom_theme._vars.get("language")
             )
-            logging.debug(f"Locale '{theme_locale}' extracted from the custom theme: '{custom_theme.name}'")
+            logger.debug(f"Locale '{theme_locale}' extracted from the custom theme: '{custom_theme.name}'")
         elif custom_theme is not None and "locale" in custom_theme:
             theme_locale = (
                 custom_theme.locale if Version(mkdocs_version) >= Version("1.6.0") else custom_theme._vars.get("locale")
             )
-            logging.debug(f"Locale '{theme_locale}' extracted from the custom theme: '{custom_theme.name}'")
+            logger.debug(f"Locale '{theme_locale}' extracted from the custom theme: '{custom_theme.name}'")
         else:
             theme_locale = None
-            logging.debug("No locale found in theme configuration (or no custom theme set)")
+            logger.debug("No locale found in theme configuration (or no custom theme set)")
 
         # First prio: plugin locale
         if plugin_locale:
             locale_set = plugin_locale
-            logging.debug(f"Using locale from plugin configuration: {locale_set}")
+            logger.debug(f"Using locale from plugin configuration: {locale_set}")
         # Second prio: theme locale
         elif theme_locale:
             locale_set = theme_locale
-            logging.debug(f"Locale not set in plugin. Fallback to theme configuration: {locale_set}")
+            logger.debug(f"Locale not set in plugin. Fallback to theme configuration: {locale_set}")
         # Lastly, fallback is English
         else:
             locale_set = "en"
-            logging.debug(f"No locale set. Fallback to: {locale_set}")
+            logger.debug(f"No locale set. Fallback to: {locale_set}")
 
         # Validate locale
         locale_set = str(locale_set)
@@ -223,9 +224,7 @@ class GitRevisionDateLocalizedPlugin(BasePlugin):
         # This avoids the overhead of creating a new multiprocessing pool on every file save
         # The cache from the initial build will be reused
         if self.is_serve_dirty_build:
-            logging.debug(
-                "[git-revision-date-localized] Skipping parallel processing on incremental rebuild, using cache"
-            )
+            logger.debug("Skipping parallel processing on incremental rebuild, using cache")
             return
 
         # Support monorepo/techdocs, which copies the docs_dir to a temporary directory
@@ -245,10 +244,122 @@ class GitRevisionDateLocalizedPlugin(BasePlugin):
                     files=files, original_source=original_source, is_first_commit=True
                 )
         except Exception as e:
-            logging.warning(
-                f"Parallel processing failed: {str(e)}.\n To fall back to serial processing, use 'enable_parallel_processing: False' setting."
+            logger.error(
+                f"Could not read the git history in parallel: {e.__class__.__name__}: {e}\n"
+                "Set 'enable_parallel_processing: false' in the plugin configuration to read it "
+                "one file at a time instead, which is slower but avoids multiprocessing entirely."
             )
-            raise e
+            raise
+
+    def _get_locale(self, page: Page) -> str:
+        """
+        Determine the locale to use for a page.
+
+        Args:
+            page: mkdocs.nav.Page instance
+
+        Returns:
+            str: Locale code.
+        """
+        # First prio is use mkdocs-static-i18n locale if set
+        locale = getattr(page.file, "locale", None)
+
+        # Second prio is a frontmatter variable 'locale' set in the markdown
+        if not locale:
+            locale = page.meta.get("locale")
+
+        # Finally, if no page locale set, we take the locale determined on_config()
+        # (third prio is plugin configuration)
+        # (fourth prio is theme configuration)
+        # (fifth prio is fallback to English)
+        if not locale:
+            locale = self.config.get("locale")
+
+        return locale
+
+    def _get_commit(self, page: Page, is_first_commit: bool) -> tuple[str, int]:
+        """
+        Retrieve the git commit hash and timestamp for a page.
+
+        Uses the timestamps computed on_files() when available, and falls back to
+        asking git directly for pages that were not part of that batch.
+
+        Args:
+            page: mkdocs.nav.Page instance
+            is_first_commit (bool): retrieve the commit that created the file.
+
+        Returns:
+            tuple[str, int]: commit hash and commit date in unix timestamp.
+        """
+        # Generated pages (f.e. by the mkdocs-gen-files plugin) are not in git
+        if getattr(page.file, "generated_by", None):
+            return "", int(time.time())
+
+        # abs_src_path should always be set for documentation pages
+        assert page.file.abs_src_path is not None
+        abs_src_path = page.file.abs_src_path
+
+        cache = self.created_commits if is_first_commit else self.last_revision_commits
+        if self.config.get("enable_parallel_processing") and cache:
+            commit_hash, commit_timestamp = cache.get(str(Path(abs_src_path).absolute()), (None, None))
+            if commit_timestamp is not None:
+                return commit_hash, commit_timestamp
+
+        # Directly call git if parallel processing is disabled, or the page is not cached
+        return self.util.get_git_commit_timestamp(path=abs_src_path, is_first_commit=is_first_commit)
+
+    def _render_date(
+        self,
+        markdown: str,
+        page: Page,
+        locale: str,
+        variable: str,
+        commit_hash: str,
+        commit_timestamp: int,
+    ) -> str:
+        """
+        Add a date to the page meta information and replace its jinja2 tag in the markdown.
+
+        Args:
+            markdown (str): Markdown source text of page as string
+            page: mkdocs.nav.Page instance
+            locale (str): Locale code of language to use
+            variable (str): Name of the jinja2 tag and the page.meta prefix,
+                f.e. 'git_revision_date_localized'
+            commit_hash (str): Commit hash to expose to developers
+            commit_timestamp (int): Commit date in unix timestamp
+
+        Returns:
+            str: Markdown source text of page as string
+        """
+        date_formats = self.util.get_date_formats_for_timestamp(commit_timestamp, locale=locale, add_spans=True)
+        date = date_formats[self.config["type"]]
+
+        # timeago output is dynamic, which breaks when you print a page
+        # This ensures fallback to type "iso_date"
+        # controlled via CSS (see on_post_build() event)
+        if self.config["type"] == "timeago":
+            date += date_formats["iso_date"]
+
+        # Add to page meta information, for developers
+        page.meta[variable] = date
+        page.meta[f"{variable}_hash"] = commit_hash
+        page.meta[f"{variable}_tag"] = self.util.get_tag_name_for_commit(commit_hash)
+
+        # Include variants without the CSS <span> elements (raw date strings)
+        date_formats_raw = self.util.get_date_formats_for_timestamp(commit_timestamp, locale=locale, add_spans=False)
+        for date_type, date_string in date_formats_raw.items():
+            page.meta[f"{variable}_raw_{date_type}"] = date_string
+
+        # Replace any occurances in the markdown page.
+        # A lambda is used as the replacement so that backslashes in the date
+        # (possible with a custom_format) are not read as regex escapes.
+        return re.sub(
+            r"\{\{\s*" + variable + r"\s*\}\}",
+            lambda _: date,
+            markdown,
+            flags=re.IGNORECASE,
+        )
 
     def on_page_markdown(self, markdown: str, page: Page, config: config_options.Config, files, **kwargs) -> str:
         """
@@ -276,106 +387,30 @@ class GitRevisionDateLocalizedPlugin(BasePlugin):
         # Exclude pages specified in config
         excluded_pages = self.config.get("exclude", [])
         if exclude(page.file.src_path, excluded_pages):
-            logging.debug("Excluding page " + page.file.src_path)
+            logger.debug("Excluding page " + page.file.src_path)
             return markdown
 
-        # Find the locale
+        locale = self._get_locale(page)
 
-        # First prio is use mkdocs-static-i18n locale if set
-        locale = getattr(page.file, "locale", None)
-
-        # Second prio is a frontmatter variable 'locale' set in the markdown
-        if not locale:
-            if "locale" in page.meta:
-                locale = page.meta["locale"]
-
-        # Finally, if no page locale set, we take the locale determined on_config()
-        # (fourth prio is plugin configuration)
-        # (firth prio is theme configuration)
-        # (sixth prio is fallback to English)
-        if not locale:
-            locale = self.config.get("locale")
-
-        # Retrieve git commit timestamp
-        # Except for generated pages (f.e. by mkdocs-gen-files plugin)
-        if getattr(page.file, "generated_by", None):
-            last_revision_hash, last_revision_timestamp = "", int(time.time())
-        else:
-            # abs_src_path should always be set for documentation pages
-            assert page.file.abs_src_path is not None
-            abs_src_path = page.file.abs_src_path
-            # Use cached results if parallel processing is enabled and cache is populated
-            if self.config.get("enable_parallel_processing") and self.last_revision_commits:
-                last_revision_hash, last_revision_timestamp = self.last_revision_commits.get(
-                    str(Path(abs_src_path).absolute()), (None, None)
-                )
-                if last_revision_timestamp is None:
-                    last_revision_hash, last_revision_timestamp = self.util.get_git_commit_timestamp(
-                        path=abs_src_path,
-                        is_first_commit=False,
-                    )
-            else:
-                # Directly call git if parallel processing is disabled or cache is empty
-                last_revision_hash, last_revision_timestamp = self.util.get_git_commit_timestamp(
-                    path=abs_src_path,
-                    is_first_commit=False,
-                )
-
-        # Last revision date
-        revision_dates = self.util.get_date_formats_for_timestamp(
-            last_revision_timestamp, locale=locale, add_spans=True
-        )
-        revision_date = revision_dates[self.config["type"]]
-
-        # timeago output is dynamic, which breaks when you print a page
-        # This ensures fallback to type "iso_date"
-        # controlled via CSS (see on_post_build() event)
-        if self.config["type"] == "timeago":
-            revision_date += revision_dates["iso_date"]
-
-        # Add to page meta information, for developers
-        # Include variants without the CSS <span> elements (raw date strings)
-        page.meta["git_revision_date_localized"] = revision_date
-        page.meta["git_revision_date_localized_hash"] = last_revision_hash
-        page.meta["git_revision_date_localized_tag"] = self.util.get_tag_name_for_commit(last_revision_hash)
-        revision_dates_raw = self.util.get_date_formats_for_timestamp(
-            last_revision_timestamp, locale=locale, add_spans=False
-        )
-        for date_type, date_string in revision_dates_raw.items():
-            page.meta[f"git_revision_date_localized_raw_{date_type}"] = date_string
-
-        # Replace any occurances in markdown page
-        markdown = re.sub(
-            r"\{\{\s*git_revision_date_localized\s*\}\}",
-            revision_date,
-            markdown,
-            flags=re.IGNORECASE,
+        # Last revision date of this page
+        last_revision_hash, last_revision_timestamp = self._get_commit(page, is_first_commit=False)
+        markdown = self._render_date(
+            markdown=markdown,
+            page=page,
+            locale=locale,
+            variable="git_revision_date_localized",
+            commit_hash=last_revision_hash,
+            commit_timestamp=last_revision_timestamp,
         )
 
-        # Also add site last updated information, for developers
-        page.meta["git_site_revision_date_localized_hash"] = self.last_site_revision_hash
-        page.meta["git_site_revision_date_localized_tag"] = self.util.get_tag_name_for_commit(
-            self.last_site_revision_hash
-        )
-        site_dates = self.util.get_date_formats_for_timestamp(
-            self.last_site_revision_timestamp, locale=locale, add_spans=True
-        )
-        site_date = site_dates[self.config["type"]]
-        if self.config["type"] == "timeago":
-            site_date += site_dates["iso_date"]
-        page.meta["git_site_revision_date_localized"] = site_date
-        site_dates_raw = self.util.get_date_formats_for_timestamp(
-            self.last_site_revision_timestamp, locale=locale, add_spans=False
-        )
-        for date_type, date_string in site_dates_raw.items():
-            page.meta[f"git_site_revision_date_localized_raw_{date_type}"] = date_string
-
-        # Replace any occurances in markdown page
-        markdown = re.sub(
-            r"\{\{\s*git_site_revision_date_localized\s*\}\}",
-            site_date,
-            markdown,
-            flags=re.IGNORECASE,
+        # Last revision date of the entire site
+        markdown = self._render_date(
+            markdown=markdown,
+            page=page,
+            locale=locale,
+            variable="git_site_revision_date_localized",
+            commit_hash=self.last_site_revision_hash,
+            commit_timestamp=self.last_site_revision_timestamp,
         )
 
         # If creation date not enabled, return markdown
@@ -383,74 +418,24 @@ class GitRevisionDateLocalizedPlugin(BasePlugin):
         if not self.config.get("enable_creation_date"):
             return markdown
 
-        # Retrieve git commit timestamp
-        # Except for generated pages (f.e. by mkdocs-gen-files plugin)
-        if getattr(page.file, "generated_by", None):
-            first_revision_hash, first_revision_timestamp = "", int(time.time())
-        else:
-            # abs_src_path should always be set for documentation pages
-            assert page.file.abs_src_path is not None
-            abs_src_path = page.file.abs_src_path
-            # Use cached results if parallel processing is enabled and cache is populated
-            if (
-                self.config.get("enable_creation_date")
-                and self.config.get("enable_parallel_processing")
-                and self.created_commits
-            ):
-                first_revision_hash, first_revision_timestamp = self.created_commits.get(
-                    str(Path(abs_src_path).absolute()), (None, None)
-                )
-                if first_revision_timestamp is None:
-                    first_revision_hash, first_revision_timestamp = self.util.get_git_commit_timestamp(
-                        path=abs_src_path,
-                        is_first_commit=True,
-                    )
-            else:
-                # Directly call git if parallel processing is disabled or cache is empty
-                first_revision_hash, first_revision_timestamp = self.util.get_git_commit_timestamp(
-                    path=abs_src_path,
-                    is_first_commit=True,
-                )
+        # Creation date of this page
+        first_revision_hash, first_revision_timestamp = self._get_commit(page, is_first_commit=True)
 
         if first_revision_timestamp > last_revision_timestamp:
             # See also https://github.com/timvink/mkdocs-git-revision-date-localized-plugin/issues/111
             msg = f"First revision timestamp is older than last revision timestamp for page {page.file.src_path}. "
             msg += "This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration."
-            logging.warning(msg)
+            logger.warning(msg)
             first_revision_hash, first_revision_timestamp = last_revision_hash, last_revision_timestamp
 
-        # Creation date formats
-        creation_dates = self.util.get_date_formats_for_timestamp(
-            first_revision_timestamp, locale=locale, add_spans=True
+        return self._render_date(
+            markdown=markdown,
+            page=page,
+            locale=locale,
+            variable="git_creation_date_localized",
+            commit_hash=first_revision_hash,
+            commit_timestamp=first_revision_timestamp,
         )
-        creation_date = creation_dates[self.config["type"]]
-
-        # timeago output is dynamic, which breaks when you print a page
-        # This ensures fallback to type "iso_date"
-        # controlled via CSS (see on_post_build() event)
-        if self.config["type"] == "timeago":
-            creation_date += creation_dates["iso_date"]
-
-        # Add to page meta information, for developers
-        # Include variants without the CSS <span> elements (raw date strings)
-        page.meta["git_creation_date_localized_hash"] = first_revision_hash
-        page.meta["git_creation_date_localized_tag"] = self.util.get_tag_name_for_commit(first_revision_hash)
-        page.meta["git_creation_date_localized"] = creation_date
-        creation_dates_raw = self.util.get_date_formats_for_timestamp(
-            first_revision_timestamp, locale=locale, add_spans=False
-        )
-        for date_type, date_string in creation_dates_raw.items():
-            page.meta[f"git_creation_date_localized_raw_{date_type}"] = date_string
-
-        # Replace any occurances in markdown page
-        markdown = re.sub(
-            r"\{\{\s*git_creation_date_localized\s*\}\}",
-            creation_date,
-            markdown,
-            flags=re.IGNORECASE,
-        )
-
-        return markdown
 
     def on_post_build(self, *, config: MkDocsConfig) -> None:
         """

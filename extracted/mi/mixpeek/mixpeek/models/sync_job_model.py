@@ -28,7 +28,7 @@ from typing_extensions import Self
 
 class SyncJobModel(BaseModel):
     """
-    Execution record for a single storage sync run.  Created when a sync is triggered (manually or by scheduler). Tracks progress, metrics, and errors for the sync execution.  **Job Lifecycle:** PENDING → RUNNING → COMPLETED/FAILED  **Tracked Metrics:** - files_synced: Successfully created objects - files_failed: Objects sent to Dead Letter Queue - started_at/completed_at: Timing for duration calculation
+    Execution record for a single storage sync run.  Created when a sync is triggered (manually or by scheduler). Tracks progress, metrics, and errors for the sync execution.  **Job Lifecycle:** records are BORN status=RUNNING (pre-dispatch, before the lock attempt) → COMPLETED/FAILED/INTERRUPTED. started_at=None marks the born-but-not-yet-executing window; there is no PENDING status.  **Tracked Metrics:** - files_synced: Successfully created objects - files_failed: Objects sent to Dead Letter Queue - started_at/completed_at: Timing for duration calculation.   started_at is the CURRENT ATTEMPT's execution start, stamped at the   RUNNING transition (mark_sync_job_running) — None while queued. The   document's provider-level created_at is record creation, so   created_at→started_at is record-creation-to-execution-start (dispatch   + admission + pre-RUNNING setup), NOT queue time alone. Rows written   before this stamping existed (no metadata.started_at_source) carry a   construction time here; their execution duration is unknown, not   measured.
     """ # noqa: E501
     sync_job_id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the sync job.")
     sync_config_id: StrictStr = Field(description="Identifier of the sync configuration that spawned this job.")
@@ -40,17 +40,18 @@ class SyncJobModel(BaseModel):
     files_synced: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of files synced successfully in this job.")
     files_failed: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of files that failed to sync in this job.")
     files_verified: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="OPTIONAL. Files the run re-checked and found already present, as opposed to newly transferred. A re-scan of a settled source is mostly this, so a run with files_synced=0 and files_verified>0 did work and found nothing new, which is a different state from a run that did nothing.")
-    started_at: Optional[datetime] = Field(default=None, description="Timestamp when the job started.")
+    started_at: Optional[datetime] = Field(default=None, description="Execution start of the CURRENT attempt, stamped at the RUNNING transition. None = not yet started (queued/pre-dispatch). Legacy rows (no metadata.started_at_source) hold a record-construction time instead — not execution evidence.")
     completed_at: Optional[datetime] = Field(default=None, description="Timestamp when the job completed.")
     updated_at: Optional[datetime] = Field(default=None, description="Last progress update timestamp for this job.")
     error: Optional[Annotated[str, Field(strict=True, max_length=1000)]] = Field(default=None, description="Last error encountered during the job.")
+    resumed_via: Optional[StrictStr] = Field(default=None, description="Set when this job record was reopened and re-run after its worker died without finalizing (value 'acks_late_redelivery': the broker redelivered the original message against the reaped record). On rows that predate per-attempt history (metadata.prior_attempts), this is the only retry signal; its absence proves nothing about whether a job retried.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata captured during execution (provider stats, cursors, etc.).")
     progress_percent: Optional[Union[Annotated[float, Field(le=100.0, strict=True, ge=0.0)], Annotated[int, Field(le=100, strict=True, ge=0)]]] = Field(default=None, description="Derived percent complete when total_files is known.")
     throughput_files_per_min: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="Derived successful-file throughput for the job.")
     lag_seconds: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Seconds since the latest progress update for running jobs.")
     current_cursor: Optional[StrictStr] = Field(default=None, description="Latest provider cursor/page token captured for this job.")
     progress: Optional[Dict[str, Any]] = Field(default=None, description="Derived progress summary for API observability.")
-    __properties: ClassVar[List[str]] = ["sync_job_id", "sync_config_id", "internal_id", "namespace_id", "status", "phase", "total_files", "files_synced", "files_failed", "files_verified", "started_at", "completed_at", "updated_at", "error", "metadata", "progress_percent", "throughput_files_per_min", "lag_seconds", "current_cursor", "progress"]
+    __properties: ClassVar[List[str]] = ["sync_job_id", "sync_config_id", "internal_id", "namespace_id", "status", "phase", "total_files", "files_synced", "files_failed", "files_verified", "started_at", "completed_at", "updated_at", "error", "resumed_via", "metadata", "progress_percent", "throughput_files_per_min", "lag_seconds", "current_cursor", "progress"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -117,6 +118,7 @@ class SyncJobModel(BaseModel):
             "completed_at": obj.get("completed_at"),
             "updated_at": obj.get("updated_at"),
             "error": obj.get("error"),
+            "resumed_via": obj.get("resumed_via"),
             "metadata": obj.get("metadata"),
             "progress_percent": obj.get("progress_percent"),
             "throughput_files_per_min": obj.get("throughput_files_per_min"),

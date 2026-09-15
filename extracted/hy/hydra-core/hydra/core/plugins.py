@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 from omegaconf import DictConfig
 
+from hydra._internal.target_policy import _trusted_internal_target
 from hydra._internal.sources_registry import SourcesRegistry
 from hydra.core.singleton import Singleton
 from hydra.plugins.completion_plugin import CompletionPlugin
@@ -109,7 +110,8 @@ class Plugins(metaclass=Singleton):
             if classname not in self.class_name_to_class.keys():
                 raise RuntimeError(f"Unknown plugin class : '{classname}'")
             clazz = self.class_name_to_class[classname]
-            plugin = instantiate(config=config, _target_=clazz)
+            with _trusted_internal_target(classname):
+                plugin = instantiate(config=config, _target_=clazz)
             assert isinstance(plugin, Plugin)
 
         except ImportError as e:

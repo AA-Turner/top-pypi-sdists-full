@@ -1,27 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hydra-optuna-sweeper
-Version: 1.2.0
+Version: 1.3.0
 Summary: Hydra Optuna Sweeper plugin
 Home-page: https://github.com/facebookresearch/hydra/
 Author: Toshihiko Yanase, Hiroyuki Vincent Yamazaki
 Author-email: toshihiko.yanase@gmail.com, hiroyuki.vincent.yamazaki@gmail.com
-License: UNKNOWN
-Platform: UNKNOWN
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Development Status :: 4 - Beta
 Description-Content-Type: text/markdown
+Requires-Dist: hydra-core>=1.1.0.dev7
+Requires-Dist: optuna<3.0.0,>=2.10.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary
 
 # Hydra Optuna Sweeper
 
 Provides an [Optuna](https://optuna.org) based Hydra Sweeper.
 
-See [website](https://hydra.cc/docs/next/plugins/optuna_sweeper/) for more information.
-
-
+See [website](https://hydra.cc/docs/plugins/optuna_sweeper/) for more information.

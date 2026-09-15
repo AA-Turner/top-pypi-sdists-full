@@ -138,6 +138,10 @@ class GradientBoostingRegressor(BaseTransformer):
         regression and is a robust loss function. 'huber' is a
         combination of the two. 'quantile' allows quantile regression (use
         `alpha` to specify the quantile).
+        See
+        :ref:`sphx_glr_auto_examples_ensemble_plot_gradient_boosting_quantile.py`
+        for an example that demonstrates quantile regression for creating
+        prediction intervals with `loss='quantile'`.
 
     learning_rate: float, default=0.1
         Learning rate shrinks the contribution of each tree by `learning_rate`.
@@ -299,7 +303,9 @@ class GradientBoostingRegressor(BaseTransformer):
         subtree with the largest cost complexity that is smaller than
         ``ccp_alpha`` will be chosen. By default, no pruning is performed.
         Values must be in the range `[0.0, inf)`.
-        See :ref:`minimal_cost_complexity_pruning` for details.
+        See :ref:`minimal_cost_complexity_pruning` for details. See
+        :ref:`sphx_glr_auto_examples_tree_plot_cost_complexity_pruning.py`
+        for an example of such pruning.
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -1117,7 +1123,7 @@ class GradientBoostingRegressor(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.ensemble.GradientBoostingRegressor.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingRegressor.html#sklearn.ensemble.GradientBoostingRegressor.score)
 

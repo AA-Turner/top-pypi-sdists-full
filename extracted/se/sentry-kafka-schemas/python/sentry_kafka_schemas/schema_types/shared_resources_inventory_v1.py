@@ -1,4 +1,4 @@
-from typing import Required, Union, Literal, TypedDict
+from typing import TypedDict, Required, Union, Literal
 
 
 class SharedResourcesInventory(TypedDict, total=False):

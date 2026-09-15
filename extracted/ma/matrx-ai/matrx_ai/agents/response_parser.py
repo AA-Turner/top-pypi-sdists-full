@@ -141,6 +141,67 @@ def strip_thinking(text: str) -> str:
     return _strip_thinking(text)
 
 
+# ---------------------------------------------------------------------------
+# Residual escapes — the DOUBLE-ESCAPED artifact class
+# ---------------------------------------------------------------------------
+# A model asked for JSON sometimes escapes its own escapes: it writes
+# ``"certificate turnaround \\u2014 24 hours"`` where it meant ``—``. That
+# document is VALID JSON, so nothing anywhere fails — ``json.loads`` faithfully
+# decodes the outer escape and hands the consumer a string that still carries
+# the six literal characters ``—``. The artifact is then stored, rendered
+# and shown to a person exactly like that (seo.landscape_brief b532255e,
+# 2026-09-14: 3 in `brief_markdown`, 10 in `facts`, "certificate turnaround
+# — 24 hours" on the owner's own brief).
+#
+# The class fix lives HERE, at the ONE funnel every agent artifact passes
+# through, never as a `.replace` in whichever consumer noticed it.
+#
+# The rule is deliberately TIGHT — the same discipline as
+# `_DEGENERATE_STRUCTURED_VALUES` above:
+#   * ONLY ``\uXXXX``. ``\n`` / ``\t`` / ``\"`` are left alone: they appear
+#     legitimately in code samples, regexes and Windows paths a model quotes.
+#   * ONLY non-ASCII code points (>= U+0080). ``A`` in decoded prose is
+#     plausibly deliberate (documentation ABOUT escaping); ``—`` never is.
+#   * NOT when the backslash is itself escaped (``\\u2014`` in the decoded
+#     string is a real backslash followed by the text ``u2014``).
+#   * Surrogate PAIRS decode together; a lone surrogate is left untouched.
+# Idempotent: a second pass finds nothing to do.
+_RESIDUAL_UNICODE_ESCAPE_RE = re.compile(
+    r"(?<!\\)\\u(?:(?P<hi>[dD][89abAB][0-9a-fA-F]{2})\\u(?P<lo>[dD][c-fC-F][0-9a-fA-F]{2})"
+    r"|(?P<bmp>[0-9a-fA-F]{4}))"
+)
+
+
+def _residual_escape_replacement(match: re.Match[str]) -> str:
+    hi, lo, bmp = match.group("hi"), match.group("lo"), match.group("bmp")
+    if hi and lo:
+        code = 0x10000 + ((int(hi, 16) - 0xD800) << 10) + (int(lo, 16) - 0xDC00)
+        return chr(code)
+    code = int(bmp, 16)
+    if code < 0x80 or 0xD800 <= code <= 0xDFFF:
+        # ASCII escapes and lone surrogates are left exactly as written.
+        return match.group(0)
+    return chr(code)
+
+
+def decode_residual_escapes(value: Any) -> Any:
+    """Decode double-escaped ``\\uXXXX`` sequences left inside already-parsed
+    JSON strings, walking dicts and lists.
+
+    Values only — a dict KEY is never rewritten, because two keys could collapse
+    onto one and silently drop a field. Keys in our schemas are ASCII.
+    """
+    if isinstance(value, str):
+        if "\\u" not in value:
+            return value
+        return _RESIDUAL_UNICODE_ESCAPE_RE.sub(_residual_escape_replacement, value)
+    if isinstance(value, dict):
+        return {key: decode_residual_escapes(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [decode_residual_escapes(item) for item in value]
+    return value
+
+
 def _try_parse(candidate: str) -> dict | list | None:
     candidate = candidate.strip()
     if not candidate:
@@ -149,7 +210,7 @@ def _try_parse(candidate: str) -> dict | list | None:
     try:
         result = json.loads(candidate)
         if isinstance(result, (dict, list)):
-            return result
+            return decode_residual_escapes(result)
     except (json.JSONDecodeError, ValueError):
         pass
     return None
@@ -254,7 +315,8 @@ def _try_parse_repaired(candidate: str) -> dict | list | None:
         return None
     if not _repair_is_faithful(candidate, result):
         return None
-    return result
+    # Faithfulness is judged against the RAW text; the decode happens after it.
+    return decode_residual_escapes(result)
 
 
 def _repair_is_faithful(candidate: str, value: dict | list) -> bool:

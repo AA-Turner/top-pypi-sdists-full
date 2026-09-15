@@ -64,8 +64,16 @@ from matrx_ai.providers.errors import RetryableError, classify_provider_error
 from matrx_ai.providers.snapshot_redactors import (
     DEFAULT_SNAPSHOT_REDACTORS,
     apply_redactors,
+    apply_response_redactors,
 )
 from matrx_ai.tools.handle_tool_calls import handle_tool_calls_v2
+from matrx_ai.tools.turn_ledger import (
+    apply_ledger_truth,
+    reset_turn_ledger,
+    rewrite_ledger_truth_in_text,
+    schema_declares_ledger_fields,
+    start_turn_ledger,
+)
 
 from .recovery_logic import handle_finish_reason
 
@@ -2082,6 +2090,14 @@ async def _finalize_and_persist(
         auto_stub_keys=_final_auto_stubs,
     )
 
+    # LEDGER TRUTH, DURABLE HALF — second seam. Every exit path reaches this
+    # function, including the ones that never crossed a turn barrier, and the
+    # rollup below can still be the first writer of this turn's rows. Idempotent
+    # with the barrier's pass. A handoff finalize is skipped: the text is the
+    # CHILD's answer, and the child's own run already corrected it.
+    if not skip_structured_output:
+        _apply_ledger_truth_to_turn_text(completed.request, final_response)
+
     # Strip keep_fresh structured input blocks from the last user message before
     # persisting. These blocks are re-fetched on every turn so we never store
     # stale resolved content in the DB. The block's structural definition
@@ -2195,6 +2211,11 @@ async def _persist_turn_and_commit(
     # Nothing new beyond what a prior barrier already committed.
     if post_count - 1 <= state.committed_position:
         return
+
+    # LEDGER TRUTH, DURABLE HALF. This barrier is where a turn's assistant text
+    # becomes permanent, so the correction happens HERE — before the write, not
+    # after it. (See _apply_ledger_truth_to_turn_text.)
+    _apply_ledger_truth_to_turn_text(current_request, final_response)
 
     # Fetch-if-not-fetched: ensure the DB pricing lookup is loaded before the
     # total_usage cost aggregation runs (see ensure_pricing_lookup docstring).
@@ -2320,6 +2341,132 @@ def _standing_output_contract() -> dict[str, Any] | None:
     return contract
 
 
+def _resolve_structured_contract(config: Any) -> tuple[dict, dict, bool] | None:
+    """``(envelope, schema, standing)`` for a run under a json_schema contract.
+
+    ONE resolver: the bound ``response_format`` envelope, else the host's
+    STANDING contract for this run. Both the structured-output emission
+    chokepoint and the durable ledger-truth chokepoint below read the contract
+    through here, so they can never disagree about which schema a turn is
+    answering. ``None`` means this run has no structured contract at all.
+    """
+    rf = getattr(config, "response_format", None)
+    standing = False
+    if not isinstance(rf, dict) or rf.get("type") != "json_schema":
+        rf = _standing_output_contract()
+        if rf is None:
+            return None
+        standing = True
+
+    envelope = rf.get("json_schema")
+    if not isinstance(envelope, dict):
+        return None
+
+    schema = envelope.get("schema") if isinstance(envelope.get("schema"), dict) else envelope
+    if not isinstance(schema, dict):
+        return None
+    return envelope, schema, standing
+
+
+def _apply_ledger_truth_to_turn_text(current_request: Any, final_response: Any = None) -> bool:
+    """THE DURABLE LEDGER-TRUTH CHOKEPOINT. Call before ANY persistence seam.
+
+    ``apply_ledger_truth`` (at the emission chokepoint below) corrects only the
+    EPHEMERAL parsed copy — the stream event and the output-apply dispatcher.
+    The turn's assistant TEXT is the only thing that outlives the run, and every
+    consumer re-derives the structured answer by parsing that text again: the
+    frontend, v1/v2 API callers, ``graph_nodes.shared._extract_structured_output``,
+    a resume, a person reading ``chat.message``. Leaving it uncorrected leaves the
+    model's ``tools_failed: []`` as the run's single durable truth — exactly what
+    happened on conversations 74bcf027… / ed621e74… (2026-09-15), whose first
+    ``shell_execute`` errored while the stored answer claimed success with an
+    empty failure list.
+
+    So the text is corrected IN PLACE, before it becomes durable. Fires only for
+    a run whose schema declares the ledger fields, and only on a turn that made
+    no tool calls (the run's answer, not a mid-loop tool request). Idempotent —
+    a second pass finds nothing to change. Never raises.
+    """
+    try:
+        config = getattr(current_request, "config", None)
+        if config is None:
+            return False
+        resolved = _resolve_structured_contract(config)
+        if resolved is None:
+            return False
+        envelope, schema, _standing = resolved
+        if not schema_declares_ledger_fields(schema):
+            return False
+
+        message = config.messages.get_last_by_role("assistant")
+        if message is None:
+            return False
+        contents = list(getattr(message, "content", None) or [])
+        # A turn that asked for more tools is not the run's answer — correcting
+        # its text would freeze a mid-loop ledger into history.
+        if any(getattr(item, "type", None) == "tool_call" for item in contents):
+            return False
+
+        targets = list(contents)
+        for msg in getattr(final_response, "messages", None) or []:
+            if getattr(msg, "role", None) == "assistant":
+                targets.extend(getattr(msg, "content", None) or [])
+
+        changed = False
+        seen: set[int] = set()
+        for content in targets:
+            if id(content) in seen:
+                continue
+            seen.add(id(content))
+            if getattr(content, "type", None) != "text":
+                continue
+            text = getattr(content, "text", None)
+            if not isinstance(text, str):
+                continue
+            rewritten = rewrite_ledger_truth_in_text(text, envelope, schema)
+            if rewritten is not None and rewritten != text:
+                content.text = rewritten
+                changed = True
+
+        if changed:
+            vcprint(
+                "[ToolLedger] this turn's structured answer disagreed with the platform's "
+                "own tool-call ledger; the DURABLE assistant text has been corrected from "
+                "the ledger before persistence, so every consumer that re-parses this turn "
+                "reads what actually happened.",
+                color="cyan",
+            )
+            return True
+
+        # Nothing changed part-by-part. That is the normal, honest case — but it
+        # is ALSO what a JSON answer split across two TextContent blocks looks
+        # like, because no single block parses on its own. Consumers read the
+        # CONCATENATION (get_output()), so check it: if the joined text needs a
+        # correction this pass could not make, say so loudly rather than let the
+        # turn persist a lie quietly.
+        joined = message.get_output() or ""
+        if len([c for c in contents if getattr(c, "type", None) == "text"]) > 1:
+            if rewrite_ledger_truth_in_text(joined, envelope, schema) is not None:
+                vcprint(
+                    "[ToolLedger] this turn's structured answer disagrees with the tool "
+                    "ledger, but its JSON is split across several text blocks, so the "
+                    "durable text could not be corrected block-by-block and the model's "
+                    "unverified values are about to be persisted. The emitted "
+                    "structured_output event is still corrected. Remedy: file this — the "
+                    "durable override must cover a multi-block answer.",
+                    color="red",
+                )
+        return False
+    except Exception as exc:  # noqa: BLE001 — truth-filling never breaks a run
+        vcprint(
+            f"[ToolLedger] durable ledger-truth pass failed ({exc}); this turn's stored text "
+            "keeps the model's unverified tool fields. Remedy: file this traceback — the "
+            "override is supposed to be total.",
+            color="red",
+        )
+        return False
+
+
 async def _emit_structured_output_if_schema(completed: CompletedRequest) -> Any:
     """Parse the final assistant text against config.response_format and emit.
 
@@ -2337,21 +2484,10 @@ async def _emit_structured_output_if_schema(completed: CompletedRequest) -> Any:
     feed it to the output-apply dispatcher without re-parsing), else ``None``.
     """
     try:
-        rf = getattr(completed.request.config, "response_format", None)
-        standing = False
-        if not isinstance(rf, dict) or rf.get("type") != "json_schema":
-            rf = _standing_output_contract()
-            if rf is None:
-                return None
-            standing = True
-
-        envelope = rf.get("json_schema")
-        if not isinstance(envelope, dict):
+        resolved = _resolve_structured_contract(completed.request.config)
+        if resolved is None:
             return None
-
-        schema = envelope.get("schema") if isinstance(envelope.get("schema"), dict) else envelope
-        if not isinstance(schema, dict):
-            return None
+        envelope, schema, standing = resolved
 
         from matrx_connect import try_get_app_context
         from matrx_connect.context.events import StructuredOutputPayload
@@ -2374,6 +2510,19 @@ async def _emit_structured_output_if_schema(completed: CompletedRequest) -> Any:
 
         final_text = completed.request.config.get_last_output() or ""
         extraction = parse_agent_output(final_text, envelope)
+
+        # LEDGER TRUTH OVERRIDE — the model does not get to grade its own tool
+        # history. When the agent's own schema declares tools_worked /
+        # tools_failed / commands_run, those three fields are REPLACED here with
+        # what this run's tool-call ledger says actually happened, before the
+        # parsed output reaches the caller (the structured_output event below
+        # and the output-apply dispatcher downstream). Generic: any agent whose
+        # schema declares those names inherits it. See
+        # matrx_ai/tools/turn_ledger.py for the why (a Sandbox Specialist run
+        # reported tools_failed: [] after four errored calls, 2026-09-14).
+        if extraction.success:
+            apply_ledger_truth(extraction.data, schema)
+
         if standing and not extraction.success:
             # The turn SPOKE. An acting run is allowed to answer a question, and a
             # "schema mismatch" event here would paint a failure over a perfectly
@@ -2975,7 +3124,11 @@ async def _write_request_snapshot(
         if safe_unified is not None:
             safe_unified = apply_redactors(safe_unified, DEFAULT_SNAPSHOT_REDACTORS)
         if safe_response is not None:
-            safe_response = apply_redactors(safe_response, DEFAULT_SNAPSHOT_REDACTORS)
+            # The response keeps the assistant's answer text verbatim — a
+            # recorded AI call keeps what the AI said (KI-049, 2026-09-14);
+            # blobs anywhere in it, including inside assistant content, are
+            # still redacted. See snapshot_redactors.apply_response_redactors.
+            safe_response = apply_response_redactors(safe_response, DEFAULT_SNAPSHOT_REDACTORS)
 
         payload_dict = {
             "conversation_id": exec_ctx.conversation_id,
@@ -3283,6 +3436,12 @@ async def execute_until_complete(
     # asyncio task ContextVar fork — no cross-task aliasing possible.
     state = ExecutionState()
     state_token = set_execution_state(state)
+    # The per-run TOOL-CALL LEDGER (matrx_ai.tools.turn_ledger). Opened on the
+    # same task, with the same ContextVar-fork isolation as ExecutionState, so
+    # every tool call this run makes is recorded where the structured-output
+    # chokepoint can read it — and a sub-agent's calls land in the sub-agent's
+    # own ledger, never in its parent's report.
+    ledger_token = start_turn_ledger()
     try:
         return await _execute_until_complete_inner(
             exec_ctx=exec_ctx,
@@ -3424,6 +3583,7 @@ async def execute_until_complete(
         raise
     finally:
         clear_execution_state(state_token)
+        reset_turn_ledger(ledger_token)
 
 
 async def _execute_until_complete_inner(

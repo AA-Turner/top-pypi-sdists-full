@@ -146,11 +146,11 @@ class QuadraticDiscriminantAnalysis(BaseTransformer):
         stored in the `self.covariance_` attribute.
 
     tol: float, default=1.0e-4
-        Absolute threshold for a singular value to be considered significant,
-        used to estimate the rank of `Xk` where `Xk` is the centered matrix
-        of samples in class k. This parameter does not affect the
-        predictions. It only controls a warning that is raised when features
-        are considered to be colinear.
+        Absolute threshold for the covariance matrix to be considered rank
+        deficient after applying some regularization (see `reg_param`) to each
+        `Sk` where `Sk` represents covariance matrix for k-th class. This
+        parameter does not affect the predictions. It controls when a warning
+        is raised if the covariance matrix is not full rank.
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -940,7 +940,7 @@ class QuadraticDiscriminantAnalysis(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.discriminant_analysis.QuadraticDiscriminantAnalysis.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.discriminant_analysis.QuadraticDiscriminantAnalysis.html#sklearn.discriminant_analysis.QuadraticDiscriminantAnalysis.score)
 

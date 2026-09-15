@@ -1,0 +1,2 @@
+import{hn as e}from"./index-BD_kIOMy-DbSivZUD.js";import"./prefect-ui-library-C4AJdsCW.js";var t=Symbol(`canInjectionKey`);function n(){return e(t)}export{t as n,n as t};
+//# sourceMappingURL=useCan-DXqty9l0.js.map

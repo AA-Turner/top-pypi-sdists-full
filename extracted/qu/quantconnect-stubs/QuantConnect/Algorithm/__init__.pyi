@@ -3427,9 +3427,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def brokerage_data(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+    def deployment_details(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
         """
-        Gets a read-only view of the brokerage data shared by the brokerage, data queue handler or any other component,
+        Gets a read-only view of the deployment details shared by the brokerage, data queue handler or any other component,
         for example account information. Usually empty when not running in live mode
         """
         ...
@@ -7050,14 +7050,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def set_brokerage_data(self, brokerage_data: Common.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
-        """
-        Sets the brokerage data read-only view. Can only be set once, it's shared by the engine
-        
-        :param brokerage_data: The brokerage data
-        """
-        ...
-
     @overload
     def set_brokerage_message_handler(self, handler: typing.Any) -> None:
         """
@@ -7157,6 +7149,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Update the internal algorithm time frontier.
         
         :param frontier: Current utc datetime.
+        """
+        ...
+
+    def set_deployment_details(self, deployment_details: Common.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
+        """
+        Sets the deployment details read-only view. Can only be set once, it's shared by the engine
+        
+        :param deployment_details: The deployment details
         """
         ...
 

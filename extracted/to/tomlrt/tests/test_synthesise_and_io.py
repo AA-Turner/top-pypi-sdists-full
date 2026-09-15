@@ -886,13 +886,12 @@ class _MutableOffset(tzinfo):
 def test_cloned_datetime_payloads_are_independent() -> None:
     zone = _MutableOffset()
     value = datetime(2020, 1, 1, tzinfo=zone)
-    source = Document(
+    source = Document()
+    source["source"] = Table.section(
         {
-            "source": {
-                "direct": value,
-                "array": [value, value],
-                "inline": Table.inline({"value": value}),
-            }
+            "direct": value,
+            "array": [value, value],
+            "inline": Table.inline({"value": value}),
         }
     )
     target = Document()
@@ -928,6 +927,52 @@ class _MutableStr(str):
 
     def __init__(self, _value: str) -> None:
         self.labels = ["original"]
+
+
+class _MutableDelta(timedelta):
+    __slots__ = ("labels",)
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        self.labels = ["original"]
+
+
+def test_cloned_timezone_payload_subclasses_are_independent() -> None:
+    """An exact ``timezone`` is only as immutable as what it was built from.
+
+    It retains the offset and name objects it was handed, so either one
+    being a subclass with state of its own reaches mutable data through
+    an otherwise shareable instance.
+    """
+    offset = _MutableDelta(hours=2)
+    name = _MutableStr("plus-two")
+    source = Document()
+    source["source"] = Table.section(
+        {
+            "offset": datetime(2020, 1, 1, tzinfo=timezone(offset)),
+            "named": datetime(2020, 1, 1, tzinfo=timezone(timedelta(hours=2), name)),
+        }
+    )
+    target = Document()
+    target["copy"] = source.table("source")
+    offset.labels.append("changed")
+    name.labels.append("changed")
+    copied_offset = target.table("copy")["offset"]
+    copied_named = target.table("copy")["named"]
+    assert isinstance(copied_offset, datetime)
+    assert isinstance(copied_named, datetime)
+    carried_offset = copied_offset.utcoffset()
+    carried_name = copied_named.tzname()
+    assert isinstance(carried_offset, _MutableDelta)
+    assert isinstance(carried_name, _MutableStr)
+    assert carried_offset.labels == ["original"]
+    assert carried_name.labels == ["original"]
+    expected = td("""
+        [copy]
+        offset = 2020-01-01T00:00:00+02:00
+        named = 2020-01-01T00:00:00+02:00
+        """)
+    assert tomlrt.dumps(target) == expected
+    assert reparses(expected) == target.to_dict()
 
 
 class _CopyAwareInt(_MutableInt):
@@ -1045,13 +1090,12 @@ def test_cloned_scalar_subclass_payloads_are_independent(
     factory: Callable[[], _MutableInt | _MutableFloat | _MutableStr], rendered: str
 ) -> None:
     value = factory()
-    source = Document(
+    source = Document()
+    source["source"] = Table.section(
         {
-            "source": {
-                "direct": value,
-                "array": [value],
-                "inline": Table.inline({"value": value}),
-            }
+            "direct": value,
+            "array": [value],
+            "inline": Table.inline({"value": value}),
         }
     )
     target = Document()
@@ -1101,13 +1145,12 @@ class _RenderedInt(int):
 
 def test_cloned_scalar_lexemes_are_independent() -> None:
     value = _RenderedInt(1)
-    source = Document(
+    source = Document()
+    source["source"] = Table.section(
         {
-            "source": {
-                "direct": value,
-                "array": [value],
-                "inline": Table.inline({"value": value}),
-            }
+            "direct": value,
+            "array": [value],
+            "inline": Table.inline({"value": value}),
         }
     )
     target = Document()
@@ -1308,6 +1351,253 @@ def test_copy_table_subview_is_independent() -> None:
     assert t["x"] == 1
     assert t2["x"] == 99
     assert tomlrt.dumps(doc) == src
+
+
+def test_copied_section_keeps_empty_aot_distinct_from_array() -> None:
+    source = tomlrt.loads("[section]\narray = [] # ordinary\n")
+    source.table("section")["pending"] = AoT()
+    doc = Document()
+    doc["copy"] = source.table("section")
+    assert doc.table("copy").array("array") == []
+    doc.table("copy").aot("pending").add({"id": 1})
+    expected = td("""
+        [copy]
+        array = [] # ordinary
+
+        [[copy.pending]]
+        id = 1
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert reparses(expected) == doc.to_dict()
+    assert tomlrt.dumps(source) == td("""
+        [section]
+        array = [] # ordinary
+        pending = []
+        """)
+
+
+def test_copied_aot_keeps_nested_empty_aots_in_their_entries() -> None:
+    source = tomlrt.loads(
+        td("""
+        [[rows]]
+        id = 1
+
+        [[rows]]
+        id = 2
+        """)
+    )
+    for entry in source.aot("rows"):
+        entry["pending"] = AoT()
+    doc = Document()
+    doc["copied"] = deepcopy(source.aot("rows"))
+    rows = doc.aot("copied")
+    assert rows[0].aot("pending") == []
+    rows[1].aot("pending").add({"v": 3})
+    expected = td("""
+        [[copied]]
+        id = 1
+        pending = []
+
+        [[copied]]
+        id = 2
+
+        [[copied.pending]]
+        v = 3
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert reparses(expected) == doc.to_dict()
+    assert tomlrt.dumps(source) == td("""
+        [[rows]]
+        id = 1
+        pending = []
+
+        [[rows]]
+        id = 2
+        pending = []
+        """)
+
+
+def test_document_construction_keeps_empty_aot_kind() -> None:
+    doc = Document({"pending": AoT(), "plain": []})
+    assert doc.array("plain") == []
+    assert tomlrt.dumps(doc) == "pending = []\nplain = []\n"
+    doc.aot("pending").add({"id": 1})
+    expected = td("""
+        plain = []
+
+        [[pending]]
+        id = 1
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert reparses(expected) == doc.to_dict()
+
+
+def test_whole_document_copy_keeps_bytes_and_empty_aot_kind() -> None:
+    text = "\ufeff" + td("""
+        # title
+
+        pending = []
+        root = 0x2A # value
+
+        [section]
+        plain = []
+
+        # ending
+        """).replace("\n", "\r\n", 2).rstrip("\n")
+    source = tomlrt.loads(text)
+    source["pending"] = AoT()
+    assert tomlrt.dumps(source) == text
+    copied = copy(source)
+    constructed = Document(source)
+    assert copied.aot("pending") == []
+    assert constructed.aot("pending") == []
+    assert copied.table("section").array("plain") == []
+    assert tomlrt.dumps(copied) == text
+    assert tomlrt.dumps(constructed) == text
+    assert tomlrt.dumps(source) == text
+
+
+def test_document_copy_preserves_root_mapping_order() -> None:
+    source = Document({"sub": {"y": 2}, "a": 1})
+    constructed = Document(source)
+    copied = copy(source)
+    assert list(source) == ["sub", "a"]
+    assert list(constructed) == ["sub", "a"]
+    assert list(copied) == ["sub", "a"]
+    expected = td("""
+        a = 1
+
+        [sub]
+        y = 2
+        """)
+    assert tomlrt.dumps(source) == expected
+    assert tomlrt.dumps(constructed) == expected
+    assert tomlrt.dumps(copied) == expected
+
+
+def test_factory_deepcopy_isolates_mutable_scalar_payloads() -> None:
+    zone = _MutableOffset()
+    value = datetime(2020, 1, 1, tzinfo=zone)
+    source = Table.section({"values": [value, value], "count": _MutableInt(2)})
+    cloned = deepcopy(source)
+    zone.hours = 3
+    count = source["count"]
+    assert isinstance(count, _MutableInt)
+    count.labels.append("changed")
+    copied_count = cloned["count"]
+    assert isinstance(copied_count, _MutableInt)
+    assert copied_count.labels == ["original"]
+    doc = Document()
+    doc["copy"] = cloned
+    values = doc.table("copy").array("values")
+    assert values[0] is values[1]
+    expected = td("""
+        [copy]
+        values = [2020-01-01T00:00:00+00:00, 2020-01-01T00:00:00+00:00]
+        count = 2
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert reparses(expected) == doc.to_dict()
+
+
+def test_document_construction_isolates_mutable_scalar_payloads() -> None:
+    zone = _MutableOffset()
+    value = datetime(2020, 1, 1, tzinfo=zone)
+    count = _MutableInt(2)
+    doc = Document({"values": [value, value], "count": count})
+    zone.hours = 3
+    count.labels.append("changed")
+    copied_count = doc["count"]
+    assert isinstance(copied_count, _MutableInt)
+    assert copied_count.labels == ["original"]
+    values = doc.array("values")
+    assert values[0] is values[1]
+    expected = td("""
+        values = [2020-01-01T00:00:00+00:00, 2020-01-01T00:00:00+00:00]
+        count = 2
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert reparses(expected) == doc.to_dict()
+
+
+def test_document_construction_copies_externally_shared_scalar_text() -> None:
+    lexeme = _MutableLexeme("2")
+
+    class SharedTextInt(int):
+        @override
+        def __str__(self) -> str:
+            return lexeme
+
+    value = SharedTextInt(2)
+    doc = Document({"value": value})
+    lexeme.rendered = "9"
+    assert tomlrt.dumps(doc) == "value = 2\n"
+    assert tomlrt.dumps({"value": value}) == "value = 9\n"
+
+
+def test_constructed_scalar_keeps_its_own_text_binding() -> None:
+    original = _RenderedInt(2)
+    doc = Document({"value": original})
+    stored = doc["value"]
+    assert isinstance(stored, _RenderedInt)
+    stored.lexeme.rendered = "0x2"
+    assert tomlrt.dumps(doc) == "value = 0x2\n"
+    assert reparses(tomlrt.dumps(doc)) == doc.to_dict()
+    assert tomlrt.dumps({"value": original}) == "value = 2\n"
+
+
+def test_whole_document_copy_keeps_independent_scalar_subclasses() -> None:
+    value = _MutableInt(2)
+    source = Document()
+    source["value"] = value
+    copied = copy(source)
+    constructed = Document(source)
+    value.labels.append("changed")
+    copied_value = copied["value"]
+    constructed_value = constructed["value"]
+    assert isinstance(copied_value, _MutableInt)
+    assert isinstance(constructed_value, _MutableInt)
+    assert copied_value.labels == constructed_value.labels == ["original"]
+    assert copied_value is not constructed_value
+    assert tomlrt.dumps(source) == "value = 2\n"
+    assert tomlrt.dumps(copied) == "value = 2\n"
+    assert tomlrt.dumps(constructed) == "value = 2\n"
+
+
+def test_exports_isolate_mutable_scalar_payloads() -> None:
+    zone = _MutableOffset()
+    value = datetime(2020, 1, 1, tzinfo=zone)
+    count = _MutableInt(2)
+    doc = Document()
+    doc["values"] = Array([value, value])
+    doc["count"] = count
+    exported = doc.to_dict()
+    exported_list = doc.array("values").to_list()
+    zone.hours = 3
+    count.labels.append("changed")
+    assert exported["values"][0] is exported["values"][1]
+    assert exported_list[0] is exported_list[1]
+    assert exported["values"][0].utcoffset() == timedelta(0)
+    assert exported_list[0].utcoffset() == timedelta(0)
+    assert exported["count"].labels == ["original"]
+    expected = td("""
+        values = [2020-01-01T00:00:00+00:00, 2020-01-01T00:00:00+00:00]
+        count = 2
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.dumps(exported) == expected
+    assert tomlrt.dumps({"values": exported_list}) == td("""
+        values = [2020-01-01T00:00:00+00:00, 2020-01-01T00:00:00+00:00]
+        """)
+
+
+def test_serializing_mapping_does_not_copy_scalar_payloads() -> None:
+    class NonCopyableInt(int):
+        def __deepcopy__(self, _memo: dict[int, object]) -> Self:
+            msg = "serialization must not copy"
+            raise AssertionError(msg)
+
+    assert tomlrt.dumps({"value": NonCopyableInt(2)}) == "value = 2\n"
 
 
 def test_deepcopy_table_subview_supports_nested_mutation() -> None:
@@ -1593,6 +1883,229 @@ def test_update_from_a_popped_subtree_leaves_it_intact() -> None:
         y = 2
         """)
     assert orphan.to_dict() == {"x": 1, "sub": {"y": 2}}
+
+
+def test_copy_callback_can_adopt_a_sibling_into_another_document() -> None:
+    other = Document()
+
+    class MovingInt(int):
+        def __deepcopy__(self, _memo: dict[int, object]) -> int:
+            other["moved"] = sibling
+            return int(self)
+
+    source = tomlrt.loads(
+        td("""
+        [parent.a]
+        value = 1
+        [parent.b]
+        x = 2
+        """)
+    )
+    source.table("parent.a")["value"] = MovingInt(1)
+    held = source.table("parent")
+    del source["parent"]
+    sibling = held.table("b")
+    copied = copy(held.table("a"))
+    assert other.table("moved") is sibling
+    sibling["x"] = 3
+    held.table("a")["value"] = 2
+    target = Document()
+    target["copy"] = copied
+    source["remaining"] = held
+    assert tomlrt.dumps(other) == td("""
+        [moved]
+        x = 3
+        """)
+    assert tomlrt.dumps(target) == td("""
+        [copy]
+        value = 1
+        """)
+    assert tomlrt.dumps(source) == td("""
+        [remaining.a]
+        value = 2
+        """)
+
+
+def test_failed_update_restores_normal_adoption_after_partial_progress() -> None:
+    source = tomlrt.loads("[private]\nx = 1\n")
+    private = source.table("private")
+    del source["private"]
+    target = tomlrt.loads("keep = 0\n")
+    with pytest.raises(TypeError, match="cannot convert NoneType"):
+        target.update({"copied": private, "bad": None})
+    assert target.table("copied") is not private
+    target["moved"] = private
+    assert target.table("moved") is private
+    private["x"] = 2
+    expected = td("""
+        keep = 0
+
+        [copied]
+        x = 1
+
+        [moved]
+        x = 2
+        """)
+    assert tomlrt.dumps(target) == expected
+    assert reparses(expected) == target.to_dict()
+    assert tomlrt.dumps(source) == ""
+
+
+def test_nested_update_protection_is_scoped_to_its_destination() -> None:
+    outer_doc = tomlrt.loads(
+        td("""
+        [root.source]
+        value = 1
+        [root.sibling]
+        x = 2
+        """)
+    )
+    outer = outer_doc.table("root")
+    del outer_doc["root"]
+    incoming = outer.table("source")
+    sibling = outer.table("sibling")
+    inner_doc = tomlrt.loads("[source]\ny = 3\n")
+    inner = inner_doc.table("source")
+    del inner_doc["source"]
+    target = Document()
+
+    class InnerInt(int):
+        def __deepcopy__(self, _memo: dict[int, object]) -> int:
+            target["outer_sibling"] = sibling
+            return int(self)
+
+    class OuterInt(int):
+        def __deepcopy__(self, _memo: dict[int, object]) -> int:
+            with pytest.raises(TypeError, match="cannot convert NoneType"):
+                target.update({"inner": inner, "bad": None})
+            target["outer_after"] = sibling
+            target["inner_released"] = inner
+            return int(self)
+
+    inner["y"] = InnerInt(3)
+    incoming["value"] = OuterInt(1)
+    target.update({"copied": incoming})
+    assert target.table("outer_sibling") is not sibling
+    assert target.table("outer_after") is not sibling
+    assert target.table("inner") is not inner
+    assert target.table("inner_released") is inner
+    sibling["x"] = 20
+    incoming["value"] = 5
+    inner["y"] = 4
+    expected = td("""
+        [outer_sibling]
+        x = 2
+
+        [inner]
+        y = 3
+
+        [outer_after]
+        x = 2
+
+        [inner_released]
+        y = 4
+
+        [copied]
+        value = 1
+        """)
+    assert tomlrt.dumps(target) == expected
+    assert reparses(expected) == target.to_dict()
+    outer_doc["remaining"] = outer
+    assert tomlrt.dumps(outer_doc) == td("""
+        [remaining.source]
+        value = 5
+        [remaining.sibling]
+        x = 20
+        """)
+    assert tomlrt.dumps(inner_doc) == ""
+
+
+def test_update_adopts_roots_orphaned_by_the_current_write() -> None:
+    source = tomlrt.loads("[template]\nvalue = 9\n")
+    private = source.table("template")
+    del source["template"]
+    doc = tomlrt.loads("[outer]\n[outer.child]\nx = 1\n")
+    child = doc.table("outer.child")
+    doc.update({"private": private, "outer": child})
+    assert doc.table("outer") is child
+    assert doc.table("private") is not private
+    expected = td("""
+        [outer]
+        x = 1
+        [private]
+        value = 9
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert reparses(expected) == doc.to_dict()
+    assert tomlrt.dumps(private) == "value = 9\n"
+    assert tomlrt.dumps(source) == ""
+
+
+def test_factory_update_keeps_references_for_later_attachment() -> None:
+    source = tomlrt.loads("[template]\nvalue = 9\n")
+    private = source.table("template")
+    del source["template"]
+    factory = Table.section()
+    factory.update({"child": private})
+    target = Document()
+    target["parent"] = factory
+    assert target.table("parent") is factory
+    assert target.table("parent.child") is private
+    private["value"] = 10
+    assert tomlrt.dumps(target) == td("""
+        [parent.child]
+        value = 10
+        """)
+    assert tomlrt.dumps(source) == ""
+
+
+def test_update_keeps_fresh_aot_entries_live_but_copies_existing_layout() -> None:
+    source = tomlrt.loads("[template]\nx = 1 # keep\n")
+    factory = AoT([source.table("template"), {"x": 2}])
+    layout_entry, fresh_entry = factory
+    target = Document()
+    target.update({"rows": factory})
+    assert target.aot("rows") is factory
+    assert factory[0] is not layout_entry
+    assert factory[1] is fresh_entry
+    layout_entry["x"] = 8
+    fresh_entry["x"] = 3
+    expected = td("""
+        [[rows]]
+        x = 1 # keep
+
+        [[rows]]
+        x = 3
+        """)
+    assert tomlrt.dumps(target) == expected
+    assert reparses(expected) == target.to_dict()
+    assert tomlrt.dumps(layout_entry) == "x = 8 # keep\n"
+    assert tomlrt.dumps(source) == "[template]\nx = 1 # keep\n"
+
+
+def test_update_copies_a_private_aot_without_preventing_later_adoption() -> None:
+    source = tomlrt.loads("[[items]]\nx = 1\n")
+    held = source.aot("items")
+    del source["items"]
+    target = Document()
+    target.update({"copied": held})
+    assert target.aot("copied") is not held
+    target["moved"] = held
+    assert target.aot("moved") is held
+    held.add({"x": 2})
+    expected = td("""
+        [[copied]]
+        x = 1
+
+        [[moved]]
+        x = 1
+
+        [[moved]]
+        x = 2
+        """)
+    assert tomlrt.dumps(target) == expected
+    assert reparses(expected) == target.to_dict()
+    assert tomlrt.dumps(source) == ""
 
 
 def test_dumps_a_popped_subtree_wrapped_in_plain_mappings() -> None:

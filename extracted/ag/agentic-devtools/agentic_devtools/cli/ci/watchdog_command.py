@@ -22,6 +22,10 @@ from agentic_devtools.cli.ci.cooldown import (
     format_resume_at,
     persist_cooldown,
 )
+from agentic_devtools.cli.ci.credential_roles import (
+    DEFAULT_CLASSIC_REPO_WORKFLOW_PAT,
+    require_default_repo_workflow_token,
+)
 from agentic_devtools.cli.ci.due_probe_wakeup import run_due_probe_wakeup
 from agentic_devtools.cli.ci.github_provider import GitHubActionsProvider, _gh_api
 from agentic_devtools.cli.ci.logging_config import setup_logging
@@ -99,55 +103,38 @@ def _dispatch_with_token(workflow: str, repo: str, default_branch: str, token: s
     return 0, ""
 
 
-def _dispatch_throttler_with_fallback(repo: str, default_branch: str) -> int:
-    preferred_token = _token_from_env("GH_TOKEN")
-    fallback_token = _token_from_env("FALLBACK_GH_TOKEN")
-    dispatch_status = 0
-    if not preferred_token:
-        if not fallback_token:
-            return 2
-        dispatch_status, _ = _dispatch_with_token(THROTTLER_WORKFLOW, repo, default_branch, fallback_token)
-        return dispatch_status
-    dispatch_status, _ = _dispatch_with_token(THROTTLER_WORKFLOW, repo, default_branch, preferred_token)
-    if dispatch_status == 1 and fallback_token:
-        dispatch_status, _ = _dispatch_with_token(THROTTLER_WORKFLOW, repo, default_branch, fallback_token)
+def _dispatch_throttler_for_redispatch(repo: str, default_branch: str) -> int:
+    try:
+        token = require_default_repo_workflow_token("dispatch the throttler workflow")
+    except RuntimeError as exc:
+        print(f"::warning::{exc}")
+        return 2
+    dispatch_status, message = _dispatch_with_token(THROTTLER_WORKFLOW, repo, default_branch, token)
+    if dispatch_status != 0 and message:
+        print(f"::warning::Default repository-workflow credential dispatch failed: {message}")
     return dispatch_status
 
 
 def _dispatch_redispatch_from_loop(repo: str, default_branch: str) -> int:
-    preferred_token = _token_from_env("GH_TOKEN")
-    fallback_token = _token_from_env("FALLBACK_GH_TOKEN")
-    cooldown_active = _token_from_env("COOLDOWN_ACTIVE").lower() == "true"
-    loop_exit_code = _token_from_env("LOOP_EXIT_CODE")
-    if fallback_token and (not preferred_token or cooldown_active or loop_exit_code == "6"):
-        preferred_token = fallback_token
-    if not preferred_token:
+    try:
+        token = require_default_repo_workflow_token("dispatch the redispatch workflow")
+    except RuntimeError as exc:
+        print(f"::warning::{exc}")
         return 2
-    dispatch_status, _ = _dispatch_with_token(REDISPATCH_WORKFLOW, repo, default_branch, preferred_token)
+    dispatch_status, message = _dispatch_with_token(REDISPATCH_WORKFLOW, repo, default_branch, token)
+    if dispatch_status != 0 and message:
+        print(f"::warning::Default repository-workflow credential dispatch failed: {message}")
     return dispatch_status
 
 
 def _resolve_default_branch_for_throttler_dispatch(repo: str) -> str:
-    preferred_token = _token_from_env("GH_TOKEN")
-    fallback_token = _token_from_env("FALLBACK_GH_TOKEN")
-    probe_token = preferred_token or fallback_token or None
-    try:
-        return _get_default_branch(repo, token=probe_token)
-    except RuntimeError as exc:
-        if preferred_token and fallback_token and _is_authorization_failure(str(exc)):
-            return _get_default_branch(repo, token=fallback_token)
-        raise
+    token = require_default_repo_workflow_token("resolve the repository default branch")
+    return _get_default_branch(repo, token=token)
 
 
 def _resolve_default_branch_for_redispatch_dispatch(repo: str) -> str:
-    preferred_token = _token_from_env("GH_TOKEN")
-    fallback_token = _token_from_env("FALLBACK_GH_TOKEN")
-    cooldown_active = _token_from_env("COOLDOWN_ACTIVE").lower() == "true"
-    loop_exit_code = _token_from_env("LOOP_EXIT_CODE")
-    selected_token = preferred_token
-    if fallback_token and (not selected_token or cooldown_active or loop_exit_code == "6"):
-        selected_token = fallback_token
-    return _get_default_branch(repo, token=selected_token or None)
+    token = require_default_repo_workflow_token("resolve the repository default branch")
+    return _get_default_branch(repo, token=token)
 
 
 def _read_open_pr_page(repo: str, token: str, page: int) -> list[dict[str, Any]]:
@@ -267,42 +254,32 @@ def _latest_merged_at(repo: str, default_branch: str, token: str) -> str | None:
 
 
 def _select_pr_read_token(repo: str) -> str:
-    candidates = (
-        ("SPECKIT_PR_TOKEN", _token_from_env("SPECKIT_PR_TOKEN")),
-        ("GITHUB_TOKEN", _token_from_env("GITHUB_TOKEN")),
-    )
-    for candidate_name, candidate_token in candidates:
-        if not candidate_token:
-            continue
-        try:
-            probe = _gh_api(f"/repos/{repo}/pulls?state=open&per_page=1", token=candidate_token)
-        except RetryableError as exc:
-            raise RuntimeError(
-                f"Pull-request inventory probe failed for {candidate_name}; "
-                "refusing redispatch because the inventory is unavailable."
-            ) from exc
-        except RuntimeError as exc:
-            if _is_authorization_failure(str(exc)):
-                continue
-            raise RuntimeError(
-                f"Pull-request inventory probe failed for {candidate_name}; "
-                "refusing redispatch because the inventory is unavailable."
-            ) from exc
-        try:
-            decoded = json.loads(probe)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(
-                f"Pull-request inventory probe returned a malformed response for {candidate_name}; refusing redispatch."
-            ) from exc
-        if not isinstance(decoded, list):
-            raise RuntimeError(
-                f"Pull-request inventory probe returned a malformed response for {candidate_name}; refusing redispatch."
-            )
-        return candidate_token
-    raise RuntimeError(
-        "No credential can read repository pull requests; grant Pull requests: read "
-        "to a configured PAT or the workflow GITHUB_TOKEN."
-    )
+    token = require_default_repo_workflow_token("read repository pull requests")
+    try:
+        probe = _gh_api(f"/repos/{repo}/pulls?state=open&per_page=1", token=token)
+    except RetryableError as exc:
+        raise RuntimeError(
+            "Pull-request inventory probe failed for the default repository-workflow credential; "
+            "refusing redispatch because the inventory is unavailable."
+        ) from exc
+    except RuntimeError as exc:
+        raise RuntimeError(
+            "Pull-request inventory probe failed for the default repository-workflow credential; "
+            "refusing redispatch because the inventory is unavailable."
+        ) from exc
+    try:
+        decoded = json.loads(probe)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "Pull-request inventory probe returned a malformed response for the default "
+            "repository-workflow credential; refusing redispatch."
+        ) from exc
+    if not isinstance(decoded, list):
+        raise RuntimeError(
+            "Pull-request inventory probe returned a malformed response for the default "
+            "repository-workflow credential; refusing redispatch."
+        )
+    return token
 
 
 def _run_redispatch_stop_conditions(repo: str, default_branch: str | None) -> None:
@@ -378,10 +355,12 @@ def _get_latest_throttler_run(repo: str, default_branch: str, *, token: str | No
 
 
 def _dispatch_throttler(repo: str, default_branch: str) -> None:
+    token = require_default_repo_workflow_token("dispatch the throttler workflow")
     _gh_api(
         f"/repos/{repo}/actions/workflows/{quote(THROTTLER_WORKFLOW, safe='')}/dispatches",
         method="POST",
         body={"ref": default_branch},
+        token=token,
     )
 
 
@@ -541,7 +520,10 @@ def _seed_cooldown_state(latest_run: dict[str, Any] | None, now_utc: datetime) -
         return None
     return CooldownState(
         provider_identity="github_actions",
-        credential_identity=os.environ.get("AGDT_COOLDOWN_CREDENTIAL_IDENTITY", "GH_TOKEN"),
+        credential_identity=os.environ.get(
+            "AGDT_COOLDOWN_CREDENTIAL_IDENTITY",
+            DEFAULT_CLASSIC_REPO_WORKFLOW_PAT,
+        ),
         cooldown_generation_id=f"throttler-{run_id}",
         resume_at=updated_at + timedelta(seconds=COOLDOWN_SECONDS),
         reason="throttler_cooldown",
@@ -662,13 +644,15 @@ def _calculate_redispatch_timing(
 ) -> dict[str, Any]:
     """Calculate the current redispatch timing decision and cooldown state."""
     paused = _provider_cooldown(provider, now_utc)
-    preferred_token = _writer_token() if paused is not None else None
+    if paused is not None:
+        return _build_redispatch_timing_output(None, paused, now_utc)
+    token = require_default_repo_workflow_token("read repository workflow runs")
     default_branch = default_branch_hint
-    if default_branch is None and (paused is None or preferred_token is not None):
-        default_branch = _get_default_branch(repo, token=preferred_token)
+    if default_branch is None:
+        default_branch = _get_default_branch(repo, token=token)
     latest_run: dict[str, Any] | None = None
-    if default_branch is not None and (paused is None or preferred_token is not None):
-        latest_run = _get_latest_throttler_run(repo, default_branch, token=preferred_token)
+    if default_branch is not None:
+        latest_run = _get_latest_throttler_run(repo, default_branch, token=token)
     return _build_redispatch_timing_output(latest_run, paused, now_utc)
 
 
@@ -723,8 +707,9 @@ def _run_due_probe_only(
             "cooldown_resume_at": format_resume_at(record.resume_at),
             "cooldown_remaining_seconds": max(0, int(record.resume_at - now_utc.timestamp())),
         }
-    default_branch = default_branch_hint or _get_default_branch(repo)
-    latest_run = _get_latest_throttler_run(repo, default_branch)
+    token = require_default_repo_workflow_token("read repository workflow runs")
+    default_branch = default_branch_hint or _get_default_branch(repo, token=token)
+    latest_run = _get_latest_throttler_run(repo, default_branch, token=token)
     cooldown_state = _load_cooldown_state(repo)
     if cooldown_state is None:
         cooldown_state = _seed_cooldown_state(latest_run, now_utc)
@@ -816,13 +801,15 @@ def ai_pr_loop_watchdog_command() -> None:
             return
         if args.mode == "redispatch-dispatch-throttler":
             default_branch = args.default_branch or _resolve_default_branch_for_throttler_dispatch(repo)
-            dispatch_status = _dispatch_throttler_with_fallback(repo, default_branch)
+            dispatch_status = _dispatch_throttler_for_redispatch(repo, default_branch)
             if dispatch_status != 0:
                 print(
                     "::warning::Could not dispatch ai-pr-loop-throttler.yml "
                     "(workflow may be disabled); watchdog will retry."
                 )
             print(json.dumps({"dispatch_status": dispatch_status, "workflow": THROTTLER_WORKFLOW}))
+            if dispatch_status != 0:
+                sys.exit(dispatch_status)
             return
         if args.mode == "redispatch-dispatch-redispatch":
             default_branch = args.default_branch or _resolve_default_branch_for_redispatch_dispatch(repo)
@@ -830,6 +817,8 @@ def ai_pr_loop_watchdog_command() -> None:
             if dispatch_status != 0:
                 print("::warning::Failed to dispatch ai-pr-loop-redispatch.yml; continuing")
             print(json.dumps({"dispatch_status": dispatch_status, "workflow": REDISPATCH_WORKFLOW}))
+            if dispatch_status != 0:
+                sys.exit(dispatch_status)
             return
         if args.mode == "redispatch-recheck":
             now_utc = _utc_now()
@@ -837,9 +826,10 @@ def ai_pr_loop_watchdog_command() -> None:
             default_branch = args.default_branch
             recheck_latest_run: dict[str, Any] | None = None
             if paused is None:
+                token = require_default_repo_workflow_token("read repository workflow runs")
                 if default_branch is None:
-                    default_branch = _get_default_branch(repo)
-                recheck_latest_run = _get_latest_throttler_run(repo, default_branch)
+                    default_branch = _get_default_branch(repo, token=token)
+                recheck_latest_run = _get_latest_throttler_run(repo, default_branch, token=token)
             output = _build_redispatch_recheck_output(paused, recheck_latest_run, now_utc)
             _write_github_output({"should_dispatch": bool(output["should_dispatch"])})
             print(json.dumps(output))
@@ -894,8 +884,9 @@ def ai_pr_loop_watchdog_command() -> None:
             )
             return
 
-        default_branch = args.default_branch or _get_default_branch(repo)
-        latest_run = _get_latest_throttler_run(repo, default_branch)
+        token = require_default_repo_workflow_token("read repository workflow runs")
+        default_branch = args.default_branch or _get_default_branch(repo, token=token)
+        latest_run = _get_latest_throttler_run(repo, default_branch, token=token)
 
         due_probe_count = 0
         availability_established = False

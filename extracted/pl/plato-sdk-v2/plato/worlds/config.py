@@ -303,18 +303,28 @@ class WorkspaceSourceSpec(BaseModel):
 
 
 class StateConfig(BaseModel):
-    """Configuration for world state persistence.
+    """Configuration for world state and workspace resume.
 
-    State is persisted to the Chronos DB after each step. Worlds can call
-    ``load_state()`` to fetch the latest state for the current session
-    or a different session (cross-session resume).
+    ``enabled`` gates ``load_state()`` / ``_try_resume()`` (workspace refs,
+    ``resume_from``). Uploading the ``WorldState`` dump itself to Chronos on
+    every checkpoint is **off by default** (``persist``): resumable state
+    belongs in ``@durable`` functions and tracked workspaces, and the Chronos
+    ``/sessions/{id}/state`` endpoint answers 410.
 
     Attributes:
-        enabled: Whether to enable state persistence (default: True).
+        enabled: Whether resume/load of state is enabled (default: True).
+        persist: Upload the WorldState dump to Chronos on ``save_state()``
+            (default: False, legacy behaviour).
         path: Path to the local state/workspace directory (default: /state).
     """
 
     enabled: bool = True
+    persist: bool = Field(
+        default=False,
+        description="Upload the whole WorldState dump to Chronos on every checkpoint. "
+        "Off by default: large dumps (the exploration graph was ~50 MB) stalled Chronos "
+        "workers, and the endpoint now answers 410. Keep state in @durable/workspaces.",
+    )
     path: str = "/state"
     resume_from: str = ""  # session_id to load pipeline state from (cross-session resume)
     resume_workspaces: dict[str, str] = Field(

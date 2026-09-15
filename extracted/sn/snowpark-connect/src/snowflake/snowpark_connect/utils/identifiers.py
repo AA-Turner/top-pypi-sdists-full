@@ -41,6 +41,7 @@ __all__ = [
     "transform_identifier_for_snowflake",
     "is_backtick_quoted",
     "strip_backtick_quotes_if_quoted",
+    "strip_spark_identifier_quotes",
     "unquote_spark_identifier_if_quoted",
     "spark_to_sf_single_id",
     "spark_to_sf_single_id_with_unquoting",
@@ -89,6 +90,24 @@ def unquote_spark_identifier_if_quoted(spark_name: str) -> str:
     exception = AnalysisException(f"Invalid name: {spark_name}")
     attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
     raise exception
+
+
+def strip_spark_identifier_quotes(identifier: str) -> str:
+    """Strip Spark/SQL surrounding quote wrappers from a ref identifier.
+
+    Repeatedly removes one layer of ``'…'``, ``"…"``, or backticks until the
+    value is bare. Used by Iceberg branch/tag DDL where Spark may pass
+    already-quoted ref names (including nested wrappers like ``"'main'"``).
+    """
+    text = str(identifier).strip()
+    while len(text) >= 2 and text[0] == text[-1] and text[0] in {"`", '"', "'"}:
+        inner = text[1:-1]
+        if text[0] == "`":
+            text = inner.replace("``", "`")
+        else:
+            text = inner.replace(text[0] * 2, text[0])
+        text = text.strip()
+    return text
 
 
 def strip_backtick_quotes_if_quoted(name: str) -> str:

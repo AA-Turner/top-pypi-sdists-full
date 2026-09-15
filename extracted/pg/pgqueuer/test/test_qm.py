@@ -12,6 +12,7 @@ from pgqueuer import db
 from pgqueuer.adapters.inmemory import InMemoryQueries
 from pgqueuer.core.cache import TTLCache
 from pgqueuer.core.tm import TaskManager
+from pgqueuer.domain.types import QueueEntrypoint
 from pgqueuer.models import Job, Log
 from pgqueuer.qm import QueueManager
 from pgqueuer.queries import Queries
@@ -162,6 +163,36 @@ async def test_drain_mode(
         await qm.run(mode=QueueExecutionMode.drain)
 
     assert len(jobs) == N
+
+
+@pytest.mark.parametrize("max_concurrent_tasks", (None, 0))
+async def test_run_unlimited_budget_reaches_dequeue_as_none(
+    apgdriver: db.Driver,
+    max_concurrent_tasks: int | None,
+) -> None:
+    """run() forwards unlimited max_concurrent_tasks (None or legacy 0) to dequeue as None."""
+    q = Queries(apgdriver)
+    qm = QueueManager(Queries(apgdriver))
+    seen = list[int | None]()
+
+    original = qm.queries.dequeue
+
+    async def spying_dequeue(*args: Any, **kwargs: Any) -> Any:
+        seen.append(kwargs["global_concurrency_limit"])
+        return await original(*args, **kwargs)
+
+    qm.queries.dequeue = spying_dequeue
+
+    @qm.entrypoint("fetch")
+    async def fetch(job: Job) -> None: ...
+
+    await q.enqueue("fetch", None, 0)
+
+    async with async_timeout.timeout(10):
+        await qm.run(mode=QueueExecutionMode.drain, max_concurrent_tasks=max_concurrent_tasks)
+
+    assert seen
+    assert set(seen) == {None}
 
 
 async def test_periodic_log_aggregation_loops_until_shutdown() -> None:
@@ -336,7 +367,7 @@ async def test_run_failure_leaves_no_pending_lifecycle_tasks(
     async def failing_dequeue(*args: Any, **kwargs: Any) -> list[Job]:
         raise RuntimeError("boom")
 
-    queries.dequeue = failing_dequeue  # type: ignore[method-assign]
+    queries.dequeue = failing_dequeue
 
     before = asyncio.all_tasks()
     with pytest.raises(RuntimeError, match="boom"):
@@ -375,7 +406,7 @@ async def test_shutdown_mid_batch_leaves_no_stranded_picked_jobs(
             qm.shutdown.set()
         return await original_dequeue(*args, **kwargs)
 
-    queries.dequeue = dequeue_then_shutdown  # type: ignore[method-assign]
+    queries.dequeue = dequeue_then_shutdown
 
     async with async_timeout.timeout(10):
         await qm.run(dequeue_timeout=timedelta(seconds=0.01), batch_size=batch_size)
@@ -395,7 +426,7 @@ async def test_drain_shutdown_ignores_stale_cached_queued_work(
 
     cached = TTLCache.create(
         ttl=timedelta(hours=1),
-        on_expired=lambda: qm.queries.queued_work(["fetch"]),
+        on_expired=lambda: qm.queries.queued_work([QueueEntrypoint("fetch")]),
     )
     assert await cached() == 0
 
@@ -418,7 +449,7 @@ async def test_drain_shutdown_sets_shutdown_when_queue_confirmed_empty(
 
     cached = TTLCache.create(
         ttl=timedelta(hours=1),
-        on_expired=lambda: qm.queries.queued_work(["fetch"]),
+        on_expired=lambda: qm.queries.queued_work([QueueEntrypoint("fetch")]),
     )
 
     await qm._maybe_drain_shutdown(QueueExecutionMode.drain, TaskManager(), cached)

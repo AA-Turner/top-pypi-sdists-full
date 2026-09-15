@@ -27,7 +27,6 @@ from siliconcompiler.schema import __version__ as sc_schema_version
 
 from siliconcompiler.flowgraph import RuntimeFlowgraph
 from siliconcompiler.scheduler import SchedulerNode
-from siliconcompiler.scheduler import SlurmSchedulerNode
 from siliconcompiler.scheduler import TaskScheduler
 
 from siliconcompiler.remote import JobStatus, NodeStatus
@@ -113,11 +112,12 @@ class Server(ServerSchema):
         with self.sc_jobs_lock:
             job_hash = self.sc_project_lookup[project]["jobhash"]
 
-        start_tar = os.path.join(self.nfs_mount, job_hash, f'{job_hash}_None.tar.gz')
+        start_tar = os.path.join(self.build_root, job_hash, f'{job_hash}_None.tar.gz')
         start_status = NodeStatus.SUCCESS
         with tarfile.open(start_tar, "w:gz") as tf:
             start_manifest = os.path.join(jobdir(project), f"{project.name}.pkg.json")
-            tf.add(start_manifest, arcname=os.path.relpath(start_manifest, self.nfs_mount))
+            tf.add(start_manifest,
+                   arcname=os.path.relpath(start_manifest, self.build_root))
 
         with self.sc_jobs_lock:
             job_name = self.sc_project_lookup[project]["name"]
@@ -130,6 +130,20 @@ class Server(ServerSchema):
                     continue
                 self.sc_jobs[job_name][name]["status"] = \
                     project.get('record', 'status', step=step, index=index)
+
+            canceled = job_name in self.sc_canceled_jobs
+
+        if canceled:
+            # Canceled before this run had a scheduler to hand the request to.
+            # A job is claimed for a client the moment its thread is started,
+            # but the run does not publish the scheduler executing it until it
+            # is inside Project.run(), and a cancel arriving in between found
+            # nothing to stop. It is recorded rather than lost, and this is the
+            # first point past that window: the scheduler exists, and no node
+            # has been launched yet.
+            scheduler = project._scheduler
+            if scheduler:
+                scheduler.cancel()
 
     def __node_start(self, project, step, index):
         with self.sc_jobs_lock:
@@ -145,7 +159,7 @@ class Server(ServerSchema):
 
         project = project.copy()
         project._Project__cwd = os.path.join(project.option.get_builddir(), '..')
-        with tarfile.open(os.path.join(self.nfs_mount,
+        with tarfile.open(os.path.join(self.build_root,
                                        job_hash,
                                        f'{job_hash}_{step}{index}.tar.gz'),
                           mode='w:gz') as tf:
@@ -160,6 +174,8 @@ class Server(ServerSchema):
         # makedirs() raises if it cannot deliver the directory, so there is
         # nothing left to test for afterwards.
         os.makedirs(self.nfs_mount, exist_ok=True)
+        os.makedirs(self.build_root, exist_ok=True)
+        os.makedirs(self.cache_dir, exist_ok=True)
         os.makedirs(self.staging_mount, exist_ok=True)
         with open(os.path.join(self.nfs_mount, ".gitignore"), "w") as f:
             f.write("*")
@@ -287,7 +303,7 @@ class Server(ServerSchema):
         project.set('record', 'remoteid', job_hash)
 
         # Ensure that the job's root directory exists.
-        job_root = os.path.join(self.nfs_mount, job_hash)
+        job_root = os.path.join(self.build_root, job_hash)
         job_dir = os.path.join(job_root, design, job_name)
         os.makedirs(job_dir, exist_ok=True)
 
@@ -311,6 +327,13 @@ class Server(ServerSchema):
 
         # Create the working directory for the given 'job hash' if necessary.
         project.option.set_builddir(job_root)
+
+        # Downloaded PDKs and data packages belong on the shared filesystem
+        # beside the jobs, not in the home directory of whoever happens to run
+        # the node: a compute node need not share a home with the server, and
+        # left unset this defaults to ~/.sc/cache. Cluster-wide rather than
+        # per-job -- under job_root every job would re-download the PDK.
+        project.option.set_cachedir(self.cache_dir)
 
         # Remove 'remote' JSON config value to run locally on compute node.
         project.option.set_remote(False)
@@ -337,7 +360,12 @@ class Server(ServerSchema):
         with self.sc_jobs_lock:
             self.sc_job_threads[sc_job_name] = {
                 "thread": job_proc,
-                "jobhash": job_hash
+                "jobhash": job_hash,
+                # Recorded before the thread starts, so a cancel arriving while
+                # the run is still in setup has something to name. remote_sc()
+                # does not reach its own bookkeeping until later, and a cancel
+                # that beat it there used to find nothing and do nothing.
+                "project": project
             }
             # Claim the job before the thread runs: remote_sc() fills in the
             # node list, and until it does a 'check_progress' call that beat it
@@ -376,7 +404,7 @@ class Server(ServerSchema):
         if not self.__job_belongs_to(job_hash, job_params['username']):
             return self.__not_owner_response()
 
-        zipfn = os.path.join(self.nfs_mount, job_hash, f'{job_hash}_{node}.tar.gz')
+        zipfn = os.path.join(self.build_root, job_hash, f'{job_hash}_{node}.tar.gz')
         if not os.path.exists(zipfn):
             return web.json_response(
                 {'message': 'Could not find results for the requested job/node.'},
@@ -390,13 +418,10 @@ class Server(ServerSchema):
         API handler for 'cancel_job' requests. Stop a job that is currently
         running.
 
-        How much can be stopped depends on where the job's nodes are running.
-        Slurm nodes are cancelable: they are named after the job hash, so the
-        server can hand them to scancel. Nodes running locally are not -- they
-        are children of the thread executing the job, and this server has no
-        handle on them -- so those run to completion. Either way the job is
-        marked canceled, which is what 'check_progress' reports and what
-        releases a waiting client.
+        The run is stopped wherever its work is: the scheduler on the job's own
+        thread stops scheduling and ends each node, and each node releases
+        whatever it dispatched elsewhere. The job is also marked canceled, which
+        is what 'check_progress' reports and what releases a waiting client.
         '''
 
         # Process input parameters
@@ -420,18 +445,13 @@ class Server(ServerSchema):
                                           'success': False},
                                          status=404)
 
-        cluster = self.get('option', 'cluster')
-        # Off the event loop: cancelling shells out to scancel, and a request
-        # handler that blocks stalls every other client too.
-        await asyncio.to_thread(self.__cancel_job, job_name, job_hash)
+        # Off the event loop: cancelling shells out to scancel and waits on
+        # node processes ending, and a request handler that blocks stalls every
+        # other client too.
+        await asyncio.to_thread(self.__cancel_job, job_name)
 
-        if cluster == 'slurm':
-            message = f'Canceling job: {job_hash}.'
-        else:
-            message = f'Job {job_hash} marked as canceled. Nodes already ' \
-                      'running on this server will finish on their own.'
-
-        return web.json_response({'message': message, 'success': True})
+        return web.json_response({'message': f'Canceling job: {job_hash}.',
+                                  'success': True})
 
     ####################
     async def handle_delete_job(self, request):
@@ -463,10 +483,10 @@ class Server(ServerSchema):
         # has matched '^[0-9a-f]{32}$' in delete_job.json, so it cannot carry a
         # path separator; the check below is what keeps that guarantee load
         # bearing if the schema is ever loosened.
-        build_dir = os.path.join(self.nfs_mount, job_hash)
+        build_dir = os.path.join(self.build_root, job_hash)
         check_dir = os.path.dirname(build_dir)
         deleted = False
-        if check_dir == self.nfs_mount:
+        if check_dir == self.build_root:
             # suppress() rather than an exists() check first: nothing here holds
             # a lock on the job's data, so a file can go away between the two.
             with contextlib.suppress(FileNotFoundError):
@@ -602,13 +622,18 @@ class Server(ServerSchema):
             return job_hash
 
     ####################
-    def __cancel_job(self, job_name, job_hash):
+    def __cancel_job(self, job_name):
         '''
-        Mark a job canceled and stop what can be stopped.
+        Mark a job canceled and stop it.
 
-        Only slurm nodes can be reached, and the scheduler that submitted them
-        is what knows how: the node list this server tracks is enough for
-        SlurmSchedulerNode.cancel_nodes().
+        Where the job's work is running is the job's business, not this
+        server's: the project publishes the scheduler executing it, that
+        scheduler stops scheduling and ends its nodes, and a node that
+        dispatched elsewhere cancels that as it goes.
+
+        A job whose thread has not reached Project.run() yet has no scheduler to
+        publish, so the request is only recorded here; the run picks it up from
+        sc_canceled_jobs at pre_run, before it launches anything.
         '''
 
         with self.sc_jobs_lock:
@@ -618,15 +643,13 @@ class Server(ServerSchema):
                 # own teardown has already run.
                 return
             self.sc_canceled_jobs.add(job_name)
-            nodes = [(info['step'], info['index'])
-                     for info in self.sc_jobs[job_name].values()
-                     if 'step' in info and not SCNodeStatus.is_done(info['status'])]
+            project = self.sc_job_threads.get(job_name, {}).get('project')
 
-        if self.get('option', 'cluster') != 'slurm':
-            return
-
-        if not SlurmSchedulerNode.cancel_nodes(job_hash, nodes) and nodes:
-            self.logger.warning(f'Unable to cancel nodes for job: {job_hash}')
+        # Read once: the run can end between the check and the call, and then
+        # there is nothing left to cancel anyway.
+        scheduler = project._scheduler if project is not None else None
+        if scheduler:
+            scheduler.cancel()
 
     ####################
     async def __shutdown(self, app):
@@ -647,12 +670,13 @@ class Server(ServerSchema):
 
         for job_name, info in running.items():
             self.logger.warning(f"Shutting down with job still running: {info['jobhash']}")
-            await asyncio.to_thread(self.__cancel_job, job_name, info['jobhash'])
+            await asyncio.to_thread(self.__cancel_job, job_name)
 
-        # Canceling reaches the slurm nodes; the ones running here are processes
-        # this server's job threads started, and only their scheduler can end
-        # them. Left alone they are joined at interpreter exit, which is what
-        # used to keep an sc-server alive long after it was told to stop.
+        # Cancelling above reaches every job this server is tracking. halt_all()
+        # is the backstop for anything else still holding a node process: they
+        # are not daemons, so left alone they are joined at interpreter exit,
+        # which is what used to keep an sc-server alive long after it was told
+        # to stop.
         await asyncio.to_thread(TaskScheduler.halt_all)
 
         # One deadline for the shutdown rather than one per job, and the joins
@@ -678,6 +702,15 @@ class Server(ServerSchema):
 
         try:
             self.__run_job(project, job_hash, sc_job_name)
+        except RuntimeError:
+            with self.sc_jobs_lock:
+                canceled = sc_job_name in self.sc_canceled_jobs
+            if not canceled:
+                raise
+            # A canceled run ends by raising, the same as any run that did not
+            # reach its exit nodes. Here that is the outcome that was asked for,
+            # not a failure to report as one.
+            self.logger.info(f'Canceled job: {job_hash}')
         finally:
             # Whatever happened, the job is over: a job left in sc_jobs is one
             # that 'check_progress' reports as running forever, and handle_
@@ -727,13 +760,16 @@ class Server(ServerSchema):
             }
             self.sc_jobs[sc_job_name] = nodes
 
-        build_dir = os.path.join(self.nfs_mount, job_hash)
+        build_dir = os.path.join(self.build_root, job_hash)
         project.option.set_builddir(build_dir)
+        project.option.set_cachedir(self.cache_dir)
         project.option.set_remote(False)
 
-        if self.get('option', 'cluster') == 'slurm':
-            # Run the job with slurm clustering.
-            project.option.scheduler.set_name('slurm')
+        cluster = self.get('option', 'cluster')
+        if cluster != 'local':
+            # 'local' is what an unset scheduler already means; any other
+            # cluster names the per-node scheduler the run dispatches through.
+            project.option.scheduler.set_name(cluster)
 
         # Run the job.
         project.run()
@@ -797,7 +833,7 @@ class Server(ServerSchema):
 
     ###################
     def __job_owner_file(self, job_hash):
-        return os.path.join(self.nfs_mount, job_hash, '.owner')
+        return os.path.join(self.build_root, job_hash, '.owner')
 
     ###################
     def __record_job_owner(self, job_hash, username):
@@ -852,6 +888,29 @@ class Server(ServerSchema):
     def nfs_mount(self):
         # Ensure that NFS mounting path is absolute.
         return os.path.abspath(self.get('option', 'nfsmount'))
+
+    ###################
+    @property
+    def build_root(self):
+        """Where job directories live, one per job hash.
+
+        A level below the mount rather than at its root, so that job data and
+        the shared cache do not share a namespace -- and so a job hash can
+        never collide with something the server keeps beside it.
+        """
+        return os.path.join(self.nfs_mount, 'builds')
+
+    ###################
+    @property
+    def cache_dir(self):
+        """Where the whole cluster caches what it keeps between runs.
+
+        On the shared mount rather than in a home directory, so that every
+        compute node resolves the same files as the server: the scheduler hands
+        this path to the node, so it is the server's value that decides where
+        the node looks.
+        """
+        return os.path.join(self.nfs_mount, 'cache')
 
     ###################
     @property

@@ -12,7 +12,9 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class UpdateOracleMigrationDetails(UpdateMigrationDetails):
     """
-    Create Migration resource parameters.
+    Update Migration resource parameters.
+    Deprecated: The parent-level Oracle migration configuration properties on this model are deprecated.
+    Use `migrationSettings` instead.
     """
 
     def __init__(self, **kwargs):
@@ -54,6 +56,10 @@ class UpdateOracleMigrationDetails(UpdateMigrationDetails):
         :param defined_tags:
             The value to assign to the defined_tags property of this UpdateOracleMigrationDetails.
         :type defined_tags: dict(str, dict(str, object))
+
+        :param migration_settings:
+            The value to assign to the migration_settings property of this UpdateOracleMigrationDetails.
+        :type migration_settings: oci.database_migration.models.UpdateOracleMigrationSettings
 
         :param data_transfer_medium_details:
             The value to assign to the data_transfer_medium_details property of this UpdateOracleMigrationDetails.
@@ -97,6 +103,7 @@ class UpdateOracleMigrationDetails(UpdateMigrationDetails):
             'target_database_connection_id': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
+            'migration_settings': 'UpdateOracleMigrationSettings',
             'data_transfer_medium_details': 'UpdateOracleDataTransferMediumDetails',
             'initial_load_settings': 'UpdateOracleInitialLoadSettings',
             'advisor_settings': 'UpdateOracleAdvisorSettings',
@@ -115,6 +122,7 @@ class UpdateOracleMigrationDetails(UpdateMigrationDetails):
             'target_database_connection_id': 'targetDatabaseConnectionId',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
+            'migration_settings': 'migrationSettings',
             'data_transfer_medium_details': 'dataTransferMediumDetails',
             'initial_load_settings': 'initialLoadSettings',
             'advisor_settings': 'advisorSettings',
@@ -135,6 +143,7 @@ class UpdateOracleMigrationDetails(UpdateMigrationDetails):
         self._target_database_connection_id = None
         self._freeform_tags = None
         self._defined_tags = None
+        self._migration_settings = None
         self._data_transfer_medium_details = None
         self._initial_load_settings = None
         self._advisor_settings = None
@@ -144,6 +153,26 @@ class UpdateOracleMigrationDetails(UpdateMigrationDetails):
         self._source_container_database_connection_id = None
         self._source_standby_database_connection_id = None
         self._database_combination = 'ORACLE'
+
+    @property
+    def migration_settings(self):
+        """
+        Gets the migration_settings of this UpdateOracleMigrationDetails.
+
+        :return: The migration_settings of this UpdateOracleMigrationDetails.
+        :rtype: oci.database_migration.models.UpdateOracleMigrationSettings
+        """
+        return self._migration_settings
+
+    @migration_settings.setter
+    def migration_settings(self, migration_settings):
+        """
+        Sets the migration_settings of this UpdateOracleMigrationDetails.
+
+        :param migration_settings: The migration_settings of this UpdateOracleMigrationDetails.
+        :type: oci.database_migration.models.UpdateOracleMigrationSettings
+        """
+        self._migration_settings = migration_settings
 
     @property
     def data_transfer_medium_details(self):

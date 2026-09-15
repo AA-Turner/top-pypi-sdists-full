@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import math
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
@@ -36,7 +37,7 @@ class MacOSPresentationCapabilities:
     viewport_height: int
     backing_scale: float
     hotkey: bool
-    stop_region: "tuple[float, float, float, float] | None"
+    stop_region: tuple[float, float, float, float] | None
 
 
 @dataclass(frozen=True)
@@ -47,10 +48,44 @@ class MacOSPresentationStatus:
     available: bool
     state: str
     cursor: str
-    capabilities: "MacOSPresentationCapabilities | None" = None
-    degradation_reason: "str | None" = None
-    codec: "str | None" = None
-    fallback: "str | None" = None
+    capabilities: MacOSPresentationCapabilities | None = None
+    degradation_reason: str | None = None
+    codec: str | None = None
+    fallback: str | None = None
+
+
+@dataclass(frozen=True)
+class MacOSStatusMetrics:
+    """Counts and timings shown by the run-scoped macOS status item."""
+
+    input_tokens: "int | None" = None
+    cached_input_tokens: "int | None" = None
+    output_tokens: "int | None" = None
+    latest_rtt_ms: "float | None" = None
+    rtt_samples_ms: tuple[float, ...] = ()
+    request_in_flight: bool = False
+
+    def __post_init__(self) -> None:
+        counts = (self.input_tokens, self.cached_input_tokens, self.output_tokens)
+        if any(
+            value is not None and (not isinstance(value, int) or isinstance(value, bool) or value < 0)
+            for value in counts
+        ):
+            raise ValueError("status metric token counts must be non-negative integers or None")
+        if (
+            self.input_tokens is not None
+            and self.cached_input_tokens is not None
+            and self.cached_input_tokens > self.input_tokens
+        ):
+            raise ValueError("cached input tokens cannot exceed input tokens")
+        timings = (*self.rtt_samples_ms, *((self.latest_rtt_ms,) if self.latest_rtt_ms is not None else ()))
+        if any(
+            not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value) or value < 0
+            for value in timings
+        ):
+            raise ValueError("status metric RTT values must be finite non-negative numbers")
+        if not isinstance(self.request_in_flight, bool):
+            raise ValueError("request_in_flight must be a bool")
 
 
 @dataclass(frozen=True)
@@ -59,8 +94,8 @@ class MacOSWindowTarget:
 
     pid: int
     window_id: int
-    title: "str | None" = None
-    app_name: "str | None" = None
+    title: str | None = None
+    app_name: str | None = None
 
     def describe(self) -> str:
         name = self.app_name or "target application"
@@ -73,13 +108,13 @@ class MacOSActionOutcome:
 
     tool: str
     requested_delivery: str
-    effect: "str | None"
-    route: "str | None"
-    reported_delivery: "str | None"
+    effect: str | None
+    route: str | None
+    reported_delivery: str | None
     escalated: bool
-    refusal_code: "str | None"
-    recommended: "str | None" = None
-    escalation_reason: "str | None" = None
+    refusal_code: str | None
+    recommended: str | None = None
+    escalation_reason: str | None = None
 
     @property
     def landed(self) -> bool:
@@ -112,8 +147,8 @@ class ShellPresentationEvent:
     command: str
     run_in_background: bool
     state: ShellLifecycleState
-    exit_code: "int | None" = None
-    output: "str | None" = None
+    exit_code: int | None = None
+    output: str | None = None
 
 
 class N2Presentation(Protocol):
@@ -138,13 +173,13 @@ class CancellationLatch:
     """Latch one cancellation cause, resolving same-loop requests by priority."""
 
     def __init__(self) -> None:
-        self._cause: "str | None" = None
-        self._pending: "str | None" = None
+        self._cause: str | None = None
+        self._pending: str | None = None
         self._commit_scheduled = False
         self._event = asyncio.Event()
 
     @property
-    def cause(self) -> "str | None":
+    def cause(self) -> str | None:
         return self._cause or self._pending
 
     @property

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Dict, Union, Iterable, Optional
-from typing_extensions import overload
 
 import httpx
 
@@ -47,33 +46,6 @@ class SettingsResource(SyncAPIResource):
         """
         return SettingsResourceWithStreamingResponse(self)
 
-    @overload
-    def update(
-        self,
-        *,
-        workspace_prompt: Optional[str],
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SettingUpdateResponse:
-        """
-        Update settings for an organization
-
-        Args:
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        ...
-
-    @overload
     def update(
         self,
         *,
@@ -93,7 +65,7 @@ class SettingsResource(SyncAPIResource):
         onedrive_client_id: Optional[str] | Omit = omit,
         onedrive_client_secret: Optional[str] | Omit = omit,
         onedrive_custom_key_enabled: Optional[bool] | Omit = omit,
-        profile_buckets: Iterable[setting_update_params.Variant1ProfileBucket] | Omit = omit,
+        profile_buckets: Iterable[setting_update_params.ProfileBucket] | Omit = omit,
         should_llm_filter: Optional[bool] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -116,42 +88,10 @@ class SettingsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        ...
-
-    def update(
-        self,
-        *,
-        workspace_prompt: Optional[str] | Omit = omit,
-        chunk_size: Optional[int] | Omit = omit,
-        exclude_items: Union[str, float, bool, Dict[str, object], Iterable[object], None] | Omit = omit,
-        filter_prompt: Optional[str] | Omit = omit,
-        github_client_id: Optional[str] | Omit = omit,
-        github_client_secret: Optional[str] | Omit = omit,
-        github_custom_key_enabled: Optional[bool] | Omit = omit,
-        google_drive_client_id: Optional[str] | Omit = omit,
-        google_drive_client_secret: Optional[str] | Omit = omit,
-        google_drive_custom_key_enabled: Optional[bool] | Omit = omit,
-        include_items: Union[str, float, bool, Dict[str, object], Iterable[object], None] | Omit = omit,
-        notion_client_id: Optional[str] | Omit = omit,
-        notion_client_secret: Optional[str] | Omit = omit,
-        notion_custom_key_enabled: Optional[bool] | Omit = omit,
-        onedrive_client_id: Optional[str] | Omit = omit,
-        onedrive_client_secret: Optional[str] | Omit = omit,
-        onedrive_custom_key_enabled: Optional[bool] | Omit = omit,
-        profile_buckets: Iterable[setting_update_params.Variant1ProfileBucket] | Omit = omit,
-        should_llm_filter: Optional[bool] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SettingUpdateResponse:
         return self._patch(
             "/v3/settings",
             body=maybe_transform(
                 {
-                    "workspace_prompt": workspace_prompt,
                     "chunk_size": chunk_size,
                     "exclude_items": exclude_items,
                     "filter_prompt": filter_prompt,
@@ -221,33 +161,6 @@ class AsyncSettingsResource(AsyncAPIResource):
         """
         return AsyncSettingsResourceWithStreamingResponse(self)
 
-    @overload
-    async def update(
-        self,
-        *,
-        workspace_prompt: Optional[str],
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SettingUpdateResponse:
-        """
-        Update settings for an organization
-
-        Args:
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        ...
-
-    @overload
     async def update(
         self,
         *,
@@ -267,7 +180,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         onedrive_client_id: Optional[str] | Omit = omit,
         onedrive_client_secret: Optional[str] | Omit = omit,
         onedrive_custom_key_enabled: Optional[bool] | Omit = omit,
-        profile_buckets: Iterable[setting_update_params.Variant1ProfileBucket] | Omit = omit,
+        profile_buckets: Iterable[setting_update_params.ProfileBucket] | Omit = omit,
         should_llm_filter: Optional[bool] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -290,42 +203,10 @@ class AsyncSettingsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        ...
-
-    async def update(
-        self,
-        *,
-        workspace_prompt: Optional[str] | Omit = omit,
-        chunk_size: Optional[int] | Omit = omit,
-        exclude_items: Union[str, float, bool, Dict[str, object], Iterable[object], None] | Omit = omit,
-        filter_prompt: Optional[str] | Omit = omit,
-        github_client_id: Optional[str] | Omit = omit,
-        github_client_secret: Optional[str] | Omit = omit,
-        github_custom_key_enabled: Optional[bool] | Omit = omit,
-        google_drive_client_id: Optional[str] | Omit = omit,
-        google_drive_client_secret: Optional[str] | Omit = omit,
-        google_drive_custom_key_enabled: Optional[bool] | Omit = omit,
-        include_items: Union[str, float, bool, Dict[str, object], Iterable[object], None] | Omit = omit,
-        notion_client_id: Optional[str] | Omit = omit,
-        notion_client_secret: Optional[str] | Omit = omit,
-        notion_custom_key_enabled: Optional[bool] | Omit = omit,
-        onedrive_client_id: Optional[str] | Omit = omit,
-        onedrive_client_secret: Optional[str] | Omit = omit,
-        onedrive_custom_key_enabled: Optional[bool] | Omit = omit,
-        profile_buckets: Iterable[setting_update_params.Variant1ProfileBucket] | Omit = omit,
-        should_llm_filter: Optional[bool] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SettingUpdateResponse:
         return await self._patch(
             "/v3/settings",
             body=await async_maybe_transform(
                 {
-                    "workspace_prompt": workspace_prompt,
                     "chunk_size": chunk_size,
                     "exclude_items": exclude_items,
                     "filter_prompt": filter_prompt,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zttp
-Version: 0.0.31
+Version: 0.0.32
 Summary: A sans-IO HTTP/1.1, HTTP/2, and HTTP/3 parser for Python with a Zig core.
 Project-URL: Homepage, https://github.com/Kludex/zttp
 Project-URL: Source, https://github.com/Kludex/zttp

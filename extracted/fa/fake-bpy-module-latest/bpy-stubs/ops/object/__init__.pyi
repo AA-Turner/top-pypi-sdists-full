@@ -4910,7 +4910,7 @@ class text_add(bpy.ops._BPyOpsSubModOp):
         undo: bool | None = None,
         /,
         *,
-        radius: float | None = 1.0,
+        size: float | None = 1.0,
         enter_editmode: bool | None = False,
         align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
         location: collections.abc.Sequence[float] | mathutils.Vector | None = (
@@ -4933,7 +4933,7 @@ class text_add(bpy.ops._BPyOpsSubModOp):
 
                 :param execution_context:
                 :param undo:
-                :param radius: Radius, (in [0, inf], optional)
+                :param size: Size, (in [0, inf], optional)
                 :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
                 :param align: Align, The alignment of the new object (optional)
 

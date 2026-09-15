@@ -38,6 +38,8 @@
 #ifndef nsEscCharSetProber_h__
 #define nsEscCharSetProber_h__
 
+#include <cstddef>
+
 #include "nsCharSetProber.h"
 #include "nsCodingStateMachine.h"
 
@@ -47,11 +49,15 @@ class nsEscCharSetProber: public nsCharSetProber {
 public:
   nsEscCharSetProber(PRUint32 aLanguageFilter);
   virtual ~nsEscCharSetProber(void);
-  nsProbingState HandleData(const char* aBuf, PRUint32 aLen);
-  const char* GetCharSetName() {return mDetectedCharset;}
+  nsProbingState HandleData(const char* aBuf, PRUint32 aLen,
+                            int** codePointBuffer,
+                            int*  codePointBufferIdx);
+  virtual int GetCandidates() { return 1; }
+  const char* GetCharSetName(int) {return mDetectedCharset;}
+  const char* GetLanguage(int) {return mDetectedLang;}
   nsProbingState GetState(void) {return mState;}
   void      Reset(void);
-  float     GetConfidence(void){return (float)0.99;}
+  float     GetConfidence(int){return (float)0.99;}
   void      SetOpion() {}
 
 protected:
@@ -61,6 +67,7 @@ protected:
   PRUint32    mActiveSM;
   nsProbingState mState;
   const char *  mDetectedCharset;
+  const char *  mDetectedLang;
 };
 
 #endif /* nsEscCharSetProber_h__ */

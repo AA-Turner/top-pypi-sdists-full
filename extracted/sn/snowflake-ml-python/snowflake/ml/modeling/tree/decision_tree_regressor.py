@@ -140,7 +140,7 @@ class DecisionTreeRegressor(BaseTransformer):
         mean squared error with Friedman's improvement score for potential
         splits, "absolute_error" for the mean absolute error, which minimizes
         the L1 loss using the median of each terminal node, and "poisson" which
-        uses reduction in Poisson deviance to find splits.
+        uses reduction in the half mean Poisson deviance to find splits.
 
     splitter: {"best", "random"}, default="best"
         The strategy used to choose the split at each node. Supported
@@ -151,6 +151,9 @@ class DecisionTreeRegressor(BaseTransformer):
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
+
+        For an example of how ``max_depth`` influences the model, see
+        :ref:`sphx_glr_auto_examples_tree_plot_tree_regression.py`.
 
     min_samples_split: int or float, default=2
         The minimum number of samples required to split an internal node:
@@ -229,7 +232,9 @@ class DecisionTreeRegressor(BaseTransformer):
         Complexity parameter used for Minimal Cost-Complexity Pruning. The
         subtree with the largest cost complexity that is smaller than
         ``ccp_alpha`` will be chosen. By default, no pruning is performed. See
-        :ref:`minimal_cost_complexity_pruning` for details.
+        :ref:`minimal_cost_complexity_pruning` for details. See
+        :ref:`sphx_glr_auto_examples_tree_plot_cost_complexity_pruning.py`
+        for an example of such pruning.
 
     monotonic_cst: array-like of int of shape (n_features), default=None
         Indicates the monotonicity constraint to enforce on each feature.
@@ -1043,7 +1048,7 @@ class DecisionTreeRegressor(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.tree.DecisionTreeRegressor.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeRegressor.html#sklearn.tree.DecisionTreeRegressor.score)
 

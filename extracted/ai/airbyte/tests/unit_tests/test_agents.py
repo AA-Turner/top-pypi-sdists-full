@@ -8,14 +8,24 @@ from typing import Any
 import pytest
 import requests
 from airbyte.agents import _api_util
+from airbyte.agents import skills as skills_module
 from airbyte.agents.connectors import AgentConnector
-from airbyte.agents.models import AgentConnectorMetadata, AgentExecuteResult
+from airbyte.agents.models import (
+    AgentConnectorMetadata,
+    AgentExecuteResult,
+    AgentSkillInfo,
+)
 from airbyte.agents.organizations import AgentOrganization
+from airbyte.agents.skills import AgentSkill
 from airbyte.agents.workspaces import AgentWorkspace
 from airbyte.cloud._credentials import _AirbyteCredentials
 from airbyte.cloud.organizations import CloudOrganization
 from airbyte.cloud.workspaces import CloudWorkspace
-from airbyte.exceptions import AirbyteError, PyAirbyteInputError
+from airbyte.exceptions import (
+    AirbyteAgentsUnavailableError,
+    AirbyteError,
+    PyAirbyteInputError,
+)
 from airbyte.secrets.base import SecretString
 
 
@@ -52,6 +62,37 @@ WORKSPACES_RESPONSE: dict[str, Any] = {
         {"id": "workspace-1", "name": "primary", "organization_id": "org-id"},
         {"id": "workspace-2", "name": "secondary", "organization_id": "org-id"},
     ]
+}
+SKILL_LIST_RESPONSE: dict[str, Any] = {
+    "data": [
+        {
+            "id": "connector:github",
+            "kind": "connector_source",
+            "title": "GitHub",
+            "summary": "GitHub usage docs.",
+            "tags": ["github", "connector"],
+        }
+    ],
+    "next_cursor": None,
+}
+SKILL_DOCS_RESPONSE: dict[str, Any] = {
+    "metadata": {
+        "id": "connector:github",
+        "kind": "connector_source",
+        "title": "GitHub",
+        "warnings": ["Partial runtime metadata."],
+    },
+    "outline": [
+        {
+            "id": "setup",
+            "title": "Setup",
+            "summary": "How to configure.",
+            "available": True,
+        },
+        {"id": "faq", "title": "FAQ", "available": False},
+    ],
+    "section_id": None,
+    "content": [{"type": "paragraph", "text": "Hello"}],
 }
 
 
@@ -101,6 +142,10 @@ def captured_requests(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
             return _FakeResponse(INSPECT_RESPONSE)
         if url.endswith("/execute"):
             return _FakeResponse(EXECUTE_RESPONSE)
+        if url.endswith("/skills/docs"):
+            return _FakeResponse(SKILL_DOCS_RESPONSE)
+        if url.endswith("/skills/search") or url.endswith("/skills"):
+            return _FakeResponse(SKILL_LIST_RESPONSE)
         if url.endswith("/connectors"):
             return _FakeResponse(CONNECTORS_RESPONSE)
         if url.endswith("/workspaces"):
@@ -138,6 +183,98 @@ def test_make_agents_api_request(captured_requests: list[dict[str, Any]]) -> Non
         credentials=_credentials(organization_id=None),
     )
     assert "X-Organization-Id" not in captured_requests[1]["headers"]
+
+
+def test_get_agents_api_root_for_public_cloud(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Public Cloud credentials use the hosted Agents API root."""
+    monkeypatch.delenv("AIRBYTE_AGENTS_API_URL", raising=False)
+
+    assert (
+        _api_util.get_agents_api_root(_credentials()) == "https://api.airbyte.ai/api/v1"
+    )
+
+
+def test_get_agents_api_root_rejects_overridden_cloud_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-Cloud credentials cannot use the hosted Agents API."""
+    monkeypatch.delenv("AIRBYTE_AGENTS_API_URL", raising=False)
+
+    with pytest.raises(
+        AirbyteAgentsUnavailableError, match="only available on Airbyte Cloud"
+    ):
+        _api_util.get_agents_api_root(
+            _credentials(public_api_root="https://airbyte.example.com/api/public/v1")
+        )
+
+
+def test_get_agents_api_root_uses_environment_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An explicit Agents API root overrides deployment detection."""
+    monkeypatch.setenv("AIRBYTE_AGENTS_API_URL", "https://agents.example.com/api/v1/")
+
+    assert (
+        _api_util.get_agents_api_root(
+            _credentials(public_api_root="https://airbyte.example.com/api/public/v1")
+        )
+        == "https://agents.example.com/api/v1"
+    )
+
+
+@pytest.mark.parametrize("override", ["", "   "])
+def test_blank_agents_api_root_override_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+    override: str,
+) -> None:
+    """Blank Agents API root overrides do not enable a non-Cloud deployment."""
+    monkeypatch.setenv("AIRBYTE_AGENTS_API_URL", override)
+    credentials = _credentials(
+        public_api_root="https://airbyte.example.com/api/public/v1"
+    )
+
+    with pytest.raises(AirbyteAgentsUnavailableError):
+        _api_util.get_agents_api_root(credentials)
+
+
+def test_agents_api_root_override_allows_cloud_conversion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An explicit Agents API root allows conversion from custom Cloud roots."""
+    monkeypatch.setenv("AIRBYTE_AGENTS_API_URL", "https://agents.example.com/api/v1")
+
+    _api_util.check_public_cloud_api_roots(
+        _credentials(public_api_root="https://airbyte.example.com/api/public/v1")
+    )
+
+
+def test_agents_root_is_checked_before_authentication(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unavailable Agents deployments fail before exchanging client credentials."""
+    monkeypatch.delenv("AIRBYTE_AGENTS_API_URL", raising=False)
+    token_requests = 0
+
+    def _unexpected_token_request(**_: Any) -> str:
+        nonlocal token_requests
+        token_requests += 1
+        return "unexpected-token"
+
+    monkeypatch.setattr(_api_util, "get_bearer_token", _unexpected_token_request)
+
+    with pytest.raises(AirbyteAgentsUnavailableError):
+        _api_util.make_agents_api_request(
+            method="GET",
+            path="/workspaces",
+            credentials=_credentials(
+                public_api_root="https://airbyte.example.com/api/public/v1",
+                bearer_token=None,
+                client_id="client-id",
+                client_secret="client-secret",
+            ),
+        )
+
+    assert token_requests == 0
 
 
 @pytest.mark.parametrize(
@@ -723,6 +860,44 @@ def test_cloud_conversions(
         assert captured_requests[0]["url"].endswith(expected_request_path)
 
 
+def test_agent_workspace_preserves_explicit_api_root() -> None:
+    """Pass explicit API roots through Agent workspace credentials."""
+    workspace = AgentWorkspace(
+        workspace_id="workspace-id",
+        client_id="client-id",
+        client_secret="client-secret",
+        public_api_root="https://proxy.example/v1",
+    )
+
+    assert workspace._credentials.public_api_root == "https://proxy.example/v1"  # noqa: SLF001
+
+
+def test_cloud_conversions_preserve_custom_api_roots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cloud-to-Agents conversions retain custom roots when an Agents API is configured."""
+    monkeypatch.setenv("AIRBYTE_AGENTS_API_URL", "https://agents.example.com/api/v1")
+
+    workspace = AgentWorkspace.from_cloud_workspace(
+        CloudWorkspace(
+            workspace_id="workspace-id",
+            bearer_token="test-token",
+            api_root="https://proxy.example/v1",
+        ),
+        verify=False,
+    )
+    assert workspace._credentials.public_api_root == "https://proxy.example/v1"  # noqa: SLF001
+
+    organization = AgentOrganization.from_cloud_organization(
+        CloudOrganization(
+            organization_id="org-id",
+            bearer_token="test-token",
+            public_api_root="https://proxy.example/v1",
+        )
+    )
+    assert organization._credentials.public_api_root == "https://proxy.example/v1"  # noqa: SLF001
+
+
 @pytest.mark.parametrize(
     "convert",
     [
@@ -765,7 +940,290 @@ def test_conversion_rejects_non_public_cloud_api_roots(
     convert: Any,
 ) -> None:
     """A Cloud object with custom API roots cannot become an Agents object."""
-    with pytest.raises(PyAirbyteInputError, match="only available on Airbyte Cloud"):
+    with pytest.raises(
+        AirbyteAgentsUnavailableError, match="only available on Airbyte Cloud"
+    ):
         convert()
 
     assert captured_requests == []
+
+
+@pytest.mark.parametrize(
+    ("call_api", "expected_path", "expected_params"),
+    [
+        pytest.param(
+            lambda: _api_util.list_agent_skills(
+                credentials=_credentials(),
+                organization_id="org-id",
+                workspace_id="workspace-id",
+                limit=5,
+                cursor="c1",
+            ),
+            "/skills",
+            {
+                "limit": 5,
+                "cursor": "c1",
+                "organization_id": "org-id",
+                "workspace_id": "workspace-id",
+            },
+            id="list_skills",
+        ),
+        pytest.param(
+            lambda: _api_util.search_agent_skills(
+                query="github",
+                credentials=_credentials(),
+                organization_id="org-id",
+                workspace_id="workspace-id",
+                limit=5,
+                cursor="c1",
+            ),
+            "/skills/search",
+            {
+                "query": "github",
+                "limit": 5,
+                "cursor": "c1",
+                "organization_id": "org-id",
+                "workspace_id": "workspace-id",
+            },
+            id="search_skills",
+        ),
+        pytest.param(
+            lambda: _api_util.read_agent_skill_docs(
+                skill_id="connector:github",
+                credentials=_credentials(),
+                organization_id="org-id",
+                workspace_id="workspace-id",
+                section="setup",
+            ),
+            "/skills/docs",
+            {
+                "id": "connector:github",
+                "section": "setup",
+                "organization_id": "org-id",
+                "workspace_id": "workspace-id",
+            },
+            id="read_skill_docs",
+        ),
+    ],
+)
+def test_skill_requests(
+    captured_requests: list[dict[str, Any]],
+    call_api: Any,
+    expected_path: str,
+    expected_params: dict[str, Any],
+) -> None:
+    """Skill API calls hit their `/skills` endpoints with only non-`None` params."""
+    response = call_api()
+
+    call = captured_requests[0]
+    assert call["url"] == f"https://api.airbyte.ai/api/v1{expected_path}"
+    assert call["params"] == expected_params
+    assert call["headers"]["X-Organization-Id"] == "org-id"
+
+    if expected_path == "/skills/docs":
+        assert response["metadata"]["id"] == "connector:github"
+    else:
+        # The raw response is returned, so `next_cursor` is not dropped.
+        assert "next_cursor" in response
+        assert response["data"][0]["id"] == "connector:github"
+
+
+def test_skill_requests_omit_none_params(
+    captured_requests: list[dict[str, Any]],
+) -> None:
+    """Unset skill API arguments are left out of the query string."""
+    _api_util.list_agent_skills(credentials=_credentials(organization_id=None))
+    assert captured_requests[0]["params"] is None
+
+    _api_util.search_agent_skills(
+        query="github",
+        credentials=_credentials(organization_id=None),
+    )
+    assert captured_requests[1]["params"] == {"query": "github"}
+
+    _api_util.read_agent_skill_docs(
+        skill_id="connector:github",
+        credentials=_credentials(organization_id=None),
+    )
+    assert captured_requests[2]["params"] == {"id": "connector:github"}
+
+
+def test_workspace_skill_methods(captured_requests: list[dict[str, Any]]) -> None:
+    """`AgentWorkspace` skill methods scope requests to the workspace and parse results."""
+    workspace = AgentWorkspace(workspace_id="workspace-id", bearer_token="test-token")
+
+    skills = workspace.list_skills()
+    assert captured_requests[0]["url"].endswith("/skills")
+    assert captured_requests[0]["params"] == {"workspace_id": "workspace-id"}
+    assert [skill.skill_id for skill in skills] == ["connector:github"]
+    # `info` is already populated from the listing, so reading it is free.
+    assert skills[0].info.id == "connector:github"
+    assert skills[0].title == "GitHub"
+    assert len(captured_requests) == 1
+
+    skills = workspace.search_skills("github")
+    assert captured_requests[1]["url"].endswith("/skills/search")
+    assert captured_requests[1]["params"] == {
+        "query": "github",
+        "workspace_id": "workspace-id",
+    }
+    assert [skill.skill_id for skill in skills] == ["connector:github"]
+
+    docs = workspace.read_skill_docs("connector:github", section="setup")
+    assert captured_requests[2]["url"].endswith("/skills/docs")
+    assert captured_requests[2]["params"] == {
+        "id": "connector:github",
+        "section": "setup",
+        "workspace_id": "workspace-id",
+    }
+    assert docs.metadata.id == "connector:github"
+    assert docs.metadata.warnings == ["Partial runtime metadata."]
+    assert docs.outline[0].id == "setup"
+    assert docs.outline[1].available is False
+    assert docs.content == [{"type": "paragraph", "text": "Hello"}]
+
+
+@pytest.mark.parametrize(
+    ("pages", "expected_ids", "expected_request_count"),
+    [
+        pytest.param(
+            [
+                (["s1", "s2"], "cursor-1"),
+                (["s3"], None),
+            ],
+            ["s1", "s2", "s3"],
+            2,
+            id="follows_cursor_to_last_page",
+        ),
+        pytest.param(
+            [(["s1"], None)],
+            ["s1"],
+            1,
+            id="single_page",
+        ),
+        pytest.param(
+            [
+                (["s1"], "cursor-1"),
+                (["s2"], "cursor-1"),
+            ],
+            ["s1", "s2"],
+            2,
+            id="stops_when_cursor_does_not_advance",
+        ),
+        pytest.param(
+            [(["s1"], "  ")],
+            ["s1"],
+            1,
+            id="stops_on_blank_cursor",
+        ),
+    ],
+)
+def test_iter_skills(
+    monkeypatch: pytest.MonkeyPatch,
+    pages: list[tuple[list[str], str | None]],
+    expected_ids: list[str],
+    expected_request_count: int,
+) -> None:
+    """`iter_skills()` follows the API's cursor and stops without looping."""
+    calls: list[dict[str, Any]] = []
+
+    def _fake_request(**kwargs: Any) -> _FakeResponse:
+        calls.append(kwargs)
+        ids, next_cursor = pages[min(len(calls) - 1, len(pages) - 1)]
+        return _FakeResponse({
+            "data": [{"id": skill_id} for skill_id in ids],
+            "next_cursor": next_cursor,
+        })
+
+    monkeypatch.setattr(requests, "request", _fake_request)
+
+    skills = list(
+        skills_module.iter_skills(
+            credentials=_credentials(),
+            workspace_id="workspace-id",
+        )
+    )
+
+    assert [skill.id for skill in skills] == expected_ids
+    assert len(calls) == expected_request_count
+    assert [call["params"].get("cursor") for call in calls] == [
+        None,
+        *[page[1] for page in pages[: expected_request_count - 1]],
+    ]
+
+
+def test_get_skill(captured_requests: list[dict[str, Any]]) -> None:
+    """`get_skill()` returns an `AgentSkill` bound to the workspace, without a request."""
+    workspace = AgentWorkspace(
+        workspace_id="workspace-id",
+        organization_id="org-id",
+        bearer_token="test-token",
+    )
+
+    skill = workspace.get_skill("connector:github")
+
+    assert isinstance(skill, AgentSkill)
+    assert skill.skill_id == "connector:github"
+    assert captured_requests == []
+
+
+@pytest.mark.parametrize("section", [None, "setup"], ids=["no_section", "with_section"])
+def test_agent_skill_read_docs(
+    captured_requests: list[dict[str, Any]],
+    section: str | None,
+) -> None:
+    """`AgentSkill.read_docs()` requests `/skills/docs` for its skill and section."""
+    skill = AgentSkill(
+        "connector:github",
+        credentials=_credentials(),
+        workspace_id="workspace-id",
+    )
+
+    docs = skill.read_docs(section=section)
+
+    expected_params: dict[str, Any] = {
+        "id": "connector:github",
+        "organization_id": "org-id",
+        "workspace_id": "workspace-id",
+    }
+    if section is not None:
+        expected_params["section"] = section
+    assert captured_requests[0]["url"].endswith("/skills/docs")
+    assert captured_requests[0]["params"] == expected_params
+    assert docs.metadata.id == "connector:github"
+    assert skill.info.id == "connector:github"
+
+
+def test_agent_skill_info_is_cached(captured_requests: list[dict[str, Any]]) -> None:
+    """`AgentSkill.info` fetches once and caches across property accesses."""
+    skill = AgentSkill("connector:github", credentials=_credentials())
+
+    assert skill.title == "GitHub"
+    assert skill.kind == "connector_source"
+    assert skill.info.id == "connector:github"
+    assert len(captured_requests) == 1
+
+
+def test_agent_skill_read_docs_keeps_listed_info(
+    captured_requests: list[dict[str, Any]],
+) -> None:
+    """`read_docs()` does not replace richer metadata supplied at construction."""
+    listed_info = AgentSkillInfo(
+        id="connector:github",
+        kind="connector_source",
+        title="GitHub",
+        summary="Listed summary",
+        tags=["vcs"],
+    )
+    skill = AgentSkill(
+        "connector:github",
+        credentials=_credentials(),
+        info=listed_info,
+    )
+
+    skill.read_docs()
+
+    assert len(captured_requests) == 1
+    assert skill.info is listed_info
+    assert skill.info.summary == "Listed summary"
+    assert skill.info.tags == ["vcs"]

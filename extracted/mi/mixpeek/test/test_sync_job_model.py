@@ -50,6 +50,7 @@ class TestSyncJobModel(unittest.TestCase):
                 completed_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 error = '',
+                resumed_via = '',
                 metadata = { },
                 progress_percent = 0.0,
                 throughput_files_per_min = 0.0,

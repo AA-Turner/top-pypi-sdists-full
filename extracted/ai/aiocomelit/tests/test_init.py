@@ -1,9 +1,10 @@
+# Copyright 2023 Simone Chemelli and contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Base tests for aiocomelit."""
 
 from aiocomelit.api import (
-    ComeliteSerialBridgeApi,
-    ComelitSerialBridgeObject,
-    ComelitVedoApi,
+    ComelitDeviceObject,
     ComelitVedoAreaObject,
     ComelitVedoZoneObject,
 )
@@ -18,9 +19,7 @@ from aiocomelit.exceptions import (
 
 def test_objects_can_be_imported() -> None:
     """Verify objects exist."""
-    assert type(ComeliteSerialBridgeApi)
-    assert type(ComelitSerialBridgeObject)
-    assert type(ComelitVedoApi)
+    assert type(ComelitDeviceObject)
     assert type(ComelitVedoAreaObject)
     assert type(ComelitVedoZoneObject)
     assert type(ComelitError)

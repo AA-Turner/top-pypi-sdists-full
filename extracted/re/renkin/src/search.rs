@@ -436,6 +436,9 @@ pub struct SearchStats {
     pub matched_templates: u64,
     /// Total building-block hits seen in node frontiers.
     pub stock_hits: u64,
+    /// Stock-membership lookup accounting for the per-search memoization.
+    /// This is diagnostic-only and does not affect search ordering.
+    pub stock_lookup_diagnostics: StockLookupDiagnostics,
     /// retro_cache hits (same intermediate seen before → O(1) reuse).
     pub retro_cache_hits: u64,
     /// retro_cache misses (new intermediate → full apply_retro run).
@@ -461,6 +464,15 @@ pub struct SearchStats {
     /// a nonzero value means a mixed-mode run (part reranked, part legacy)
     /// happened and should be investigated, not silently accepted.
     pub reranker_failures: u64,
+}
+
+/// Counts stock-membership lookups and memoization reuse within one search.
+#[derive(Debug, Default, Serialize)]
+pub struct StockLookupDiagnostics {
+    pub cache_hits: u64,
+    pub cache_misses: u64,
+    pub positive_results: u64,
+    pub negative_results: u64,
 }
 
 /// Stable component contract for exploration experiments (ROADMAP Phase 3A).
@@ -619,6 +631,26 @@ pub struct CrowdOutDiagnostics {
     /// this function's own existing `#[cfg(not(target_arch = "wasm32"))]`
     /// `t0`/`nodes_popped` timing, which has the same restriction).
     pub retro_expansion_wall_time_us: u64,
+    /// Wall-clock microseconds spent inside `candidate::raw_propose`, kept
+    /// separate from the surrounding expansion block. Opt-in with
+    /// `SearchConfig::timing_diagnostics`.
+    pub retro_proposal_wall_time_us: u64,
+    /// Wall-clock microseconds spent materializing, scoring, and counting
+    /// the proposal pool after `raw_propose`. Opt-in with
+    /// `SearchConfig::timing_diagnostics`.
+    pub candidate_postprocess_wall_time_us: u64,
+    /// Wall-clock microseconds spent converting raw proposals into retained
+    /// entries. Opt-in with `SearchConfig::timing_diagnostics`.
+    pub candidate_materialization_wall_time_us: u64,
+    /// Wall-clock microseconds spent in the parallel default SA precompute.
+    /// Opt-in with `SearchConfig::timing_diagnostics`.
+    pub candidate_precompute_wall_time_us: u64,
+    /// Number of unique non-stock precursor molecules submitted to the
+    /// parallel default SA precompute. Diagnostic-only.
+    pub sa_precompute_molecules: u64,
+    /// Wall-clock microseconds spent calculating candidate dedup counts.
+    /// Opt-in with `SearchConfig::timing_diagnostics`.
+    pub candidate_dedup_wall_time_us: u64,
     /// Every [`crate::spectator_bond::SpectatorBondLossFinding`] detected
     /// across every retro-cache-miss expansion in this search -- always
     /// empty unless [`SearchConfig::spectator_bond_policy`] is
@@ -1029,12 +1061,24 @@ fn state_hash(frontier: &[FEntry]) -> u64 {
 /// inserted into `cache` from its parsed molecule before search starts. Both
 /// positive and negative lookups are memoized, so repeated frontier visits do
 /// not even repeat the stock-set hash lookup on the hot path.
-fn is_bb_cached(smiles: &str, env: &ChemEnv, cache: &mut FxHashMap<String, bool>) -> bool {
+fn is_bb_cached(
+    smiles: &str,
+    env: &ChemEnv,
+    cache: &mut FxHashMap<String, bool>,
+    diagnostics: &mut StockLookupDiagnostics,
+) -> bool {
     if let Some(&cached) = cache.get(smiles) {
+        diagnostics.cache_hits += 1;
         return cached;
     }
     let matched = env.is_building_block_smiles(smiles);
     cache.insert(smiles.to_owned(), matched);
+    diagnostics.cache_misses += 1;
+    if matched {
+        diagnostics.positive_results += 1;
+    } else {
+        diagnostics.negative_results += 1;
+    }
     matched
 }
 
@@ -1342,11 +1386,12 @@ fn accumulate_h<'a>(
     env: &ChemEnv,
     sa_cache: &mut FxHashMap<String, f64>,
     bb_cache: &mut FxHashMap<String, bool>,
+    stock_lookup_diagnostics: &mut StockLookupDiagnostics,
     estimator: Option<&std::sync::Arc<dyn MoleculeValueEstimator>>,
 ) -> f64 {
     let mut total = initial;
     for (smiles, molecule) in entries {
-        if is_bb_cached(smiles, env, bb_cache) {
+        if is_bb_cached(smiles, env, bb_cache, stock_lookup_diagnostics) {
             continue;
         }
         let value = if let Some(est) = estimator
@@ -1374,6 +1419,7 @@ fn compute_h(
     env: &ChemEnv,
     sa_cache: &mut FxHashMap<String, f64>,
     bb_cache: &mut FxHashMap<String, bool>,
+    stock_lookup_diagnostics: &mut StockLookupDiagnostics,
     estimator: Option<&std::sync::Arc<dyn MoleculeValueEstimator>>,
 ) -> f64 {
     accumulate_h(
@@ -1384,6 +1430,7 @@ fn compute_h(
         env,
         sa_cache,
         bb_cache,
+        stock_lookup_diagnostics,
         estimator,
     )
 }
@@ -1406,7 +1453,8 @@ fn precompute_default_sa_scores(
     env: &ChemEnv,
     sa_cache: &mut FxHashMap<String, f64>,
     bb_cache: &mut FxHashMap<String, bool>,
-) {
+    stock_lookup_diagnostics: &mut StockLookupDiagnostics,
+) -> usize {
     const PARALLEL_SA_THRESHOLD: usize = 8;
 
     let mut seen: FxHashSet<&str> = FxHashSet::default();
@@ -1418,7 +1466,7 @@ fn precompute_default_sa_scores(
         let smiles_ref = smiles.as_ref();
         if !seen.insert(smiles_ref)
             || sa_cache.contains_key(smiles_ref)
-            || is_bb_cached(smiles_ref, env, bb_cache)
+            || is_bb_cached(smiles_ref, env, bb_cache, stock_lookup_diagnostics)
         {
             continue;
         }
@@ -1428,7 +1476,7 @@ fn precompute_default_sa_scores(
         pending.push((Arc::clone(smiles), Arc::clone(molecule)));
     }
     if pending.len() < PARALLEL_SA_THRESHOLD {
-        return;
+        return pending.len();
     }
 
     let scores: Vec<(Arc<str>, f64)> = pending
@@ -1438,6 +1486,7 @@ fn precompute_default_sa_scores(
     for (smiles, score) in scores {
         sa_cache.insert(smiles.to_string(), score);
     }
+    pending.len()
 }
 
 /// Classify a rule name into a human-readable reaction family.
@@ -2326,18 +2375,34 @@ fn insert_cross_template_signature<'a>(
 /// added on top: summing both would push the effective step-cost bonus
 /// outside the calibrated range the A*/beam-prune g/h split assumes, and
 /// would stop this from being an ordering-only change.
+fn cached_one_step_stock_terminal(
+    smiles: &str,
+    retro_cache: &RetroCache,
+    env: &ChemEnv,
+) -> Option<bool> {
+    let entries = retro_cache.get(smiles)?;
+    Some(entries.iter().any(|entry| {
+        !entry.precursor_smiles.is_empty()
+            && entry
+                .precursor_smiles
+                .iter()
+                .all(|precursor| env.is_building_block_smiles(precursor))
+    }))
+}
+
 fn reranker_rank_bonuses(
     reranker: &dyn crate::candidate::CandidateReranker,
     target_smi: &str,
     target_mol: &crate::chem_env::Molecule,
     raw_proposals: &[crate::candidate::RawCandidate],
     templates_by_id: &std::collections::HashMap<String, &RetroRule>,
+    ranking_context: &crate::candidate::CandidateRankingContext<'_>,
 ) -> anyhow::Result<FxHashMap<String, f64>> {
     let mut candidates = crate::candidate::merge_into_candidates(target_smi, raw_proposals)?;
     for c in candidates.iter_mut() {
         c.features = crate::candidate::extract_features(c, target_mol, templates_by_id, None);
     }
-    reranker.score_pool(target_smi, &mut candidates)?;
+    reranker.score_pool_with_context(target_smi, &mut candidates, ranking_context)?;
     candidates.sort_by(|a, b| {
         b.reranker_score
             .partial_cmp(&a.reranker_score)
@@ -3083,6 +3148,7 @@ pub(crate) fn find_routes_with_control_prepared(
     let mut beam_limit_hit = false;
     let mut matched_templates: u64 = 0;
     let mut stock_hits: u64 = 0;
+    let mut stock_lookup_diagnostics = StockLookupDiagnostics::default();
     let mut retro_cache_hits: u64 = 0;
     let mut ring_context_diagnostics = crate::ring_context::RingContextDiagnostics::default();
     let mut retro_cache_misses: u64 = 0;
@@ -3099,7 +3165,14 @@ pub(crate) fn find_routes_with_control_prepared(
     // standardized according to the stock identity policy. Resolve it once
     // from the already-parsed molecule; every generated descendant is
     // standardized before it enters the frontier.
-    bb_cache.insert(target_canonical.clone(), env.is_building_block(&target_mol));
+    let target_is_building_block = env.is_building_block(&target_mol);
+    bb_cache.insert(target_canonical.clone(), target_is_building_block);
+    stock_lookup_diagnostics.cache_misses += 1;
+    if target_is_building_block {
+        stock_lookup_diagnostics.positive_results += 1;
+    } else {
+        stock_lookup_diagnostics.negative_results += 1;
+    }
     let target_smiles_arc: Arc<str> = Arc::from(target_canonical.as_str());
     let target_mol_arc = Arc::new(target_mol);
     let mut molecule_cache: FxHashMap<Arc<str>, Arc<Molecule>> = FxHashMap::default();
@@ -3118,6 +3191,7 @@ pub(crate) fn find_routes_with_control_prepared(
         env,
         &mut sa_cache,
         &mut bb_cache,
+        &mut stock_lookup_diagnostics,
         config.value_estimator.as_ref(),
     );
     heap.push(Node {
@@ -3160,7 +3234,7 @@ pub(crate) fn find_routes_with_control_prepared(
         let mut n_unsolved = 0usize;
         let mut first_unsolved: Option<&FEntry> = None;
         for e in node.frontier.iter() {
-            if !is_bb_cached(&e.smiles, env, &mut bb_cache) {
+            if !is_bb_cached(&e.smiles, env, &mut bb_cache, &mut stock_lookup_diagnostics) {
                 n_unsolved += 1;
                 if first_unsolved.is_none() {
                     first_unsolved = Some(e);
@@ -3300,17 +3374,28 @@ pub(crate) fn find_routes_with_control_prepared(
                 step_sbl_findings,
                 step_gated_out,
                 step_element_accounting_gated_out,
-            ) = crate::candidate::raw_propose(
-                &target_mol,
-                target_smi,
-                &scored_active_rules,
-                Some(prepared_rules),
-                crate::ring_context::RingContextArgs {
-                    config: config.ring_context.clone(),
-                },
-                config.spectator_bond_policy,
-                config.element_accounting_policy,
-            );
+            ) = {
+                #[cfg(not(target_arch = "wasm32"))]
+                let proposal_t0 = config.timing_diagnostics.then(std::time::Instant::now);
+                let result = crate::candidate::raw_propose(
+                    &target_mol,
+                    target_smi,
+                    &scored_active_rules,
+                    Some(prepared_rules),
+                    crate::ring_context::RingContextArgs {
+                        config: config.ring_context.clone(),
+                    },
+                    config.spectator_bond_policy,
+                    config.element_accounting_policy,
+                );
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(t0) = proposal_t0 {
+                    crowd_out.retro_proposal_wall_time_us += t0.elapsed().as_micros() as u64;
+                }
+                result
+            };
+            #[cfg(not(target_arch = "wasm32"))]
+            let postprocess_t0 = config.timing_diagnostics.then(std::time::Instant::now);
             let mut step_ring_diag = step_ring_diag;
             let mut step_sbl_findings = step_sbl_findings;
             let mut step_gated_out = step_gated_out;
@@ -3385,12 +3470,18 @@ pub(crate) fn find_routes_with_control_prepared(
             // this expansion and every later one -- never a hard error.
             let reranker_bonus_by_id: Option<FxHashMap<String, f64>> =
                 if let Some(reranker) = active_reranker {
+                    let cached_lookup =
+                        |smiles: &str| cached_one_step_stock_terminal(smiles, &retro_cache, env);
+                    let ranking_context = crate::candidate::CandidateRankingContext {
+                        one_step_stock_terminal: Some(&cached_lookup),
+                    };
                     match reranker_rank_bonuses(
                         reranker,
                         target_smi,
                         &target_mol,
                         &raw_proposals,
                         &templates_by_id,
+                        &ranking_context,
                     ) {
                         Ok(map) => Some(map),
                         Err(e) => {
@@ -3407,6 +3498,8 @@ pub(crate) fn find_routes_with_control_prepared(
                     None
                 };
 
+            #[cfg(not(target_arch = "wasm32"))]
+            let materialization_t0 = config.timing_diagnostics.then(std::time::Instant::now);
             let mut entries: Vec<RetroEntry> = raw_proposals
                 .into_iter()
                 .map(|p| {
@@ -3458,6 +3551,10 @@ pub(crate) fn find_routes_with_control_prepared(
                     }
                 })
                 .collect();
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(t0) = materialization_t0 {
+                crowd_out.candidate_materialization_wall_time_us += t0.elapsed().as_micros() as u64;
+            }
 
             // Default unlimited native searches can score the independent
             // unseen precursor molecules concurrently. This leaves every
@@ -3471,13 +3568,21 @@ pub(crate) fn find_routes_with_control_prepared(
                 && config.forbidden_elements == 0
                 && control.deadline.is_none()
             {
-                precompute_default_sa_scores(
+                #[cfg(not(target_arch = "wasm32"))]
+                let precompute_t0 = config.timing_diagnostics.then(std::time::Instant::now);
+                let precomputed = precompute_default_sa_scores(
                     &entries,
                     &molecule_cache,
                     env,
                     &mut sa_cache,
                     &mut bb_cache,
+                    &mut stock_lookup_diagnostics,
                 );
+                crowd_out.sa_precompute_molecules += precomputed as u64;
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(t0) = precompute_t0 {
+                    crowd_out.candidate_precompute_wall_time_us += t0.elapsed().as_micros() as u64;
+                }
             }
 
             // Optional direct-generator arm. It augments, rather than
@@ -3504,11 +3609,21 @@ pub(crate) fn find_routes_with_control_prepared(
             // repeats from one template are skipped there before heuristic,
             // path, and heap work; cross-template collisions remain intact so
             // distinct provenance/evidence is never discarded.
+            #[cfg(not(target_arch = "wasm32"))]
+            let dedup_t0 = config.timing_diagnostics.then(std::time::Instant::now);
             let (cross_dup, after_same_template, after_cross_template) = dedup_counts(&entries);
             crowd_out.cross_template_duplicate_precursor_signatures += cross_dup;
             crowd_out.candidates_generated_before_dedup += entries.len() as u64;
             crowd_out.candidates_after_same_template_dedup += after_same_template;
             crowd_out.candidates_after_cross_template_dedup += after_cross_template;
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(t0) = dedup_t0 {
+                crowd_out.candidate_dedup_wall_time_us += t0.elapsed().as_micros() as u64;
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(t0) = postprocess_t0 {
+                crowd_out.candidate_postprocess_wall_time_us += t0.elapsed().as_micros() as u64;
+            }
 
             let arc = Arc::new(entries);
             retro_cache.insert(target_smi.to_owned(), Arc::clone(&arc));
@@ -3554,6 +3669,7 @@ pub(crate) fn find_routes_with_control_prepared(
                 env,
                 &mut sa_cache,
                 &mut bb_cache,
+                &mut stock_lookup_diagnostics,
                 None,
             ))
         } else {
@@ -3596,7 +3712,7 @@ pub(crate) fn find_routes_with_control_prepared(
                 if entry
                     .precursor_smiles
                     .iter()
-                    .filter(|p| is_bb_cached(p, env, &mut bb_cache))
+                    .filter(|p| is_bb_cached(p, env, &mut bb_cache, &mut stock_lookup_diagnostics))
                     .any(|p| (elem_mask_from_smiles(p) & mask) != 0)
                 {
                     continue;
@@ -3632,6 +3748,7 @@ pub(crate) fn find_routes_with_control_prepared(
                     env,
                     &mut sa_cache,
                     &mut bb_cache,
+                    &mut stock_lookup_diagnostics,
                     None,
                 )
             } else {
@@ -3640,6 +3757,7 @@ pub(crate) fn find_routes_with_control_prepared(
                     env,
                     &mut sa_cache,
                     &mut bb_cache,
+                    &mut stock_lookup_diagnostics,
                     config.value_estimator.as_ref(),
                 )
             };
@@ -3880,6 +3998,7 @@ pub(crate) fn find_routes_with_control_prepared(
             beam_limit_hit,
             matched_templates,
             stock_hits,
+            stock_lookup_diagnostics,
             retro_cache_hits,
             retro_cache_misses,
             ring_context_diagnostics,
@@ -3951,7 +4070,14 @@ mod tests {
         };
         let mut sa_cache = FxHashMap::default();
         let mut bb_cache = FxHashMap::default();
-        let fallback = compute_h(&[entry], &env, &mut sa_cache, &mut bb_cache, None);
+        let fallback = compute_h(
+            &[entry],
+            &env,
+            &mut sa_cache,
+            &mut bb_cache,
+            &mut StockLookupDiagnostics::default(),
+            None,
+        );
         let mut sa_cache = FxHashMap::default();
         let mut bb_cache = FxHashMap::default();
         let estimator: Arc<dyn MoleculeValueEstimator> = Arc::new(InvalidEstimator);
@@ -3963,6 +4089,7 @@ mod tests {
             &env,
             &mut sa_cache,
             &mut bb_cache,
+            &mut StockLookupDiagnostics::default(),
             Some(&estimator),
         );
         assert_eq!(checked, fallback);
@@ -3983,7 +4110,14 @@ mod tests {
 
         let mut full_sa_cache = FxHashMap::default();
         let mut full_bb_cache = FxHashMap::default();
-        let full_h = compute_h(&full, &env, &mut full_sa_cache, &mut full_bb_cache, None);
+        let full_h = compute_h(
+            &full,
+            &env,
+            &mut full_sa_cache,
+            &mut full_bb_cache,
+            &mut StockLookupDiagnostics::default(),
+            None,
+        );
 
         let mut incremental_sa_cache = FxHashMap::default();
         let mut incremental_bb_cache = FxHashMap::default();
@@ -3995,6 +4129,7 @@ mod tests {
             &env,
             &mut incremental_sa_cache,
             &mut incremental_bb_cache,
+            &mut StockLookupDiagnostics::default(),
             None,
         );
         let incremental_h = accumulate_h(
@@ -4005,6 +4140,7 @@ mod tests {
             &env,
             &mut incremental_sa_cache,
             &mut incremental_bb_cache,
+            &mut StockLookupDiagnostics::default(),
             None,
         );
 
@@ -4041,6 +4177,7 @@ mod tests {
             &env,
             &mut sa_cache,
             &mut bb_cache,
+            &mut StockLookupDiagnostics::default(),
         );
 
         assert!(
@@ -5776,14 +5913,19 @@ mod tests {
     fn generated_stock_miss_does_not_restandardize_canonical_smiles() {
         let env = ChemEnv::in_memory(&["CCO"]);
         let mut cache = FxHashMap::default();
+        let mut diagnostics = StockLookupDiagnostics::default();
         let ethane = canonical_stock_identity_from_smiles("CC").unwrap();
         let ethanol = canonical_stock_identity_from_smiles("CCO").unwrap();
 
-        assert!(!is_bb_cached(&ethane, &env, &mut cache));
+        assert!(!is_bb_cached(&ethane, &env, &mut cache, &mut diagnostics));
         assert_eq!(cache.get(&ethane), Some(&false));
-        assert!(is_bb_cached(&ethanol, &env, &mut cache));
+        assert!(is_bb_cached(&ethanol, &env, &mut cache, &mut diagnostics));
         assert_eq!(cache.get(&ethanol), Some(&true));
-        assert!(is_bb_cached(&ethanol, &env, &mut cache));
+        assert!(is_bb_cached(&ethanol, &env, &mut cache, &mut diagnostics));
+        assert_eq!(diagnostics.cache_misses, 2);
+        assert_eq!(diagnostics.cache_hits, 1);
+        assert_eq!(diagnostics.positive_results, 1);
+        assert_eq!(diagnostics.negative_results, 1);
     }
 
     #[test]
@@ -6025,6 +6167,9 @@ mod tests {
             &target_mol,
             &raw_proposals,
             &templates_by_id,
+            &crate::candidate::CandidateRankingContext {
+                one_step_stock_terminal: None,
+            },
         )
         .unwrap();
 

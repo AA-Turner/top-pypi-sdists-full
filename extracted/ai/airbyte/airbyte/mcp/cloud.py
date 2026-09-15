@@ -21,15 +21,13 @@ from pydantic import BaseModel, Field
 
 from airbyte import cloud, get_destination, get_source
 from airbyte._util import api_util
-from airbyte.cloud.client import (
-    CloudClient,
-)
+from airbyte.cloud.client import MAX_WORKSPACES_TO_VALIDATE, CloudClient
 from airbyte.cloud.connectors import CheckResult, CustomCloudSourceDefinition
 from airbyte.cloud.constants import FAILED_STATUSES
 from airbyte.cloud.models import (
     CloudDefaultContextInfo,
+    CloudDefaultWorkspaceUpdateInfo,
     CloudOrganizationInfo,
-    CloudWorkspaceInfo,
     JobTypeEnum,
     WorkspacePrivilegeScope,
 )
@@ -224,16 +222,6 @@ class CloudOrganizationResult(BaseModel):
     """Display name of the organization, when available."""
     email: str | None = None
     """Email associated with the organization, when available."""
-    payment_status: str | None = None
-    """Payment status of the organization (e.g., 'okay', 'grace_period', 'disabled', 'locked').
-    When 'disabled', syncs are blocked due to unpaid invoices."""
-    subscription_status: str | None = None
-    """Subscription status of the organization (e.g., 'pre_subscription', 'subscribed',
-    'unsubscribed')."""
-    is_account_locked: bool = False
-    """Whether the account is locked due to billing issues.
-    True if payment_status is 'disabled'/'locked' or subscription_status is 'unsubscribed'.
-    Defaults to False unless we have affirmative evidence of a locked state."""
 
 
 class CloudOrganizationListResult(BaseModel):
@@ -259,18 +247,19 @@ class CloudWorkspaceResult(BaseModel):
     """ID of the organization, if known and available."""
     organization_name: str | None = None
     """Name of the organization (requires ORGANIZATION_READER permission)."""
+
+
+class CloudOrganizationBillingStatusResult(BaseModel):
+    """Billing and account status for an Airbyte organization."""
+
+    organization_id: str
+    organization_name: str | None = None
+    billing_info_available: bool
+    """False when billing info could not be retrieved."""
     payment_status: str | None = None
-    """Payment status of the organization (e.g., 'okay', 'grace_period', 'disabled', 'locked').
-    When 'disabled', syncs are blocked due to unpaid invoices.
-    Requires ORGANIZATION_READER permission."""
     subscription_status: str | None = None
-    """Subscription status of the organization (e.g., 'pre_subscription', 'subscribed',
-    'unsubscribed'). Requires ORGANIZATION_READER permission."""
     is_account_locked: bool = False
-    """Whether the account is locked due to billing issues.
-    True if payment_status is 'disabled'/'locked' or subscription_status is 'unsubscribed'.
-    Defaults to False unless we have affirmative evidence of a locked state.
-    Requires ORGANIZATION_READER permission."""
+    message: str | None = None
 
 
 class CloudWorkspaceListResult(BaseModel):
@@ -301,6 +290,21 @@ class CloudDefaultContextResult(BaseModel):
     default_workspace_id: str | None
     """The resolved default workspace ID, if available."""
 
+    default_workspace_name: str | None
+    """The resolved default workspace name, if available."""
+
+    default_workspace_verified: bool
+    """Whether the resolved default workspace was verified as accessible."""
+
+    unvalidated_workspace_count: int = 0
+    """Number of direct workspace grants not validated due to the validation cap."""
+
+    default_organization_id: str | None
+    """The organization containing the resolved default workspace, if available."""
+
+    default_organization_name: str | None
+    """The name of the organization containing the resolved default workspace, if available."""
+
     configured_workspace_id: str | None
     """The explicitly configured workspace ID, if available."""
 
@@ -310,8 +314,8 @@ class CloudDefaultContextResult(BaseModel):
     member_organizations: list[CloudOrganizationInfo]
     """Organizations identified by explicit organization membership grants."""
 
-    member_workspaces: list[CloudWorkspaceInfo]
-    """Workspaces identified by explicit workspace membership grants."""
+    member_workspaces: list[CloudWorkspaceResult]
+    """Summary of workspace memberships without notification settings."""
 
     member_organizations_truncated: bool
     """True if organization memberships beyond the returned list were omitted."""
@@ -324,6 +328,37 @@ class CloudDefaultContextResult(BaseModel):
 
     message: str
     """Guidance for selecting a workspace or organization context."""
+
+
+class CloudDefaultWorkspaceUpdateResult(BaseModel):
+    """Result of durably updating the authenticated user's default workspace."""
+
+    user_id: str
+    """The Airbyte user ID the update applied to."""
+
+    user_email: str | None
+    """The authenticated user's email, if available."""
+
+    previous_default_workspace_id: str | None
+    """The user's previous default workspace ID, if one was set."""
+
+    default_workspace_id: str
+    """The new default workspace ID."""
+
+    default_workspace_name: str | None
+    """The new default workspace name, if available."""
+
+    organization_id: str | None
+    """The ID of the organization containing the new default workspace, if available."""
+
+    organization_name: str | None
+    """The name of the organization containing the new default workspace, if available."""
+
+    membership_basis: Literal["workspace", "organization"]
+    """Whether access was established via a direct workspace grant or an organization grant."""
+
+    message: str
+    """Summary of the persistent change and where it applies."""
 
 
 class LogReadResult(BaseModel):
@@ -683,59 +718,6 @@ def run_cloud_sync(
             f"job URL is: {sync_result.job_url}"
         )
     return f"Sync started. Job ID is '{sync_result.job_id}' and job URL is: {sync_result.job_url}"
-
-
-@mcp_tool(
-    read_only=True,
-    idempotent=True,
-    open_world=True,
-    extra_help_text=CLOUD_AUTH_TIP_TEXT,
-)
-def check_airbyte_cloud_workspace(
-    ctx: Context,
-    *,
-    workspace_id: Annotated[
-        str | None,
-        Field(
-            description=WORKSPACE_ID_TIP_TEXT,
-            default=None,
-        ),
-    ],
-) -> CloudWorkspaceResult:
-    """Check if we have a valid Airbyte Cloud connection and return workspace info.
-
-    Returns workspace details including workspace ID, name, organization info, and billing status.
-    """
-    workspace: CloudWorkspace = _get_cloud_workspace(ctx, workspace_id)
-
-    # Get workspace details from the public API using workspace's credentials
-    workspace_response = api_util.get_workspace(
-        workspace_id=workspace.workspace_id,
-        api_root=workspace.api_root,
-        client_id=workspace.client_id,
-        client_secret=workspace.client_secret,
-        bearer_token=workspace.bearer_token,
-    )
-
-    # Try to get organization info (including billing), but fail gracefully if we don't have
-    # permissions. Fetching organization info requires ORGANIZATION_READER permissions on the
-    # organization, which may not be available with workspace-scoped credentials.
-    organization = workspace.get_organization(raise_on_error=False)
-
-    return CloudWorkspaceResult(
-        workspace_id=workspace_response.workspace_id,
-        workspace_name=workspace_response.name,
-        workspace_url=workspace.workspace_url,
-        organization_id=(
-            organization.organization_id
-            if organization
-            else "[unavailable - requires ORGANIZATION_READER permission]"
-        ),
-        organization_name=organization.organization_name if organization else None,
-        payment_status=organization.payment_status if organization else None,
-        subscription_status=organization.subscription_status if organization else None,
-        is_account_locked=organization.is_account_locked if organization else False,
-    )
 
 
 @mcp_tool(
@@ -1656,7 +1638,12 @@ def list_cloud_workspaces(
     extra_help_text=CLOUD_AUTH_TIP_TEXT,
 )
 def get_default_cloud_context(ctx: Context) -> CloudDefaultContextResult:
-    """Return the authenticated user's default Cloud context."""
+    """Return the authenticated user's default Cloud context.
+
+    This is the one-call orientation entry point: it resolves the default
+    workspace and its parent organization in a single call, along with the
+    user's explicit workspace and organization memberships.
+    """
     context: CloudDefaultContextInfo = _get_cloud_client(ctx).get_default_context_for_user()
     truncated_memberships: list[str] = []
     if context.member_organizations_truncated:
@@ -1665,6 +1652,28 @@ def get_default_cloud_context(ctx: Context) -> CloudDefaultContextResult:
         )
     if context.member_workspaces_truncated:
         truncated_memberships.append(f"{len(context.member_workspaces)} workspace memberships")
+    resolved_default_workspace = None
+    if context.default_workspace_id is not None:
+        if not context.default_workspace_verified:
+            resolved_default_workspace = (
+                f"Default workspace ID {context.default_workspace_id} could not be verified "
+                "(it may have been deleted or is not accessible with these credentials)"
+            )
+        else:
+            workspace_detail = context.default_workspace_id
+            if context.default_workspace_name is not None:
+                workspace_detail = (
+                    f"{context.default_workspace_name} ({context.default_workspace_id})"
+                )
+            resolved_default_workspace = f"Resolved default workspace {workspace_detail}"
+        if context.default_workspace_verified and context.default_organization_id is not None:
+            organization_detail = context.default_organization_id
+            if context.default_organization_name is not None:
+                organization_detail = (
+                    f"{context.default_organization_name} " f"({context.default_organization_id})"
+                )
+            resolved_default_workspace += f" in organization {organization_detail}"
+        resolved_default_workspace += ". "
     message = (
         "These lists are membership-based, not access-based: they show explicit "
         "organization and workspace memberships only. Use default_workspace_id, "
@@ -1676,9 +1685,98 @@ def get_default_cloud_context(ctx: Context) -> CloudDefaultContextResult:
             f" Only the first {' and '.join(truncated_memberships)} are shown; use "
             "list_cloud_organizations or list_cloud_workspaces to see the rest."
         )
+    if context.unvalidated_workspace_count > 0:
+        message += (
+            f" {context.unvalidated_workspace_count} additional direct workspace grant(s) were "
+            f"not validated because this call checks at most {MAX_WORKSPACES_TO_VALIDATE}; use "
+            "list_cloud_workspaces to see them."
+        )
+    if resolved_default_workspace is not None:
+        message = resolved_default_workspace + message
     return CloudDefaultContextResult(
-        **context.model_dump(),
+        user_id=context.user_id,
+        user_name=context.user_name,
+        user_email=context.user_email,
+        default_workspace_id=context.default_workspace_id,
+        default_workspace_name=context.default_workspace_name,
+        default_workspace_verified=context.default_workspace_verified,
+        unvalidated_workspace_count=context.unvalidated_workspace_count,
+        default_organization_id=context.default_organization_id,
+        default_organization_name=context.default_organization_name,
+        configured_workspace_id=context.configured_workspace_id,
+        configured_organization_id=context.configured_organization_id,
+        member_organizations=context.member_organizations,
+        member_workspaces=[
+            CloudWorkspaceResult(
+                workspace_id=ws.workspace_id,
+                workspace_name=ws.name,
+                organization_id=ws.organization_id,
+                organization_name=ws.organization_name,
+            )
+            for ws in context.member_workspaces
+        ],
+        member_organizations_truncated=context.member_organizations_truncated,
+        member_workspaces_truncated=context.member_workspaces_truncated,
+        discovery_hints=context.discovery_hints,
         message=message,
+    )
+
+
+@mcp_tool(
+    idempotent=True,
+    destructive=True,
+    open_world=True,
+    extra_help_text=CLOUD_AUTH_TIP_TEXT,
+)
+def set_default_cloud_workspace(
+    ctx: Context,
+    user_email: Annotated[
+        str,
+        Field(
+            description=(
+                "Email of the authenticated Airbyte Cloud user this change applies to. "
+                "Must match the current credentials' user (compared case-insensitively, "
+                "ignoring surrounding whitespace; see get_default_cloud_context); "
+                "mismatches fail with a validation error. "
+                "Required as a safety confirmation."
+            ),
+        ),
+    ],
+    workspace_id: Annotated[
+        str,
+        Field(
+            description=(
+                "ID of the workspace to make the durable default. The user must be an "
+                "explicit member of the workspace or its organization; tombstoned "
+                "workspaces are rejected."
+            ),
+        ),
+    ],
+) -> CloudDefaultWorkspaceUpdateResult:
+    """Durably set the authenticated user's default Airbyte Cloud workspace.
+
+    WARNING: This is a persistent, account-level change. It updates the user's
+    stored default workspace in Airbyte Cloud, which affects both future MCP
+    sessions (default_workspace_id in get_default_cloud_context and every tool
+    that falls back to the default workspace) AND the Airbyte Cloud web app,
+    where this workspace becomes the user's default landing workspace.
+    Call get_default_cloud_context first to confirm the current user and to
+    discover member workspaces.
+    """
+    result: CloudDefaultWorkspaceUpdateInfo = _get_cloud_client(ctx).set_default_workspace_for_user(
+        user_email=user_email,
+        workspace_id=workspace_id,
+    )
+    workspace_detail = result.default_workspace_id
+    if result.default_workspace_name is not None:
+        workspace_detail = f"{result.default_workspace_name} ({result.default_workspace_id})"
+    return CloudDefaultWorkspaceUpdateResult(
+        **result.model_dump(),
+        message=(
+            f"Default workspace durably set to {workspace_detail} for "
+            f"{result.user_email}. This applies to future MCP sessions and the "
+            "Airbyte Cloud web app."
+        ),
     )
 
 
@@ -1755,6 +1853,48 @@ def list_cloud_organizations(
     open_world=True,
     extra_help_text=CLOUD_AUTH_TIP_TEXT,
 )
+def describe_cloud_workspace(
+    ctx: Context,
+    *,
+    workspace_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Workspace ID. With no argument, resolves the configured default or the "
+                "authenticated user's default workspace."
+            ),
+            default=None,
+        ),
+    ],
+) -> CloudWorkspaceResult:
+    """Get basic details about a workspace (ID, name, URL, parent organization).
+
+    Does not include billing/account status; use `get_cloud_organization_billing_status` for that.
+    """
+    workspace = _get_cloud_workspace(ctx, workspace_id)
+    workspace_response = api_util.get_workspace(
+        workspace_id=workspace.workspace_id,
+        api_root=workspace.api_root,
+        client_id=workspace.client_id,
+        client_secret=workspace.client_secret,
+        bearer_token=workspace.bearer_token,
+    )
+    organization = workspace.get_organization(raise_on_error=False)
+    return CloudWorkspaceResult(
+        workspace_id=workspace_response.workspace_id,
+        workspace_name=workspace_response.name,
+        workspace_url=workspace.workspace_url,
+        organization_id=organization.organization_id if organization else None,
+        organization_name=organization.organization_name if organization else None,
+    )
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+    open_world=True,
+    extra_help_text=CLOUD_AUTH_TIP_TEXT,
+)
 def describe_cloud_organization(
     ctx: Context,
     *,
@@ -1780,7 +1920,9 @@ def describe_cloud_organization(
         ),
     ],
 ) -> CloudOrganizationResult:
-    """Get details about a specific organization including billing status.
+    """Get basic details about an organization (ID, name, email).
+
+    Billing/account status is available via `get_cloud_organization_billing_status`.
 
     With no arguments, resolves the organization from the configured default or the
     authenticated user's sole membership. With multiple memberships, the error lists
@@ -1792,14 +1934,62 @@ def describe_cloud_organization(
         organization_name=organization_name,
     )
 
-    # CloudOrganization has lazy loading of billing properties
     return CloudOrganizationResult(
         id=org.organization_id,
         name=org.organization_name,
         email=org.email,
-        payment_status=org.payment_status,
-        subscription_status=org.subscription_status,
-        is_account_locked=org.is_account_locked,
+    )
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+    open_world=True,
+    extra_help_text=CLOUD_AUTH_TIP_TEXT,
+)
+def get_cloud_organization_billing_status(
+    ctx: Context,
+    *,
+    organization_id: Annotated[
+        str | None,
+        Field(
+            description="Organization ID, when known.",
+            default=None,
+        ),
+    ],
+    organization_name: Annotated[
+        str | None,
+        Field(
+            description="Organization name for an exact match, when ID is not provided.",
+            default=None,
+        ),
+    ],
+) -> CloudOrganizationBillingStatusResult:
+    """Get billing and account status for an organization.
+
+    This generally requires elevated `ORGANIZATION_READER` or administrator permissions.
+    """
+    org = _get_cloud_client(ctx).get_organization(
+        organization_id=organization_id,
+        organization_name=organization_name,
+    )
+    try:
+        info = org.get_billing_status()
+    except (AirbyteError, NotImplementedError) as error:
+        reason = error.message if isinstance(error, AirbyteError) and error.message else str(error)
+        return CloudOrganizationBillingStatusResult(
+            organization_id=org.organization_id,
+            organization_name=org.organization_name,
+            billing_info_available=False,
+            message=f"Billing information could not be retrieved: {reason}",
+        )
+    return CloudOrganizationBillingStatusResult(
+        organization_id=org.organization_id,
+        organization_name=org.organization_name,
+        billing_info_available=True,
+        payment_status=info.payment_status,
+        subscription_status=info.subscription_status,
+        is_account_locked=info.is_account_locked,
     )
 
 

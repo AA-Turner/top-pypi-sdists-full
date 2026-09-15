@@ -73,7 +73,7 @@ from uqff_registry_primitives import (
     DELTA_M2_21_EV2, DELTA_M2_32_EV2,
 )
 
-VERSION = "0.437.0"
+VERSION = "0.438.0"
 
 # NAMED OBSERVED SI ANCHORS (constant drain 2026-08-16, PAPER_2141 bulk pattern + PAPER_2149 observation-headlining)
 # Bit-identical to the literals they replace; UQFF-derived counterparts live in uqff_registry_primitives.
@@ -29449,6 +29449,43 @@ def _paper_2276(dataset):
             'formula': 'ledger(B267-B281) + {Theorem A, Theorem B} + cap 17/20 + ruling + audit -> theory rows open 0; fronts 1-4 OPEN with instruments; Q-246/Q-247 OPEN; c_inf/c_0 = 3200/1480 = 2.162',
             'source': 'PAPER_2276', 'residual_pct': 0.0,
             'status': 'THEORY_CLOSED_2026-09-13 (index; instruments named; two rulings open)'}
+
+
+@_register('PAPER_2277')
+def _paper_2277(dataset):
+    """The deep tail sample (B282): stage 1 of the kill test under
+    Daniel's personal JHTDB token - 500,000 gradient tensors each on
+    isotropic8192 and isotropic32768 (forty sequential 25k requests,
+    zero errors, policy kept). Cap holds on every chunk (max 0.0200);
+    the octave efficiency FALLS with intensity (0.12 at the mean ->
+    0.03-0.05 at 64-256x); the most intense cell (1052x mean) is
+    compressed along omega; B278 envelope flag retired at 25k depth.
+    Stage 2 (local-max cutouts) scripted and OPEN.
+    """
+    from uqff_ns_assembly import deep_tail_grade
+    return {'value': deep_tail_grade(),
+            'formula': 'ratio = mean(w.S.w)/(max|w| mean|w|^2) per 25k chunk; eff(oct) = sum(w.S.w)/(sum|w|^2 sqrt(w2_oct)); 1e6 points, 2 rungs',
+            'source': 'PAPER_2277', 'residual_pct': 0.0,
+            'status': 'DEEP_TAIL_STAGE1_CAP_HOLDS_2026-09-13 (eff falls with intensity; stage 2 OPEN)'}
+
+
+@_register('PAPER_2278')
+def _paper_2278(dataset):
+    """The local maximum (B283): stage 2 of the kill test - full-
+    resolution grid-point gradient cubes (fd4noint, no interpolation)
+    around the most intense events of the deep tail sample, graded with
+    each cube's OWN maximum. Eight clean cubes on two Reynolds rungs,
+    worst local ratio 0.0194 (44x under 17/20); the most intense region
+    of the record peaks at 11,763x the global mean and grades 0.011-0.012;
+    efficiency falls with intensity inside every cube. Two stage-1
+    'events' on isotropic32768 were hole-edge stencil artefacts of a
+    data hole in the store - rejected, mechanism named, stage 1 corrected.
+    """
+    from uqff_ns_assembly import kill_test_stage2_grade
+    return {'value': kill_test_stage2_grade(),
+            'formula': 'ratio_local = mean(w.S.w)/(max_cube|w| mean|w|^2) on 64^3/128^3 fd4noint grid cubes; accept iff no zero node in cube or 3-layer halo',
+            'source': 'PAPER_2278', 'residual_pct': 0.0,
+            'status': 'KILL_TEST_STAGE2_CAP_HOLDS_2026-09-15 (8 clean cubes; 2 hole-edge artefacts rejected; whole-field scan OPEN)'}
 
 
 @_register('PAPER_2258')

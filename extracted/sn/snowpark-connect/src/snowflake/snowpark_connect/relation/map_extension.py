@@ -182,7 +182,11 @@ def map_extension(
                 )
                 attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
                 raise exception
-            input_df_sql = f"WITH __left AS ({left_query}) SELECT * FROM __left INNER JOIN LATERAL ({right_query})"
+            left_cte = f"__left_{rel.common.plan_id}"
+            input_df_sql = (
+                f"WITH {left_cte} AS ({left_query}) "
+                f"SELECT * FROM {left_cte} INNER JOIN LATERAL ({right_query})"
+            )
             session = snowpark.Session.get_active_session()
             input_df = session.sql(input_df_sql)
             return DataFrameContainer.create_with_column_mapping(

@@ -5,7 +5,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Annotated, Any, Callable, TypeVar, overload
 
-__version__ = "0.37.2"
+__version__ = "0.37.3"
 
 # TypeVar for the CachedObject[T] type alias (defined after the ObjectHandle class).
 _CachedT = TypeVar("_CachedT")
@@ -207,6 +207,12 @@ from .main import (
     Engine,
     Name,
     Picture,
+    PivotField,
+    PivotFields,
+    PivotTable,
+    PivotTables,
+    PivotValueField,
+    PivotValueFields,
     Range,
     RangeColumns,
     RangeRows,
@@ -234,6 +240,12 @@ __all__ = (
     "ObjectHandle",
     "WithScript",
     "Picture",
+    "PivotField",
+    "PivotFields",
+    "PivotTable",
+    "PivotTables",
+    "PivotValueField",
+    "PivotValueFields",
     "Range",
     "RangeColumns",
     "RangeRows",

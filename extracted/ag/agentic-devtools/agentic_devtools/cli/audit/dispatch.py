@@ -4,24 +4,21 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import subprocess
 from pathlib import Path
 
 from agentic_devtools.cli.audit.config import batch_branch_name
 from agentic_devtools.cli.audit.labeling import cleanup_failed_batch
+from agentic_devtools.cli.ci.credential_roles import require_default_repo_workflow_token
 from agentic_devtools.cli.ci.provider import CIPlatformProvider
 from agentic_devtools.cli.git.remote_push import commit_and_push_branch
 
 logger = logging.getLogger(__name__)
 
 
-def _read_required_speckit_token() -> str:
-    """Read SPECKIT_PR_TOKEN from environment or raise a clear error."""
-    token = os.environ.get("SPECKIT_PR_TOKEN", "").strip()
-    if not token:
-        raise RuntimeError("SPECKIT_PR_TOKEN is required for audit write/dispatch operations.")
-    return token
+def _read_required_default_workflow_token() -> str:
+    """Read DEFAULT_CLASSIC_REPO_WORKFLOW_PAT for audit write/dispatch operations."""
+    return require_default_repo_workflow_token("run audit write/dispatch operations")
 
 
 def _resolve_base_sha(repo_path: str) -> str:
@@ -55,7 +52,7 @@ def _push_batch_branch(
     output_dir: str,
 ) -> None:
     """Commit and push prepared batch data to a dedicated batch branch."""
-    token = _read_required_speckit_token()
+    token = _read_required_default_workflow_token()
     repo_root = Path(repo_path).resolve()
     output_path = Path(output_dir).resolve()
     output_rel = output_path.relative_to(repo_root)

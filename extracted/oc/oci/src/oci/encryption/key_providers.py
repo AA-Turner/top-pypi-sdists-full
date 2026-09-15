@@ -6,8 +6,12 @@ from oci._vendor import six
 
 import abc
 import base64
+import os
 from cryptography.hazmat.primitives.ciphers import algorithms
 
+from oci import regions
+from oci._vendor.requests.exceptions import RequestException
+from oci.config import REGION_ENV_VAR_NAME
 from oci.exceptions import ServiceError
 from oci.key_management.models import KeyShape, GenerateKeyDetails, DecryptDataDetails
 from oci.key_management import KmsCryptoClient, KmsManagementClient, KmsVaultClient
@@ -84,28 +88,43 @@ class KMSMasterKeyProvider(MasterKeyProvider):
 
     def get_master_key(self, **kwargs):
         """
-        Get a KMSMasterKey based on the provided parameters.
+        Return a KMSMasterKey based on the provided parameters.
 
-        If this key provider already has the KMSMasterKey that was requested, it will return it.
-        If it does not have a representation of the KMSMasterKey locally, it will attempt to
-        retrieve it from KMS.
+        A configured primary KMSMasterKey pins the provider to its key, vault, and region. The
+        master key identifier and any supplied vault or region must match. Without a primary key,
+        a supplied region must match the provider configuration or be registered with the SDK.
 
         :param str master_key_id: (required)
             The OCID of this master key
 
         :param str vault_id: (optional)
-            The OCID of the vault this master key resides in
+            The OCID of the vault this master key resides in. When supplied to a pinned provider,
+            it must match the configured master key's vault. Required when the provider needs to
+            create a KMSMasterKey.
 
         :param str region: (optional)
-            The region this master key resides in
+            The region this master key resides in. When supplied to a pinned provider, it must
+            match the configured master key's region. A provider without a master key accepts a
+            supplied region only when it is configured or registered with the SDK.
         """
-        if not kwargs.get("master_key_id"):
-            raise ValueError("keyword argument master_key_id must not be None")
+        master_key_id = kwargs.get("master_key_id")
+        vault_id = kwargs.get("vault_id")
+        region = kwargs.get("region")
 
-        if self.primary_master_key and self.primary_master_key.get_identifier() == kwargs.get(
-            "master_key_id"
-        ):
+        self._validate_supplied_string_argument("master_key_id", master_key_id, required=True)
+        self._validate_supplied_string_argument(
+            "vault_id",
+            vault_id,
+            required=self.primary_master_key is None,
+        )
+        self._validate_supplied_string_argument("region", region)
+
+        if self.primary_master_key:
+            self._validate_pinned_master_key(master_key_id, vault_id, region)
             return self.primary_master_key
+
+        if region is not None:
+            kwargs["region"] = self._resolve_trusted_region(region)
 
         master_key_config = self.config
 
@@ -114,6 +133,64 @@ class KMSMasterKeyProvider(MasterKeyProvider):
 
         kms_master_key = KMSMasterKey(config=master_key_config, **kwargs)
         return kms_master_key
+
+    @staticmethod
+    def _validate_supplied_string_argument(name, value, required=False):
+        if value is None:
+            if required:
+                raise ValueError("keyword argument {} must not be None".format(name))
+            return
+
+        if not isinstance(value, str) or not value:
+            raise ValueError("keyword argument {} must be a non-empty string".format(name))
+
+    @staticmethod
+    def _normalize_region(region):
+        if not isinstance(region, str):
+            return None
+
+        lowercase_region = region.lower()
+        return regions.REGIONS_SHORT_NAMES.get(lowercase_region, lowercase_region)
+
+    @classmethod
+    def _regions_match(cls, first_region, second_region):
+        first_normalized_region = cls._normalize_region(first_region)
+        second_normalized_region = cls._normalize_region(second_region)
+        return first_normalized_region is not None and (
+            first_normalized_region == second_normalized_region
+        )
+
+    def _validate_pinned_master_key(self, master_key_id, vault_id, region):
+        if self.primary_master_key.get_identifier() != master_key_id:
+            raise ValueError("Requested master key ID does not match the configured KMS master key")
+
+        if vault_id is not None and self.primary_master_key.vault_id != vault_id:
+            raise ValueError("Requested vault ID does not match the configured KMS master key")
+
+        if region is not None and not self._regions_match(self.primary_master_key.region, region):
+            raise ValueError("Requested region does not match the configured KMS master key")
+
+    def _resolve_trusted_region(self, region):
+        configured_region = self.config.get("region") if self.config else None
+        if configured_region is None:
+            configured_region = os.environ.get(REGION_ENV_VAR_NAME)
+
+        normalized_configured_region = self._normalize_region(configured_region)
+        normalized_requested_region = self._normalize_region(region)
+
+        if normalized_configured_region == normalized_requested_region:
+            return normalized_configured_region
+
+        try:
+            is_trusted_region = regions.is_region(normalized_requested_region)
+        except RequestException:
+            raise ValueError("The requested region must be configured or registered with the SDK")
+
+        if is_trusted_region:
+            # Region metadata lookup may add a new short-name mapping.
+            return self._normalize_region(normalized_requested_region)
+
+        raise ValueError("The requested region must be configured or registered with the SDK")
 
 
 @six.add_metaclass(abc.ABCMeta)

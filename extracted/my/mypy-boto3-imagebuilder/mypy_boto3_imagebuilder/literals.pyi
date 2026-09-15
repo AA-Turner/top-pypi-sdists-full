@@ -30,6 +30,7 @@ __all__ = (
     "ContainerTypeType",
     "DiskImageFormatType",
     "EbsVolumeTypeType",
+    "ImageConfigurationStepType",
     "ImageScanStatusType",
     "ImageSourceType",
     "ImageStatusType",
@@ -72,6 +73,7 @@ __all__ = (
     "PipelineStatusType",
     "PlatformType",
     "ProductCodeTypeType",
+    "RegionFailureStatusType",
     "ResourceServiceName",
     "ResourceStatusType",
     "ServiceName",
@@ -93,6 +95,13 @@ ContainerRepositoryServiceType = Literal["ECR"]
 ContainerTypeType = Literal["DOCKER"]
 DiskImageFormatType = Literal["RAW", "VHD", "VMDK"]
 EbsVolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
+ImageConfigurationStepType = Literal[
+    "ASSOCIATE_LICENSES",
+    "EXPORT_AMI",
+    "PUT_SSM_PARAMETERS",
+    "UPDATE_FAST_LAUNCH_CONFIGURATIONS",
+    "UPDATE_LAUNCH_TEMPLATES",
+]
 ImageScanStatusType = Literal[
     "ABANDONED", "COLLECTING", "COMPLETED", "FAILED", "PENDING", "SCANNING", "TIMED_OUT"
 ]
@@ -152,6 +161,7 @@ PipelineExecutionStartConditionType = Literal[
 PipelineStatusType = Literal["DISABLED", "ENABLED"]
 PlatformType = Literal["Linux", "Windows", "macOS"]
 ProductCodeTypeType = Literal["marketplace"]
+RegionFailureStatusType = Literal["CANCELLED", "FAILED", "TIMED_OUT"]
 ResourceStatusType = Literal["AVAILABLE", "DELETED", "DEPRECATED", "DISABLED"]
 SsmParameterDataTypeType = Literal["aws:ec2:image", "text"]
 TenancyTypeType = Literal["dedicated", "default", "host"]
@@ -176,8 +186,11 @@ ImagebuilderServiceName = Literal["imagebuilder"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -352,6 +365,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -366,8 +380,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -463,10 +475,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -484,6 +496,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -549,7 +562,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -570,6 +582,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

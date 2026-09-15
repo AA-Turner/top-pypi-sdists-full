@@ -2,7 +2,9 @@ import math
 
 from humming import dtypes
 from humming.config import GemmType, MmaType
+from humming.device import current_device
 from humming.tune.sm8x import Sm89Heuristics
+from humming.utils.math import round_up
 from humming.utils.smem import estimate_smem_size_layer
 
 
@@ -36,7 +38,7 @@ class Sm120Heuristics(Sm89Heuristics):
         if unsupported or unsuitable_m:
             return block_shape_m
 
-        min_grid_blocks = math.ceil(cls.get_num_sms() * num_ctas_per_sm / 2)
+        min_grid_blocks = math.ceil(current_device.sm_count * num_ctas_per_sm / 2)
         num_blocks_n = layer_config.shape_n // block_shape_n
         num_blocks_m = math.ceil(shape_m / block_shape_m)
         num_blocks = num_blocks_n * num_blocks_m
@@ -53,7 +55,7 @@ class Sm120Heuristics(Sm89Heuristics):
         ]
         return min(
             candidates,
-            key=lambda candidate: (math.ceil(shape_m / candidate) * candidate, -candidate),
+            key=lambda candidate: (round_up(shape_m, candidate), -candidate),
             default=block_shape_m,
         )
 
@@ -166,10 +168,10 @@ class Sm120Heuristics(Sm89Heuristics):
             config.pop("num_sms", None)
 
             is_small_m = shape_m <= config["block_shape"][0] <= 32
-            if is_small_m and num_blocks_nk < cls.get_num_sms() * 3:
+            if is_small_m and num_blocks_nk < current_device.sm_count * 3:
                 config["num_stages"] = 3
 
-            if is_small_m and num_blocks_nk < cls.get_num_sms() * 2:
+            if is_small_m and num_blocks_nk < current_device.sm_count * 2:
                 config["num_stages"] = 2
                 config["use_warp_spec"] = False
                 config["use_tma"] = False
@@ -182,7 +184,7 @@ class Sm120Heuristics(Sm89Heuristics):
             rebalance_stream_k = rebalance_stream_k and use_stream_k
             block_m, block_n, block_k = config["block_shape"]
             num_output_tiles = math.ceil(shape_m / block_m) * math.ceil(layer_config.shape_n / block_n)
-            num_sms = cls.get_num_sms()
+            num_sms = current_device.sm_count
             if rebalance_stream_k and block_m <= 16 and num_output_tiles * 3 >= num_sms:
                 config["use_stream_k"] = False
 
@@ -202,6 +204,16 @@ class Sm120Heuristics(Sm89Heuristics):
                 config["warp_shape"] = (warp_m, warp_n, max(warp_k, block_k // target_k_warps))
 
             cls._rebalance_dense_warps(layer_config, config, shape_m)
+            if is_mxmma:
+                config["num_stages"] = min(
+                    config["num_stages"],
+                    cls._fit_num_stages(
+                        layer_config,
+                        config,
+                        gemm_type,
+                        reduce_overlap=config.get("reduce_overlap_last_stage_only", False),
+                    ),
+                )
 
         return config
 
@@ -238,7 +250,7 @@ class Sm120Heuristics(Sm89Heuristics):
         block_m = max(block_m, 96)
         config["block_shape"] = (block_m, 256, 64)
         config["warp_shape"] = (block_m, 32, 64)
-        config["num_stages"] = 4 if num_blocks_nk >= cls.get_num_sms() * 3 else 2
+        config["num_stages"] = 4 if num_blocks_nk >= current_device.sm_count * 3 else 2
 
     @classmethod
     def _should_use_stream_k(cls, layer_config, config, shape_m: int) -> bool:
@@ -250,7 +262,7 @@ class Sm120Heuristics(Sm89Heuristics):
         num_blocks_m = math.ceil(shape_m / block_m)
         num_blocks_n = math.ceil(layer_config.shape_n / block_n)
         num_k_tiles = layer_config.shape_k // block_k
-        num_ctas = cls.get_num_sms() * config.get("num_ctas_per_sm", 1)
+        num_ctas = current_device.sm_count * config.get("num_ctas_per_sm", 1)
         return num_blocks_m * num_blocks_n * num_k_tiles < num_ctas * config["num_stages"] * 2
 
     @classmethod
@@ -316,6 +328,7 @@ class Sm120Heuristics(Sm89Heuristics):
             use_warp_spec=False,
             use_tma_a=False,
             use_tma_as=False,
+            use_tma_as2=False,
             use_tma_b=True,
             use_tma_c=False,
             use_tma_bs=False,
@@ -334,8 +347,8 @@ class Sm120Heuristics(Sm89Heuristics):
 
     @classmethod
     def _fit_num_stages(cls, layer_config, config, gemm_type, reduce_overlap: bool) -> int:
-        best = 2
-        for num_stages in range(3, 6 if cls.sm_version == 121 else 5):
+        best = None
+        for num_stages in range(2, 6 if cls.sm_version == 121 else 5):
             smem = estimate_smem_size_layer(
                 layer_config,
                 config["block_shape"],
@@ -349,4 +362,6 @@ class Sm120Heuristics(Sm89Heuristics):
             )
             if smem <= cls.max_smem_size:
                 best = num_stages
+        if best is None:
+            raise ValueError(f"No pipeline stage count fits shared memory on SM{cls.sm_version}: {config}")
         return best

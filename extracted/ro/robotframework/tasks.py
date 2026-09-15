@@ -73,7 +73,7 @@ Robot Framework {version} was released on {date}.
 
 
 @task
-def format(ctx, targets="src atest utest"):
+def format(ctx, targets="src atest utest doc/userguide/src"):
     """Format code.
 
     Args:
@@ -90,10 +90,11 @@ def format(ctx, targets="src atest utest"):
     """
     print("Linting...")
     try:
-        ctx.run(f"ruff check --fix --quiet {targets}")
+        ctx.run(f"ruff check --quiet --ignore I001 {targets}")
     except Exception:
         print("Linting failed! Fix reported problems.")
         raise
+    ctx.run(f"ruff check --fix --quiet {targets}")
     print("OK")
     print("Formatting...")
     ctx.run(f"black --quiet {targets}")

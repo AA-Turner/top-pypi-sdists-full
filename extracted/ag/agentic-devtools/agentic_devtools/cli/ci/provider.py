@@ -168,15 +168,15 @@ class CIPlatformProvider(ABC):
         return ""
 
     def get_pr_token_login(self) -> str:
-        """Return the PR-token identity login used for posting comments and dispatch.
+        """Return the default workflow-token identity login used for comments and dispatch.
 
         Best-effort helper for providers that can resolve the identity used for
-        posting comments (e.g. ``SPECKIT_PR_TOKEN`` on GitHub).  Returns an empty
-        string when the token is absent, resolution fails, or the provider does not
-        support identity lookup.  Callers must handle the ``""`` case.
+        posting comments and dispatching trusted workflow actions. Returns an
+        empty string when the token is absent, resolution fails, or the provider
+        does not support identity lookup. Callers must handle the ``""`` case.
 
         Returns:
-            Provider-specific PR-token login/name, or ``""`` when unavailable.
+            Provider-specific default workflow-token login/name, or ``""`` when unavailable.
         """
         return ""
 

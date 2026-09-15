@@ -612,6 +612,41 @@ def _parse_fanout_manifest(
     return legs
 
 
+def _build_fanout_running_reason(
+    leg_manifest: list[tuple[str, tuple[str, ...], str | None]],
+    *,
+    total_partitions: int,
+    prior_env_legs: int,
+) -> str:
+    """The parent's ``running`` ``test_reason`` text for a #3182 fan-out
+    round: the ``[[smoke-fanout:...]]`` manifest (:func:`_encode_fanout_manifest`)
+    followed by a human-readable summary of every leg *leg_manifest* names,
+    plus the #3315 environmental-retry tally when one is already accruing.
+
+    Factored out of what used to be `_dispatch_smoke_fanout`'s own inline
+    stamp so :func:`coord.state.merge_smoke_fanout_manifest`'s DB-side
+    read-merge-write (#3333 review) can build this exact text from whatever
+    manifest IT just merged — which, under two concurrent ticks each
+    claiming a different capability partition of the same parent, is not
+    necessarily the same as either call's own partial `leg_manifest`.
+    """
+    summary = "; ".join(
+        f"[{'+'.join(sorted(caps))}]" for _, caps, _ in leg_manifest
+    )
+    manifest_line = _encode_fanout_manifest(leg_manifest)
+    running_reason = (
+        f"{manifest_line}\nTest stage running across {total_partitions} "
+        f"capability-partition leg(s) (#3182): {summary}."
+    )
+    if prior_env_legs:
+        running_reason = (
+            f"{running_reason}\n{environmental_smoke_tally(prior_env_legs)} "
+            f"({prior_env_legs} of {ENVIRONMENTAL_SMOKE_RETRY_BUDGET} "
+            "consecutive environmental fan-out-leg death(s) so far, #3315)"
+        )
+    return running_reason
+
+
 def _find_leg_for_partition(
     board: Board, *, repo_name: str, branch: str | None, capabilities: tuple[str, ...],
     review_of_assignment_id: str | None,
@@ -2506,7 +2541,33 @@ def _dispatch_smoke_single_leg(
     if completed.assignment_id is not None and completed.test_state not in (
         "passed", "skipped", "failed",
     ):
-        from coord.state import load_assignment_test_reason, record_test_verdict  # noqa: PLC0415
+        from coord.state import (  # noqa: PLC0415
+            load_assignment_test_reason,
+            load_assignment_test_state,
+            record_test_verdict,
+        )
+
+        # #3343: re-check the authoritative `test_state` ONE MORE TIME, right
+        # before this write. `_dispatch_smoke_legs` (our caller) already
+        # re-read it before choosing to call us at all, but the
+        # `_walk_candidates_and_dispatch` call just above — machine ranking
+        # plus an HTTP dispatch round trip — is exactly the window in which
+        # ANOTHER already-in-flight smoke leg on this same branch can finish
+        # and record a terminal verdict. Trusting `completed.test_
+        # state` here (a snapshot from before that window) would blindly
+        # overwrite a just-landed `passed`/`skipped`/`failed` back to
+        # `running` — the precise defect reported in #3343: `smoke_test`
+        # carries the terminal mirror (set together with the terminal write)
+        # while `test_state` gets clobbered back to `running` by this stamp,
+        # and every gate that reads `test_state` (the canonical column, per
+        # `coord/gates.py`) then reports "no verdict recorded" forever, so
+        # `dispatch_pending_smoke` keeps re-dispatching — one leg fired 4s
+        # after the branch had already merged on the strength of the verdict
+        # this stamp was about to erase.
+        authoritative_state = load_assignment_test_state(completed.assignment_id)
+        if authoritative_state in ("passed", "skipped", "failed"):
+            completed.test_state = authoritative_state
+            return smoke_assignment
 
         # Belt and braces: the authoritative single-row read, falling back to
         # the board-carried value when it is unavailable (thin client, remote
@@ -2654,6 +2715,33 @@ def _dispatch_smoke_fanout(
             )
             continue
 
+        # #3333: `_find_leg_for_partition` above is a READ of the board — two
+        # ticks (`coord notify`, `coord drive-queue`, a drive session) that
+        # both read "nothing dispatched yet" before either writes both fall
+        # through to here and would both dispatch this exact partition. This
+        # atomic `INSERT ... OR IGNORE` closes that window: exactly one
+        # caller ever wins `claim_smoke_dispatch` for a given
+        # `(work_assignment_id, capability_partition)` pair, mirroring
+        # `claim_review_dispatch` (#3113). The loser skips this partition
+        # entirely THIS tick rather than also spending a metered Test-stage
+        # leg — a later tick's `_find_leg_for_partition` will find the
+        # winner's leg once it has actually landed on the board.
+        partition_tag = "+".join(sorted(partition.capabilities))
+        from coord.state import (  # noqa: PLC0415
+            claim_smoke_dispatch,
+            release_smoke_dispatch_claim,
+        )
+
+        if not claim_smoke_dispatch(completed.assignment_id or "", partition_tag):
+            logger.debug(
+                "dispatch_smoke: %s#%s — lost the atomic dispatch-claim "
+                "race for capability partition %s (#3333); another "
+                "in-flight tick is dispatching it, leaving it for a later "
+                "tick to pick up as `existing`.",
+                completed.repo_name, completed.issue_number, caps,
+            )
+            continue
+
         candidates = rank_smoke_machines(
             caps, completed.repo_name, completed.machine_name, board, config,
         )
@@ -2680,65 +2768,88 @@ def _dispatch_smoke_fanout(
                 parent_assignment_id=None,
             )
 
-        result, attempts = _walk_candidates_and_dispatch(
-            candidates,
-            completed=completed, repo=repo, required_caps=caps,
-            issue_title=smoke_leg_issue_title(completed.issue_title, partition.capabilities),
-            build_briefing=_build_briefing,
-            smoke_model_wire=smoke_model_wire,
-            http_client=http_client,
-        )
+        # #3333 review (non-blocking): everything from here through the
+        # `record_dispatched_assignment` write below runs with the claim
+        # above already held. A `result is None` fall-through releases it
+        # itself (nothing to persist). But an exception ANYWHERE in this
+        # narrow window — a real `/assign` network call, `Assignment(...)`
+        # construction, the DB write — would otherwise leave the claim held
+        # with no assignment row and no manifest entry referencing it:
+        # `release_smoke_claim_if_row_is_smoke_leg` can never find it (no
+        # row exists), and `reset_work_test_state`'s manifest-driven release
+        # can never find it either (it never made it into any manifest).
+        # Recovery would require manual `smoke_claims` table surgery. Wrap
+        # the whole window so any such exception releases the claim before
+        # propagating, same as the ordinary `result is None` path just does
+        # for the "no machine" case.
+        try:
+            result, attempts = _walk_candidates_and_dispatch(
+                candidates,
+                completed=completed, repo=repo, required_caps=caps,
+                issue_title=smoke_leg_issue_title(completed.issue_title, partition.capabilities),
+                build_briefing=_build_briefing,
+                smoke_model_wire=smoke_model_wire,
+                http_client=http_client,
+            )
 
-        if result is None:
-            transient = any(a.transient for a in attempts)
-            if transient or not attempts:
-                logger.warning(
-                    "dispatch_smoke: %s#%s — capability set %s (fan-out leg) "
-                    "found no reachable machine this tick; %d attempt(s): "
-                    "%s. Leaving it for a later tick (#1672).",
-                    completed.repo_name, completed.issue_number, caps,
-                    len(attempts), "; ".join(a.describe() for a in attempts),
-                )
-            else:
-                blocking.append((caps, attempts))
-            continue
+            if result is None:
+                # #3333: won the claim above but dispatched nothing with it —
+                # release it so a LATER tick (this partition still needs a leg
+                # either way) isn't permanently blocked by an orphaned claim
+                # nothing will ever fulfill.
+                release_smoke_dispatch_claim(completed.assignment_id or "", partition_tag)
+                transient = any(a.transient for a in attempts)
+                if transient or not attempts:
+                    logger.warning(
+                        "dispatch_smoke: %s#%s — capability set %s (fan-out leg) "
+                        "found no reachable machine this tick; %d attempt(s): "
+                        "%s. Leaving it for a later tick (#1672).",
+                        completed.repo_name, completed.issue_number, caps,
+                        len(attempts), "; ".join(a.describe() for a in attempts),
+                    )
+                else:
+                    blocking.append((caps, attempts))
+                continue
 
-        choice, briefing, agent_response = result
-        leg_id = agent_response.get("id") or uuid.uuid4().hex[:12]
-        # Escape a literal backtick in the resolved command so it cannot
-        # prematurely close the backtick-fenced span below — this
-        # `test_reason` is informational display text only (the manifest
-        # carries the authoritative base64-encoded copy), but a broken
-        # fence is an easy, easily-avoided papercut.
-        escaped_smoke_command = smoke_command.replace("`", "\\`")
-        leg_assignment = Assignment(
-            machine_name=choice.machine.name,
-            repo_name=completed.repo_name,
-            issue_number=completed.issue_number,
-            issue_title=smoke_leg_issue_title(completed.issue_title, partition.capabilities),
-            files_allowed=[],
-            files_forbidden=[],
-            briefing=briefing,
-            assignment_id=leg_id,
-            status="running",
-            branch=completed.branch,
-            pr_url=completed.pr_url,
-            dispatched_at=now if now is not None else time.time(),
-            type="smoke",
-            review_target=completed.branch,
-            review_of_assignment_id=completed.assignment_id,
-            model=smoke_model_alias,
-            test_state="running",
-            test_reason=(
-                f"Test stage leg running — capability set {caps} using "
-                f"`{escaped_smoke_command}` (#3182/#3298)"
-            ),
-        )
-        board.active.append(leg_assignment)
+            choice, briefing, agent_response = result
+            leg_id = agent_response.get("id") or uuid.uuid4().hex[:12]
+            # Escape a literal backtick in the resolved command so it cannot
+            # prematurely close the backtick-fenced span below — this
+            # `test_reason` is informational display text only (the manifest
+            # carries the authoritative base64-encoded copy), but a broken
+            # fence is an easy, easily-avoided papercut.
+            escaped_smoke_command = smoke_command.replace("`", "\\`")
+            leg_assignment = Assignment(
+                machine_name=choice.machine.name,
+                repo_name=completed.repo_name,
+                issue_number=completed.issue_number,
+                issue_title=smoke_leg_issue_title(completed.issue_title, partition.capabilities),
+                files_allowed=[],
+                files_forbidden=[],
+                briefing=briefing,
+                assignment_id=leg_id,
+                status="running",
+                branch=completed.branch,
+                pr_url=completed.pr_url,
+                dispatched_at=now if now is not None else time.time(),
+                type="smoke",
+                review_target=completed.branch,
+                review_of_assignment_id=completed.assignment_id,
+                model=smoke_model_alias,
+                test_state="running",
+                test_reason=(
+                    f"Test stage leg running — capability set {caps} using "
+                    f"`{escaped_smoke_command}` (#3182/#3298)"
+                ),
+            )
+            board.active.append(leg_assignment)
 
-        from coord.state import record_dispatched_assignment  # noqa: PLC0415
+            from coord.state import record_dispatched_assignment  # noqa: PLC0415
 
-        record_dispatched_assignment(assignment=leg_assignment, repo_github=repo.github)
+            record_dispatched_assignment(assignment=leg_assignment, repo_github=repo.github)
+        except Exception:
+            release_smoke_dispatch_claim(completed.assignment_id or "", partition_tag)
+            raise
         leg_manifest.append((leg_id, partition.capabilities, smoke_command))
         new_legs.append(leg_assignment)
 
@@ -2780,47 +2891,43 @@ def _dispatch_smoke_fanout(
     if leg_manifest and completed.assignment_id is not None and completed.test_state not in (
         "passed", "skipped", "failed", TEST_STATE_BLOCKED,
     ):
-        from coord.state import (  # noqa: PLC0415
-            load_assignment_test_reason,
-            record_test_verdict,
-        )
+        from coord.state import merge_smoke_fanout_manifest  # noqa: PLC0415
 
-        summary = "; ".join(
-            f"[{'+'.join(sorted(caps))}]" for _, caps, _ in leg_manifest
-        )
-        manifest_line = _encode_fanout_manifest(leg_manifest)
-        running_reason = (
-            f"{manifest_line}\nTest stage running across {len(partitions)} "
-            f"capability-partition leg(s) (#3182): {summary}."
-        )
-        # #3315 review: carry the shared fan-out environmental-retry tally
-        # FORWARD across this rewrite — the identical #2272/#3315 reason the
-        # single-leg path's own "running" stamp must
-        # (`_dispatch_smoke_single_leg`, above): this call REPLACES the
-        # parent's `test_reason` wholesale, and `coord.reconcile.propagate_
-        # smoke_terminal_failure`'s fan-out branch is the only other writer
-        # of this field — if a re-dispatch round here doesn't re-embed
-        # whatever count it left, the very next environmental death reads
-        # zero and the budget can never accumulate past one.
-        authoritative_reason = load_assignment_test_reason(completed.assignment_id)
-        prior_env_legs = max(
-            environmental_smoke_legs(authoritative_reason),
-            environmental_smoke_legs(completed.test_reason),
-        )
-        if prior_env_legs:
-            running_reason = (
-                f"{running_reason}\n{environmental_smoke_tally(prior_env_legs)} "
-                f"({prior_env_legs} of {ENVIRONMENTAL_SMOKE_RETRY_BUDGET} "
-                "consecutive environmental fan-out-leg death(s) so far, "
-                "#3315)"
-            )
-        record_test_verdict(
+        # #3333 review: this call's own `leg_manifest` only ever names the
+        # partitions IT found already-existing or itself claimed-and-
+        # dispatched THIS round — a concurrent call racing on a DIFFERENT
+        # partition of the SAME parent has an equally partial view of its
+        # own (the atomic `claim_smoke_dispatch` above is scoped per
+        # partition, on purpose, precisely so two such calls can each win a
+        # DIFFERENT partition rather than one starving the other). Writing
+        # `leg_manifest` straight to `test_reason` here let whichever call's
+        # write landed LAST silently erase the other's real, live leg from
+        # the parent's manifest forever — nothing else ever re-derives it,
+        # so that leg's eventual pass/fail was never folded into the
+        # aggregate at all. `merge_smoke_fanout_manifest` instead performs
+        # the read-current-manifest / merge-in *this call's* entries /
+        # write-back cycle as ONE atomic step on whichever DB is canonical,
+        # so the LAST call to reach this line always folds in every
+        # partition any concurrent call has already committed.
+        final_test_state, final_test_reason = merge_smoke_fanout_manifest(
             assignment_id=completed.assignment_id,
-            test_state="running",
-            test_reason=running_reason,
+            new_entries=leg_manifest,
+            total_partitions=len(partitions),
         )
-        completed.test_state = "running"
-        completed.test_reason = running_reason
+        # Mirror whatever the row ACTUALLY ends up holding — which may
+        # not be "running" with THIS call's own text: another call may have
+        # already merged a superset (or a human/`finalize_smoke_fanout` may
+        # have landed a terminal verdict in between). `dispatch_pending_
+        # smoke`'s caller (`coord.notify._dispatch_board_pending_smoke`) can
+        # follow this call with a bulk `write_board(board)` upsert of the
+        # WHOLE in-memory board — if `completed.test_reason` here still held
+        # only this call's partial view, that later upsert would silently
+        # re-clobber the just-merged (or terminal) DB row right back down,
+        # reproducing the exact bug this fix closes through a different seam.
+        if final_test_state is not None:
+            completed.test_state = final_test_state
+        if final_test_reason is not None:
+            completed.test_reason = final_test_reason
 
     return new_legs
 
@@ -2935,7 +3042,7 @@ def dispatch_pending_smoke(
     if smoke_cfg is None or not smoke_cfg.auto_queue:
         return []
 
-    from coord.state import get_issue_test_mode
+    from coord.state import get_issue_test_mode, load_assignment_test_state
 
     dispatched: list[Assignment] = []
     for completed in board.completed:
@@ -2969,6 +3076,29 @@ def dispatch_pending_smoke(
                 continue
         if completed.status != "done":
             continue
+
+        # #3343: refresh `test_state` from the authoritative single-row store
+        # right before evaluating it below. `completed` is `board`'s
+        # in-memory copy — a snapshot taken once, at the start of whatever
+        # tick called this function — and this loop can run for a while (the
+        # `_test_verdict_is_stale` check a few lines down does live `gh`
+        # round trips per row, and dispatching a leg for an EARLIER row in
+        # this same loop can itself take seconds). A verdict recorded on
+        # THIS row by a smoke leg that finishes while this scan is still
+        # running is invisible to the stale snapshot, so the checks below
+        # would read "no verdict yet" and dispatch a redundant leg — the
+        # #3343 incident: 3 wasted smoke legs on one issue, the last
+        # dispatched 4s after the branch had already merged on the strength
+        # of an earlier leg's verdict. `None` (row unknown, or a remote read
+        # failed) is left as-is — never worse than what this loop already
+        # tolerated before #3343, and `_dispatch_smoke_single_leg`'s own
+        # pre-write re-check is the belt-and-braces backstop if a race still
+        # slips past this one.
+        if completed.assignment_id is not None:
+            fresh_test_state = load_assignment_test_state(completed.assignment_id)
+            if fresh_test_state is not None:
+                completed.test_state = fresh_test_state
+
         if completed.test_state in (TEST_STATE_BLOCKED, "running"):
             # "running" — someone (an interactive --smoke-of session, or a
             # smoke assignment already in flight) is genuinely handling this

@@ -24,12 +24,14 @@ from airbyte_ops_webapp.pages.shared_components.agents_callout import (
 from airbyte_ops_webapp.pages.shared_components.auth import render_auth_status
 from airbyte_ops_webapp.theme import (
     AIRBYTE_LOGO_CLASS,
+    AIRBYTE_PRIMARY,
     BREADCRUMB_NAV_CLASS,
     ENV_BANNER_DOT_CLASS,
     ENV_BANNER_LINK_CLASS,
     VERSION_FOOTER_LINK_CLASS,
     AbEnvBanner,
     AbHeroCard,
+    AbToolIcon,
     AbVersionFooter,
     _airbyte_logo_svg,
 )
@@ -76,10 +78,15 @@ def render_page_hero(
                 render_auth_status()
 
 
-def render_breadcrumb_nav(*, current_page: str) -> None:
+def render_breadcrumb_nav(
+    *,
+    current_page: str,
+    parent: tuple[str, str] | None = None,
+) -> None:
     """Render a breadcrumb navigation row above the page hero.
 
     Shows `Ops Home / Current Page` with Ops Home as a clickable link.
+    When `parent` is provided, it is rendered as an additional linked crumb.
     On the home page itself, only the current label is shown (no link).
     """
     with Div(css_class=BREADCRUMB_NAV_CLASS):
@@ -92,7 +99,16 @@ def render_breadcrumb_nav(*, current_page: str) -> None:
                 target="_top",
             )
             Span(" / ", css_class="breadcrumb-separator")
+            if parent is not None:
+                Link(parent[0], href=parent[1], target="_top")
+                Span(" / ", css_class="breadcrumb-separator")
             Span(current_page, css_class="breadcrumb-current")
+
+
+def render_emoji_icon(emoji: str, *, accent: str = AIRBYTE_PRIMARY) -> None:
+    """Render an emoji inside the styled tool-icon container."""
+    with AbToolIcon(accent=accent):
+        Text(emoji, css_class="text-2xl leading-none")
 
 
 _MOCK_BANNER_GRADIENT = "linear-gradient(90deg, #a855f7 0%, #d763ec 100%)"

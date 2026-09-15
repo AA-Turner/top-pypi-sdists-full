@@ -224,9 +224,14 @@ class BaseEvent(BaseModel):
     )
     first_execution_run_id: str | None = Field(
         default=None,
-        description="Run ID of the first execution in this workflow chain. "
-        "Equals workflow_run_id on fresh starts and resets (chain anchor resets on reset); "
-        "differs on CAN and Retry runs where it stays anchored to the original first run.",
+        description="Run ID of the first execution in this workflow chain. Equals workflow_run_id "
+        "on a fresh start. Continue-as-new, retry and reset runs keep the original value.",
+    )
+    chain_run_id: str | None = Field(
+        default=None,
+        description="Identifies one start of an execution. Shared by its continue-as-new, retry "
+        "and reset runs, and by every sub-workflow below it. Starting the same execution ID "
+        "again gives a new value.",
     )
     schedule_id: str | None = Field(
         default=None,

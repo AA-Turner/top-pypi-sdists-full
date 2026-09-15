@@ -11,6 +11,7 @@ from omegaconf._utils import is_structured_config
 
 from hydra._internal.deprecation_warning import deprecation_warning
 from hydra._internal.target_policy import (
+    _EXPECTED_TARGET_POLICY_DIGEST,
     _authorize_discovery_path,
     _authorize_resolved_target_identity,
     _authorize_target_invocation,
@@ -19,6 +20,8 @@ from hydra._internal.target_policy import (
     _get_os_alias_target,
     _get_resolved_target_name_for_check,
     _mediate_target_result,
+    _target_policy_context,
+    _validated_target_policy,
     _with_full_key,
 )
 from hydra._internal.utils import _locate
@@ -106,14 +109,16 @@ def _call_target(
         raise InstantiationException(msg) from e
 
     resolved_target_name = _get_resolved_target_name_for_check(_target_)
-    _authorize_target_invocation(
+    effective_target, effective_args, effective_kwargs = _authorize_target_invocation(
         _target_,
         args,
         kwargs,
         full_key,
         allow_incomplete_partial=_partial_,
     )
-    discovery_path = _authorize_discovery_path(_target_, args, kwargs, full_key)
+    discovery_path = _authorize_discovery_path(
+        effective_target, effective_args, effective_kwargs, full_key
+    )
 
     try:
         if _partial_:
@@ -238,9 +243,17 @@ def instantiate(config: Any, *args: Any, **kwargs: Any) -> Any:
              if _target_ is a callable: the return value of the call
     """
 
-    # Return None if config is None
     if config is None:
         return None
+
+    policy = _validated_target_policy(_EXPECTED_TARGET_POLICY_DIGEST)
+    with _target_policy_context(policy):
+        return _instantiate_impl(config, args, kwargs)
+
+
+def _instantiate_impl(
+    config: Any, args: Tuple[Any, ...], kwargs: Dict[str, Any]
+) -> Any:
 
     # TargetConf edge case
     if isinstance(config, TargetConf) and config._target_ == "???":

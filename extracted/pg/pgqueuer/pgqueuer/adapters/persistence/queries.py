@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
-import uuid
-from contextlib import suppress
 from datetime import timedelta
 from typing import TYPE_CHECKING, Literal, overload
 
@@ -14,10 +12,10 @@ if TYPE_CHECKING:
 from pydantic_core import to_json
 from typing_extensions import assert_never
 
-from pgqueuer.adapters.persistence import qb, query_helpers
-from pgqueuer.adapters.persistence.query_helpers import merge_tracing_headers
+from pgqueuer.adapters.persistence import qb, query_helpers, sqlstate
+from pgqueuer.adapters.persistence.query_helpers import cell, merge_tracing_headers
 from pgqueuer.domain import errors, models, types
-from pgqueuer.domain.types import CronEntrypoint
+from pgqueuer.domain.types import CronEntrypoint, HealthCheckId, QueueEntrypoint, QueueManagerId
 from pgqueuer.ports import tracing
 from pgqueuer.ports.driver import Driver, SyncDriver
 from pgqueuer.ports.repository import EntrypointExecutionParameter
@@ -25,20 +23,20 @@ from pgqueuer.ports.tracing import TracingProtocol
 
 
 def is_unique_violation(exc: Exception) -> bool:
-    """Return True if *exc* is a unique-constraint violation from asyncpg or psycopg."""
-    with suppress(ImportError):
-        import asyncpg
+    """Return True if *exc* is a unique-constraint violation from the driver."""
+    return sqlstate.is_unique_violation(exc)
 
-        if isinstance(exc, asyncpg.UniqueViolationError):
-            return True
 
-    with suppress(ImportError):
-        import psycopg
+def lost_capacity_slot_race(exc: Exception, slot_index: str) -> bool:
+    """Return True if a concurrent dequeue took the capacity slot this claim wanted.
 
-        if isinstance(exc, psycopg.errors.UniqueViolation):
-            return True
-
-    return False
+    The loser sees a unique violation on *slot_index*, or a deadlock when
+    several limited entrypoints in one batch make two dequeues cross each
+    other. Other unique violations are not a lost slot and must propagate.
+    """
+    if sqlstate.is_deadlock_detected(exc):
+        return True
+    return sqlstate.is_unique_violation(exc) and sqlstate.constraint_of(exc) == slot_index
 
 
 @dataclasses.dataclass
@@ -117,7 +115,7 @@ class Queries:
         )
         assert len(rows) == 1
         (row,) = rows
-        return row["exists"]
+        return cell(row, "exists", bool)
 
     async def table_has_index(self, table: str, index: str) -> bool:
         """Return True if *index* exists on *table*."""
@@ -128,7 +126,7 @@ class Queries:
         )
         assert len(rows) == 1
         (row,) = rows
-        return row["exists"]
+        return cell(row, "exists", bool)
 
     async def has_user_defined_enum(self, key: str, enum: str) -> bool:
         """Check if a value exists in a user-defined ENUM type."""
@@ -142,7 +140,7 @@ class Queries:
         )
         assert len(rows) == 1
         (row,) = rows
-        return row["exists"]
+        return cell(row, "exists", bool)
 
     async def has_function(self, function: str) -> bool:
         rows = await self.driver.fetch(
@@ -151,7 +149,7 @@ class Queries:
         )
         assert len(rows) == 1
         (row,) = rows
-        return row["exists"]
+        return cell(row, "exists", bool)
 
     async def has_trigger(self, trigger: str) -> bool:
         rows = await self.driver.fetch(
@@ -160,13 +158,13 @@ class Queries:
         )
         assert len(rows) == 1
         (row,) = rows
-        return row["exists"]
+        return cell(row, "exists", bool)
 
     async def dequeue(
         self,
         batch_size: int,
-        entrypoints: dict[str, EntrypointExecutionParameter],
-        queue_manager_id: uuid.UUID,
+        entrypoints: dict[QueueEntrypoint, EntrypointExecutionParameter],
+        queue_manager_id: QueueManagerId,
         global_concurrency_limit: int | None,
         heartbeat_timeout: timedelta,
     ) -> list[models.Job]:
@@ -181,15 +179,25 @@ class Queries:
         if batch_size < 1:
             raise ValueError("Batch size must be greater than or equal to one (1)")
 
-        rows = await self.driver.fetch(
-            self.qbq.build_dequeue_query(),
-            batch_size,
-            list(entrypoints.keys()),
-            [x.concurrency_limit for x in entrypoints.values()],
-            queue_manager_id,
-            global_concurrency_limit,
-            heartbeat_timeout,
+        query = self.qbq.build_dequeue_query(
+            batch_size=batch_size,
+            entrypoints=list(entrypoints.keys()),
+            concurrency_limits=[x.concurrency_limit for x in entrypoints.values()],
+            queue_manager_id=queue_manager_id,
+            global_concurrency_limit=global_concurrency_limit,
+            heartbeat_timeout=heartbeat_timeout,
         )
+        # Losing the slot race means the capacity went to another worker, which
+        # is the same outcome as finding nothing claimable: report an empty
+        # batch and let the poll loop try again. Match the slot index by name
+        # so a 23505 on any other unique constraint still surfaces.
+        slot_index = f"{self.qbe.settings.queue_table}_picked_slot_idx"
+        try:
+            rows = await self.driver.fetch(query.sql, *query.args)
+        except Exception as exc:
+            if lost_capacity_slot_race(exc, slot_index):
+                return []
+            raise
         return [models.Job.model_validate(row) for row in rows]
 
     @overload
@@ -203,7 +211,7 @@ class Queries:
         headers: dict[str, str] | None = None,
         *,
         on_conflict: Literal["raise"] = "raise",
-    ) -> list[models.JobId]: ...
+    ) -> list[types.JobId]: ...
 
     @overload
     async def enqueue(
@@ -216,7 +224,7 @@ class Queries:
         headers: dict[str, str] | None = None,
         *,
         on_conflict: Literal["skip"],
-    ) -> list[models.JobId | None]: ...
+    ) -> list[types.JobId | None]: ...
 
     @overload
     async def enqueue(
@@ -229,7 +237,7 @@ class Queries:
         headers: list[dict[str, str] | None] | None = None,
         *,
         on_conflict: Literal["raise"] = "raise",
-    ) -> list[models.JobId]: ...
+    ) -> list[types.JobId]: ...
 
     @overload
     async def enqueue(
@@ -242,7 +250,7 @@ class Queries:
         headers: list[dict[str, str] | None] | None = None,
         *,
         on_conflict: Literal["skip"],
-    ) -> list[models.JobId | None]: ...
+    ) -> list[types.JobId | None]: ...
 
     async def enqueue(
         self,
@@ -254,7 +262,7 @@ class Queries:
         headers: dict[str, str] | list[dict[str, str] | None] | None = None,
         *,
         on_conflict: types.OnConflict = "raise",
-    ) -> list[models.JobId] | list[models.JobId | None]:
+    ) -> list[types.JobId] | list[types.JobId | None]:
         """Insert one or many jobs. Scalar args = single insert; lists = batch insert.
 
         With ``on_conflict="skip"``, dedupe-key duplicates are skipped instead of
@@ -290,17 +298,17 @@ class Queries:
         if on_conflict == "skip":
             return query_helpers.scatter_ids_by_ordinal(rows, len(normed_params.entrypoint))
         if on_conflict == "raise":
-            return [models.JobId(row["id"]) for row in rows]
+            return [types.JobId(cell(row, "id", int)) for row in rows]
         assert_never(on_conflict)
 
-    async def queued_work(self, entrypoints: list[str]) -> int:
+    async def queued_work(self, entrypoints: list[QueueEntrypoint]) -> int:
         rows = await self.driver.fetch(self.qbq.build_has_queued_work(), entrypoints)
-        return rows[0]["queued_work"] if rows else 0
+        return cell(rows[0], "queued_work", int) if rows else 0
 
-    async def eligible_queued_work(self, entrypoints: list[str]) -> int:
+    async def eligible_queued_work(self, entrypoints: list[QueueEntrypoint]) -> int:
         """Like ``queued_work`` but counting only jobs whose ``execute_after`` has passed."""
         rows = await self.driver.fetch(self.qbq.build_has_eligible_queued_work(), entrypoints)
-        return rows[0]["queued_work"] if rows else 0
+        return cell(rows[0], "queued_work", int) if rows else 0
 
     async def clear_queue(self, entrypoint: str | list[str] | None = None) -> None:
         """Delete jobs; restrict to *entrypoint* when given, else truncate."""
@@ -312,7 +320,7 @@ class Queries:
         else:
             await self.driver.execute(self.qbq.build_truncate_queue_query())
 
-    async def mark_job_as_cancelled(self, ids: list[models.JobId]) -> None:
+    async def mark_job_as_cancelled(self, ids: list[types.JobId]) -> None:
         """Log *ids* as 'canceled' and emit a cancellation NOTIFY."""
         await asyncio.gather(
             self.driver.execute(
@@ -336,7 +344,7 @@ class Queries:
         job_status: list[
             tuple[
                 models.Job,
-                models.JOB_STATUS,
+                types.JOB_STATUS,
                 models.TracebackRecord | None,
             ]
         ],
@@ -374,7 +382,7 @@ class Queries:
             traceback_record.model_dump_json() if traceback_record else None,
         )
 
-    async def requeue_jobs(self, ids: list[models.JobId]) -> None:
+    async def requeue_jobs(self, ids: list[types.JobId]) -> None:
         """Move failed jobs back to queued status for reprocessing.
 
         Resets attempts to 0 and sets execute_after to NOW().
@@ -436,16 +444,11 @@ class Queries:
         await self.driver.execute(
             self.qbq.build_aggregate_log_data_to_statistics_query(advisory_lock=False)
         )
-        return [
-            models.LogStatistics.model_validate(x)
-            for x in await self.driver.fetch(
-                self.qbq.build_log_statistics_query(),
-                limit,
-                last,
-            )
-        ]
+        query = self.qbq.build_log_statistics_query(limit=limit, last=last)
+        rows = await self.driver.fetch(query.sql, *query.args)
+        return [models.LogStatistics.model_validate(row) for row in rows]
 
-    async def notify_job_cancellation(self, ids: list[models.JobId]) -> None:
+    async def notify_job_cancellation(self, ids: list[types.JobId]) -> None:
         """Emit a ``cancellation_event`` NOTIFY carrying *ids*."""
         await self.driver.notify(
             self.qbq.settings.channel,
@@ -457,7 +460,7 @@ class Queries:
             ).model_dump_json(),
         )
 
-    async def notify_health_check(self, health_check_event_id: uuid.UUID) -> None:
+    async def notify_health_check(self, health_check_event_id: HealthCheckId) -> None:
         """Emit a ``health_check_event`` NOTIFY tagged with ``health_check_event_id``."""
         await self.driver.notify(
             self.qbq.settings.channel,
@@ -469,7 +472,7 @@ class Queries:
             ).model_dump_json(),
         )
 
-    async def update_heartbeat(self, job_ids: list[models.JobId]) -> None:
+    async def update_heartbeat(self, job_ids: list[types.JobId]) -> None:
         await self.driver.execute(
             self.qbq.build_update_heartbeat_query(),
             list(set(job_ids)),
@@ -500,13 +503,13 @@ class Queries:
             )
         ]
 
-    async def set_schedule_queued(self, ids: set[models.ScheduleId]) -> None:
+    async def set_schedule_queued(self, ids: set[types.ScheduleId]) -> None:
         await self.driver.execute(
             self.qbs.build_set_schedule_queued_query(),
             list(ids),
         )
 
-    async def update_schedule_heartbeat(self, ids: set[models.ScheduleId]) -> None:
+    async def update_schedule_heartbeat(self, ids: set[types.ScheduleId]) -> None:
         await self.driver.execute(
             self.qbs.build_update_schedule_heartbeat(),
             list(ids),
@@ -522,7 +525,7 @@ class Queries:
 
     async def delete_schedule(
         self,
-        ids: set[models.ScheduleId],
+        ids: set[types.ScheduleId],
         entrypoints: set[CronEntrypoint],
     ) -> None:
         await self.driver.execute(
@@ -544,17 +547,20 @@ class Queries:
 
     async def job_status(
         self,
-        ids: list[models.JobId],
-    ) -> list[tuple[models.JobId, models.JOB_STATUS]]:
+        ids: list[types.JobId],
+    ) -> list[tuple[types.JobId, types.JOB_STATUS]]:
+        rows = await self.driver.fetch(self.qbq.build_job_status_query(), ids)
         return [
-            (row["job_id"], row["status"])
-            for row in await self.driver.fetch(self.qbq.build_job_status_query(), ids)
+            (row.job_id, row.status)
+            for row in (models.JobStatusRow.model_validate(r) for r in rows)
         ]
 
-    async def next_deferred_eta(self, entrypoints: list[str]) -> timedelta | None:
+    async def next_deferred_eta(self, entrypoints: list[QueueEntrypoint]) -> timedelta | None:
         """Return time until the soonest deferred job becomes eligible, or None."""
         rows = await self.driver.fetch(self.qbq.build_next_deferred_eta_query(), entrypoints)
-        return rows[0]["eta"] if rows and rows[0]["eta"] is not None else None
+        if not rows or rows[0]["eta"] is None:
+            return None
+        return cell(rows[0], "eta", timedelta)
 
     async def queue_age(self) -> list[models.QueueAgeStats]:
         """Backlog age of queued jobs per entrypoint, oldest first."""
@@ -637,7 +643,7 @@ class Queries:
         self,
         limit: int = 50,
         offset: int = 0,
-        statuses: list[models.JOB_STATUS] | None = None,
+        statuses: list[types.JOB_STATUS] | None = None,
         entrypoints: list[str] | None = None,
     ) -> list[models.Job]:
         """Paginated queue rows, optionally filtered by status and entrypoint."""
@@ -650,13 +656,13 @@ class Queries:
         )
         return [models.Job.model_validate(row) for row in rows]
 
-    async def queue_job_by_id(self, id: models.JobId) -> models.Job | None:
+    async def queue_job_by_id(self, id: types.JobId) -> models.Job | None:
         rows = await self.driver.fetch(self.qbq.build_queue_job_by_id_query(), id)
         return models.Job.model_validate(rows[0]) if rows else None
 
     async def job_log_history(
         self,
-        id: models.JobId,
+        id: types.JobId,
         limit: int = 100,
     ) -> list[models.Log]:
         """State transitions of one job, oldest first."""
@@ -671,7 +677,7 @@ class Queries:
 
     async def unaggregated_log_count(self) -> int:
         rows = await self.driver.fetch(self.qbq.build_unaggregated_log_count_query())
-        return rows[0]["unaggregated"] if rows else 0
+        return cell(rows[0], "unaggregated", int) if rows else 0
 
     async def schema_info(self) -> list[models.TableInfo]:
         """Size, row estimate, and persistence mode of each PgQueuer table."""
@@ -705,7 +711,7 @@ class SyncQueries:
         headers: dict[str, str] | None = None,
         *,
         on_conflict: Literal["raise"] = "raise",
-    ) -> list[models.JobId]: ...
+    ) -> list[types.JobId]: ...
 
     @overload
     def enqueue(
@@ -718,7 +724,7 @@ class SyncQueries:
         headers: dict[str, str] | None = None,
         *,
         on_conflict: Literal["skip"],
-    ) -> list[models.JobId | None]: ...
+    ) -> list[types.JobId | None]: ...
 
     @overload
     def enqueue(
@@ -731,7 +737,7 @@ class SyncQueries:
         headers: list[dict[str, str] | None] | None = None,
         *,
         on_conflict: Literal["raise"] = "raise",
-    ) -> list[models.JobId]: ...
+    ) -> list[types.JobId]: ...
 
     @overload
     def enqueue(
@@ -744,7 +750,7 @@ class SyncQueries:
         headers: list[dict[str, str] | None] | None = None,
         *,
         on_conflict: Literal["skip"],
-    ) -> list[models.JobId | None]: ...
+    ) -> list[types.JobId | None]: ...
 
     def enqueue(
         self,
@@ -756,7 +762,7 @@ class SyncQueries:
         headers: dict[str, str] | list[dict[str, str] | None] | None = None,
         *,
         on_conflict: types.OnConflict = "raise",
-    ) -> list[models.JobId] | list[models.JobId | None]:
+    ) -> list[types.JobId] | list[types.JobId | None]:
         """Insert one or many jobs. Scalar args = single insert; lists = batch insert.
 
         With ``on_conflict="skip"``, dedupe-key duplicates are skipped instead of
@@ -798,7 +804,7 @@ class SyncQueries:
         if on_conflict == "skip":
             return query_helpers.scatter_ids_by_ordinal(rows, len(normed_params.entrypoint))
         if on_conflict == "raise":
-            return [models.JobId(row["id"]) for row in rows]
+            return [types.JobId(cell(row, "id", int)) for row in rows]
         assert_never(on_conflict)
 
     def queue_size(self) -> list[models.QueueStatistics]:

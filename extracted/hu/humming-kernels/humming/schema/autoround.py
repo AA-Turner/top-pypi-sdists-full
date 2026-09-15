@@ -74,7 +74,10 @@ class AutoRoundWeightSchema(BaseWeightSchema):
     def process_loaded_weight(self, tensor: torch.Tensor, name: str) -> torch.Tensor:
         return self._delegate.process_loaded_weight(tensor, name)
 
-    def convert_humming(
+    def to_humming_schema(self, param_dtype: torch.dtype) -> HummingWeightSchema:
+        return self._delegate.to_humming_schema(param_dtype)
+
+    def _convert_humming(
         self,
         tensors: dict[str, torch.Tensor],
         shape_n_stacks: list[int],

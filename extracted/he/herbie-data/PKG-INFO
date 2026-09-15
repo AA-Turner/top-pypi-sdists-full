@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: herbie-data
-Version: 2026.3.0
+Version: 2026.9.0
 Summary: Download numerical weather prediction GRIB2 model data.
 Project-URL: Homepage, https://github.com/blaylockbk/Herbie
 Project-URL: Documentation, https://herbie.readthedocs.io/
@@ -11,7 +11,7 @@ Author-email: "Brian K. Blaylock" <blaylockbk@gmail.com>
 Maintainer-email: "Brian K. Blaylock" <blaylockbk@gmail.com>
 License: MIT License
         
-        Copyright (c) 2019-2024 Brian K. Blaylock
+        Copyright (c) 2019-2026 Brian K. Blaylock
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal

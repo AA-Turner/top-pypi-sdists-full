@@ -33,6 +33,10 @@ class OciOptimizedStorageDetails(StorageDetails):
             The value to assign to the availability_domain property of this OciOptimizedStorageDetails.
         :type availability_domain: str
 
+        :param kms_key_id:
+            The value to assign to the kms_key_id property of this OciOptimizedStorageDetails.
+        :type kms_key_id: str
+
         :param iops:
             The value to assign to the iops property of this OciOptimizedStorageDetails.
         :type iops: int
@@ -42,17 +46,20 @@ class OciOptimizedStorageDetails(StorageDetails):
             'system_type': 'str',
             'is_regionally_durable': 'bool',
             'availability_domain': 'str',
+            'kms_key_id': 'str',
             'iops': 'int'
         }
         self.attribute_map = {
             'system_type': 'systemType',
             'is_regionally_durable': 'isRegionallyDurable',
             'availability_domain': 'availabilityDomain',
+            'kms_key_id': 'kmsKeyId',
             'iops': 'iops'
         }
         self._system_type = None
         self._is_regionally_durable = None
         self._availability_domain = None
+        self._kms_key_id = None
         self._iops = None
         self._system_type = 'OCI_OPTIMIZED_STORAGE'
 

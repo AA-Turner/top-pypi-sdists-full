@@ -36,9 +36,9 @@ class TestAiPrLoopThrottler:
         assert "group: ai-pr-loop-throttler" in content
         assert "cancel-in-progress: false" in content
 
-    def test_uses_speckit_pr_token(self) -> None:
+    def test_uses_default_workflow_pat(self) -> None:
         content = AI_PR_LOOP_THROTTLER.read_text(encoding="utf-8")
-        assert "SPECKIT_PR_TOKEN" in content
+        assert "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" in content
 
     def test_invokes_scheduler_command(self) -> None:
         content = AI_PR_LOOP_THROTTLER.read_text(encoding="utf-8")

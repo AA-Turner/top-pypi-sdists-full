@@ -147,7 +147,7 @@ class LabelPropagation(BaseTransformer):
     max_iter: int, default=1000
         Change maximum number of iterations allowed.
 
-    tol: float, 1e-3
+    tol: float, default=1e-3
         Convergence tolerance: threshold to consider the system at steady
         state.
 
@@ -947,7 +947,7 @@ class LabelPropagation(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.semi_supervised.LabelPropagation.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.semi_supervised.LabelPropagation.html#sklearn.semi_supervised.LabelPropagation.score)
 

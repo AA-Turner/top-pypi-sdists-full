@@ -1,0 +1,133 @@
+[build-system]
+requires = ["setuptools>=70.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project.entry-points."mkdocs.plugins"]
+"table-reader" = "mkdocs_table_reader_plugin.plugin:TableReaderPlugin"
+
+[project]
+name="mkdocs_table_reader_plugin"
+keywords = ["mkdocs", "plugin"]
+authors = [
+    { name = "Tim Vink", email = "vinktim@gmail.com" }
+]
+license = { text = "MIT" }
+
+description="MkDocs plugin to directly insert tables from files into markdown."
+readme = { file = "README.md", content-type = "text/markdown" }
+
+requires-python=">=3.10"
+
+classifiers=[
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+]
+
+dynamic = ["version"]
+dependencies = [
+    "mkdocs>=1.0",
+    "pandas>=2.1",  # pd.DataFrame.map() was added in pandas 2.1
+    "pyyaml>=5.4.1",
+    "tabulate>=0.8.7",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/timvink/mkdocs-table-reader-plugin"
+
+[tool.setuptools.dynamic]
+version = {attr = "mkdocs_table_reader_plugin.__version__"}
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration, meaning they use databases (deselect with '-m \"not integration\"')",
+    "serial",
+    "no_temp_caching",
+]
+
+# https://github.com/charliermarsh/ruff
+[tool.ruff]
+
+# Rules to apply
+lint.select= ["E", "F", "I", "UP"]
+
+# Exclude rules
+lint.ignore = ['D104'
+        ,'D212'
+        ,'D200'
+        ,'D412'
+        ,'E731'
+        ,'E501'
+        ,'E722'
+        ,'D104'
+        ,'E402'
+]
+
+lint.exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+# Set line length, keep same as black
+line-length = 120
+
+extend-exclude = [
+        "*.yml",
+        "*.toml",
+        "*.md",
+        ".json",
+        "Makefile",
+        "*.txt",
+]
+
+ #supported for python 3.10
+target-version = "py310" 
+
+# Always autofix
+fix = true
+
+[dependency-groups]
+dev = [
+    "click>=8.1.8",
+    # used by pd.read_html() and pd.read_xml()
+    "lxml>=5",
+    "mkdocs-git-authors-plugin>=0.9.4",
+    "mkdocs-git-revision-date-localized-plugin>=1.4.5",
+    "mkdocs-macros-plugin>=1.3.7",
+    "mkdocs-markdownextradata-plugin>=0.2.6",
+    "mkdocs-material>=9.6.9",
+    "openpyxl>=3.1.5",
+    "pyarrow>=17.0.0",
+    # used by pd.read_spss()
+    "pyreadstat>=1.2.8",
+    "pytest>=8.3.5",
+    "pytest-cov>=5.0.0",
+    "ruff",
+    # used by pd.read_hdf()
+    "tables>=3.9.2",
+    "xlrd>=1.0.0",
+]

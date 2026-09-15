@@ -49,8 +49,10 @@ from tomlrt._trivia import (
     strip_trailing_ws,
     trailing_ws,
 )
+from tomlrt._typecheck import _mapping_items
 from tomlrt._values import (
     ArrayValue,
+    EmptyAoTValue,
     InlineTableValue,
     make_keyparts,
 )
@@ -1248,7 +1250,13 @@ def _collect_subtree(
     aots_out: list[AoT],
     add_slot: Callable[[Slot], None],
 ) -> None:
-    """Walk ``val``'s container subtree, collecting containers, AoTs and owned slots.
+    """Walk ``val``'s subtree, collecting containers, AoTs and their slots.
+
+    Model-driven and unordered, unlike `owned_slots`, which projects the
+    doc-stream run a view's block physically spans. This reaches every
+    slot a descendant container names, including an empty AoT's ``k =
+    []`` placeholder -- which sits in its parent's block and so belongs
+    to no block of the AoT's own.
 
     Only ``Container``/``AoT`` values can ever match below (an inline
     array's contents never own doc-stream slots of their own, and are
@@ -1842,7 +1850,7 @@ def _bind_aot(parent: Container, key: str, aot: AoT) -> None:
 def _materialise_empty_aot(aot: AoT) -> None:
     """Splice a ``key = []`` placeholder for a now-empty attached AoT.
 
-    The placeholder is a normal direct KV (empty ``ArrayValue``) under
+    The placeholder is a normal direct KV (an ``EmptyAoTValue``) under
     the AoT's parent, so it lands in the parent's body region rather
     than at a header position a re-parse would misattribute. Dict
     storage at ``parent[key]`` is left as the AoT — only the physical
@@ -1852,7 +1860,7 @@ def _materialise_empty_aot(aot: AoT) -> None:
     assert parent is not None
     assert len(aot) == 0
     key = aot._path[-1]  # noqa: SLF001
-    append_direct_kv(parent, key, ArrayValue())
+    append_direct_kv(parent, key, EmptyAoTValue())
 
 
 def _empty_aot_placeholder_ref(aot: AoT) -> SlotRef | None:
@@ -1860,7 +1868,7 @@ def _empty_aot_placeholder_ref(aot: AoT) -> SlotRef | None:
 
     Derived from the parent's ``_index[key]``: an empty AoT's only
     physical presence is one ``KVSlot`` whose value is an empty
-    ``ArrayValue``. Returns ``None`` when the AoT is non-empty or carries
+    ``EmptyAoTValue``. Returns ``None`` when the AoT is non-empty or carries
     no placeholder yet (e.g. a fresh AoT mid-clone, before its first
     entry or placeholder lands).
     """
@@ -1875,7 +1883,7 @@ def _empty_aot_placeholder_ref(aot: AoT) -> SlotRef | None:
     ref = bucket[0]
     slot = ref.slot
     assert isinstance(slot, KVSlot), "empty AoT placeholder must be a KV slot"
-    assert isinstance(slot.value, ArrayValue), (
+    assert isinstance(slot.value, EmptyAoTValue), (
         "empty AoT key must be bound to an array placeholder"
     )
     return ref
@@ -2151,11 +2159,11 @@ def clone_graft_slots(
 def owned_slots(view: Container | AoT) -> list[Slot]:
     """Every slot ``view``'s block spans, in doc-stream order.
 
-    Any shape: headered or not, an array-of-tables, a whole document.
-
-    Order keys recover physical order without walking unrelated slots,
-    even when a subtree is interleaved with foreign sections or starts
-    before its own header (``[a.b]`` before ``[a]``).
+    A container's ordered refs already name all its descendant headers.
+    Each header contributes its following body run. A private orphan
+    can omit an enclosing header, so a changed KV host also ends a run.
+    Only implicit containers contribute KV refs directly: a headered
+    container's own header already contributes its body.
     """
     if isinstance(view, _array.AoT):
         return [s for entry in view for s in owned_slots(entry)]
@@ -2166,9 +2174,20 @@ def owned_slots(view: Container | AoT) -> list[Slot]:
             slots.append(cur)
             cur = cur._next  # noqa: SLF001
         return slots
-    owned: set[Slot] = set()
-    _collect_subtree(view, [], [], owned.add)
-    return sorted(owned, key=operator.attrgetter("_order"))
+    owned: list[Slot] = []
+    has_header = view._header_ref is not None  # noqa: SLF001
+    for ref in view._refs:  # noqa: SLF001
+        slot = ref.slot
+        if isinstance(slot, StructuralHeaderSlot):
+            owned.append(slot)
+            host_path = slot.path
+            body = slot._next  # noqa: SLF001
+            while isinstance(body, KVSlot) and body.host_path == host_path:
+                owned.append(body)
+                body = body._next  # noqa: SLF001
+        elif not has_header:
+            owned.append(slot)
+    return owned
 
 
 def _gather_headered_subtree_slots(
@@ -2715,7 +2734,6 @@ def clone_implicit_section(
     """Clone an implicit section's physical run, preserving its dotted shape."""
     doc = dest_parent._attached_doc  # noqa: SLF001
     host = _nearest_header_host(dest_parent)
-    empty_aots = _capture_empty_aots(source)
     slots = clone_graft_slots(
         source,
         target_path=(*dest_parent._path, key),  # noqa: SLF001
@@ -2735,13 +2753,23 @@ def clone_implicit_section(
         _extend_header_bindings_to_root(host._parent, slots)  # noqa: SLF001
     result = dict.__getitem__(dest_parent, key)
     assert isinstance(result, _container.Container)
-    _restore_empty_aots(result, empty_aots)
     return result
 
 
 def _spells_own_key(slot: Slot, depth: int) -> bool:
     """Whether a subtree slot is a dotted KV hosted above its root."""
     return isinstance(slot, KVSlot) and len(slot.host_path) < depth
+
+
+def implicit_body_slots(container: Container) -> list[Slot]:
+    """Outer-hosted dotted KVs owned by an implicit section, in source order."""
+    depth = len(container._path)  # noqa: SLF001
+    owner = container._owner_aot_entry  # noqa: SLF001
+    return [
+        ref.slot
+        for ref in container._refs  # noqa: SLF001
+        if _spells_own_key(ref.slot, depth) and ref.slot.owner_aot_entry is owner
+    ]
 
 
 def split_subtree_slots(
@@ -2842,7 +2870,7 @@ def _clone_entry_slots(
     body_owner: AoTEntry | None,
     src_prefix: tuple[str, ...],
     target_prefix: tuple[str, ...],
-    dst_newline: str,
+    dst_newline: str | None,
     head: Slot | None = None,
     host_path: tuple[str, ...] | None = None,
 ) -> tuple[list[Slot], StructuralHeaderSlot | None]:
@@ -2872,6 +2900,9 @@ def _clone_entry_slots(
     that lands under a header of its own wants that default; one that
     stays header-less, spelled by dotted keys, wants the enclosing
     section that will host them.
+
+    ``dst_newline=None`` copies a whole document without retargeting its
+    paths or its potentially mixed line endings.
     """
     if host_path is None:
         host_path = target_prefix
@@ -2889,13 +2920,13 @@ def _clone_entry_slots(
 
     cloned: list[Slot] = []
     cloned_head: StructuralHeaderSlot | None = None
+    memo: dict[int, object] = {}
     for s in src_slots:
-        c: Slot = copy.deepcopy(s)
-        c._prev = None  # noqa: SLF001
-        c._next = None  # noqa: SLF001
-        _rebase_implicit_slot_in_place(
-            c, src_prefix, target_prefix, host_path, dst_newline
-        )
+        c: Slot = copy.deepcopy(s, memo)
+        if dst_newline is not None:
+            _rebase_implicit_slot_in_place(
+                c, src_prefix, target_prefix, host_path, dst_newline
+            )
         src_owner = s.owner_aot_entry
         mapped = nested_entry_map.get(src_owner) if src_owner else None
         owner_for_slot = mapped if mapped is not None else body_owner
@@ -3026,7 +3057,7 @@ def attach_section_at(
     deepest_parent = ensure_implicit_chain(parent, sub[:-1])
 
     section = source
-    pending: list[tuple[str, TomlInput]] = list(source.items())
+    pending: list[tuple[str, TomlInput]] = list(_mapping_items(source))
     dict.clear(section)
 
     section._wire(  # noqa: SLF001
@@ -3335,42 +3366,6 @@ def _follow_view_route(
     return cur
 
 
-def _capture_empty_aots(source: Container) -> list[list[tuple[str, int | None]]]:
-    """Capture typed empty arrays whose ``[]`` slots alone cannot retain AoT shape."""
-    routes: list[list[tuple[str, int | None]]] = []
-    route: list[tuple[str, int | None]] = []
-
-    def capture(table: Container) -> None:
-        for key, child in table.items():
-            if isinstance(child, _array.AoT):
-                if not child:
-                    routes.append([*route, (key, None)])
-                for ordinal, entry in enumerate(child):
-                    route.append((key, ordinal))
-                    capture(entry)
-                    route.pop()
-            elif _container._is_section(child):  # noqa: SLF001
-                route.append((key, None))
-                capture(child)
-                route.pop()
-
-    capture(source)
-    return routes
-
-
-def _restore_empty_aots(
-    target: Container, routes: Sequence[Sequence[tuple[str, int | None]]]
-) -> None:
-    """Restore only the logical AoT bindings; the cloned placeholders stay intact."""
-    for route in routes:
-        parent = _follow_view_route(target, route[:-1])
-        assert isinstance(parent, _container.Container)
-        key, _ordinal = route[-1]
-        aot = _array.AoT()
-        _bind_aot(parent, key, aot)
-        dict.__setitem__(parent, key, aot)
-
-
 def _snapshot_in_copy(
     view: Container | AoT, snapshots: dict[int, Document]
 ) -> Container | AoT:
@@ -3382,10 +3377,6 @@ def _snapshot_in_copy(
     """
     root = view._layout_root  # noqa: SLF001
     assert root is not None, "only an attached view has a document to copy"
-    if isinstance(view, _array.AoT) and not view:
-        # There are no entry slots to preserve, and reparsing [] would
-        # change this typed source into an inline Array.
-        return _array.AoT()
     snapshot = snapshots.get(id(root))
     if snapshot is None:
         snapshot = copy.copy(root)
@@ -3431,7 +3422,7 @@ def _capture_input(
     if is_inline_value(value):
         return value
     if isinstance(value, Mapping):
-        return _capture_items(value.items(), sites, snapshots)
+        return _capture_items(_mapping_items(value), sites, snapshots)
     assert isinstance(value, list)
     return [
         v if isinstance(v, SCALAR_TYPES) else _capture_input(v, sites, snapshots)
@@ -3449,7 +3440,7 @@ def _capture_into_factory(
         for entry in factory:
             _capture_into_factory(entry, sites, snapshots)
         return
-    dict.update(factory, _capture_items(dict.items(factory), sites, snapshots))
+    dict.update(factory, _capture_items(_mapping_items(factory), sites, snapshots))
 
 
 def hosts_site(view: Container | AoT, site: Container | AoT) -> bool:
@@ -3566,7 +3557,7 @@ def _prepare_entry(
         if cloned_head is not None:
             header = cloned_head
     else:
-        payload = _capture_items(body.items(), sites, snapshots)
+        payload = _capture_items(_mapping_items(body), sites, snapshots)
     if header is None:
         header = _new_section_header(
             path, leading="", doc=doc, entry=owner, owner_aot_entry=owner

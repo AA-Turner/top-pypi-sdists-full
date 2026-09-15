@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.764
+Version: 1.4.776
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -251,6 +251,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 |--------|-------------|
 | `accounts.get_all_accounts_health()` | Check accounts health |
 | `accounts.list_accounts()` | List accounts |
+| `accounts.list_tik_tok_commercial_music()` | List trending commercial music |
 | `accounts.get_account_health()` | Check account health |
 | `accounts.get_account_posts()` | List posts published on the platform |
 | `accounts.get_bluesky_settings()` | Get Bluesky account settings |
@@ -543,6 +544,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.get_ad_set_details()` | Get live ad-set details |
 | `ad_campaigns.get_ad_tree()` | Get campaign tree |
 | `ad_campaigns.get_ads_timeline()` | Get daily account metrics |
+| `ad_campaigns.get_campaign_ad_schedule()` | Read a campaign's ad schedule (dayparting) |
 | `ad_campaigns.get_campaign_bidding()` | Read a campaign's current bidding |
 | `ad_campaigns.get_campaign_targeting()` | Read a Google campaign's device, location, and language targeting |
 | `ad_campaigns.update_ad()` | Update ad |
@@ -554,6 +556,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.update_ad_set_status()` | Pause or resume a single ad set |
 | `ad_campaigns.update_ad_status()` | Pause or resume a single ad |
 | `ad_campaigns.update_bid_strategy()` | Update portfolio bid strategy |
+| `ad_campaigns.update_campaign_ad_schedule()` | Replace a campaign's ad schedule (dayparting) |
 | `ad_campaigns.update_campaign_assets()` | Update campaign assets |
 | `ad_campaigns.update_campaign_targeting()` | Edit a Google campaign's device, location, or language targeting |
 | `ad_campaigns.delete_ad()` | Cancel an ad |

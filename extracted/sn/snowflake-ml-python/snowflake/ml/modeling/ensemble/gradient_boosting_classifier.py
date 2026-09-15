@@ -143,6 +143,10 @@ class GradientBoostingClassifier(BaseTransformer):
         There is a trade-off between learning_rate and n_estimators.
         Values must be in the range `[0.0, inf)`.
 
+        For an example of the effects of this parameter and its interaction with
+        ``subsample``, see
+        :ref:`sphx_glr_auto_examples_ensemble_plot_gradient_boosting_regularization.py`.
+
     n_estimators: int, default=100
         The number of boosting stages to perform. Gradient boosting
         is fairly robust to over-fitting so a large number usually
@@ -292,7 +296,9 @@ class GradientBoostingClassifier(BaseTransformer):
         subtree with the largest cost complexity that is smaller than
         ``ccp_alpha`` will be chosen. By default, no pruning is performed.
         Values must be in the range `[0.0, inf)`.
-        See :ref:`minimal_cost_complexity_pruning` for details.
+        See :ref:`minimal_cost_complexity_pruning` for details. See
+        :ref:`sphx_glr_auto_examples_tree_plot_cost_complexity_pruning.py`
+        for an example of such pruning.
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -1114,7 +1120,7 @@ class GradientBoostingClassifier(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.ensemble.GradientBoostingClassifier.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingClassifier.html#sklearn.ensemble.GradientBoostingClassifier.score)
 

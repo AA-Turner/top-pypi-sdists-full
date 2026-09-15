@@ -1,7 +1,9 @@
 import docker
+import io
 import os
 import shlex
 import sys
+import tarfile
 
 import docker.errors
 
@@ -9,8 +11,8 @@ from pathlib import Path
 
 import siliconcompiler
 
-from siliconcompiler.package import RemoteResolver
 from siliconcompiler.utils import default_email_credentials_file
+from siliconcompiler.utils.paths import cachedir as cachedir_path
 from siliconcompiler.scheduler import SchedulerNode
 from siliconcompiler.utils.logging import SCBlankLoggerFormatter
 
@@ -194,6 +196,11 @@ class DockerSchedulerNode(SchedulerNode):
         6. Executes the `sc-node` command inside the container.
         7. Streams the container's log output to the console.
         8. Halts on error and ensures the container is stopped upon completion.
+
+        Step 8 also covers a canceled run, which reaches this node as an
+        interrupt raised out of whatever it was doing: a container is not this
+        process's to leave behind, and nothing outside knows to go looking for
+        one.
         """
         self._init_run_logger()
 
@@ -226,6 +233,12 @@ class DockerSchedulerNode(SchedulerNode):
                                   f"please use 'docker logout {image_src}'")
                 self.halt()
 
+        # The manifest is streamed straight into the container rather than
+        # staged on the host, so its path is container-local and needs no
+        # translation between the two namespaces -- and two nodes can never
+        # collide over it, since each has its own filesystem.
+        cfg = '/tmp/sc_manifest.json'
+
         email_file = default_email_credentials_file()
         if is_windows:
             # Hack to get around manifest merging
@@ -234,14 +247,12 @@ class DockerSchedulerNode(SchedulerNode):
             cwd = '/sc_docker'
             builddir = f'{cwd}/build'
 
-            local_cfg = os.path.join(start_cwd, 'sc_docker.json')
-            cfg = f'{builddir}/{self.name}/{self.jobname}/{self.step}/{self.index}/sc_docker.json'
-
             user = None
+            group_add = None
 
             volumes = [
                 f"{self.project_cwd}:{cwd}:rw",
-                f"{RemoteResolver.determine_cache_dir(self.project)}:{cache_dir}:rw"
+                f"{cachedir_path(self.project)}:{cache_dir}:rw"
             ]
             self.logger.debug(f'Volumes: {volumes}')
 
@@ -252,14 +263,21 @@ class DockerSchedulerNode(SchedulerNode):
 
                 volumes.append(f'{os.path.dirname(email_file)}:/sc_home/.sc:ro')
         else:
-            cache_dir = RemoteResolver.determine_cache_dir(self.project)
+            cache_dir = cachedir_path(self.project)
             cwd = self.project_cwd
             builddir = self.project.find_files('option', 'builddir')
 
-            local_cfg = os.path.abspath('sc_docker.json')
-            cfg = local_cfg
+            # Both halves are needed: given a bare uid, docker takes the group
+            # from the image's /etc/passwd, falling back to gid 0. Files the node
+            # writes into the bind-mounted build directory would then land on the
+            # host owned by root, and access granted through group membership --
+            # a shared project or cache directory -- would be lost.
+            user = f"{os.getuid()}:{os.getgid()}"
 
-            user = os.getuid()
+            # An explicit user also drops the caller's supplementary groups, so
+            # hand them back: access to a shared project or cache directory
+            # often comes from a secondary group rather than from ownership.
+            group_add = os.getgroups()
 
             rw_volumes, ro_volumes = get_volumes_directories(
                 self.project, cache_dir, workdir, self.step, self.index)
@@ -290,13 +308,18 @@ class DockerSchedulerNode(SchedulerNode):
                     f"sc_node:{self.name}:{self.step}:{self.index}"
                 ],
                 user=user,
+                group_add=group_add,
                 detach=True,
                 tty=True,
                 auto_remove=True,
                 environment=env)
 
-            # Write manifest to make it available to the docker runner
-            self.project.write_manifest(local_cfg)
+            # Hand the manifest to the runner without staging it on the host:
+            # write_manifest() takes the stream directly, and put_archive lands
+            # the bytes in the container's own filesystem.
+            manifest = io.StringIO()
+            self.project.write_manifest(manifest)
+            self.__put_manifest(container, cfg, manifest.getvalue())
 
             cachemap = []
             # for package, resolver in self.project.get(
@@ -337,12 +360,42 @@ class DockerSchedulerNode(SchedulerNode):
             # Ensure we clean up containers
             if container:
                 try:
-                    container.stop()
+                    # timeout=0 skips the daemon's SIGTERM grace period, which is
+                    # 10s of dead time per node here: the container's PID 1 is an
+                    # interactive shell that ignores SIGTERM, and the task itself
+                    # ran through exec and is already done, so there is nothing
+                    # left inside to shut down gracefully.
+                    container.stop(timeout=0)
                 except docker.errors.APIError:
                     self.logger.error(f'Failed to stop docker container: {container.name}')
 
         # Restore working directory
         os.chdir(start_cwd)
+
+    @staticmethod
+    def __put_manifest(container, path, manifest):
+        """Copies the manifest into a running container as a one-entry tar.
+
+        Args:
+            container: The running container to copy into.
+            path (str): Absolute destination path inside the container.
+            manifest (str): The serialized manifest.
+        """
+
+        payload = manifest.encode()
+
+        info = tarfile.TarInfo(os.path.basename(path))
+        info.size = len(payload)
+        # Readable by the exec'd user, which runs as the caller's uid/gid.
+        info.mode = 0o444
+        if sys.platform != 'win32':
+            info.uid, info.gid = os.getuid(), os.getgid()
+
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode='w') as tar:
+            tar.addfile(info, io.BytesIO(payload))
+
+        container.put_archive(os.path.dirname(path), buf.getvalue())
 
     def check_required_paths(self) -> bool:
         return True

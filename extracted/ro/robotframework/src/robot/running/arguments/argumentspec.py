@@ -15,7 +15,15 @@
 
 import sys
 from enum import Enum
-from typing import Any, Callable, Iterator, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, NoReturn, Sequence
+
+if sys.version_info >= (3, 11):
+    from typing import Never
+else:
+    try:
+        from typing_extensions import Never
+    except ImportError:
+        Never = NoReturn
 
 from robot.utils import NOT_SET, safe_str, setter, SetterAwareType
 
@@ -23,7 +31,7 @@ from .argumentconverter import ArgumentConverter
 from .argumentmapper import ArgumentMapper
 from .argumentresolver import ArgumentResolver
 from .typeinfo import TypeInfo
-from .typevalidator import TypeValidator
+from .validators import DocValidator, TypeValidator
 
 
 class ArgumentSpec(metaclass=SetterAwareType):
@@ -37,21 +45,26 @@ class ArgumentSpec(metaclass=SetterAwareType):
         "var_named",
         "embedded",
         "defaults",
+        "return_doc",
+        "raises",
     )
 
     def __init__(
         self,
-        name: "str|Callable[[], str]|None" = None,
+        name: "str | Callable[[], str] | None" = None,
         type: str = "Keyword",
         positional_only: Sequence[str] = (),
         positional_or_named: Sequence[str] = (),
-        var_positional: "str|None" = None,
+        var_positional: "str | None" = None,
         named_only: Sequence[str] = (),
-        var_named: "str|None" = None,
-        defaults: "Mapping[str, Any]|None" = None,
+        var_named: "str | None" = None,
+        defaults: "Mapping[str, Any] | None" = None,
         embedded: Sequence[str] = (),
-        types: "Mapping|Sequence|None" = None,
-        return_type: "TypeInfo|None" = None,
+        types: "Mapping | Sequence | None" = None,
+        return_type: "object | TypeInfo | type[NOT_SET]" = NOT_SET,
+        docs: "Mapping[str, str] | None" = None,
+        return_doc: str = "",
+        raises: "Mapping[str, str] | None" = None,
     ):
         self.name = name
         self.type = type
@@ -61,29 +74,37 @@ class ArgumentSpec(metaclass=SetterAwareType):
         self.named_only = tuple(named_only)
         self.var_named = var_named
         self.embedded = tuple(embedded)
-        self.defaults = defaults or {}
+        self.defaults = dict(defaults or {})
         self.types = types
         self.return_type = return_type
+        # Following are only used by Libdoc.
+        self.docs = docs
+        self.return_doc = return_doc
+        self.raises = raises
 
     @property
-    def name(self) -> "str|None":
+    def name(self) -> "str | None":
         return self._name if not callable(self._name) else self._name()
 
     @name.setter
-    def name(self, name: "str|Callable[[], str]|None"):
+    def name(self, name: "str | Callable[[], str] | None"):
         self._name = name
 
     @setter
-    def types(self, types: "Mapping|Sequence|None") -> "dict[str, TypeInfo]|None":
+    def types(self, types: "Mapping | Sequence | None") -> "dict[str, TypeInfo] | None":
         return TypeValidator(self).validate(types)
 
     @setter
-    def return_type(self, hint) -> "TypeInfo|None":
-        if hint in (None, type(None)):
-            return None
+    def return_type(self, hint: object) -> TypeInfo:
         if isinstance(hint, TypeInfo):
             return hint
+        if hint is Never or hint is NoReturn:
+            hint = NOT_SET
         return TypeInfo.from_type_hint(hint, sequence_is_union=True)
+
+    @setter
+    def docs(self, docs: "Mapping[str, str] | None") -> "dict[str, str] | None":
+        return DocValidator(self).validate(docs)
 
     @property
     def positional(self) -> "tuple[str, ...]":
@@ -175,10 +196,14 @@ class ArgumentSpec(metaclass=SetterAwareType):
             self.embedded,
             types,
             self.return_type,
+            self.docs,
+            self.return_doc,
+            self.raises,
         )
 
     def __iter__(self) -> Iterator["ArgInfo"]:
         get_type = (self.types or {}).get
+        get_doc = (self.docs or {}).get
         get_default = self.defaults.get
         for arg in self.positional_only:
             yield ArgInfo(
@@ -186,6 +211,7 @@ class ArgumentSpec(metaclass=SetterAwareType):
                 arg,
                 get_type(arg),
                 get_default(arg, NOT_SET),
+                get_doc(arg, ""),
             )
         if self.positional_only:
             yield ArgInfo(ArgInfo.POSITIONAL_ONLY_MARKER)
@@ -195,12 +221,14 @@ class ArgumentSpec(metaclass=SetterAwareType):
                 arg,
                 get_type(arg),
                 get_default(arg, NOT_SET),
+                get_doc(arg, ""),
             )
         if self.var_positional:
             yield ArgInfo(
                 ArgInfo.VAR_POSITIONAL,
                 self.var_positional,
                 get_type(self.var_positional),
+                doc=get_doc(self.var_positional, ""),
             )
         elif self.named_only:
             yield ArgInfo(ArgInfo.NAMED_ONLY_MARKER)
@@ -210,12 +238,14 @@ class ArgumentSpec(metaclass=SetterAwareType):
                 arg,
                 get_type(arg),
                 get_default(arg, NOT_SET),
+                get_doc(arg, ""),
             )
         if self.var_named:
             yield ArgInfo(
                 ArgInfo.VAR_NAMED,
                 self.var_named,
                 get_type(self.var_named),
+                doc=get_doc(self.var_named, ""),
             )
 
     def __bool__(self):
@@ -240,13 +270,15 @@ class ArgInfo:
         self,
         kind: str,
         name: str = "",
-        type: "TypeInfo|None" = None,
+        type: "TypeInfo | None" = None,
         default: Any = NOT_SET,
+        doc: str = "",
     ):
         self.kind = kind
         self.name = name
         self.type = type or TypeInfo()
         self.default = default
+        self.doc = doc
 
     @property
     def required(self) -> bool:
@@ -259,12 +291,16 @@ class ArgInfo:
         return False
 
     @property
-    def default_repr(self) -> "str|None":
+    def default_repr(self) -> "str | None":
         if self.default is NOT_SET:
             return None
         if isinstance(self.default, Enum):
             return self.default.name
         return safe_str(self.default)
+
+    @property
+    def is_marker(self):
+        return self.kind in (self.POSITIONAL_ONLY_MARKER, self.NAMED_ONLY_MARKER)
 
     def __str__(self):
         if self.kind == self.POSITIONAL_ONLY_MARKER:

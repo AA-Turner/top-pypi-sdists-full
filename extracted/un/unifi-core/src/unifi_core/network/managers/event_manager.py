@@ -20,6 +20,19 @@ from unifi_core.network.managers.connection_manager import ConnectionManager
 logger = logging.getLogger("unifi-network-mcp")
 
 
+def _positive_config_int(value: Any, env_var: str) -> int:
+    """Parse a positive integer while naming the operator-facing setting."""
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise ValueError(f"{env_var} must be a positive integer")
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise ValueError(f"{env_var} must be a positive integer") from None
+    if parsed <= 0:
+        raise ValueError(f"{env_var} must be a positive integer")
+    return parsed
+
+
 class _ListenerStateError(ConnectionError):
     """An internal listener diagnostic constructed only from fixed messages."""
 
@@ -120,8 +133,8 @@ class EventManager:
         # bare 404 from an endpoint the caller never asked for.
         self._v2_probe_error: str | None = None
         self._buffer = EventBuffer(
-            max_size=int(cfg.get("buffer_size", 100)),
-            ttl_seconds=int(cfg.get("buffer_ttl_seconds", 300)),
+            max_size=_positive_config_int(cfg.get("buffer_size", 100), "UNIFI_NETWORK_EVENT_BUFFER_SIZE"),
+            ttl_seconds=_positive_config_int(cfg.get("buffer_ttl_seconds", 300), "UNIFI_NETWORK_EVENT_BUFFER_TTL"),
         )
         self._subscribers: list[Callable[[dict], None]] = []
         self._ws_unsub: Callable[[], None] | None = None
@@ -284,7 +297,7 @@ class EventManager:
         The loop never spins against the controller: while the connection
         manager's reconnect circuit is open it only sleeps, and every failure
         backs off (doubling to ``_BACKOFF_MAX``) until an attach succeeds. A
-        rejected handshake (401/403) triggers one re-login per attempt, since
+        rejected handshake (401/403) triggers a rate-limited re-login, since
         aiounifi reuses the cookie captured at login.
         """
         backoff = self._BACKOFF_INITIAL
@@ -296,7 +309,7 @@ class EventManager:
                 # the retry or an expired cool-down would never be tried.
                 if self._cm.reconnect_cooldown_active:
                     raise _ListenerStateError("reconnect circuit open")
-                if not await self._cm.ensure_connected():
+                if not await self._cm.ensure_session_connected():
                     raise _ListenerStateError("controller not connected")
                 controller = self._cm.controller
                 if controller is None:
@@ -359,7 +372,7 @@ class EventManager:
         return steps + 1
 
     async def _reauthenticate_quietly(self) -> None:
-        """Re-login after a rejected handshake; its own failure must not end the loop."""
+        """Rate-limit re-login after rejection; failures must not end the loop."""
         try:
             ok = await self._cm.reauthenticate()
         except Exception as exc:

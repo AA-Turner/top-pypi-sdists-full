@@ -465,7 +465,14 @@ class TestCreateInstructionPr:
     _GIT_SUBCOMMAND_INDEX = 3
 
     def setup_method(self) -> None:
-        self._token_patch = patch.dict(os.environ, {"SPECKIT_PR_TOKEN": "test-token"}, clear=False)
+        self._token_patch = patch.dict(
+            os.environ,
+            {
+                "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-token",
+                "AI_PR_LOOP_CREDENTIAL_IDENTITY": "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+            },
+            clear=False,
+        )
         self._token_patch.start()
 
     def teardown_method(self) -> None:
@@ -1346,7 +1353,7 @@ class TestCreateInstructionPr:
         assert result == ""
 
     def test_missing_gh_token_fails_fast(self, tmp_path: Path) -> None:
-        """When neither GH_TOKEN nor SPECKIT_PR_TOKEN is present, PR creation is rejected."""
+        """When the default workflow token is absent, PR creation is rejected."""
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
         agent_output_dir = tmp_path / "agent-output"
@@ -1356,7 +1363,11 @@ class TestCreateInstructionPr:
         mock_provider = MagicMock()
 
         with (
-            patch.dict(os.environ, {"GH_TOKEN": "", "SPECKIT_PR_TOKEN": ""}, clear=False),
+            patch.dict(
+                os.environ,
+                {"GH_TOKEN": "", "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": ""},
+                clear=False,
+            ),
             patch("shutil.copy2") as mock_copy,
             patch("subprocess.run") as mock_run,
         ):
@@ -1378,7 +1389,7 @@ class TestCreateInstructionPr:
         mock_provider.create_pull_request.assert_not_called()
 
     def test_gh_token_env_var_accepted_for_pr_creation(self, tmp_path: Path) -> None:
-        """GH_TOKEN alone (without SPECKIT_PR_TOKEN) should pass the token check."""
+        """GH_TOKEN alone is accepted when it identifies the default workflow role."""
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
         agent_output_dir = tmp_path / "agent-output"
@@ -1390,7 +1401,15 @@ class TestCreateInstructionPr:
         mock_provider.create_pull_request.return_value = "https://github.com/org/repo/pull/99"
 
         with (
-            patch.dict(os.environ, {"GH_TOKEN": "some-gh-token", "SPECKIT_PR_TOKEN": ""}, clear=False),
+            patch.dict(
+                os.environ,
+                {
+                    "GH_TOKEN": "some-gh-token",
+                    "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "",
+                    "AI_PR_LOOP_CREDENTIAL_IDENTITY": "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+                },
+                clear=False,
+            ),
             patch("shutil.copy2"),
             patch("subprocess.run", return_value=git_success),
         ):
@@ -1408,50 +1427,8 @@ class TestCreateInstructionPr:
 
         assert result == "https://github.com/org/repo/pull/99"
 
-    def test_speckit_pr_token_propagated_to_gh_token_for_pr_creation(self, tmp_path: Path) -> None:
-        """When only SPECKIT_PR_TOKEN is set, GH_TOKEN is propagated so gh pr create can authenticate."""
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        agent_output_dir = tmp_path / "agent-output"
-        (agent_output_dir / ".github").mkdir(parents=True)
-        (agent_output_dir / ".github" / "copilot-instructions.md").write_text("# New")
-
-        git_success = MagicMock(returncode=0, stdout="", stderr="")
-        mock_provider = MagicMock()
-        mock_provider.create_pull_request.return_value = "https://github.com/org/repo/pull/99"
-
-        captured_gh_token: list[str] = []
-
-        def fake_create_pr(**_: object) -> str:
-            captured_gh_token.append(os.environ.get("GH_TOKEN", ""))
-            return "https://github.com/org/repo/pull/99"
-
-        mock_provider.create_pull_request.side_effect = fake_create_pr
-
-        with (
-            patch.dict(os.environ, {"GH_TOKEN": "", "SPECKIT_PR_TOKEN": "speckit-secret"}, clear=False),
-            patch("shutil.copy2"),
-            patch("subprocess.run", return_value=git_success),
-        ):
-            result = _create_instruction_pr(
-                repo_path=str(repo_path),
-                batch_id="abc12345",
-                modified_files=[".github/copilot-instructions.md"],
-                created_files=[],
-                agent_output_dir=agent_output_dir,
-                description="## PR Body",
-                provider=mock_provider,
-                tracking_issue=2029,
-                github_repo="org/repo",
-            )
-
-        assert result == "https://github.com/org/repo/pull/99"
-        # GH_TOKEN must be populated from SPECKIT_PR_TOKEN so that gh pr create
-        # can authenticate even when GH_TOKEN was absent/blank initially.
-        assert captured_gh_token == ["speckit-secret"]
-
-    def test_whitespace_gh_token_falls_back_to_speckit_pr_token(self, tmp_path: Path) -> None:
-        """GH_TOKEN set to whitespace must fall back to SPECKIT_PR_TOKEN (not fail)."""
+    def test_default_workflow_token_propagated_to_gh_token_for_pr_creation(self, tmp_path: Path) -> None:
+        """When only the default workflow token is set, GH_TOKEN is propagated."""
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
         agent_output_dir = tmp_path / "agent-output"
@@ -1471,7 +1448,11 @@ class TestCreateInstructionPr:
         mock_provider.create_pull_request.side_effect = fake_create_pr
 
         with (
-            patch.dict(os.environ, {"GH_TOKEN": "   ", "SPECKIT_PR_TOKEN": "speckit-secret"}, clear=False),
+            patch.dict(
+                os.environ,
+                {"GH_TOKEN": "", "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "default-secret"},
+                clear=False,
+            ),
             patch("shutil.copy2"),
             patch("subprocess.run", return_value=git_success),
         ):
@@ -1488,9 +1469,51 @@ class TestCreateInstructionPr:
             )
 
         assert result == "https://github.com/org/repo/pull/99"
-        # GH_TOKEN must be set to the stripped SPECKIT_PR_TOKEN value since the
-        # original GH_TOKEN was whitespace-only.
-        assert captured_gh_token == ["speckit-secret"]
+        assert captured_gh_token == ["default-secret"]
+
+    def test_whitespace_gh_token_falls_back_to_default_workflow_token(self, tmp_path: Path) -> None:
+        """GH_TOKEN set to whitespace must fall back to the default workflow token."""
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        agent_output_dir = tmp_path / "agent-output"
+        (agent_output_dir / ".github").mkdir(parents=True)
+        (agent_output_dir / ".github" / "copilot-instructions.md").write_text("# New")
+
+        git_success = MagicMock(returncode=0, stdout="", stderr="")
+        mock_provider = MagicMock()
+        mock_provider.create_pull_request.return_value = "https://github.com/org/repo/pull/99"
+
+        captured_gh_token: list[str] = []
+
+        def fake_create_pr(**_: object) -> str:
+            captured_gh_token.append(os.environ.get("GH_TOKEN", ""))
+            return "https://github.com/org/repo/pull/99"
+
+        mock_provider.create_pull_request.side_effect = fake_create_pr
+
+        with (
+            patch.dict(
+                os.environ,
+                {"GH_TOKEN": "   ", "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "default-secret"},
+                clear=False,
+            ),
+            patch("shutil.copy2"),
+            patch("subprocess.run", return_value=git_success),
+        ):
+            result = _create_instruction_pr(
+                repo_path=str(repo_path),
+                batch_id="abc12345",
+                modified_files=[".github/copilot-instructions.md"],
+                created_files=[],
+                agent_output_dir=agent_output_dir,
+                description="## PR Body",
+                provider=mock_provider,
+                tracking_issue=2029,
+                github_repo="org/repo",
+            )
+
+        assert result == "https://github.com/org/repo/pull/99"
+        assert captured_gh_token == ["default-secret"]
 
     def test_push_uses_bare_origin_not_token_url(self, tmp_path: Path) -> None:
         """Push must target bare 'origin', not a PAT-embedded URL."""

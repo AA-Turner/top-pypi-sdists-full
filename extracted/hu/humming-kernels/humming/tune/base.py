@@ -4,8 +4,29 @@ import numpy as np
 
 from humming import dtypes
 from humming.config import GemmType, LayerConfig
-from humming.utils.device import get_device_num_sms
+from humming.device import current_device
+from humming.utils.math import round_up
 from humming.utils.smem import estimate_smem_size_layer
+
+
+def _estimate_compute_bound_threshold(layer_config: LayerConfig, use_f16_accum: bool) -> float:
+    info = current_device
+    dtype = str(layer_config.a_dtype)
+    if "float16" not in info.tensorcore_tops:
+        raise RuntimeError(f"unknown FP16 Tensor Core throughput for sm{info.sm_version}")
+
+    max_tops = info.tensorcore_tops[dtype]
+    max_bandwidth = info.memory_bandwidth_gbps
+    if info.sm_version in (75, 86, 89) and "float" in dtype and use_f16_accum:
+        max_tops *= 2
+
+    weight_nbytes = layer_config.weight_nbytes // (layer_config.num_experts or 1)
+    shape_n = layer_config.shape_n
+    shape_k = layer_config.shape_k
+    left_bias = weight_nbytes / max_bandwidth
+    left_factor = shape_k * layer_config.a_dtype.num_bits / 8 / max_bandwidth
+    right_factor = shape_n * shape_k * 2 / max_tops
+    return left_bias / (right_factor - left_factor) * 1e3
 
 
 class DeviceHeuristics:
@@ -41,7 +62,7 @@ class DeviceHeuristics:
         use_batch_invariant: bool = False,
         gemm_type: GemmType = GemmType.DENSE,
     ):
-        compute_bound_min_shape_m = layer_config.estimate_bound_min_shape_m(use_f16_accum)
+        compute_bound_min_shape_m = _estimate_compute_bound_threshold(layer_config, use_f16_accum)
 
         # 1. base config
         group_size = layer_config.input_scale_group_size or layer_config.weight_scale_group_size
@@ -64,7 +85,7 @@ class DeviceHeuristics:
         # 2. block_shape_m and warp_shape_m
         if not layer_config.num_experts:
             if shape_m <= block_shape_m:
-                block_shape_m = math.ceil(shape_m / 16) * 16
+                block_shape_m = round_up(shape_m, 16)
             else:
                 blocks = [math.ceil(shape_m / ((i + 1) * 16)) for i in range(block_shape_m // 16)]
                 block_shape_m = np.argmin(blocks).item() * 16 + 16
@@ -76,9 +97,9 @@ class DeviceHeuristics:
             new_shape_m = int(shape_m / layer_config.num_experts / 0.9)
             new_shape_m = max(new_shape_m, 1)
             if block_shape_m == 128:
-                if np.ceil(new_shape_m / 96) * 96 < np.ceil(new_shape_m / 64) * 64:
+                if round_up(new_shape_m, 96) < round_up(new_shape_m, 64):
                     block_shape_m = 96
-                elif np.ceil(new_shape_m / 128) * 128 < np.ceil(new_shape_m / 64) * 64 * 1.05:
+                elif round_up(new_shape_m, 128) < round_up(new_shape_m, 64) * 1.05:
                     block_shape_m = 128
                 else:
                     block_shape_m = moe_block_size
@@ -89,7 +110,7 @@ class DeviceHeuristics:
 
         assert num_warps_m <= 2
         if num_warps_m == 2 and block_shape_m >= 64:
-            block_shape_m = math.ceil(block_shape_m / 32) * 32
+            block_shape_m = round_up(block_shape_m, 32)
             warp_shape_m = block_shape_m // 2
         elif num_warps_m == 2 and block_shape_m % 32 == 0:
             warp_shape_m = block_shape_m // 2
@@ -106,7 +127,7 @@ class DeviceHeuristics:
         num_blocks_n = layer_config.shape_n // block_shape_n
         num_blocks_m = cls.estimate_num_blocks_m(layer_config, shape_m, block_shape_m)
 
-        num_sms = cls.get_num_sms()
+        num_sms = current_device.sm_count
         while num_blocks_n * num_blocks_m * 2 < num_sms * num_ctas_per_sm:
             prefer_m_split = shape_m > block_shape_m >= block_shape_n and num_blocks_m < num_blocks_n
             fitted_block_m = cls._fit_dense_block_m_to_grid(
@@ -224,7 +245,7 @@ class DeviceHeuristics:
 
             if cls.sm_version != 75:
                 num_warps_m = block_shape_m // warp_shape_m
-                warp_shape_m = math.ceil(warp_shape_m / 16) * 16
+                warp_shape_m = round_up(warp_shape_m, 16)
                 block_shape_m = num_warps_m * warp_shape_m
 
         while layer_config.shape_k % block_shape_k != 0:
@@ -280,10 +301,6 @@ class DeviceHeuristics:
         num_ctas_per_sm: int,
     ) -> int:
         return block_shape[0]
-
-    @classmethod
-    def get_num_sms(cls):
-        return get_device_num_sms()
 
     @classmethod
     def get_configs(

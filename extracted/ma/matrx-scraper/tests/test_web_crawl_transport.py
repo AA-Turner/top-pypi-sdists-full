@@ -285,6 +285,33 @@ def test_standalone_cors_exposes_direct_crawl_session_headers() -> None:
     assert {"X-Crawl-Session-Id", "X-Site-Id"}.issubset(exposed)
 
 
+def test_standalone_cors_admits_agent_session_preview_hosts() -> None:
+    """matrx-frontend's ONE dev server hands every agent session its own
+    `<session>.localhost:3001` host (cookies are per host). The default origin
+    rule admitted bare `localhost` only, so every direct scraper call from a
+    session host failed CORS — site initialize and crawl were unreachable from
+    every agent preview (found 2026-09-14, KI-040 live verification)."""
+    import re
+
+    app = create_app(ServerConfig())
+    cors = next(
+        middleware for middleware in app.user_middleware if middleware.cls is CORSMiddleware
+    )
+    pattern = re.compile(cors.kwargs["allow_origin_regex"])
+    for admitted in (
+        "http://s5e461623.localhost:3001",
+        "http://localhost:3001",
+        "https://aimatrx.com",
+    ):
+        assert pattern.fullmatch(admitted), admitted
+    for refused in (
+        "http://localhost.evil.com:3001",
+        "http://s5e461623.localhost.evil.com",
+        "https://evil.com",
+    ):
+        assert not pattern.fullmatch(refused), refused
+
+
 def test_append_only_model_columns_match_canonical_authority() -> None:
     crawl_url_fields = WebCrawlUrl._meta.fields
     assert {

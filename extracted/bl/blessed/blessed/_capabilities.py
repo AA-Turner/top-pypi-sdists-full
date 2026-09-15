@@ -15,6 +15,7 @@ __all__ = (
     'CAPABILITIES_HORIZONTAL_DISTANCE',
     'CAPABILITIES_CAUSE_MOVEMENT',
     'XTGETTCAP_CAPABILITIES',
+    'XTGETTCAP_INIT_CAPABILITIES',
     'Decrqss',
     'TermcapResponse',
     'ITerm2Capabilities',
@@ -187,9 +188,9 @@ XTGETTCAP_INIT_CAPABILITIES = (
     # - colors, RGB: determines Terminal.number_of_colors
     # - blink, sitm, ritm, cvvis: nice to have as overlays, often omitted
     #
-    # These were chosen from a May 2026 survey of all popular terminal emulators: what capabilities
-    # and their values are reported by XTGETTCAP that are otherwise not discovered by the latest
-    # ncurses termcap matching their defined TERM?
+    # These were chosen from a May 2026 ucs-detect survey of all popular terminal emulators: what
+    # capabilities and their values are reported by XTGETTCAP that are otherwise not discovered by
+    # the latest ncurses termcap matching their defined TERM?
     'TN', 'RGB', 'colors', 'blink', 'sitm', 'ritm', 'cvvis', 'Smulx', 'Setulc', 'Ms')
 
 
@@ -263,7 +264,8 @@ XTGETTCAP_CAPABILITIES = (
     ("cvvis", "Very visible cursor"),
     # And here is where blessed's integration ends. All remaining capabilities, for blessed's
     # purposes, are informational only. Used by the downstream 'ucs-detect' tool for auditing and
-    # fingerprinting purposes, like "kitty-query-clipboard_control".
+    # fingerprinting purposes, like "kitty-query-clipboard_control" but not used by blessed
+    # directly.
     #
     # Remaining numeric capabilities
     ("colors", "Max colors on screen"),

@@ -258,14 +258,10 @@ fn apply_layout(
             // A page with no structural decomposition reports an empty list,
             // not `None` — extraction *was* enabled, there was just nothing to
             // decompose.
-            page.blocks = Some(
-                blocks
-                    .as_deref()
-                    .unwrap_or_default()
-                    .iter()
-                    .map(crate::layout::LayoutBlock::from)
-                    .collect(),
-            );
+            page.blocks = Some(crate::layout::blocks_for_page(
+                page,
+                blocks.as_deref().unwrap_or_default(),
+            ));
         }
     }
     if !wants_markdown {
@@ -1025,12 +1021,7 @@ impl LiteParse {
                 page.markdown = crate::markdown_layout::render_blocks(blocks);
             }
             if self.config.extract_blocks {
-                page.blocks = Some(
-                    blocks
-                        .iter()
-                        .map(crate::layout::LayoutBlock::from)
-                        .collect(),
-                );
+                page.blocks = Some(crate::layout::blocks_for_page(page, blocks));
             }
             page.complexity = stats;
             if !self.config.extract_content_bounds {
@@ -1259,6 +1250,7 @@ mod tests {
     fn page_with_text_metadata() -> Page {
         Page {
             page_number: 1,
+            page_label: None,
             page_width: 100.0,
             page_height: 100.0,
             content_bounds: None,
@@ -1487,6 +1479,7 @@ mod tests {
 
         let mut pages = vec![ParsedPage {
             page_number: 1,
+            page_label: None,
             page_width: 612.0,
             page_height: 792.0,
             content_bounds: None,
@@ -1498,6 +1491,7 @@ mod tests {
             graphics: vec![],
             vector_graphics: None,
             figures: vec![],
+            projected_item_frames: vec![],
             struct_nodes: vec![],
             image_refs: vec![],
             complexity: None,

@@ -6,7 +6,6 @@ import base64
 import hashlib
 import json
 import logging
-import os
 import re
 from collections.abc import Mapping
 from copy import deepcopy
@@ -16,6 +15,7 @@ from enum import Enum
 from typing import Any, Protocol
 from uuid import uuid4
 
+from agentic_devtools.cli.ci.credential_roles import require_default_repo_workflow_token
 from agentic_devtools.cli.ci.reconciliation import config
 from agentic_devtools.cli.ci.reconciliation.models import (
     QuarantineRecord,
@@ -145,10 +145,10 @@ class GitHubVariableBackingStore:
         method: str = "GET",
         body: dict[str, Any] | None = None,
     ) -> str:
-        """Call GitHub with the dedicated state-writer credential when configured."""
+        """Call GitHub with the default repository workflow credential."""
         from agentic_devtools.cli.ci.github_provider import _gh_api
 
-        token = os.environ.get("REPO_VARIABLE_WRITER_PAT", "").strip() or None
+        token = require_default_repo_workflow_token("access AI PR loop queue-state repository contents")
         return _gh_api(endpoint, method=method, body=body, token=token)
 
     def load_entry(self, key: tuple[str, str]) -> tuple[int, QueueState] | None:
@@ -254,7 +254,7 @@ class GitHubVariableBackingStore:
     def _create_state_ref(repo: str, state_ref: str) -> None:
         from agentic_devtools.cli.ci.github_provider import _gh_api
 
-        token = os.environ.get("REPO_VARIABLE_WRITER_PAT", "").strip() or None
+        token = require_default_repo_workflow_token("create the AI PR loop queue-state branch")
         repository = json.loads(_gh_api(f"/repos/{repo}", token=token))
         default_branch = repository.get("default_branch") if isinstance(repository, dict) else None
         if not isinstance(default_branch, str) or not default_branch:

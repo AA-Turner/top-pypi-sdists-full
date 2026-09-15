@@ -35,6 +35,10 @@ _BASE_PASSTHROUGH_MODULES = (
     # duplicated classes no longer match the polymorphic registry built in the host interpreter.
     "mistralai.vibe_agents",
     "mistralai.agents",
+    # structlog runs host-side so workflow code (e.g. the webhook router internals, which log
+    # from inside the workflow method) can call `structlog.get_logger(...).info(...)` without
+    # tripping the sandbox's import restrictions on structlog's own dependencies.
+    "structlog",
 )
 
 

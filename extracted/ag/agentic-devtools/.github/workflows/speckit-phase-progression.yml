@@ -97,7 +97,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
 
       - name: Resolve SpecKit Engine
         env:
@@ -115,6 +115,7 @@ jobs:
         id: extract
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const path = require('path');
             const { run } = require(path.join(
@@ -146,10 +147,8 @@ jobs:
         id: cloud-inflight
         if: steps.extract.outcome == 'success' && env.SPECKIT_ENGINE == 'cloud-agent' && steps.extract.outputs.next_phase != '4'
         env:
-          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           ISSUE_NUMBER: ${{ steps.extract.outputs.issue_number }}
           PHASE: ${{ steps.extract.outputs.next_phase }}
           HIERARCHY_LEVEL: ${{ (steps.extract.outputs.terminal_hierarchy_level == 'epic' && 'epic') || (github.event_name == 'workflow_dispatch' && inputs.hierarchy_level != 'auto' && inputs.hierarchy_level) || steps.extract.outputs.terminal_hierarchy_level || 'unknown' }}
@@ -176,6 +175,7 @@ jobs:
         if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '0' && github.event_name != 'workflow_dispatch' && steps.cloud-inflight.outputs.already != 'true'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.extract.outputs.issue_number }};
             const completedPhase = ${{ steps.extract.outputs.completed_phase }};
@@ -196,6 +196,7 @@ jobs:
         if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '0' && steps.extract.outputs.next_phase != '4' && env.SPECKIT_ENGINE != 'cloud-agent'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.extract.outputs.issue_number }};
             try {
@@ -214,25 +215,20 @@ jobs:
       - name: Validate PAT Token (Phase 3 Complete)
         if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase == '4'
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
         run: |
-          if [[ -z "$SPECKIT_PR_TOKEN" && -z "$COPILOT_GITHUB_TOKEN" ]]; then
-            echo "::error::Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is set. A PAT is required to apply the speckit:completed label (and speckit:needs-implementation for feature/task-level issues, which triggers downstream implementation workflows). Configure at least one of these secrets with repo permissions."
+          if [[ -z "$DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" ]]; then
+            echo "::error::DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is not set. A PAT is required to apply the speckit:completed label (and speckit:needs-implementation for feature/task-level issues, which triggers downstream implementation workflows). Configure this secret with repo permissions."
             exit 1
           fi
-          if [[ -n "$SPECKIT_PR_TOKEN" ]]; then
-            echo "✓ SPECKIT_PR_TOKEN is set (will be used for Phase 3 completion labels)"
-          else
-            echo "✓ COPILOT_GITHUB_TOKEN is set (will be used for Phase 3 completion labels)"
-          fi
+          echo "✓ DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is set (will be used for Phase 3 completion labels)"
 
       # If Phase 3 just merged, this is the final phase — apply completion labels and exit
       - name: Apply Final Labels (Phase 3 Complete)
         if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase == '4'
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.extract.outputs.issue_number }};
             const hierarchyLevel = '${{ steps.extract.outputs.terminal_hierarchy_level }}';
@@ -348,7 +344,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
 
       - name: Set up Python (Cascade - Final Phase Complete)
         if: >-
@@ -376,7 +372,7 @@ jobs:
       - name: Cascade Trigger (Final Phase Complete)
         if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase == '4'
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
         run: |
           ISSUE_NUMBER="${{ steps.extract.outputs.issue_number }}"
           TERMINAL_LEVEL="${{ steps.extract.outputs.terminal_hierarchy_level }}"
@@ -392,7 +388,7 @@ jobs:
           fi
 
           if [[ -z "${GH_TOKEN:-}" ]]; then
-            echo "::error::Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is configured. Cascade trigger requires one of these secrets."
+            echo "::error::DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is not configured. Cascade trigger requires this secret."
             exit 1
           fi
 
@@ -440,13 +436,14 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
 
       - name: Get Issue Details
         id: issue
         if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.extract.outputs.issue_number }};
 
@@ -564,18 +561,13 @@ jobs:
             steps.phase_applicable.outputs.phase_skipped == 'true'
           )
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
         run: |
-          if [[ -z "$SPECKIT_PR_TOKEN" && -z "$COPILOT_GITHUB_TOKEN" ]]; then
-            echo "::error::Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is set. A PAT is required to apply the speckit:completed label (and speckit:needs-implementation for feature/task-level issues, which triggers downstream implementation workflows). Configure at least one of these secrets with repo permissions."
+          if [[ -z "$DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" ]]; then
+            echo "::error::DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is not set. A PAT is required to apply the speckit:completed label (and speckit:needs-implementation for feature/task-level issues, which triggers downstream implementation workflows). Configure this secret with repo permissions."
             exit 1
           fi
-          if [[ -n "$SPECKIT_PR_TOKEN" ]]; then
-            echo "✓ SPECKIT_PR_TOKEN is set (will be used for Phase 3 skipped completion labels)"
-          else
-            echo "✓ COPILOT_GITHUB_TOKEN is set (will be used for Phase 3 skipped completion labels)"
-          fi
+          echo "✓ DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is set (will be used for Phase 3 skipped completion labels)"
 
       - name: Handle Skipped Phase (Already Complete or Level-Skipped)
         if: >-
@@ -587,7 +579,7 @@ jobs:
           steps.cloud-inflight.outputs.already != 'true'
         uses: actions/github-script@v7
         with:
-          github-token: ${{ steps.extract.outputs.next_phase != '3' && github.token || (secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN) }}
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.extract.outputs.issue_number }};
             const nextPhase = ${{ steps.extract.outputs.next_phase }};
@@ -779,7 +771,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
 
       - name: Set up Python (Cascade - Final Phase Skipped)
         if: >-
@@ -814,7 +806,7 @@ jobs:
           steps.idempotency.outputs.migration_done != 'true' &&
           (steps.idempotency.outputs.skipped == 'true' || steps.phase_applicable.outputs.phase_skipped == 'true')
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
         run: |
           ISSUE_NUMBER="${{ steps.extract.outputs.issue_number }}"
           HIERARCHY_LEVEL="${{ steps.hierarchy.outputs.hierarchy_level }}"
@@ -830,7 +822,7 @@ jobs:
           fi
 
           if [[ -z "${GH_TOKEN:-}" ]]; then
-            echo "::error::Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is configured. Cascade trigger requires one of these secrets."
+            echo "::error::DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is not configured. Cascade trigger requires this secret."
             exit 1
           fi
 
@@ -917,20 +909,20 @@ jobs:
           steps.hierarchy.outputs.hierarchy_level != 'unknown' &&
           env.SPECKIT_ENGINE != 'cloud-agent'
         env:
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
         run: |
+          if [[ -z "$DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" ]]; then
+            echo "::error::DEFAULT_CLASSIC_REPO_WORKFLOW_PAT secret is not set. This PAT is required for phase PR creation and ordinary repository operations."
+            exit 1
+          fi
+          echo "✓ DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is set"
+
           if [[ -z "$COPILOT_GITHUB_TOKEN" ]]; then
-            echo "::error::COPILOT_GITHUB_TOKEN secret is not set. This PAT is required for Copilot SDK authentication. For PR creation, SPECKIT_PR_TOKEN is preferred and COPILOT_GITHUB_TOKEN is the fallback. Configure COPILOT_GITHUB_TOKEN with a PAT that has Copilot API access and repo permissions."
+            echo "::error::COPILOT_GITHUB_TOKEN secret is not set. This PAT is required for Copilot SDK authentication. Configure COPILOT_GITHUB_TOKEN with a PAT that has Copilot API access."
             exit 1
           fi
           echo "✓ COPILOT_GITHUB_TOKEN is set"
-
-          if [[ -n "$SPECKIT_PR_TOKEN" ]]; then
-            echo "✓ SPECKIT_PR_TOKEN is set (will be used for PR creation)"
-          else
-            echo "✓ SPECKIT_PR_TOKEN is not set; COPILOT_GITHUB_TOKEN will be used for PR creation"
-          fi
 
       - name: Set up Python
         if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0' && steps.idempotency.outputs.skipped != 'true' && steps.phase_applicable.outputs.phase_skipped != 'true' && steps.hierarchy.outputs.hierarchy_level != 'unknown'
@@ -991,8 +983,11 @@ jobs:
         id: cloud-dispatch
         if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0' && steps.idempotency.outputs.skipped != 'true' && steps.phase_applicable.outputs.phase_skipped != 'true' && env.SPECKIT_ENGINE == 'cloud-agent' && steps.cloud-inflight.outputs.already != 'true' && steps.hierarchy.outputs.hierarchy_level != 'unknown'
         env:
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           SPEC_DIR: ${{ inputs.spec_dir || '' }}
         run: |
           ISSUE_NUMBER="${{ steps.extract.outputs.issue_number }}"
@@ -1073,8 +1068,8 @@ jobs:
           steps.commit.outcome == 'success' &&
           steps.generate.outputs.artifact_gate_result == 'fail'
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
-          LABEL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          LABEL_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
         run: |
           BRANCH_NAME="${{ steps.commit.outputs.branch_name }}"
           EXISTING_PR_NUMBER="$(GH_TOKEN="$GH_TOKEN" gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')"
@@ -1125,8 +1120,8 @@ jobs:
           )
         id: create-pr
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
-          LABEL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          LABEL_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           HIERARCHY_LEVEL: ${{ steps.hierarchy.outputs.hierarchy_level }}
           ISSUE_LABELS: ${{ steps.issue.outputs.labels }}
           GATE_RESULT: ${{ steps.generate.outputs.gate_result }}
@@ -1203,7 +1198,7 @@ jobs:
           steps.create-pr.outputs.pr_number != '' &&
           steps.generate.outputs.artifact_gate_result == 'fail'
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pr_number }}
           PHASE_NUMBER: ${{ steps.generate.outputs.artifact_gate_phase_number || steps.extract.outputs.next_phase }}
           PHASE_NAME: ${{ steps.generate.outputs.artifact_gate_phase_name || steps.extract.outputs.next_phase_name }}
@@ -1243,6 +1238,7 @@ jobs:
           steps.extract.outputs.next_phase_name != 'clarify'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const prNumber = parseInt('${{ steps.create-pr.outputs.pr_number }}', 10);
             if (!prNumber) {
@@ -1275,7 +1271,7 @@ jobs:
           steps.generate.outputs.gate_result != 'fail' &&
           steps.generate.outputs.artifact_gate_result != 'fail'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           SPECKIT_AUTO_MERGE_PHASES: ${{ vars.SPECKIT_AUTO_MERGE_PHASES }}
           MARKDOWNLINT_STATUS: ${{ steps.generate.outputs.markdownlint_status }}
         run: |
@@ -1332,6 +1328,7 @@ jobs:
           ARTIFACT_GATE_RESULT: ${{ steps.generate.outputs.artifact_gate_result }}
           BRANCH_NAME_OUTPUT: ${{ steps.commit.outputs.branch_name || steps.commit_legacy_migration.outputs.branch_name }}
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.extract.outputs.issue_number }};
             const nextPhase = ${{ steps.extract.outputs.next_phase }};
@@ -1465,6 +1462,7 @@ jobs:
         if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '0' && steps.extract.outputs.next_phase != '4' && env.SPECKIT_ENGINE != 'cloud-agent'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.extract.outputs.issue_number }};
             try {
@@ -1508,6 +1506,7 @@ jobs:
           SPECKIT_COMMENT_ON_ISSUE: ${{ vars.SPECKIT_COMMENT_ON_ISSUE || '' }}
           HIERARCHY_LEVEL_ENV: ${{ steps.hierarchy.outputs.hierarchy_level || '' }}
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const fallback = require('./.github/scripts/speckit-trigger/agent-fallback.js');
             await fallback.run({
@@ -1531,6 +1530,7 @@ jobs:
         if: failure() && env.SPECKIT_ENGINE == 'cloud-agent' && steps['cloud-dispatch'].outcome == 'failure'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.extract.outputs.issue_number || 0 }};
             const phase = ${{ steps.extract.outputs.next_phase || 0 }};
@@ -1609,6 +1609,7 @@ jobs:
           GATE_RESULT: ${{ steps.generate.outputs.gate_result || '' }}
           CRITICAL_FINDINGS: ${{ steps.generate.outputs.critical_findings || '[]' }}
         with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
             const issueNumber = ${{ steps.extract.outputs.issue_number || 0 }};
             if (!issueNumber) return;

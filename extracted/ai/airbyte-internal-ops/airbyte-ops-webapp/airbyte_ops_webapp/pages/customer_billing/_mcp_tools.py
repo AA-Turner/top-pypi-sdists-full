@@ -257,6 +257,7 @@ def _resolve_org_id(
         # Try as org ID first by calling get_organization_info
         bearer = resolved_bearer_token(bearer_token_override)
         api_root = resolved_config_api_root()
+        org_api_error: PaymentConfigAPIError | None = None
         try:
             org_info = get_organization_info(
                 organization_id=query,
@@ -265,10 +266,12 @@ def _resolve_org_id(
             )
             if org_info is not None:
                 return query, None, None
-        except PaymentConfigAPIError:
-            logger.debug(
-                "UUID %s not found as org ID, falling back to workspace resolution",
+        except PaymentConfigAPIError as error:
+            org_api_error = error
+            logger.warning(
+                "Organization lookup for %s failed (%s); falling back to workspace resolution",
                 query,
+                error,
             )
 
         # Not found as org — try as workspace ID
@@ -276,6 +279,13 @@ def _resolve_org_id(
         if ws_result.resolved and ws_result.organization_id:
             label = f"Resolved from workspace {query} → org {ws_result.organization_id}"
             return ws_result.organization_id, label, None
+
+        if org_api_error is not None:
+            return (
+                None,
+                None,
+                f"Organization lookup for '{query}' failed: {org_api_error}",
+            )
 
         return (
             None,

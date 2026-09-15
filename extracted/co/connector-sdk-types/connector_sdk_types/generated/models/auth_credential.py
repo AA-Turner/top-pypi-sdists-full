@@ -16,6 +16,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.basic_credential import BasicCredential
+from connector_sdk_types.generated.models.empty_credential import EmptyCredential
 from connector_sdk_types.generated.models.jwt_credential import JWTCredential
 from connector_sdk_types.generated.models.key_pair_credential import KeyPairCredential
 from connector_sdk_types.generated.models.o_auth1_credential import OAuth1Credential
@@ -60,6 +61,9 @@ class AuthCredential(BaseModel):
         description="Key-pair credentials, if using key-pair auth.",
         json_schema_extra={"x-semantic": "key-pair"},
     )
+    empty: Optional[EmptyCredential] = Field(
+        default=None, description="Ambient credentials, if the host authenticates itself."
+    )
     __properties: ClassVar[List[str]] = [
         "id",
         "oauth",
@@ -70,6 +74,7 @@ class AuthCredential(BaseModel):
         "jwt",
         "service_account",
         "key_pair",
+        "empty",
     ]
     model_config = ConfigDict(
         populate_by_name=True, validate_assignment=True, protected_namespaces=()
@@ -116,6 +121,8 @@ class AuthCredential(BaseModel):
             _dict["service_account"] = self.service_account.to_dict()
         if self.key_pair:
             _dict["key_pair"] = self.key_pair.to_dict()
+        if self.empty:
+            _dict["empty"] = self.empty.to_dict()
         return _dict
 
     @classmethod
@@ -151,6 +158,9 @@ class AuthCredential(BaseModel):
                 else None,
                 "key_pair": KeyPairCredential.from_dict(obj["key_pair"])
                 if obj.get("key_pair") is not None
+                else None,
+                "empty": EmptyCredential.from_dict(obj["empty"])
+                if obj.get("empty") is not None
                 else None,
             }
         )

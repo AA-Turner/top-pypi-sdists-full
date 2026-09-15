@@ -22,8 +22,8 @@ from importlib import metadata
 from operator import itemgetter
 from pathlib import Path
 
+import click
 import pytest
-import requests
 from boltons.strutils import camel2under
 from boltons.typeutils import issubclass
 from pygments import highlight
@@ -36,6 +36,7 @@ from pygments.lexers import find_lexer_class_by_name, get_lexer_by_name
 from pygments.token import Text, Token
 
 from click_extra import pygments as extra_pygments
+from click_extra.cli import demo
 from click_extra.pygments import (
     _ANSI_STYLES,
     _NAMED_COLORS,
@@ -53,6 +54,8 @@ from click_extra.pygments import (
     collect_session_lexers,
 )
 from click_extra.styling import _nearest_256
+
+from .conftest import fetch_or_skip, walk_commands
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -131,9 +134,9 @@ def test_ansi_lexers_candidates(tmp_path):
     base_folder = f"pygments-{version}"
     archive_path = tmp_path / f"{base_folder}.tar.gz"
 
-    # Download the source distribution from GitHub.
-    with requests.get(source_url) as response:
-        assert response.ok
+    # Download the source distribution from GitHub, which throttles an
+    # anonymous archive request rather than serving it every time.
+    with fetch_or_skip(source_url) as response:
         archive_path.write_bytes(response.content)
 
     assert archive_path.exists()
@@ -1419,3 +1422,50 @@ def test_formatter_osc8_quotes_escaped_in_href():
 def test_real_world_ansi(text, expected_tokens):
     """Real-world ANSI patterns from terminal tools and documentation references."""
     assert lex(text) == expected_tokens
+
+
+def test_ansi_session_decodes_a_styled_input_line():
+    r"""An input line arriving styled keeps its colors instead of its escape bytes.
+
+    A session lexer reads any line opening on a prompt as a typed command, and
+    a ``--help`` epilog writing ``$ my-cli pick --ripe`` matches. Its escapes
+    used to reach the inner shell lexer, which tokenized ``\x1b[36m`` as an
+    operator between two runs of text and left the raw bytes in the page.
+    """
+    session = "  Sow a crop:\n    $ \x1b[36mgarden\x1b[0m sow\n"
+    tokens = list(get_lexer_by_name("ansi-shell-session").get_tokens(session))
+
+    assert not any("\x1b" in value for _, value in tokens)
+    assert (Token.Generic.Prompt, "    $ ") in tokens
+    assert (Token.Ansi.Cyan, "garden") in tokens
+
+
+def test_ansi_session_leaves_a_plain_input_line_to_the_shell_lexer():
+    """Input carrying no escape still gets its shell highlighting."""
+    tokens = list(
+        get_lexer_by_name("ansi-shell-session").get_tokens("$ ls /tmp | grep basket\n")
+    )
+    assert (Token.Punctuation, "|") in tokens
+
+
+@pytest.mark.once
+def test_no_click_extra_help_screen_renders_raw_escapes():
+    r"""No help screen this package ships leaks an escape byte into its HTML.
+
+    The whole CLI tree is rendered the way ``click:run`` does it, then lexed and
+    formatted. Whatever the lexer fails to decode surfaces as a literal
+    ``\x1b`` in the page, so the assertion reads the formatted output rather
+    than the token stream.
+    """
+    lexer = get_lexer_by_name("ansi-shell-session")
+    formatter = AnsiHtmlFormatter()
+    offenders = []
+    for path, subcommand in walk_commands(demo):
+        name = " ".join(("click-extra", *path))
+        ctx = click.Context(subcommand, info_name=name)
+        with ctx:
+            help_screen = subcommand.get_help(ctx)
+        if "\x1b" in highlight(help_screen, lexer, formatter):
+            offenders.append(name)
+
+    assert not offenders, "help screens rendering raw escapes: " + ", ".join(offenders)

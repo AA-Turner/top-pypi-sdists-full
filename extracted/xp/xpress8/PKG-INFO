@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xpress8
-Version: 0.1.0
+Version: 0.1.1
 Summary: Python bindings for the Microsoft Xpress8 (ESE) compression library
 Home-page: https://github.com/Hugoberry/xpress8-python
 Author: Igor Cotruta
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Archiving :: Compression

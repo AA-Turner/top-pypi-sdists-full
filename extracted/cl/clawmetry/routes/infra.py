@@ -423,6 +423,18 @@ def _try_local_store_cost_optimizer():
         "todayCost": round(today_cost, 4),
         "projectedMonthlyCost": round(projected, 4),
         "expensiveOps": expensive_ops,
+        # Raw model rows for the provider-route and experiment rules
+        # (clawmetry/cost_optimizer_advice.py, REQ-OBS-CEA-023).
+        "modelRows": [
+            {
+                "model": ev.get("model"),
+                "cost_usd": ev.get("cost_usd"),
+                "token_count": ev.get("token_count"),
+                "session_id": ev.get("session_id"),
+                "ts": ev.get("ts"),
+            }
+            for ev in evs if isinstance(ev, dict)
+        ],
         "_source": "local_store",
     }
 
@@ -2180,22 +2192,31 @@ def api_llmfit():
 @bp_config.route("/api/cost-optimizer")
 @gate("cost_optimizer")
 def api_cost_optimizer():
-    """Enhanced cost optimizer: llmfit recommendations + task-level suggestions.
+    """Cost optimizer: recorded spend, experiments, and local-model fit.
 
     Gated on the ``cost_optimizer`` entitlement (Pro-only). In grace mode
     the gate is transparent so free installs continue to see the current
     behaviour; in enforce mode this route 402s with the standard
     ``upgrade_required`` envelope shared with every other ``@gate``d paid
     feature.
+
+    REQ-OBS-CEA-023 (vivekchand/clawmetry#5934). Every figure carries its
+    basis (``provenance``), recommendations are experiments citing the usage
+    they rest on rather than fixed savings claims, and local-model advice
+    (llmfit + Ollama) is only computed when local traffic was recorded, so a
+    team on Bedrock or Azure is not told to install a local runtime and does
+    not pay for the llmfit subprocess. The rules live in
+    ``clawmetry/cost_optimizer_advice.py``.
     """
     import dashboard as _d
     import shutil
+    from clawmetry import cost_optimizer_advice as _adv
+    from clawmetry import provenance as _prov
 
     try:
         # Cost data from existing helpers
         costs = _d._get_cost_summary()
         expensive_ops = _d._get_expensive_operations()
-        ollama_installed = _d._detect_ollama()
         # DuckDB fast path (refs #1565). The legacy ``_get_cost_summary``
         # + ``_get_expensive_operations`` helpers read from the in-memory
         # ``metrics_store`` ring (populated by the HTTP interceptor);
@@ -2211,156 +2232,118 @@ def api_cost_optimizer():
             except Exception:
                 ls_slice = None
 
-        # Run llmfit
-        llmfit_raw = {}
-        if shutil.which("llmfit"):
+        if ls_slice is not None:
+            source = "local_store"
+            usage_rows = ls_slice.get("modelRows") or []
+            window = _adv.LOCAL_STORE_WINDOW
+        else:
+            ring = []
             try:
-                r = subprocess.run(
-                    ["llmfit", "recommend", "--json", "--limit", "10"],
-                    capture_output=True,
-                    text=True,
-                    timeout=20,
-                )
-                if r.returncode == 0:
-                    llmfit_raw = json.loads(r.stdout)
+                with _d._metrics_lock:
+                    ring = list((_d.metrics_store or {}).get("cost", []))
             except Exception:
-                pass
+                ring = []
+            # An empty ring is not a measured $0: nothing was recorded, so
+            # the figures are labelled unknown and rendered "not available".
+            source = "interceptor" if ring else "none"
+            usage_rows = [
+                {"model": e.get("model"), "cost_usd": e.get("usd"),
+                 "ts": str(e.get("timestamp") or "")}
+                for e in ring if isinstance(e, dict)
+            ]
+            window = _adv.INTERCEPTOR_WINDOW
 
-        # When llmfit doesn't return a `system` block, fall back to actual
-        # detection (sysctl on macOS, /proc on Linux, wmic on Windows) instead
-        # of the previous hardcoded "Apple M2 Pro / 12 cores / 32 GB" values
-        # which misrepresented every non-Mac box.
-        sys_info = llmfit_raw.get("system", {})
-        host = _d._detect_host_hardware()
-        cpu = sys_info.get("cpu_name") or host["cpu"]
-        is_apple = any(s in cpu for s in ("Apple", "M1", "M2", "M3", "M4"))
+        usage = _adv.observed_usage(usage_rows)
+        advice = _adv.local_advice(usage)
+        task_recs = _adv.experiments(usage, window)
 
-        system_out = {
-            "cpu": cpu,
-            "cores": sys_info.get("cpu_cores") or host["cores"],
-            "ram_gb": sys_info.get("total_ram_gb") or host["ram_gb"],
-            "backend": (
-                "Apple Metal (unified)"
-                if is_apple
-                else (sys_info.get("backend") or host["backend"])
-            ),
-        }
-
-        # Map llmfit models to localModels format
-        use_case_map = {
-            "coding": ["coding", "code generation"],
-            "chat": ["chat", "instruction following"],
-        }
-        ollama_shortcuts = {
-            "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct": "deepseek-coder-v2:16b",
-            "lmstudio-community/Qwen3-4B-Instruct-2507-MLX-8bit": "qwen3:4b",
-            "bigcode/starcoder2-7b": "starcoder2:7b",
-            "alpindale/Llama-3.2-1B-Instruct": "llama3.2:1b",
-        }
-        savings_by_cat = {
-            "coding": "~$0.50/day for coding crons",
-            "chat": "~$0.30/day for heartbeats",
-        }
-
+        ollama_installed = False
+        llmfit_raw = {}
         local_models = []
-        for m in llmfit_raw.get("models", [])[:8]:
-            full_name = m.get("name", "")
-            short = full_name.split("/")[-1] if "/" in full_name else full_name
-            cat = (m.get("category") or "Chat").lower()
-            use_case_str = m.get("use_case", cat)
-            ollama_name = ollama_shortcuts.get(full_name)
-            if not ollama_name:
-                ollama_name = (
-                    short.lower()
-                    .replace("-instruct", "")
-                    .replace("-fp8", "")
-                    .replace("-awq", "")
-                    .replace("-mlx-8bit", "")
-                )
-                ollama_name = "".join(
-                    c if c in "abcdefghijklmnopqrstuvwxyz0123456789.-:" else "-"
-                    for c in ollama_name
-                ).strip("-")
-            tps = m.get("estimated_tps", 0) or 0
-            local_models.append(
-                {
-                    "name": short,
-                    "fullName": full_name,
-                    "useCase": use_case_str,
-                    "estimatedTps": round(tps * 3.5, 1),  # Metal multiplier
-                    "ramRequired": f"{m.get('memory_required_gb', '?')}GB",
-                    "score": m.get("score", 0),
-                    "ollamaName": ollama_name,
-                    "savingsEstimate": savings_by_cat.get(cat, "~$0.20/day"),
-                    "memoryRequiredGb": m.get("memory_required_gb", 0),
-                }
-            )
-
-        # Task recommendations
-        task_recs = []
-        # Check cron jobs
-        try:
-            crons = _d._get_crons()
-            for cron in crons[:5]:
-                model = cron.get("model", cron.get("modelRef", "claude-sonnet-4-6"))
-                name = cron.get("name", cron.get("label", "Cron job"))
-                prompt = (cron.get("prompt", "") or "").lower()
-                is_heartbeat = any(
-                    w in prompt
-                    for w in ["heartbeat", "check", "status", "health", "ping"]
-                )
-                if is_heartbeat or not prompt.strip():
-                    task_recs.append(
-                        {
-                            "task": f"Cron: {name}",
-                            "currentModel": model or "claude-sonnet-4-6",
-                            "suggestedLocal": "qwen3:4b",
-                            "reason": "Simple periodic checks don't need frontier models",
-                            "estimatedSavings": "~$2-5/month",
-                        }
+        system_out = {}
+        if advice["show"]:
+            ollama_installed = _d._detect_ollama()
+            if shutil.which("llmfit"):
+                try:
+                    r = subprocess.run(
+                        ["llmfit", "recommend", "--json", "--limit", "10"],
+                        capture_output=True,
+                        text=True,
+                        timeout=20,
                     )
-        except Exception:
-            pass
+                    if r.returncode == 0:
+                        llmfit_raw = json.loads(r.stdout)
+                except Exception:
+                    pass
 
-        # Generic recommendations
-        task_recs.append(
-            {
-                "task": "Heartbeat / periodic checks",
-                "currentModel": "claude-sonnet-4-6",
-                "suggestedLocal": "qwen3:4b",
-                "reason": "Heartbeats (email, calendar, weather) work well with tiny fast models",
-                "estimatedSavings": "~$2-5/month",
+            # When llmfit doesn't return a `system` block, fall back to
+            # actual detection (sysctl on macOS, /proc on Linux, wmic on
+            # Windows) instead of hardcoded hardware.
+            sys_info = llmfit_raw.get("system", {})
+            host = _d._detect_host_hardware()
+            cpu = sys_info.get("cpu_name") or host["cpu"]
+            is_apple = any(s in cpu for s in ("Apple", "M1", "M2", "M3", "M4"))
+            system_out = {
+                "cpu": cpu,
+                "cores": sys_info.get("cpu_cores") or host["cores"],
+                "ram_gb": sys_info.get("total_ram_gb") or host["ram_gb"],
+                "backend": (
+                    "Apple Metal (unified)"
+                    if is_apple
+                    else (sys_info.get("backend") or host["backend"])
+                ),
             }
-        )
-        task_recs.append(
-            {
-                "task": "Coding sub-agents",
-                "currentModel": "claude-sonnet-4-6",
-                "suggestedLocal": "deepseek-coder-v2:16b",
-                "reason": "Well-scoped coding tasks (linting, formatting, small fixes) run locally",
-                "estimatedSavings": "~$3-8/month",
-            }
-        )
-        task_recs.append(
-            {
-                "task": "Main conversation (Diya)",
-                "currentModel": "claude-sonnet-4-6",
-                "suggestedLocal": None,
-                "reason": "Complex reasoning, tool use, and planning still benefit from frontier models",
-                "estimatedSavings": "Keep as-is",
-            }
-        )
 
-        today = costs.get("today", 0) or 0
-        projected = costs.get("projected", 0) or (today * 30)
+            ollama_shortcuts = {
+                "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct": "deepseek-coder-v2:16b",
+                "lmstudio-community/Qwen3-4B-Instruct-2507-MLX-8bit": "qwen3:4b",
+                "bigcode/starcoder2-7b": "starcoder2:7b",
+                "alpindale/Llama-3.2-1B-Instruct": "llama3.2:1b",
+            }
+            for m in llmfit_raw.get("models", [])[:8]:
+                full_name = m.get("name", "")
+                short = full_name.split("/")[-1] if "/" in full_name else full_name
+                cat = (m.get("category") or "Chat").lower()
+                ollama_name = ollama_shortcuts.get(full_name)
+                if not ollama_name:
+                    ollama_name = (
+                        short.lower()
+                        .replace("-instruct", "")
+                        .replace("-fp8", "")
+                        .replace("-awq", "")
+                        .replace("-mlx-8bit", "")
+                    )
+                    ollama_name = "".join(
+                        c if c in "abcdefghijklmnopqrstuvwxyz0123456789.-:" else "-"
+                        for c in ollama_name
+                    ).strip("-")
+                tps = m.get("estimated_tps", 0) or 0
+                # No per-model savings string: nothing here measured one.
+                local_models.append(
+                    {
+                        "name": short,
+                        "fullName": full_name,
+                        "useCase": m.get("use_case", cat),
+                        "estimatedTps": round(tps * 3.5, 1),  # Metal multiplier
+                        "ramRequired": f"{m.get('memory_required_gb', '?')}GB",
+                        "score": m.get("score", 0),
+                        "ollamaName": ollama_name,
+                        "memoryRequiredGb": m.get("memory_required_gb", 0),
+                    }
+                )
 
         payload = {
+            "scope": "all runtimes on this computer",
             "system": system_out,
             "localModels": local_models,
-            "taskRecommendations": task_recs[:6],
-            "todayCost": today,
-            "projectedMonthlyCost": projected,
-            "potentialSavings": "60-80% with local models for crons/heartbeats",
+            "localAdvice": advice,
+            "modelUsage": usage[:10],
+            "taskRecommendations": task_recs,
+            "recommendationsNote": _adv.recommendations_note(usage, task_recs),
+            "todayCost": costs.get("today"),
+            # No ``today * 30`` fallback: a projection nobody could compute
+            # is unknown, not a multiple of today.
+            "projectedMonthlyCost": costs.get("projected"),
             "expensiveOps": expensive_ops,
             "ollamaInstalled": ollama_installed,
             "llmfitAvailable": bool(llmfit_raw),
@@ -2374,24 +2357,34 @@ def api_cost_optimizer():
             if ls_slice.get("expensiveOps"):
                 payload["expensiveOps"] = ls_slice["expensiveOps"]
             payload["_source"] = "local_store"
-        return jsonify(payload)
+        # A token count nobody recorded is "not recorded", not "unknown tokens".
+        payload["expensiveOps"] = [
+            dict(op, tokens=(None if op.get("tokens") in (None, "", "0", "unknown") else op.get("tokens")))
+            for op in (payload["expensiveOps"] or []) if isinstance(op, dict)
+        ]
+        return jsonify(_prov.stamp(payload, _adv.cost_provenance(source)))
     except Exception as e:
-        # Hard fallback path: even llmfit + everything else broke. Use real
-        # host detection so we never lie about the user's machine.
-        return jsonify(
-            {
-                "system": _d._detect_host_hardware(),
-                "localModels": [],
-                "taskRecommendations": [],
-                "todayCost": 0,
-                "projectedMonthlyCost": 0,
-                "potentialSavings": "Install llmfit for recommendations",
-                "error": str(e),
-                "ollamaInstalled": False,
-                "llmfitAvailable": False,
-            }
-        )
+        import logging
 
+        logging.getLogger(__name__).warning("cost-optimizer analysis failed: %s", e)
+        # Never a raw exception string, never a fabricated $0: the figures are
+        # labelled unknown and the renderer says the analysis could not finish.
+        payload = {
+            "scope": "all runtimes on this computer",
+            "system": {},
+            "localModels": [],
+            "localAdvice": {"show": False, "reason": "", "routes": []},
+            "modelUsage": [],
+            "taskRecommendations": [],
+            "recommendationsNote": "The cost analysis could not finish just now, so no experiments are shown.",
+            "todayCost": None,
+            "projectedMonthlyCost": None,
+            "expensiveOps": [],
+            "ollamaInstalled": False,
+            "llmfitAvailable": False,
+            "error": "analysis_failed",
+        }
+        return jsonify(_prov.stamp(payload, _adv.cost_provenance("error")))
 
 @bp_config.route("/api/cost-optimization")
 @gate("cost_optimizer")

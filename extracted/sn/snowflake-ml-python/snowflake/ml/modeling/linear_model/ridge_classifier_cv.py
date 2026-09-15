@@ -148,8 +148,14 @@ class RidgeClassifierCV(BaseTransformer):
         (i.e. data is expected to be centered).
 
     scoring: str, callable, default=None
-        A string (see :ref:`scoring_parameter`) or a scorer callable object /
-        function with signature ``scorer(estimator, X, y)``.
+        The scoring method to use for cross-validation. Options:
+
+        - str: see :ref:`scoring_string_names` for options.
+        - callable: a scorer callable object (e.g., function) with signature
+          ``scorer(estimator, X, y)``. See :ref:`scoring_callable` for details.
+        - `None`: negative :ref:`mean squared error <mean_squared_error>` if cv is
+          None (i.e. when using leave-one-out cross-validation), or
+          :ref:`accuracy <accuracy_score>` otherwise.
 
     cv: int, cross-validation generator or an iterable, default=None
         Determines the cross-validation splitting strategy.
@@ -176,12 +182,6 @@ class RidgeClassifierCV(BaseTransformer):
         each alpha should be stored in the ``cv_results_`` attribute (see
         below). This flag is only compatible with ``cv=None`` (i.e. using
         Leave-One-Out Cross-Validation).
-
-    store_cv_values: bool
-        Flag indicating if the cross-validation values corresponding to
-        each alpha should be stored in the ``cv_values_`` attribute (see
-        below). This flag is only compatible with ``cv=None`` (i.e. using
-        Leave-One-Out Cross-Validation).
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -192,8 +192,7 @@ class RidgeClassifierCV(BaseTransformer):
         scoring=None,
         cv=None,
         class_weight=None,
-        store_cv_results=None,
-        store_cv_values="deprecated",
+        store_cv_results=False,
         input_cols: Optional[Union[str, Iterable[str]]] = None,
         output_cols: Optional[Union[str, Iterable[str]]] = None,
         label_cols: Optional[Union[str, Iterable[str]]] = None,
@@ -220,8 +219,7 @@ class RidgeClassifierCV(BaseTransformer):
             'scoring':(scoring, None, False),
             'cv':(cv, None, False),
             'class_weight':(class_weight, None, False),
-            'store_cv_results':(store_cv_results, None, False),
-            'store_cv_values':(store_cv_values, "deprecated", False),}
+            'store_cv_results':(store_cv_results, False, False),}
         cleaned_up_init_args = validate_sklearn_args(
             args=init_args,
             klass=sklearn.linear_model.RidgeClassifierCV
@@ -973,7 +971,7 @@ class RidgeClassifierCV(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.linear_model.RidgeClassifierCV.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.RidgeClassifierCV.html#sklearn.linear_model.RidgeClassifierCV.score)
 

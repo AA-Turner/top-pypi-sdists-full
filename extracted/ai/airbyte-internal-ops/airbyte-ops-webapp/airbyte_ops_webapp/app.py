@@ -15,6 +15,10 @@ from airbyte_ops_webapp.pages.login.page import register_login_app
 from airbyte_ops_webapp.pages.motherduck_diagnostics.page import (
     register_motherduck_diagnostics_app,
 )
+from airbyte_ops_webapp.pages.platform_admin.data_worker_allocation.page import (
+    register_data_worker_allocation_app,
+)
+from airbyte_ops_webapp.pages.platform_admin.page import register_platform_admin_app
 
 mcp = FastMCP("Airbyte Ops Webapp")
 register_oauth_routes(mcp)
@@ -24,3 +28,5 @@ register_authorization_app(mcp)
 register_connector_version_manager_app(mcp)
 register_customer_billing_app(mcp)
 register_motherduck_diagnostics_app(mcp)
+register_platform_admin_app(mcp)
+register_data_worker_allocation_app(mcp)

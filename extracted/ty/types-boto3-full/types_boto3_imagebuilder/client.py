@@ -276,7 +276,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[CancelImageCreationRequestTypeDef]
     ) -> CancelImageCreationResponseTypeDef:
         """
-        CancelImageCreation cancels the creation of Image.
+        Cancels the creation of an image.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/cancel_image_creation.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#cancel_image_creation)
@@ -286,7 +286,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[CancelLifecycleExecutionRequestTypeDef]
     ) -> CancelLifecycleExecutionResponseTypeDef:
         """
-        Cancel a specific image lifecycle policy runtime instance.
+        Cancels a specific image lifecycle policy runtime instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/cancel_lifecycle_execution.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#cancel_lifecycle_execution)
@@ -327,7 +327,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[CreateImageRequestTypeDef]
     ) -> CreateImageResponseTypeDef:
         """
-        Creates a new image.
+        Creates a new image along with all configured output resources defined in the
+        distribution configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/create_image.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#create_image)
@@ -367,7 +368,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[CreateLifecyclePolicyRequestTypeDef]
     ) -> CreateLifecyclePolicyResponseTypeDef:
         """
-        Create a lifecycle policy resource.
+        Creates a lifecycle policy resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/create_lifecycle_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#create_lifecycle_policy)
@@ -377,7 +378,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[CreateWorkflowRequestTypeDef]
     ) -> CreateWorkflowResponseTypeDef:
         """
-        Create a new workflow or a new version of an existing workflow.
+        Creates a new workflow or a new version of an existing workflow.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/create_workflow.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#create_workflow)
@@ -457,7 +458,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[DeleteLifecyclePolicyRequestTypeDef]
     ) -> DeleteLifecyclePolicyResponseTypeDef:
         """
-        Delete the specified lifecycle policy resource.
+        Deletes the specified lifecycle policy resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/delete_lifecycle_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#delete_lifecycle_policy)
@@ -488,7 +489,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetComponentRequestTypeDef]
     ) -> GetComponentResponseTypeDef:
         """
-        Gets a component object.
+        Retrieves a component object.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_component.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_component)
@@ -498,7 +499,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetComponentPolicyRequestTypeDef]
     ) -> GetComponentPolicyResponseTypeDef:
         """
-        Gets a component policy.
+        Retrieves a component policy.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_component_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_component_policy)
@@ -528,7 +529,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetDistributionConfigurationRequestTypeDef]
     ) -> GetDistributionConfigurationResponseTypeDef:
         """
-        Gets a distribution configuration.
+        Retrieves a distribution configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_distribution_configuration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_distribution_configuration)
@@ -536,7 +537,7 @@ class ImagebuilderClient(BaseClient):
 
     def get_image(self, **kwargs: Unpack[GetImageRequestTypeDef]) -> GetImageResponseTypeDef:
         """
-        Gets an image.
+        Retrieves an image.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_image.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_image)
@@ -546,7 +547,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetImagePipelineRequestTypeDef]
     ) -> GetImagePipelineResponseTypeDef:
         """
-        Gets an image pipeline.
+        Retrieves an image pipeline.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_image_pipeline.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_image_pipeline)
@@ -556,7 +557,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetImagePolicyRequestTypeDef]
     ) -> GetImagePolicyResponseTypeDef:
         """
-        Gets an image policy.
+        Retrieves an image policy.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_image_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_image_policy)
@@ -566,7 +567,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetImageRecipeRequestTypeDef]
     ) -> GetImageRecipeResponseTypeDef:
         """
-        Gets an image recipe.
+        Retrieves an image recipe.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_image_recipe.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_image_recipe)
@@ -576,7 +577,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetImageRecipePolicyRequestTypeDef]
     ) -> GetImageRecipePolicyResponseTypeDef:
         """
-        Gets an image recipe policy.
+        Retrieves an image recipe policy.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_image_recipe_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_image_recipe_policy)
@@ -586,7 +587,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetInfrastructureConfigurationRequestTypeDef]
     ) -> GetInfrastructureConfigurationResponseTypeDef:
         """
-        Gets an infrastructure configuration.
+        Retrieves an infrastructure configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_infrastructure_configuration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_infrastructure_configuration)
@@ -596,8 +597,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetLifecycleExecutionRequestTypeDef]
     ) -> GetLifecycleExecutionResponseTypeDef:
         """
-        Get the runtime information that was logged for a specific runtime instance of
-        the lifecycle policy.
+        Retrieves the runtime information for a specific runtime instance of the
+        lifecycle policy.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_lifecycle_execution.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_lifecycle_execution)
@@ -607,7 +608,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetLifecyclePolicyRequestTypeDef]
     ) -> GetLifecyclePolicyResponseTypeDef:
         """
-        Get details for the specified image lifecycle policy.
+        Retrieves details for the specified image lifecycle policy.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_lifecycle_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_lifecycle_policy)
@@ -617,8 +618,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetMarketplaceResourceRequestTypeDef]
     ) -> GetMarketplaceResourceResponseTypeDef:
         """
-        Verify the subscription and perform resource dependency checks on the requested
-        Amazon Web Services Marketplace resource.
+        Verifies the subscription and performs resource dependency checks on the
+        requested Amazon Web Services Marketplace resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_marketplace_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_marketplace_resource)
@@ -628,7 +629,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetWorkflowRequestTypeDef]
     ) -> GetWorkflowResponseTypeDef:
         """
-        Get a workflow resource object.
+        Retrieves a workflow resource object.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_workflow.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_workflow)
@@ -638,8 +639,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetWorkflowExecutionRequestTypeDef]
     ) -> GetWorkflowExecutionResponseTypeDef:
         """
-        Get the runtime information that was logged for a specific runtime instance of
-        the workflow.
+        Retrieves runtime information for a specific runtime instance of the workflow.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_workflow_execution.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_workflow_execution)
@@ -649,8 +649,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetWorkflowStepExecutionRequestTypeDef]
     ) -> GetWorkflowStepExecutionResponseTypeDef:
         """
-        Get the runtime information that was logged for a specific runtime instance of
-        the workflow step.
+        Retrieves runtime information for a specific runtime instance of the workflow
+        step.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_workflow_step_execution.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_workflow_step_execution)
@@ -670,7 +670,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ImportDiskImageRequestTypeDef]
     ) -> ImportDiskImageResponseTypeDef:
         """
-        Import a Windows operating system image from a verified Microsoft ISO disk file.
+        Imports a Windows operating system image from a verified Microsoft ISO disk
+        file.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/import_disk_image.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#import_disk_image)
@@ -744,7 +745,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ListImagePackagesRequestTypeDef]
     ) -> ListImagePackagesResponseTypeDef:
         """
-        List the Packages that are associated with an Image Build Version, as
+        Lists the packages that are associated with an image build version, as
         determined by Amazon Web Services Systems Manager Inventory at build time.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/list_image_packages.html)
@@ -823,7 +824,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ListLifecycleExecutionResourcesRequestTypeDef]
     ) -> ListLifecycleExecutionResourcesResponseTypeDef:
         """
-        List resources that the runtime instance of the image lifecycle identified for
+        Lists resources that the runtime instance of the image lifecycle identified for
         lifecycle actions.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/list_lifecycle_execution_resources.html)
@@ -834,7 +835,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ListLifecycleExecutionsRequestTypeDef]
     ) -> ListLifecycleExecutionsResponseTypeDef:
         """
-        Get the lifecycle runtime history for the specified resource.
+        Retrieves the lifecycle runtime history for the specified resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/list_lifecycle_executions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#list_lifecycle_executions)
@@ -844,7 +845,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ListLifecyclePoliciesRequestTypeDef]
     ) -> ListLifecyclePoliciesResponseTypeDef:
         """
-        Get a list of lifecycle policies in your Amazon Web Services account.
+        Retrieves a list of lifecycle policies in your Amazon Web Services account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/list_lifecycle_policies.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#list_lifecycle_policies)
@@ -864,8 +865,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ListWaitingWorkflowStepsRequestTypeDef]
     ) -> ListWaitingWorkflowStepsResponseTypeDef:
         """
-        Get a list of workflow steps that are waiting for action for workflows in your
-        Amazon Web Services account.
+        Retrieves a list of workflow steps that are waiting for action for workflows in
+        your Amazon Web Services account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/list_waiting_workflow_steps.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#list_waiting_workflow_steps)
@@ -955,7 +956,7 @@ class ImagebuilderClient(BaseClient):
 
     def retry_image(self, **kwargs: Unpack[RetryImageRequestTypeDef]) -> RetryImageResponseTypeDef:
         """
-        RetryImage retries an image distribution without rebuilding the image.
+        Retries an image distribution or test without rebuilding the image.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/retry_image.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#retry_image)
@@ -986,8 +987,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[StartResourceStateUpdateRequestTypeDef]
     ) -> StartResourceStateUpdateResponseTypeDef:
         """
-        Begin asynchronous resource state update for lifecycle changes to the specified
-        image resources.
+        Begins an asynchronous resource state update for lifecycle changes to the
+        specified image resources.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/start_resource_state_update.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#start_resource_state_update)
@@ -1013,7 +1014,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[UpdateDistributionConfigurationRequestTypeDef]
     ) -> UpdateDistributionConfigurationResponseTypeDef:
         """
-        Updates a new distribution configuration.
+        Updates a distribution configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/update_distribution_configuration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#update_distribution_configuration)
@@ -1033,7 +1034,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[UpdateInfrastructureConfigurationRequestTypeDef]
     ) -> UpdateInfrastructureConfigurationResponseTypeDef:
         """
-        Updates a new infrastructure configuration.
+        Updates an infrastructure configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/update_infrastructure_configuration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#update_infrastructure_configuration)
@@ -1043,7 +1044,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[UpdateLifecyclePolicyRequestTypeDef]
     ) -> UpdateLifecyclePolicyResponseTypeDef:
         """
-        Update the specified lifecycle policy.
+        Updates the specified lifecycle policy.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/update_lifecycle_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#update_lifecycle_policy)

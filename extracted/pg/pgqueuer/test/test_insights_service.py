@@ -15,15 +15,18 @@ from pgqueuer.core.insights import (
     clamp_window,
     sparkline_buckets,
 )
-from pgqueuer.domain import models
+from pgqueuer.domain import models, types
+from pgqueuer.domain.types import QueueEntrypoint, QueueManagerId
 from pgqueuer.ports.repository import EntrypointExecutionParameter
 
 
 async def dequeue_all(queries: InMemoryQueries, entrypoint: str) -> list[models.Job]:
     return await queries.dequeue(
         batch_size=100,
-        entrypoints={entrypoint: EntrypointExecutionParameter(concurrency_limit=0)},
-        queue_manager_id=uuid.uuid4(),
+        entrypoints={
+            QueueEntrypoint(entrypoint): EntrypointExecutionParameter(concurrency_limit=0)
+        },
+        queue_manager_id=QueueManagerId(uuid.uuid4()),
         global_concurrency_limit=None,
         heartbeat_timeout=timedelta(seconds=30),
     )
@@ -82,8 +85,8 @@ class TestInsightsService:
         await queries.enqueue(["ep_a", "ep_a", "ep_b"], [None] * 3, [0] * 3)
         ages = await InsightsService(queries).queue_age()
         by_ep = {a.entrypoint: a for a in ages}
-        assert by_ep["ep_a"].queued_count == 2
-        assert by_ep["ep_b"].queued_count == 1
+        assert by_ep[QueueEntrypoint("ep_a")].queued_count == 2
+        assert by_ep[QueueEntrypoint("ep_b")].queued_count == 1
         assert all(a.oldest_age_seconds >= 0 for a in ages)
 
     async def test_job_durations_from_transitions(self, queries: InMemoryQueries) -> None:
@@ -125,7 +128,7 @@ class TestInsightsService:
         assert job is not None and job.payload == b"payload"
         history = await service.job_history(job_id)
         assert [h.status for h in history] == ["queued"]
-        assert await service.job(models.JobId(999_999)) is None
+        assert await service.job(types.JobId(999_999)) is None
 
     async def test_browse_queue_filters(self, queries: InMemoryQueries) -> None:
         await queries.enqueue(["ep_a", "ep_b"], [None, None], [0, 0])
@@ -169,14 +172,18 @@ class TestSparklineBuckets:
     def test_counts_are_conserved(self) -> None:
         now = models.utc_now()
         series = [
-            models.ThroughputBucket(bucket=now, entrypoint="ep", status="successful", count=3),
+            models.ThroughputBucket(
+                bucket=now, entrypoint=QueueEntrypoint("ep"), status="successful", count=3
+            ),
             models.ThroughputBucket(
                 bucket=now - timedelta(minutes=30),
-                entrypoint="ep",
+                entrypoint=QueueEntrypoint("ep"),
                 status="exception",
                 count=2,
             ),
-            models.ThroughputBucket(bucket=now, entrypoint="other", status="successful", count=9),
+            models.ThroughputBucket(
+                bucket=now, entrypoint=QueueEntrypoint("other"), status="successful", count=9
+            ),
         ]
         buckets = sparkline_buckets(series, "ep", timedelta(hours=1))
         assert sum(buckets) == 5

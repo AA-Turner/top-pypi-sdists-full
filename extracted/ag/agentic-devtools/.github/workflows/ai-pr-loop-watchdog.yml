@@ -27,6 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -66,9 +67,7 @@ jobs:
               --default-branch "${{ github.event.repository.default_branch }}"
           fi
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          AGDT_PR_APPROVER_PAT: ${{ secrets.AGDT_PR_APPROVER_PAT }}
-          AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}

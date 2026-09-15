@@ -52,6 +52,8 @@ from .context import pass_context
 from .decorators import argument, command, group, jobs_option, option
 from .envvar import merge_envvar_ids
 from .execution import run_jobs
+from .highlight import HelpKeywords
+from .layout import center_in_rule
 from .logo import BRAND_SCREEN
 from .myst_converter import convert_directory, detect_source_package
 from .parameters import make_resilient_context
@@ -72,6 +74,7 @@ from .screenshot import (
     AUTO_COLUMNS,
     AUTO_CURSOR,
     AUTO_HOLD,
+    AUTO_TRUNCATION,
     DEFAULT_BORDER_WIDTH,
     DEFAULT_COLUMNS,
     DEFAULT_MARGIN,
@@ -106,7 +109,7 @@ from .test_suite import (
     parse_test_suite,
     run_test_suite,
 )
-from .theme import BUILTIN_THEMES
+from .theme import AUTO_THEME, ThemeChoice, get_theme_registry, resolve_auto_theme
 from .types import EnumChoice
 from .version import (
     BUILD_RESOLVERS,
@@ -171,6 +174,34 @@ _demo_section = cloup.Section(
 """Section grouping terminal capability demo subcommands."""
 
 
+#: Sample invocations closing the root help screen. Each `\b` escape is Click's
+#: marker for a paragraph to keep as written, since the help formatter rewraps
+#: an epilog into one block otherwise.
+DEMO_EPILOG = """\b
+Examples:
+
+\b
+  Run any Click CLI through Click Extra's colored help:
+    $ click-extra wrap -- my-cli --help
+
+\b
+  Draw that help screen as a picture a README can show:
+    $ click-extra screenshot --output my-cli.svg -- my-cli --help
+
+\b
+  Report the parameters a CLI accepts, and where each value comes from:
+    $ click-extra wrap --params -- my-cli
+
+\b
+  Highlight a source file as a themed picture:
+    $ click-extra snippet --output basket.svg basket.py
+
+\b
+  See how a help screen reads under each built-in theme:
+    $ click-extra themes
+"""
+
+
 @group(
     name="click-extra",
     cls=WrapperGroup,
@@ -181,6 +212,7 @@ _demo_section = cloup.Section(
     version_fields={"prog_name": "Click Extra"},
     config_schema=ClickExtraConfig,
     schema_strict=False,
+    epilog=DEMO_EPILOG,
 )
 def demo():
     """Click Extra CLI."""
@@ -189,7 +221,25 @@ def demo():
 demo.add_command(wrap_cmd)
 
 
-@command(name="test-suite")
+#: Sample invocations closing the `test-suite` help screen.
+TEST_SUITE_EPILOG = """\b
+Examples:
+
+\b
+  Run the built-in default suite against a CLI:
+    $ click-extra test-suite --command my-cli
+
+\b
+  Run the cases a file declares, one at a time, stopping on the first failure:
+    $ click-extra test-suite --command my-cli --suite-file cases.yaml --jobs 1 --exit-on-error
+
+\b
+  Run two of them, skipping the cases a platform cannot answer:
+    $ click-extra test-suite --command my-cli --select-test 3 --select-test 7 --skip-platform windows
+"""
+
+
+@command(name="test-suite", epilog=TEST_SUITE_EPILOG)
 @option(
     "--command",
     "--binary",
@@ -202,7 +252,6 @@ demo.add_command(wrap_cmd)
     "--suite-file",
     type=file_path(exists=True, readable=True, resolve_path=True),
     multiple=True,
-    metavar="FILE_PATH",
     help="Path to a test suite file; its format is taken from the extension "
     "(YAML, TOML, JSON, JSON5, JSONC, Hjson). Repeat to run multiple suites in "
     "sequence. Without any suite source, a built-in default suite runs.",
@@ -228,6 +277,9 @@ demo.add_command(wrap_cmd)
     "-s",
     "--skip-platform",
     type=Choice(sorted(ALL_IDS), case_sensitive=False),
+    # Roughly 180 IDs, which Click would enumerate on one unwrappable line.
+    # The `man`, `markdown` and `json` renders list them.
+    metavar="PLATFORM",
     multiple=True,
     help="Skip cases on these platforms. Repeat to skip several.",
 )
@@ -250,7 +302,6 @@ demo.add_command(wrap_cmd)
     "-W",
     "--work-directory",
     type=dir_path(exists=True, readable=True, resolve_path=True),
-    metavar="DIR_PATH",
     help="Directory to run each case's command in. Defaults to the current one. "
     "Moves the command under test, not the runner: suite files are read before "
     "any case starts.",
@@ -345,7 +396,25 @@ def test_suite_cmd(
 demo.add_command(test_suite_cmd)
 
 
-@command(name="refresh-directives")
+#: Sample invocations closing the `refresh-directives` help screen.
+REFRESH_DIRECTIVES_EPILOG = """\b
+Examples:
+
+\b
+  Refresh every self-updating block of a documentation tree:
+    $ click-extra refresh-directives docs
+
+\b
+  Refresh one page:
+    $ click-extra refresh-directives docs/recipes.md
+
+\b
+  Report the stale ones without writing, for a continuous-integration job:
+    $ click-extra refresh-directives --check docs
+"""
+
+
+@command(name="refresh-directives", epilog=REFRESH_DIRECTIVES_EPILOG)
 @argument(
     "paths",
     nargs=-1,
@@ -420,7 +489,21 @@ def refresh_directives_cmd(
 demo.add_command(refresh_directives_cmd)
 
 
-@command(name="convert-to-myst")
+#: Sample invocations closing the `convert-to-myst` help screen.
+CONVERT_TO_MYST_EPILOG = """\b
+Examples:
+
+\b
+  Convert the docstrings of the package in the current directory:
+    $ click-extra convert-to-myst
+
+\b
+  Convert the docstrings under another one:
+    $ click-extra convert-to-myst src/basket
+"""
+
+
+@command(name="convert-to-myst", epilog=CONVERT_TO_MYST_EPILOG)
 @argument("directory", required=False, default=None)
 def convert_to_myst_cmd(directory: str | None) -> None:
     """Convert reST docstrings to MyST markdown in Python source files.
@@ -594,7 +677,7 @@ def capture_options(
         ),
         option(
             "--columns",
-            metavar="INTEGER|auto",
+            metavar="[auto|INTEGER]",
             default=str(default_columns),
             show_default=True,
             callback=_parse_columns,
@@ -621,6 +704,7 @@ def capture_options(
         ),
         option(
             "--border",
+            metavar="COLOR",
             default=None,
             help="Color of the frame drawn around the terminal window, as CSS "
             "names it. Pass none to draw no frame. Defaults to the one the "
@@ -629,6 +713,7 @@ def capture_options(
         option(
             "--border-width",
             type=IntRange(min=0),
+            metavar="PIXELS",
             default=DEFAULT_BORDER_WIDTH,
             show_default=True,
             help="Thickness of that frame, in pixels.",
@@ -636,6 +721,7 @@ def capture_options(
         option(
             "--radius",
             type=IntRange(min=0),
+            metavar="PIXELS",
             default=None,
             help="How round the window's corners are, in pixels. Zero squares "
             f"them. Defaults to {DEFAULT_RADIUS}, or to the rounding --preset "
@@ -643,6 +729,7 @@ def capture_options(
         ),
         option(
             "--backdrop",
+            metavar="COLOR",
             default=NO_PAINT,
             show_default=True,
             help="Color filling the image behind the window, margin included, "
@@ -651,6 +738,7 @@ def capture_options(
         ),
         option(
             "--shadow",
+            metavar="COLOR",
             default=None,
             help="Color of the drop shadow lifting the window off the page, as "
             "CSS names it. Pass none to draw no shadow. Defaults to the one the "
@@ -659,6 +747,7 @@ def capture_options(
         option(
             "--margin",
             type=IntRange(min=0),
+            metavar="PIXELS",
             default=DEFAULT_MARGIN,
             show_default=True,
             help="Transparent pixels left around the window, on all four sides. "
@@ -668,6 +757,7 @@ def capture_options(
         option(
             "--padding",
             type=IntRange(min=0),
+            metavar="PIXELS",
             default=DEFAULT_PADDING,
             show_default=True,
             help="Pixels added inside the window, around the drawn text, on top "
@@ -693,6 +783,7 @@ def capture_options(
         ),
         option(
             "--watermark-color",
+            metavar="COLOR",
             default=None,
             help="Color that credit line is drawn in, as CSS names it, alpha "
             "included. Defaults to a neutral gray: the line sits in the "
@@ -713,9 +804,12 @@ def capture_options(
         ),
         option(
             "--truncation",
+            metavar="[auto|TEXT]",
             default=DEFAULT_TRUNCATION,
             show_default=True,
-            help="Line standing in for what --head or --tail cut away.",
+            help=f"Line standing in for what --head or --tail cut away, or "
+            f"{AUTO_TRUNCATION} to rule one across the width the kept lines "
+            f"span.",
         ),
         option(
             "--line-numbers",
@@ -775,7 +869,29 @@ def _parse_hold(
     return hold
 
 
-@command(name="screenshot")
+#: Sample invocations closing the `screenshot` help screen.
+SCREENSHOT_EPILOG = """\b
+Examples:
+
+\b
+  Draw a help screen as a picture a README can show:
+    $ click-extra screenshot --output my-cli.svg -- my-cli --help
+
+\b
+  Draw it as selectable text, for a page you own:
+    $ click-extra screenshot --output my-cli.html -- my-cli --help
+
+\b
+  Capture a CLI that is not built on Click Extra, colored all the same:
+    $ click-extra screenshot --output flask.svg --wrap -- flask run --help
+
+\b
+  Record the frames a spinner draws, as an animation:
+    $ click-extra screenshot --output ripen.svg --record --columns 80 -- ripen
+"""
+
+
+@command(name="screenshot", epilog=SCREENSHOT_EPILOG)
 @argument("command_line", nargs=-1, required=True, type=click.UNPROCESSED)
 @capture_options(
     columns_help="Terminal width, in characters, the command wraps its output "
@@ -807,6 +923,7 @@ def _parse_hold(
 @option(
     "--timeout",
     type=FloatRange(min=0, min_open=True),
+    metavar="SECONDS",
     default=None,
     help="Seconds before the command is killed. Waits forever by default. "
     "With --record, this is also where the recording stops.",
@@ -823,22 +940,27 @@ def _parse_hold(
     type=IntRange(min=1),
     default=None,
     help=f"With --record, the height of the terminal the command runs in, in "
-    f"characters.  [default: {DEFAULT_ROWS}]",
+    f"characters. Defaults to {DEFAULT_ROWS}.",
 )
 @option(
     "--hold",
     default=None,
+    # The callback reads seconds or the `auto` keyword, and Click infers TEXT
+    # for a type it was never given. Naming both keeps the accepted values on
+    # the help screen, the way a `click.Choice` puts them there.
+    metavar="[auto|FLOAT]",
     callback=_parse_hold,
     help=f"With --record, extra seconds the last frame stays up before the "
     f"animation starts over, or {AUTO_HOLD} to scale them to that frame's line "
-    f"count.  [default: {DEFAULT_RECORDING_HOLD}]",
+    f"count. Defaults to {DEFAULT_RECORDING_HOLD}.",
 )
 @option(
     "--blank",
     type=FloatRange(min=0),
+    metavar="SECONDS",
     default=None,
-    help=f"With --record, seconds of empty screen closing the cycle.  "
-    f"[default: {DEFAULT_RECORDING_BLANK}]",
+    help=f"With --record, seconds of empty screen closing the cycle. Defaults "
+    f"to {DEFAULT_RECORDING_BLANK}.",
 )
 @option(
     "--cursor",
@@ -856,9 +978,10 @@ def _parse_hold(
 @option(
     "--blink",
     type=FloatRange(min=0),
+    metavar="SECONDS",
     default=None,
     help=f"With --cursor, seconds one blink takes. Pass 0 to draw a steady "
-    f"cursor.  [default: {Cursor().blink}]",
+    f"cursor. Defaults to {Cursor().blink}.",
 )
 @option(
     "--closing-prompt/--no-closing-prompt",
@@ -870,6 +993,7 @@ def _parse_hold(
 @option(
     "--typing",
     type=FloatRange(min=0, min_open=True),
+    metavar="SECONDS",
     default=None,
     help="With --record, open the animation by typing the command line out, "
     "this many seconds per character. Omitted, the prompt stands there from "
@@ -878,16 +1002,17 @@ def _parse_hold(
 @option(
     "--submit",
     type=FloatRange(min=0, min_open=True),
+    metavar="SECONDS",
     default=None,
     help=f"With --typing, seconds the finished command line waits before its "
-    f"output starts.  [default: {DEFAULT_SUBMIT}]",
+    f"output starts. Defaults to {DEFAULT_SUBMIT}.",
 )
 @option(
     "--speed",
     type=FloatRange(min=0, min_open=True),
     default=None,
     help="With --record, how much faster to play than recorded: 2 halves "
-    "every frame's time.  [default: 1.0]",
+    "every frame's time. Defaults to 1.0.",
 )
 def screenshot_cmd(
     command_line: tuple[str, ...],
@@ -933,10 +1058,10 @@ def screenshot_cmd(
     writes the captured output where --output points. Its extension picks the
     format:
 
-      .svg  a picture of a terminal window, for a surface that strips inline
-            HTML. A README on GitHub or PyPI has no other option.
+    - .svg: a picture of a terminal window, for a surface that strips inline
+      HTML. A README on GitHub or PyPI has no other option;
 
-      .html selectable, searchable, copy-pasteable text, for a page you own.
+    - .html: selectable, searchable, copy-pasteable text, for a page you own.
 
     Put -- before the command line so its own options are not mistaken for this
     command's:
@@ -1105,15 +1230,46 @@ def screenshot_cmd(
 demo.add_command(screenshot_cmd)
 
 
-@command(name="snippet")
+#: Choice values of this command's own options that are also plain English
+#: words its description uses: "a progress bar", "a plain capture", "never
+#: sees". Excluded from the cross-reference pass, which would otherwise paint
+#: them as values wherever the prose says the word. Their own metavars keep
+#: their coloring, see `HelpFormatter.highlight_extra_keywords`.
+screenshot_cmd.excluded_keywords = HelpKeywords(choices={"bar", "never", "plain"})
+
+#: Same collision, from the default options every command inherits: "never
+#: refreshed", "MyST markdown", "a plain line".
+refresh_directives_cmd.excluded_keywords = HelpKeywords(choices={"never"})
+convert_to_myst_cmd.excluded_keywords = HelpKeywords(choices={"markdown"})
+
+
+#: Sample invocations closing the `snippet` help screen.
+SNIPPET_EPILOG = """\b
+Examples:
+
+\b
+  Draw a source file as a picture a README can show:
+    $ click-extra snippet --output basket.svg basket.py
+
+\b
+  Draw it as selectable text, under a named theme:
+    $ click-extra snippet --output basket.html --theme dracula basket.py
+
+\b
+  Number the lines and point at the one that matters:
+    $ click-extra snippet --output basket.svg --line-numbers --emphasize-lines 12 basket.py
+"""
+
+
+@command(name="snippet", epilog=SNIPPET_EPILOG)
 @argument(
     "source",
     type=file_path(exists=True, readable=True, allow_dash=True),
 )
 @capture_options(
     default_columns=AUTO_COLUMNS,
-    columns_help="Width, in characters, the image is laid out at. Defaults to "
-    "the longest line the source holds, so nothing folds: a file was never "
+    columns_help="Width, in characters, the image is laid out at. Pass auto to "
+    "take the longest line the source holds, so nothing folds: a file was never "
     "wrapped to a terminal's width, and code that soft-wrapped in the picture "
     "would lose the indentation a reader is there to read.",
 )
@@ -1174,9 +1330,9 @@ def snippet_cmd(
 
     Both formats are the screenshot command's:
 
-      .svg  a picture, for a surface that strips inline HTML.
+    - .svg: a picture, for a surface that strips inline HTML;
 
-      .html selectable, searchable, copy-pasteable text.
+    - .html: selectable, searchable, copy-pasteable text.
 
     Highlighting needs the pygments extra.
     """
@@ -1409,7 +1565,7 @@ def demo_8color() -> None:
 
 @demo.command(name="gradient", section=_demo_section)
 def demo_gradient() -> None:
-    """Render 24-bit RGB gradients vs. their 256-color quantized equivalents."""
+    """Render 24-bit RGB gradients beside their 256-color quantized equivalents."""
     echo(_render_gradient())
 
 
@@ -1634,22 +1790,59 @@ def demo_trail(
     help="Centimetres between seeds.",
 )
 @option("--water/--no-water", default=True, help="Water the bed right after sowing.")
-@argument("plot")
+# Click lists a positional argument only when it carries a help string. Cloup's
+# own `Argument` used to force a row for a help-less one, and dropped that shim
+# for Click 8.5: without this `help=`, released cloup draws a `Positional
+# arguments:` section here and cloup master draws none, so the committed capture
+# can only match one of them.
+@argument("plot", help="Garden bed to sow the crop into.")
 def _theme_gallery_sample(**_kwargs: object) -> None:
     """Sow a crop into a garden PLOT and water it in."""
 
 
 @demo.command(name="themes", section=_demo_section)
+@argument(
+    "theme_ids",
+    type=ThemeChoice(),
+    nargs=-1,
+    # Spell the choices as a metavar: the list is long enough that Click breaks
+    # it mid-word in the usage line, and `--theme` already advertises the names.
+    metavar="[auto|THEME]...",
+    help="Palettes to render, in the order given. Defaults to all of them.",
+)
 @pass_context
-def demo_themes(ctx: click.Context) -> None:
-    """Render a sample help screen under every built-in theme, one after another.
+def demo_themes(ctx: click.Context, theme_ids: tuple[str, ...]) -> None:
+    """Render a sample help screen under each theme, one after another.
 
-    Each built-in palette is applied in turn to the same throwaway CLI so the
-    themes can be eyeballed back to back. A terminal keeps a single background,
-    so light-background themes (light, manpage) look washed out on a dark
-    terminal, and dark themes look washed out on a light one.
+    Each palette is applied in turn to the same throwaway CLI so the themes can
+    be eyeballed back to back. A terminal keeps a single background, so
+    light-background themes (light, manpage) look washed out on a dark terminal,
+    and dark themes look washed out on a light one.
+
+    Without an argument the whole registry is rendered, alphabetically: the
+    built-in palettes, plus any a configuration file defines. Name palettes to
+    render only those, in the order given. The auto value stands for the palette
+    the terminal background resolves to, as it does on --theme.
     """
-    for name, theme in BUILTIN_THEMES.items():
+    registry = get_theme_registry(ctx)
+    if theme_ids:
+        # "auto" names no palette, so map it onto the one the terminal
+        # background resolves to: the gallery labels palettes, not directives.
+        auto_theme = resolve_auto_theme(ctx) if AUTO_THEME in theme_ids else None
+        auto_name = next(
+            (name for name, theme in registry.items() if theme is auto_theme),
+            None,
+        )
+        selection = [
+            auto_name if theme_id == AUTO_THEME else theme_id for theme_id in theme_ids
+        ]
+        # A name is None once ThemeChoice found nothing to resolve against,
+        # which is an empty registry: themes.toml was dropped at packaging time.
+        gallery = [(name, registry[name]) for name in selection if name is not None]
+    else:
+        gallery = sorted(registry.items())
+
+    for name, theme in gallery:
         # Point get_current_theme() at this palette by writing the same
         # context.THEME meta ThemeOption sets from --theme; the HelpFormatter
         # reads it back when it renders the sample below. Scoped to this
@@ -1657,8 +1850,15 @@ def demo_themes(ctx: click.Context) -> None:
         context.set(ctx, context.THEME, theme)
         sample_ctx = make_resilient_context(_theme_gallery_sample, "garden")
         sample_ctx.color = ctx.color
-        echo(style("─" * 60, fg="bright_black"), color=ctx.color)
-        echo("Theme: " + theme.heading(name), color=ctx.color)
+        # Center the theme name in a rule as wide as the column count the sample
+        # help below wraps to, so the gallery keeps a single right edge.
+        echo(
+            center_in_rule(
+                f"Theme: {theme.heading(name)}",
+                sample_ctx.make_formatter().width,
+            ),
+            color=ctx.color,
+        )
         echo()
         echo(_theme_gallery_sample.get_help(sample_ctx), color=ctx.color)
         echo()

@@ -29,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           persist-credentials: false
       - run: pip install -e .
       - name: Close no-change suppressed-triage follow-up PRs
@@ -39,7 +40,9 @@ jobs:
             agdt-suppressed-triage-reap --repo "${REPO}" --max-prs "${MAX_PRS}"
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           REPO: ${{ github.repository }}
           MAX_PRS: ${{ inputs.max_prs || '25' }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}

@@ -1,8 +1,6 @@
 import dataclasses
 import functools
 import json
-import os
-from concurrent.futures import ThreadPoolExecutor
 from typing import ClassVar
 
 import jinja2
@@ -18,6 +16,8 @@ from humming.config import (
     MmaType,
     TuningConfig,
 )
+from humming.config.config import _cuda_compiler_version
+from humming.device import get_device_index
 from humming.jit.runtime import KernelRuntime
 from humming.tune import get_heuristics_config
 from humming.utils.smem import estimate_smem_size_config
@@ -113,6 +113,15 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         TuningConfig.__post_init__(self)
         KernelRuntime.__post_init__(self)
 
+    def init_sm_version(self):
+        super().init_sm_version()
+        if self.mma_type == MmaType.UMMA:
+            assert self.sm_version // 10 == 10, "UMMA requires SM100 family"
+            assert _cuda_compiler_version(self._get_compiler()) >= (12, 9), (
+                "UMMA sm_100f requires CUDA 12.9 or newer"
+            )
+            self.sm_version_str = "100f"
+
     def init_kernel(self) -> None:
         self.check_shape()
         self.check_dtype()
@@ -121,8 +130,8 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         self.mma_op_class = self.select_mma_op_class()
 
         assert self.bs_dtype is not None
-        self.code = CODE_TEMPLATE.render(
-            use_warp_spec=int(self.use_warp_spec or False),
+        template_args = self.to_template_args()
+        template_args.update(
             mma_op_class=self.mma_op_class.to_cpp_str(),
             problem_shape=self.problem_shape,
             pad_shape=self.pad_shape,
@@ -137,11 +146,8 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
             layer_config_macro=self.to_macro_cpp_str(LayerConfig),
             compute_config_macro=self.to_macro_cpp_str(ComputeConfig),
             tuning_config_macro=self.to_macro_cpp_str(TuningConfig),
-            a_dtype=self.a_dtype.to_cpp_str(),
-            b_dtype=self.b_dtype.to_cpp_str(),
-            c_dtype=self.c_dtype.to_cpp_str(),
-            bs_dtype=self.bs_dtype.to_cpp_str(),
         )
+        self.code = CODE_TEMPLATE.render(**template_args)
         self.kernel_expr = (
             f"humming<\n"
             f"    MmaOpClass,\n"
@@ -159,17 +165,14 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         )
 
         self.prepare()
+        self.register_kernel()
 
-    def load_cubin(self):
+    def register_kernel(self):
         from humming import ops
 
-        if self.cubin_loaded:
-            return None
         kernel_filename = self.kernel_filename
         self.kernel_id, self.kernel_name = ops.register_kernel(kernel_filename)
         self._id2kernel[self.kernel_id] = self
-        self.kernel_dirname = os.path.dirname(kernel_filename)
-        self.cubin_loaded = True
 
     @property
     def estimated_smem_size(self) -> int:
@@ -343,6 +346,9 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
                     assert mma_k // gs in (1, 2, 4)
             if self.input_scale_group_size > 0 and self.weight_scale_group_size > 0:
                 assert self.input_scale_group_size == self.weight_scale_group_size
+                if self.is_group_weight_scale:
+                    err_msg = "MXMMA input and weight per-group scales must use the same dtype"
+                    assert self.as_dtype == self.bs_dtype, err_msg
             return
 
         if self.input_scale_group_size > 0:
@@ -405,6 +411,18 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
 
     def check_config(self):
         assert self.num_threads <= 1024
+        if self.mma_type == MmaType.UMMA:
+            assert self.a_dtype == self.c_dtype == dtypes.bfloat16, (
+                "UMMA requires BF16 activations and outputs"
+            )
+            assert self.block_shape[0] in (64, 128)
+            assert tuple(self.block_shape[1:]) == (128, 64)
+            assert tuple(self.warp_shape) == (self.block_shape[0], 32, 64)
+            assert self.use_warp_spec and self.num_stages >= 3
+            assert not self.use_f16_accum
+            assert not self.use_pdl
+            assert not self.reduce_overlap_last_stage_only
+            assert self.multi_cast_size_a == self.multi_cast_size_b == 1
         assert not (self.mma_type == MmaType.MXMMA and self.use_f16_accum), (
             "MXMMA does not support FP16 accumulation"
         )
@@ -437,20 +455,28 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         if self.reduce_overlap_last_stage_only:
             assert not self.is_indexed_gemm, "reduce_overlap_last_stage_only does not support indexed GEMM"
 
-        if self.has_input_scale and self.input_scale_group_size == 0 and self.mma_type != MmaType.MXMMA:
-            self.use_m_major_input_scale = True
+        if self.is_tensor_input_scale:
+            self.use_tma_as = False
+            self.use_m_major_input_scale = False
+
         if self.mma_type == MmaType.MXMMA and self.input_scale_group_size == 0:
             self.use_tma_as = False
             self.use_m_major_input_scale = False
 
-        if self.use_tma_as and self.is_indexed_gemm:
+        if self.is_indexed_gemm:
             self.use_tma_as = False
-            self.use_m_major_input_scale = True
+            self.use_tma_as2 = False
+        if self.is_grouped_gemm and self.block_shape[0] + 4 > 256:
+            self.use_tma_as = False
+            self.use_tma_as2 = False
+        if not self.has_input_scale_2 or self.is_tensor_input_scale_2:
+            self.use_tma_as2 = False
 
         if self.is_indexed_gemm:
             assert not self.use_tma_a, "indexed GEMM does not support TMA input loads"
             assert not self.use_tma_c, "indexed GEMM does not support TMA output stores"
             assert not self.use_tma_as, "indexed GEMM does not support TMA input scale loads"
+            assert not self.use_tma_as2, "indexed GEMM does not support TMA secondary input scale loads"
 
         if self.multi_cast_size_a * self.multi_cast_size_b > 1:
             assert self.sm_version in (90, 100, 103)
@@ -470,53 +496,57 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         )
         raise NotImplementedError(msg)
 
+    @staticmethod
+    def _prepare_config_str(config: str | dict | list | None) -> str:
+        if config is None:
+            return "{}"
+        return config if isinstance(config, str) else str(config)
+
+    @staticmethod
+    def _prepare_config_obj(config: str | dict | list | None):
+        if config is None:
+            return {}
+        return json.loads(config) if isinstance(config, str) else config
+
+    @classmethod
+    def _resolve_configs(cls, layer_config, compute_config, tuning_config, device=None):
+        device_index = get_device_index(device)
+        layer_obj = dict(cls._prepare_config_obj(layer_config))
+        compute_obj = dict(cls._prepare_config_obj(compute_config))
+        tuning_obj = cls._prepare_config_obj(tuning_config)
+        layer_obj.pop("sublayer_name", None)
+        with torch.cuda.device(device_index):
+            layer_config_obj = LayerConfig(**layer_obj)
+            layer_config_obj.check_device(device_index)
+            layer_obj["sm_version"] = layer_config_obj.sm_version
+            if not tuning_obj:
+                tuning_obj = get_heuristics_config(layer_config_obj, **compute_obj, device=device_index)
+        return layer_obj, compute_obj, tuning_obj
+
     @classmethod
     def prepare_kernels(
         cls,
         layer_config: str | dict,
         compute_config: str | dict | None = None,
         tuning_config: str | dict | list | None = None,
+        device: int | torch.device | None = None,
     ) -> "torch.Tensor":
-        def prepare_config_str(config: str | dict | list | None):
-            if config is None:
-                return "{}"
-            elif isinstance(config, str):
-                return config
-            else:
-                return str(config)
-
-        def prepare_config_obj(config: str | dict | list | None):
-            if config is None:
-                return {}
-            elif not isinstance(config, str):
-                return config
-            else:
-                return json.loads(config)
-
-        layer_config_str = prepare_config_str(layer_config)
-        compute_config_str = prepare_config_str(compute_config)
-        tuning_config_str = prepare_config_str(tuning_config)
-        cache_key = (
-            layer_config_str,
-            compute_config_str,
-            tuning_config_str,
-            cls.current_context(),
-        )
+        device_index = get_device_index(device)
+        layer_config_str = cls._prepare_config_str(layer_config)
+        compute_config_str = cls._prepare_config_str(compute_config)
+        tuning_config_str = cls._prepare_config_str(tuning_config)
+        cache_key = (layer_config_str, compute_config_str, tuning_config_str, device_index)
         if cache_key in cls._str2kernel_cache:
             return cls._str2kernel_cache[cache_key]
 
-        layer_config_obj = prepare_config_obj(layer_config)
-        compute_config_obj = prepare_config_obj(compute_config)
-        tuning_config_obj = prepare_config_obj(tuning_config)
-        layer_config_obj.pop("sublayer_name", None)
-
-        if not tuning_config_obj:
-            tuning_config_obj = get_heuristics_config(LayerConfig(**layer_config_obj), **compute_config_obj)
+        config_objs = cls._resolve_configs(layer_config, compute_config, tuning_config, device_index)
+        layer_config_obj, compute_config_obj, tuning_config_obj = config_objs
 
         if isinstance(tuning_config_obj, dict):
             config = layer_config_obj | compute_config_obj | tuning_config_obj
             num_sms = config.pop("num_sms", 0)
-            kernel = HummingKernel(**config)
+            with torch.cuda.device(device_index):
+                kernel = HummingKernel(**config)
             res = torch.tensor(
                 [0, 1 << 30, kernel.kernel_id, num_sms],
                 dtype=torch.int64,
@@ -525,29 +555,19 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
             cls._str2kernel_cache[cache_key] = res
             return res
 
-        def prepare_kernel(data):
-            _, _, tuning_config_obj_single = data
+        kernel_specs = []
+        interval_configs = []
+        for interval_config in tuning_config_obj:
+            _, _, tuning_config_obj_single = interval_config
             kernel_config = layer_config_obj | compute_config_obj | tuning_config_obj_single
             num_sms = kernel_config.pop("num_sms", 0)
-            kernel = HummingKernel(**kernel_config)
-            return data, kernel, num_sms
+            kernel_specs.append((cls, kernel_config))
+            interval_configs.append((interval_config, num_sms))
 
         res = []
-        if os.environ.get("HUMMING_DISABLE_PARALLEL_BUILD", "0") != "1":
-            _current_device = torch.cuda.current_device()
-            with ThreadPoolExecutor(
-                max_workers=16,
-                initializer=torch.cuda.set_device,
-                initargs=(_current_device,),
-            ) as executor:
-                for config, kernel, num_sms in executor.map(prepare_kernel, tuning_config_obj):
-                    kernel.load_cubin()
-                    res += [config[0], config[1], kernel.kernel_id, num_sms]
-        else:
-            for config in tuning_config_obj:
-                _, kernel, num_sms = prepare_kernel(config)
-                kernel.load_cubin()
-                res += [config[0], config[1], kernel.kernel_id, num_sms]
+        kernels = cls.compile_many(kernel_specs, device_index)
+        for (config, num_sms), kernel in zip(interval_configs, kernels, strict=True):
+            res += [config[0], config[1], kernel.kernel_id, num_sms]
 
         res = torch.tensor(res, dtype=torch.int64, device="cpu")
         cls._str2kernel_cache[cache_key] = res

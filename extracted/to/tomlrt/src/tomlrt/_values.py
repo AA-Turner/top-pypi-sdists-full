@@ -13,7 +13,7 @@ from __future__ import annotations
 import copy
 import re
 import sys
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta, timezone
 from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
 
 if sys.version_info >= (3, 12):
@@ -29,11 +29,54 @@ from tomlrt._trivia import (
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from datetime import tzinfo
+    from typing import TypeGuard
 
     from typing_extensions import Self
 
 
 _ScalarT = TypeVar("_ScalarT")
+
+
+def _tzinfo_is_shareable(tz: tzinfo | None) -> bool:
+    """Whether a ``tzinfo`` reaches no mutable state.
+
+    `timezone` retains the exact offset and name objects it was built
+    from, so a `timedelta` or `str` subclass carrying attributes of its
+    own makes an otherwise-immutable instance reachable-mutable.
+    Everything the parser produces -- naive, ``timezone.utc``, or
+    ``timezone(timedelta(...))`` -- passes.
+    """
+    if tz is None or tz is timezone.utc:
+        # Redundant with the checks below, but a naive or UTC value is
+        # much the commonest shape and answering it costs a third.
+        return True
+    return (
+        type(tz) is timezone
+        and type(tz.utcoffset(None)) is timedelta
+        and type(tz.tzname(None)) is str
+    )
+
+
+def is_shareable_scalar(
+    value: object,
+) -> TypeGuard[str | int | float | bool | date | time]:
+    """Whether a Python scalar is known to be transitively immutable.
+
+    Exact types only: a subclass may carry mutable attributes of its
+    own, so it is copied rather than shared. A temporal value has to
+    reach nothing mutable through its ``tzinfo`` either.
+
+    Identity comparisons, not a set of types: membership would hash the
+    class and compare it with ``==``, so the answer would come from
+    whatever its metaclass says.
+    """
+    kind = type(value)
+    if kind is str or kind is int or kind is float or kind is bool or kind is date:
+        return True
+    if type(value) is datetime or type(value) is time:
+        return _tzinfo_is_shareable(value.tzinfo)
+    return False
 
 
 class ScalarValue(Generic[_ScalarT]):
@@ -57,21 +100,30 @@ class ScalarValue(Generic[_ScalarT]):
 
     @property
     def is_shareable(self) -> bool:
-        """Whether both fields are known to be transitively immutable."""
-        kind = type(self.value)
-        return type(self.lexeme) is str and (
-            kind is str or kind is int or kind is float or kind is bool
-        )
+        """Whether both fields are known to be transitively immutable.
+
+        A shareable node is handed to a copy rather than cloned, so the
+        two documents then hold the same object. That is sound only
+        because a published scalar node is never written in place: a
+        mutation rebinds its owner's ``value`` to a fresh node instead.
+        The two writers of these fields are the parser, before the node
+        is published, and `_copy_payloads`, on a clone that is not.
+        """
+        return type(self.lexeme) is str and is_shareable_scalar(self.value)
 
     def __deepcopy__(self, memo: dict[int, object]) -> Self:
-        """Share atomic data; copy temporal values and Python subclasses safely."""
+        """Share atomic data; copy mutable payloads and subclasses safely."""
         if self.is_shareable:
             return self
         new = type(self)(self.lexeme, self.value)
         memo[id(self)] = new
-        new.lexeme = copy.deepcopy(self.lexeme, memo)
-        new.value = copy.deepcopy(self.value, memo)
+        new._copy_payloads(memo)  # noqa: SLF001
         return new
+
+    def _copy_payloads(self, memo: dict[int, object]) -> None:
+        """Isolate the fields of a fresh, unpublished scalar node."""
+        self.lexeme = copy.deepcopy(self.lexeme, memo)
+        self.value = copy.deepcopy(self.value, memo)
 
 
 class StringValue(ScalarValue[str]):
@@ -338,14 +390,35 @@ class CommaValue(_CommaNode, Generic[_ItemT]):
         return f"{self._open}{self.header_trivia}{body}{self.final_trivia}{self._close}"
 
     def is_multiline(self) -> bool:
-        """Whether this value renders across multiple physical lines.
+        """Whether this value's own trivia contains a row break.
 
+        Nested values and scalar lexemes do not determine the outer shape.
         Memoised via `_ml_cache`: the first call after a cache-invalidating
         mutation costs an O(n) scan, every other call is O(1).
         """
         if self._ml_cache is None:
-            self._ml_cache = _scan_multiline(self)
+            self._ml_cache = self._own_trivia_contains("\n")
         return self._ml_cache
+
+    def has_own_comment(self) -> bool:
+        """Whether this value's own trivia carries a comment, without caching.
+
+        Unlike `value_has_any_comment`, excludes comments in nested values.
+        """
+        return self._own_trivia_contains("#")
+
+    def _own_trivia_contains(self, needle: str) -> bool:
+        """Search own-level trivia, excluding nested values and scalar lexemes."""
+        if needle in self.header_trivia or needle in self.final_trivia:
+            return True
+        for it in self.items:
+            if (
+                needle in it.leading
+                or needle in it.post_comma_trivia
+                or needle in it.trailing
+            ):
+                return True
+        return False
 
     def reset_multiline_cache(self) -> None:
         """Drop the memoised `is_multiline` result so it recomputes.
@@ -366,6 +439,12 @@ class ArrayValue(CommaValue[ArrayItem]):
 
     _open: ClassVar[str] = "["
     _close: ClassVar[str] = "]"
+
+
+class EmptyAoTValue(ArrayValue):
+    """Synthetic ``[]`` placeholder retaining an empty array-of-tables' shape."""
+
+    __slots__ = ()
 
 
 class InlineTableValue(CommaValue[InlineTableEntry]):
@@ -439,16 +518,6 @@ def inter_item_separator(items: Sequence[CommaItem]) -> str:
         head, _above, tail = split_item_above(items[1].leading)
         return head + tail
     return " "
-
-
-def _scan_multiline(v: CommaValue[_ItemT]) -> bool:
-    """Uncached scan: inspect every trivia region that can carry a row break."""
-    if "\n" in v.header_trivia or "\n" in v.final_trivia:
-        return True
-    for it in v.items:
-        if "\n" in it.leading or "\n" in it.post_comma_trivia or "\n" in it.trailing:
-            return True
-    return False
 
 
 def value_has_any_comment(v: Value) -> bool:

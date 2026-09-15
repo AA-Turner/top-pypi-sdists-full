@@ -1,7 +1,7 @@
 """The contract closure is a measurement, so it has to be falsifiable.
 
 agent-engine-extraction Phase 1b.2. The plan carried "149 sibling dataclasses"
-as an estimate. The closure walk says the real number is 33 — the transitive set
+as an estimate. The closure walk says the real number is 34 (33 until 2026-09-14) — the transitive set
 of dataclasses reachable from UnifiedConfig / UnifiedMessage / UnifiedResponse.
 Only those cross the language boundary, so only those need pydantic twins
 (D2/D8: model_json_schema() is what generates the TypeScript).
@@ -50,7 +50,10 @@ def test_the_closure_is_the_number_the_plan_rests_on():
     # Not a golden-file assertion for its own sake: this number is what PLAN.md
     # and the phase estimate rest on. If it moves, the plan moves with it —
     # a new contract dataclass is a new twin nobody scheduled.
-    assert len(dataclasses_in_contract) == 33, (
+    # 34 since 2026-09-14: HostedToolContent (a provider-hosted tool block carried
+    # verbatim so an interleaved hosted-search turn replays block-for-block) — its
+    # twin is HostedToolContentModel, scheduled in the same commit.
+    assert len(dataclasses_in_contract) == 34, (
         "the contract closure changed; update PLAN.md in the same commit. Now: "
         + ", ".join(sorted(f"{c.__module__}.{c.__name__}" for c in dataclasses_in_contract))
     )

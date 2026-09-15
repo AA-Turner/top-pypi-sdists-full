@@ -3,9 +3,13 @@ from __future__ import annotations
 import random
 from datetime import timedelta
 from itertools import count
+from typing import Any
+
+import pytest
 
 from pgqueuer.adapters.persistence.query_helpers import (
     NormedEnqueueParam,
+    cell,
     normalize_enqueue_params,
     scatter_ids_by_ordinal,
 )
@@ -192,7 +196,7 @@ def test_normalize_headers_dict() -> None:
     assert result == expected
 
 
-def rows(*ord_id_pairs: tuple[int, int]) -> list[dict]:
+def rows(*ord_id_pairs: tuple[int, int]) -> list[dict[str, Any]]:
     """Build inserted rows carrying the input ordinal and assigned id."""
     return [{"ord": o, "id": i} for o, i in ord_id_pairs]
 
@@ -225,14 +229,14 @@ def test_scatter_first_and_last_skipped() -> None:
 def simulate_enqueue(
     dedupe_keys: list[str | None],
     active: set[str],
-) -> tuple[list[dict], list[int | None]]:
+) -> tuple[list[dict[str, Any]], list[int | None]]:
     """Reference model of the skip-mode INSERT.
 
     Mirrors ON CONFLICT DO NOTHING against the *active* key set (null keys
     never conflict, an inserted key becomes active for the rest of the batch).
     Each surviving row carries its 1-based input ordinal and a fresh id.
     """
-    inserted = list[dict]()
+    inserted = list[dict[str, Any]]()
     expected = list[int | None]()
     remaining = set(active)
     next_id = count(1)
@@ -256,3 +260,17 @@ def test_scatter_matches_simulated_insert_semantics() -> None:
         active = {key for key in "abc" if rng.random() < 0.4}
         inserted, expected = simulate_enqueue(keys, active)
         assert scatter_ids_by_ordinal(inserted, len(keys)) == expected
+
+
+def test_cell_returns_value_of_expected_type() -> None:
+    row: dict[str, object] = {"exists": True, "queued_work": 3}
+    assert cell(row, "exists", bool) is True
+    assert cell(row, "queued_work", int) == 3
+
+
+def test_cell_rejects_wrong_type_and_missing_key() -> None:
+    row: dict[str, object] = {"eta": "not-a-timedelta"}
+    with pytest.raises(TypeError, match="column 'eta': expected timedelta, got str"):
+        cell(row, "eta", timedelta)
+    with pytest.raises(KeyError):
+        cell(row, "missing", int)

@@ -34,7 +34,6 @@ ws_reviewer/org_id,ws_id:
     - r:workspace/org_id,ws_id
     - r+w:workspace_data/org_id,ws_id
     - r:outcome_type_management/org_id,ws_id
-    - r+w:workspace_review_case/org_id,ws_id,{env=*}
     - file_user/org_id,ws_id
     - copilot_user/org_id,ws_id
 ws_editor/org_id,ws_id:
@@ -143,14 +142,18 @@ copilot_user/org_id,ws_id:
 # P141c connect roles, carved verbatim from the ws_* roles (capability-neutral)
 connection_viewer/org_id,ws_id:
     - r:workspace_connection/org_id,ws_id
+connection_user_sandbox/org_id,ws_id:
+    - w:workspace_connection_execution/org_id,ws_id,{env=sandbox}
+connection_user_live/org_id,ws_id:
+    - w:workspace_connection_execution/org_id,ws_id,{env=live}
 connection_user/org_id,ws_id:
     # no env arg on connection resources yet, so no sandbox/live split
     - r+w:workspace_connection_resource/org_id,ws_id
 connection_editor/org_id,ws_id:
     - connection_viewer/org_id,ws_id
-    - connection_user/org_id,ws_id
+    - connection_user_sandbox/org_id,ws_id
     - w+d:workspace_connection/org_id,ws_id
-    - w+d:workspace_connection_resource/org_id,ws_id
+    - r+d:workspace_connection_resource/org_id,ws_id
     - r+w+d:workspace_connection_tenant/org_id,ws_id
     - w:workspace_connection_secret/org_id,ws_id
 
@@ -169,6 +172,7 @@ case_reviewer/org_id,ws_id:
     - r:workspace_case/org_id,ws_id
     - r:workspace_case_queue/org_id,ws_id
     - r:workspace_case_template/org_id,ws_id
+    - r+w:workspace_review_case/org_id,ws_id,{env=*}
 case_editor/org_id,ws_id:
     - case_reviewer/org_id,ws_id
     - r+w:workspace_case_template/org_id,ws_id

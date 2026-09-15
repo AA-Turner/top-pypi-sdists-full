@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tcp-modbus-aio
-Version: 0.4.7
+Version: 0.4.8
 Summary: asyncio client library for tcp modbus devices
 License: MIT
 License-File: LICENSE

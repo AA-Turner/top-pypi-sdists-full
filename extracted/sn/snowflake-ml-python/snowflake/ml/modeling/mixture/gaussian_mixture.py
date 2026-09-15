@@ -144,6 +144,9 @@ class GaussianMixture(BaseTransformer):
         - 'diag': each component has its own diagonal covariance matrix.
         - 'spherical': each component has its own single variance.
 
+        For an example of using `covariance_type`, refer to
+        :ref:`sphx_glr_auto_examples_mixture_plot_gmm_selection.py`.
+
     tol: float, default=1e-3
         The convergence threshold. EM iterations will stop when the
         lower bound average gain is below this threshold.

@@ -236,6 +236,26 @@ def _enable_feature(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
 
+@pytest.fixture(autouse=True)
+def _assume_no_active_copilot_session():
+    """Keep these deferral scenarios independent of live agent-task inventory."""
+    with (
+        patch(
+            "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_copilot_session_active_via_agent_task",
+            return_value=False,
+        ),
+        patch(
+            "agentic_devtools.cli.ci.pipeline.actions.approve.is_copilot_session_active_via_agent_task",
+            return_value=False,
+        ),
+        patch(
+            "agentic_devtools.cli.ci.pipeline.actions.merge.is_copilot_session_active_via_agent_task",
+            return_value=False,
+        ),
+    ):
+        yield
+
+
 class TestSpecsOnlyRoundIsDeferredAndMerges:
     """Scenario 1 — specs-only suppressed-only round reaches merge."""
 

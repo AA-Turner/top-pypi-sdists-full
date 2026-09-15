@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from dataclasses import dataclass
 
 import requests
 
@@ -149,9 +150,164 @@ def resolve_devin_org_id() -> str:
     )
 
 
+def is_configured() -> bool:
+    """Return whether both the Devin API token and organization ID are set."""
+    return any(os.environ.get(var) for var in _TOKEN_ENV_VARS) and any(
+        os.environ.get(var) for var in _ORG_ID_ENV_VARS
+    )
+
+
 # ---------------------------------------------------------------------------
 # API operations
 # ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DevinSessionRef:
+    """Identity and lifecycle state of a Devin session."""
+
+    session_id: str
+    url: str
+    status: str = ""
+    is_archived: bool = False
+    tags: tuple[str, ...] = ()
+
+
+def _auth_headers(token: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+
+def _devin_id(session_id: str) -> str:
+    return (
+        session_id
+        if session_id.startswith(_DEVIN_ID_PREFIX)
+        else f"{_DEVIN_ID_PREFIX}{session_id}"
+    )
+
+
+def _session_ref_from_body(body: object) -> DevinSessionRef:
+    if not isinstance(body, dict):
+        raise RuntimeError(
+            f"Devin sessions API returned a non-object body: {type(body).__name__}"
+        )
+    raw_id = body.get("session_id") or body.get("id")
+    if not isinstance(raw_id, str) or not raw_id:
+        raise RuntimeError("Devin sessions API returned no session_id")
+    session_id = extract_session_id(raw_id)
+    url = body.get("url")
+    if not isinstance(url, str) or not url:
+        url = f"{DEVIN_SESSION_URL_PREFIX}{session_id}"
+    status = body.get("status")
+    raw_tags = body.get("tags")
+    tags = (
+        tuple(tag for tag in raw_tags if isinstance(tag, str))
+        if isinstance(raw_tags, list)
+        else ()
+    )
+    return DevinSessionRef(
+        session_id=session_id,
+        url=url,
+        status=status if isinstance(status, str) else "",
+        is_archived=body.get("is_archived") is True,
+        tags=tags,
+    )
+
+
+def create_session(
+    prompt: str,
+    *,
+    title: str | None = None,
+    tags: list[str] | None = None,
+    playbook_id: str | None = None,
+    max_acu_limit: int | None = None,
+    structured_output_schema: dict[str, object] | None = None,
+) -> DevinSessionRef:
+    """Start a new Devin session via the v3 API.
+
+    Calls `POST /v3/organizations/{org_id}/sessions`, which requires a
+    service-user token with the `ManageOrgSessions` permission.
+
+    Raises:
+        RuntimeError: If the token or organization ID cannot be resolved, or
+            the response carries no `session_id`.
+        requests.RequestException: If the API call fails.
+    """
+    token = resolve_devin_api_token()
+    org_id = resolve_devin_org_id()
+    payload: dict[str, object] = {"prompt": prompt}
+    if title:
+        payload["title"] = title
+    if tags:
+        payload["tags"] = tags
+    if playbook_id:
+        payload["playbook_id"] = playbook_id
+    if max_acu_limit is not None:
+        payload["max_acu_limit"] = max_acu_limit
+    if structured_output_schema is not None:
+        payload["structured_output_schema"] = structured_output_schema
+
+    response = requests.post(
+        f"{DEVIN_API_BASE}/v3/organizations/{org_id}/sessions",
+        headers=_auth_headers(token),
+        json=payload,
+        timeout=30,
+    )
+    response.raise_for_status()
+    return _session_ref_from_body(response.json())
+
+
+def list_sessions(*, tags: list[str], limit: int = 20) -> list[DevinSessionRef]:
+    """List sessions carrying **any** of `tags`, newest first.
+
+    Calls `GET /v3/organizations/{org_id}/sessions?tags=...` (`ViewOrgSessions`
+    permission). The API matches a session if it has at least one of the
+    tags, so callers needing an exact match must filter on the returned
+    `DevinSessionRef.tags`. Only the first page is returned.
+
+    Raises:
+        RuntimeError: If the token or organization ID cannot be resolved, or
+            the response is malformed.
+        requests.RequestException: If the API call fails.
+    """
+    token = resolve_devin_api_token()
+    org_id = resolve_devin_org_id()
+    response = requests.get(
+        f"{DEVIN_API_BASE}/v3/organizations/{org_id}/sessions",
+        headers=_auth_headers(token),
+        params={"tags": tags, "limit": limit},
+        timeout=30,
+    )
+    response.raise_for_status()
+    body = response.json()
+    if not isinstance(body, dict) or not isinstance(body.get("items"), list):
+        raise RuntimeError("Devin sessions list returned no `items` array")
+    return [_session_ref_from_body(item) for item in body["items"]]
+
+
+def unarchive_session(session_id: str) -> DevinSessionRef:
+    """Unarchive a session so a later message resumes it.
+
+    Calls `POST /v3/organizations/{org_id}/sessions/{devin_id}/unarchive`
+    (`ManageOrgSessions` permission). A message sent to an archived session is
+    accepted but does not wake it, so this must run first.
+
+    Raises:
+        RuntimeError: If the token or organization ID cannot be resolved.
+        requests.RequestException: If the API call fails.
+    """
+    token = resolve_devin_api_token()
+    org_id = resolve_devin_org_id()
+    response = requests.post(
+        f"{DEVIN_API_BASE}/v3/organizations/{org_id}/sessions/"
+        f"{_devin_id(session_id)}/unarchive",
+        headers=_auth_headers(token),
+        timeout=30,
+    )
+    response.raise_for_status()
+    return _session_ref_from_body(response.json())
 
 
 def send_session_message(session_id: str, message: str) -> None:
@@ -177,19 +333,12 @@ def send_session_message(session_id: str, message: str) -> None:
     """
     token = resolve_devin_api_token()
     org_id = resolve_devin_org_id()
-    devin_id = (
-        session_id
-        if session_id.startswith(_DEVIN_ID_PREFIX)
-        else f"{_DEVIN_ID_PREFIX}{session_id}"
-    )
+    devin_id = _devin_id(session_id)
 
     url = f"{DEVIN_API_BASE}/v3/organizations/{org_id}/sessions/{devin_id}/messages"
     response = requests.post(
         url,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
+        headers=_auth_headers(token),
         json={"message": message},
         timeout=30,
     )

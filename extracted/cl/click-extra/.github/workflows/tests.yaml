@@ -80,8 +80,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: "0.12.5"
-      - name: Run repomatic metadata
+          version: "0.12.4"
+      - name: Run repomatic show-metadata
         id: metadata
         # The `--exclude-newer-package` flag is not optional: the workflow-level
         # `UV_EXCLUDE_NEWER` above gates every resolution, and this pin moves in
@@ -91,7 +91,7 @@ jobs:
         # failure while running no test at all. `uvx` reads no project config, so
         # the bypass has to ride on the command line. See claude.md.
         run: >
-          uvx --no-progress --exclude-newer-package repomatic=P0D 'repomatic==7.14.0' metadata
+          uvx --no-progress --exclude-newer-package repomatic=P0D 'repomatic==7.15.0' show-metadata
           --format github-json --output "$GITHUB_OUTPUT"
           test_matrix test_matrix_pr
 
@@ -105,7 +105,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: "0.12.5"
+          version: "0.12.4"
       - name: Install Python
         run: uv --no-progress venv --python 3.14
       - name: Install project
@@ -136,6 +136,12 @@ jobs:
         # package by design, so measuring this slice gates nothing. The
         # `[tool.coverage] report.fail_under` floor is held by the matrix job
         # below, the only one that runs the whole suite.
+        #
+        # `!cancelled()` keeps this running after a failed self-test above: the
+        # two check different things, and a stale assertion in
+        # cli-test-suite.toml would otherwise hide every once-marked test.
+        # Wrapped in `${{ }}` because a bare leading `!` is a YAML tag.
+        if: ${{ !cancelled() }}
         run: uv --no-progress run --frozen -- pytest -m once
 
   test-package-install:
@@ -162,7 +168,7 @@ jobs:
     steps:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: "0.12.5"
+          version: "0.12.4"
       - name: Install Python
         run: uv --no-progress venv --python 3.14
 
@@ -215,7 +221,7 @@ jobs:
       - metadata
     strategy:
       fail-fast: false
-      # Matrix is pre-computed by repomatic metadata. PRs get a reduced matrix
+      # Matrix is pre-computed by repomatic show-metadata. PRs get a reduced matrix
       # (fewer OS variants and Python versions) to save CI minutes.
       matrix: >-
         ${{ github.event_name != 'pull_request'
@@ -245,7 +251,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: "0.12.5"
+          version: "0.12.4"
       - name: Force native ARM64 Python on Windows ARM64
         # Workaround for https://github.com/astral-sh/uv/issues/12906: uv defaults to x86_64 Python on ARM64 Windows,
         # relying on transparent emulation, so an ARM64 Windows cell would silently test emulated x86_64 Python

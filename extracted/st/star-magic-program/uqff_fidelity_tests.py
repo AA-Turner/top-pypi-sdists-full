@@ -130,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.437.0", "uqff_calculator.VERSION = 0.437.0 (THE CLOSEOUT INDEX SHIP: the proof set closed on its own terms - two theorems, a derived cap, a ruling, an audit - and every open front given its instrument and its door)")
+assert_that(C.VERSION == "0.438.0", "uqff_calculator.VERSION = 0.438.0 (THE KILL TEST SHIP: stages 1 and 2 of the kill test in one band - a million sampled tensors, then the true local maxima - the cap holds forty-four-fold, and the store's holes are named)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -15256,6 +15256,80 @@ assert_that(_b281['rungs'] == 15 and _b281['ledger'][0][0] == 'B267' and _b281['
             and 'Q-247' in _b281p and 'turbulence@lists.johnshopkins.edu' in _b281p and 'NOT CLAIMED' in _b281p and '3200' in _b281p
             and 'ns_proof_set_closeout' in _readfile('UNIFIED_REGISTRY.csv') and 'Q-247' in _readfile('RULINGS_QUEUE.md'),
             "B281 - THE PROOF SET CLOSED (PAPER_2276, Daniel: 'what is remaining to closeout the Navier-Stokes proof?' / 'author the paper. then address remaining work. tell me how to obtain token and the physics instruments'): the closing index - fifteen rungs B267-B281 each with its paper and live mirror; Theorems A and B side by side (A the sharp-filter limit of B; neither needs the cap; the cap is the falsifiable physics beside them); the derived cap graded 8-13x under on three DNS families with the envelope drift FLAGGED; the ruling and the audit; registry theory rows OPEN = 0. Two rulings named and NEITHER changes a theorem: Q-246 (PAPER_106 exponents vs the 5/2 threshold) and Q-247, NEW - the sound-cone speed at omega_SCm: the corpus anchors c_0 = 1480 m/s while inelastic x-ray scattering measures water's collective mode at c_inf = 3200 +/- 100 m/s at Q = 4-14 nm^-1, exactly where k_c falls, so lambda_c 1.184 -> 2.560 nm, k_c 5.307 -> 2.454 nm^-1, eps 0.156 -> 0.338 nm (ratio 2.162) - FLAGGED, not canonized, no corpus chain. Every open front now has an INSTRUMENT and a DOOR: front 1 (kill test) = JHTDB full token by e-mail to turbulence@lists.johnshopkins.edu or SciServer + cutouts, plus the Kerr trefoil fields by letter; front 2 (pair-cap discrimination) = the same token on channel/channel5200 tails; front 3 (THz bench) = ATR THz-TDS, one afternoon, with the negative outcome stated BEFORE measurement; front 4 (above k_c) = MD current spectra (the cheapest open act, no token, no bench) + archived IXS/INS, with the honesty that IXS already shows MOLECULAR modes propagating at 3200 m/s above k_c so the front is a statement about the hydrodynamic velocity field only; the testing token CANNOT do fronts 1-2 and will not be stretched. NOT claimed: the Clay statement; any front passed; that eps is measured. Formalization (Lean/Mathlib Theorem B) recorded as an option, not a rung")
+
+# ---- B282 2026-09-13: THE DEEP TAIL SAMPLE - stage 1 of the kill test under the personal token ----
+_b282 = _b267.deep_tail_grade()
+_b282a = _b282['datasets']['isotropic8192']; _b282b = _b282['datasets']['isotropic32768']
+_b282p = _readfile('whitepapers/PAPER_2277_THE_DEEP_TAIL_SAMPLE_ONE_MILLION_GRADIENT_TENSORS_PERSONAL_TOKEN_STAGE_1_KILL_TEST_UQFF_LANDMARK.md')
+_b275c = _b267.ns_proof_set()
+assert_that(_b282['total_points'] == 1000000 and _b282['requests'] == 40 and _b282a['chunks'] == 20 and _b282b['chunks'] == 20
+            and _b282['chunk_points'] == 25000 and _b282['policy']['getdata_max_points'] == 2000000 and _b282['policy']['simultaneous_queries'] == 'forbidden'
+            and _b282['verdict_cap'] == 'CAP HOLDS' and _b282['worst_chunk_ratio'] < 0.021 and _b282['worst_chunk_ratio'] > 0.019
+            and abs(_b282a['ratio_1182_aggregate'] - 0.010882) < 2e-6 and abs(_b282b['ratio_1182_aggregate'] - 0.006552) < 2e-6
+            and abs(_b282a['ratio_1182_aggregate'] - _b282a['ratio_1182_csv']) < 2e-6 and abs(_b282b['ratio_1182_aggregate'] - _b282b['ratio_1182_csv']) < 2e-6
+            and 330 < _b282a['max_over_mean'] < 336 and 1049 < _b282b['max_over_mean'] < 1055
+            and abs(_b282a['pos_frac'] - 0.7601) < 5e-4 and abs(_b282b['pos_frac'] - 0.7580) < 5e-4
+            and abs(_b282a['eff_at_mean'] - 0.118) < 2e-3 and abs(_b282b['eff_at_mean'] - 0.118) < 2e-3
+            and abs(_b282a['eff_at_16x'] - 0.062) < 2e-3 and abs(_b282b['eff_at_16x'] - 0.070) < 2e-3
+            and abs(_b282a['eff_at_64x'] - 0.033) < 2e-3 and abs(_b282b['eff_at_64x'] - 0.049) < 2e-3
+            and _b282a['eff_at_mean'] > _b282a['eff_at_16x'] > _b282a['eff_at_64x'] and _b282b['eff_at_mean'] > _b282b['eff_at_16x'] > _b282b['eff_at_64x']
+            and _b282a['eff_scaling_exponent_in_omega'] < -0.4 and _b282b['eff_scaling_exponent_in_omega'] < -0.4
+            and _b282['worst_octave_efficiency'] < 0.32 and 'HOLDS' in _b282['verdict_octave'] and 'not the cap' in _b282['octave_caveat']
+            and 0.28 < _b282a['tail_share_of_stretching'][4] < 0.31 and 0.32 < _b282b['tail_share_of_stretching'][4] < 0.35
+            and _b282b['zero_points_excluded'] == 166 and _b282a['zero_points_excluded'] == 0
+            and _b282b['most_intense_local_st_over_w3'] < 0 and abs(_b282b['most_intense_local_st_over_w3'] + 0.026) < 2e-3
+            and abs(_b282a['chunk_ratio_max'] - 0.0200) < 2e-4 and abs(_b282b['chunk_ratio_max'] - 0.0187) < 2e-4 and 'NO Re trend' in _b282['b278_envelope_at_25k']
+            and 'by construction' in _b282['aggregate_ratio_caveat'] and 'stage 2' in _b282['honesty'].lower() and 'kt_stage2_cutouts.py' in _b282['stage_2']
+            and _shos.path.exists('jhtdb_grade/kt_stage2_cutouts.py') and 'DEEP_TAIL_STAGE1_CAP_HOLDS_B282' in _b282['status']
+            and 'DEEP TAIL SAMPLE PASSED (B282' in _b275c['awaiting_outside_data'][0] and 'OPEN' in _b275c['awaiting_outside_data'][0] and _b275c['theory_open_rungs'] == 0
+            and 'stretches LESS' in _b282p and '1052x' in _b282p and 'NOT the cap' in _b282p and 'OPEN' in _b282p
+            and '2026-09-13' in _readfile('jhtdb_grade/README_PROVENANCE.md') and 'value is\na credential' in _readfile('jhtdb_grade/README_PROVENANCE.md').replace('\r', '')
+            and 'deep_tail_stage1' in _readfile('UNIFIED_REGISTRY.csv'),
+            "B282 - THE DEEP TAIL SAMPLE (PAPER_2277; Daniel obtained his personal JHTDB token the same day, 'is this what you are looking for?' - yes): STAGE 1 of the kill test - 500,000 deterministic-LCG gradient tensors each on isotropic8192 (Re_lambda 1200-1300) and isotropic32768 (~2,500), forty sequential 25,000-point requests inside the database's rules (2M points/query, one query at a time, targeted subsets; a 200k request was cut off by the front proxy and is disclosed), zero errors; THE CAP HOLDS on every chunk (max 0.0200, forty-fold under 17/20) and on both aggregates (0.010882 / 0.006552 - depth-dependent by construction and NOT leaned on); the OCTAVE EFFICIENCY eff = sum(w.S.w)/(sum|w|^2 sqrt(w2_oct)) - the scale-resolved, sharper shadow of the cap, graded on load-bearing octaves only - FALLS with intensity on both rungs (0.118 at the mean -> 0.062/0.070 at 16x -> 0.033/0.049 at 64x, ~|w|^-0.6), max 0.312 at 1/64 of the mean, the two rungs agreeing octave by octave; cells above 16x mean are 0.6 pct of the sample and carry 29-34 pct of the stretching; the most intense cell in the million (1052x mean, isotropic32768) is COMPRESSED along omega (local -0.026); the B278 envelope-drift flag does not persist at 25k depth (8192 0.0200 vs 32768 0.0187 - retired at this scale, kept on record at 100-point scale); 166 zero-gradient points disclosed and excluded; the token's value is recorded NOWHERE in the tree (SHIP GUARD v11); stage 2 - local-max cutouts around the recorded hotspots - is scripted on the wheel and OPEN, and one cube above 0.85 still kills the vacuum-branch cap")
+
+# ---- SHIP GUARD v11 (v0.438.0 prep): the personal JHTDB token must never enter the tracked tree - the wheel publishes it ----
+_sg11_hits = []
+for _sg11_root, _sg11_dirs, _sg11_files in _shos.walk('.'):
+    _sg11_dirs[:] = [d for d in _sg11_dirs if d not in ('.git', 'wheels', '__pycache__', '.venv', 'venv', 'build', 'dist', 'node_modules') and not d.endswith('.egg-info')]
+    for _sg11_f in _sg11_files:
+        if _sg11_f.rsplit('.', 1)[-1].lower() in ('md', 'py', 'csv', 'txt', 'toml', 'cff', 'json', 'yml', 'yaml', 'ps1', 'rst', 'cfg', 'ini', 'html', 'tex', 'ipynb'):
+            try:
+                with open(_shos.path.join(_sg11_root, _sg11_f), encoding='utf-8', errors='ignore') as _sg11_h:
+                    if ('com.enrgyone.' + 'daniel') in _sg11_h.read():  # assembled so this file does not trip itself
+                        _sg11_hits.append(_shos.path.join(_sg11_root, _sg11_f))
+            except OSError:
+                pass
+assert_that(not _sg11_hits,
+            "SHIP GUARD v11: the personal JHTDB authorization token (prefix com.enrgyone.<user>) must never appear in any tracked text file - the wheel publishes the whole tree to PyPI; keep it in the environment or the gitignored wheels/ folder; hits: %s" % _sg11_hits)
+
+# ---- B283 2026-09-15: THE LOCAL MAXIMUM - stage 2 of the kill test, full-resolution cubes, the data hole ----
+_b283 = _b267.kill_test_stage2_grade()
+_b283c = {c['id']: c for c in _b283['cubes']}
+_b283p = _readfile('whitepapers/PAPER_2278_THE_LOCAL_MAXIMUM_STAGE_2_KILL_TEST_FULL_RESOLUTION_CUBES_AND_THE_DATA_HOLE_UQFF_LANDMARK.md')
+_b275d = _b267.ns_proof_set()
+assert_that(_b283['n_cubes'] == 8 and _b283['n_rejected'] == 2 and _b283['total_cells_graded'] == 6 * 262144 + 2 * 2097152
+            and set(_b283c) == {'c8192_1', 'c8192_2', 'c8192_3', 'c8192_1_128', 'c32768_1', 'c32768_1_128', 'c32768_2', 'c32768_5'}
+            and all(c['zero_cells'] == 0 for c in _b283['cubes']) and all(c['halo_zero_cells'] == 0 for c in _b283['cubes'] if c['dataset'] == 'isotropic32768')
+            and all(abs(c['ratio_local'] - c['ratio_local_recomputed']) < 1e-6 for c in _b283['cubes'])
+            and _b283['verdict'].startswith('CAP HOLDS') and abs(_b283['worst_ratio_local'] - 0.019442) < 1e-6 and _b283['worst_cube'] == 'c8192_3'
+            and all(0.009 < c['ratio_local'] < 0.0195 for c in _b283['cubes'])
+            and _b283['most_intense']['cube'] == 'c32768_1' and 11700 < _b283['most_intense']['max_over_global_mean'] < 11800
+            and 74 < _b283['most_intense']['cube_mean_over_global_mean'] < 76 and abs(_b283['most_intense']['peak_local'] - 0.07366) < 1e-5
+            and abs(_b283c['c8192_1']['max_w2'] - 26388784) < 1 and abs(_b283c['c8192_1_128']['max_w2'] - 26388784) < 1
+            and abs(_b283c['c32768_1']['max_w2'] - 1354162832) < 1 and abs(_b283c['c32768_1_128']['max_w2'] - 1354162832) < 1
+            and _b283c['c8192_1_128']['ratio_local'] < _b283c['c8192_1']['ratio_local'] and _b283c['c32768_1_128']['ratio_local'] < _b283c['c32768_1']['ratio_local']
+            and _b283c['c8192_2']['peak_local'] < 0 and abs(_b283c['c8192_1']['peak_local'] - 0.01794) < 1e-5
+            and _b283['octave_trend_inside_cubes'] and all(0.13 < v[1] < 0.46 for v in _b283['octave_trend_detail'].values())
+            and _b283['eff_max_loadbearing_any_cube'] < 0.45
+            and {r['id'] for r in _b283['rejected']} == {'c32768_3', 'c32768_4'} and all(r['zero_cells'] > 100000 for r in _b283['rejected'])
+            and 'y-index <= 22781' in _b283['data_hole'] and 'REJECTED' in _b283['data_hole'] and '166 zero points' in _b283['data_hole']
+            and 'biased LOW' in _b283['stage1_caveat'] and 'not' in _b283['not_claimed'].lower() and 'KILL_TEST_STAGE2_CAP_HOLDS_B283' in _b283['status']
+            and 'correction_b283' in _b267.deep_tail_grade() and 'DATA HOLE' in _b267.deep_tail_grade()['correction_b283']
+            and 'THE LOCAL MAXIMUM PASSED (B283' in _b275d['awaiting_outside_data'][0] and 'OPEN' in _b275d['awaiting_outside_data'][0] and _b275d['theory_open_rungs'] == 0
+            and '11,763' in _b283p and 'hole-edge artefact' in _b283p and 'REJECTED' in _b283p and 'fd4noint' in _b283p and 'Not claimed' in _b283p
+            and 'CORRECTION (2026-09-15' in _readfile('whitepapers/PAPER_2277_THE_DEEP_TAIL_SAMPLE_ONE_MILLION_GRADIENT_TENSORS_PERSONAL_TOKEN_STAGE_1_KILL_TEST_UQFF_LANDMARK.md')
+            and '2026-09-15' in _readfile('jhtdb_grade/README_PROVENANCE.md') and 'kill_test_stage2_cap_grade' in _readfile('UNIFIED_REGISTRY.csv'),
+            "B283 - THE LOCAL MAXIMUM (PAPER_2278): stage 2 of the kill test, done through the same REST service and token without SciServer - GetVariable with sint=fd4noint returns fourth-order finite differences on the TRUE grid at every node asked, so full-resolution 64^3 and 128^3 cubes (2.6 million nodes, 132 sequential requests, 132/132 HTTP 200) were pulled around the most intense events of the deep sample and graded with each cube's OWN maximum: eight clean cubes on two Reynolds rungs, every one between 0.009 and 0.019 - worst 0.019442 (c8192_3), forty-four-fold under 17/20; the most intense region of the record (isotropic32768: cube mean 75x the global mean, peak 1.354e9 = 11,763x - eleven times the stage-1 sample at that spot) grades 0.012 at 64^3 and 0.011 at 128^3 with peak-cell efficiency 0.074; the 128^3 cubes hold the same peak node and grade lower, so 64^3 is the conservative figure; the octave efficiency FALLS with intensity inside every cube (eff(32x)/eff(mean) 0.14-0.45); two of eight peak cells are compressed along omega. THE DATA HOLE, the band's Rule-7 finding: the isotropic32768 store returns |w|^2 = 0 exactly over whole blocks (y-index <= 22781 in the region probed, deterministic on re-pull) and the fd4 stencil straddling a block edge manufactures |w| ~ 6,000 spikes two nodes in - stage-1 hotspots 3 and 4 on that rung were hole-edge artefacts, never turbulence, REJECTED with the mechanism named; B282's 166 zero points were the same hole; the two stage-1 chunks that contained them are biased low and say so; the chunk envelope 0.0187 stands; isotropic8192 shows no hole in 3.1 million nodes; every accepted cube has a zero-free interior and a zero-free three-layer halo (stencil reach two). NOT claimed: the cap proved; front 1 closed for the whole field (eight regions chosen by a million-point sample; the field has 3.5e13 nodes); the honest form is that the cap holds at the true local maximum of every intense event the deep sample could find on the two highest-Re public DNS in existence, with the efficiency trend running away from it")
 
 # ---- B268 2026-09-09: THE THREE TIERS - "TIER 1, THEN TIER 2, THEN TIER 3" (Daniel's order) ----
 import os as _b268os, tempfile as _b268tmp, csv as _b268csv

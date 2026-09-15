@@ -69,6 +69,8 @@ class _BaseSettings:
         "FlattenKeywords"  : ("flattenkeywords", []),
         "PreRebotModifiers": ("prerebotmodifier", []),
         "StatusRC"         : ("statusrc", True),
+        "ConsoleType"      : ("console", "verbose"),
+        "ConsoleTypeQuiet" : ("quiet", False),
         "ConsoleColors"    : ("consolecolors", "AUTO"),
         "ConsoleLinks"     : ("consolelinks", "AUTO"),
         "PythonPath"       : ("pythonpath", []),
@@ -110,8 +112,6 @@ class _BaseSettings:
             return [self._process_metadata(v) for v in value]
         if name == "TagDoc":
             return [self._process_tagdoc(v) for v in value]
-        if name in ["Include", "Exclude"]:
-            return [self._format_tag_patterns(v) for v in value]
         if name in self._output_opts or name in ["ReRunFailed", "ReRunFailedSuites"]:
             if isinstance(value, Path):
                 return str(value)
@@ -153,7 +153,7 @@ class _BaseSettings:
             try:
                 with open(value, encoding="UTF-8") as f:
                     value = f.read()
-            except (OSError, IOError) as err:
+            except OSError as err:
                 self._raise_invalid(
                     "Doc", f"Reading documentation from '{value}' failed: {err}"
                 )
@@ -243,11 +243,15 @@ class _BaseSettings:
     def _process_output_name(self, option, name):
         base, ext = os.path.splitext(name)
         if self["TimestampOutputs"]:
-            base += (
-                "-{s.year}{s.month:02}{s.day:02}-{s.hour:02}{s.minute:02}{s.second:02}"
-            ).format(s=self.start_time)
+            base += self._get_timestamp(self.start_time)
         ext = self._get_output_extension(ext, option)
         return base + ext
+
+    def _get_timestamp(self, dt):
+        return (
+            f"-{dt.year}{dt.month:02}{dt.day:02}"
+            f"-{dt.hour:02}{dt.minute:02}{dt.second:02}"
+        )
 
     def _get_output_extension(self, extension, file_type):
         if extension:
@@ -288,23 +292,7 @@ class _BaseSettings:
             pattern, title = pattern.rsplit(":", 1)
         else:
             title = ""
-        return self._format_tag_patterns(pattern), title
-
-    def _format_tag_patterns(self, pattern):
-        for search, replace in [
-            ("&", "AND"),
-            ("AND", " AND "),
-            ("OR", " OR "),
-            ("NOT", " NOT "),
-            ("_", " "),
-        ]:
-            if search in pattern:
-                pattern = pattern.replace(search, replace)
-        while "  " in pattern:
-            pattern = pattern.replace("  ", " ")
-        if pattern.startswith(" NOT"):
-            pattern = pattern[1:]
-        return pattern
+        return pattern, title
 
     def _process_tag_stat_link(self, value):
         tokens = value.split(":")
@@ -393,7 +381,7 @@ class _BaseSettings:
         return Path(self["OutputDir"])
 
     @property
-    def output(self) -> "Path|None":
+    def output(self) -> "Path | None":
         return self["Output"]
 
     @property
@@ -401,15 +389,15 @@ class _BaseSettings:
         return self["LegacyOutput"]
 
     @property
-    def log(self) -> "Path|None":
+    def log(self) -> "Path | None":
         return self["Log"]
 
     @property
-    def report(self) -> "Path|None":
+    def report(self) -> "Path | None":
         return self["Report"]
 
     @property
-    def xunit(self) -> "Path|None":
+    def xunit(self) -> "Path | None":
         return self["XUnit"]
 
     @property
@@ -493,7 +481,7 @@ class _BaseSettings:
 
 class RobotSettings(_BaseSettings):
     _extra_cli_opts = {
-        "Extension"          : ("extension", (".robot", ".rbt", ".robot.rst")),
+        "Extension"          : ("extension", (".robot", ".rbt", ".robot.rst", ".robot.md")),
         "Output"             : ("output", "output.xml"),
         "LogLevel"           : ("loglevel", "INFO"),
         "MaxErrorLines"      : ("maxerrorlines", 40),
@@ -513,9 +501,7 @@ class RobotSettings(_BaseSettings):
         "Parsers"            : ("parser", []),
         "PreRunModifiers"    : ("prerunmodifier", []),
         "Listeners"          : ("listener", []),
-        "ConsoleType"        : ("console", "verbose"),
         "ConsoleTypeDotted"  : ("dotted", False),
-        "ConsoleTypeQuiet"   : ("quiet", False),
         "ConsoleWidth"       : ("consolewidth", 78),
         "ConsoleMarkers"     : ("consolemarkers", "AUTO"),
         "DebugFile"          : ("debugfile", None),
@@ -539,6 +525,8 @@ class RobotSettings(_BaseSettings):
             "Output",
             "LogLevel",
             "TimestampOutputs",
+            "ConsoleType",
+            "ConsoleTypeQuiet",
         }
         for opt in settings._opts:
             if opt in self and opt not in not_copied:
@@ -657,7 +645,7 @@ class RobotSettings(_BaseSettings):
     @property
     def console_output_config(self):
         return {
-            "type": self.console_type,
+            "console": self.console,
             "width": self.console_width,
             "colors": self.console_colors,
             "links": self.console_links,
@@ -667,7 +655,7 @@ class RobotSettings(_BaseSettings):
         }
 
     @property
-    def console_type(self):
+    def console(self):
         if self["ConsoleTypeQuiet"]:
             return "quiet"
         if self["ConsoleTypeDotted"]:
@@ -783,8 +771,15 @@ class RebotSettings(_BaseSettings):
         return self["Merge"]
 
     @property
+    def console(self):
+        if self["ConsoleTypeQuiet"]:
+            return "quiet"
+        return self["ConsoleType"]
+
+    @property
     def console_output_config(self):
         return {
+            "console": self.console,
             "colors": self.console_colors,
             "links": self.console_links,
             "stdout": self["StdOut"],

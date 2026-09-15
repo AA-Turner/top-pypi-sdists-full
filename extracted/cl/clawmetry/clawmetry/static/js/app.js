@@ -3832,32 +3832,49 @@ function renderBillingCoverageBanner(cov, usageData) {
     host.innerHTML = '';
     return;
   }
-  function fmtCost(c) { return c >= 0.01 ? '$' + c.toFixed(2) : c > 0 ? '<$0.01' : '$0.00'; }
+  // REQ-OBS-CEA-025: every figure here is usage value at PUBLISHED RATES.
+  // Subscription-covered value is shown apart from metered usage and is
+  // never described as a bill, or as costing the operator nothing: ClawMetry
+  // cannot see the plan fee, the included allowance or overages.
+  function fig(value, key, label) {
+    var entry = window.cmProv ? window.cmProv.of(usageData || {}, key) : null;
+    if (window.cmProv) return window.cmProv.figure(value, entry, { label: label, noBadge: true });
+    return escHtml(Number(value || 0).toFixed(2)) + ' USD';
+  }
   var plan = _planLabel(cov) || 'your subscription';
   var monthCost  = Number((usageData && usageData.monthCost) || 0);
   var monthCovered = Number((cov.month && cov.month.covered_usd) || 0);
-  var monthOOP     = Number((cov.month && cov.month.out_of_pocket_usd) || 0);
+  var monthRest    = Number((cov.month && cov.month.out_of_pocket_usd) || 0);
+  var unseen = t('usage.cov_plan_terms_unseen', null,
+    'ClawMetry cannot see your plan fee, included allowance or overages, so none of them are counted here.');
   var color, icon, title, body;
   if (cov.all_covered) {
     color = { bg: 'rgba(34,197,94,0.10)', bd: 'rgba(34,197,94,0.45)', fg: '#16a34a' };
     icon = '✅';
-    title = "You're covered by " + plan;
-    body = 'The costs below are the <strong>API-equivalent</strong> — what these tokens would cost against a raw API key. '
-         + 'Your actual out-of-pocket spend is <strong>$0</strong>: ' + plan + ' already covers this usage. '
-         + 'This month: ' + fmtCost(monthCost) + ' shown, <strong>$0</strong> billed to you.';
-  } else if (cov.any_subscription && cov.any_metered) {
+    title = t('usage.cov_included_title', { plan: plan }, 'Usage included in ' + plan);
+    body = 'The figures below are <strong>usage value at published rates</strong>: what these tokens would cost at the provider\'s list price. '
+         + escHtml(plan) + ' includes this usage, so this value is <strong>not an extra bill</strong>. '
+         + 'This month: ' + fig(monthCost, 'monthCost', 'Usage value this month') + ' of usage value included in your plan. '
+         + escHtml(unseen);
+  } else if (cov.any_subscription && monthCovered > 0.005) {
+    // Part of the usage is included in the plan. The rest is metered only
+    // when a metered runtime was actually detected; otherwise its route is
+    // "not detected", never guessed.
+    var restLabel = cov.any_metered
+      ? t('usage.cov_rest_metered', null, 'Metered usage (billed per token)')
+      : t('usage.cov_rest_unknown', null, 'Usage whose billing route was not detected');
     color = { bg: 'rgba(59,130,246,0.10)', bd: 'rgba(59,130,246,0.45)', fg: '#2563eb' };
     icon = '🧾';
-    title = 'Partly covered — ' + plan;
-    body = plan + ' covers the OAuth/included models below (~<strong>' + fmtCost(monthCovered) + '</strong> this month, billed as $0 to you). '
-         + 'API-keyed models are billed per-token: about <strong>' + fmtCost(monthOOP) + '</strong> this month. '
-         + 'The card numbers are API-equivalent so both parts compare on the same axis.';
-    if (cov.metered_labels && cov.metered_labels.length) {
+    title = t('usage.cov_partly_title', { plan: plan }, 'Part of this usage is included in ' + plan);
+    body = escHtml(restLabel) + ': about <strong>' + fig(monthRest, 'out_of_pocket_usd', restLabel) + '</strong> this month at published rates. '
+         + 'Included in ' + escHtml(plan) + ': about <strong>' + fig(monthCovered, 'covered_usd', 'Included in your plan') + '</strong> of usage value this month, not an extra bill. '
+         + escHtml(unseen);
+    if (cov.any_metered && cov.metered_labels && cov.metered_labels.length) {
       body += ' <span style="opacity:0.7;">Metered: ' + cov.metered_labels.map(escHtml).join(', ') + '.</span>';
     }
   } else {
-    // Subscription detected but every model looks API-keyed — the plan
-    // won't help; fall through to no banner rather than misleading UX.
+    // Subscription detected but none of this usage looks included in it:
+    // the plan does not change these figures, so no banner.
     host.style.display = 'none';
     host.innerHTML = '';
     return;
@@ -4810,7 +4827,9 @@ function _renderOverviewHero() {
   if (sessions != null) stats.push('💬 <strong style="color:var(--text-primary);">' + sessions + (sessions === 1 ? ' session' : ' sessions') + '</strong>' + ((!_scope && _todayKnown) ? ' today' : ''));
   // Show nothing rather than a placeholder: an unlabelled '$0.00' next to
   // live sessions reads as a real reading, not as 'still loading'.
-  if (_costKnown) stats.push('💸 <strong style="color:var(--text-primary);">' + escHtml(cost) + '</strong>' + (free ? ' <span style="color:#22c55e;">free on your plan</span>' : ''));
+  // A plan includes usage; it does not make it free (REQ-OBS-CEA-025.4).
+  var _heroIncluded = free && !/^\$0(\.00)?$/.test(cost);
+  if (_costKnown) stats.push('💸 <strong style="color:var(--text-primary);">' + escHtml(cost) + '</strong>' + (_heroIncluded ? ' <span style="color:#22c55e;">included in your plan, not an extra bill</span>' : ''));
   // Efficiency chip (design spec §1a): grade next to cost answers "what did it
   // cost me, and is that reasonable?" in one read. Renders only when the
   // daemon slice is fresh for the CURRENT runtime filter and passes the trust
@@ -4978,11 +4997,8 @@ async function loadAll() {
 }
 
 async function loadMiniWidgets(overview, usage) {
-  // 💰 Cost Ticker
-  function fmtCost(c) {
-    if (window.cmProv) return window.cmProv.fmtMoney(c);
-    return c >= 0.01 ? '$' + c.toFixed(2) : c > 0 ? '<$0.01' : '$0.00';
-  }
+  // 💰 Cost Ticker. provenance.js loads before app.js (asserted by
+  // tests/test_provenance.py), so every figure below goes through it.
   // How these three numbers were obtained, on the tile's label. One badge for
   // the tile: today, week and month all come out of the same rollup by the
   // same rule, so they share a basis.
@@ -5013,7 +5029,7 @@ async function loadMiniWidgets(overview, usage) {
       el.innerHTML = window.cmProv.money(usage, key,
                                          { label: label, noBadge: true });
     } else {
-      el.textContent = fmtCost(usage[key] || 0);
+      el.textContent = (usage[key] == null) ? 'not available' : String(usage[key]);
     }
   };
   _setCost('cost-today', 'todayCost', 'Cost today');
@@ -5049,7 +5065,7 @@ async function loadMiniWidgets(overview, usage) {
   if (infoIcon) {
     if (isOauthLikely || isMixed) {
       infoIcon.style.display = '';
-      infoIcon.title = 'Equivalent if billed from token usage. OAuth/included models may be billed $0 at provider level.';
+      infoIcon.title = 'Usage value at published rates (tokens × list price). Usage included in a subscription is value, not an extra bill.';
     } else {
       infoIcon.style.display = 'none';
       infoIcon.title = '';
@@ -12950,7 +12966,7 @@ function _invRosterRow(a, rtFilter) {
   if (a.billingMode === 'subscription') {
     covChip = ' <span class="inv-cov-chip inv-cov-sub" title="'
       + escHtml((a.billingLabel || 'Subscription'))
-      + ' covers this agent. Usage adds $0 extra; the cost columns show API-equivalent value.">'
+      + ' includes this agent\'s usage. The cost columns show usage value at published rates, not an extra bill.">'
       + t('inventory.covered_chip', null, 'covered') + '</span>';
   } else if (a.billingMode === 'metered') {
     covChip = ' <span class="inv-cov-chip inv-cov-met" title="Billed per token at API rates.">'
@@ -18333,21 +18349,43 @@ async function loadUsage() {
       var s = document.getElementById(valId + '-cost');
       var costStr = fmtCost(cost || 0);
       var tokStr = fmtTokens(tokens || 0);
-      if (v) v.textContent = t('usage.cost_about', { cost: costStr }, 'about ' + costStr);
+      var costKey = periodKey ? periodKey + 'Cost' : '';
+      var costEntry = (window.cmProv && costKey) ? window.cmProv.of(data, costKey) : null;
+      if (v) {
+        // The value says which kind of money it is (REQ-OBS-CEA-025); an
+        // unknown figure reads "not available", never "about $0.00".
+        if (window.cmProv && costEntry) {
+          v.innerHTML = (window.cmProv.isUnknown(costEntry) || cost == null)
+            ? window.cmProv.figure(null, costEntry, { label: 'Usage value' })
+            : escHtml(t('usage.cost_about', { cost: costStr }, 'about ' + costStr))
+              + window.cmProv.badge(costEntry, { label: 'Usage value' });
+        } else {
+          v.textContent = t('usage.cost_about', { cost: costStr }, 'about ' + costStr);
+        }
+      }
       if (!s) return;
       var subText = t('usage.tokens_sub', { tokens: tokStr }, tokStr + ' tokens');
       var coverExtra = '';
       var period = periodKey && _cov[periodKey];
+      var planName = _planLabel(_cov) || 'your subscription';
+      var money = function (val, key) {
+        return window.cmProv ? window.cmProv.text(val, window.cmProv.of(data, key)) : Number(val || 0).toFixed(2) + ' USD';
+      };
       if (_cov.all_covered && (cost || 0) > 0) {
-        coverExtra = ' · $0 out-of-pocket';
+        coverExtra = ' · ' + t('usage.card_included', { plan: planName }, 'included in ' + planName + ', not an extra bill');
       } else if (period && _cov.any_subscription && (period.covered_usd || 0) > 0.005) {
-        coverExtra = ' · ~' + fmtCost(period.covered_usd) + ' covered';
+        coverExtra = ' · ' + t('usage.card_split', {
+            covered: money(period.covered_usd, 'covered_usd'),
+            rest: money(period.out_of_pocket_usd, 'out_of_pocket_usd') },
+          money(period.covered_usd, 'covered_usd') + ' included in plan, '
+          + money(period.out_of_pocket_usd, 'out_of_pocket_usd')
+          + (_cov.any_metered ? ' metered' : ' route not detected'));
       }
       s.textContent = subText + coverExtra;
       if (coverExtra) {
         s.style.color = 'var(--success, #16a34a)';
-        s.title = 'Covered by ' + (_planLabel(_cov) || 'your subscription') +
-                  ' — this portion of the shown API-equivalent cost is $0 to you.';
+        s.title = 'Included in ' + planName + ': usage value at published rates, not an extra bill. '
+                + 'ClawMetry cannot see the plan fee, included allowance or overages.';
       } else {
         s.style.color = '';
         s.title = '';
@@ -18427,13 +18465,13 @@ async function loadUsage() {
       if (bs && bs !== 'likely_api_key') {
         usageInfoIcon.style.display = '';
         if (_plan && _cov.all_covered) {
-          usageInfoIcon.title = 'API-equivalent (tokens × API rates). Your ' + _plan + ' subscription covers this — actual out-of-pocket cost is $0.';
+          usageInfoIcon.title = 'Usage value at published rates (tokens × list price). ' + _plan + ' includes this usage, so it is not an extra bill. ClawMetry cannot see the plan fee, included allowance or overages.';
         } else if (_plan) {
-          usageInfoIcon.title = 'API-equivalent (tokens × API rates). ' + _plan + ' covers the OAuth/included portion; API-keyed models bill separately.';
+          usageInfoIcon.title = 'Usage value at published rates (tokens × list price). ' + _plan + ' includes part of this usage (value, not an extra bill); the rest is billed per token or its billing route was not detected.';
         } else if (bs === 'likely_oauth_or_included' || bs === 'mixed') {
-          usageInfoIcon.title = 'API-equivalent (tokens × API rates). OAuth/included models are typically billed $0 at the provider — your subscription covers them.';
+          usageInfoIcon.title = 'Usage value at published rates (tokens × list price). Usage signed in through a subscription is included in that plan, so its value here is not an extra bill.';
         } else {
-          usageInfoIcon.title = 'API-equivalent (tokens × API rates). Billing basis unconfirmed — if your account is on a subscription plan (e.g. Claude Max via the Claude CLI), the actual incremental cost is $0.';
+          usageInfoIcon.title = 'Usage value at published rates (tokens × list price). The billing route was not detected, so this is not necessarily what you are billed.';
         }
       } else {
         usageInfoIcon.style.display = 'none';
@@ -18486,6 +18524,10 @@ async function loadUsage() {
     // Load session cost breakdown
     fetch('/api/sessions/cost-breakdown').then(r => r.json()).then(function(cbd) {
       window._sessionCostData = cbd.top10 || [];
+      // Keep the basis with the rows (REQ-OBS-CEA-025.1): the chart and its
+      // table print these costs, so they print what kind of money they are.
+      window._sessionCostEntry = window.cmProv
+        ? window.cmProv.of(cbd, 'top10[].cost_usd') : null;
       renderSessionCostChart();
     }).catch(function() {
       var el = document.getElementById('usage-session-cost-table');
@@ -18604,12 +18646,8 @@ function _renderUsageCapCTA(capped) {
 function renderTopSessionsByCost(rows, usageData) {
   var el = document.getElementById('usage-top-sessions-table');
   if (!el) return;
-  // One money formatter for the whole app lives in static/js/provenance.js;
-  // this is the local fallback for a cached page that predates it.
-  function fmtCost(c) {
-    if (window.cmProv) return window.cmProv.fmtMoney(c);
-    return c >= 0.01 ? '$' + c.toFixed(2) : c > 0 ? '<$0.01' : '$0.00';
-  }
+  // One money formatter for the whole app lives in static/js/provenance.js,
+  // which loads before app.js.
   // Every row in this table was priced the same way, so the basis belongs on
   // the column heading rather than repeated down forty rows.
   var costEntry = (window.cmProv && usageData)
@@ -18648,7 +18686,7 @@ function renderTopSessionsByCost(rows, usageData) {
         + (window.cmProv
             ? window.cmProv.figure(r.total_cost_usd, costEntry,
                                    { label: 'Session cost', noBadge: true })
-            : fmtCost(r.total_cost_usd || 0))
+            : escHtml(String(r.total_cost_usd == null ? 'not available' : r.total_cost_usd)))
         + '</td>'
       + '<td style="text-align:right;">' + (r.message_count || 0) + '</td>'
       + '<td style="color:var(--text-muted);font-size:12px;">' + escHtml(fmtDate(r.started_at)) + '</td>'
@@ -19129,6 +19167,16 @@ function renderSessionCostChart() {
   var rows = window._sessionCostData || [];
   var canvas = document.getElementById('usage-session-cost-bar');
   var tableEl = document.getElementById('usage-session-cost-table');
+  // The bars are drawn on a canvas, which cannot hold a focusable badge, so
+  // the basis for the bar values sits in a caption above it
+  // (REQ-OBS-CEA-025.1). No entry (an older daemon): no invented label.
+  var costEntry = window._sessionCostEntry || null;
+  var basisEl = document.getElementById('usage-session-cost-basis');
+  if (basisEl) {
+    basisEl.innerHTML = (costEntry && window.cmProv && rows.length)
+      ? 'Bar values and the Cost column: ' + window.cmProv.badge(costEntry, { label: 'Session cost' })
+      : '';
+  }
   var threshold = parseFloat((document.getElementById('session-cost-threshold') || {}).value || '0.5') || 0;
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
@@ -19190,7 +19238,9 @@ function renderSessionCostChart() {
     tableHtml += '<thead><tr style="color:var(--text-muted);font-size:11px;">';
     tableHtml += '<th style="text-align:left;padding:4px 8px;">Session</th>';
     tableHtml += '<th style="text-align:right;padding:4px 8px;">Tokens</th>';
-    tableHtml += '<th style="text-align:right;padding:4px 8px;">Cost</th>';
+    tableHtml += '<th style="text-align:right;padding:4px 8px;">Cost'
+      + ((costEntry && window.cmProv) ? ' ' + window.cmProv.badge(costEntry, { label: 'Session cost' }) : '')
+      + '</th>';
     tableHtml += '<th style="text-align:left;padding:4px 8px;">Model</th>';
     tableHtml += '<th style="text-align:left;padding:4px 8px;">Date</th>';
     tableHtml += '</tr></thead><tbody>';
@@ -19198,9 +19248,16 @@ function renderSessionCostChart() {
       var over = threshold > 0 && (r.cost_usd||0) >= threshold;
       var rowStyle = over ? 'background:rgba(239,68,68,0.1);' : '';
       tableHtml += '<tr style="border-top:1px solid var(--border-secondary);' + rowStyle + '">';
-      tableHtml += '<td style="padding:4px 8px;font-family:monospace;font-size:11px;color:var(--text-muted);">' + (r.session_id||'').slice(-16) + (over ? ' <span style="color:#ef4444;">⚠</span>' : '') + '</td>';
+      tableHtml += '<td style="padding:4px 8px;font-family:monospace;font-size:11px;color:var(--text-muted);">' + escHtml((r.session_id||'').slice(-16)) + (over ? ' <span style="color:#ef4444;">⚠</span>' : '') + '</td>';
       tableHtml += '<td style="text-align:right;padding:4px 8px;font-size:12px;">' + ((r.tokens||0) >= 1000 ? ((r.tokens||0)/1000).toFixed(0)+'K' : (r.tokens||0)) + '</td>';
-      tableHtml += '<td style="text-align:right;padding:4px 8px;font-size:12px;color:' + (over ? '#ef4444' : 'var(--text-success)') + ';font-weight:600;">$' + (r.cost_usd||0).toFixed(4) + '</td>';
+      // Four decimals, as this table always showed; the column heading
+      // carries the basis, and an unknown cost reads "not available".
+      tableHtml += '<td style="text-align:right;padding:4px 8px;font-size:12px;color:' + (over ? '#ef4444' : 'var(--text-success)') + ';font-weight:600;">'
+        + (window.cmProv
+            ? window.cmProv.figure(r.cost_usd == null ? null : '$' + Number(r.cost_usd).toFixed(4), costEntry,
+                                   { format: 'raw', noBadge: true, label: 'Session cost' })
+            : escHtml(r.cost_usd == null ? 'not available' : '$' + Number(r.cost_usd).toFixed(4)))
+        + '</td>';
       tableHtml += '<td style="padding:4px 8px;font-size:11px;color:var(--text-muted);">' + escHtml(r.model||'') + '</td>';
       tableHtml += '<td style="padding:4px 8px;font-size:11px;color:var(--text-muted);">' + escHtml(r.day||'') + '</td>';
       tableHtml += '</tr>';
@@ -26537,8 +26594,16 @@ function loadBrainData(isRefresh) {
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">';
     html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px 14px;text-align:center;cursor:help;" title="' + callsTooltip + '"><div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + (s.today_calls||0) + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">API Calls Today</div>' + (avgTokPerCall ? '<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px;">~' + avgTokFmt + ' tok/call avg</div>' : '') + '</div>';
     html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px 14px;text-align:center;"><div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + fmtTok + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Tokens</div></div>';
-    var costColor = parseFloat((s.today_cost||'$0').replace('$','')) > 50 ? '#f59e0b' : parseFloat((s.today_cost||'$0').replace('$','')) > 100 ? '#ef4444' : '#22c55e';
-    html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px 14px;text-align:center;"><div style="font-size:24px;font-weight:700;color:' + costColor + ';">' + (s.today_cost||'$0.00') + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Cost</div></div>';
+    // A number with its basis when the endpoint sends one (REQ-OBS-CEA-025);
+    // the legacy pre-formatted string otherwise. Thresholds are checked
+    // largest first (the old order made the red branch unreachable).
+    var _brainCostNum = (typeof s.today_cost_usd === 'number') ? s.today_cost_usd
+      : parseFloat(String(s.today_cost || '').replace(/[^0-9.]/g, ''));
+    var costColor = _brainCostNum > 100 ? '#ef4444' : _brainCostNum > 50 ? '#f59e0b' : '#22c55e';
+    var _brainCostHtml = (window.cmProv && s.provenance && s.provenance.today_cost_usd)
+      ? window.cmProv.money(s, 'today_cost_usd', { label: 'Cost today' })
+      : escapeHtml(s.today_cost || 'not available');
+    html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px 14px;text-align:center;"><div style="font-size:24px;font-weight:700;color:' + costColor + ';">' + _brainCostHtml + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Cost</div></div>';
     html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px 14px;text-align:center;"><div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + ((s.avg_response_ms||0) >= 1000 ? ((s.avg_response_ms/1000).toFixed(1)+'s') : ((s.avg_response_ms||0)+'ms')) + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Avg Response</div></div>';
     html += '</div>';
 
@@ -26570,20 +26635,37 @@ function loadBrainData(isRefresh) {
     if (calls.length === 0) {
       html += '<div style="text-align:center;padding:20px;color:var(--text-muted);">No LLM calls found today</div>';
     } else {
+      // Every call's cost is the same kind of money, so the list is labelled
+      // once, above it (REQ-OBS-CEA-025.1). No entry (an older daemon or a
+      // hosted payload): the legacy string, and no invented label.
+      var callCostEntry = (window.cmProv && data.provenance)
+        ? window.cmProv.of(data, 'calls[].cost_usd') : null;
+      if (callCostEntry) {
+        html += '<div class="brain-call-cost-basis" style="font-size:10px;color:var(--text-muted);margin-bottom:6px;">Cost per call: '
+          + window.cmProv.badge(callCostEntry, { label: 'Call cost' }) + '</div>';
+      }
       html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto;">';
       var TOOL_ICONS = {read:'📄',write:'✏️',edit:'🔧',exec:'⚡',process:'⚙️',browser:'🌐',web_search:'🔍',web_fetch:'🌍',message:'💬',tts:'🔊',image:'🖼️',canvas:'🎨',nodes:'📱'};
       var TOOL_COLORS = {exec:'#f59e0b',browser:'#3b82f6',web_search:'#8b5cf6',web_fetch:'#06b6d4',message:'#ec4899',read:'#6b7280',write:'#22c55e',edit:'#f97316',tts:'#a855f7',image:'#ef4444',canvas:'#14b8a6',nodes:'#6366f1',process:'#64748b'};
       calls.forEach(function(c) {
         var ts = c.timestamp ? new Date(c.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
-        var costVal = parseFloat((c.cost||'$0').replace('$',''));
-        var cColor = costVal > 0.50 ? '#f59e0b' : costVal > 1.0 ? '#ef4444' : '#22c55e';
+        var costVal = (typeof c.cost_usd === 'number') ? c.cost_usd
+          : parseFloat(String(c.cost || '0').replace('$', ''));
+        // Largest threshold first: the old order made red unreachable.
+        var cColor = costVal > 1.0 ? '#ef4444' : costVal > 0.50 ? '#f59e0b' : '#22c55e';
         var dur = c.duration_ms > 0 ? (c.duration_ms >= 1000 ? (c.duration_ms/1000).toFixed(1)+'s' : c.duration_ms+'ms') : '--';
         html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-secondary);font-size:11px;flex-wrap:wrap;">';
         html += '<span style="color:var(--text-tertiary);min-width:58px;">' + ts + '</span>';
         html += '<span style="color:var(--text-muted);font-size:10px;min-width:50px;">' + escapeHtml(c.session||'main') + '</span>';
         html += '<span style="color:#3b82f6;min-width:45px;" title="In">' + (c.tokens_in>=1000?(c.tokens_in/1000).toFixed(1)+'K':c.tokens_in) + '-></span>';
         html += '<span style="color:#8b5cf6;min-width:40px;" title="Out">' + (c.tokens_out>=1000?(c.tokens_out/1000).toFixed(1)+'K':c.tokens_out) + '</span>';
-        html += '<span style="color:' + cColor + ';min-width:50px;">' + (c.cost||'$0') + '</span>';
+        // Four decimals, as the list always showed. A call with tokens but
+        // no price reads "not available", never $0.0000.
+        var callCostHtml = callCostEntry
+          ? window.cmProv.figure(c.cost_usd == null ? null : '$' + Number(c.cost_usd).toFixed(4), callCostEntry,
+                                 { format: 'raw', noBadge: true, label: 'Call cost' })
+          : escapeHtml(c.cost || 'not available');
+        html += '<span style="color:' + (c.cost_usd === null ? 'var(--text-muted)' : cColor) + ';min-width:50px;">' + callCostHtml + '</span>';
         html += '<span style="color:var(--text-muted);min-width:35px;">' + dur + '</span>';
         if (c.thinking) html += '<span style="background:#7c3aed22;color:#7c3aed;padding:1px 5px;border-radius:4px;font-size:10px;" title="Thinking enabled">🧠</span>';
         if (c.cache_read > 0) html += '<span style="background:#22c55e22;color:#22c55e;padding:1px 5px;border-radius:4px;font-size:10px;" title="Cache hit: ' + c.cache_read + ' tokens">💾' + (c.cache_read>=1000?(c.cache_read/1000).toFixed(0)+'K':c.cache_read) + '</span>';
@@ -26618,11 +26700,57 @@ function loadBrainData(isRefresh) {
   });
 }
 
+// Cost Optimizer modal (REQ-OBS-CEA-023, vivekchand/clawmetry#5934).
+// On a cold dashboard the startup requests pile up in the browser and this
+// fetch used to wait behind them for ~33s with nothing but a spinner. It now
+// gives up after a bounded time with a sentence a person can act on, renders
+// a 402 as the upgrade prompt it is, and never paints a figure without its
+// basis. Recommendations are experiments citing recorded usage; local-model
+// advice appears only when the server saw local traffic (localAdvice.show).
+var _COST_OPT_TIMEOUT_MS = 12000;
+
+function _costOptFailureHtml(kind) {
+  var msg = kind === 'timeout'
+    ? t('app.cost_opt_timeout', null, 'The cost analysis did not answer within 12 seconds. The dashboard may still be starting up, so try again in a moment.')
+    : t('app.cost_opt_failed', null, 'The cost analysis could not be loaded right now. Try again in a moment.');
+  return '<div class="cost-opt-failure" role="status" style="text-align:center;padding:24px;color:var(--text-secondary);line-height:1.5;">'
+    + escapeHtml(msg)
+    + '<div style="margin-top:12px;"><button class="co-action-btn secondary" style="width:auto;padding:6px 14px;" onclick="loadCostOptimizerData(false)">'
+    + escapeHtml(t('common.retry', null, 'Retry')) + '</button></div></div>';
+}
+
+function _costOptLockedHtml() {
+  return '<div class="cost-opt-locked" style="padding:32px 20px;text-align:center;color:var(--text-muted);font-size:13px;line-height:1.55;max-width:520px;margin:0 auto;">'
+    + '<div style="font-size:28px;margin-bottom:8px;">🔒</div>'
+    + '<div style="font-weight:700;color:var(--text-primary);margin-bottom:6px;font-size:15px;">'
+    + escapeHtml(t('app.cost_opt_locked_title', null, 'Cost Optimizer is a paid feature')) + '</div>'
+    + escapeHtml(t('app.cost_opt_locked_body', null, 'Upgrade your ClawMetry plan to see where your agents could spend less, based on the usage recorded on this machine.'))
+    + '<div style="margin-top:16px;"><a href="https://clawmetry.com/pricing" target="_blank" rel="noopener" style="display:inline-block;background:#6366f1;color:#fff;text-decoration:none;padding:8px 16px;border-radius:8px;font-weight:600;font-size:13px;">'
+    + escapeHtml(t('paywall.see_pricing', null, 'See pricing')) + '</a></div></div>';
+}
+
 function loadCostOptimizerData(isRefresh) {
   var expectedNodeId = 'node-cost-optimizer';
-  fetch('/api/cost-optimizer').then(function(r) { return r.json(); }).then(function(data) {
+  var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+  var timedOut = false;
+  var timer = setTimeout(function() { timedOut = true; if (ctrl) ctrl.abort(); }, _COST_OPT_TIMEOUT_MS);
+  fetch('/api/cost-optimizer', ctrl ? { signal: ctrl.signal } : undefined).then(function(r) {
+    // 402 is the entitlement answer, not data: never parse it as figures.
+    if (r.status === 402) return { error: 'upgrade_required' };
+    if (!r.ok) throw new Error('unavailable');
+    return r.json();
+  }).then(function(data) {
+    clearTimeout(timer);
+    if (timedOut) throw new Error('timeout');
     if (!isCompModalActive(expectedNodeId)) return;
     var body = document.getElementById('comp-modal-body');
+    if (data && data.error === 'upgrade_required') {
+      if (_costOptimizerRefreshTimer) { clearInterval(_costOptimizerRefreshTimer); _costOptimizerRefreshTimer = null; }
+      body.innerHTML = _costOptLockedHtml();
+      document.getElementById('comp-modal-footer').textContent = '';
+      return;
+    }
+    data = data || {};
     var html = '';
 
     // ══ SECTION 1: Cost Overview ══════════════════════════════════
@@ -26642,143 +26770,135 @@ function loadCostOptimizerData(isRefresh) {
       var v = data[key];
       return v == null ? 'not available' : '$' + Number(v).toFixed(dp);
     }
+    function _fig(value, key, label) {
+      var entry = window.cmProv ? window.cmProv.of(data, key) : null;
+      if (window.cmFigure) return window.cmFigure(value, entry, { compact: true, label: label });
+      return value == null ? 'not available' : '$' + Number(value).toFixed(2);
+    }
+    var scope = data.scope || t('app.cost_opt_scope', null, 'all runtimes on this machine');
     html += '<div class="cost-overview">';
-    html += '<div class="cost-overview-header">💰 Cost Overview</div>';
+    html += '<div class="cost-overview-header">💰 Cost Overview <span style="font-size:11px;font-weight:400;color:var(--text-muted);">' + escapeHtml(scope) + '</span></div>';
     html += '<div class="cost-overview-row">';
     html += '<div class="cost-overview-item"><span class="cost-overview-label">Today</span><span class="cost-overview-value">' + _costCell('todayCost', 'Cost today', 3) + '</span></div>';
     html += '<div class="cost-overview-item"><span class="cost-overview-label">Month Projected</span><span class="cost-overview-value">' + _costCell('projectedMonthlyCost', 'Projected month', 2) + '</span></div>';
     html += '</div>';
-    if (data.potentialSavings) {
-      html += '<div class="savings-highlight">[prod] ' + data.potentialSavings + '</div>';
-    }
     html += '</div>';
 
-    // Recent expensive ops
+    // Recent expensive ops: each cost carries the basis it was priced on,
+    // and a token count nobody recorded says so.
     if (data.expensiveOps && data.expensiveOps.length > 0) {
       html += '<div style="margin-bottom:14px;">';
       data.expensiveOps.slice(0, 3).forEach(function(op) {
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg-hover);border-radius:6px;margin-bottom:4px;border-left:3px solid var(--text-error);">';
-        html += '<span style="font-size:12px;color:var(--text-secondary);">' + op.model + ' <span style="color:var(--text-muted);">- ' + op.tokens + ' tokens - ' + op.timeAgo + '</span></span>';
-        html += '<span style="font-size:12px;color:var(--text-error);font-weight:700;">$' + op.cost.toFixed(4) + '</span>';
+        var tok = (op.tokens == null || op.tokens === '' || op.tokens === 'unknown')
+          ? t('app.cost_opt_tokens_not_recorded', null, 'tokens not recorded')
+          : op.tokens + ' tokens';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;background:var(--bg-hover);border-radius:6px;margin-bottom:4px;border-left:3px solid var(--text-error);">';
+        html += '<span style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(op.model || '') + ' <span style="color:var(--text-muted);">- ' + escapeHtml(tok) + (op.timeAgo ? ' - ' + escapeHtml(op.timeAgo) : '') + '</span></span>';
+        html += '<span style="font-size:12px;color:var(--text-error);font-weight:700;white-space:nowrap;">' + _fig(op.cost, 'expensiveOps', 'Cost of this call') + '</span>';
         html += '</div>';
       });
       html += '</div>';
     }
 
-    // ══ SECTION 2: Hardware ═══════════════════════════════════════
-    var sys = (data.system) || {};
-    // Detect hardware family so we don't paint Apple-only copy (Metal,
-    // brew install) on Linux/CUDA users.
-    var _bk = String(sys.backend || '').toLowerCase();
-    var _isApple = _bk.indexOf('metal') >= 0 || /apple|m[1-4]\b/i.test(sys.cpu || '');
-    var _isCuda = _bk.indexOf('cuda') >= 0 || /nvidia|cuda|geforce|rtx|gtx/i.test(sys.gpu || '');
-    var _isAmdGpu = _bk.indexOf('rocm') >= 0 || /(amd|radeon)/i.test(sys.gpu || '');
-    var _hasGpu = _isApple || _isCuda || _isAmdGpu;
-    var _accelLabel = _isApple ? 'Metal' : _isCuda ? 'CUDA' : _isAmdGpu ? 'ROCm' : 'CPU';
-    var _ollamaInstall = _isApple ? 'brew install ollama' : 'curl -fsSL https://ollama.com/install.sh | sh';
-
-    html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">🖥️ Your Hardware</div>';
-    html += '<div class="hw-card">';
-    if (sys.cpu) html += '<span class="hw-card-chip">' + escapeHtml(sys.cpu) + '</span>';
-    if (sys.ram_gb) html += '<span class="hw-card-chip">' + sys.ram_gb + 'GB RAM</span>';
-    if (sys.cores) html += '<span class="hw-card-chip">' + sys.cores + ' cores</span>';
-    if (sys.backend) html += '<span class="hw-card-chip green">' + escapeHtml(sys.backend) + '</span>';
-    html += '</div>';
-    // Hardware-aware notice — only show Metal warning to Apple users.
-    if (_isApple && !data.llmfitMetalDetected) {
-      html += '<div class="hw-metal-notice">⚠️ llmfit doesn\'t detect Apple Metal -- actual performance will be <strong>3-5x faster</strong> with Ollama\'s Metal backend</div>';
-    } else if (_isCuda) {
-      html += '<div class="hw-metal-notice">ℹ️ Ollama with CUDA on ' + escapeHtml(sys.gpu || 'your GPU') + ' will run these models near-instantly.</div>';
-    } else if (!_hasGpu) {
-      html += '<div class="hw-metal-notice">ℹ️ No GPU detected — local models will run on CPU. Pick smaller (1B–7B) models for best results.</div>';
-    }
-
-    // ══ SECTION 3: Recommended Local Models ══════════════════════
+    // ══ SECTION 2: Experiments grounded in recorded usage ════════
+    // Only recommendations that cite evidence render. A payload without it
+    // (an older daemon, a hosted snapshot that predates this) shows the
+    // honest note instead of generic advice with invented savings.
+    var recs = (data.taskRecommendations || []).filter(function(rec) { return rec && rec.evidence; });
     html += '<div class="co-section">';
-    html += '<h3>🤖 Recommended Local Models <span style="font-size:11px;color:var(--text-muted);font-weight:400;">via llmfit - ' + _accelLabel + '-accelerated</span></h3>';
-
-    if (!data.ollamaInstalled) {
-      html += '<div class="co-ollama-prompt">';
-      html += '<div style="font-size:13px;color:#a78bfa;font-weight:600;">⚠️ Ollama not installed -- install to run models locally (free!)</div>';
-      html += '<div class="co-ollama-cmd">' + escapeHtml(_ollamaInstall) + '</div>';
-      // JSON.stringify(_ollamaInstall) produces "..." with literal " which
-      // collides with the onclick="..." double-quoted attribute and breaks
-      // out of the attribute scope (rendering raw JS inside the button).
-      // Encode " as &quot; so the HTML parser treats it as a literal quote
-      // inside the attribute, then the JS still sees a proper string.
-      var _esc1 = JSON.stringify(_ollamaInstall).replace(/"/g, '&quot;');
-      html += '<button class="co-action-btn" onclick="navigator.clipboard.writeText(' + _esc1 + ');this.textContent=\'✅ Copied!\';setTimeout(()=>this.textContent=\'📋 Copy Install Command\',2000);">📋 Copy Install Command</button>';
-      html += '</div>';
-    }
-
-    var models = data.localModels || [];
-    if (models.length > 0) {
-      models.slice(0, 5).forEach(function(m) {
-        var badgeType = (m.useCase || '').toLowerCase().indexOf('cod') !== -1 ? 'coding' : 'chat';
-        var _accelMult = _isApple ? 3.5 : _isCuda ? 3.0 : _isAmdGpu ? 2.0 : 1.0;
-        var metalTps = m.estimatedTps ? Math.round(m.estimatedTps * _accelMult) + ' tok/s*' : '--';
-        var ollamaCmd = 'ollama pull ' + (m.ollamaName || m.name.toLowerCase().replace(/-instruct.*/i,'').replace(/[^a-z0-9.-]/g,'-'));
-        html += '<div class="model-card">';
-        html += '<div class="model-card-header">';
-        html += '<div class="model-card-name">' + m.name + '</div>';
-        html += '<span class="model-badge ' + badgeType + '">' + (m.useCase || (badgeType === 'coding' ? 'Coding' : 'Chat')) + '</span>';
-        html += '</div>';
-        html += '<div class="model-card-stats">';
-        html += '<div class="model-card-stat"><span class="model-card-stat-label">Score</span><span class="model-card-stat-value">' + (m.score || '--') + '</span></div>';
-        html += '<div class="model-card-stat"><span class="model-card-stat-label">Speed (' + _accelLabel + ')</span><span class="model-card-stat-value">' + metalTps + '</span></div>';
-        html += '<div class="model-card-stat"><span class="model-card-stat-label">RAM</span><span class="model-card-stat-value">' + (m.ramRequired || (m.memoryRequiredGb ? m.memoryRequiredGb + 'GB' : '--')) + '</span></div>';
-        if (m.savingsEstimate) html += '<div class="model-card-stat"><span class="model-card-stat-label">Savings est.</span><span class="model-card-stat-value" style="color:#4ade80;">' + m.savingsEstimate + '</span></div>';
-        html += '</div>';
-        html += '<div class="model-install-cmd" onclick="navigator.clipboard.writeText(\'' + ollamaCmd + '\');this.querySelector(\'span.cmd-text\').textContent=\'✅ Copied!\';setTimeout(()=>this.querySelector(\'span.cmd-text\').textContent=\'' + ollamaCmd + '\',2000);">';
-        html += '<span class="cmd-text">' + ollamaCmd + '</span>';
-        html += '<span style="color:#4ade80;font-size:10px;flex-shrink:0;">📥 Copy</span>';
-        html += '</div>';
-        if (m.fullName) html += '<a style="display:block;margin-top:5px;font-size:10px;color:#60a5fa;text-decoration:none;" href="https://huggingface.co/' + m.fullName + '" target="_blank">🔗 View on HuggingFace</a>';
-        html += '</div>';
-      });
-      html += '<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">* Speed estimated with Ollama ' + _accelLabel + ' backend</div>';
-    } else {
-      html += '<div style="color:var(--text-muted);font-size:13px;padding:10px 0;">llmfit not available -- install with: <code>pip install llmfit</code></div>';
-    }
-    html += '</div>';
-
-    // ══ SECTION 4: Task Recommendations ══════════════════════════
-    var taskRecs = data.taskRecommendations || [];
-    if (taskRecs.length > 0) {
-      html += '<div class="co-section">';
-      html += '<h3>📋 Task Recommendations</h3>';
-      taskRecs.forEach(function(rec) {
+    html += '<h3>🧪 ' + escapeHtml(t('app.cost_opt_experiments', null, 'Experiments worth trying')) + '</h3>';
+    if (recs.length > 0) {
+      recs.forEach(function(rec) {
+        var ev = rec.evidence || {};
+        var seen = escapeHtml(String(ev.events || 0)) + ' ' + escapeHtml(t('app.cost_opt_recorded_events', null, 'recorded model events'));
+        if (ev.costUsd != null) seen += ', ' + _fig(ev.costUsd, 'modelUsage', 'Recorded cost');
+        if (ev.window) seen += ' <span style="color:var(--text-muted);">(' + escapeHtml(ev.window) + ')</span>';
         html += '<div class="task-rec">';
-        html += '<div class="task-rec-title">' + rec.task + '</div>';
-        if (rec.estimatedSavings) html += '<div class="task-rec-savings">' + rec.estimatedSavings + '</div>';
-        html += '<div class="task-rec-arrow">';
-        if (rec.currentModel) html += '<span style="color:var(--text-muted);">' + rec.currentModel + '</span>';
-        if (rec.suggestedLocal) html += ' -> <span style="color:#4ade80;font-weight:600;">' + rec.suggestedLocal + '</span>';
-        else html += ' -> <span style="color:#4ade80;font-weight:600;">keep frontier ✓</span>';
-        html += '</div>';
-        if (rec.reason) html += '<div class="task-rec-reason">' + rec.reason + '</div>';
+        html += '<div class="task-rec-title">' + escapeHtml(rec.task || rec.model || '') + '</div>';
+        html += '<div class="task-rec-arrow">' + escapeHtml(t('app.cost_opt_observed', null, 'Observed:')) + ' ' + seen + '</div>';
+        if (rec.experiment) html += '<div class="task-rec-reason">' + escapeHtml(rec.experiment) + '</div>';
         html += '</div>';
       });
+    } else {
+      html += '<div style="color:var(--text-muted);font-size:13px;padding:6px 0;">'
+        + escapeHtml(data.recommendationsNote || t('app.cost_opt_no_recs', null, 'No experiments could be suggested from the usage recorded for this view yet.'))
+        + '</div>';
+    }
+    html += '</div>';
+
+    // ══ SECTION 3: Local models, only for local traffic ══════════
+    var la = data.localAdvice || null;
+    var _accelLabel = '';
+    if (la && la.show) {
+      var sys = (data.system) || {};
+      // Detect hardware family so we don't paint Apple-only copy (Metal,
+      // brew install) on Linux/CUDA users.
+      var _bk = String(sys.backend || '').toLowerCase();
+      var _isApple = _bk.indexOf('metal') >= 0 || /apple|m[1-4]\b/i.test(sys.cpu || '');
+      var _isCuda = _bk.indexOf('cuda') >= 0 || /nvidia|cuda|geforce|rtx|gtx/i.test(sys.gpu || '');
+      var _isAmdGpu = _bk.indexOf('rocm') >= 0 || /(amd|radeon)/i.test(sys.gpu || '');
+      _accelLabel = _isApple ? 'Metal' : _isCuda ? 'CUDA' : _isAmdGpu ? 'ROCm' : 'CPU';
+      var _ollamaInstall = _isApple ? 'brew install ollama' : 'curl -fsSL https://ollama.com/install.sh | sh';
+
+      html += '<div class="co-section">';
+      html += '<h3>🖥️ ' + escapeHtml(t('app.cost_opt_local_models', null, 'Local models')) + ' <span style="font-size:11px;color:var(--text-muted);font-weight:400;">' + escapeHtml(la.reason || '') + '</span></h3>';
+      html += '<div class="hw-card">';
+      if (sys.cpu) html += '<span class="hw-card-chip">' + escapeHtml(sys.cpu) + '</span>';
+      if (sys.ram_gb) html += '<span class="hw-card-chip">' + escapeHtml(String(sys.ram_gb)) + 'GB RAM</span>';
+      if (sys.cores) html += '<span class="hw-card-chip">' + escapeHtml(String(sys.cores)) + ' cores</span>';
+      if (sys.backend) html += '<span class="hw-card-chip green">' + escapeHtml(sys.backend) + '</span>';
+      html += '</div>';
+
+      if (!data.ollamaInstalled) {
+        html += '<div class="co-ollama-prompt">';
+        html += '<div style="font-size:13px;color:#a78bfa;font-weight:600;">Ollama is not installed on this machine</div>';
+        html += '<div class="co-ollama-cmd">' + escapeHtml(_ollamaInstall) + '</div>';
+        // Encode " as &quot; so the onclick="..." attribute is not broken
+        // out of by JSON.stringify's quotes.
+        var _esc1 = JSON.stringify(_ollamaInstall).replace(/"/g, '&quot;');
+        html += '<button class="co-action-btn" onclick="navigator.clipboard.writeText(' + _esc1 + ');this.textContent=\'✅ Copied!\';setTimeout(()=>this.textContent=\'📋 Copy Install Command\',2000);">📋 Copy Install Command</button>';
+        html += '</div>';
+      }
+
+      var models = data.localModels || [];
+      if (models.length > 0) {
+        models.slice(0, 5).forEach(function(m) {
+          var badgeType = (m.useCase || '').toLowerCase().indexOf('cod') !== -1 ? 'coding' : 'chat';
+          var ollamaName = String(m.ollamaName || m.name || '').toLowerCase().replace(/[^a-z0-9.:-]/g, '-');
+          html += '<div class="model-card">';
+          html += '<div class="model-card-header">';
+          html += '<div class="model-card-name">' + escapeHtml(m.name || '') + '</div>';
+          html += '<span class="model-badge ' + badgeType + '">' + escapeHtml(m.useCase || (badgeType === 'coding' ? 'Coding' : 'Chat')) + '</span>';
+          html += '</div>';
+          html += '<div class="model-card-stats">';
+          html += '<div class="model-card-stat"><span class="model-card-stat-label">Score</span><span class="model-card-stat-value">' + escapeHtml(String(m.score || '--')) + '</span></div>';
+          html += '<div class="model-card-stat"><span class="model-card-stat-label">RAM</span><span class="model-card-stat-value">' + escapeHtml(String(m.ramRequired || (m.memoryRequiredGb ? m.memoryRequiredGb + 'GB' : '--'))) + '</span></div>';
+          html += '</div>';
+          html += '<div class="model-install-cmd" onclick="navigator.clipboard.writeText(\'ollama pull ' + ollamaName + '\');">';
+          html += '<span class="cmd-text">ollama pull ' + escapeHtml(ollamaName) + '</span>';
+          html += '<span style="color:#4ade80;font-size:10px;flex-shrink:0;">📥 Copy</span>';
+          html += '</div>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:var(--text-muted);font-size:13px;padding:10px 0;">llmfit is not available, so no model fit could be computed. Install it with: <code>pip install llmfit</code></div>';
+      }
+      html += '</div>';
+    } else if (la && la.reason) {
+      html += '<div class="co-section">';
+      html += '<h3>🖥️ ' + escapeHtml(t('app.cost_opt_local_models', null, 'Local models')) + '</h3>';
+      html += '<div class="cost-opt-local-hidden" style="color:var(--text-muted);font-size:13px;line-height:1.5;">' + escapeHtml(la.reason) + '</div>';
       html += '</div>';
     }
-
-    // ══ SECTION 5: Quick Actions ══════════════════════════════════
-    html += '<div class="co-section">';
-    html += '<h3>⚙️ Quick Actions</h3>';
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-    var _esc2 = JSON.stringify(_ollamaInstall).replace(/"/g, '&quot;');
-    html += '<button class="co-action-btn" style="width:auto;padding:6px 14px;" onclick="navigator.clipboard.writeText(' + _esc2 + ');this.textContent=\'✅ Copied!\';setTimeout(()=>this.textContent=\'📋 Install Ollama\',2000);">📋 Install Ollama</button>';
-    html += '<button class="co-action-btn secondary" style="width:auto;padding:6px 14px;" onclick="navigator.clipboard.writeText(\'ollama serve\');this.textContent=\'✅ Copied!\';setTimeout(()=>this.textContent=\'📋 ollama serve\',2000);">📋 ollama serve</button>';
-    html += '<a class="co-action-btn secondary" style="width:auto;padding:6px 14px;text-decoration:none;display:inline-block;" href="https://ollama.com/search" target="_blank">🔍 Browse Models</a>';
-    html += '</div>';
-    html += '</div>';
 
     body.innerHTML = html;
-    document.getElementById('comp-modal-footer').textContent = t("app.auto_refreshing_last_updated", null, "Auto-refreshing - Last updated: ") + new Date().toLocaleTimeString() + ' - ' + (data.llmfitAvailable ? 'llmfit ✓' : 'no llmfit') + ' - ' + _accelLabel + ' backend';
+    document.getElementById('comp-modal-footer').textContent = t("app.auto_refreshing_last_updated", null, "Auto-refreshing - Last updated: ") + new Date().toLocaleTimeString()
+      + (_accelLabel ? ' - ' + (data.llmfitAvailable ? 'llmfit ✓' : 'no llmfit') + ' - ' + _accelLabel + ' backend' : '');
   }).catch(function(e) {
+    clearTimeout(timer);
     if (!isCompModalActive(expectedNodeId)) return;
     if (!isRefresh) {
-      document.getElementById('comp-modal-body').innerHTML = _compModalError('loadCostOptimizerData', 'cost optimizer', e);
+      document.getElementById('comp-modal-body').innerHTML = _costOptFailureHtml(timedOut ? 'timeout' : 'failed');
     }
   });
 }
@@ -26906,9 +27026,25 @@ function reloadCurrentComponent() {
 
 function loadCostOptimizerDataWithTime() {
   var body = document.getElementById('comp-modal-body');
-  var timeContext = _currentTimeContext ? ' (' + _currentTimeContext.date + ')' : '';
-  body.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:48px;margin-bottom:16px;">💰</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">Cost Optimizer' + timeContext + '</div><div style="color:var(--text-muted);">Historical cost analysis coming soon</div><div style="margin-top:8px;font-size:12px;color:var(--text-muted);text-transform:uppercase;">optimizer</div></div>';
-  document.getElementById('comp-modal-footer').textContent = t("app.time_travel", null, "Time travel: ") + (_currentTimeContext ? _currentTimeContext.date : 'Live');
+  if (!_currentTimeContext) {
+    // Back to live: the real analysis, not a placeholder.
+    body.innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Analyzing costs...</div>';
+    loadCostOptimizerData(false);
+    _costOptimizerRefreshTimer = visibilitySetInterval(function() { loadCostOptimizerData(true); }, 15000);
+    return;
+  }
+  // The optimizer reasons about current spend. Say so, and point at where a
+  // past day's spend actually is, instead of promising a feature.
+  var day = escapeHtml(_currentTimeContext.date);
+  body.innerHTML = '<div style="text-align:center;padding:20px;line-height:1.55;"><div style="font-size:48px;margin-bottom:16px;">💰</div>'
+    + '<div style="font-size:16px;font-weight:600;margin-bottom:8px;">Cost Optimizer (' + day + ')</div>'
+    + '<div class="cost-opt-historical" style="color:var(--text-muted);max-width:460px;margin:0 auto;">'
+    + escapeHtml(t('app.cost_opt_historical', null, 'The Cost Optimizer analyses current spend, so it does not suggest changes for a single past day. The Usage tab shows what was spent on that day.'))
+    + '</div><div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">'
+    + '<button class="co-action-btn secondary" style="width:auto;padding:6px 14px;" onclick="timeTravel(\'now\')">' + escapeHtml(t('app.cost_opt_back_to_live', null, 'Back to live')) + '</button>'
+    + '<button class="co-action-btn secondary" style="width:auto;padding:6px 14px;" onclick="closeCompModal();switchTab(\'usage\')">' + escapeHtml(t('app.cost_opt_open_usage', null, 'Open Usage')) + '</button>'
+    + '</div></div>';
+  document.getElementById('comp-modal-footer').textContent = t("app.time_travel", null, "Time travel: ") + _currentTimeContext.date;
 }
 
 function loadAutomationAdvisorDataWithTime() {
@@ -31292,7 +31428,12 @@ function loadGuardSessions() {
   fetch('/api/guard/sessions').then(function (r) { return r.json(); }).then(function (d) {
     var rows = (d && d.sessions) || [];
     if (!rows.length) {
-      el.innerHTML = '<div class="empty-state">No sessions running right now.</div>';
+      // `available: false` is "could not read the list" (the hosted dashboard
+      // before the node's snapshot carries it), not "nothing is running".
+      var emptyText = (d && d.available === false && d.reason)
+        ? d.reason
+        : 'No sessions running right now.';
+      el.innerHTML = '<div class="empty-state">' + guardEsc(emptyText) + '</div>';
       guardSetBadge(0);
       return;
     }
@@ -31618,8 +31759,10 @@ function guardControlRun() {
 }
 
 function guardRenderOutcome(d, verb) {
-  var html = '<p class="' + (d.ok ? 'guard-modal-ok' : 'guard-modal-warn') + '">' +
-    guardEsc(verb) + (d.ok ? ' completed.' : ' did not succeed.') +
+  // `pending`: the hosted dashboard relayed the request and the node has not
+  // reported back yet. That is neither a success nor a failure.
+  var html = '<p class="' + (d.ok ? 'guard-modal-ok' : (d.pending ? 'muted' : 'guard-modal-warn')) + '">' +
+    guardEsc(verb) + (d.ok ? ' completed.' : (d.pending ? ' was sent to your node.' : ' did not succeed.')) +
     (d.detail ? ' <span class="muted">' + guardEsc(d.detail) + '</span>' : '') +
     '</p>';
   // An advisory result is the one an operator most needs spelled out: the
@@ -32115,7 +32258,13 @@ function signalsOpenSessions(name, silent) {
   fetch(url).then(function (r) { return r.json(); }).then(function (d) {
     var rows = (d && d.sessions) || [];
     if (!rows.length) {
-      body.innerHTML = '<div class="sig-empty">' + sigEsc(_sigT('signals.no_sessions', null, 'No sessions matched in this window.')) + '</div>';
+      // `available: false` means the list could not be read (the hosted
+      // dashboard before the node's snapshot carries it), which is not the
+      // same as nothing matching. Say which one it is.
+      var emptyText = (d && d.available === false && d.reason)
+        ? d.reason
+        : _sigT('signals.no_sessions', null, 'No sessions matched in this window.');
+      body.innerHTML = '<div class="sig-empty">' + sigEsc(emptyText) + '</div>';
       return;
     }
     var html = '<table class="sig-table"><thead><tr><th>Session</th><th>Runtime</th><th>Model</th><th>Started</th><th>Cost</th><th>Matches</th><th></th></tr></thead><tbody>';

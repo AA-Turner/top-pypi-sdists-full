@@ -6,6 +6,7 @@ import re
 import shutil
 import sys
 import tempfile
+import threading
 
 import os.path
 
@@ -27,6 +28,7 @@ from siliconcompiler import utils
 from siliconcompiler.utils.logging import SCLoggerFormatter
 from siliconcompiler.utils.multiprocessing import MPManager, get_process_context, forking
 from siliconcompiler.scheduler import send_messages, SCRuntimeError
+from siliconcompiler.package.cleanup import auto_cleanup
 from siliconcompiler.utils.paths import collectiondir, jobdir
 from siliconcompiler.utils.curation import collect
 
@@ -111,6 +113,15 @@ class Scheduler:
         self.__org_job_name = self.__project.option.get_jobname()
         self.__logfile = None
 
+        # Cancel state. This scheduler exists for the whole run, while the
+        # TaskScheduler that actually executes nodes is not built until setup
+        # has finished, so a cancel arriving during setup has to be held here
+        # and handed on. Guarded because it arrives on another thread -- a
+        # server answering a request -- while this one is mid-run.
+        self.__cancel_lock = threading.Lock()
+        self.__canceled = False
+        self.__task_scheduler: Optional[TaskScheduler] = None
+
         # Create tasks
         for step, index in self.__flow.get_nodes():
             node_cls = SchedulerNode
@@ -181,6 +192,24 @@ class Scheduler:
         # instead of resolving a copy again.
         return self.__project._check_manifest()
 
+    def cancel(self) -> None:
+        """Stops this run.
+
+        Reached through :attr:`Project._scheduler`. Setup is a long stretch of the run
+        -- configuring nodes, checking tool versions, collecting sources -- and
+        the TaskScheduler is not built until the end of it, so a cancel landing
+        in that window is remembered and applied to that scheduler as soon as
+        there is one. Called from a thread other than the one running.
+        """
+        with self.__cancel_lock:
+            self.__canceled = True
+            task_scheduler = self.__task_scheduler
+
+        # Outside the lock: cancelling ends node processes, and run_core() takes
+        # the same lock to hand its scheduler over.
+        if task_scheduler:
+            task_scheduler.cancel()
+
     def run_core(self) -> None:
         """
         Executes the core task scheduling loop.
@@ -191,6 +220,15 @@ class Scheduler:
         self.__record.record_python_packages()
 
         task_scheduler = TaskScheduler(self.__project, self.__tasks)
+
+        with self.__cancel_lock:
+            self.__task_scheduler = task_scheduler
+            canceled = self.__canceled
+        if canceled:
+            # Canceled while this run was still in setup. The scheduler it was
+            # meant for exists now, so it is where the request lands.
+            task_scheduler.cancel()
+
         task_scheduler.run(self.__joblog_handler)
         task_scheduler.check()
 
@@ -265,6 +303,11 @@ class Scheduler:
             # Informational check: warn if an editable install's environment is
             # out of sync with its declared pyproject.toml dependencies.
             utils.check_python_dependencies(self.__logger)
+
+            # Collect data sources that have gone unused, before this run's own
+            # resolves mark everything it needs as fresh. Throttled and very
+            # forgiving by default, and it never raises -- see auto_cleanup().
+            auto_cleanup(self.__project)
 
             # Check validity of setup
             if not self.check_manifest():

@@ -6,6 +6,7 @@ from .consts import *
 from .core_climate import SleepIQCoreClimate
 from .exceptions import (
     SleepIQAPIException,
+    SleepIQConnectionException,
     SleepIQLoginException,
     SleepIQTimeoutException,
 )
@@ -15,4 +16,4 @@ from .light import SleepIQLight
 from .preset import SleepIQPreset
 from .sleeper import SleepIQSleeper, SleepData
 
-__version__ = "1.7.1"
+__version__ = "1.7.2"

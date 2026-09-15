@@ -24,6 +24,9 @@ record every batch against a single job execution, so the whole write can be
 reverted or inspected as one unit. Without it, each batch gets its own job
 execution.
 
+In mode="create-or-update", a matched row only takes provided columns that are
+currently null. Pass on_match="overwrite" to replace them instead.
+
 Pass collect_output=False unless you need the written rows back -- otherwise every
 row is echoed back by the API and accumulated in memory.
 """
@@ -66,6 +69,7 @@ class WriteWrappers:
         rows_per_batch: int | None = None,
         on_progress: Callable[[int, int], None] | None = None,
         job_execution_id: str | None = None,
+        on_match: str = "fill_missing",
     ) -> list[dict[str, Any]]:
         """Write records to a core table, splitting across multiple requests of rows_per_batch rows when set."""
         return _write(
@@ -79,6 +83,7 @@ class WriteWrappers:
             mode=mode,
             params_to_match_for_update=params_to_match_for_update,
             defaults=defaults,
+            on_match=on_match,
             collect_output=collect_output,
         )
 
@@ -94,6 +99,7 @@ class WriteWrappers:
         rows_per_batch: int | None = None,
         on_progress: Callable[[int, int], None] | None = None,
         job_execution_id: str | None = None,
+        on_match: str = "fill_missing",
     ) -> list[dict[str, Any]]:
         """Write records to a Labric table, splitting across multiple requests of rows_per_batch rows when set."""
         return _write(
@@ -107,6 +113,7 @@ class WriteWrappers:
             mode=mode,
             params_to_match_for_update=params_to_match_for_update,
             defaults=defaults,
+            on_match=on_match,
             batch_insert_ok=batch_insert_ok,
             collect_output=collect_output,
         )

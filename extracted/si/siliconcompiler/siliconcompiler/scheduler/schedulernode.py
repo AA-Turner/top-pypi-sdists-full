@@ -3,8 +3,10 @@ import glob
 import logging
 import os
 import shutil
+import signal
 import sys
 import tarfile
+import threading
 import time
 
 import os.path
@@ -401,6 +403,25 @@ class SchedulerNode:
             pass
         sys.exit(1)
 
+    def cancel(self) -> None:
+        """Releases whatever this node is holding outside its own process.
+
+        For work the node placed somewhere its process teardown cannot reach,
+        such as a job handed to a workload manager. Ending the process itself is
+        the scheduler's half and needs no help from here.
+
+        Called twice, from either side of the signal that ends the node: by the
+        scheduler that launched it, before signalling, so the work stops while
+        its waiter is still there to notice; and by the node itself in
+        :meth:`run_process`, once the interrupt has unwound whatever the first
+        call was too early to see. It must therefore be safe to repeat, and safe
+        to call for work that was never dispatched.
+
+        A node that runs on this machine has nothing of the sort, so this does
+        nothing. Nodes that dispatch elsewhere override it.
+        """
+        pass
+
     def setup(self) -> bool:
         """
         Runs the setup() method for the node's assigned task.
@@ -596,8 +617,10 @@ class SchedulerNode:
         """
         Gathers all schema keys that could trigger a re-run if changed.
 
-        This includes tool options, scripts, and required inputs specified
-        in the task's schema.
+        The keys are :meth:`.Task.get_digest_keys` -- the task's own settings
+        plus everything its driver required -- split by whether they hold a
+        path, since a value is compared directly while a path is compared by
+        hash or timestamp.
 
         Returns:
             tuple: A tuple containing two sets: (value_keys, path_keys).
@@ -607,21 +630,9 @@ class SchedulerNode:
         Raises:
             KeyError: If a required keypath is not found in the schema.
         """
-        all_keys = set()
-
-        all_keys.update(self.__task.get('require'))
-
-        tool_task_prefix = ('tool', self.__task.tool(), 'task', self.__task.task())
-        for key in ('option', 'threads', 'prescript', 'postscript', 'refdir', 'script',):
-            all_keys.add(",".join([*tool_task_prefix, key]))
-
-        for env_key in self.__project.getkeys(*tool_task_prefix, 'env'):
-            all_keys.add(",".join([*tool_task_prefix, 'env', env_key]))
-
         value_keys = set()
         path_keys = set()
-        for key in all_keys:
-            keypath = tuple(key.split(","))
+        for keypath in self.__task.get_digest_keys():
             if not self.__project.valid(*keypath, default_valid=True):
                 raise KeyError(f"[{','.join(keypath)}] not found")
             if self.__project.get(*keypath, field=None).is_path:
@@ -708,6 +719,15 @@ class SchedulerNode:
         for in_step, in_index in self.__record.get('inputnode',
                                                    step=self.__step, index=self.__index):
             if NodeStatus.is_error(self.__record.get('status', step=in_step, index=in_index)):
+                if self.__task._is_input_excused(in_step, in_index):
+                    # Drop the branch rather than halt: nothing is forwarded from
+                    # it, and nothing stands in for it. select_input_nodes()
+                    # already filters these out, so reaching here means a task
+                    # overrode it -- take the input list it asked for and still
+                    # honour the excuse.
+                    self.logger.warning(f'Skipping inputs from {in_step}/{in_index}: the node '
+                                        'failed and was excused by [option,continue]')
+                    continue
                 self.halt(f'Halting step due to previous error in {in_step}/{in_index}')
 
             output_dir = os.path.join(
@@ -753,7 +773,7 @@ class SchedulerNode:
         """
         error = False
 
-        required_inputs = self.__task.get('input')
+        required_inputs = self.__task._get_required_inputs()
 
         input_dir = os.path.join(self.__workdir, 'inputs')
 
@@ -811,6 +831,81 @@ class SchedulerNode:
         walltime = self.__metrics.get("tasktime", step=self.__step, index=self.__index)
         self.logger.info(f"Finished task in {walltime:.2f}s")
 
+    @staticmethod
+    @contextlib.contextmanager
+    def _interruptible():
+        """Turns the terminate of a canceled run into an interrupt this node can handle.
+
+        SIGTERM's default action ends the process where it stands. That leaves
+        the tool this node started running with nobody to reap it -- a cancel
+        whose whole point was to give the machine back -- and skips the cleanup
+        the node does on its way out. Python's own interrupt is what every one
+        of those paths is already written against: Task.run_task() terminates
+        the tool's process tree on it, and run_process() below halts the node
+        and records what it got to. So raise that rather than growing a second
+        shutdown path beside it.
+
+        The previous handler is restored on the way out, since a node is not
+        always a process of its own -- a replay runs one in the caller's -- and
+        a handler left installed there would outlive the node that wanted it.
+        Only the main thread may install one at all, which a node process's is;
+        anywhere else this yields without changing anything.
+        """
+        def interrupt(signum, frame):
+            raise KeyboardInterrupt
+
+        if threading.current_thread() is not threading.main_thread():
+            yield
+            return
+
+        try:
+            previous = signal.signal(signal.SIGTERM, interrupt)
+        except ValueError:
+            # Not the main thread of the process after all (or a platform
+            # without SIGTERM). Nothing to install, and nothing to restore.
+            yield
+            return
+
+        try:
+            yield
+        finally:
+            signal.signal(signal.SIGTERM, previous)
+
+    def run_process(self) -> None:
+        """Runs this node as the whole of a process of its own.
+
+        The entry point a scheduler hands a node's process, rather than
+        something :meth:`run` does for itself. run() is made to be replaced --
+        DockerSchedulerNode and SlurmSchedulerNode both override it outright,
+        and so can anything outside this package -- and setup that lives inside
+        it is setup every one of those has to remember to reproduce.
+
+        What it adds is the interrupt handling: a canceled run ends this node
+        with SIGTERM, which arrives here as an interrupt, and the node is halted
+        and recorded like any other failure rather than the process simply
+        vanishing with its tool still running.
+        """
+        with SchedulerNode._interruptible():
+            try:
+                self.run()
+            except KeyboardInterrupt:
+                # Only an interrupt outside execute() reaches here -- that one
+                # is handled where the tool is, which is the only place that
+                # can take the tool down with it.
+                try:
+                    # Cancel again, from in here. The scheduler cancels before
+                    # it signals, which can land while this node was still
+                    # handing its work over -- a cancel that finds nothing, and
+                    # a submission that completes just after it. By now that
+                    # submission has unwound, so whatever it managed to create
+                    # is there to be found. Cancelling twice costs nothing.
+                    self.cancel()
+                finally:
+                    # In a finally: a cancel that fails is not a reason to leave
+                    # the node unrecorded, and halt() is what ends this process.
+                    self.halt(
+                        errmsg=f"Execution interrupted for {self.__step}/{self.__index}")
+
     def run(self) -> None:
         """
         Executes the full lifecycle for this node.
@@ -826,7 +921,9 @@ class SchedulerNode:
 
         Note: Since this method may run in its own process with a separate
         address space, any changes made to the schema are communicated through
-        reading/writing the project manifest to the filesystem.
+        reading/writing the project manifest to the filesystem. A node given a
+        process of its own is entered through :meth:`run_process`, which is
+        where anything that process needs as a whole belongs.
         """
 
         # Setup logger
@@ -1136,7 +1233,12 @@ class SchedulerNode:
                       f'errors during {self.__step}/{self.__index}')
 
         if self.__error:
-            self.halt()
+            # [option,continue] does not cover this and is not consulted here:
+            # a nonzero exit or a failed post_process always ends the node. What
+            # continue relaxes is whether the *rest of the flow* proceeds
+            # without it -- see TaskScheduler.__launch_nodes().
+            self.halt(f'{self.__task.tool()}/{self.__task.task()} failed during '
+                      f'{self.__step}/{self.__index}')
 
         self.__report_output_files()
 

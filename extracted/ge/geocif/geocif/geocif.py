@@ -554,6 +554,30 @@ class Geocif:
         ):
             if self.parser.has_option("ML", _opt):
                 self.bnn_params[_opt.replace("bnn_", "")] = _cast("ML", _opt)
+        # Optional Mitra-v2 (model='mitra' zero-shot / 'mitra_ft' fine-tuned)
+        # overrides; keys map mitra_<x> -> <x>. Absent keys keep ml/mitra.py's
+        # defaults (Mitra-v2 regressor checkpoint, 1 in-context member,
+        # device='auto', SVD reduction above 256 features). mitra_fine_tune is
+        # deliberately absent: the fine-tuning switch is the MODEL NAME, so a
+        # single config can run 'mitra' and 'mitra_ft' side by side off one
+        # [ML] block (the same reason tabpfn/tabpfn_ft are separate names).
+        self.mitra_params: dict = {}
+        for _opt, _cast in (
+            ("mitra_hf_model", self.parser.get),
+            ("mitra_device", self.parser.get),
+            ("mitra_n_estimators", self.parser.getint),
+            ("mitra_fine_tune_steps", self.parser.getint),
+            ("mitra_lr", self.parser.getfloat),
+            ("mitra_warmup_steps", self.parser.getint),
+            ("mitra_weight_decay", self.parser.getfloat),
+            ("mitra_max_samples_support", self.parser.getint),
+            ("mitra_max_samples_query", self.parser.getint),
+            ("mitra_max_features", self.parser.getint),
+            ("mitra_val_frac", self.parser.getfloat),
+            ("mitra_precision", self.parser.get),
+        ):
+            if self.parser.has_option("ML", _opt):
+                self.mitra_params[_opt.replace("mitra_", "")] = _cast("ML", _opt)
 
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
@@ -834,7 +858,7 @@ class Geocif:
             self._setup_simple_regression_flags()
         elif self.model_name.startswith("cumulative_"):
             self._setup_cumulative_flags()
-        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft", "tabfm", "exaone", "tabpfn_gsa", "tabfm_gsa"]:
+        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft", "tabfm", "exaone", "tabpfn_gsa", "tabfm_gsa", "mitra", "mitra_ft", "tabpfn_v3"]:
             self._setup_tabular_flags()
         elif self.dispatch_name in ["oblique", "ydf", "pygrf"]:
             self._setup_tree_flags()
@@ -5621,6 +5645,8 @@ class Geocif:
             return self._predict_tabicl_with_quantiles(X_test)
         elif self.dispatch_name == "bnn":
             return self._predict_bnn_with_ci(X_test)
+        elif self.dispatch_name in ("mitra", "mitra_ft"):
+            return self._predict_mitra_with_ci(X_test)
         elif self.dispatch_name in ["logistic", "catboost"] and self.model_type == "CLASSIFICATION":
             return self._predict_classification_with_proba(X_test)
         else:
@@ -5669,6 +5695,53 @@ class Geocif:
             best_hyperparameters = {}
 
         return mu, y_pred_ci, best_hyperparameters
+
+    def _predict_mitra_with_ci(self, X_test: pd.DataFrame) -> Tuple:
+        """Mitra-v2 native predictive interval.
+
+        The v2 regression head is a 1,000-bin softmax over the target range,
+        so the interval is read straight off that distribution -- no conformal
+        wrapper (trainers.estimate_ci leaves mitra unwrapped, like bnn).
+
+        Point estimate: the distribution MEAN, matching ``predict()`` and the
+        released Mitra-v2 decode. Bounds: the alpha/2 and 1-alpha/2 quantiles.
+        A skewed histogram can therefore put the mean off-centre inside the
+        interval, but never outside it.
+
+        Emits the (n, 2, 1) CI shape the tabpfn/tabicl/bnn paths use --
+        _retrend_predictions and _re_add_region_mean_to_predictions index
+        y_pred_ci[ri, 0, 0] / [ri, 1, 0], so the ngboost (n, 3) layout must
+        NOT be copied here. Falls back to the point estimate alone if this is
+        a scalar-head (Mitra-v1) checkpoint, which has no distribution.
+        """
+        lower_q = self.alpha / 2
+        upper_q = 1.0 - self.alpha / 2
+
+        try:
+            # ONE forward pass yields both -- predict() + predict_quantiles()
+            # would run the in-context transformer twice over the same rows.
+            y_pred, bounds = self.model.predict_with_quantiles(
+                X_test, [lower_q, upper_q]
+            )
+        except (RuntimeError, AttributeError) as exc:
+            self.logger.warning(
+                f"  Mitra predictive distribution unavailable "
+                f"({type(exc).__name__}: {exc}); emitting point estimates "
+                f"without intervals"
+            )
+            return np.asarray(self.model.predict(X_test), dtype=float).ravel(), None, {}
+
+        y_pred = np.asarray(y_pred, dtype=float).ravel()
+        bounds = np.asarray(bounds, dtype=float)
+        lower, upper = bounds[:, 0], bounds[:, 1]
+        y_pred_ci = np.stack([lower, upper], axis=1)[:, :, np.newaxis]
+
+        try:
+            best_hyperparameters = self.model.get_params().copy()
+        except AttributeError:
+            best_hyperparameters = {}
+
+        return y_pred, y_pred_ci, best_hyperparameters
 
     def _predict_tabpfn_with_quantiles(self, X_test: pd.DataFrame) -> Tuple:
         """TabPFN native quantile regression for prediction intervals.
@@ -7059,6 +7132,7 @@ class ModelTrainer:
             pygrf_params=getattr(self.obj, "pygrf_params", None),
             gsa_params=getattr(self.obj, "gsa_params", None),
             bnn_params=getattr(self.obj, "bnn_params", None),
+            mitra_params=getattr(self.obj, "mitra_params", None),
         )
 
     def _add_confidence_intervals_if_needed(self, X_train=None):
@@ -7127,6 +7201,13 @@ class ModelTrainer:
             # tabfm_gsa: same GSAModel geometry with TabFM local models —
             # identical plain .fit(X, y) surface, same fitter path.
             "tabfm_gsa": TabPFNFitter(self.obj),
+            # mitra / mitra_ft (Mitra-v2): MitraYieldRegressor takes the raw
+            # feature DataFrame and does its own categorical encoding, so the
+            # TabPFNFitter path (DataFrame in, y ravel'd) fits exactly. Unlike
+            # tabpfn_ft/tabicl_ft, mitra_ft needs no external validation split
+            # — ml/mitra.py carves its own deterministically inside fit().
+            "mitra": TabPFNFitter(self.obj),
+            "mitra_ft": TabPFNFitter(self.obj),
             "tabicl": TabICLFitter(self.obj),
             "tabicl_ft": TabICLFTFitter(self.obj),
             "tabpfn_ft": TabPFNFTFitter(self.obj),

@@ -88,6 +88,7 @@ from snowflake.snowpark_connect.constants import (
 )
 from snowflake.snowpark_connect.date_time_format_mapping import (
     spark_format_needs_udf,
+    spark_format_to_legacy_prefix_regex,
     validate_spark_datetime_format,
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -11252,23 +11253,30 @@ def map_unresolved_function(
                         _timestamp_format_sanity_check(
                             snowpark_arg_names[0], snowpark_arg_names[1]
                         )
-                    _udf_res = _try_udf_parse_result(
-                        e.col, fmt, "timestamp", spark_sql_ansi_enabled
+                    _legacy_res = _legacy_leftover_to_timestamp(
+                        e.col, fmt, e.typ, function_name
                     )
-                    if _udf_res is not None:
-                        result_exp = _udf_res
+                    if _legacy_res is not None:
+                        result_exp = _legacy_res
                     else:
-                        fmt_lit = snowpark_fn.lit(
-                            map_spark_timestamp_format_expression(fmt, e.typ)
+                        _udf_res = _try_udf_parse_result(
+                            e.col, fmt, "timestamp", spark_sql_ansi_enabled
                         )
-                        # NULL input: plain to_timestamp accepts it; try_to_timestamp
-                        # would TRY_CAST-error on the NULL-typed column.
-                        ts_fn = (
-                            snowpark_fn.to_timestamp
-                            if type(e.typ) is NullType
-                            else snowpark_fn.function(function_name)
-                        )
-                        result_exp = ts_fn(e.col, fmt_lit)
+                        if _udf_res is not None:
+                            result_exp = _udf_res
+                        else:
+                            fmt_lit = snowpark_fn.lit(
+                                map_spark_timestamp_format_expression(fmt, e.typ)
+                            )
+                            # NULL input: plain to_timestamp accepts it;
+                            # try_to_timestamp would TRY_CAST-error on the
+                            # NULL-typed column.
+                            ts_fn = (
+                                snowpark_fn.to_timestamp
+                                if type(e.typ) is NullType
+                                else snowpark_fn.function(function_name)
+                            )
+                            result_exp = ts_fn(e.col, fmt_lit)
                 case _:
                     exception = ValueError(
                         f"Invalid number of arguments to {function_name}"
@@ -16297,6 +16305,91 @@ def _date_format_via_java_udf(
     return get_java_format_timestamp_ltz_udf()(ts, snowpark_fn.lit(java_pattern))
 
 
+def _validate_and_wrap_datetime_format(fmt_str: str) -> None:
+    """Validate a literal parse format and re-wrap an incompatible pattern the
+    way Spark's parsing path does.
+
+    Spark surfaces ``failToRecognizePatternError`` ("Fail to recognize
+    '<pattern>' ...") on the parsing path regardless of whether the raw
+    validation raised ``IllegalArgumentException`` or ``SparkUpgradeException``
+    (the raw ``convertIncompatiblePattern`` message, e.g. "Too many pattern
+    letters: M", is only surfaced on the formatting path). Both parse-path
+    callers must wrap identically, so the logic lives here.
+    """
+    try:
+        validate_spark_datetime_format(fmt_str, is_parsing=True)
+    except (DateTimeException, IllegalArgumentException, SparkUpgradeException) as e:
+        exception = DateTimeException(
+            f"Fail to recognize '{fmt_str}' pattern in the DateTimeFormatter."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception from e
+
+
+def _is_legacy_time_parser_policy() -> bool:
+    """True only when the session explicitly set LEGACY (unset is not LEGACY)."""
+    return (
+        global_config.get("spark.sql.legacy.timeParserPolicy") or ""
+    ).upper() == "LEGACY"
+
+
+def _legacy_leftover_to_timestamp(
+    col: Column,
+    fmt_expr: expressions_proto.Expression,
+    input_type: DataType,
+    function_name: str,
+) -> Column | None:
+    """SNOW-4030583: Spark LEGACY ignores leftover text after a matching prefix.
+
+    Returns ``None`` when the policy is not LEGACY, the session timestamp type is
+    NTZ, the format is not a literal, or the pattern must stay on the existing
+    UDF/native path.
+
+    ``function_name`` is the same native two-arg choice (``try_to_timestamp``
+    when ANSI is off, ``to_timestamp`` when it is on).
+    """
+    if not _is_legacy_time_parser_policy():
+        return None
+    # A NULL-typed input has no value to parse; keep SCOS's prior behavior
+    # (the native branch's plain to_timestamp -> NULL) by declining here, so the
+    # regexp_substr / try_to_timestamp path never runs on a NULL-typed column.
+    if type(input_type) is NullType:
+        return None
+    # Spark gates the legacy parser on `LEGACY && !forTimestampNTZ`, and two-arg
+    # to_timestamp reads forTimestampNTZ from spark.sql.timestampType, so under
+    # TIMESTAMP_NTZ it keeps the strict java.time parser.
+    if get_timestamp_type() == TimestampType(snowpark.types.TimestampTimeZone.NTZ):
+        return None
+    fmt_str = unwrap_literal(fmt_expr)
+    if fmt_str is None:
+        return None
+    _validate_and_wrap_datetime_format(fmt_str)
+    if spark_format_needs_udf(fmt_str):
+        return None
+    regex = spark_format_to_legacy_prefix_regex(fmt_str)
+    if regex is None:
+        return None
+    fmt_lit = snowpark_fn.lit(
+        map_spark_timestamp_format_expression(fmt_expr, input_type)
+    )
+    prefix = snowpark_fn.call_function(
+        # Snowflake returns '' rather than NULL for some non-matches, which the
+        # existing regexp_substr mapping normalizes the same way.
+        "nullif",
+        snowpark_fn.regexp_substr(
+            snowpark_fn.cast(col, StringType()), snowpark_fn.lit(regex)
+        ),
+        "",
+    )
+    ts_fn = snowpark_fn.function(function_name)
+    parsed = ts_fn(prefix, fmt_lit)
+    # The anchored regex is narrower than Snowflake's own field tolerance, so a
+    # non-matching prefix falls back to the native parse rather than losing it:
+    # TRY_TO_TIMESTAMP takes '2024-1-2', the regex does not. This keeps LEGACY
+    # purely additive, and under ANSI it restores the native branch's raise.
+    return snowpark_fn.when(prefix.is_null(), ts_fn(col, fmt_lit)).otherwise(parsed)
+
+
 def _parse_datetime_via_java_udf(
     col: Column, spark_format: str, ansi_enabled: bool, target_kind: str
 ) -> Column:
@@ -16344,20 +16437,7 @@ def _try_udf_parse_result(
     fmt_str = unwrap_literal(fmt_expr)
     if fmt_str is None:
         return None
-    try:
-        validate_spark_datetime_format(fmt_str, is_parsing=True)
-    except (DateTimeException, IllegalArgumentException, SparkUpgradeException) as e:
-        # Spark's parsing path re-wraps an incompatible pattern via
-        # failToRecognizePatternError ("Fail to recognize '<pattern>' ...")
-        # regardless of whether the formatting path would have raised
-        # IllegalArgumentException or SparkUpgradeException; the raw
-        # convertIncompatiblePattern message (e.g. "Too many pattern
-        # letters: M") is only surfaced on the formatting path.
-        exception = DateTimeException(
-            f"Fail to recognize '{fmt_str}' pattern in the DateTimeFormatter."
-        )
-        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
-        raise exception from e
+    _validate_and_wrap_datetime_format(fmt_str)
     if not spark_format_needs_udf(fmt_str):
         return None
     canonical = _parse_datetime_via_java_udf(

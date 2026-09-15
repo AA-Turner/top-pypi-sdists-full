@@ -90,9 +90,12 @@ def _validate_repo_format(repo: str) -> str | None:
 
 
 def _resolve_assignment_token(token_env_vars: tuple[str, ...]) -> tuple[str, str]:
+    configured_identity = os.environ.get("AI_PR_LOOP_CREDENTIAL_IDENTITY", "").strip()
     for env_name in token_env_vars:
         token_value = os.environ.get(env_name, "").strip()
         if token_value:
+            if env_name == "GH_TOKEN" and configured_identity in token_env_vars and configured_identity:
+                return configured_identity, token_value
             return env_name, token_value
     return "", ""
 

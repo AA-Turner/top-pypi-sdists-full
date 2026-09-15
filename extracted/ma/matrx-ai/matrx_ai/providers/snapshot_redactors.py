@@ -56,13 +56,27 @@ Design rules (non-negotiable)
 7. **Clarity over performance.** This runs at most once per iteration on the
    write path. Correctness, readability, and auditability win every
    trade-off against micro-optimization.
+
+8. **The AI's answer is never shortened** (decision 2026-09-14, KI-049). A
+   platform that records AI calls keeps what the AI said. In the RESPONSE
+   payload, an assistant ``type="text"`` block's ``text`` is kept verbatim via
+   ``apply_response_redactors()``; blobs are still redacted everywhere,
+   including inside assistant content. Size is never a reason to cut an
+   answer: above the ``agents.request_snapshot.assistant_text_announce_bytes``
+   knob it is stored in full and announced. Full reasoning: the decision block
+   above ``apply_response_redactors``.
 """
 
 from __future__ import annotations
 
 import hashlib
+import logging
+import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Marker format
@@ -305,3 +319,172 @@ def apply_redactors(
 DEFAULT_SNAPSHOT_REDACTORS: list[Redactor] = [
     LargeBinaryStringRedactor(max_bytes=65536, head_chars=128, tail_chars=128),
 ]
+
+
+# ---------------------------------------------------------------------------
+# The AI's answer is recorded IN FULL (decision 2026-09-14, KI-049)
+# ---------------------------------------------------------------------------
+# DECISION. A platform that records AI calls keeps what the AI said. The blob
+# redactor above exists to stop multi-MB inline files saturating the write
+# pool; it was never meant to shorten an answer. But it walked EVERY leaf, so a
+# ~73 KB structured answer (the SEO keyword classifier's) was stored as 128
+# chars + marker + 128 chars — live, 78 of 415 Run history outputs in the 30
+# days to 2026-09-14 — and the rest of what the model said was gone.
+#
+# RULE. In the RESPONSE payload, an assistant message's ``type="text"`` block
+# keeps its ``text`` verbatim. Everything else still goes through the pipeline:
+# every other key of that block, every other block type (``image.base64_data``,
+# ``tool_call.arguments``, ``thinking``), user/system messages, ``raw_response``,
+# and the request/unified payloads. A ``text`` that is itself an encoded blob
+# (base64 alphabet only, or a ``data:…;base64,`` URL) is still redacted — base64
+# does not become safe by arriving inside assistant content.
+#
+# BOUND. There is no size at which the answer is cut. Above the knob
+# ``agents.request_snapshot.assistant_text_announce_bytes`` (start 4 MiB,
+# review due 2026-12-14) it is STILL stored in full and the writer logs a
+# warning naming the size — loud, never a silent truncation.
+#
+# Guard: packages/matrx-ai/tests/test_request_snapshot_assistant_text_full.py.
+
+KNOB_FEATURE = "agents.request_snapshot"
+ASSISTANT_TEXT_ANNOUNCE_BYTES_KEY = "assistant_text_announce_bytes"
+#: KNOB MIRROR of platform.feature_knob "agents.request_snapshot" "assistant_text_announce_bytes"
+ASSISTANT_TEXT_ANNOUNCE_BYTES_MIRROR = 4_194_304
+
+_knob_reader: Callable[[str], Any] | None = None
+_knob_announced = False
+
+
+def configure_snapshot_knobs(reader: Callable[[str], Any] | None) -> None:
+    """Bind the host's reader (``key -> value`` for feature ``agents.request_snapshot``).
+    ``None`` unbinds it, restoring the standalone posture."""
+    global _knob_reader, _knob_announced
+    _knob_reader = reader
+    _knob_announced = False
+
+
+def assistant_text_announce_bytes() -> int:
+    """The live announce threshold, or the declared mirror when no host is bound
+    or the read fails (announced once — a knob read never breaks a snapshot)."""
+    global _knob_announced
+    raw: Any = ASSISTANT_TEXT_ANNOUNCE_BYTES_MIRROR
+    if _knob_reader is None:
+        if not _knob_announced:
+            _knob_announced = True
+            logger.warning(
+                "[matrx_ai] no host knob reader bound for %r; using the mirrored "
+                "%s=%d (bind one with configure_snapshot_knobs())",
+                KNOB_FEATURE, ASSISTANT_TEXT_ANNOUNCE_BYTES_KEY, ASSISTANT_TEXT_ANNOUNCE_BYTES_MIRROR,
+            )
+    else:
+        try:
+            raw = _knob_reader(ASSISTANT_TEXT_ANNOUNCE_BYTES_KEY)
+        except Exception as exc:  # noqa: BLE001 — announced, never a crashed snapshot
+            if not _knob_announced:
+                _knob_announced = True
+                logger.warning(
+                    "[matrx_ai] knob read failed for %r.%r: %r; using the mirrored %d",
+                    KNOB_FEATURE, ASSISTANT_TEXT_ANNOUNCE_BYTES_KEY, exc,
+                    ASSISTANT_TEXT_ANNOUNCE_BYTES_MIRROR,
+                )
+    try:
+        value = int(str(raw).strip().strip('"'))
+    except (TypeError, ValueError):
+        return ASSISTANT_TEXT_ANNOUNCE_BYTES_MIRROR
+    return value if value > 0 else ASSISTANT_TEXT_ANNOUNCE_BYTES_MIRROR
+
+
+_BASE64_ONLY = re.compile(r"[A-Za-z0-9+/=_\-\r\n]+")
+
+
+def looks_like_encoded_blob(value: str) -> bool:
+    """True for a string that is an encoded file rather than language: a
+    ``data:…;base64,`` URL, or a run made only of the base64 alphabet. Prose and
+    JSON always carry spaces, quotes or braces, so an answer never matches."""
+    head = value.lstrip()[:8192]
+    if not head:
+        return False
+    if head.startswith("data:") and ";base64," in head[:512]:
+        return True
+    return _BASE64_ONLY.fullmatch(head) is not None
+
+
+def _keep_assistant_text(block: Any) -> bool:
+    return (
+        isinstance(block, dict)
+        and block.get("type") == "text"
+        and isinstance(block.get("text"), str)
+        and not looks_like_encoded_blob(block["text"])
+    )
+
+
+def _announce_if_huge(text: str, path: str) -> None:
+    if len(text) <= 65536:  # cheap pre-check: bytes >= chars
+        return
+    size = len(text.encode("utf-8", errors="replace"))
+    ceiling = assistant_text_announce_bytes()
+    if size > ceiling:
+        logger.warning(
+            "[matrx_ai] request snapshot: assistant answer at %s is %d bytes, over "
+            "%s.assistant_text_announce_bytes=%d — stored IN FULL (answers are never "
+            "truncated); raise the knob if answers this size are normal",
+            path, size, KNOB_FEATURE, ceiling,
+        )
+
+
+def _redact_assistant_block(block: Any, redactors: list[Redactor], path: str) -> Any:
+    if not _keep_assistant_text(block):
+        return apply_redactors(block, redactors, path=path)
+    out: dict[str, Any] = {}
+    for key, val in block.items():
+        key_path = f"{path}.{key}"
+        if key == "text":
+            _announce_if_huge(val, key_path)
+            out[key] = val
+        else:
+            out[key] = apply_redactors(val, redactors, path=key_path)
+    return out
+
+
+def _redact_response_message(message: Any, redactors: list[Redactor], path: str) -> Any:
+    if not (
+        isinstance(message, dict)
+        and message.get("role") == "assistant"
+        and isinstance(message.get("content"), list)
+    ):
+        return apply_redactors(message, redactors, path=path)
+    out: dict[str, Any] = {}
+    for key, val in message.items():
+        key_path = f"{path}.{key}"
+        if key == "content":
+            out[key] = [
+                _redact_assistant_block(block, redactors, f"{key_path}[{i}]")
+                for i, block in enumerate(val)
+            ]
+        else:
+            out[key] = apply_redactors(val, redactors, path=key_path)
+    return out
+
+
+def apply_response_redactors(
+    response: Any,
+    redactors: list[Redactor],
+    *,
+    path: str = "$",
+) -> Any:
+    """``apply_redactors`` for the RESPONSE payload, keeping the assistant's
+    answer text verbatim (see the decision block above). Same structure
+    guarantees: keys, order and types are preserved; only leaves change."""
+    if not isinstance(response, dict):
+        return apply_redactors(response, redactors, path=path)
+    out: dict[str, Any] = {}
+    for key, val in response.items():
+        key_path = f"{path}.{key}"
+        if key == "messages" and isinstance(val, list):
+            out[key] = [
+                _redact_response_message(message, redactors, f"{key_path}[{i}]")
+                for i, message in enumerate(val)
+            ]
+        else:
+            out[key] = apply_redactors(val, redactors, path=key_path)
+    return out

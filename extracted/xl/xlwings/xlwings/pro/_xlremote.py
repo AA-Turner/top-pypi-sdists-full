@@ -29,7 +29,14 @@ try:
 except ImportError:
     pd = None
 
-from .. import NoSuchObjectError, XlwingsError, __version__, base_classes, utils
+from .. import (
+    NoSuchObjectError,
+    ShapeAlreadyExists,
+    XlwingsError,
+    __version__,
+    base_classes,
+    utils,
+)
 from ..constants import MAX_COLUMNS, MAX_ROWS
 
 # Private marker set on a sheet's api dict once its cell values have been loaded
@@ -177,6 +184,58 @@ _SHAPE_SCALE_FROM = {
     "scale_from_bottom_right": "ScaleFromBottomRight",
 }
 
+# Chart vocabulary mapped to Office.js' Excel.ChartLegendPosition and
+# Excel.ChartPlotBy / Excel.ChartSeriesBy.
+_LEGEND_POSITION_PY2JS = {
+    "top": "Top",
+    "bottom": "Bottom",
+    "left": "Left",
+    "right": "Right",
+    "corner": "Corner",
+}
+_PLOT_BY_PY2JS = {"rows": "Rows", "columns": "Columns"}
+
+# xlwings' pivot vocabulary mapped to Office.js' Excel.AggregationFunction and
+# Excel.PivotLayoutType values. main.py validates, so plain lookups suffice.
+_PIVOT_FUNCTION_PY2JS = {
+    "sum": "Sum",
+    "count": "Count",
+    "average": "Average",
+    "max": "Max",
+    "min": "Min",
+    "product": "Product",
+    "count_numbers": "CountNumbers",
+    "stdev": "StandardDeviation",
+    "stdevp": "StandardDeviationP",
+    "var": "Variance",
+    "varp": "VarianceP",
+}
+_PIVOT_FUNCTION_JS2PY = {v: k for k, v in _PIVOT_FUNCTION_PY2JS.items()}
+_PIVOT_LAYOUT_PY2JS = {"compact": "Compact", "outline": "Outline", "tabular": "Tabular"}
+_PIVOT_LAYOUT_JS2PY = {v: k for k, v in _PIVOT_LAYOUT_PY2JS.items()}
+_PIVOT_AREAS = ("rows", "columns", "filters")
+
+# Office.js Excel.HorizontalAlignment / Excel.VerticalAlignment member names.
+_HORIZONTAL_ALIGNMENT_PY2JS = {
+    "general": "General",
+    "left": "Left",
+    "center": "Center",
+    "right": "Right",
+    "fill": "Fill",
+    "justify": "Justify",
+    "center_across_selection": "CenterAcrossSelection",
+    "distributed": "Distributed",
+}
+_HORIZONTAL_ALIGNMENT_JS2PY = {v: k for k, v in _HORIZONTAL_ALIGNMENT_PY2JS.items()}
+_VERTICAL_ALIGNMENT_PY2JS = {
+    "top": "Top",
+    "center": "Center",
+    "bottom": "Bottom",
+    "justify": "Justify",
+    "distributed": "Distributed",
+}
+_VERTICAL_ALIGNMENT_JS2PY = {v: k for k, v in _VERTICAL_ALIGNMENT_PY2JS.items()}
+
 
 def _mark_sheet_values_loaded(sheet_api):
     sheet_api[_SHEET_VALUES_LOADED_KEY] = True
@@ -236,6 +295,61 @@ datetime_pattern = r"^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]
 datetime_regex = re.compile(datetime_pattern)
 
 
+def _update_pivots_in_place(target, source):
+    """Keep pivot and value wrappers alive across a metadata reload.
+
+    Loaded objects match by Office.js ID, including after an external rename.
+    A pivot created in this script has no ID yet, but its name is known. New
+    value fields have neither an ID nor necessarily a caption; their source
+    and position identify them after the queued actions have been flushed.
+    """
+    previous = target.get("pivot_tables")
+    incoming = source.get("pivot_tables")
+    if not isinstance(previous, list) or not isinstance(incoming, list):
+        return
+
+    def merge(old, new, *, values=False):
+        by_id = {item["id"]: item for item in old if "id" in item}
+        by_name = {item["name"]: item for item in old if "name" in item}
+        matched = set()
+        result = []
+        for index, item in enumerate(new):
+            item = dict(item)
+            entry = by_id.get(item.get("id"))
+            if entry is None:
+                candidate = by_name.get(item.get("name"))
+                if candidate is not None and (
+                    "id" not in candidate or "id" not in item
+                ):
+                    entry = candidate
+            if entry is None and values and index < len(old):
+                candidate = old[index]
+                if (
+                    "id" not in candidate
+                    and "name" not in candidate
+                    and candidate.get("source_field") == item.get("source_field")
+                ):
+                    entry = candidate
+            if entry is None or id(entry) in matched:
+                result.append(item)
+                continue
+            matched.add(id(entry))
+            if not values:
+                item = {
+                    **item,
+                    "values": merge(entry["values"], item["values"], values=True),
+                }
+            # Drop private assumptions (such as _name_explicit) when reading
+            # authoritative metadata from Excel.
+            entry.clear()
+            entry.update(item)
+            result.append(entry)
+        old[:] = result
+        return old
+
+    source["pivot_tables"] = merge(previous, incoming)
+
+
 def _update_api_in_place(target, source):
     """Update target dict in-place from source, preserving references to nested dicts
     inside lists (matched by 'name' key). This ensures that e.g. Sheet or Name objects
@@ -250,8 +364,12 @@ def _update_api_in_place(target, source):
             new_list = []
             for item in value:
                 if isinstance(item, dict) and item.get("name") in old_by_name:
-                    old_by_name[item["name"]].update(item)
-                    new_list.append(old_by_name[item["name"]])
+                    entry = old_by_name[item["name"]]
+                    if key == "sheets":
+                        item = dict(item)
+                        _update_pivots_in_place(entry, item)
+                    entry.update(item)
+                    new_list.append(entry)
                 else:
                     new_list.append(item)
             target[key] = new_list
@@ -832,6 +950,9 @@ class Sheets(base_classes.Sheets):
             "tables": [],
             "print_area": None,
         }
+        if self.book.api["client"] == "Office.js":
+            api["show_gridlines"] = True
+            api["pivot_tables"] = []
 
         if before:
             if before.index == 1:
@@ -920,6 +1041,26 @@ class Sheet(base_classes.Sheet):
         self.api["visibility"] = visibility
 
     @property
+    def show_gridlines(self):
+        try:
+            return self.api["show_gridlines"]
+        except KeyError:
+            # Only the Office.js client sends this key.
+            raise NotImplementedError(
+                "Sheet.show_gridlines is only supported with Office.js clients"
+            ) from None
+
+    @show_gridlines.setter
+    def show_gridlines(self, value):
+        if self.book.api["client"] != "Office.js":
+            raise NotImplementedError(
+                "Sheet.show_gridlines is only supported with Office.js clients"
+            )
+        value = bool(value)
+        self.append_json_action(func="setShowGridlines", args=[value])
+        self.api["show_gridlines"] = value
+
+    @property
     def index(self):
         return self._index
 
@@ -973,6 +1114,17 @@ class Sheet(base_classes.Sheet):
     @property
     def tables(self):
         return Tables(parent=self)
+
+    @property
+    def pivot_tables(self):
+        # Only the Office.js client sends this key, and it sends null when
+        # Excel lacks the ExcelApi 1.8 pivot table API.
+        if self.api.get("pivot_tables") is None:
+            raise NotImplementedError(
+                "Pivot tables are only supported with Office.js clients "
+                "(ExcelApi 1.8 or later)."
+            )
+        return PivotTables(parent=self)
 
     def autofit(self, axis=None):
         if axis in ("rows", "r"):
@@ -1109,6 +1261,7 @@ class Sheet(base_classes.Sheet):
                     # Don't clobber any values already present with the empty
                     # metadata-only payload.
                     sheet_data.pop("values", None)
+                _update_pivots_in_place(self._api, sheet_data)
                 self._api.update(sheet_data)
                 break
         if load_values:
@@ -1598,6 +1751,17 @@ class Range(base_classes.Range):
     async def get_wrap_text(self):
         return await self._get_range_data("wrap_text")
 
+    async def get_horizontal_alignment(self):
+        # Office.js reports None for a range whose cells disagree.
+        return _HORIZONTAL_ALIGNMENT_JS2PY.get(
+            await self._get_range_data("horizontal_alignment")
+        )
+
+    async def get_vertical_alignment(self):
+        return _VERTICAL_ALIGNMENT_JS2PY.get(
+            await self._get_range_data("vertical_alignment")
+        )
+
     async def get_column_width(self):
         return await self._get_range_data("column_width")
 
@@ -1705,6 +1869,44 @@ class Range(base_classes.Range):
     @wrap_text.setter
     def wrap_text(self, value):
         self.append_json_action(func="setWrapText", args=bool(value))
+
+    def _require_officejs(self, name):
+        # Only the Office.js client implements the alignment callbacks; the
+        # other clients would fail with an opaque error when dispatching them.
+        if self.sheet.book.api["client"] != "Office.js":
+            raise NotImplementedError(
+                f"Range.{name} is only supported with Office.js clients"
+            )
+
+    @property
+    def horizontal_alignment(self):
+        raise NotImplementedError(
+            "Reading the horizontal alignment synchronously isn't supported on this "
+            "engine. Use 'await myrange.get_horizontal_alignment()' to fetch it on "
+            "demand."
+        )
+
+    @horizontal_alignment.setter
+    def horizontal_alignment(self, value):
+        self._require_officejs("horizontal_alignment")
+        self.append_json_action(
+            func="setHorizontalAlignment", args=_HORIZONTAL_ALIGNMENT_PY2JS[value]
+        )
+
+    @property
+    def vertical_alignment(self):
+        raise NotImplementedError(
+            "Reading the vertical alignment synchronously isn't supported on this "
+            "engine. Use 'await myrange.get_vertical_alignment()' to fetch it on "
+            "demand."
+        )
+
+    @vertical_alignment.setter
+    def vertical_alignment(self, value):
+        self._require_officejs("vertical_alignment")
+        self.append_json_action(
+            func="setVerticalAlignment", args=_VERTICAL_ALIGNMENT_PY2JS[value]
+        )
 
     @property
     def formula_array(self):
@@ -2619,6 +2821,9 @@ class Chart(base_classes.Chart):
         self._pending = pending
         self._uses_default_name = pending is not None
         self._api = None if pending is not None else parent.api["charts"][key - 1]
+        # Formatting written while pending, replayed in call order once the
+        # chart exists (order matters: a legend position implies visibility).
+        self._pending_actions = []
 
     def append_json_action(self, **kwargs):
         self.parent.book.append_json_action(
@@ -2678,11 +2883,80 @@ class Chart(base_classes.Chart):
                 func="setChartType", args=[self.index - 1, js_value]
             )
 
-    def set_source_data(self, rng):
+    def _local_or_raise(self, key, what):
+        """Local state written earlier in this script, or an error.
+
+        The payload only carries a chart's name, type and geometry; everything
+        else is known only once it has been set here.
+        """
+        if key in self.api:
+            return self.api[key]
+        raise NotImplementedError(
+            f"Reading a chart's {what} isn't supported on this engine."
+        )
+
+    def _set_format(self, key, value, func, args):
+        """Write through to the local state and queue (or buffer) the action."""
+        self.api[key] = value
+        if self._pending is not None:
+            self._pending_actions.append((func, list(args)))
+        else:
+            self.append_json_action(func=func, args=[self.index - 1, *args])
+
+    @property
+    def title(self):
+        return self._local_or_raise("title", "title")
+
+    @title.setter
+    def title(self, value):
+        self._set_format("title", value, "setChartTitle", [value])
+
+    @property
+    def legend(self):
+        return ChartLegend(self)
+
+    @property
+    def plot_by(self):
+        return self._local_or_raise("plot_by", "plot_by")
+
+    @plot_by.setter
+    def plot_by(self, value):
+        # While pending, the orientation rides on the addChart action instead
+        self.api["plot_by"] = value
+        if self._pending is None:
+            self.append_json_action(
+                func="setChartPlotBy", args=[self.index - 1, _PLOT_BY_PY2JS[value]]
+            )
+
+    @property
+    def style(self):
+        return self._local_or_raise("style", "style")
+
+    @style.setter
+    def style(self, value):
+        self._set_format("style", value, "setChartStyle", [value])
+
+    def set_source_data(self, rng, plot_by=None):
         if self._pending is not None:
             # First source data: this is where the chart can finally be
             # created, since Office.js needs the type and data together.
             pending = self._pending
+            # A name can be taken while this chart waits for source data.
+            # Check before changing pending state so callers can rename and retry.
+            if not self._uses_default_name and any(
+                chart["name"] == pending["name"] for chart in self.parent.api["charts"]
+            ):
+                raise ShapeAlreadyExists(
+                    f"'{pending['name']}' is already present on {self.parent.name}."
+                )
+            if plot_by is None:
+                # a plot_by set while pending applies now
+                plot_by = pending.get("plot_by")
+            if plot_by is None:
+                pending.pop("plot_by", None)
+            else:
+                pending["plot_by"] = plot_by
+            anchor = pending.pop("anchor", None)
             if self._uses_default_name:
                 pending["name"] = Charts.unique_default_name(self.parent.api["charts"])
             self.parent.api["charts"].append(pending)
@@ -2700,13 +2974,33 @@ class Chart(base_classes.Chart):
                     pending["top"],
                     pending["width"],
                     pending["height"],
+                    None if plot_by is None else _PLOT_BY_PY2JS[plot_by],
+                    anchor,
                 ],
             )
+            for func, args in self._pending_actions:
+                self.append_json_action(func=func, args=[self.index - 1, *args])
+            self._pending_actions = []
             return
-        self.append_json_action(
-            func="setChartSourceData",
-            args=[self.index - 1, rng.sheet.name, rng.address],
-        )
+        if plot_by is None:
+            # Office.js' setData() defaults to Auto, so the cached orientation
+            # is no longer known
+            self.api.pop("plot_by", None)
+            self.append_json_action(
+                func="setChartSourceData",
+                args=[self.index - 1, rng.sheet.name, rng.address],
+            )
+        else:
+            self.api["plot_by"] = plot_by
+            self.append_json_action(
+                func="setChartSourceData",
+                args=[
+                    self.index - 1,
+                    rng.sheet.name,
+                    rng.address,
+                    _PLOT_BY_PY2JS[plot_by],
+                ],
+            )
 
     def _set_position(self, attribute, value):
         self.api[attribute] = value
@@ -2751,6 +3045,7 @@ class Chart(base_classes.Chart):
         if self._pending is not None:
             # Never created in Excel, so there's nothing to delete there.
             self._pending = None
+            self._pending_actions = []
             return
         del self.parent.api["charts"][self.index - 1]
         self.append_json_action(func="deleteChart", args=[self.index - 1])
@@ -2779,6 +3074,49 @@ class Chart(base_classes.Chart):
         )
 
 
+class ChartLegend(base_classes.ChartLegend):
+    def __init__(self, parent):
+        self.parent = parent
+
+    @property
+    def api(self):
+        raise NotImplementedError(
+            "ChartLegend.api isn't available on this engine: there is no native "
+            "legend object, only queued actions."
+        )
+
+    @property
+    def visible(self):
+        return self.parent._local_or_raise("legend_visible", "legend visibility")
+
+    @visible.setter
+    def visible(self, value):
+        value = bool(value)
+        if not value:
+            # hiding forgets the position; showing again doesn't restore it
+            self.parent.api.pop("legend_position", None)
+        self.parent._set_format(
+            "legend_visible", value, "setChartLegend", ["visible", value]
+        )
+
+    @property
+    def position(self):
+        if self.parent.api.get("legend_visible") is False:
+            return None
+        return self.parent._local_or_raise("legend_position", "legend position")
+
+    @position.setter
+    def position(self, value):
+        # setting a position shows the legend, on the JS side too
+        self.parent.api["legend_visible"] = True
+        self.parent._set_format(
+            "legend_position",
+            value,
+            "setChartLegend",
+            ["position", _LEGEND_POSITION_PY2JS[value]],
+        )
+
+
 class Charts(Collection, base_classes.Charts):
     _attr = "charts"
     _wrap = Chart
@@ -2793,19 +3131,443 @@ class Charts(Collection, base_classes.Charts):
             suffix += 1
         return name
 
-    def add(self, left, top, width, height):
+    def add(
+        self,
+        left,
+        top,
+        width,
+        height,
+        chart_type=None,
+        source=None,
+        plot_by=None,
+        name=None,
+        anchor=None,
+    ):
         # Office.js' charts.add() needs a type and source data, which xlwings
-        # doesn't have yet at this point -- so hold the geometry and create the
-        # chart on the first set_source_data().
+        # doesn't necessarily have yet at this point -- so hold the geometry and
+        # create the chart on the first set_source_data().
+        chart_type = chart_type or "column_clustered"
+        try:
+            js_type = _CHART_TYPE_PY2JS[chart_type]
+        except KeyError:
+            raise ValueError(
+                f"Invalid chart type: {chart_type!r}. Must be one of "
+                f"{sorted(_CHART_TYPE_PY2JS)}."
+            ) from None
         pending = {
-            "name": self.unique_default_name(self.api),
-            "chart_type": _CHART_TYPE_PY2JS["column_clustered"],
-            "left": left,
-            "top": top,
+            "name": name if name else self.unique_default_name(self.api),
+            "chart_type": js_type,
+            # Range.left/top aren't readable synchronously on this engine, so
+            # the anchor's address goes to the client instead
+            "left": None if anchor is not None else left,
+            "top": None if anchor is not None else top,
             "width": width,
             "height": height,
         }
-        return Chart(self.parent, len(self.api) + 1, pending=pending)
+        if anchor is not None:
+            pending["anchor"] = anchor.address
+        chart = Chart(self.parent, len(self.api) + 1, pending=pending)
+        chart._uses_default_name = name is None
+        if source is not None:
+            chart.set_source_data(source, plot_by)
+        return chart
+
+
+def _quote_sheet_name(name):
+    return "'" + name.replace("'", "''") + "'"
+
+
+class PivotTable(base_classes.PivotTable):
+    def __init__(self, parent, key):
+        self._parent = parent
+        # Hold on to the payload dict itself: the index is resolved afresh
+        # for every action so that deleting an earlier pivot table doesn't
+        # invalidate this wrapper.
+        self._api = parent.api["pivot_tables"][key - 1]
+
+    def append_json_action(self, **kwargs):
+        self.parent.book.append_json_action(
+            **{
+                **kwargs,
+                **{
+                    "sheet_position": self.parent.index - 1,
+                },
+            }
+        )
+
+    @property
+    def api(self):
+        return self._api
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def index(self):
+        for ix, entry in enumerate(self.parent.api["pivot_tables"]):
+            if entry is self._api:
+                return ix + 1
+        raise KeyError("The pivot table has been deleted.")
+
+    def _queue(self, func, *args):
+        self.append_json_action(func=func, args=[self.index - 1, *args])
+
+    @property
+    def name(self):
+        return self.api["name"]
+
+    @name.setter
+    def name(self, value):
+        self._queue("setPivotTableName", value)
+        self.api["name"] = value
+
+    @property
+    def field_names(self):
+        return list(self.api["field_names"])
+
+    @property
+    def rows(self):
+        return PivotFields(pivot=self, area="rows")
+
+    @property
+    def columns(self):
+        return PivotFields(pivot=self, area="columns")
+
+    @property
+    def filters(self):
+        return PivotFields(pivot=self, area="filters")
+
+    @property
+    def values(self):
+        return PivotValueFields(pivot=self)
+
+    @property
+    def layout(self):
+        layout = self.api.get("layout")
+        # Office.js reports null when the row fields use mixed layouts
+        return None if layout is None else _PIVOT_LAYOUT_JS2PY.get(layout, layout)
+
+    @layout.setter
+    def layout(self, value):
+        js_value = _PIVOT_LAYOUT_PY2JS[value]
+        self._queue("setPivotLayout", "layout", js_value)
+        self.api["layout"] = js_value
+
+    @property
+    def show_row_grand_totals(self):
+        return self.api["show_row_grand_totals"]
+
+    @show_row_grand_totals.setter
+    def show_row_grand_totals(self, value):
+        self._queue("setPivotLayout", "show_row_grand_totals", value)
+        self.api["show_row_grand_totals"] = value
+
+    @property
+    def show_column_grand_totals(self):
+        return self.api["show_column_grand_totals"]
+
+    @show_column_grand_totals.setter
+    def show_column_grand_totals(self, value):
+        self._queue("setPivotLayout", "show_column_grand_totals", value)
+        self.api["show_column_grand_totals"] = value
+
+    @property
+    def range(self):
+        raise NotImplementedError(
+            "PivotTable.range isn't supported on this engine: the payload doesn't "
+            "carry the pivot table's range."
+        )
+
+    @property
+    def data_body_range(self):
+        raise NotImplementedError(
+            "PivotTable.data_body_range isn't supported on this engine: the "
+            "payload doesn't carry the pivot table's range."
+        )
+
+    def refresh(self):
+        self._queue("refreshPivotTable")
+
+    def delete(self):
+        ix = self.index - 1
+        self._queue("deletePivotTable")
+        del self.parent.api["pivot_tables"][ix]
+
+
+class PivotField(base_classes.PivotField):
+    def __init__(self, pivot, name):
+        self._pivot = pivot
+        self._name = name
+
+    @property
+    def api(self):
+        raise NotImplementedError(
+            "PivotField.api isn't available on this engine: there is no native "
+            "field object, only queued actions."
+        )
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    @property
+    def name(self):
+        return self._name
+
+    def _area(self):
+        """The area the field is currently in, or None."""
+        for area in _PIVOT_AREAS:
+            if self._name in self._pivot.api[area]:
+                return area
+        return None
+
+    def remove(self):
+        area = self._area()
+        if area is None:
+            return
+        self._pivot._queue("removePivotField", area, self._name)
+        self._pivot.api[area].remove(self._name)
+
+
+class PivotFields(base_classes.PivotFields):
+    def __init__(self, pivot, area):
+        self._pivot = pivot
+        self._area = area
+
+    @property
+    def api(self):
+        # the list of field names in this area, in order
+        return self._pivot.api[self._area]
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    @property
+    def area(self):
+        return self._area
+
+    def __call__(self, key):
+        if isinstance(key, numbers.Number):
+            if key < 1 or key > len(self):
+                raise KeyError(key)
+            return PivotField(self._pivot, self.api[key - 1])
+        if key not in self.api:
+            raise KeyError(key)
+        return PivotField(self._pivot, key)
+
+    def __len__(self):
+        return len(self.api)
+
+    def __iter__(self):
+        for name in list(self.api):
+            yield PivotField(self._pivot, name)
+
+    def __contains__(self, key):
+        if isinstance(key, numbers.Number):
+            return 1 <= key <= len(self)
+        return key in self.api
+
+    def add(self, name):
+        if name in self.api:
+            # already here: Excel would leave it in place, too
+            return PivotField(self._pivot, name)
+        # Office.js moves a hierarchy off another axis when adding it here
+        for area in _PIVOT_AREAS:
+            if name in self._pivot.api[area]:
+                self._pivot.api[area].remove(name)
+        self._pivot._queue("addPivotField", self._area, name)
+        self.api.append(name)
+        return PivotField(self._pivot, name)
+
+
+class PivotValueField(base_classes.PivotValueField):
+    def __init__(self, pivot, entry):
+        self._pivot = pivot
+        # the payload dict of this value field; the position is resolved
+        # afresh for every action
+        self._entry = entry
+
+    @property
+    def api(self):
+        return self._entry
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    @property
+    def index(self):
+        for ix, entry in enumerate(self._pivot.api["values"]):
+            if entry is self._entry:
+                return ix + 1
+        raise KeyError("The value field has been removed.")
+
+    def _queue(self, attribute, value):
+        self._pivot._queue("setPivotValueField", self.index - 1, attribute, value)
+
+    def _local_or_raise(self, key, what):
+        if key in self._entry:
+            return self._entry[key]
+        raise NotImplementedError(
+            f"Reading a value field's {what} isn't supported on this engine "
+            "unless the value field already existed when the script started "
+            "or it was set in this script."
+        )
+
+    @property
+    def name(self):
+        return self._local_or_raise("name", "name")
+
+    @name.setter
+    def name(self, value):
+        self._queue("name", value)
+        self._entry["name"] = value
+        self._entry["_name_explicit"] = True
+
+    @property
+    def source_field(self):
+        return self._entry["source_field"]
+
+    @property
+    def function(self):
+        function = self._entry.get("function")
+        if function in (None, "Automatic", "Unknown"):
+            return None
+        return _PIVOT_FUNCTION_JS2PY.get(function, function)
+
+    @function.setter
+    def function(self, value):
+        js_value = _PIVOT_FUNCTION_PY2JS[value]
+        self._queue("function", js_value)
+        self._entry["function"] = js_value
+        if not self._entry.get("_name_explicit"):
+            # Excel renames an automatic caption ("Sum of X" -> "Count of X")
+            # along with the function, so the local name is no longer known
+            self._entry.pop("name", None)
+
+    @property
+    def number_format(self):
+        return self._local_or_raise("number_format", "number format")
+
+    @number_format.setter
+    def number_format(self, value):
+        self._queue("number_format", value)
+        self._entry["number_format"] = value
+
+    def remove(self):
+        ix = self.index - 1
+        self._pivot._queue("removePivotValueField", ix)
+        del self._pivot.api["values"][ix]
+
+
+class PivotValueFields(base_classes.PivotValueFields):
+    def __init__(self, pivot):
+        self._pivot = pivot
+
+    @property
+    def api(self):
+        return self._pivot.api["values"]
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    def __call__(self, key):
+        if isinstance(key, numbers.Number):
+            if key < 1 or key > len(self):
+                raise KeyError(key)
+            return PivotValueField(self._pivot, self.api[key - 1])
+        for entry in self.api:
+            if entry.get("name") == key:
+                return PivotValueField(self._pivot, entry)
+        raise KeyError(key)
+
+    def __len__(self):
+        return len(self.api)
+
+    def __iter__(self):
+        for entry in list(self.api):
+            yield PivotValueField(self._pivot, entry)
+
+    def __contains__(self, key):
+        if isinstance(key, numbers.Number):
+            return 1 <= key <= len(self)
+        return any(entry.get("name") == key for entry in self.api)
+
+    def add(self, field, function=None, name=None, number_format=None):
+        js_function = None if function is None else _PIVOT_FUNCTION_PY2JS[function]
+        self._pivot._queue(
+            "addPivotValueField", field, js_function, name, number_format
+        )
+        # Only what the caller asked for: Excel picks the caption (and the
+        # function) otherwise, and those aren't known until the next payload.
+        entry = {"source_field": field, "function": js_function}
+        if name is not None:
+            entry["name"] = name
+            entry["_name_explicit"] = True
+        if number_format is not None:
+            entry["number_format"] = number_format
+        self.api.append(entry)
+        return PivotValueField(self._pivot, entry)
+
+
+class PivotTables(Collection, base_classes.PivotTables):
+    _attr = "pivot_tables"
+    _wrap = PivotTable
+
+    def append_json_action(self, **kwargs):
+        self.parent.book.append_json_action(
+            **{
+                **kwargs,
+                **{
+                    "sheet_position": self.parent.index - 1,
+                },
+            }
+        )
+
+    def unique_default_name(self):
+        # Office.js requires a name, and Excel numbers pivot tables across
+        # the whole workbook
+        existing = {
+            pt["name"].casefold()
+            for sheet in self.parent.book.api["sheets"]
+            for pt in (sheet.get("pivot_tables") or [])
+        }
+        number = 1
+        while f"pivottable{number}" in existing:
+            number += 1
+        return f"PivotTable{number}"
+
+    def add(self, source, destination, name=None):
+        name = name if name else self.unique_default_name()
+        if isinstance(source, Table):
+            source_kind, source_ref = "table", source.name
+        else:
+            # Office.js accepts a sheet-qualified address string as source
+            source_kind = "range"
+            source_ref = f"{_quote_sheet_name(source.sheet.name)}!{source.address}"
+        self.append_json_action(
+            func="addPivotTable",
+            args=[name, source_kind, source_ref, destination.address],
+        )
+        self.api.append(
+            {
+                "name": name,
+                # The source fields aren't known until the next payload
+                "field_names": [],
+                "rows": [],
+                "columns": [],
+                "filters": [],
+                "values": [],
+                # Excel's defaults for a new pivot table
+                "layout": "Compact",
+                "show_row_grand_totals": True,
+                "show_column_grand_totals": True,
+            }
+        )
+        return PivotTable(self.parent, len(self.api))
 
 
 class Characters(base_classes.Characters):

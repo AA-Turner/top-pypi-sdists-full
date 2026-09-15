@@ -409,10 +409,23 @@ def api_guard_sessions():
         limit = max(1, min(int(request.args.get("limit", 50)), 200))
     except (TypeError, ValueError):
         limit = 50
+    return jsonify(build_guard_sessions_body(limit))
 
-    sessions = _ls_call("query_sessions_table", limit=limit) or []
-    signals = _ls_call("query_recent_loop_signals", limit=200,
-                       since_minutes=30) or []
+
+def build_guard_sessions_body(limit: int = 50, call=None) -> dict:
+    """The ``/api/guard/sessions`` body, shared by the route and the daemon.
+
+    The hosted dashboard has no store, so the daemon builds this same body for
+    the ``guardSessions`` snapshot slice. It passes ``call`` bound to its OWN
+    store handle: going through ``_ls_call`` from inside the daemon would try
+    the daemon's own proxy and then a ``read_only`` re-open, which is the
+    writer-lock deadlock FLYWHEEL section 1 forbids. One builder, so the local
+    and hosted Guard tabs cannot list different sessions.
+    """
+    call = call or _ls_call
+    sessions = call("query_sessions_table", limit=limit) or []
+    signals = call("query_recent_loop_signals", limit=200,
+                   since_minutes=30) or []
 
     # Newest incident per session wins; a session can trip several detectors.
     #
@@ -457,6 +470,9 @@ def api_guard_sessions():
             "spend_basis": str(details.get("spend_basis") or "unknown"),
             "evidence": details.get("evidence")
             if isinstance(details.get("evidence"), dict) else {},
+            # Framework references (REQ-GOV-FWM-002). A row written before the
+            # references existed is labelled from the current contract.
+            "frameworks": _frameworks_for(details),
         }
         # A session can trip several detectors at once. The one that gets the
         # row is the one that costs the most to ignore, falling back to
@@ -582,7 +598,7 @@ def api_guard_sessions():
     ), reverse=True)
 
     flagged = [r for r in out if r.get("incident") or r.get("workspace")]
-    return jsonify({
+    return {
         "sessions": out,
         "count": len(out),
         "flagged": len(flagged),
@@ -591,7 +607,7 @@ def api_guard_sessions():
         "spend_at_risk_usd": round(sum(
             float((r.get("incident") or {}).get("spend_at_risk_usd") or 0)
             for r in flagged), 2),
-    })
+    }
 
 
 def _validated_target(data) -> tuple:
@@ -985,5 +1001,36 @@ def api_guard_actions():
     except (TypeError, ValueError):
         limit = 50
     rows = _ls_call("query_policy_actions", limit=limit) or []
+    rows = [_with_decision_evidence(r) for r in rows if isinstance(r, dict)]
     return jsonify({"actions": rows, "count": len(rows),
                     "server_time": int(time.time())})
+
+
+def _frameworks_for(details) -> dict:
+    """The framework references a stored finding carries, or the current
+    contract's references for its kind when the row predates them."""
+    try:
+        from clawmetry import framework_map as _fm
+        stored = details.get("frameworks") if isinstance(details, dict) else None
+        if isinstance(stored, dict) and stored.get("mapping_version"):
+            return stored
+        return _fm.framework_tags((details or {}).get("kind"))
+    except Exception:
+        return {}
+
+
+def _with_decision_evidence(row: dict) -> dict:
+    """A policy decision row plus its framework references and how strong the
+    evidence is: configured, exercised or failed, never effective
+    (REQ-GOV-FWM-002, clawmetry/framework_map.py)."""
+    out = dict(row)
+    try:
+        from clawmetry import framework_map as _fm
+        out["frameworks"] = _fm.framework_tags(row.get("kind"))
+        out["evidence_level"] = _fm.evidence_level(
+            row.get("action"), row.get("enforced"), row.get("result_ok"),
+            row.get("result_detail"))
+    except Exception:
+        out.setdefault("frameworks", {})
+        out.setdefault("evidence_level", "configured")
+    return out

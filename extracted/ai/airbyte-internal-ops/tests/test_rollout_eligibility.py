@@ -22,6 +22,9 @@ from airbyte_ops_mcp.connector_ops.rollouts.models import (
     AutopilotResult,
     ConnectorRolloutRecord,
 )
+from airbyte_ops_mcp.connector_ops.rollouts.paused_report import SessionLookup
+from airbyte_ops_mcp.devin_api import DevinSessionRef
+from airbyte_ops_mcp.slack_posting import SlackPostResult
 
 
 @pytest.mark.unit
@@ -440,19 +443,16 @@ class _FakeHealthGate:
     should_rollback: bool = False
 
 
-def _autopilot_config_for(adid: str, rc_version: str) -> _FakeRolloutConfig:
-    return _FakeRolloutConfig(
-        default_rollout_mode=autopilot.RolloutMode.autopilot,
-        autopilot_config=_FakeAutopilotConfig(),
-    )
+_HITL_THREAD = SlackPostResult(channel_id="C0HITL", ts="1789000000.000001")
+_SESSION = DevinSessionRef(
+    session_id="0123456789abcdef0123456789abcdef",
+    url="https://app.devin.ai/sessions/0123456789abcdef0123456789abcdef",
+    tags=("rollout:rollout-threshold",),
+)
 
 
-@pytest.mark.unit
-def test_run_auto_triage_pauses_failure_threshold_rollout(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Failure-threshold triage pauses and records the reason without finalizing."""
-    row = {
+def _threshold_row() -> dict[str, object]:
+    return {
         "rollout_id": "rollout-threshold",
         "actor_definition_id": "def-1",
         "state": "in_progress",
@@ -462,7 +462,13 @@ def test_run_auto_triage_pauses_failure_threshold_rollout(
         "current_target_rollout_pct": 25,
         "updated_at": "2020-01-01T00:00:00Z",
     }
-    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
+
+
+def _patch_threshold_triage(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
+    """Stub the platform calls so `run_auto_triage_failed` hits the pause branch."""
+    monkeypatch.setattr(
+        autopilot, "query_connector_rollouts", lambda **_: [_threshold_row()]
+    )
     monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
     monkeypatch.setattr(
         autopilot, "get_connector_rollout_config", _autopilot_config_for
@@ -487,26 +493,266 @@ def test_run_auto_triage_pauses_failure_threshold_rollout(
         lambda **kwargs: paused.append(kwargs) or {},
     )
     monkeypatch.setattr(
-        autopilot,
-        "_send_failure_threshold_hitl",
-        lambda *_args: True,
-    )
-    monkeypatch.setattr(
         autopilot.api_client,
         "finalize_connector_rollout",
         lambda **_: pytest.fail("threshold triage must not finalize"),
     )
+    return paused
+
+
+def _autopilot_config_for(adid: str, rc_version: str) -> _FakeRolloutConfig:
+    return _FakeRolloutConfig(
+        default_rollout_mode=autopilot.RolloutMode.autopilot,
+        autopilot_config=_FakeAutopilotConfig(),
+    )
+
+
+@pytest.mark.unit
+def test_run_auto_triage_pauses_failure_threshold_rollout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failure-threshold triage pauses and records the reason without finalizing."""
+    paused = _patch_threshold_triage(monkeypatch)
+    monkeypatch.setattr(
+        autopilot,
+        "_send_failure_threshold_hitl",
+        lambda *_args, **_kwargs: _HITL_THREAD,
+    )
+    monkeypatch.setattr(autopilot.devin_api, "is_configured", lambda: False)
+
+    result = autopilot.run_auto_triage_failed(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(paused) == 2
+    for call in paused:
+        assert call["paused_reason"].startswith(
+            rollout_constants.FAILURE_THRESHOLD_EXCEEDED_MARKER
+        )
+        assert "2 of 2 connectors failing" in call["paused_reason"]
+    assert _HITL_THREAD.permalink not in paused[0]["paused_reason"]
+    assert paused[1]["paused_reason"].endswith(
+        f"Slack thread: {_HITL_THREAD.permalink}"
+    )
+    assert result.actions[0].success is True
+
+
+@pytest.mark.unit
+def test_run_auto_triage_keeps_gate_reason_when_alert_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No Slack thread means no re-pause; the gate reason stays as written."""
+    paused = _patch_threshold_triage(monkeypatch)
+    monkeypatch.setattr(
+        autopilot, "_send_failure_threshold_hitl", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(autopilot.devin_api, "is_configured", lambda: False)
 
     result = autopilot.run_auto_triage_failed(
         auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
     )
 
     assert len(paused) == 1
-    assert paused[0]["paused_reason"].startswith(
-        rollout_constants.FAILURE_THRESHOLD_EXCEEDED_MARKER
+    assert "Slack thread:" not in paused[0]["paused_reason"]
+    assert result.actions[0].success is False
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "existing_session,expected_alert_url,expect_link_reply",
+    [
+        pytest.param(None, None, True, id="first_pause_creates_and_links"),
+        pytest.param(_SESSION, _SESSION.url, False, id="repeat_pause_reuses"),
+    ],
+)
+def test_run_auto_triage_pause_alerts_before_investigation(
+    monkeypatch: pytest.MonkeyPatch,
+    existing_session: DevinSessionRef | None,
+    expected_alert_url: str | None,
+    expect_link_reply: bool,
+) -> None:
+    """The Slack alert is posted first and its thread is handed to the session."""
+    _patch_threshold_triage(monkeypatch)
+    calls: list[tuple[str, object]] = []
+    lookup = SessionLookup(session=existing_session)
+    monkeypatch.setattr(
+        autopilot, "lookup_investigation_session", lambda rollout_id: lookup
     )
-    assert "2 of 2 connectors failing" in paused[0]["paused_reason"]
+
+    def fake_hitl(*_args: object, **kwargs: object) -> SlackPostResult:
+        calls.append(("alert", kwargs["investigation_url"]))
+        return _HITL_THREAD
+
+    def fake_start(
+        _rollout: object,
+        _rc_version: str,
+        _gate: object,
+        thread: SlackPostResult | None,
+        seen: SessionLookup,
+    ) -> DevinSessionRef:
+        calls.append(("start", thread))
+        assert seen is lookup
+        return existing_session or _SESSION
+
+    def fake_link(thread: SlackPostResult, url: str) -> None:
+        calls.append(("link", url))
+
+    monkeypatch.setattr(autopilot, "_send_failure_threshold_hitl", fake_hitl)
+    monkeypatch.setattr(autopilot, "start_investigation_session", fake_start)
+    monkeypatch.setattr(autopilot, "_post_investigation_link", fake_link)
+
+    result = autopilot.run_auto_triage_failed(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    expected = [("alert", expected_alert_url), ("start", _HITL_THREAD)]
+    if expect_link_reply:
+        expected.append(("link", _SESSION.url))
+    assert calls == expected
     assert result.actions[0].success is True
+    assert _SESSION.url in result.actions[0].message
+
+
+_GATE_ONLY_REASON = (
+    f"{rollout_constants.FAILURE_THRESHOLD_EXCEEDED_MARKER} "
+    "Failure threshold hit: 18 of 68 connectors failing"
+)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "state,paused_reason,expected",
+    [
+        pytest.param("paused", _GATE_ONLY_REASON, True, id="auto_pause_no_thread"),
+        pytest.param(
+            "paused",
+            f"{_GATE_ONLY_REASON} Slack thread: https://slack.example/p1",
+            False,
+            id="already_has_thread",
+        ),
+        pytest.param("paused", "Paused by operator", False, id="manual_pause"),
+        pytest.param("paused", None, False, id="no_reason"),
+        pytest.param("errored", _GATE_ONLY_REASON, False, id="errored_state"),
+    ],
+)
+def test_needs_investigation_backfill(
+    state: str, paused_reason: str | None, expected: bool
+) -> None:
+    row = ConnectorRolloutRecord.model_validate(
+        {**_threshold_row(), "state": state, "paused_reason": paused_reason}
+    )
+    assert autopilot._needs_investigation_backfill(row) is expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "lookup,thread,session,expected_calls,expect_permalink",
+    [
+        pytest.param(
+            SessionLookup(),
+            _HITL_THREAD,
+            _SESSION,
+            ["alert", "start", "link"],
+            True,
+            id="no_session_backfills",
+        ),
+        pytest.param(
+            SessionLookup(session=_SESSION),
+            _HITL_THREAD,
+            _SESSION,
+            ["alert", "start"],
+            True,
+            id="session_exists_reused_without_link_reply",
+        ),
+        pytest.param(
+            SessionLookup(failed=True),
+            _HITL_THREAD,
+            _SESSION,
+            [],
+            False,
+            id="lookup_failed",
+        ),
+        pytest.param(
+            SessionLookup(),
+            None,
+            _SESSION,
+            ["alert", "start"],
+            False,
+            id="slack_failed_keeps_row_eligible",
+        ),
+        pytest.param(
+            SessionLookup(),
+            _HITL_THREAD,
+            None,
+            ["alert", "start"],
+            False,
+            id="devin_failed_keeps_row_eligible",
+        ),
+    ],
+)
+def test_run_auto_triage_backfills_paused_rollout_investigation(
+    monkeypatch: pytest.MonkeyPatch,
+    lookup: SessionLookup,
+    thread: SlackPostResult | None,
+    session: DevinSessionRef | None,
+    expected_calls: list[str],
+    expect_permalink: bool,
+) -> None:
+    """An auto-paused row gets alert/session, and the permalink only once both exist."""
+    paused = _patch_threshold_triage(monkeypatch)
+    row = {**_threshold_row(), "state": "paused", "paused_reason": _GATE_ONLY_REASON}
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
+    monkeypatch.setattr(autopilot, "get_unsafe_downgrades", lambda *_: [])
+    monkeypatch.setattr(autopilot.devin_api, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        autopilot, "lookup_investigation_session", lambda rollout_id: lookup
+    )
+    calls: list[str] = []
+    alert_kwargs: list[dict[str, object]] = []
+
+    def _alert(*_a: object, **kwargs: object) -> SlackPostResult | None:
+        calls.append("alert")
+        alert_kwargs.append(kwargs)
+        return thread
+
+    monkeypatch.setattr(autopilot, "_send_failure_threshold_hitl", _alert)
+    monkeypatch.setattr(
+        autopilot,
+        "start_investigation_session",
+        lambda *_a, **_k: calls.append("start") or session,
+    )
+    monkeypatch.setattr(
+        autopilot, "_post_investigation_link", lambda *_a: calls.append("link")
+    )
+
+    result = autopilot.run_auto_triage_failed(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert calls == expected_calls
+    backfilled = [
+        a for a in result.actions + result.errors if "Backfilled" in a.message
+    ]
+    if not expected_calls:
+        assert paused == []
+        assert backfilled == []
+        return
+    assert alert_kwargs[0]["investigation_url"] == (
+        lookup.session.url if lookup.session else None
+    )
+    assert len(backfilled) == 1
+    if not expect_permalink:
+        assert paused == []
+        assert backfilled[0].success is False
+        return
+    assert len(paused) == 1
+    assert paused[0]["rollout_id"] == "rollout-threshold"
+    assert (
+        paused[0]["paused_reason"]
+        == f"{_GATE_ONLY_REASON} Slack thread: {_HITL_THREAD.permalink}"
+    )
+    assert backfilled[0].success is True
+    assert _SESSION.url in backfilled[0].message
 
 
 @pytest.mark.unit

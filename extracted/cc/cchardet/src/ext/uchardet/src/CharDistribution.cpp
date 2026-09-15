@@ -38,12 +38,12 @@
 #include "CharDistribution.h"
 
 #include "JISFreq.tab"
-#include "Big5Freq.tab"
 #include "EUCKRFreq.tab"
+#include "JohabFreq.tab"
 #include "EUCTWFreq.tab"
 #include "GB2312Freq.tab"
 
-#define SURE_YES 0.99f
+#define SURE_YES 0.7f
 #define SURE_NO  0.01f
 
 //return confidence base on received data
@@ -79,18 +79,29 @@ EUCKRDistributionAnalysis::EUCKRDistributionAnalysis()
   mTypicalDistributionRatio = EUCKR_TYPICAL_DISTRIBUTION_RATIO;
 }
 
+JohabDistributionAnalysis::JohabDistributionAnalysis()
+{
+  mCharToFreqOrder = EUCKRCharToFreqOrder;
+  mTableSize = EUCKR_TABLE_SIZE;
+  mTypicalDistributionRatio = EUCKR_TYPICAL_DISTRIBUTION_RATIO;
+}
+
+PRInt32 JohabDistributionAnalysis::JohabToEUCKR(PRUint8 c1, PRUint8 c2)
+{
+  PRUint8 a = JohabCho[(c1 >> 2) & 0x1f];
+  PRUint8 b = JohabJung[((c1 << 3) | (c2 >> 5)) & 0x1f];
+  PRUint8 c = JohabJong[c2 & 0x1f];
+
+  if (a == 0xff || b == 0xff || c == 0xff)
+    return -1;
+  return (PRInt32)JohabToEUCKROrder[a * 21*28 + b * 28 + c];
+}
+
 GB2312DistributionAnalysis::GB2312DistributionAnalysis()
 {
   mCharToFreqOrder = GB2312CharToFreqOrder;
   mTableSize = GB2312_TABLE_SIZE;
   mTypicalDistributionRatio = GB2312_TYPICAL_DISTRIBUTION_RATIO;
-}
-
-Big5DistributionAnalysis::Big5DistributionAnalysis()
-{
-  mCharToFreqOrder = Big5CharToFreqOrder;
-  mTableSize = BIG5_TABLE_SIZE;
-  mTypicalDistributionRatio = BIG5_TYPICAL_DISTRIBUTION_RATIO;
 }
 
 SJISDistributionAnalysis::SJISDistributionAnalysis()

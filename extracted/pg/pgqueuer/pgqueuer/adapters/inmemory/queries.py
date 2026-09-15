@@ -8,9 +8,8 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import heapq
-import uuid
 from datetime import datetime, timedelta
-from typing import Any, Literal, overload
+from typing import Literal, TypedDict, overload
 
 from pydantic_core import to_json
 from typing_extensions import assert_never
@@ -18,12 +17,72 @@ from typing_extensions import assert_never
 from pgqueuer.adapters.inmemory.driver import InMemoryDriver
 from pgqueuer.adapters.persistence import qb, query_helpers
 from pgqueuer.adapters.persistence.query_helpers import merge_tracing_headers
-from pgqueuer.domain import errors, models
+from pgqueuer.domain import errors, models, types
 from pgqueuer.domain.models import utc_now
-from pgqueuer.domain.types import CronEntrypoint, JobId, OnConflict, ScheduleId, SortOrder
+from pgqueuer.domain.types import (
+    JOB_STATUS,
+    CronEntrypoint,
+    CronExpression,
+    HealthCheckId,
+    JobId,
+    OnConflict,
+    QueueEntrypoint,
+    QueueManagerId,
+    ScheduleId,
+    Slot,
+    SortOrder,
+)
 from pgqueuer.ports import tracing
 from pgqueuer.ports.repository import EntrypointExecutionParameter
 from pgqueuer.ports.tracing import TracingProtocol
+
+
+class JobRow(TypedDict):
+    id: int
+    priority: int
+    created: datetime
+    updated: datetime
+    heartbeat: datetime
+    execute_after: datetime
+    status: JOB_STATUS
+    entrypoint: QueueEntrypoint
+    payload: bytes | None
+    attempts: int
+    queue_manager_id: QueueManagerId | None
+    slot: Slot | None
+    headers: str
+
+
+class LogRow(TypedDict):
+    id: int
+    created: datetime
+    job_id: int
+    status: JOB_STATUS
+    priority: int
+    entrypoint: QueueEntrypoint
+    traceback: str | None
+    aggregated: bool
+
+
+class StatisticsRow(TypedDict):
+    id: int
+    created: datetime
+    count: int
+    entrypoint: QueueEntrypoint
+    priority: int
+    status: JOB_STATUS
+
+
+class ScheduleRow(TypedDict):
+    id: int
+    expression: CronExpression
+    entrypoint: CronEntrypoint
+    heartbeat: datetime
+    created: datetime
+    updated: datetime
+    next_run: datetime
+    last_run: datetime | None
+    status: JOB_STATUS
 
 
 def percentile_cont(values: list[float], fraction: float) -> float:
@@ -55,10 +114,10 @@ class InMemoryQueries:
 
     tracer: TracingProtocol | None = None
 
-    _jobs: dict[int, dict[str, Any]] = dataclasses.field(default_factory=dict, init=False)
-    _log: list[dict[str, Any]] = dataclasses.field(default_factory=list, init=False)
-    _statistics: list[dict[str, Any]] = dataclasses.field(default_factory=list, init=False)
-    _schedules: dict[int, dict[str, Any]] = dataclasses.field(default_factory=dict, init=False)
+    _jobs: dict[int, JobRow] = dataclasses.field(default_factory=dict, init=False)
+    _log: list[LogRow] = dataclasses.field(default_factory=list, init=False)
+    _statistics: list[StatisticsRow] = dataclasses.field(default_factory=list, init=False)
+    _schedules: dict[int, ScheduleRow] = dataclasses.field(default_factory=dict, init=False)
     _dedupe_index: dict[str, int] = dataclasses.field(default_factory=dict, init=False)
     _dedupe_key_by_job: dict[int, str] = dataclasses.field(default_factory=dict, init=False)
 
@@ -217,7 +276,7 @@ class InMemoryQueries:
             ea = now + normed.execute_after[i]
             hdr = to_json(normed.headers[i]).decode()
 
-            job_dict: dict[str, Any] = {
+            job_dict: JobRow = {
                 "id": job_id,
                 "priority": normed.priority[i],
                 "created": now,
@@ -225,10 +284,11 @@ class InMemoryQueries:
                 "heartbeat": now,
                 "execute_after": ea,
                 "status": "queued",
-                "entrypoint": normed.entrypoint[i],
+                "entrypoint": QueueEntrypoint(normed.entrypoint[i]),
                 "payload": normed.payload[i],
                 "attempts": 0,
                 "queue_manager_id": None,
+                "slot": None,
                 "headers": hdr,
             }
 
@@ -247,7 +307,7 @@ class InMemoryQueries:
                     "job_id": job_id,
                     "status": "queued",
                     "priority": normed.priority[i],
-                    "entrypoint": normed.entrypoint[i],
+                    "entrypoint": QueueEntrypoint(normed.entrypoint[i]),
                     "traceback": None,
                     "aggregated": False,
                 }
@@ -257,7 +317,7 @@ class InMemoryQueries:
         await self.emit_table_changed("insert")
         return ids
 
-    def _push_queued_job(self, job: dict[str, Any], now: datetime) -> None:
+    def _push_queued_job(self, job: JobRow, now: datetime) -> None:
         if job["execute_after"] <= now:
             heapq.heappush(
                 self._ready_heaps.setdefault(job["entrypoint"], []),
@@ -291,8 +351,8 @@ class InMemoryQueries:
         limit: int,
         now: datetime,
         seen: set[int],
-    ) -> list[dict[str, Any]]:
-        popped: list[dict[str, Any]] = []
+    ) -> list[JobRow]:
+        popped: list[JobRow] = []
         heap = self._ready_heaps.get(entrypoint)
         if heap is None:
             return popped
@@ -310,10 +370,10 @@ class InMemoryQueries:
 
     def _count_picked_jobs(
         self,
-        queue_manager_id: uuid.UUID,
-        entrypoints: dict[str, EntrypointExecutionParameter],
-    ) -> tuple[dict[str, int], int]:
-        picked_per_ep: dict[str, int] = {}
+        queue_manager_id: QueueManagerId,
+        entrypoints: dict[QueueEntrypoint, EntrypointExecutionParameter],
+    ) -> tuple[dict[QueueEntrypoint, int], int]:
+        picked_per_ep: dict[QueueEntrypoint, int] = {}
         total_picked = 0
         for job_id in self._picked_ids:
             j = self._jobs[job_id]
@@ -327,9 +387,9 @@ class InMemoryQueries:
     def _collect_stale_candidates(
         self,
         now: datetime,
-        entrypoints: dict[str, EntrypointExecutionParameter],
+        entrypoints: dict[QueueEntrypoint, EntrypointExecutionParameter],
         heartbeat_timeout: timedelta,
-    ) -> list[dict[str, Any]]:
+    ) -> list[JobRow]:
         candidates = [
             j
             for j in (self._jobs[job_id] for job_id in self._picked_ids)
@@ -340,7 +400,7 @@ class InMemoryQueries:
 
     def _write_picked_logs(
         self,
-        jobs: list[dict[str, Any]],
+        jobs: list[JobRow],
         now: datetime,
     ) -> None:
         for j in jobs:
@@ -361,8 +421,8 @@ class InMemoryQueries:
     async def dequeue(
         self,
         batch_size: int,
-        entrypoints: dict[str, EntrypointExecutionParameter],
-        queue_manager_id: uuid.UUID,
+        entrypoints: dict[QueueEntrypoint, EntrypointExecutionParameter],
+        queue_manager_id: QueueManagerId,
         global_concurrency_limit: int | None,
         heartbeat_timeout: timedelta,
     ) -> list[models.Job]:
@@ -386,7 +446,7 @@ class InMemoryQueries:
         self._promote_due_deferred(now)
 
         seen = set[int]()
-        queued_candidates: list[dict[str, Any]] = []
+        queued_candidates: list[JobRow] = []
         for ep, params in entrypoints.items():
             cap = remaining
             if params.concurrency_limit > 0:
@@ -439,7 +499,7 @@ class InMemoryQueries:
         job_status: list[
             tuple[
                 models.Job,
-                models.JOB_STATUS,
+                types.JOB_STATUS,
                 models.TracebackRecord | None,
             ]
         ],
@@ -594,7 +654,7 @@ class InMemoryQueries:
             self._picked_ids.clear()
 
     async def queue_size(self) -> list[models.QueueStatistics]:
-        counts: dict[tuple[str, int, str], int] = {}
+        counts: dict[tuple[QueueEntrypoint, int, JOB_STATUS], int] = {}
         for j in self._jobs.values():
             key = (j["entrypoint"], j["priority"], j["status"])
             counts[key] = counts.get(key, 0) + 1
@@ -608,13 +668,13 @@ class InMemoryQueries:
             for (ep, pri, st), count in sorted(counts.items())
         ]
 
-    async def queued_work(self, entrypoints: list[str]) -> int:
+    async def queued_work(self, entrypoints: list[QueueEntrypoint]) -> int:
         ep_set = set(entrypoints)
         return sum(
             1 for j in self._jobs.values() if j["status"] == "queued" and j["entrypoint"] in ep_set
         )
 
-    async def eligible_queued_work(self, entrypoints: list[str]) -> int:
+    async def eligible_queued_work(self, entrypoints: list[QueueEntrypoint]) -> int:
         """Like ``queued_work`` but counting only jobs whose ``execute_after`` has passed."""
         now = utc_now()
         ep_set = set(entrypoints)
@@ -637,9 +697,9 @@ class InMemoryQueries:
     async def job_status(
         self,
         ids: list[JobId],
-    ) -> list[tuple[JobId, models.JOB_STATUS]]:
+    ) -> list[tuple[JobId, types.JOB_STATUS]]:
         id_set = {int(jid) for jid in ids}
-        latest: dict[int, models.JOB_STATUS] = {}
+        latest: dict[int, types.JOB_STATUS] = {}
         for entry in reversed(self._log):
             jid = entry["job_id"]
             if jid in id_set and jid not in latest:
@@ -648,7 +708,7 @@ class InMemoryQueries:
 
     def aggregate_log_to_statistics(self) -> None:
         """Roll un-aggregated log rows into per-second statistics buckets."""
-        to_agg: dict[tuple[str, int, str, datetime], int] = {}
+        to_agg: dict[tuple[QueueEntrypoint, int, JOB_STATUS, datetime], int] = {}
         for entry in self._log:
             if entry["aggregated"]:
                 continue
@@ -708,7 +768,7 @@ class InMemoryQueries:
         )
         await self.driver.notify(self.qbq.settings.channel, event.model_dump_json())
 
-    async def notify_health_check(self, health_check_event_id: uuid.UUID) -> None:
+    async def notify_health_check(self, health_check_event_id: HealthCheckId) -> None:
         event = models.HealthCheckEvent(
             channel=self.qbq.settings.channel,
             sent_at=utc_now(),
@@ -752,7 +812,7 @@ class InMemoryQueries:
         entrypoints: dict[models.CronExpressionEntrypoint, timedelta],
     ) -> list[models.Schedule]:
         now = utc_now()
-        selected: list[dict[str, Any]] = []
+        selected: list[ScheduleRow] = []
 
         ep_set = {(k.expression, k.entrypoint): v for k, v in entrypoints.items()}
 
@@ -827,11 +887,11 @@ class InMemoryQueries:
         else:
             self._log.clear()
 
-    async def next_deferred_eta(self, entrypoints: list[str]) -> timedelta | None:
+    async def next_deferred_eta(self, entrypoints: list[QueueEntrypoint]) -> timedelta | None:
         """Return time until the soonest deferred job becomes eligible, or None."""
         now = utc_now()
         ep_set = set(entrypoints)
-        candidates = [
+        candidates: list[datetime] = [
             j["execute_after"]
             for j in self._jobs.values()
             if j["status"] == "queued" and j["entrypoint"] in ep_set and j["execute_after"] > now
@@ -842,7 +902,7 @@ class InMemoryQueries:
 
     async def queue_age(self) -> list[models.QueueAgeStats]:
         now = utc_now()
-        grouped: dict[str, list[datetime]] = {}
+        grouped: dict[QueueEntrypoint, list[datetime]] = {}
         for j in self._jobs.values():
             if j["status"] == "queued":
                 grouped.setdefault(j["entrypoint"], []).append(j["created"])
@@ -869,8 +929,8 @@ class InMemoryQueries:
             key=lambda e: (e["job_id"], e["created"], e["id"]),
         )
         terminal = {"successful", "exception", "canceled", "failed"}
-        durations: dict[str, list[float]] = {}
-        prev: dict[str, Any] | None = None
+        durations: dict[QueueEntrypoint, list[float]] = {}
+        prev: LogRow | None = None
         for entry in ordered:
             if (
                 prev is not None
@@ -902,7 +962,7 @@ class InMemoryQueries:
     ) -> list[models.ThroughputStats]:
         self.aggregate_log_to_statistics()
         cutoff = utc_now() - last if last is not None else None
-        totals: dict[tuple[str, str], int] = {}
+        totals: dict[tuple[QueueEntrypoint, JOB_STATUS], int] = {}
         for r in self._statistics:
             if cutoff is not None and r["created"] <= cutoff:
                 continue
@@ -919,7 +979,7 @@ class InMemoryQueries:
     ) -> list[models.ThroughputBucket]:
         self.aggregate_log_to_statistics()
         cutoff = utc_now() - last
-        buckets: dict[tuple[datetime, str, str], int] = {}
+        buckets: dict[tuple[datetime, QueueEntrypoint, JOB_STATUS], int] = {}
         for r in self._statistics:
             if r["created"] <= cutoff:
                 continue
@@ -932,7 +992,7 @@ class InMemoryQueries:
         ]
 
     async def active_workers(self) -> list[models.ActiveWorker]:
-        grouped: dict[uuid.UUID, list[dict[str, Any]]] = {}
+        grouped: dict[QueueManagerId, list[JobRow]] = {}
         for j in self._jobs.values():
             if j["status"] == "picked" and j["queue_manager_id"] is not None:
                 grouped.setdefault(j["queue_manager_id"], []).append(j)
@@ -983,7 +1043,7 @@ class InMemoryQueries:
         self,
         limit: int = 50,
         offset: int = 0,
-        statuses: list[models.JOB_STATUS] | None = None,
+        statuses: list[types.JOB_STATUS] | None = None,
         entrypoints: list[str] | None = None,
     ) -> list[models.Job]:
         rows = [
@@ -1034,7 +1094,7 @@ class InMemoryQueries:
         if dk is not None:
             self._dedupe_index.pop(dk, None)
 
-    async def emit_table_changed(self, operation: models.OPERATIONS) -> None:
+    async def emit_table_changed(self, operation: types.OPERATIONS) -> None:
         event = models.TableChangedEvent(
             channel=self.qbq.settings.channel,
             sent_at=utc_now(),

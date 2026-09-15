@@ -142,6 +142,10 @@ class NearestCentroid(BaseTransformer):
 
     shrink_threshold: float, default=None
         Threshold for shrinking centroids to remove features.
+
+    priors: {"uniform", "empirical"} or array-like of shape (n_classes,),         default="uniform"
+        The class prior probabilities. By default, the class proportions are
+        inferred from the training data.
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -149,6 +153,7 @@ class NearestCentroid(BaseTransformer):
         *,
         metric="euclidean",
         shrink_threshold=None,
+        priors="uniform",
         input_cols: Optional[Union[str, Iterable[str]]] = None,
         output_cols: Optional[Union[str, Iterable[str]]] = None,
         label_cols: Optional[Union[str, Iterable[str]]] = None,
@@ -171,7 +176,8 @@ class NearestCentroid(BaseTransformer):
         self._deps = list(deps)
         
         init_args = {'metric':(metric, "euclidean", False),
-            'shrink_threshold':(shrink_threshold, None, False),}
+            'shrink_threshold':(shrink_threshold, None, False),
+            'priors':(priors, "uniform", False),}
         cleaned_up_init_args = validate_sklearn_args(
             args=init_args,
             klass=sklearn.neighbors.NearestCentroid
@@ -659,7 +665,9 @@ class NearestCentroid(BaseTransformer):
     def predict_proba(
         self, dataset: Union[DataFrame, pd.DataFrame], output_cols_prefix: str = "predict_proba_"
     ) -> Union[DataFrame, pd.DataFrame]:
-        """Method not supported for this class.
+        """Estimate class probabilities
+        For more details on this function, see [sklearn.neighbors.NearestCentroid.predict_proba]
+        (https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestCentroid.html#sklearn.neighbors.NearestCentroid.predict_proba)
 
 
         Raises:
@@ -725,7 +733,9 @@ class NearestCentroid(BaseTransformer):
     def predict_log_proba(
         self, dataset: Union[DataFrame, pd.DataFrame], output_cols_prefix: str = "predict_log_proba_"
     ) -> Union[DataFrame, pd.DataFrame]:
-        """Method not supported for this class.
+        """Estimate class probabilities
+        For more details on this function, see [sklearn.neighbors.NearestCentroid.predict_proba]
+        (https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestCentroid.html#sklearn.neighbors.NearestCentroid.predict_proba)
 
 
         Raises:
@@ -787,7 +797,9 @@ class NearestCentroid(BaseTransformer):
     def decision_function(
         self, dataset: Union[DataFrame, pd.DataFrame], output_cols_prefix: str = "decision_function_"
     ) -> Union[DataFrame, pd.DataFrame]:
-        """Method not supported for this class.
+        """Apply decision function to an array of samples
+        For more details on this function, see [sklearn.neighbors.NearestCentroid.decision_function]
+        (https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestCentroid.html#sklearn.neighbors.NearestCentroid.decision_function)
 
 
         Raises:
@@ -921,7 +933,7 @@ class NearestCentroid(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.neighbors.NearestCentroid.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestCentroid.html#sklearn.neighbors.NearestCentroid.score)
 

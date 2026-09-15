@@ -1,0 +1,25 @@
+name: test
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  # testing
+  - codecov
+  - geopandas
+  - joblib
+  - pandas
+  - pytest
+  - pytest-cov
+  - pytest-xdist
+  - seaborn
+  - tqdm
+  - pip:
+    # dev versions of packages
+    - --pre \
+      --index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
+      --extra-index-url https://pypi.org/simple
+    - matplotlib
+    - numpy
+    - scipy
+    - git+https://github.com/pysal/libpysal.git@main
+    - git+https://github.com/pysal/mapclassify.git@main

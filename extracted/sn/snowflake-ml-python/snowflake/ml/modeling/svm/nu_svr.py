@@ -146,6 +146,8 @@ class NuSVR(BaseTransformer):
          Specifies the kernel type to be used in the algorithm.
          If none is given, 'rbf' will be used. If a callable is given it is
          used to precompute the kernel matrix.
+         For an intuitive visualization of different kernel types see
+         See :ref:`sphx_glr_auto_examples_svm_plot_svm_regression.py`
 
     degree: int, default=3
         Degree of the polynomial kernel function ('poly').
@@ -977,7 +979,7 @@ class NuSVR(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.svm.NuSVR.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.svm.NuSVR.html#sklearn.svm.NuSVR.score)
 

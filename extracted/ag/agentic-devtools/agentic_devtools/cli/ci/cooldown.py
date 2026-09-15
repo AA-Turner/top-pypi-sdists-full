@@ -14,6 +14,13 @@ from datetime import UTC, datetime
 from math import isfinite
 from typing import TYPE_CHECKING, Any
 
+from agentic_devtools.cli.ci.credential_roles import (
+    AGDT_PR_APPROVER_PAT,
+    COPILOT_GITHUB_TOKEN,
+    DEFAULT_CLASSIC_REPO_WORKFLOW_PAT,
+    LEGACY_SPECKIT_PR_TOKEN,
+    REPO_VARIABLE_WRITER_PAT,
+)
 from agentic_devtools.cli.shared.retry import (
     DEFAULT_RATE_LIMIT_FALLBACK_DELAY,
     DEFAULT_RATE_LIMIT_MAX_DELAY,
@@ -34,10 +41,11 @@ _SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 _ALLOWED_REASON_VALUES = {"rate_limit"}
 _ALLOWED_SOURCE_VALUES = {"retry-after", "x-ratelimit-reset", "fallback"}
 _AI_PR_LOOP_CREDENTIAL_IDENTITIES = (
-    "COPILOT_GITHUB_TOKEN",
-    "SPECKIT_PR_TOKEN",
-    "AGDT_PR_APPROVER_PAT",
-    "REPO_VARIABLE_WRITER_PAT",
+    DEFAULT_CLASSIC_REPO_WORKFLOW_PAT,
+    COPILOT_GITHUB_TOKEN,
+    LEGACY_SPECKIT_PR_TOKEN,
+    AGDT_PR_APPROVER_PAT,
+    REPO_VARIABLE_WRITER_PAT,
 )
 _WRITE_LOCK = threading.RLock()
 

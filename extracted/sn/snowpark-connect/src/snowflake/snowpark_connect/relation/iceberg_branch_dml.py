@@ -59,6 +59,10 @@ from snowflake.snowpark_connect.config import (
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.expression.map_sql_expression import as_java_list
+from snowflake.snowpark_connect.relation.iceberg_branch_ddl import (
+    normalize_branch_name,
+    quote_branch_name_sql,
+)
 from snowflake.snowpark_connect.relation.iceberg_sql_branch_tag_suffix import (
     iceberg_branch_tag_suffix_extensions_disabled_exception,
     try_parse_iceberg_branch_tag_suffix,
@@ -79,7 +83,7 @@ def get_spark_wap_branch() -> str | None:
     )
     if raw is None:
         return None
-    branch = str(raw).strip()
+    branch = normalize_branch_name(str(raw).strip())
     return branch or None
 
 
@@ -106,14 +110,10 @@ def _raise_wap_branch_conflict(
     raise exception
 
 
-def _quote_branch_name_sql(branch_name: str) -> str:
-    escaped = branch_name.replace("'", "''")
-    return f"'{escaped}'"
-
-
 def snowflake_branch_dml_table_sql(base_table_sql: str, *, branch: str) -> str:
     """Append ``AT (BRANCH => '<name>')`` for Snowflake Iceberg branch DML."""
-    return f"{base_table_sql} AT (BRANCH => {_quote_branch_name_sql(branch)})"
+    normalized = normalize_branch_name(branch)
+    return f"{base_table_sql} AT (BRANCH => {quote_branch_name_sql(normalized)})"
 
 
 def snowflake_fast_forward_sql(
@@ -123,12 +123,14 @@ def snowflake_fast_forward_sql(
     from_branch: str,
 ) -> str:
     """Build Snowflake ``ALTER ICEBERG TABLE … MERGE BRANCH`` for WAP publish."""
-    _validate_iceberg_branch_name(branch)
-    _validate_iceberg_branch_name(from_branch)
+    normalized_branch = normalize_branch_name(branch)
+    normalized_from = normalize_branch_name(from_branch)
+    _validate_iceberg_branch_name(normalized_branch)
+    _validate_iceberg_branch_name(normalized_from)
     return (
         f"ALTER ICEBERG TABLE {base_table_sql} "
-        f"AT (BRANCH => {_quote_branch_name_sql(branch)}) "
-        f"MERGE BRANCH {_quote_branch_name_sql(from_branch)}"
+        f"AT (BRANCH => {quote_branch_name_sql(normalized_branch)}) "
+        f"MERGE BRANCH {quote_branch_name_sql(normalized_from)}"
     )
 
 
@@ -240,7 +242,7 @@ def resolve_iceberg_ref_dml_target(
     base_sql = spark_to_snowflake_fn(base_spark)
     session_branch = get_spark_wap_branch()
     if "branch" in options:
-        branch = options["branch"]
+        branch = normalize_branch_name(options["branch"])
         if session_branch is not None and session_branch != branch:
             _raise_wap_branch_conflict(
                 spark_table_name,
@@ -283,7 +285,7 @@ def resolve_iceberg_ref_dml_target_from_parts(
     base_sql = parts_to_snowflake_fn(base_parts)
     session_branch = get_spark_wap_branch()
     if "branch" in options:
-        branch = options["branch"]
+        branch = normalize_branch_name(options["branch"])
         if session_branch is not None and session_branch != branch:
             _raise_wap_branch_conflict(
                 spark_table_name,

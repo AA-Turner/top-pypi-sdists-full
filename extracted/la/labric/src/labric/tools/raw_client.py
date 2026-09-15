@@ -25,6 +25,7 @@ from ..types.queryable_table_schema import QueryableTableSchema
 from ..types.validation_error_schema import ValidationErrorSchema
 from .types.labric_read_schema_mode import LabricReadSchemaMode
 from .types.labric_read_schema_target_type import LabricReadSchemaTargetType
+from .types.labric_write_schema_on_match import LabricWriteSchemaOnMatch
 from .types.labric_write_schema_target_type import LabricWriteSchemaTargetType
 from pydantic import ValidationError
 
@@ -45,6 +46,7 @@ class RawToolsClient:
         mode: str,
         batch_insert_ok: typing.Optional[bool] = OMIT,
         params_to_match_for_update: typing.Optional[typing.Sequence[str]] = OMIT,
+        on_match: typing.Optional[LabricWriteSchemaOnMatch] = OMIT,
         defaults: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
         job_execution_id: typing.Optional[str] = OMIT,
         job_name: typing.Optional[str] = OMIT,
@@ -86,6 +88,9 @@ class RawToolsClient:
         params_to_match_for_update : typing.Optional[typing.Sequence[str]]
             Column names to match on when updating existing records.
 
+        on_match : typing.Optional[LabricWriteSchemaOnMatch]
+            How a matched record takes the provided columns in create-or-update mode. 'fill_missing' only sets columns that are currently null. 'overwrite' replaces them, and a provided null clears the column. Columns absent from the record and default functions never overwrite an existing value.
+
         defaults : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Map of field names to default function names (e.g. 'DATETIME_NOW', 'UUID4').
 
@@ -118,6 +123,7 @@ class RawToolsClient:
                 "data": data,
                 "batch_insert_ok": batch_insert_ok,
                 "params_to_match_for_update": params_to_match_for_update,
+                "on_match": on_match,
                 "defaults": defaults,
                 "mode": mode,
                 "job_execution_id": job_execution_id,
@@ -771,6 +777,7 @@ class AsyncRawToolsClient:
         mode: str,
         batch_insert_ok: typing.Optional[bool] = OMIT,
         params_to_match_for_update: typing.Optional[typing.Sequence[str]] = OMIT,
+        on_match: typing.Optional[LabricWriteSchemaOnMatch] = OMIT,
         defaults: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
         job_execution_id: typing.Optional[str] = OMIT,
         job_name: typing.Optional[str] = OMIT,
@@ -812,6 +819,9 @@ class AsyncRawToolsClient:
         params_to_match_for_update : typing.Optional[typing.Sequence[str]]
             Column names to match on when updating existing records.
 
+        on_match : typing.Optional[LabricWriteSchemaOnMatch]
+            How a matched record takes the provided columns in create-or-update mode. 'fill_missing' only sets columns that are currently null. 'overwrite' replaces them, and a provided null clears the column. Columns absent from the record and default functions never overwrite an existing value.
+
         defaults : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Map of field names to default function names (e.g. 'DATETIME_NOW', 'UUID4').
 
@@ -844,6 +854,7 @@ class AsyncRawToolsClient:
                 "data": data,
                 "batch_insert_ok": batch_insert_ok,
                 "params_to_match_for_update": params_to_match_for_update,
+                "on_match": on_match,
                 "defaults": defaults,
                 "mode": mode,
                 "job_execution_id": job_execution_id,

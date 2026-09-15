@@ -115,6 +115,10 @@
 //! - `append_proc(path: str, proc: dict, history_limit: int) -> dict`
 //! - `update_proc(path: str, update: dict) -> dict`
 //! - `prune_procs(path: str, history_limit: int) -> dict`
+//! - `proc_runtime_retention_wire_schema_version() -> int`
+//! - `apply_proc_runtime_retention(request: dict) -> dict`
+//! - `agent_artifact_run_retention_wire_schema_version() -> int`
+//! - `apply_agent_artifact_run_retention(request: dict) -> dict`
 //! - `read_tasks_snapshot(path: str) -> dict` (legacy alias)
 //! - `append_task(path: str, task: dict, history_limit: int) -> dict` (legacy alias)
 //! - `update_task(path: str, update: dict) -> dict` (legacy alias)
@@ -238,6 +242,11 @@
 //! - `fleet_issue_bootstrap(sase_home: str, request: dict) -> dict`
 //! - `gateway_main(args: list[str]) -> None`
 //! - `federation_worker_main(args: list[str]) -> None`
+//! - `sudo_validate_manifest(manifest: dict) -> dict`
+//! - `sudo_manifest_sha256(manifest: dict) -> str`
+//! - `sudo_derive_risk_badges(manifest: dict) -> list[dict]`
+//! - `sudo_validate_ledger(ledger: dict, manifest: dict | None = None) -> dict`
+//! - `sudo_runner_main(args: list[str]) -> None`
 //! - `fleet_classify_runtime_duration(request: dict) -> dict`
 //! - `fleet_classify_cache_freshness(request: dict) -> dict`
 //! - `runner_limit_override_get(sase_home: str, now: float | None = None) -> dict | None`
@@ -606,6 +615,11 @@ use sase_core::agent_archive::{
     AgentArchiveKeyWire, AgentArchiveQueryRequestWire,
     AgentArchiveReviveMarkRequestWire, AgentArchiveVisibilityWire,
 };
+use sase_core::agent_artifact_run_retention::{
+    apply_agent_artifact_run_retention as core_apply_agent_artifact_run_retention,
+    AgentArtifactRunRetentionError, AgentArtifactRunRetentionRequestWire,
+    AGENT_ARTIFACT_RUN_RETENTION_WIRE_SCHEMA_VERSION,
+};
 use sase_core::agent_clan_tribe::{
     resolve_clan_summary as core_resolve_clan_summary,
     resolve_clan_tribe as core_resolve_clan_tribe,
@@ -613,6 +627,7 @@ use sase_core::agent_clan_tribe::{
 };
 use sase_core::agent_cleanup::{
     cleanup_request_from_json_value,
+    decide_force_reuse_stop_barrier as core_decide_force_reuse_stop_barrier,
     delete_agent_artifact_markers as core_delete_agent_artifact_markers,
     mark_comment_agents_as_killed as core_mark_comment_agents_as_killed,
     mark_hook_agents_as_killed as core_mark_hook_agents_as_killed,
@@ -622,6 +637,7 @@ use sase_core::agent_cleanup::{
     save_dismissed_agents_index as core_save_dismissed_agents_index,
     save_dismissed_bundle_json as core_save_dismissed_bundle_json,
     AgentCleanupIdentityWire, AgentCleanupRequestWire, AgentCleanupTargetWire,
+    ForceReuseStopBarrierRequestWire,
 };
 use sase_core::agent_family::{
     resolve_agent_family_parent as core_resolve_agent_family_parent,
@@ -1103,6 +1119,10 @@ use sase_core::continuation::{
     DiagnosticManifestWire, LaunchRequesterContinuationWire, MonitorResultWire,
     CONTINUATION_WIRE_SCHEMA_VERSION,
 };
+use sase_core::disk_pressure::{
+    classify_disk_pressure as core_classify_disk_pressure, DiskPressureError,
+    DiskPressureRequestWire, DISK_PRESSURE_WIRE_SCHEMA_VERSION,
+};
 use sase_core::effort::resolve_effective_effort as core_resolve_effective_effort;
 use sase_core::effort_override::{
     clear_effort_override as core_clear_effort_override,
@@ -1184,6 +1204,11 @@ use sase_core::gate_followup::{
     gate_followup_attempt_id as core_gate_followup_attempt_id,
     gate_followup_decision_request_from_json_value, GateFollowupError,
     GATE_FOLLOWUP_WIRE_SCHEMA_VERSION,
+};
+use sase_core::git_object_sharing::{
+    plan_git_object_sharing as core_plan_git_object_sharing,
+    GitObjectSharingError, GitObjectSharingPlanRequestWire,
+    GIT_OBJECT_SHARING_WIRE_SCHEMA_VERSION,
 };
 use sase_core::git_query::{
     derive_git_workspace_name as core_derive_git_workspace_name,
@@ -1306,14 +1331,17 @@ use sase_core::plan::{
 };
 use sase_core::procs::{
     append_proc as core_append_proc,
+    apply_proc_runtime_retention as core_apply_proc_runtime_retention,
     begin_proc_settlement as core_begin_proc_settlement,
     claim_proc_supervisor as core_claim_proc_supervisor,
     finish_proc as core_finish_proc, prune_procs as core_prune_procs,
     read_procs_snapshot as core_read_procs_snapshot,
     request_proc_stop as core_request_proc_stop,
     reserve_proc as core_reserve_proc, update_proc as core_update_proc,
-    ProcFinishWire, ProcReserveWire, ProcSettlementWire, ProcStopRequestWire,
-    ProcStoreError, ProcSupervisorClaimWire, ProcUpdateWire, ProcWire,
+    ProcFinishWire, ProcReserveWire, ProcRuntimeRetentionRequestWire,
+    ProcSettlementWire, ProcStopRequestWire, ProcStoreError,
+    ProcSupervisorClaimWire, ProcUpdateWire, ProcWire,
+    PROC_RUNTIME_RETENTION_WIRE_SCHEMA_VERSION,
 };
 use sase_core::project_spec::{
     apply_project_aliases_update as core_apply_project_aliases_update,
@@ -1512,6 +1540,7 @@ use sase_core::{
     editor_filter_model_alias_shortcut_entries as core_filter_model_alias_shortcut_entries,
     editor_model_shortcut_context as core_model_shortcut_context,
     editor_model_shortcut_edit as core_model_shortcut_edit,
+    editor_plan_argument_colon_to_parentheses_edit as core_plan_argument_colon_to_parentheses_edit,
     editor_plan_model_alias_shortcut_edit as core_plan_model_alias_shortcut_edit,
     filter_model_completion_entries as core_filter_model_completion_entries,
     load_editor_snippet_catalog as core_load_editor_snippet_catalog,
@@ -1819,6 +1848,35 @@ fn py_decide_managed_origin_reconciliation<'py>(
     serialize_to_py(py, &decision)
 }
 
+fn git_object_sharing_error_to_pyerr(error: GitObjectSharingError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+#[pyfunction]
+#[pyo3(name = "git_object_sharing_wire_schema_version")]
+fn py_git_object_sharing_wire_schema_version() -> u32 {
+    GIT_OBJECT_SHARING_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "plan_git_object_sharing")]
+fn py_plan_git_object_sharing<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: GitObjectSharingPlanRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid GitObjectSharingPlanRequestWire dict: {error}"
+        ))
+    })?;
+    let result = core_plan_git_object_sharing(&request)
+        .map_err(git_object_sharing_error_to_pyerr)?;
+    serialize_to_py(py, &result)
+}
+
 fn machine_setup_error_to_pyerr(error: MachineSetupError) -> PyErr {
     PyValueError::new_err(error.to_string())
 }
@@ -1876,6 +1934,36 @@ fn py_reconcile_machine_enrollments<'py>(
 
 fn managed_tmp_reap_error_to_pyerr(error: ManagedTmpReapError) -> PyErr {
     PyValueError::new_err(error.to_string())
+}
+
+fn disk_pressure_error_to_pyerr(error: DiskPressureError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+#[pyfunction]
+#[pyo3(name = "disk_pressure_wire_schema_version")]
+fn py_disk_pressure_wire_schema_version() -> u32 {
+    DISK_PRESSURE_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "classify_disk_pressure")]
+fn py_classify_disk_pressure<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: DiskPressureRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid DiskPressureRequestWire dict: {error}"
+        ))
+    })?;
+    let result = py
+        .allow_threads(|| core_classify_disk_pressure(&request))
+        .map_err(disk_pressure_error_to_pyerr)?;
+    serialize_to_py(py, &result)
 }
 
 #[pyfunction]
@@ -2371,6 +2459,20 @@ fn py_model_shortcut_edit(
     let position = editor_position_from_py(position)?;
     let entries = model_completion_entries_from_py_list(entries)?;
     core_model_shortcut_edit(text, position, &entries, selected_value)
+        .map(|edit| serialize_to_py(py, &edit))
+        .transpose()
+}
+
+#[pyfunction]
+#[pyo3(name = "argument_colon_to_parentheses_edit")]
+fn py_argument_colon_to_parentheses_edit(
+    py: Python<'_>,
+    text: &str,
+    position: &Bound<'_, PyAny>,
+) -> PyResult<Option<PyObject>> {
+    let position = editor_position_from_py(position)?;
+    let document = sase_core::DocumentSnapshot::new(text);
+    core_plan_argument_colon_to_parentheses_edit(&document, position)
         .map(|edit| serialize_to_py(py, &edit))
         .transpose()
 }
@@ -4157,6 +4259,33 @@ fn py_mark_recent_dismissed_agent_group_revived<'py>(
 #[pyo3(name = "agent_cleanup_wire_schema_version")]
 fn py_agent_cleanup_wire_schema_version() -> u32 {
     sase_core::AGENT_CLEANUP_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "force_reuse_stop_barrier_wire_schema_version")]
+fn py_force_reuse_stop_barrier_wire_schema_version() -> u32 {
+    sase_core::FORCE_REUSE_STOP_BARRIER_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "decide_force_reuse_stop_barrier")]
+fn py_decide_force_reuse_stop_barrier<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request_value = py_to_json_value(request.as_any())?;
+    let req: ForceReuseStopBarrierRequestWire =
+        serde_json::from_value(request_value).map_err(|e| {
+            PyValueError::new_err(format!(
+            "request is not a valid ForceReuseStopBarrierRequestWire dict: {e}"
+        ))
+        })?;
+    let decision = core_decide_force_reuse_stop_barrier(&req)
+        .map_err(PyValueError::new_err)?;
+    let value = serde_json::to_value(&decision).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
 }
 
 #[pyfunction]
@@ -10468,6 +10597,68 @@ fn py_prune_procs(
 }
 
 #[pyfunction]
+#[pyo3(name = "proc_runtime_retention_wire_schema_version")]
+fn py_proc_runtime_retention_wire_schema_version() -> u32 {
+    PROC_RUNTIME_RETENTION_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "apply_proc_runtime_retention")]
+fn py_apply_proc_runtime_retention<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ProcRuntimeRetentionRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid ProcRuntimeRetentionRequestWire dict: {error}"
+        ))
+    })?;
+    let outcome =
+        py.allow_threads(|| core_apply_proc_runtime_retention(&request));
+    proc_store_result_to_py(py, &outcome.map_err(proc_store_error_to_pyerr)?)
+}
+
+fn agent_artifact_run_retention_error_to_pyerr(
+    error: AgentArtifactRunRetentionError,
+) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+/// Return the agent-artifact run-retention wire's schema version.
+#[pyfunction]
+#[pyo3(name = "agent_artifact_run_retention_wire_schema_version")]
+fn py_agent_artifact_run_retention_wire_schema_version() -> u32 {
+    AGENT_ARTIFACT_RUN_RETENTION_WIRE_SCHEMA_VERSION
+}
+
+/// Preview or apply ACE-run artifact-directory retention and the bottom-up
+/// empty-shard walk in one owner call.
+#[pyfunction]
+#[pyo3(name = "apply_agent_artifact_run_retention")]
+fn py_apply_agent_artifact_run_retention<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: AgentArtifactRunRetentionRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid AgentArtifactRunRetentionRequestWire dict: {error}"
+        ))
+    })?;
+    let outcome =
+        py.allow_threads(|| core_apply_agent_artifact_run_retention(&request));
+    proc_store_result_to_py(
+        py,
+        &outcome.map_err(agent_artifact_run_retention_error_to_pyerr)?,
+    )
+}
+
+#[pyfunction]
 #[pyo3(name = "read_tasks_snapshot")]
 fn py_read_tasks_snapshot(py: Python<'_>, path: &str) -> PyResult<PyObject> {
     py_read_procs_snapshot(py, path)
@@ -14636,6 +14827,98 @@ fn py_federation_worker_main(
         .map_err(PyRuntimeError::new_err)
 }
 
+fn sudo_error_to_pyerr(error: sase_core::SudoWireError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+fn sudo_wire_to_py<'py, T: serde::Serialize>(
+    py: Python<'py>,
+    value: &T,
+) -> PyResult<PyObject> {
+    let json = serde_json::to_value(value).map_err(|error| {
+        PyRuntimeError::new_err(format!(
+            "internal sudo wire serialize error: {error}"
+        ))
+    })?;
+    json_value_to_py(py, &json)
+}
+
+#[pyfunction]
+#[pyo3(name = "sudo_validate_manifest")]
+fn py_sudo_validate_manifest<'py>(
+    py: Python<'py>,
+    manifest: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(manifest.as_any())?;
+    let normalized = py
+        .allow_threads(|| sase_core::sudo_manifest_from_json_value(&value))
+        .map_err(sudo_error_to_pyerr)?;
+    sudo_wire_to_py(py, &normalized)
+}
+
+#[pyfunction]
+#[pyo3(name = "sudo_manifest_sha256")]
+fn py_sudo_manifest_sha256(
+    py: Python<'_>,
+    manifest: &Bound<'_, PyDict>,
+) -> PyResult<String> {
+    let value = py_to_json_value(manifest.as_any())?;
+    py.allow_threads(|| sase_core::sudo_manifest_json_sha256(&value))
+        .map_err(sudo_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "sudo_derive_risk_badges")]
+fn py_sudo_derive_risk_badges<'py>(
+    py: Python<'py>,
+    manifest: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(manifest.as_any())?;
+    let assessments = py
+        .allow_threads(|| {
+            let manifest = sase_core::sudo_manifest_from_json_value(&value)?;
+            sase_core::derive_sudo_risk_badges(&manifest)
+        })
+        .map_err(sudo_error_to_pyerr)?;
+    sudo_wire_to_py(py, &assessments)
+}
+
+#[pyfunction]
+#[pyo3(name = "sudo_validate_ledger", signature = (ledger, manifest=None))]
+fn py_sudo_validate_ledger<'py>(
+    py: Python<'py>,
+    ledger: &Bound<'py, PyDict>,
+    manifest: Option<&Bound<'py, PyDict>>,
+) -> PyResult<PyObject> {
+    let ledger = py_to_json_value(ledger.as_any())?;
+    let manifest = manifest
+        .map(|value| py_to_json_value(value.as_any()))
+        .transpose()?;
+    let normalized = py
+        .allow_threads(|| {
+            sase_core::sudo_validate_ledger_json_value(
+                &ledger,
+                manifest.as_ref(),
+            )
+        })
+        .map_err(sudo_error_to_pyerr)?;
+    sudo_wire_to_py(py, &normalized)
+}
+
+#[pyfunction]
+#[pyo3(name = "sudo_runner_main")]
+fn py_sudo_runner_main(py: Python<'_>, args: Vec<String>) -> PyResult<()> {
+    py.allow_threads(|| sase_gateway::run_sudo_runner_cli(args))
+        .map_err(|error| {
+            let err = format!(
+                "sase_sudo_runner exited with {}: {}",
+                error.exit_code(),
+                error
+            );
+            PyRuntimeError::new_err(err)
+        })
+}
+
 #[pyfunction]
 #[pyo3(name = "fleet_classify_runtime_duration")]
 fn py_fleet_classify_runtime_duration<'py>(
@@ -16924,6 +17207,113 @@ fn gateway_and_bootstrap_bindings_are_registered() {
             .getattr("fleet_validate_attention_inventory_response")
             .unwrap()
             .is_callable());
+        assert!(module
+            .getattr("sudo_validate_manifest")
+            .unwrap()
+            .is_callable());
+        assert!(module
+            .getattr("sudo_manifest_sha256")
+            .unwrap()
+            .is_callable());
+        assert!(module
+            .getattr("sudo_derive_risk_badges")
+            .unwrap()
+            .is_callable());
+        assert!(module
+            .getattr("sudo_validate_ledger")
+            .unwrap()
+            .is_callable());
+        assert!(module.getattr("sudo_runner_main").unwrap().is_callable());
+    });
+}
+
+#[test]
+fn sudo_bindings_validate_manifest_risk_ledger_and_help() {
+    use serde_json::json;
+
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let manifest = json!({
+            "schema_version": 1,
+            "request_id": "sudo-bindings",
+            "host": "athena",
+            "host_is_remote": true,
+            "run_as": "root",
+            "cwd": "/tmp",
+            "env": {},
+            "stop_on_failure": true,
+            "output_to_agent": "tail",
+            "commands": [
+                {
+                    "id": "pkg",
+                    "argv": ["apt-get", "update"],
+                    "why": "Refresh package metadata",
+                    "timeout_seconds": 10.0,
+                    "shell": false
+                },
+                {
+                    "id": "ssh",
+                    "argv": ["systemctl", "restart", "sshd.service"],
+                    "why": "Restart ssh",
+                    "shell": false
+                }
+            ],
+            "resume_from": null
+        });
+        let manifest_obj =
+            json_value_to_py(py, &manifest).unwrap().into_bound(py);
+        let manifest_dict = manifest_obj.downcast::<PyDict>().unwrap();
+
+        let normalized = py_sudo_validate_manifest(py, manifest_dict).unwrap();
+        let normalized_value = py_to_json_value(normalized.bind(py)).unwrap();
+        assert_eq!(normalized_value["commands"][0]["id"], json!("pkg"));
+
+        let digest = py_sudo_manifest_sha256(py, manifest_dict).unwrap();
+        let rust_manifest =
+            sase_core::sudo_manifest_from_json_value(&manifest).unwrap();
+        assert_eq!(
+            digest,
+            sase_core::sudo_manifest_sha256(&rust_manifest).unwrap()
+        );
+
+        let risks = py_sudo_derive_risk_badges(py, manifest_dict).unwrap();
+        let risks = py_to_json_value(risks.bind(py)).unwrap();
+        assert_eq!(risks[0]["badges"], json!(["network", "package-manager"]));
+        assert_eq!(risks[1]["badges"], json!(["service-restart"]));
+        assert_eq!(risks[1]["lockout_prone"], json!(true));
+
+        let ledger = json!({
+            "schema_version": 1,
+            "request_id": "sudo-bindings",
+            "manifest_sha256": digest,
+            "outcome": "completed",
+            "entries": [
+                {
+                    "id": "pkg",
+                    "status": "ran",
+                    "exit_code": 0,
+                    "duration_seconds": 0.1,
+                    "output_tail": ""
+                },
+                {
+                    "id": "ssh",
+                    "status": "skipped",
+                    "exit_code": null,
+                    "duration_seconds": 0.0,
+                    "output_tail": ""
+                }
+            ],
+            "diagnostic": null
+        });
+        let ledger_obj = json_value_to_py(py, &ledger).unwrap().into_bound(py);
+        let ledger_dict = ledger_obj.downcast::<PyDict>().unwrap();
+        let validated =
+            py_sudo_validate_ledger(py, ledger_dict, Some(manifest_dict))
+                .unwrap();
+        let validated = py_to_json_value(validated.bind(py)).unwrap();
+        assert_eq!(validated["entries"][1]["status"], json!("skipped"));
+
+        py_sudo_runner_main(py, vec!["--help".to_string()]).unwrap();
     });
 }
 
@@ -17471,10 +17861,17 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py_decide_managed_origin_reconciliation,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_git_object_sharing_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_plan_git_object_sharing, m)?)?;
     m.add_function(wrap_pyfunction!(py_machine_setup_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_tailnet_health, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_tailnet_discovery, m)?)?;
     m.add_function(wrap_pyfunction!(py_reconcile_machine_enrollments, m)?)?;
+    m.add_function(wrap_pyfunction!(py_disk_pressure_wire_schema_version, m)?)?;
+    m.add_function(wrap_pyfunction!(py_classify_disk_pressure, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_managed_tmp_reap_wire_schema_version,
         m
@@ -17510,6 +17907,10 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_filter_model_completion_entries, m)?)?;
     m.add_function(wrap_pyfunction!(py_model_shortcut_context, m)?)?;
     m.add_function(wrap_pyfunction!(py_model_shortcut_edit, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_argument_colon_to_parentheses_edit,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(
         py_filter_explicit_model_shortcut_entries,
         m
@@ -17653,6 +18054,11 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(py_agent_cleanup_wire_schema_version, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_force_reuse_stop_barrier_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_decide_force_reuse_stop_barrier, m)?)?;
     m.add_function(wrap_pyfunction!(py_plan_agent_cleanup, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_agent_ownership_batch_wire_schema_version,
@@ -18188,6 +18594,19 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_begin_proc_settlement, m)?)?;
     m.add_function(wrap_pyfunction!(py_finish_proc, m)?)?;
     m.add_function(wrap_pyfunction!(py_prune_procs, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_proc_runtime_retention_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_apply_proc_runtime_retention, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_agent_artifact_run_retention_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_apply_agent_artifact_run_retention,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_read_tasks_snapshot, m)?)?;
     m.add_function(wrap_pyfunction!(py_append_task, m)?)?;
     m.add_function(wrap_pyfunction!(py_update_task, m)?)?;
@@ -18476,6 +18895,11 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_fleet_issue_bootstrap, m)?)?;
     m.add_function(wrap_pyfunction!(py_gateway_main, m)?)?;
     m.add_function(wrap_pyfunction!(py_federation_worker_main, m)?)?;
+    m.add_function(wrap_pyfunction!(py_sudo_validate_manifest, m)?)?;
+    m.add_function(wrap_pyfunction!(py_sudo_manifest_sha256, m)?)?;
+    m.add_function(wrap_pyfunction!(py_sudo_derive_risk_badges, m)?)?;
+    m.add_function(wrap_pyfunction!(py_sudo_validate_ledger, m)?)?;
+    m.add_function(wrap_pyfunction!(py_sudo_runner_main, m)?)?;
     m.add_function(wrap_pyfunction!(py_fleet_classify_runtime_duration, m)?)?;
     m.add_function(wrap_pyfunction!(py_fleet_classify_cache_freshness, m)?)?;
     m.add_function(wrap_pyfunction!(py_resolve_effective_effort, m)?)?;
@@ -19703,6 +20127,10 @@ COMMITS:
                 "begin_proc_settlement",
                 "finish_proc",
                 "prune_procs",
+                "proc_runtime_retention_wire_schema_version",
+                "apply_proc_runtime_retention",
+                "agent_artifact_run_retention_wire_schema_version",
+                "apply_agent_artifact_run_retention",
                 "read_tasks_snapshot",
                 "append_task",
                 "update_task",
@@ -21168,6 +21596,62 @@ COMMITS:
             assert!(
                 catalog_error.contains("missing field"),
                 "unexpected error: {catalog_error}"
+            );
+        });
+    }
+
+    #[test]
+    fn argument_colon_to_parentheses_binding_returns_plain_edit_or_none() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            module
+                .add_function(
+                    wrap_pyfunction!(
+                        py_argument_colon_to_parentheses_edit,
+                        &module
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+            let position =
+                json_value_to_py(py, &json!({"line": 0, "character": 3}))
+                    .unwrap();
+            let edit = module
+                .getattr("argument_colon_to_parentheses_edit")
+                .unwrap()
+                .call1(("%q:", position.clone_ref(py)))
+                .unwrap();
+            assert_eq!(
+                py_to_json_value(&edit).unwrap(),
+                json!({
+                    "range": {
+                        "start": {"line": 0, "character": 2},
+                        "end": {"line": 0, "character": 3}
+                    },
+                    "new_text": ""
+                })
+            );
+
+            let ordinary = module
+                .getattr("argument_colon_to_parentheses_edit")
+                .unwrap()
+                .call1(("Note:", position.clone_ref(py)))
+                .unwrap();
+            assert!(ordinary.is_none());
+
+            let malformed_position =
+                json_value_to_py(py, &json!({"line": "0", "character": 3}))
+                    .unwrap();
+            let error = module
+                .getattr("argument_colon_to_parentheses_edit")
+                .unwrap()
+                .call1(("%q:", malformed_position))
+                .unwrap_err()
+                .to_string();
+            assert!(
+                error.contains("position is not a valid EditorPosition"),
+                "unexpected error: {error}"
             );
         });
     }
@@ -27953,6 +28437,42 @@ MENTORS:
 
             let err = py_plan_agent_cleanup(py, &targets, request).unwrap_err();
             assert!(err.to_string().contains("schema mismatch"));
+        });
+    }
+
+    #[test]
+    fn force_reuse_stop_barrier_binding_round_trips_json_shape() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let request_obj = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": sase_core::FORCE_REUSE_STOP_BARRIER_WIRE_SCHEMA_VERSION,
+                    "targets": [{
+                        "name": "worker",
+                        "artifacts_dir": "/tmp/worker",
+                        "pid": 1234,
+                        "was_live": true,
+                        "stop_status": "killed",
+                        "alive_after_stop": false,
+                        "detail": null
+                    }]
+                }),
+            )
+            .unwrap();
+            let request = request_obj.bind(py).downcast::<PyDict>().unwrap();
+
+            let result =
+                py_decide_force_reuse_stop_barrier(py, request).unwrap();
+            let value = py_to_json_value(result.bind(py)).unwrap();
+
+            assert_eq!(
+                value["schema_version"],
+                json!(sase_core::FORCE_REUSE_STOP_BARRIER_WIRE_SCHEMA_VERSION)
+            );
+            assert_eq!(value["proceed"], json!(true));
+            assert_eq!(value["stopped"][0]["name"], json!("worker"));
+            assert_eq!(value["unresolved"], json!([]));
         });
     }
 

@@ -12,9 +12,10 @@ import requests
 
 from agentic_devtools.cli.azure_devops.config import AzureDevOpsConfig
 from agentic_devtools.cli.azure_devops.helpers import require_requests
+from agentic_devtools.cli.ci.credential_roles import DEFAULT_CLASSIC_REPO_WORKFLOW_PAT, GH_TOKEN
 
 _GITHUB_API = "https://api.github.com"
-_GITHUB_TOKEN_NAMES = ("SPECKIT_PR_TOKEN", "COPILOT_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN")
+_GITHUB_TOKEN_NAMES = (DEFAULT_CLASSIC_REPO_WORKFLOW_PAT, GH_TOKEN)
 _GITHUB_THREAD_ID = re.compile(r"^PRRT_[A-Za-z0-9_-]+$")
 _TRANSIENT_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 _ADO_TERMINAL_STATUSES = frozenset({"closed", "fixed", "wontfix", "bydesign"})
@@ -24,11 +25,23 @@ _ADO_ORG_URL = re.compile(
 
 
 def discover_github_token(environ: dict[str, str] | None = None) -> str:
-    """Return the first non-empty ambient GitHub token."""
+    """Return the default-role GitHub token when its logical identity is known.
+
+    A direct ``DEFAULT_CLASSIC_REPO_WORKFLOW_PAT`` is accepted.  ``GH_TOKEN``
+    is accepted only when ``AI_PR_LOOP_CREDENTIAL_IDENTITY`` explicitly
+    identifies it as that default PAT; an unqualified ambient token is
+    rejected.
+    """
     values = os.environ if environ is None else environ
     for name in _GITHUB_TOKEN_NAMES:
         token = values.get(name, "").strip()
-        if token:
+        if token and (
+            name == DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
+            or (
+                name == GH_TOKEN
+                and values.get("AI_PR_LOOP_CREDENTIAL_IDENTITY", "").strip() == DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
+            )
+        ):
             return token
     return ""
 

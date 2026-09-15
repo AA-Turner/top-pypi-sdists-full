@@ -82,6 +82,7 @@ from ..snippet import highlight_code, resolve_style, style_palette
 from ..spinner import Spinner
 from ..testing import isolated_filesystem
 from ..theme import NOCOLOR_THEME
+from ..version import reset_version_resolution
 from ._base import (
     StatelessDomain,
     compile_directive,
@@ -405,6 +406,12 @@ class ClickRunner(CliRunner):
 
         args = args or []
 
+        # A build renders many commands in one process, so a version resolved
+        # by an earlier render (the man-page hook runs before any page is read)
+        # would stand for every block below it. Each documented invocation gets
+        # the reading a reader's own shell would give it.
+        reset_version_resolution(cli)
+
         if prog_name is None:
             prog_name = cli.name.replace("_", "-")
 
@@ -453,7 +460,7 @@ class ClickRunner(CliRunner):
         """Execute the given code, adding it to the runner's namespace."""
         code = compile_directive(directive)
         with patch_subprocess():
-            exec(code, self.namespace)  # noqa: S102
+            exec(code, self.namespace)
 
     def run_cli(self, directive: SphinxDirective) -> list[str]:
         """Execute the given `source_code`.
@@ -514,7 +521,7 @@ class ClickRunner(CliRunner):
                 )
 
         code = compile_directive(directive)
-        exec(code, self.namespace, local_vars)  # noqa: S102
+        exec(code, self.namespace, local_vars)
         return buffer
 
 

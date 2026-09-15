@@ -31,7 +31,13 @@ CJK_WHITESPACE = re.compile(rf"(?<=[{CJK}])\s+(?=[{CJK}])")
 
 TEMPLATE_SYNTAX = re.compile(r".*[(){}<>\[\]|@].*")
 
-PUNCTUATION_STR_NO_PERIOD = "。,，?¿？؟!¡！;；:：’"
+# Dashes that speech-to-text engines sometimes attach to a transcript
+# ("we are going to bed—"). The ASCII hyphen and the minus sign are deliberately
+# left out: they are used inside words ("air-conditioner") and in front of
+# negative numbers ("-5 degrees").
+DASH_STR = "—–―"
+
+PUNCTUATION_STR_NO_PERIOD = f"。,，?¿？؟!¡！;；:：’…{DASH_STR}"
 PUNCTUATION_PATTERN_NO_PERIOD = rf"[{re.escape(PUNCTUATION_STR_NO_PERIOD)}]+"
 PUNCTUATION_STR = f".{PUNCTUATION_STR_NO_PERIOD}"
 PUNCTUATION_PATTERN = rf"[{re.escape(PUNCTUATION_STR)}]+"
@@ -390,8 +396,14 @@ def remove_punctuation(text: str) -> str:
 def normalize_for_matching(text: str) -> TrackedText:
     """Return match-ready text with a map back into the original text."""
     tracked = TrackedText(text)
-    _remove_punctuation(tracked)
+
+    # Normalize before removing punctuation. "’" is punctuation but "'" is not,
+    # so stripping first deletes a typographic apostrophe wherever a word ends
+    # ("nell’ ingresso" -> "nell ingresso") instead of folding it to the ASCII
+    # form the templates use. Normalizing first makes both apostrophes behave
+    # the same everywhere.
     _normalize_text(tracked)
+    _remove_punctuation(tracked)
     tracked.strip()
 
     return tracked

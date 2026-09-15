@@ -627,6 +627,31 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List trending commercial music",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_list_tik_tok_commercial_music(
+        account_id: str, country_code: str | None = None
+    ) -> str:
+        """List trending commercial music
+
+        Args:
+            account_id: The TikTok account ID (required)
+            country_code: Two-letter ISO 3166-1 country code of the chart to read (for example ES). Defaults to TikTok's global chart."""
+        client = _get_client()
+        try:
+            response = client.accounts.list_tik_tok_commercial_music(
+                account_id=account_id, country_code=country_code
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get TikTok creator info",
             readOnlyHint=True,
             destructiveHint=False,
@@ -3456,6 +3481,70 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Read a campaign's ad schedule (dayparting)",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_get_campaign_ad_schedule(
+        campaign_id: str,
+        platform: str | None = None,
+        include_performance: bool | None = None,
+        window_days: int = 30,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> str:
+        """Read a campaign's ad schedule (dayparting)
+
+        Args:
+            campaign_id: Numeric Google platform campaign id. (required)
+            platform: Disambiguates the campaign id when the connection spans platforms.
+            include_performance: Also return delivery by day of week and by hour. Costs one extra Google call.
+            window_days: Trailing window for the performance split. Ignored when fromDate and toDate are both given.
+            from_date: Start of an explicit performance range (YYYY-MM-DD). Use together with toDate.
+            to_date: End of an explicit performance range (YYYY-MM-DD). Must be on or after fromDate."""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.get_campaign_ad_schedule(
+                campaign_id=campaign_id,
+                platform=platform,
+                include_performance=include_performance,
+                window_days=window_days,
+                from_date=from_date,
+                to_date=to_date,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Replace a campaign's ad schedule (dayparting)",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_update_campaign_ad_schedule(
+        campaign_id: str, schedule: list[dict[str, Any]] | None
+    ) -> str:
+        """Replace a campaign's ad schedule (dayparting)
+
+        Args:
+            campaign_id: Numeric Google platform campaign id. (required)
+            schedule: The complete set of windows. Required, so clearing the schedule is always deliberate rather than an omission. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.update_campaign_ad_schedule(
+                campaign_id=campaign_id, schedule=schedule
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Read a campaign's current bidding",
             readOnlyHint=True,
             destructiveHint=False,
@@ -4922,6 +5011,7 @@ def register_generated_tools(mcp, _get_client):
         organization_id: str | None = None,
         targeting: dict[str, Any] | None = None,
         countries: list[str] | None = None,
+        country_groups: list[str] | None = None,
         cities: list[dict[str, Any]] | None = None,
         regions: list[dict[str, Any]] | None = None,
         age_min: int | None = None,
@@ -5139,6 +5229,10 @@ def register_generated_tools(mcp, _get_client):
         flat fields (a flat field present on the body replaces the nested value entirely).
         Both forms are equivalent; use whichever your integration already builds.
                 countries: ISO 3166-1 alpha-2 country codes (e.g. ['NL']). Defaults to ['US'] when no other geo targeting (flat or nested `targeting`) is provided. (LinkedIn and OpenAI Ads currently honour country-level targeting only; any other targeting field returns 400 for OpenAI Ads.)
+                country_groups: Meta only. Continents and trade blocs (`geo_locations.country_groups`),
+        for targeting a whole region without listing its countries. Combines with
+        `countries` rather than replacing it. Discoverable via
+        `GET /v1/ads/targeting/search?dimension=geo&geoType=country_group`.
                 cities: City-level geo targeting (Meta and TikTok). Each city is targeted by the platform's opaque `key` (the city ID) which can be looked up via `GET /v1/ads/targeting/search?dimension=geo&q=<name>&countryCode=<ISO>`. Optional `radius` + `distance_unit` (Meta only) extend the targeting beyond the city limits (e.g. radius 25 km around the city center). Both must be set together, or both omitted (Meta defaults to ~16 km when omitted).
 
         On Meta, cannot overlap with the same country in `countries` (Meta returns a "locations overlap" error). Either drop the country or scope it to a different country. On TikTok, keys are numeric location ids and can be sent without `countries`.
@@ -5482,6 +5576,7 @@ def register_generated_tools(mcp, _get_client):
                 organization_id=organization_id,
                 targeting=targeting,
                 countries=countries,
+                country_groups=country_groups,
                 cities=cities,
                 regions=regions,
                 age_min=age_min,
@@ -10277,7 +10372,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Filter by profile ID
-            platform: Filter by platform. `metaads` is a synthetic value meaning the user's ads (boosted/dark posts) only; `facebook`/`instagram` return organic posts only.
+            platform: Filter by platform. `metaads` is a synthetic value meaning the user's ads (boosted/dark posts) only; `facebook`/`instagram` return organic posts only. `tiktok` covers accounts connected through the TikTok Business app only; developer-app TikTok accounts are returned under `meta.accountsSkipped`.
             min_comments: Minimum comment count
             since: Posts created after this date
             sort_by: Sort field
@@ -15913,6 +16008,7 @@ def register_generated_tools(mcp, _get_client):
         regions: list[dict[str, Any]] | None = None,
         zips: list[dict[str, Any]] | None = None,
         metros: list[dict[str, Any]] | None = None,
+        country_groups: list[str] | None = None,
         custom_locations: list[dict[str, Any]] | None = None,
         age_min: int | None = None,
         age_max: int | None = None,
@@ -16000,6 +16096,11 @@ def register_generated_tools(mcp, _get_client):
         postal id resolved via /v1/ads/targeting/search.
                 metros: DMA / metro-area geo targeting. `key` is Meta's metro id
         (e.g. `DMA:807`).
+                country_groups: Meta only. Continents and trade blocs (`geo_locations.country_groups`),
+        for targeting a whole region without listing its countries. Combines
+        with `countries` rather than replacing it, and is also accepted under
+        `excludedLocations`. Discoverable via
+        `GET /v1/ads/targeting/search?dimension=geo&geoType=country_group`.
                 custom_locations: Point-radius geo (Meta `geo_locations.custom_locations`).
         Use for targeting a radius around a specific lat/long when
         no Meta city/region key fits. `distanceUnit` is required.
@@ -16091,6 +16192,7 @@ def register_generated_tools(mcp, _get_client):
                 regions=regions,
                 zips=zips,
                 metros=metros,
+                country_groups=country_groups,
                 custom_locations=custom_locations,
                 age_min=age_min,
                 age_max=age_max,
@@ -16149,6 +16251,7 @@ def register_generated_tools(mcp, _get_client):
         regions: list[dict[str, Any]] | None = None,
         zips: list[dict[str, Any]] | None = None,
         metros: list[dict[str, Any]] | None = None,
+        country_groups: list[str] | None = None,
         custom_locations: list[dict[str, Any]] | None = None,
         age_min: int | None = None,
         age_max: int | None = None,
@@ -16236,6 +16339,11 @@ def register_generated_tools(mcp, _get_client):
         postal id resolved via /v1/ads/targeting/search.
                 metros: DMA / metro-area geo targeting. `key` is Meta's metro id
         (e.g. `DMA:807`).
+                country_groups: Meta only. Continents and trade blocs (`geo_locations.country_groups`),
+        for targeting a whole region without listing its countries. Combines
+        with `countries` rather than replacing it, and is also accepted under
+        `excludedLocations`. Discoverable via
+        `GET /v1/ads/targeting/search?dimension=geo&geoType=country_group`.
                 custom_locations: Point-radius geo (Meta `geo_locations.custom_locations`).
         Use for targeting a radius around a specific lat/long when
         no Meta city/region key fits. `distanceUnit` is required.
@@ -16328,6 +16436,7 @@ def register_generated_tools(mcp, _get_client):
                 regions=regions,
                 zips=zips,
                 metros=metros,
+                country_groups=country_groups,
                 custom_locations=custom_locations,
                 age_min=age_min,
                 age_max=age_max,
@@ -16385,6 +16494,7 @@ def register_generated_tools(mcp, _get_client):
         regions: list[dict[str, Any]] | None = None,
         zips: list[dict[str, Any]] | None = None,
         metros: list[dict[str, Any]] | None = None,
+        country_groups: list[str] | None = None,
         custom_locations: list[dict[str, Any]] | None = None,
         age_min: int | None = None,
         age_max: int | None = None,
@@ -16472,6 +16582,11 @@ def register_generated_tools(mcp, _get_client):
         postal id resolved via /v1/ads/targeting/search.
                 metros: DMA / metro-area geo targeting. `key` is Meta's metro id
         (e.g. `DMA:807`).
+                country_groups: Meta only. Continents and trade blocs (`geo_locations.country_groups`),
+        for targeting a whole region without listing its countries. Combines
+        with `countries` rather than replacing it, and is also accepted under
+        `excludedLocations`. Discoverable via
+        `GET /v1/ads/targeting/search?dimension=geo&geoType=country_group`.
                 custom_locations: Point-radius geo (Meta `geo_locations.custom_locations`).
         Use for targeting a radius around a specific lat/long when
         no Meta city/region key fits. `distanceUnit` is required.
@@ -16562,6 +16677,7 @@ def register_generated_tools(mcp, _get_client):
                 regions=regions,
                 zips=zips,
                 metros=metros,
+                country_groups=country_groups,
                 custom_locations=custom_locations,
                 age_min=age_min,
                 age_max=age_max,

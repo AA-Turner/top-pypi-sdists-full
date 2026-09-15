@@ -305,7 +305,7 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0')
         assert s.manager.is_connected('1', '/')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         s.eio.send.assert_called_once_with('123', '0{"sid":"1"}')
         assert s.manager.initialize.call_count == 1
         s._handle_eio_connect('456', 'environ')
@@ -333,11 +333,22 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0')
         assert s.manager.is_connected('1', '/')
-        handler.assert_called_with('1', 'environ', None)
+        handler.assert_any_call('1', 'environ', None)
+        handler.assert_called_with('1', 'environ')
         s.eio.send.assert_called_once_with('123', '0{"sid":"1"}')
         assert s.manager.initialize.call_count == 1
         s._handle_eio_connect('456', 'environ')
         assert s.manager.initialize.call_count == 1
+
+    def test_handle_connect_with_auth_none_type_error(self, eio):
+        s = server.Server()
+        s.manager.initialize = mock.MagicMock()
+        handler = mock.MagicMock(side_effect=[TypeError('foo'),
+                                              TypeError('bar')])
+        s.on('connect', handler)
+        s._handle_eio_connect('123', 'environ')
+        with pytest.raises(TypeError, match="foo"):
+            s._handle_eio_message('123', '0')
 
     def test_handle_connect_with_default_implied_namespaces(self, eio):
         s = server.Server()
@@ -370,7 +381,7 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0/foo,')
         assert s.manager.is_connected('1', '/foo')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         s.eio.send.assert_called_once_with('123', '0/foo,{"sid":"1"}')
 
     def test_handle_connect_namespace_twice(self, eio):
@@ -381,7 +392,7 @@ class TestServer:
         s._handle_eio_message('123', '0/foo,')
         s._handle_eio_message('123', '0/foo,')
         assert s.manager.is_connected('1', '/foo')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         s.eio.send.assert_any_call('123', '0/foo,{"sid":"1"}')
         s.eio.send.assert_any_call('123', '4/foo,"Unable to connect"')
 
@@ -393,7 +404,7 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0')
         assert s.manager.is_connected('1', '/')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         s.eio.send.assert_called_once_with('123', '0{"sid":"1"}')
         assert s.manager.initialize.call_count == 1
         s._handle_eio_connect('456', 'environ')
@@ -406,7 +417,7 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0')
         assert not s.manager.is_connected('1', '/')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         assert not s.manager.is_connected('1', '/')
         s.eio.send.assert_called_once_with(
             '123', '4{"message":"Connection rejected by server"}')
@@ -419,7 +430,7 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0/foo,')
         assert not s.manager.is_connected('1', '/foo')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         assert not s.manager.is_connected('1', '/foo')
         s.eio.send.assert_called_once_with(
             '123', '4/foo,{"message":"Connection rejected by server"}')
@@ -432,7 +443,7 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0')
         assert not s.manager.is_connected('1', '/')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         s.eio.send.assert_any_call('123', '0{"sid":"1"}')
         s.eio.send.assert_any_call(
             '123', '1{"message":"Connection rejected by server"}')
@@ -445,7 +456,7 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0/foo,')
         assert not s.manager.is_connected('1', '/foo')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         s.eio.send.assert_any_call('123', '0/foo,{"sid":"1"}')
         s.eio.send.assert_any_call(
             '123', '1/foo,{"message":"Connection rejected by server"}')
@@ -460,7 +471,7 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0')
         assert not s.manager.is_connected('1', '/')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         s.eio.send.assert_called_once_with('123', '4{"message":"fail_reason"}')
         assert s.environ == {'123': 'environ'}
 
@@ -473,7 +484,7 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0')
         assert not s.manager.is_connected('1', '/')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         s.eio.send.assert_called_once_with(
             '123', '4{"message":"Connection refused by server"}')
         assert s.environ == {'123': 'environ'}
@@ -487,7 +498,7 @@ class TestServer:
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0')
         assert not s.manager.is_connected('1', '/')
-        handler.assert_called_once_with('1', 'environ')
+        handler.assert_called_once_with('1', 'environ', None)
         s.eio.send.assert_called_once_with(
             '123', '4{"message":"Connection rejected by server"}')
         assert s.environ == {'123': 'environ'}

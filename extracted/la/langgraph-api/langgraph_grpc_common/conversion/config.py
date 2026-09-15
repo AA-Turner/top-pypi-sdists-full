@@ -32,6 +32,7 @@ from langgraph_grpc_common.proto import engine_common_pb2, enum_stream_mode_pb2
 CONFIG_KEY_GRAPH_ID = "graph_id"
 # DR-specific key for storing root graph stream modes, required for patched subgraph streaming.
 CONFIG_KEY_ROOT_STREAM_MODES = "__pregel_root_stream_modes"
+CONFIG_KEY_REPLAY_STATE = "__pregel_replay_state"
 CONFIG_KEY_TRACING_PROJECT = "__langsmith_project__"
 CONFIG_KEY_TRACING_EXAMPLE_ID = "__langsmith_example_id__"
 
@@ -261,6 +262,7 @@ RESTRICTED_RESERVED_CONFIGURABLE_KEYS = {
     CONFIG_KEY_CACHE,
     CONFIG_KEY_RUNNER_SUBMIT,
     CONFIG_KEY_ROOT_STREAM_MODES,
+    CONFIG_KEY_REPLAY_STATE,
 }
 
 

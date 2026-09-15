@@ -34,7 +34,7 @@ def _hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 
-def _resolve_search_key_metadata(workflow_name: str, args: Sequence[Any]) -> dict[str, str]:
+def _resolve_search_key_metadata(workflow_name: str, args: Sequence[Any]) -> dict[str, str | None]:
     try:
         info = get_workflow_search_key_info(workflow_name)
         if not info.search_keys:

@@ -13,8 +13,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from airbyte.agents import _api_util
+from airbyte.agents import skills as _skills
 from airbyte.agents.connectors import AgentConnector, _resolve_connector_lookup
-from airbyte.agents.models import AgentConnectorInfo, AgentWorkspaceInfo
+from airbyte.agents.models import (
+    AgentConnectorInfo,
+    AgentSkillDocs,
+    AgentWorkspaceInfo,
+)
+from airbyte.agents.skills import AgentSkill
 from airbyte.cloud._credentials import _AirbyteCredentials
 from airbyte.cloud.workspaces import CloudWorkspace
 from airbyte.exceptions import AirbyteError, PyAirbyteInputError
@@ -48,11 +54,15 @@ class AgentWorkspace:
         client_id: str | SecretString | None = None,
         client_secret: str | SecretString | None = None,
         bearer_token: str | SecretString | None = None,
+        public_api_root: str | None = None,
+        config_api_root: str | None = None,
     ) -> None:
         """Initialize an `AgentWorkspace`.
 
         Credentials fall back to the `AIRBYTE_CLOUD_*` environment variables when they are
-        not passed explicitly.
+        not passed explicitly. API roots default to the `AIRBYTE_CLOUD_API_URL` /
+        `AIRBYTE_CLOUD_CONFIG_API_URL` environment variables (public Airbyte Cloud when unset);
+        custom roots require `AIRBYTE_AGENTS_API_URL`.
         """
         credentials = _AirbyteCredentials.from_auth(
             workspace_id=workspace_id,
@@ -60,6 +70,8 @@ class AgentWorkspace:
             client_id=client_id,
             client_secret=client_secret,
             bearer_token=bearer_token,
+            public_api_root=public_api_root,
+            config_api_root=config_api_root,
             # Mirrors `CloudWorkspace.__init__`: any explicit credential disables env
             # fallback, since an env bearer token plus explicit client creds is rejected
             # as mutually exclusive auth.
@@ -131,6 +143,59 @@ class AgentWorkspace:
                 )
             )
         ]
+
+    def list_skills(self) -> list[AgentSkill]:
+        """List all skills available to this workspace, following pagination."""
+        return [
+            AgentSkill(
+                skill_id=info.id,
+                credentials=self._credentials,
+                workspace_id=self.workspace_id,
+                info=info,
+            )
+            for info in _skills.iter_skills(
+                credentials=self._credentials,
+                workspace_id=self.workspace_id,
+            )
+        ]
+
+    def search_skills(self, query: str) -> list[AgentSkill]:
+        """Search skills by keyword, returning all matching skills across pages."""
+        return [
+            AgentSkill(
+                skill_id=info.id,
+                credentials=self._credentials,
+                workspace_id=self.workspace_id,
+                info=info,
+            )
+            for info in _skills.iter_skill_search(
+                query,
+                credentials=self._credentials,
+                workspace_id=self.workspace_id,
+            )
+        ]
+
+    def get_skill(self, skill_id: str) -> AgentSkill:
+        """Get a skill by ID, without calling the Agents API."""
+        return AgentSkill(
+            skill_id,
+            credentials=self._credentials,
+            workspace_id=self.workspace_id,
+        )
+
+    def read_skill_docs(
+        self,
+        skill_id: str,
+        *,
+        section: str | None = None,
+    ) -> AgentSkillDocs:
+        """Read a skill's docs, optionally scoped to a single section.
+
+        Omit `section` for metadata, guidance, and the outline of available sections, or
+        pass an exact section `id` from the outline to read that section. Connector usage
+        docs use the `docs_skill_id` reported by `AgentConnector.inspect()`.
+        """
+        return self.get_skill(skill_id).read_docs(section=section)
 
     def get_connector(
         self,
@@ -230,8 +295,9 @@ class AgentWorkspace:
         API, which raises `AirbyteError` when it is not eligible. Pass `verify=False` to
         skip that call.
 
-        Raises `PyAirbyteInputError` when the Cloud workspace uses non-public Cloud API
-        roots, since an `AgentWorkspace` cannot carry them.
+        Raises `AirbyteAgentsUnavailableError` when the Cloud workspace uses non-public Cloud API
+        roots unless `AIRBYTE_AGENTS_API_URL` is set; the Cloud API roots are carried over so the
+        token exchange stays on the same deployment.
         """
         _api_util.check_public_cloud_api_roots(
             cloud_workspace._credentials,  # noqa: SLF001  # Same-domain conversion.
@@ -242,6 +308,8 @@ class AgentWorkspace:
             client_id=cloud_workspace.client_id,
             client_secret=cloud_workspace.client_secret,
             bearer_token=cloud_workspace.bearer_token,
+            public_api_root=cloud_workspace._credentials.public_api_root,  # noqa: SLF001
+            config_api_root=cloud_workspace._credentials.config_api_root,  # noqa: SLF001
         )
         if verify:
             workspace.get_info()

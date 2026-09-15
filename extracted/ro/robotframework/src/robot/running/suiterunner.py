@@ -43,7 +43,9 @@ class SuiteRunner(SuiteVisitor):
         self.suite_result = None
         self.suite_status = None
         self.executed = [NormalizedDict(ignore="_")]
-        self.skipped_tags = TagPatterns(settings.skip)
+        self.skipped_tags = TagPatterns(
+            settings.skip, "finding tests to be skipped based on tags"
+        )
 
     @property
     def context(self):
@@ -150,6 +152,10 @@ class SuiteRunner(SuiteVisitor):
             self._resolve_setting(data.tags),
             self._get_timeout(data),
             data.lineno,
+            metadata=[
+                (self._resolve_setting(n), self._resolve_setting(v))
+                for n, v in data.metadata.items()
+            ],
             start_time=datetime.now(),
         )
         if result.tags.robot("exclude"):
@@ -234,7 +240,7 @@ class SuiteRunner(SuiteVisitor):
             f"{{Test}} skipped using {seq2str(tags)} {kind}{s(tags)}.", rpa
         )
 
-    def _clear_result(self, result: "SuiteResult|TestResult"):
+    def _clear_result(self, result: "SuiteResult | TestResult"):
         if result.has_setup:
             result.setup = None
         if result.has_teardown:
@@ -254,9 +260,9 @@ class SuiteRunner(SuiteVisitor):
 
     def _run_setup(
         self,
-        item: "SuiteData|TestData",
-        status: "SuiteStatus|TestStatus",
-        result: "SuiteResult|TestResult",
+        item: "SuiteData | TestData",
+        status: "SuiteStatus | TestStatus",
+        result: "SuiteResult | TestResult",
         run: bool = True,
     ):
         if run and status.passed:
@@ -272,9 +278,9 @@ class SuiteRunner(SuiteVisitor):
 
     def _run_teardown(
         self,
-        item: "SuiteData|TestData",
-        status: "SuiteStatus|TestStatus",
-        result: "SuiteResult|TestResult",
+        item: "SuiteData | TestData",
+        status: "SuiteStatus | TestStatus",
+        result: "SuiteResult | TestResult",
     ):
         if not status.teardown_allowed:
             return None

@@ -208,6 +208,12 @@ pub struct WordBox {
 #[derive(Debug, Serialize)]
 pub struct Page {
     pub page_number: usize,
+    /// The document's `/PageLabels` entry for this page ("iv", "A-1"), when
+    /// the PDF defines one. This is what a reader displays for the page and
+    /// is not always its position in the document; `None` means the PDF has
+    /// no label for it and consumers should fall back to `page_number`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_label: Option<String>,
     pub page_width: f32,
     pub page_height: f32,
     /// Union bbox of the page's top-level content objects in viewport
@@ -413,6 +419,12 @@ pub struct StructNode {
 #[derive(Debug, Serialize)]
 pub struct ParsedPage {
     pub page_number: usize,
+    /// The document's `/PageLabels` entry for this page ("iv", "A-1"), when
+    /// the PDF defines one. This is what a reader displays for the page and
+    /// is not always its position in the document; `None` means the PDF has
+    /// no label for it and consumers should fall back to `page_number`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_label: Option<String>,
     pub page_width: f32,
     pub page_height: f32,
     /// Union bbox of the page's top-level content objects in viewport
@@ -444,6 +456,17 @@ pub struct ParsedPage {
     /// obstacles, and reused downstream for figure classification.
     #[serde(skip)]
     pub figures: Vec<Rect>,
+    /// `(projected, original)` geometry of every text item, populated only
+    /// when the two differ for at least one item on the page. Rotation
+    /// reading-order handling unrotates 90°/270° text and can displace whole
+    /// groups onto a virtual canvas below the page so they read in the right
+    /// order; `ProjectedLine.bbox` (and so every block bbox unioned from it)
+    /// lives in that projected frame. Block/cell boxes are mapped back
+    /// through this table before they are reported, so they land in the
+    /// same viewport space as `text_items`. Empty for pages without rotated
+    /// text, which is the overwhelming majority.
+    #[serde(skip)]
+    pub projected_item_frames: Vec<(Rect, Rect)>,
     /// Structure-tree nodes for this page (tagged PDFs only). Pre-flattened in
     /// pre-order. Consumed by the markdown classifier for highest-priority
     /// heading / figure / table detection.
@@ -526,7 +549,7 @@ pub struct ExtractedImage {
 }
 
 #[doc(hidden)]
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct Rect {
     pub x: f32,
     pub y: f32,
@@ -812,6 +835,7 @@ mod tests {
     fn page_serializes() {
         let p = Page {
             page_number: 1,
+            page_label: None,
             page_width: 100.0,
             page_height: 200.0,
             content_bounds: None,

@@ -69,13 +69,14 @@ class TestAiPrLoopMainWorkflow:
         """Gate reads cooldown variable with the writer PAT, not the PR token."""
         content = AI_PR_LOOP.read_text(encoding="utf-8")
         assert "REPO_VARIABLE_WRITER_PAT" in content
+        assert "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" in content
         assert "--mode" in content
         assert "cooldown-gate" in content
 
     def test_cooldown_gate_checks_all_loop_credentials(self) -> None:
         """Any active loop-credential cooldown must block provider work."""
         content = AI_PR_LOOP.read_text(encoding="utf-8")
-        assert "AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN" in content
+        assert "AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" in content
 
     def test_cooldown_gate_uses_python_command(self) -> None:
         """The workflow delegates cooldown parsing to the Python watchdog command."""
@@ -107,19 +108,20 @@ class TestAiPrLoopMainWorkflow:
         assert dispatch_step is not None
         assert (dispatch_step.get("if") or "").strip() == "always()"
 
-    def test_redispatch_uses_pr_token_with_workflow_token_fallback(self) -> None:
-        """Redispatch keeps the writer PAT out of workflow dispatch credentials."""
-        content = AI_PR_LOOP.read_text(encoding="utf-8")
-        dispatch_step = content[content.index("- name: Dispatch AI PR Loop Redispatch") :]
-        assert "GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}" in dispatch_step
-        assert "FALLBACK_GH_TOKEN: ${{ github.token }}" in dispatch_step
-        assert "REPO_VARIABLE_WRITER_PAT" not in dispatch_step
-        assert 'mode="redispatch-dispatch-redispatch"' in dispatch_step
-        assert (
-            'gh api --method POST "/repos/$GITHUB_REPOSITORY/actions/workflows/ai-pr-loop-redispatch.yml/dispatches"'
-            in dispatch_step
-        )
-        assert 'GH_TOKEN="${FALLBACK_GH_TOKEN:-$GH_TOKEN}" gh api --method POST' in dispatch_step
+    def test_redispatch_uses_default_workflow_pat(self) -> None:
+        """Redispatch uses the default workflow PAT without cross-role fallback."""
+        parsed = yaml.safe_load(AI_PR_LOOP.read_text(encoding="utf-8"))
+        steps = parsed["jobs"]["ai-pr-loop"]["steps"]
+        dispatch_step = next(step for step in steps if step.get("name") == "Dispatch AI PR Loop Redispatch")
+        assert dispatch_step["env"] == {
+            "GH_TOKEN": "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}",
+            "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}",
+            "AI_PR_LOOP_CREDENTIAL_IDENTITY": "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+        }
+        assert "--mode redispatch-dispatch-redispatch" in dispatch_step["run"]
+        assert "REPO_VARIABLE_WRITER_PAT" not in dispatch_step["run"]
+        assert "SPECKIT_PR_TOKEN" not in dispatch_step["run"]
+        assert "FALLBACK_GH_TOKEN" not in dispatch_step["run"]
 
     def test_loop_concurrency_is_scoped_to_the_selected_pr(self) -> None:
         """A loop run for one PR must not replace a pending run for another PR."""

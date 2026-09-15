@@ -1,6 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import Dict, List, Union, Optional
+from datetime import datetime
 from typing_extensions import Literal
 
 from pydantic import Field as FieldInfo
@@ -44,6 +45,8 @@ class DocumentGetResponse(BaseModel):
     id: str
     """Unique identifier of the document."""
 
+    active_content_update_id: Optional[str] = FieldInfo(alias="activeContentUpdateId", default=None)
+
     connection_id: Optional[str] = FieldInfo(alias="connectionId", default=None)
     """Optional ID of connection the document was created from.
 
@@ -76,6 +79,8 @@ class DocumentGetResponse(BaseModel):
 
     filepath: Optional[str] = None
 
+    latest_revision: int = FieldInfo(alias="latestRevision")
+
     metadata: Union[str, float, bool, Dict[str, object], List[object], None] = None
     """Optional metadata for the document.
 
@@ -107,6 +112,8 @@ class DocumentGetResponse(BaseModel):
 
     title: Optional[str] = None
     """Title of the document"""
+
+    tombstoned_at: Optional[datetime] = FieldInfo(alias="tombstonedAt", default=None)
 
     type: Literal[
         "text",

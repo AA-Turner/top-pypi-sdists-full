@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation
-Version: 0.1.63
+Version: 0.1.64
 Summary: OpenInference instrumentation utilities
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/openinference-instrumentation
 Author-email: OpenInference Authors <oss@arize.com>

@@ -150,6 +150,9 @@ class GaussianProcessRegressor(BaseTransformer):
         used as datapoint-dependent noise level. Allowing to specify the
         noise level directly as a parameter is mainly for convenience and
         for consistency with :class:`~sklearn.linear_model.Ridge`.
+        For an example illustrating how the alpha parameter controls
+        the noise variance in Gaussian Process Regression, see
+        :ref:`sphx_glr_auto_examples_gaussian_process_plot_gpr_noisy_targets.py`.
 
     optimizer: "fmin_l_bfgs_b", callable or None, default="fmin_l_bfgs_b"
         Can either be one of the internally supported optimizers for optimizing
@@ -997,7 +1000,7 @@ class GaussianProcessRegressor(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.gaussian_process.GaussianProcessRegressor.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.GaussianProcessRegressor.html#sklearn.gaussian_process.GaussianProcessRegressor.score)
 

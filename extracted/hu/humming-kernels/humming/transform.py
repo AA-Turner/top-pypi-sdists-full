@@ -1,10 +1,10 @@
-import math
-
 import torch
 
 from humming import dtypes, ops
 from humming.config import LayerConfig, MmaType, WeightScale2Type, WeightScaleType
+from humming.device import DeviceInfo
 from humming.schema import HummingInputSchema, HummingWeightSchema
+from humming.utils.math import round_up
 
 
 def prepare_layer_config(
@@ -17,18 +17,21 @@ def prepare_layer_config(
     pad_k_to_multiple: int = 1,
     has_bias: bool = False,
     torch_dtype: torch.dtype | None = None,
+    device: int | torch.device | None = None,
 ) -> LayerConfig:
+    info = DeviceInfo(device)
+    sm_version = info.sm_version
     if torch_dtype is None:
         torch_dtype = torch.get_default_dtype()
         if torch_dtype not in [torch.float16, torch.bfloat16]:
-            torch_dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
+            torch_dtype = torch.bfloat16 if info.sm_major >= 8 else torch.float16
 
     f16_dtype = dtypes.DataType.from_torch_dtype(torch_dtype)
-    pad_shape_n = math.ceil(shape_n / pad_n_to_multiple) * pad_n_to_multiple - shape_n
-    pad_shape_k = math.ceil(shape_k / pad_k_to_multiple) * pad_k_to_multiple - shape_k
+    pad_shape_n = round_up(shape_n, pad_n_to_multiple) - shape_n
+    pad_shape_k = round_up(shape_k, pad_k_to_multiple) - shape_k
 
     if input_schema is None:
-        input_schema = HummingInputSchema(a_dtype=f16_dtype)
+        input_schema = HummingInputSchema(input_dtype=f16_dtype)
 
     assert isinstance(input_schema, HummingInputSchema)
     assert isinstance(weight_schema, HummingWeightSchema)
@@ -44,10 +47,12 @@ def prepare_layer_config(
         weight_scale_2_type = WeightScale2Type.CHANNEL
 
     return LayerConfig(
+        sm_version=sm_version,
         a_dtype=input_schema.a_dtype or f16_dtype,
         b_dtype=weight_schema.b_dtype,
         bs_dtype=weight_schema.bs_dtype or f16_dtype,
         as_dtype=input_schema.input_scale_dtype,
+        input_quant_mode=input_schema.input_quant_mode,
         c_dtype=f16_dtype,
         shape_n=shape_n + pad_shape_n,
         shape_k=shape_k + pad_shape_k,

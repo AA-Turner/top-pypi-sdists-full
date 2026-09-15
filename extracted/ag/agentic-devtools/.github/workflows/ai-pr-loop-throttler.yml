@@ -13,10 +13,8 @@
 #   AI_PR_LOOP_ELIGIBLE_PR_LIMIT  — oldest N PRs to cycle through (default: 1, max: 100)
 #   AI_PR_LOOP_LAST_DISPATCHED_PR  — auto-managed cursor (do not edit)
 #
-# Optional secret: REPO_VARIABLE_WRITER_PAT (Fine-grained PAT, Variables: R/W)
 # Related: ai-pr-loop.yml, ai-pr-loop-redispatch.yml, ai-pr-loop-dispatcher.yml
 name: AI PR Loop Throttler
-
 on:
   workflow_dispatch: {}
 
@@ -33,6 +31,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+        with: {token: '${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}', persist-credentials: false}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -53,8 +52,9 @@ jobs:
           fi
       - name: Select and dispatch next PR(s)
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
           DRY_RUN: ${{ vars.AGENT_MONITOR_DRY_RUN || '' }}
         run: agdt-ai-pr-loop-scheduler

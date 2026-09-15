@@ -4,7 +4,6 @@ import asyncio
 import contextlib
 import dataclasses
 import random
-import sys
 import uuid
 from collections.abc import MutableMapping
 from contextlib import nullcontext, suppress
@@ -38,8 +37,8 @@ class QueueManager:
     """
 
     queries: RepositoryPort
-    channel: models.Channel = dataclasses.field(
-        default=models.Channel(DBSettings().channel),
+    channel: types.Channel = dataclasses.field(
+        default=types.Channel(DBSettings().channel),
     )
 
     shutdown: asyncio.Event = dataclasses.field(
@@ -48,16 +47,18 @@ class QueueManager:
     )
 
     # Per entrypoint
-    entrypoint_registry: dict[str, executors.AbstractEntrypointExecutor] = dataclasses.field(
-        init=False,
-        default_factory=dict,
+    entrypoint_registry: dict[types.QueueEntrypoint, executors.AbstractEntrypointExecutor] = (
+        dataclasses.field(
+            init=False,
+            default_factory=dict,
+        )
     )
-    queue_manager_id: uuid.UUID = dataclasses.field(
+    queue_manager_id: types.QueueManagerId = dataclasses.field(
         init=False,
-        default_factory=uuid.uuid4,
+        default_factory=lambda: types.QueueManagerId(uuid.uuid4()),
     )
     # Shared resources mapping propagated into each job Context.
-    resources: MutableMapping = dataclasses.field(
+    resources: MutableMapping[str, object] = dataclasses.field(
         default_factory=dict,
     )
 
@@ -65,12 +66,12 @@ class QueueManager:
     tracer: tracing.TracingProtocol | None = None
 
     # Per job.
-    job_context: dict[models.JobId, models.Context] = dataclasses.field(
+    job_context: dict[types.JobId, models.Context] = dataclasses.field(
         init=False,
         default_factory=dict,
     )
 
-    pending_health_check: dict[uuid.UUID, asyncio.Future[models.HealthCheckEvent]] = (
+    pending_health_check: dict[types.HealthCheckId, asyncio.Future[models.HealthCheckEvent]] = (
         dataclasses.field(
             init=False,
             default_factory=dict,
@@ -95,7 +96,7 @@ class QueueManager:
         timeout: timedelta = timedelta(seconds=10),
     ) -> models.HealthCheckEvent:
         """Round-trip a NOTIFY/LISTEN probe. Raises ``FailingListenerError`` on timeout."""
-        health_check_event_id = uuid.uuid4()
+        health_check_event_id = types.HealthCheckId(uuid.uuid4())
         fut = asyncio.Future[models.HealthCheckEvent]()
         self.pending_health_check[health_check_event_id] = fut
         try:
@@ -142,7 +143,7 @@ class QueueManager:
                     timeout=interval.total_seconds() * random.uniform(0.8, 1.2),
                 )
 
-    def get_context(self, job_id: models.JobId) -> models.Context:
+    def get_context(self, job_id: types.JobId) -> models.Context:
         return self.job_context[job_id]
 
     def register_executor(
@@ -151,10 +152,11 @@ class QueueManager:
         executor: executors.AbstractEntrypointExecutor,
     ) -> None:
         """Bind *name* to *executor*. Raises RuntimeError on duplicate name."""
-        if name in self.entrypoint_registry:
+        entrypoint = types.QueueEntrypoint(name)
+        if entrypoint in self.entrypoint_registry:
             raise RuntimeError(f"{name} already in registry, name must be unique.")
 
-        self.entrypoint_registry[name] = executor
+        self.entrypoint_registry[entrypoint] = executor
 
     def entrypoint(
         self,
@@ -181,7 +183,7 @@ class QueueManager:
         ``'hold'`` parks it with status ``'failed'`` for manual re-queue.
         """
 
-        if name in self.entrypoint_registry:
+        if types.QueueEntrypoint(name) in self.entrypoint_registry:
             raise RuntimeError(f"{name} already in registry, name must be unique.")
 
         if not isinstance(concurrency_limit, int):
@@ -219,7 +221,7 @@ class QueueManager:
 
         return register
 
-    def entrypoints_below_capacity_limits(self) -> set[str]:
+    def entrypoints_below_capacity_limits(self) -> set[types.QueueEntrypoint]:
         """All registered entrypoints; per-entrypoint limits are enforced in SQL."""
         return set(self.entrypoint_registry)
 
@@ -279,6 +281,7 @@ class QueueManager:
             (self.queries.qbe.settings.queue_table, "execute_after"),
             (self.queries.qbe.settings.queue_table, "headers"),
             (self.queries.qbe.settings.queue_table, "attempts"),
+            (self.queries.qbe.settings.queue_table, "slot"),
             (self.queries.qbe.settings.queue_table_log, "traceback"),
         ):
             if not (await self.queries.table_has_column(table, column)):
@@ -300,6 +303,10 @@ class QueueManager:
             (
                 self.queries.qbe.settings.queue_table_log,
                 f"{self.queries.qbe.settings.queue_table_log}_job_id_status",
+            ),
+            (
+                self.queries.qbe.settings.queue_table,
+                f"{self.queries.qbe.settings.queue_table}_picked_slot_idx",
             ),
         ):
             if not (await self.queries.table_has_index(table, index)):
@@ -392,9 +399,11 @@ class QueueManager:
         """
         await self.verify_structure()
 
-        max_concurrent_tasks = max_concurrent_tasks or sys.maxsize
+        # 0 has always meant unlimited; keep unlimited as None all the way to
+        # the dequeue query so it composes without the worker-budget CTEs.
+        max_concurrent_tasks = max_concurrent_tasks or None
 
-        if max_concurrent_tasks < 2 * batch_size:
+        if max_concurrent_tasks is not None and max_concurrent_tasks < 2 * batch_size:
             raise RuntimeError("max_concurrent_tasks must be at least twice the batch size.")
 
         async with (

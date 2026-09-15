@@ -28,6 +28,7 @@ from tomlrt._comma_ops import (
     splice_out,
 )
 from tomlrt._format import (
+    _prepare_indent,
     _resolve_format_options,
     format_inline_root,
     set_comma_value_multiline,
@@ -122,31 +123,30 @@ class Array(_View, list[Any]):
         self._host: Array | Container | None = None
         self._name: str = ""
         items_list = list(items)
+        for item in items_list:
+            self._validate_item(item)
+        indent_text = _prepare_indent(indent) if multiline else ""
         if items_list:
             from tomlrt._container import _fill_inline_array  # noqa: PLC0415
 
-            for item in items_list:
-                self._validate_item(item)
             _fill_inline_array(self, items_list, layout_root=None, owner=None)
         if not multiline:
             return
-        row_indent = f"\n{' ' * indent}"
-        if not val.items:
-            val.final_trivia = row_indent
-            return
-        val.header_trivia = row_indent
-        val.final_trivia = "\n"
-        for k, it in enumerate(val.items):
-            it.leading = "" if k == 0 else row_indent
-            it.post_comma_trivia = ""
-            it.trailing = ""
-            it.has_comma = True
+        set_comma_value_multiline(
+            val,
+            multiline=True,
+            nl=self._doc_newline,
+            indent=indent_text,
+            host=None,
+        )
 
     def to_list(self) -> list[Any]:
-        """Materialise a plain-Python ``list`` (recursive)."""
+        """Materialise independent plain-Python data (recursive)."""
         from tomlrt._container import _to_python  # noqa: PLC0415
 
-        return [_to_python(x) for x in self]
+        out = _to_python(self)
+        assert isinstance(out, list)
+        return out
 
     @override
     def __copy__(self) -> Array:
@@ -279,7 +279,7 @@ class Array(_View, list[Any]):
             self._value,
             multiline=multiline,
             nl=self._doc_newline,
-            indent=" " * indent,
+            indent=_prepare_indent(indent) if multiline else "",
             host=_host_kv_slot(self),
         )
         return self
@@ -371,12 +371,7 @@ class Array(_View, list[Any]):
 
     @override
     def remove(self, value: Any) -> None:
-        for i, v in enumerate(self):
-            if v == value:
-                del self[i]
-                return
-        msg = "Array.remove(x): x not in array"
-        raise ValueError(msg)
+        _remove_value(self, value, "Array.remove(x): x not in array")
 
     @override
     def insert(self, index: SupportsIndex, value: Any) -> None:
@@ -534,6 +529,15 @@ class Array(_View, list[Any]):
         return self
 
 
+def _remove_value(items: list[_T], value: object, message: str) -> None:
+    """Remove the first identity-or-equality match through the live list API."""
+    for i, item in enumerate(items):
+        if item is value or item == value:
+            del items[i]
+            return
+    raise ValueError(message)
+
+
 def _norm_insert_index(index: SupportsIndex, n: int) -> int:
     """Return the clamped index used by ``list.insert``."""
     i = operator.index(index)
@@ -603,8 +607,10 @@ class AoT(_View, list["Table"]):
         return lr
 
     def to_list(self) -> list[dict[str, Any]]:
-        """Materialise a list of plain-Python ``dict``s (recursive)."""
-        return [t.to_dict() for t in self]
+        """Materialise independent plain-Python dictionaries (recursive)."""
+        out = _container._to_python(self)  # noqa: SLF001
+        assert isinstance(out, list)
+        return out
 
     @override
     def __copy__(self) -> AoT:
@@ -745,12 +751,7 @@ class AoT(_View, list["Table"]):
 
     @override
     def remove(self, value: Mapping[str, TomlInput]) -> None:
-        for i, t in enumerate(self):
-            if t is value or t == value:
-                del self[i]
-                return
-        msg = "list.remove(x): x not in list"
-        raise ValueError(msg)
+        _remove_value(self, value, "list.remove(x): x not in list")
 
     @override
     def reverse(self) -> None:
@@ -810,14 +811,14 @@ class AoT(_View, list["Table"]):
 
 
 def _prepare_aot_entries(
-    values: Iterable[Any],
+    values: Iterable[Mapping[str, TomlInput]],
 ) -> list[Mapping[str, TomlInput]]:
-    """Snapshot and validate complete AoT entries."""
+    """Snapshot entries, checking all mapping shapes before their contents."""
     from tomlrt._container import _validate_mapping_items  # noqa: PLC0415
 
-    entries: list[Any] = [
-        _require_mapping(value, label="AoT entry") for value in list(values)
-    ]
+    entries = list(values)
+    for entry in entries:
+        _require_mapping(entry, label="AoT entry")
     for entry in entries:
         _validate_mapping_items(entry, inline_only=False)
     return entries

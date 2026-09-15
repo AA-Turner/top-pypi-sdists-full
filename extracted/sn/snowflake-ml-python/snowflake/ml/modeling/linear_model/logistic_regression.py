@@ -159,17 +159,13 @@ class LogisticRegression(BaseTransformer):
         added to the decision function.
 
     intercept_scaling: float, default=1
-        Useful only when the solver 'liblinear' is used
-        and self.fit_intercept is set to True. In this case, x becomes
-        [x, self.intercept_scaling],
+        Useful only when the solver `liblinear` is used
+        and `self.fit_intercept` is set to `True`. In this case, `x` becomes
+        `[x, self.intercept_scaling]`,
         i.e. a "synthetic" feature with constant value equal to
-        intercept_scaling is appended to the instance vector.
-        The intercept becomes ``intercept_scaling * synthetic_feature_weight``.
-
-        Note! the synthetic feature weight is subject to l1/l2 regularization
-        as all other features.
-        To lessen the effect of regularization on synthetic feature weight
-        (and therefore on the intercept) intercept_scaling has to be increased.
+        `intercept_scaling` is appended to the instance vector.
+        The intercept becomes
+        ``intercept_scaling * synthetic_feature_weight``.
 
     class_weight: dict or 'balanced', default=None
         Weights associated with classes in the form ``{class_label: weight}``.
@@ -193,16 +189,16 @@ class LogisticRegression(BaseTransformer):
 
         - For small datasets, 'liblinear' is a good choice, whereas 'sag'
           and 'saga' are faster for large ones;
-        - For multiclass problems, only 'newton-cg', 'sag', 'saga' and
-          'lbfgs' handle multinomial loss;
-        - 'liblinear' and 'newton-cholesky' can only handle binary classification
-          by default. To apply a one-versus-rest scheme for the multiclass setting
-          one can wrapt it with the `OneVsRestClassifier`.
-        - 'newton-cholesky' is a good choice for `n_samples` >> `n_features`,
-          especially with one-hot encoded categorical features with rare
-          categories. Be aware that the memory usage of this solver has a quadratic
-          dependency on `n_features` because it explicitly computes the Hessian
-          matrix.
+        - For :term:`multiclass` problems, all solvers except 'liblinear' minimize the
+          full multinomial loss;
+        - 'liblinear' can only handle binary classification by default. To apply a
+          one-versus-rest scheme for the multiclass setting one can wrap it with the
+          :class:`~sklearn.multiclass.OneVsRestClassifier`.
+        - 'newton-cholesky' is a good choice for
+          `n_samples` >> `n_features * n_classes`, especially with one-hot encoded
+          categorical features with rare categories. Be aware that the memory usage
+          of this solver has a quadratic dependency on `n_features * n_classes`
+          because it explicitly computes the full Hessian matrix.
 
            ================= ============================== ======================
            solver            penalty                        multinomial multiclass
@@ -210,7 +206,7 @@ class LogisticRegression(BaseTransformer):
            'lbfgs'           'l2', None                     yes
            'liblinear'       'l1', 'l2'                     no
            'newton-cg'       'l2', None                     yes
-           'newton-cholesky' 'l2', None                     no
+           'newton-cholesky' 'l2', None                     yes
            'sag'             'l2', None                     yes
            'saga'            'elasticnet', 'l1', 'l2', None yes
            ================= ============================== ======================
@@ -1060,7 +1056,7 @@ class LogisticRegression(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.linear_model.LogisticRegression.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html#sklearn.linear_model.LogisticRegression.score)
 

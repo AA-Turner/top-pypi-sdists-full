@@ -1369,6 +1369,23 @@ class CleanTests(PorcelainTestCase):
             }
         )
 
+    def test_from_root_spelled_differently(self) -> None:
+        # target_dir and repo.path can name the same directory with
+        # different strings, e.g. an 8.3 short name and its expanded form
+        # on Windows.
+        self.put_files(
+            tracked={"tracked_file", ".gitignore"},
+            ignored={"ignored_file"},
+            untracked={"untracked_file"},
+            empty_dirs=set(),
+        )
+
+        porcelain.clean(
+            repo=self.repo.path, target_dir=os.path.join(self.repo.path, ".")
+        )
+
+        self.assert_wd({"tracked_file", ".gitignore", "ignored_file"})
+
 
 class CloneTests(PorcelainTestCase):
     def test_simple_local(self) -> None:
@@ -1408,6 +1425,54 @@ class CloneTests(PorcelainTestCase):
             b"+refs/heads/*:refs/remotes/origin/*",
             c.get((b"remote", b"origin"), b"fetch"),
         )
+        self.assertEqual(b"origin", c.get((b"branch", b"master"), b"remote"))
+        self.assertEqual(b"refs/heads/master", c.get((b"branch", b"master"), b"merge"))
+
+    def test_branch_tracking(self) -> None:
+        """A cloned branch tracks its remote counterpart, so "git pull" works."""
+        f1_1 = make_object(Blob, data=b"f1")
+        (c1,) = build_commit_graph(self.repo.object_store, [[1]], {1: [(b"f1", f1_1)]})
+        self.repo.refs[b"refs/heads/master"] = c1.id
+        self.repo.refs[b"refs/heads/other"] = c1.id
+        self.repo.refs[b"refs/tags/v1"] = c1.id
+
+        for kwargs, expected in [
+            ({}, (b"master", b"origin", b"refs/heads/master")),
+            ({"branch": b"other"}, (b"other", b"origin", b"refs/heads/other")),
+            ({"origin": "upstream"}, (b"master", b"upstream", b"refs/heads/master")),
+        ]:
+            target_path = tempfile.mkdtemp()
+            self.addCleanup(shutil.rmtree, target_path)
+            branch, remote, merge = expected
+            with porcelain.clone(
+                self.repo.path,
+                target_path,
+                checkout=False,
+                errstream=BytesIO(),
+                **kwargs,
+            ) as r:
+                c = r.get_config()
+                self.assertEqual(remote, c.get((b"branch", branch), b"remote"))
+                self.assertEqual(merge, c.get((b"branch", branch), b"merge"))
+
+    def test_no_branch_tracking_for_tag(self) -> None:
+        """Cloning a tag leaves HEAD detached, so there is nothing to track."""
+        f1_1 = make_object(Blob, data=b"f1")
+        (c1,) = build_commit_graph(self.repo.object_store, [[1]], {1: [(b"f1", f1_1)]})
+        self.repo.refs[b"refs/heads/master"] = c1.id
+        self.repo.refs[b"refs/tags/v1"] = c1.id
+        target_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, target_path)
+        with porcelain.clone(
+            self.repo.path,
+            target_path,
+            checkout=False,
+            branch=b"v1",
+            errstream=BytesIO(),
+        ) as r:
+            c = r.get_config()
+            self.assertRaises(KeyError, c.get, (b"branch", b"v1"), b"remote")
+            self.assertRaises(KeyError, c.get, (b"branch", b"master"), b"remote")
 
     def test_simple_local_with_checkout(self) -> None:
         f1_1 = make_object(Blob, data=b"f1")
@@ -7261,6 +7326,46 @@ class StatusTests(PorcelainTestCase):
         self.assertEqual(results.staged["add"][0], os.fsencode(filename_add))
         self.assertEqual(results.unstaged, [os.fsencode("foo")])
 
+    @skipIf(sys.platform == "win32", "requires symlink support")
+    def test_status_tracked_symlink_to_untracked_file(self) -> None:
+        # A tracked symlink is not untracked just because the file it points
+        # at is untracked. Git reports only the target file here.
+        link = os.path.join(self.repo.path, "link")
+        os.symlink("target", link)
+        porcelain.add(repo=self.repo.path, paths=[link])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"add symlink",
+            author=b"author <email>",
+            committer=b"committer <email>",
+        )
+        with open(os.path.join(self.repo.path, "target"), "w") as f:
+            f.write("stuff")
+
+        results = porcelain.status(self.repo)
+        self.assertEqual([b"target"], results.untracked)
+        self.assertEqual([], results.unstaged)
+
+    @skipIf(sys.platform == "win32", "requires symlink support")
+    def test_status_modified_symlink_reported_once(self) -> None:
+        # A tracked symlink pointed at a different name is modified, not
+        # untracked. Git reports the path once, as modified.
+        link = os.path.join(self.repo.path, "link")
+        os.symlink("target", link)
+        porcelain.add(repo=self.repo.path, paths=[link])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"add symlink",
+            author=b"author <email>",
+            committer=b"committer <email>",
+        )
+        os.remove(link)
+        os.symlink("other", link)
+
+        results = porcelain.status(self.repo)
+        self.assertEqual([b"link"], results.unstaged)
+        self.assertEqual([], results.untracked)
+
     def test_status_with_core_preloadindex(self) -> None:
         """Test status with core.preloadIndex enabled."""
         # Set core.preloadIndex to true
@@ -9788,6 +9893,18 @@ class PathToTreeTests(PorcelainTestCase):
         self.assertEqual(
             b"bar/baz",
             porcelain.path_to_tree_path(os.path.join(os.getcwd(), ".."), "baz"),
+        )
+
+    @skipIf(sys.platform == "win32", "requires symlink support")
+    def test_path_to_tree_path_symlink(self) -> None:
+        # A symlink is named in the index by its own path, not by the path of
+        # the file it points at, even when that file is inside the repository.
+        os.symlink("bar", os.path.join(self.test_dir, "link"))
+        self.assertEqual(
+            b"link",
+            porcelain.path_to_tree_path(
+                self.test_dir, os.path.join(self.test_dir, "link")
+            ),
         )
 
 

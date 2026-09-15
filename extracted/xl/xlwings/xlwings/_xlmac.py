@@ -10,6 +10,7 @@ from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
+from weakref import WeakValueDictionary
 
 import aem
 import appscript
@@ -505,7 +506,9 @@ class Book(base_classes.Book):
         return Sheets(self)
 
     def close(self):
+        pivot_key = (self.app.pid, self.name)
         self.xl.close(saving=kw.no)
+        _invalidate_pivot_value_states(pivot_key)
 
     def save(self, path, password):
         saved_path = self.xl.properties().get(kw.path)
@@ -785,6 +788,10 @@ class Sheet(base_classes.Sheet):
         return Tables(self)
 
     @property
+    def pivot_tables(self):
+        return PivotTables(self)
+
+    @property
     def pictures(self):
         return Pictures(self)
 
@@ -799,6 +806,59 @@ class Sheet(base_classes.Sheet):
     @visible.setter
     def visible(self, value):
         self.xl.visible.set(value)
+
+    def _window_property(self, name, *value):
+        """Get (no `value`) or set (one `value`) a property of the book's window.
+
+        Gridlines and the like are window properties, applying to the sheet
+        that the window currently shows. A sheet that isn't active is
+        therefore activated for the duration of the call and the previously
+        active sheet restored afterwards, with screen updating off.
+        """
+        book = self.workbook.xl
+        prop = getattr(book.windows[1], name)
+        previous_book_sheet = book.active_sheet.name.get()
+        if previous_book_sheet != self.xl.name.get():
+            if self.xl.visible.get() != kw.sheet_visible:
+                raise ValueError(
+                    f"Sheet.{name}: hidden sheets can't be activated. Set "
+                    "sheet.visible = True first."
+                )
+            app = self.workbook.app
+            # Resolve now: appscript references are lazy, and `active_sheet`
+            # would otherwise point at whatever is active by the time it's used.
+            previous_book = app.xl.active_workbook.name.get()
+            previous_sheet = app.xl.active_workbook.active_sheet.name.get()
+            previous_screen_updating = app.screen_updating
+            app.screen_updating = False
+            try:
+                self.xl.activate_object()
+                if value:
+                    prop.set(value[0])
+                    return None
+                return prop.get()
+            finally:
+                try:
+                    book.sheets[previous_book_sheet].activate_object()
+                finally:
+                    try:
+                        app.xl.workbooks[previous_book].sheets[
+                            previous_sheet
+                        ].activate_object()
+                    finally:
+                        app.screen_updating = previous_screen_updating
+        if value:
+            prop.set(value[0])
+            return None
+        return prop.get()
+
+    @property
+    def show_gridlines(self):
+        return bool(self._window_property("display_gridlines"))
+
+    @show_gridlines.setter
+    def show_gridlines(self, value):
+        self._window_property("display_gridlines", bool(value))
 
     @property
     def page_setup(self):
@@ -857,6 +917,16 @@ class Range(base_classes.Range):
     @property
     def shape(self):
         return self.coords[2], self.coords[3]
+
+    @property
+    def max_cells_per_read(self):
+        # Below the shared 4M default: a single Apple Event reply has a size
+        # cap, and exceeding it fails with -1741 (buffer for AEFlattenDesc too
+        # small). Measured with float cells: 2,000,000 fail, 1,500,000 work
+        # (10M cells read in 35s vs. 44s with a 1M budget). The cap is in bytes,
+        # not cells, so a text-heavy range can still hit it and needs a smaller
+        # explicit chunksize.
+        return 1_500_000
 
     @property
     def raw_value(self):
@@ -1220,6 +1290,24 @@ class Range(base_classes.Range):
     @wrap_text.setter
     def wrap_text(self, value):
         self.xl.wrap_text.set(value)
+
+    @property
+    def horizontal_alignment(self):
+        # A range whose cells disagree returns an AEEnum that isn't one of the
+        # documented keywords, so .get() maps it to None.
+        return horizontal_alignments_k2s.get(self.xl.horizontal_alignment.get())
+
+    @horizontal_alignment.setter
+    def horizontal_alignment(self, value):
+        self.xl.horizontal_alignment.set(horizontal_alignments_s2k[value])
+
+    @property
+    def vertical_alignment(self):
+        return vertical_alignments_k2s.get(self.xl.vertical_alignment.get())
+
+    @vertical_alignment.setter
+    def vertical_alignment(self, value):
+        self.xl.vertical_alignment.set(vertical_alignments_s2k[value])
 
     @property
     def note(self):
@@ -1890,8 +1978,9 @@ class Chart(base_classes.Chart):
             self.xl_obj = parent.xl.chart_objects[key]
             self.xl = self.xl_obj.chart
         else:
+            # chart sheet
             self.xl_obj = None
-            self.xl = self.charts[key]
+            self.xl = parent.xl.chart_sheets[key]
 
     @property
     def parent(self):
@@ -1901,8 +1990,11 @@ class Chart(base_classes.Chart):
     def api(self):
         return self.xl_obj, self.xl
 
-    def set_source_data(self, rng):
-        self.xl.set_source_data(source=rng.xl)
+    def set_source_data(self, rng, plot_by=None):
+        if plot_by is None:
+            self.xl.set_source_data(source=rng.xl)
+        else:
+            self.xl.set_source_data(source=rng.xl, plot_by=plot_by_s2k[plot_by])
 
     @property
     def name(self):
@@ -1913,10 +2005,15 @@ class Chart(base_classes.Chart):
 
     @name.setter
     def name(self, value):
+        # Charts are addressed by name, so the references have to be
+        # re-resolved after renaming (same as Table.name)
         if self.xl_obj is not None:
             self.xl_obj.name.set(value)
+            self.xl_obj = self._parent.xl.chart_objects[value]
+            self.xl = self.xl_obj.chart
         else:
-            self.xl.name.get(value)
+            self.xl.name.set(value)
+            self.xl = self._parent.xl.chart_sheets[value]
 
     @property
     def chart_type(self):
@@ -1925,6 +2022,41 @@ class Chart(base_classes.Chart):
     @chart_type.setter
     def chart_type(self, value):
         self.xl.chart_type.set(chart_types_s2k[value])
+
+    @property
+    def title(self):
+        if not self.xl.has_title.get():
+            return None
+        text = self.xl.chart_title.chart_title_text.get()
+        return None if text == kw.missing_value else text
+
+    @title.setter
+    def title(self, value):
+        if value is None:
+            self.xl.has_title.set(False)
+        else:
+            self.xl.has_title.set(True)
+            self.xl.chart_title.chart_title_text.set(value)
+
+    @property
+    def legend(self):
+        return ChartLegend(self)
+
+    @property
+    def plot_by(self):
+        return plot_by_k2s[self.xl.plot_by.get()]
+
+    @plot_by.setter
+    def plot_by(self, value):
+        self.xl.plot_by.set(plot_by_s2k[value])
+
+    @property
+    def style(self):
+        return self.xl.chart_style.get()
+
+    @style.setter
+    def style(self, value):
+        self.xl.chart_style.set(value)
 
     @property
     def left(self):
@@ -1975,7 +2107,17 @@ class Chart(base_classes.Chart):
         self.xl_obj.height.set(value)
 
     def delete(self):
-        self.xl_obj.delete()
+        if self.xl_obj is None:
+            # chart sheet: Excel asks for confirmation like for any sheet
+            app_xl = self._parent.app.xl
+            alerts_state = app_xl.display_alerts.get()
+            app_xl.display_alerts.set(False)
+            try:
+                self.xl.delete()
+            finally:
+                app_xl.display_alerts.set(alerts_state)
+        else:
+            self.xl_obj.delete()
 
     def to_png(self, path):
         raise xlwings.XlwingsError("Chart.to_png() isn't supported on macOS.")
@@ -2001,14 +2143,61 @@ class Chart(base_classes.Chart):
         raise xlwings.XlwingsError("Chart.to_pdf() isn't supported on macOS.")
 
 
+class ChartLegend(base_classes.ChartLegend):
+    def __init__(self, parent):
+        # Only the parent is kept: the chart's native reference is name-based
+        # and gets replaced when the chart is renamed
+        self.parent = parent
+
+    @property
+    def xl(self):
+        return self.parent.xl
+
+    @property
+    def api(self):
+        return self.xl.legend_object
+
+    @property
+    def visible(self):
+        return self.xl.has_legend.get()
+
+    @visible.setter
+    def visible(self, value):
+        self.xl.has_legend.set(value)
+
+    @property
+    def position(self):
+        if not self.xl.has_legend.get():
+            return None
+        return legend_positions_k2s[self.xl.legend_object.position.get()]
+
+    @position.setter
+    def position(self, value):
+        self.xl.has_legend.set(True)
+        self.xl.legend_object.position.set(legend_positions_s2k[value])
+
+
 class Charts(Collection, base_classes.Charts):
     _attr = "chart_objects"
     _kw = kw.chart_object
     _wrap = Chart
 
-    def add(self, left, top, width, height):
+    def add(
+        self,
+        left,
+        top,
+        width,
+        height,
+        chart_type=None,
+        source=None,
+        plot_by=None,
+        name=None,
+        anchor=None,
+    ):
+        if anchor:
+            top, left = anchor.top, anchor.left
         sheet_index = self.parent.xl.entry_index.get()
-        return Chart(
+        chart = Chart(
             self.parent,
             self.parent.xl.make(
                 at=self.parent.book.xl.sheets[sheet_index],
@@ -2021,6 +2210,508 @@ class Charts(Collection, base_classes.Charts):
                 },
             ).name.get(),
         )
+        # data before type: stock/xy types need series to exist; name last as
+        # the chart is addressed by name
+        if source is not None:
+            chart.set_source_data(source, plot_by)
+        if chart_type is not None:
+            chart.chart_type = chart_type
+        if name is not None:
+            chart.name = name
+        return chart
+
+
+def _mac_list(ref):
+    """The items of an appscript element list, or [] when Excel reports
+    `missing value` for an empty collection."""
+    items = ref.get()
+    return [] if items == kw.missing_value else items
+
+
+_pivot_value_states = WeakValueDictionary()
+
+# Stored on the native pivot so defaults survive collection lookups and saves.
+_pivot_defaults_pending = "xlwings:defaults:pending-values"
+_pivot_defaults_applied = "xlwings:defaults"
+
+
+def _pivot_key(pivot):
+    sheet = pivot.parent
+    book = sheet.book
+    # Names normalize references obtained by numeric and string lookup.
+    return (book.app.pid, book.name, sheet.name, pivot.name)
+
+
+def _invalidate_pivot_value_states(prefix):
+    for key, state in list(_pivot_value_states.items()):
+        if key[: len(prefix)] == prefix:
+            state.deleted = True
+            del _pivot_value_states[key]
+
+
+class _PivotValueState:
+    def __init__(self, key):
+        self.key = key
+        self.name = key[-1]
+        self.deleted = False
+
+    def rename(self, name):
+        _pivot_value_states.pop(self.key, None)
+        self.name = name
+        self.key = (*self.key[:-1], name)
+        _pivot_value_states[self.key] = self
+
+
+class PivotTable(base_classes.PivotTable):
+    def __init__(self, parent, key):
+        self._parent = parent
+        self.xl = parent.xl.pivot_tables[key]
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def name(self):
+        return self.xl.name.get()
+
+    @name.setter
+    def name(self, value):
+        old_key = _pivot_key(self)
+        self.xl.name.set(value)
+        # the native reference is name-based
+        self.xl = self.parent.xl.pivot_tables[value]
+        for key, state in list(_pivot_value_states.items()):
+            if key[:-1] == old_key:
+                del _pivot_value_states[key]
+                state.key = (*old_key[:-1], value, state.name)
+                _pivot_value_states[state.key] = state
+
+    @property
+    def field_names(self):
+        # pivot_fields lists the source fields plus, with two or more value
+        # fields, the "Values" pseudo field (data_pivot_field)
+        try:
+            values_name = self.xl.data_pivot_field.name.get()
+        except CommandError:
+            values_name = None
+        return [
+            field.name.get()
+            for field in _mac_list(self.xl.pivot_fields)
+            if field.name.get() != values_name
+            and field.pivot_field_orientation.get() != kw.orient_as_data_field
+        ]
+
+    @property
+    def rows(self):
+        return PivotFields(pivot=self, area="rows")
+
+    @property
+    def columns(self):
+        return PivotFields(pivot=self, area="columns")
+
+    @property
+    def filters(self):
+        return PivotFields(pivot=self, area="filters")
+
+    @property
+    def values(self):
+        return PivotValueFields(pivot=self)
+
+    @property
+    def layout(self):
+        # layout_row_default only applies to fields added later, so read the
+        # actual layout off the row fields; None when they disagree.
+        row_fields = _mac_list(self.xl.row_fields)
+        if not row_fields:
+            return pivot_layouts_k2s.get(self.xl.layout_row_default.get())
+        layouts = set()
+        for field in row_fields:
+            # address the source field: some properties don't resolve via
+            # the row_fields element reference
+            field = self.xl.pivot_fields[field.name.get()]
+            if field.layout_compact_row.get():
+                layouts.add("compact")
+            elif field.layout_form.get() == kw.tabular:
+                layouts.add("tabular")
+            elif field.layout_form.get() == kw.outline:
+                layouts.add("outline")
+            else:
+                layouts.add(pivot_layouts_k2s.get(self.xl.layout_row_default.get()))
+        return layouts.pop() if len(layouts) == 1 else None
+
+    @layout.setter
+    def layout(self, value):
+        self.xl.row_axis_layout(layout=pivot_layouts_s2k[value])
+        self.xl.layout_row_default.set(pivot_layouts_s2k[value])
+
+    @property
+    def show_row_grand_totals(self):
+        return self.xl.row_grand.get()
+
+    @show_row_grand_totals.setter
+    def show_row_grand_totals(self, value):
+        self.xl.row_grand.set(value)
+
+    @property
+    def show_column_grand_totals(self):
+        return self.xl.column_grand.get()
+
+    @show_column_grand_totals.setter
+    def show_column_grand_totals(self, value):
+        self.xl.column_grand.set(value)
+
+    @property
+    def range(self):
+        return Range(self.parent, self.xl.table_range1.get_address())
+
+    @property
+    def data_body_range(self):
+        # Excel for Mac answers with the row labels area when there are no
+        # value fields
+        if not _mac_list(self.xl.data_fields):
+            return None
+        return Range(self.parent, self.xl.data_body_range.get_address())
+
+    def refresh(self):
+        self.xl.refresh_table()
+
+    def delete(self):
+        # There is no delete command; clearing the full report range (incl.
+        # the filters area) removes it.
+        key = _pivot_key(self)
+        self.xl.table_range2.clear_range()
+        _invalidate_pivot_value_states(key)
+
+
+class PivotField(base_classes.PivotField):
+    def __init__(self, pivot, name):
+        # addressed as the source field, so the wrapper follows the field
+        # when it is moved to another area
+        self._pivot = pivot
+        self._name = name
+
+    @property
+    def xl(self):
+        return self._pivot.xl.pivot_fields[self._name]
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    @property
+    def name(self):
+        return self._name
+
+    def remove(self):
+        self.xl.pivot_field_orientation.set(kw.orient_as_hidden)
+
+
+class PivotFields(base_classes.PivotFields):
+    def __init__(self, pivot, area):
+        self._pivot = pivot
+        self._area = area
+
+    @property
+    def xl(self):
+        return getattr(self._pivot.xl, pivot_area_elements[self._area])
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    @property
+    def area(self):
+        return self._area
+
+    def _names(self):
+        # in position order; Excel's "Values" pseudo field isn't a source
+        # field, so hide it, like field_names does and like Office.js
+        try:
+            values_name = self._pivot.xl.data_pivot_field.name.get()
+        except CommandError:
+            values_name = None
+        return [
+            name
+            for name in (field.name.get() for field in _mac_list(self.xl))
+            if name != values_name
+        ]
+
+    def __call__(self, key):
+        names = self._names()
+        if isinstance(key, numbers.Number):
+            if key < 1 or key > len(names):
+                raise KeyError(key)
+            return PivotField(self._pivot, names[key - 1])
+        if key not in names:
+            raise KeyError(key)
+        return PivotField(self._pivot, key)
+
+    def __len__(self):
+        return len(self._names())
+
+    def __iter__(self):
+        for name in self._names():
+            yield PivotField(self._pivot, name)
+
+    def __contains__(self, key):
+        return key in self._names()
+
+    def add(self, name):
+        field = self._pivot.xl.pivot_fields[name]
+        if not field.exists():
+            raise KeyError(name)
+        orientation = pivot_area_orientations[self._area]
+        # setting the orientation appends the field to the area; leave a
+        # field that is already here where it is
+        if field.pivot_field_orientation.get() != orientation:
+            field.pivot_field_orientation.set(orientation)
+        if self._pivot.xl.tag.get() in (
+            _pivot_defaults_pending,
+            _pivot_defaults_applied,
+        ):
+            # see PivotTables.add: fields added this way ignore the pivot
+            # table's default layout, so re-apply it to all of them
+            self._pivot.xl.row_axis_layout(
+                layout=self._pivot.xl.layout_row_default.get()
+            )
+        return PivotField(self._pivot, name)
+
+
+class PivotValueField(base_classes.PivotValueField):
+    def __init__(self, pivot, name):
+        self._pivot = pivot
+        key = (*_pivot_key(pivot), name)
+        state = _pivot_value_states.get(key)
+        if state is None:
+            state = _PivotValueState(key)
+            _pivot_value_states[key] = state
+        self._state = state
+
+    @property
+    def xl(self):
+        if self._state.deleted:
+            raise KeyError("The value field has been removed.")
+        # Resolve from the shared state so aliases also survive a pivot rename.
+        _, book, sheet, pivot, name = self._state.key
+        return (
+            self._pivot.parent.book.app.xl.workbooks[book]
+            .worksheets[sheet]
+            .pivot_tables[pivot]
+            .data_fields[name]
+        )
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    @property
+    def name(self):
+        return self._state.name
+
+    @name.setter
+    def name(self, value):
+        self.xl.name.set(value)
+        self._state.rename(value)
+
+    @property
+    def source_field(self):
+        return self.xl.source_name.get()
+
+    @property
+    def function(self):
+        return pivot_functions_k2s.get(self.xl.function.get())
+
+    @function.setter
+    def function(self, value):
+        # Excel renames an automatic caption ("Sum of X" -> "Count of X")
+        # along with the function, so re-resolve the field by its position
+        field = self.xl
+        position = field.position.get()
+        field.function.set(pivot_functions_s2k[value])
+        _, book, sheet, pivot, _ = self._state.key
+        fields = (
+            self._pivot.parent.book.app.xl.workbooks[book]
+            .worksheets[sheet]
+            .pivot_tables[pivot]
+            .data_fields
+        )
+        self._state.rename(fields[position].name.get())
+
+    @property
+    def number_format(self):
+        return self.xl.number_format.get()
+
+    @number_format.setter
+    def number_format(self, value):
+        self.xl.number_format.set(value)
+
+    def remove(self):
+        self.xl.pivot_field_orientation.set(kw.orient_as_hidden)
+        self._state.deleted = True
+        _pivot_value_states.pop(self._state.key, None)
+
+
+class PivotValueFields(base_classes.PivotValueFields):
+    def __init__(self, pivot):
+        self._pivot = pivot
+
+    @property
+    def xl(self):
+        return self._pivot.xl.data_fields
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def parent(self):
+        return self._pivot
+
+    def _names(self):
+        return [field.name.get() for field in _mac_list(self.xl)]
+
+    def __call__(self, key):
+        names = self._names()
+        if isinstance(key, numbers.Number):
+            if key < 1 or key > len(names):
+                raise KeyError(key)
+            return PivotValueField(self._pivot, names[key - 1])
+        if key not in names:
+            raise KeyError(key)
+        return PivotValueField(self._pivot, key)
+
+    def __len__(self):
+        return len(self._names())
+
+    def __iter__(self):
+        for name in self._names():
+            yield PivotValueField(self._pivot, name)
+
+    def __contains__(self, key):
+        return key in self._names()
+
+    def add(self, field, function=None, name=None, number_format=None):
+        source = self._pivot.xl.pivot_fields[field]
+        if not source.exists():
+            raise KeyError(field)
+        # add_data_field is broken in Excel's AppleScript interface (it either
+        # does nothing or crashes Excel); setting the orientation of the source
+        # field appends a value field with Excel's default function
+        source.pivot_field_orientation.set(kw.orient_as_data_field)
+        data_fields = _mac_list(self.xl)
+        defaults = self._pivot.xl.tag.get()
+        if defaults == _pivot_defaults_pending and len(data_fields) >= 2:
+            # see PivotTables.add: the pseudo field only accepts changes once
+            # it's shown, i.e. with two or more value fields
+            pseudo = self._pivot.xl.data_pivot_field
+            # Captions share a namespace with the value fields. Also reserve
+            # the requested caption, which is applied below.
+            captions = {field.name.get().casefold() for field in data_fields}
+            if name is not None:
+                captions.add(name.casefold())
+            caption = "Values"
+            suffix = 2
+            while caption.casefold() in captions:
+                caption = f"Values{suffix}"
+                suffix += 1
+            pseudo.name.set(caption)
+            pseudo.pivot_field_orientation.set(kw.orient_as_column_field)
+            self._pivot.xl.tag.set(_pivot_defaults_applied)
+        if defaults in (_pivot_defaults_pending, _pivot_defaults_applied):
+            # adding a value field reverts the captions to the classic form,
+            # see PivotFields.add
+            self._pivot.xl.row_axis_layout(
+                layout=self._pivot.xl.layout_row_default.get()
+            )
+        new = PivotValueField(self._pivot, data_fields[-1].name.get())
+        # function first: it resets an automatic caption
+        if function is not None:
+            new.function = function
+        if name is not None:
+            new.name = name
+        if number_format is not None:
+            new.number_format = number_format
+        return new
+
+
+class PivotTables(Collection, base_classes.PivotTables):
+    _attr = "pivot_tables"
+    _kw = kw.pivot_table
+    _wrap = PivotTable
+
+    def add(self, source, destination, name=None):
+        # `make new pivot table` creates the pivot cache itself. It takes the
+        # source as an A1-style reference with the sheet name, a defined name
+        # or a structured reference; an R1C1 string is rejected across sheets
+        # with a bare "parameter error", as is `make new pivot cache`.
+        # Qualify the workbook: Excel resolves unqualified sources against
+        # the active workbook even when `make` targets a different book.
+        if isinstance(source, Table):
+            sheet = source.parent
+            prefix = f"[{sheet.book.name}]{sheet.name}".replace("'", "''")
+            source_data = f"'{prefix}'!{source.name}[#All]"
+        else:
+            source_data = source.get_address(True, True, True)
+        # On a sheet that already has a pivot table, `make` silently answers
+        # with the existing one instead of creating another (whatever the
+        # `at` target), and the pivot table's location property can't move
+        # one in from elsewhere, so a second pivot table per sheet is out.
+        before = [pt.name.get() for pt in _mac_list(self.parent.xl.pivot_tables)]
+        if before:
+            raise NotImplementedError(
+                "On macOS, only the first pivot table on a sheet can be created; "
+                f"sheet {self.parent.name!r} already has {before!r}. Create it on "
+                "another sheet."
+            )
+        top_left = Range(self.parent, (destination.row, destination.column, 1, 1))
+        self.parent.book.xl.make(
+            at=self.parent.xl,
+            new=kw.pivot_table,
+            with_properties={
+                kw.source_data: source_data,
+                kw.table_range1: top_left.xl,
+            },
+        )
+        # `make` may answer with an index-based reference, so address the
+        # new pivot table by its name
+        after = [pt.name.get() for pt in _mac_list(self.parent.xl.pivot_tables)]
+        if len(after) != 1:
+            raise xlwings.XlwingsError(
+                f"Excel didn't create the pivot table on sheet {self.parent.name!r}."
+            )
+        pivot = PivotTable(self.parent, after[0])
+        # `make` answers with a classic (Excel 2003 style) pivot table: no
+        # table style, tabular layout with in-grid drop zones, and the values
+        # pseudo field captioned "Data" and laid out down the rows. Apply
+        # Excel's defaults for a new pivot table instead, as Windows and
+        # Office.js do, so the report looks the same on all platforms. The
+        # values pseudo field only accepts changes once it's shown, and the
+        # default layout isn't applied to fields added by script, so
+        # PivotValueFields.add and PivotFields.add finish the job.
+        pivot.xl.table_style2.set("PivotStyleLight16")
+        pivot.xl.in_grid_drop_zones.set(False)
+        pivot.xl.layout_row_default.set(kw.compact_row)
+        pivot.xl.tag.set(_pivot_defaults_pending)
+        if name:
+            pivot.name = name
+        return pivot
 
 
 class Picture(base_classes.Picture):
@@ -2517,6 +3208,43 @@ chart_types_k2s = {
 
 chart_types_s2k = {v: k for k, v in chart_types_k2s.items()}
 
+legend_positions_k2s = {
+    kw.legend_position_top: "top",
+    kw.legend_position_bottom: "bottom",
+    kw.legend_position_left: "left",
+    kw.legend_position_right: "right",
+    kw.legend_position_corner: "corner",
+}
+legend_positions_s2k = {v: k for k, v in legend_positions_k2s.items()}
+
+# Note the differing keyword prefixes: horizontal_align_* vs vertical_alignment_*
+horizontal_alignments_s2k = {
+    "general": kw.horizontal_align_general,
+    "left": kw.horizontal_align_left,
+    "center": kw.horizontal_align_center,
+    "right": kw.horizontal_align_right,
+    "fill": kw.horizontal_align_fill,
+    "justify": kw.horizontal_align_justify,
+    "center_across_selection": kw.horizontal_align_center_across_selection,
+    "distributed": kw.horizontal_align_distributed,
+}
+horizontal_alignments_k2s = {v: k for k, v in horizontal_alignments_s2k.items()}
+
+vertical_alignments_s2k = {
+    "top": kw.vertical_alignment_top,
+    "center": kw.vertical_alignment_center,
+    "bottom": kw.vertical_alignment_bottom,
+    "justify": kw.vertical_alignment_justify,
+    "distributed": kw.vertical_alignment_distributed,
+}
+vertical_alignments_k2s = {v: k for k, v in vertical_alignments_s2k.items()}
+
+# by_rows is defined twice in mac_dict (XlRowCol and XlSearchOrder); appscript
+# packs the first definition, which is the XlRowCol one that plot_by expects
+plot_by_k2s = {kw.by_rows: "rows", kw.by_columns: "columns"}
+plot_by_s2k = {v: k for k, v in plot_by_k2s.items()}
+
+
 directions_s2k = {
     "d": kw.toward_the_bottom,
     "down": kw.toward_the_bottom,
@@ -2582,3 +3310,37 @@ scaling = {
 }
 
 shape_types_s2k = {v: k for k, v in shape_types_k2s.items()}
+
+pivot_functions_s2k = {
+    "sum": kw.do_sum,
+    "count": kw.do_count,
+    "average": kw.do_average,
+    "max": kw.do_maximum,
+    "min": kw.do_minimum,
+    "product": kw.do_product,
+    "count_numbers": kw.do_count_numbers,
+    "stdev": kw.do_standard_deviation,
+    "stdevp": kw.do_standard_deviation_p,
+    "var": kw.do_var,
+    "varp": kw.do_var_p,
+}
+pivot_functions_k2s = {v: k for k, v in pivot_functions_s2k.items()}
+
+pivot_layouts_s2k = {
+    "compact": kw.compact_row,
+    "outline": kw.outline_row,
+    "tabular": kw.tabular_row,
+}
+pivot_layouts_k2s = {v: k for k, v in pivot_layouts_s2k.items()}
+
+# xlwings' field areas -> the pivot table element / the orientation
+pivot_area_elements = {
+    "rows": "row_fields",
+    "columns": "column_fields",
+    "filters": "page_fields",
+}
+pivot_area_orientations = {
+    "rows": kw.orient_as_row_field,
+    "columns": kw.orient_as_column_field,
+    "filters": kw.orient_as_page_field,
+}

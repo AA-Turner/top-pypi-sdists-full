@@ -10,7 +10,6 @@ import pytest
 
 from agentic_devtools.cli.audit.dispatch import (
     _push_batch_branch,
-    _read_required_speckit_token,
     _resolve_base_sha,
     dispatch_audit_evaluation,
 )
@@ -227,19 +226,6 @@ class TestDispatchAuditEvaluation:
         provider.add_label.assert_not_called()
 
 
-class TestReadRequiredSpeckitToken:
-    """Tests for _read_required_speckit_token()."""
-
-    def test_returns_trimmed_token(self) -> None:
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": " token-value "}, clear=True):
-            assert _read_required_speckit_token() == "token-value"
-
-    def test_raises_when_missing(self) -> None:
-        with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(RuntimeError, match="SPECKIT_PR_TOKEN"):
-                _read_required_speckit_token()
-
-
 class TestResolveBaseSha:
     """Tests for _resolve_base_sha()."""
 
@@ -261,7 +247,7 @@ class TestResolveBaseSha:
 class TestPushBatchBranch:
     """Tests for _push_batch_branch()."""
 
-    def test_pushes_branch_using_speckit_token(self, tmp_path: Path) -> None:
+    def test_pushes_branch_using_default_workflow_token(self, tmp_path: Path) -> None:
         repo_root = tmp_path / "repo"
         output_dir = repo_root / "audit-batches" / "batch-123"
         output_dir.mkdir(parents=True)
@@ -274,7 +260,7 @@ class TestPushBatchBranch:
             return git_success
 
         with (
-            patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-token"}, clear=True),
+            patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-token"}, clear=True),
             patch("subprocess.run", side_effect=fake_run),
         ):
             _push_batch_branch(
@@ -298,7 +284,7 @@ class TestPushBatchBranch:
         git_failure = MagicMock(returncode=1, stdout="", stderr="boom")
 
         with (
-            patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-token"}, clear=True),
+            patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-token"}, clear=True),
             patch("subprocess.run", return_value=git_failure),
         ):
             with pytest.raises(RuntimeError, match="Failed to push audit batch branch"):
@@ -311,7 +297,7 @@ class TestPushBatchBranch:
                 )
 
     def test_token_redacted_from_error_message_on_git_failure(self, tmp_path: Path) -> None:
-        """SPECKIT_PR_TOKEN must not appear in any raised RuntimeError message."""
+        """The configured token must not appear in any raised RuntimeError message."""
         repo_root = tmp_path / "repo"
         output_dir = repo_root / "audit-batches" / "batch-123"
         output_dir.mkdir(parents=True)
@@ -324,7 +310,7 @@ class TestPushBatchBranch:
         )
 
         with (
-            patch.dict("os.environ", {"SPECKIT_PR_TOKEN": secret}, clear=True),
+            patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": secret}, clear=True),
             patch("subprocess.run", return_value=git_failure),
         ):
             with pytest.raises(RuntimeError) as exc_info:
@@ -353,7 +339,7 @@ class TestPushBatchBranch:
             return git_success
 
         with (
-            patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-token"}, clear=True),
+            patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-token"}, clear=True),
             patch("subprocess.run", side_effect=fake_run),
         ):
             _push_batch_branch(

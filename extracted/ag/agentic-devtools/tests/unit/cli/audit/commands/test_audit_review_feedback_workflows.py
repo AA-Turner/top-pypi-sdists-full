@@ -24,7 +24,24 @@ class TestAuditWorkflowYamlCompliance:
         content = _read_workflow("audit-review-feedback.yml")
         assert "pull-requests: read" in content
         assert "issues: read" in content
-        assert "GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}" in content
+        assert "GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+
+    def test_review_feedback_workflow_checks_out_trusted_default_branch(self) -> None:
+        content = _read_workflow("audit-review-feedback.yml")
+        assert content.count("ref: ${{ github.event.repository.default_branch }}") == 2
+        assert content.count("token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}") >= 2
+
+    def test_review_feedback_threshold_uses_trusted_pull_request_target(self) -> None:
+        content = _read_workflow("audit-review-feedback.yml")
+        assert "pull_request_target:" in content
+        assert "\n  pull_request:\n" not in content
+        assert "github.event_name == 'pull_request_target'" in content
+
+    def test_apply_autofix_workflow_uses_default_workflow_pat(self) -> None:
+        content = _read_workflow("apply-autofix-suggestions.yml")
+        assert "GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+        assert "token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+        assert "SPECKIT_PR_TOKEN" not in content
 
     def test_apply_workflow_uses_audit_apply_command(self) -> None:
         content = _read_workflow("audit-review-feedback-apply.yml")
@@ -59,13 +76,13 @@ class TestAuditWorkflowYamlCompliance:
 
     def test_apply_workflow_has_required_token_permissions(self) -> None:
         content = _read_workflow("audit-review-feedback-apply.yml")
-        # The apply-audit job needs write permissions so the ambient GITHUB_TOKEN
-        # can push the instruction-update branch (split-identity: push via
-        # GITHUB_TOKEN, PR creation via SPECKIT_PR_TOKEN).
+        # The apply-audit job needs write permissions and checkout auth pinned to
+        # DEFAULT_CLASSIC_REPO_WORKFLOW_PAT so git push stays in the default role.
         assert "contents: write" in content
         assert "pull-requests: write" in content
         assert "issues: write" in content
-        assert "GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}" in content
+        assert "GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+        assert "token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
 
     def test_takeover_workflow_uses_cli_and_not_raw_api_calls(self) -> None:
         content = _read_workflow("audit-takeover-eval-prs.yml")
@@ -86,7 +103,14 @@ class TestAuditWorkflowYamlCompliance:
         # A human git identity is required so the reclaim commit/force-push emits a
         # human synchronize event that un-gates the apply workflow.
         assert 'git config user.name "AMARSNIK_swica"' in content
-        assert "token: ${{ secrets.SPECKIT_PR_TOKEN }}" in content
+        assert "token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
         assert "fetch-depth: 0" in content
-        assert "SPECKIT_PR_TOKEN secret is not configured or empty" in content
-        assert "GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}" in content
+        assert "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT secret is not configured or empty" in content
+        assert "GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+
+    def test_reap_stale_workflow_uses_default_workflow_pat(self) -> None:
+        content = _read_workflow("audit-reap-stale.yml")
+        assert "token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+        assert "GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+        assert "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+        assert "AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" in content

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xmhuffman
-Version: 0.3.0
+Version: 0.3.1
 Summary: Cython bindings for Microsoft xVelocity/Vertipaq canonical-Huffman string decoding
 Home-page: https://github.com/Hugoberry/xmhuffman-cython
 Author: Igor Cotruta

@@ -34,6 +34,7 @@ CoercedStr: TypeAlias = Annotated[str, BeforeValidator(lambda v: str(v) if isins
 EXECUTION_ID_MAX_LENGTH = 256
 EXECUTION_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")  # the + ensures at least one character
 DEPLOYMENT_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
+TRACEPARENT_PATTERN = re.compile(r"00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}")
 
 
 def _validate_deployment_name(v: str | None) -> str | None:
@@ -453,6 +454,11 @@ class WorkflowExecutionRequest(BaseModel):
         description="If true, ignore the caller's trace context and start a new, independent trace for "
         "this execution instead of joining the caller's trace.",
     )
+    traceparent: str | None = Field(
+        default=None,
+        description="W3C trace context to join this execution to the caller's trace. "
+        "Ignored when force_new_trace is set.",
+    )
     extensions: Dict[str, Any] | None = Field(
         default=None,
         description="Plugin-specific data to propagate into WorkflowContext.extensions at execution time.",
@@ -486,10 +492,22 @@ class WorkflowExecutionRequest(BaseModel):
             )
         return v
 
+    @field_validator("traceparent", mode="before")
+    @classmethod
+    def discard_invalid_traceparent(cls, v: object) -> str | None:
+        # Dropped rather than rejected: a malformed trace context should cost the caller their trace
+        # linking, not their execution.
+        if not isinstance(v, str):
+            return None
+        match = TRACEPARENT_PATTERN.fullmatch(v)
+        if match is None or match.group(1) == "0" * 32 or match.group(2) == "0" * 16:
+            return None
+        return v
+
 
 class WorkflowExecutionResponse(WorkflowExecutionWithoutResultResponse):
     result: Any | None = Field(description="The result of the workflow execution, if available")
-    search_keys: dict[str, str] | None = Field(
+    search_keys: dict[str, str | None] | None = Field(
         default=None,
         description="The execution's search keys (metadata), if requested via include_search_keys.",
     )

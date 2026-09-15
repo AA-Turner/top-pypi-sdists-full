@@ -2,6 +2,12 @@
 
 #include <humming/utils/base.cuh>
 
+#if HUMMING_MMA_TYPE_ID == 2
+#define IF_USE_UMMA(x) x
+#else
+#define IF_USE_UMMA(x)
+#endif
+
 // Conditional member macros: when the condition is false, the member is completely eliminated.
 
 #if HUMMING_HAS_INPUT_SCALE && HUMMING_INPUT_SCALE_GROUP_SIZE > 0
@@ -46,7 +52,7 @@
 #define IF_HAS_BIAS(x)
 #endif
 
-#if HUMMING_HAS_INPUT_SCALE && HUMMING_INPUT_SCALE_GROUP_SIZE == 0
+#if (HUMMING_HAS_INPUT_SCALE && HUMMING_INPUT_SCALE_GROUP_SIZE == 0 && !HUMMING_IS_TENSOR_INPUT_SCALE) || (HUMMING_HAS_INPUT_SCALE_2 && !HUMMING_IS_TENSOR_INPUT_SCALE_2)
 #define IF_HAS_CHANNEL_INPUT_SCALE(x) x
 #else
 #define IF_HAS_CHANNEL_INPUT_SCALE(x)
@@ -101,9 +107,12 @@ private:
   static_assert(!ComputeConfig::kUseBatchInvariant || BlockShape::K == WarpShape::K);
 
   static constexpr bool kUseMxmma = MmaOpClass::kMmaType == MmaType::MXMMA;
-  static constexpr bool kHasInputScale = ElementA::kBits != 16;
-  static constexpr bool kIsChannelInputScale = kHasInputScale && LayerConfig::kInputScaleGroupSize == 0;
-  static constexpr bool kIsGroupInputScale = kHasInputScale && LayerConfig::kInputScaleGroupSize > 0;
+  static constexpr bool kHasInputScale = LayerConfig::kHasInputScale;
+  static constexpr bool kHasInputScale2 = LayerConfig::kHasInputScale2;
+  static constexpr bool kIsChannelInputScale = kHasInputScale && !LayerConfig::kIsGroupInputScale && !LayerConfig::kIsTensorInputScale;
+  static constexpr bool kIsChannelInputScale2 = kHasInputScale2 && !LayerConfig::kIsTensorInputScale2;
+  static constexpr bool kIsGroupInputScale = kHasInputScale && LayerConfig::kIsGroupInputScale;
+  static constexpr bool kHasChannelInputScale = kIsChannelInputScale || kIsChannelInputScale2;
   static constexpr bool kIsChannelWeightScale = LayerConfig::kIsChannelWeightScale;
   static constexpr bool kIsChannelWeightScale2 = LayerConfig::kIsChannelWeightScale2;
   static constexpr bool kIsGroupWeightScale = LayerConfig::kIsGroupWeightScale;
@@ -111,6 +120,10 @@ private:
   static constexpr bool kIsGroupOrBlockWeightScale = kIsGroupWeightScale || kIsBlockWeightScale;
   static constexpr bool kHasZeroPoint = LayerConfig::kHasZeroPoint;
   static constexpr bool kIsFpZeroPoint = LayerConfig::kIsFpZeroPoint;
+  static constexpr bool kIsIndexedGemm = ComputeConfig::kGemmType == GemmType::INDEXED;
+  static constexpr bool kIsGroupedGemm =
+      ComputeConfig::kGemmType == GemmType::GROUPED_CONTIGUOUS ||
+      ComputeConfig::kGemmType == GemmType::GROUPED_MASKED;
 
 public:
   static constexpr uint32_t kNumExperts = LayerConfig::kNumExperts;
@@ -137,17 +150,19 @@ public:
   static constexpr uint32_t kGroupSizeB = LayerConfig::kWeightScaleGroupSize;
   static constexpr uint32_t kNumGroupsA = kIsGroupInputScale ? CEIL_DIV(BlockShape::K, kGroupSizeA) : 0;
   static constexpr uint32_t kNumGroupsB = kIsGroupOrBlockWeightScale ? CEIL_DIV(BlockShape::K, kGroupSizeB) : 0;
+  static constexpr uint32_t kScaleMAlignment = 4;
+  static constexpr uint32_t kScaleBlockM = BlockShape::M + (kIsGroupedGemm ? kScaleMAlignment : 0);
 
   static constexpr uint32_t kStageSizeA = BlockShape::M * kSmemStrideA;
   static constexpr uint32_t kStageSizeB = BlockShape::K / kPartMmaShapeK * kSmemStrideB;
   static constexpr uint32_t kNumGroupsAStorage = CEIL_DIV(kNumGroupsA, 4) * 4;
   static constexpr uint32_t kStageSizeAS = kUseMxmma
-                                               ? CEIL_DIV(kNumGroupsAStorage * BlockShape::M * ElementBS::kBits / 8, sizeof(int4))
-                                               : kNumGroupsA * BlockShape::M / 4;
+                                               ? CEIL_DIV(kNumGroupsAStorage * kScaleBlockM, sizeof(int4))
+                                               : kNumGroupsA * kScaleBlockM / 4;
   static constexpr uint32_t kStageSizeBS = kNumGroupsB * kSmemStrideBS;
   static constexpr uint32_t kStageSizeBZP = kNumGroupsB * kSmemStrideBZP;
 
-  static constexpr uint32_t kChannelSizeAS = kIsChannelInputScale ? BlockShape::M / 4 : 0;
+  static constexpr uint32_t kChannelSizeAS = kHasChannelInputScale ? kScaleBlockM / 4 : 0;
   static constexpr uint32_t kChannelSizeBS = kIsChannelWeightScale ? kSmemStrideBS : 0;
   static constexpr uint32_t kChannelSizeBS2 = kIsChannelWeightScale2 ? kSmemStrideBias : 0;
   static constexpr uint32_t kChannelSizeBZP = (kIsChannelWeightScale && kHasZeroPoint) ? kSmemStrideBZP : 0;
@@ -166,9 +181,6 @@ public:
 
   static constexpr bool kUseWarpSpec = TuningConfig::kUseWarpSpec;
   static constexpr bool kUseMBarrier = TuningConfig::kUseMBarrier;
-  static constexpr bool kIsIndexedGemm = ComputeConfig::kGemmType == GemmType::INDEXED;
-  static constexpr bool kIsGroupedGemm = ComputeConfig::kGemmType == GemmType::GROUPED_CONTIGUOUS || ComputeConfig::kGemmType == GemmType::GROUPED_MASKED;
-
   struct StageStorage {
     alignas(1024) int4 a[kStageSizeA];
     alignas(128) int4 b[kStageSizeB];
@@ -207,4 +219,6 @@ public:
 
   IF_USE_MBARRIER(alignas(128) uint64_t load_mbar[kNumStages + 2];)
   IF_USE_WARP_SPEC(uint64_t math_mbar[kNumMathMbarriers];)
+  IF_USE_UMMA(uint32_t umma_tmem_col;)
+  IF_USE_UMMA(uint64_t umma_mbar;)
 };

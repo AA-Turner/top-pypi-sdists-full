@@ -348,6 +348,17 @@ class Machine:
     # `QuietHours` above. Routing consults this only through
     # `coord.machine_pause.paused_set()`, never directly.
     quiet_hours: QuietHours | None = None
+    # #3340: optional per-machine floor for the `/health` reachability probe
+    # budget (`coord.network.check_machine`'s `timeout`). `None` (unset, the
+    # default) means "no override" — every other machine keeps
+    # `network.DEFAULT_TIMEOUT` (3.0s) exactly as before. This exists because
+    # a fixed, fleet-wide timeout is a cliff: the macOS agent's cold `/health`
+    # measured 2-7s (#3340), any other platform could differ again, and
+    # simply raising the module constant just moves the cliff onto whichever
+    # host is slowest next. `check_machine` takes the *larger* of the
+    # caller's requested timeout and this value — a per-machine floor, never
+    # a ceiling that could silently shrink a caller's own longer request.
+    health_timeout: float | None = None
 
     def can_work_on(self, repo_name: str) -> bool:
         return repo_name in self.repos
@@ -688,9 +699,12 @@ def is_premise_refusal_reason(text: str | None) -> bool:
     prerequisite it names does not exist yet, and nothing on the board
     signals when that changes — so nothing auto-resumes an entry parked for
     this reason. An operator clears it by re-scoping or closing the issue
-    (never by retargeting the title alone — see the module comment above)
-    and auditing its dependents' `after=` edges, then `coord drive-queue
-    remove`.
+    (never by retargeting the title alone — see the module comment above),
+    auditing its dependents' `after=` edges, and — #3339: this is the piece
+    that actually unblocks dispatch, `drive-queue remove` alone does NOT —
+    running `coord drive-queue clear-refusal <repo> <issue> --reason "..."`
+    to assert the premise has been rechecked, then `coord drive-queue
+    remove` + `add` for a fresh queue row.
     """
     return bool(text) and PREMISE_REFUSAL_MARKER in text
 
@@ -1094,6 +1108,18 @@ class Assignment:
     # has `dispatched_by_assignment_id == this row's id`?" — see
     # `coord.state.find_dispatched_children`.
     dispatched_by_assignment_id: str | None = None
+    # #3339: the operator's explicit "I rechecked, the premise holds now"
+    # assertion against a terminal `refused_premise` row (#3164) — written
+    # by `coord drive-queue clear-refusal` via `coord.state.
+    # mark_premise_rechecked`. `None` for every row where nobody has
+    # asserted this (the overwhelming majority — including every ordinary
+    # non-refused work row), read identically to "still blocking" by
+    # `coord.drive.decide()`'s `refused_premise` branch. Unlike
+    # `refused_policy`'s branch-vs-title staleness check, a premise refusal
+    # has no mechanical signal of its own to compare against, so this
+    # column is the ONLY thing that can bypass the `_die()` there.
+    premise_rechecked_at: float | None = None
+    premise_rechecked_reason: str | None = None
 
 
 def effective_issue_number(assignment: "Assignment | dict") -> int:

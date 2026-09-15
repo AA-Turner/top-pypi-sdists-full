@@ -251,11 +251,10 @@ async def run_agent_assignment_batch(
         # message, and retried up to ``max_attempts`` (retryable, like the raise it
         # replaces — a second sample of a non-deterministic model is the right
         # response, and the run is not told the row succeeded either way).
-        outcome = normalize_completed_result(
+        outcome = await asyncio.to_thread(
+            normalize_completed_result,
             completed,
-            step_config={
-                ALLOW_EMPTY_STRUCTURED_OUTPUT_KEY: inputs.allow_empty_structured_output
-            },
+            step_config={ALLOW_EMPTY_STRUCTURED_OUTPUT_KEY: inputs.allow_empty_structured_output},
         )
         if isinstance(outcome, Failure):
             raise AssignmentExecutionFailure(

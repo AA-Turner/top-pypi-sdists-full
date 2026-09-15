@@ -44,6 +44,10 @@ from .change_connection_compartment_details import ChangeConnectionCompartmentDe
 from .change_migration_compartment_details import ChangeMigrationCompartmentDetails
 from .clone_assessment_details import CloneAssessmentDetails
 from .clone_migration_details import CloneMigrationDetails
+from .clone_oracle_migration_settings import CloneOracleMigrationSettings
+from .clone_oracle_offline_logical_migration_settings import CloneOracleOfflineLogicalMigrationSettings
+from .clone_oracle_online_logical_migration_settings import CloneOracleOnlineLogicalMigrationSettings
+from .clone_oracle_online_standby_migration_settings import CloneOracleOnlineStandbyMigrationSettings
 from .collect_traces_data import CollectTracesData
 from .collect_traces_details import CollectTracesDetails
 from .connection import Connection
@@ -83,18 +87,30 @@ from .create_oracle_db_link_data_transfer_medium_details import CreateOracleDbLi
 from .create_oracle_ggs_deployment_details import CreateOracleGgsDeploymentDetails
 from .create_oracle_initial_load_settings import CreateOracleInitialLoadSettings
 from .create_oracle_migration_details import CreateOracleMigrationDetails
+from .create_oracle_migration_settings import CreateOracleMigrationSettings
 from .create_oracle_nfs_data_transfer_medium_details import CreateOracleNfsDataTransferMediumDetails
 from .create_oracle_object_storage_data_transfer_medium_details import CreateOracleObjectStorageDataTransferMediumDetails
+from .create_oracle_offline_logical_migration_settings import CreateOracleOfflineLogicalMigrationSettings
+from .create_oracle_online_logical_migration_settings import CreateOracleOnlineLogicalMigrationSettings
+from .create_oracle_online_standby_migration_settings import CreateOracleOnlineStandbyMigrationSettings
 from .create_parameter_file_version_details import CreateParameterFileVersionDetails
 from .create_replicat import CreateReplicat
 from .create_target_type_tablespace_details import CreateTargetTypeTablespaceDetails
 from .curl_transfer_details import CurlTransferDetails
 from .data_pump_parameters import DataPumpParameters
+from .data_verification_detail import DataVerificationDetail
+from .data_verification_object_status_collection import DataVerificationObjectStatusCollection
+from .data_verification_object_status_summary import DataVerificationObjectStatusSummary
+from .data_verification_object_type_count_collection import DataVerificationObjectTypeCountCollection
+from .data_verification_object_type_count_summary import DataVerificationObjectTypeCountSummary
+from .data_verification_table_row_count_collection import DataVerificationTableRowCountCollection
+from .data_verification_table_row_count_summary import DataVerificationTableRowCountSummary
 from .database_connection_type_collection import DatabaseConnectionTypeCollection
 from .database_connection_type_summary import DatabaseConnectionTypeSummary
 from .database_information import DatabaseInformation
 from .database_technology_sub_type import DatabaseTechnologySubType
 from .database_technology_type import DatabaseTechnologyType
+from .default_run_data_verification_details import DefaultRunDataVerificationDetails
 from .diagnostics_result import DiagnosticsResult
 from .directory_object import DirectoryObject
 from .download_sql_details import DownloadSqlDetails
@@ -135,6 +151,9 @@ from .my_sql_assessment_summary import MySqlAssessmentSummary
 from .my_sql_clone_assessment_details import MySqlCloneAssessmentDetails
 from .my_sql_clone_migration_details import MySqlCloneMigrationDetails
 from .my_sql_data_transfer_medium_details import MySqlDataTransferMediumDetails
+from .my_sql_data_verification_object_status_summary import MySqlDataVerificationObjectStatusSummary
+from .my_sql_data_verification_object_type_count_summary import MySqlDataVerificationObjectTypeCountSummary
+from .my_sql_data_verification_table_row_count_summary import MySqlDataVerificationTableRowCountSummary
 from .my_sql_database_object import MySqlDatabaseObject
 from .my_sql_database_object_summary import MySqlDatabaseObjectSummary
 from .my_sql_ggs_deployment_details import MySqlGgsDeploymentDetails
@@ -161,6 +180,9 @@ from .oracle_clone_migration_details import OracleCloneMigrationDetails
 from .oracle_connection import OracleConnection
 from .oracle_connection_summary import OracleConnectionSummary
 from .oracle_data_transfer_medium_details import OracleDataTransferMediumDetails
+from .oracle_data_verification_object_status_summary import OracleDataVerificationObjectStatusSummary
+from .oracle_data_verification_object_type_count_summary import OracleDataVerificationObjectTypeCountSummary
+from .oracle_data_verification_table_row_count_summary import OracleDataVerificationTableRowCountSummary
 from .oracle_database_object import OracleDatabaseObject
 from .oracle_database_object_summary import OracleDatabaseObjectSummary
 from .oracle_db_link_data_transfer_medium_details import OracleDbLinkDataTransferMediumDetails
@@ -168,9 +190,17 @@ from .oracle_ggs_deployment_details import OracleGgsDeploymentDetails
 from .oracle_initial_load_settings import OracleInitialLoadSettings
 from .oracle_migration import OracleMigration
 from .oracle_migration_object_collection import OracleMigrationObjectCollection
+from .oracle_migration_settings import OracleMigrationSettings
+from .oracle_migration_settings_summary import OracleMigrationSettingsSummary
 from .oracle_migration_summary import OracleMigrationSummary
 from .oracle_nfs_data_transfer_medium_details import OracleNfsDataTransferMediumDetails
 from .oracle_object_storage_data_transfer_medium_details import OracleObjectStorageDataTransferMediumDetails
+from .oracle_offline_logical_migration_settings import OracleOfflineLogicalMigrationSettings
+from .oracle_offline_logical_migration_settings_summary import OracleOfflineLogicalMigrationSettingsSummary
+from .oracle_online_logical_migration_settings import OracleOnlineLogicalMigrationSettings
+from .oracle_online_logical_migration_settings_summary import OracleOnlineLogicalMigrationSettingsSummary
+from .oracle_online_standby_migration_settings import OracleOnlineStandbyMigrationSettings
+from .oracle_online_standby_migration_settings_summary import OracleOnlineStandbyMigrationSettingsSummary
 from .parameter_file_version import ParameterFileVersion
 from .parameter_file_version_collection import ParameterFileVersionCollection
 from .parameter_file_version_summary import ParameterFileVersionSummary
@@ -181,6 +211,7 @@ from .phase_status import PhaseStatus
 from .replicat import Replicat
 from .result_error import ResultError
 from .resume_job_details import ResumeJobDetails
+from .run_data_verification_details import RunDataVerificationDetails
 from .source_assessment_connection import SourceAssessmentConnection
 from .start_migration_details import StartMigrationDetails
 from .target_assessment_connection import TargetAssessmentConnection
@@ -224,8 +255,12 @@ from .update_oracle_db_link_data_transfer_medium_details import UpdateOracleDbLi
 from .update_oracle_ggs_deployment_details import UpdateOracleGgsDeploymentDetails
 from .update_oracle_initial_load_settings import UpdateOracleInitialLoadSettings
 from .update_oracle_migration_details import UpdateOracleMigrationDetails
+from .update_oracle_migration_settings import UpdateOracleMigrationSettings
 from .update_oracle_nfs_data_transfer_medium_details import UpdateOracleNfsDataTransferMediumDetails
 from .update_oracle_object_storage_data_transfer_medium_details import UpdateOracleObjectStorageDataTransferMediumDetails
+from .update_oracle_offline_logical_migration_settings import UpdateOracleOfflineLogicalMigrationSettings
+from .update_oracle_online_logical_migration_settings import UpdateOracleOnlineLogicalMigrationSettings
+from .update_oracle_online_standby_migration_settings import UpdateOracleOnlineStandbyMigrationSettings
 from .update_replicat import UpdateReplicat
 from .update_target_defaults_auto_create_tablespace_details import UpdateTargetDefaultsAutoCreateTablespaceDetails
 from .update_target_defaults_remap_tablespace_details import UpdateTargetDefaultsRemapTablespaceDetails
@@ -282,6 +317,10 @@ database_migration_type_mapping = {
     "ChangeMigrationCompartmentDetails": ChangeMigrationCompartmentDetails,
     "CloneAssessmentDetails": CloneAssessmentDetails,
     "CloneMigrationDetails": CloneMigrationDetails,
+    "CloneOracleMigrationSettings": CloneOracleMigrationSettings,
+    "CloneOracleOfflineLogicalMigrationSettings": CloneOracleOfflineLogicalMigrationSettings,
+    "CloneOracleOnlineLogicalMigrationSettings": CloneOracleOnlineLogicalMigrationSettings,
+    "CloneOracleOnlineStandbyMigrationSettings": CloneOracleOnlineStandbyMigrationSettings,
     "CollectTracesData": CollectTracesData,
     "CollectTracesDetails": CollectTracesDetails,
     "Connection": Connection,
@@ -321,18 +360,30 @@ database_migration_type_mapping = {
     "CreateOracleGgsDeploymentDetails": CreateOracleGgsDeploymentDetails,
     "CreateOracleInitialLoadSettings": CreateOracleInitialLoadSettings,
     "CreateOracleMigrationDetails": CreateOracleMigrationDetails,
+    "CreateOracleMigrationSettings": CreateOracleMigrationSettings,
     "CreateOracleNfsDataTransferMediumDetails": CreateOracleNfsDataTransferMediumDetails,
     "CreateOracleObjectStorageDataTransferMediumDetails": CreateOracleObjectStorageDataTransferMediumDetails,
+    "CreateOracleOfflineLogicalMigrationSettings": CreateOracleOfflineLogicalMigrationSettings,
+    "CreateOracleOnlineLogicalMigrationSettings": CreateOracleOnlineLogicalMigrationSettings,
+    "CreateOracleOnlineStandbyMigrationSettings": CreateOracleOnlineStandbyMigrationSettings,
     "CreateParameterFileVersionDetails": CreateParameterFileVersionDetails,
     "CreateReplicat": CreateReplicat,
     "CreateTargetTypeTablespaceDetails": CreateTargetTypeTablespaceDetails,
     "CurlTransferDetails": CurlTransferDetails,
     "DataPumpParameters": DataPumpParameters,
+    "DataVerificationDetail": DataVerificationDetail,
+    "DataVerificationObjectStatusCollection": DataVerificationObjectStatusCollection,
+    "DataVerificationObjectStatusSummary": DataVerificationObjectStatusSummary,
+    "DataVerificationObjectTypeCountCollection": DataVerificationObjectTypeCountCollection,
+    "DataVerificationObjectTypeCountSummary": DataVerificationObjectTypeCountSummary,
+    "DataVerificationTableRowCountCollection": DataVerificationTableRowCountCollection,
+    "DataVerificationTableRowCountSummary": DataVerificationTableRowCountSummary,
     "DatabaseConnectionTypeCollection": DatabaseConnectionTypeCollection,
     "DatabaseConnectionTypeSummary": DatabaseConnectionTypeSummary,
     "DatabaseInformation": DatabaseInformation,
     "DatabaseTechnologySubType": DatabaseTechnologySubType,
     "DatabaseTechnologyType": DatabaseTechnologyType,
+    "DefaultRunDataVerificationDetails": DefaultRunDataVerificationDetails,
     "DiagnosticsResult": DiagnosticsResult,
     "DirectoryObject": DirectoryObject,
     "DownloadSqlDetails": DownloadSqlDetails,
@@ -373,6 +424,9 @@ database_migration_type_mapping = {
     "MySqlCloneAssessmentDetails": MySqlCloneAssessmentDetails,
     "MySqlCloneMigrationDetails": MySqlCloneMigrationDetails,
     "MySqlDataTransferMediumDetails": MySqlDataTransferMediumDetails,
+    "MySqlDataVerificationObjectStatusSummary": MySqlDataVerificationObjectStatusSummary,
+    "MySqlDataVerificationObjectTypeCountSummary": MySqlDataVerificationObjectTypeCountSummary,
+    "MySqlDataVerificationTableRowCountSummary": MySqlDataVerificationTableRowCountSummary,
     "MySqlDatabaseObject": MySqlDatabaseObject,
     "MySqlDatabaseObjectSummary": MySqlDatabaseObjectSummary,
     "MySqlGgsDeploymentDetails": MySqlGgsDeploymentDetails,
@@ -399,6 +453,9 @@ database_migration_type_mapping = {
     "OracleConnection": OracleConnection,
     "OracleConnectionSummary": OracleConnectionSummary,
     "OracleDataTransferMediumDetails": OracleDataTransferMediumDetails,
+    "OracleDataVerificationObjectStatusSummary": OracleDataVerificationObjectStatusSummary,
+    "OracleDataVerificationObjectTypeCountSummary": OracleDataVerificationObjectTypeCountSummary,
+    "OracleDataVerificationTableRowCountSummary": OracleDataVerificationTableRowCountSummary,
     "OracleDatabaseObject": OracleDatabaseObject,
     "OracleDatabaseObjectSummary": OracleDatabaseObjectSummary,
     "OracleDbLinkDataTransferMediumDetails": OracleDbLinkDataTransferMediumDetails,
@@ -406,9 +463,17 @@ database_migration_type_mapping = {
     "OracleInitialLoadSettings": OracleInitialLoadSettings,
     "OracleMigration": OracleMigration,
     "OracleMigrationObjectCollection": OracleMigrationObjectCollection,
+    "OracleMigrationSettings": OracleMigrationSettings,
+    "OracleMigrationSettingsSummary": OracleMigrationSettingsSummary,
     "OracleMigrationSummary": OracleMigrationSummary,
     "OracleNfsDataTransferMediumDetails": OracleNfsDataTransferMediumDetails,
     "OracleObjectStorageDataTransferMediumDetails": OracleObjectStorageDataTransferMediumDetails,
+    "OracleOfflineLogicalMigrationSettings": OracleOfflineLogicalMigrationSettings,
+    "OracleOfflineLogicalMigrationSettingsSummary": OracleOfflineLogicalMigrationSettingsSummary,
+    "OracleOnlineLogicalMigrationSettings": OracleOnlineLogicalMigrationSettings,
+    "OracleOnlineLogicalMigrationSettingsSummary": OracleOnlineLogicalMigrationSettingsSummary,
+    "OracleOnlineStandbyMigrationSettings": OracleOnlineStandbyMigrationSettings,
+    "OracleOnlineStandbyMigrationSettingsSummary": OracleOnlineStandbyMigrationSettingsSummary,
     "ParameterFileVersion": ParameterFileVersion,
     "ParameterFileVersionCollection": ParameterFileVersionCollection,
     "ParameterFileVersionSummary": ParameterFileVersionSummary,
@@ -419,6 +484,7 @@ database_migration_type_mapping = {
     "Replicat": Replicat,
     "ResultError": ResultError,
     "ResumeJobDetails": ResumeJobDetails,
+    "RunDataVerificationDetails": RunDataVerificationDetails,
     "SourceAssessmentConnection": SourceAssessmentConnection,
     "StartMigrationDetails": StartMigrationDetails,
     "TargetAssessmentConnection": TargetAssessmentConnection,
@@ -462,8 +528,12 @@ database_migration_type_mapping = {
     "UpdateOracleGgsDeploymentDetails": UpdateOracleGgsDeploymentDetails,
     "UpdateOracleInitialLoadSettings": UpdateOracleInitialLoadSettings,
     "UpdateOracleMigrationDetails": UpdateOracleMigrationDetails,
+    "UpdateOracleMigrationSettings": UpdateOracleMigrationSettings,
     "UpdateOracleNfsDataTransferMediumDetails": UpdateOracleNfsDataTransferMediumDetails,
     "UpdateOracleObjectStorageDataTransferMediumDetails": UpdateOracleObjectStorageDataTransferMediumDetails,
+    "UpdateOracleOfflineLogicalMigrationSettings": UpdateOracleOfflineLogicalMigrationSettings,
+    "UpdateOracleOnlineLogicalMigrationSettings": UpdateOracleOnlineLogicalMigrationSettings,
+    "UpdateOracleOnlineStandbyMigrationSettings": UpdateOracleOnlineStandbyMigrationSettings,
     "UpdateReplicat": UpdateReplicat,
     "UpdateTargetDefaultsAutoCreateTablespaceDetails": UpdateTargetDefaultsAutoCreateTablespaceDetails,
     "UpdateTargetDefaultsRemapTablespaceDetails": UpdateTargetDefaultsRemapTablespaceDetails,

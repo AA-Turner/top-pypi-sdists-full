@@ -989,6 +989,7 @@ def auto_train(
     pygrf_params: dict = None,
     gsa_params: dict = None,
     bnn_params: dict = None,
+    mitra_params: dict = None,
 ):
     """
     Train a model using specified parameters and optionally perform hyperparameter optimization.
@@ -1583,6 +1584,35 @@ def auto_train(
             )
             bnn.update(bnn_params or {})
             model = BNNYieldRegressor(seed=int(seed), **bnn)
+        elif model_name in ("mitra", "mitra_ft"):
+            # Mitra-v2 (arXiv:2609.04540, Amazon/AutoGluon) — in-context
+            # tabular foundation model, 12-layer 2D Transformer, ~76.7 M
+            # params, Apache-2.0 weights on the HF Hub. `mitra` is zero-shot
+            # (forward passes only, comparable in cost to tabpfn); `mitra_ft`
+            # runs the released 50-step full fine-tune per member and is
+            # minutes-per-fold — pair it with run_time_steps = latest.
+            #
+            # The regression checkpoint is a 1,000-BIN cross-entropy head, so
+            # its softmax is a real predictive distribution: ml/mitra.py
+            # decodes the distribution MEAN (the released recipe; stock
+            # AutoGluon takes the argmax bin) and exposes native quantile
+            # intervals, which is why estimate_ci() below leaves it unwrapped.
+            if model_type != "REGRESSION":
+                raise ValueError(
+                    f"model = '{model_name}' supports REGRESSION only; the "
+                    f"classification checkpoint (autogluon/mitra-classifier-2) "
+                    f"is not wired into geocif."
+                )
+            try:
+                from .mitra import MitraYieldRegressor
+            except ImportError as exc:  # pragma: no cover
+                raise ImportError(str(exc)) from exc
+            mitra = dict(n_estimators=1, device="auto")
+            mitra.update(mitra_params or {})
+            mitra["fine_tune"] = model_name == "mitra_ft" or bool(
+                mitra.get("fine_tune", False)
+            )
+            model = MitraYieldRegressor(seed=int(seed), **mitra)
         elif model_name == "pygrf":
             # Geographical Random Forest (geoai-lab/PyGRF). Coords come from
             # the lat/lon feature columns; band_width/local_weight default to
@@ -1667,7 +1697,13 @@ def estimate_ci(model_type, model_name, model, alpha=0.05, ci_method="crepes"):
     # bnn produces its own calibrated predictive sigma (ml/bnn.py) -- wrapping
     # it in crepes/mapie would replace heteroscedastic intervals with
     # marginal conformal ones. Its CI path is Geocif._predict_bnn_with_ci.
-    if model_name in ["ngboost", "tabpfn", "tabpfn_ft", "tabicl", "tabicl_ft", "bnn"]:
+    # mitra/mitra_ft are the same case: the v2 regression head is a 1,000-bin
+    # softmax, so quantiles come straight off the predictive distribution
+    # (Geocif._predict_mitra_with_ci).
+    if model_name in [
+        "ngboost", "tabpfn", "tabpfn_ft", "tabicl", "tabicl_ft", "bnn",
+        "mitra", "mitra_ft",
+    ]:
         return model
     elif model_type == "CLASSIFICATION" and model_name == "catboost":
         return model

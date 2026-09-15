@@ -18,11 +18,10 @@ import re
 import sys
 
 from robot.errors import DataError
-from robot.model import Tags
 from robot.running import (
     ArgumentSpec, ResourceFileBuilder, TestLibrary, TestSuiteBuilder, TypeInfo
 )
-from robot.utils import split_tags_from_doc, unescape
+from robot.utils import unescape
 from robot.variables import search_variable
 
 from .datatypes import TypeDoc
@@ -32,23 +31,26 @@ from .model import KeywordDoc, LibraryDoc
 class LibraryDocBuilder:
     _argument_separator = "::"
 
+    def __init__(self, doc_format):
+        self.doc_format = doc_format
+
     def build(self, library):
         name, args = self._split_library_name_and_args(library)
         lib = TestLibrary.from_name(name, args=args)
+        lib.update_docs()
         libdoc = LibraryDoc(
             name=lib.name,
             doc=self._get_doc(lib),
             version=lib.version,
             scope=lib.scope.name,
-            doc_format=lib.doc_format,
+            doc_format=self.doc_format or lib.doc_format or "ROBOT",
             source=lib.source,
             lineno=lib.lineno,
         )
         libdoc.inits = self._get_initializers(lib)
         libdoc.keywords = KeywordDocBuilder().build_keywords(lib)
         libdoc.type_docs = TypeDocBuilder().build(
-            libdoc.inits + libdoc.keywords,
-            lib.converters,
+            libdoc.inits + libdoc.keywords, lib.converters, libdoc.doc_format
         )
         return libdoc
 
@@ -74,12 +76,12 @@ class LibraryDocBuilder:
 
 class TypeDocBuilder:
 
-    def build(self, keywords, custom_converters=None):
+    def build(self, keywords, custom_converters=None, doc_format="ROBOT"):
         all_type_docs: dict[TypeDoc, set[str]] = {}
         for kw in keywords:
             for name, type_info in self._yield_names_and_infos(kw.args):
                 type_docs = kw.type_docs.setdefault(name, {})
-                type_doc = TypeDoc.for_type(type_info, custom_converters)
+                type_doc = TypeDoc.for_type(type_info, custom_converters, doc_format)
                 if type_doc:
                     type_docs[type_info.name] = type_doc.name
                     all_type_docs.setdefault(type_doc, set()).add(kw.name)
@@ -89,8 +91,9 @@ class TypeDocBuilder:
 
     def _yield_names_and_infos(self, args: ArgumentSpec):
         for arg in args:
-            for type_info in self._yield_infos(arg.type):
-                yield arg.name, type_info
+            if not arg.is_marker:
+                for type_info in self._yield_infos(arg.type):
+                    yield arg.name, type_info
         if args.return_type:
             for type_info in self._yield_infos(args.return_type):
                 yield "return", type_info
@@ -98,26 +101,34 @@ class TypeDocBuilder:
     def _yield_infos(self, info: TypeInfo):
         if not info.is_union:
             yield info
-        for nested in info.nested or ():
-            yield from self._yield_infos(nested)
+        if info.nested and not info.is_recursive:
+            for nested in info.nested:
+                yield from self._yield_infos(nested)
 
 
 class ResourceDocBuilder:
     type = "RESOURCE"
 
+    def __init__(self, doc_format):
+        self.doc_format = doc_format
+
     def build(self, path):
         path = self._find_resource_file(path)
         resource, name = self._import_resource(path)
+        resource.update_docs(unescape=True)
         libdoc = LibraryDoc(
             name=name,
             doc=self._get_doc(resource, name),
             type=self.type,
             scope="GLOBAL",
+            doc_format=self.doc_format or "ROBOT",
             source=resource.source,
             lineno=1,
         )
         libdoc.keywords = KeywordDocBuilder(resource=True).build_keywords(resource)
-        libdoc.type_docs = TypeDocBuilder().build(libdoc.keywords)
+        libdoc.type_docs = TypeDocBuilder().build(
+            libdoc.keywords, doc_format=libdoc.doc_format
+        )
         return libdoc
 
     def _import_resource(self, path):
@@ -165,9 +176,10 @@ class KeywordDocBuilder:
         return [self.build_keyword(kw) for kw in owner.keywords]
 
     def build_keyword(self, kw):
-        doc, tags = self._get_doc_and_tags(kw)
         if kw.error:
             doc = f"*Creating keyword failed:* {kw.error}"
+        else:
+            doc = kw.doc
         if not self._resource:
             self._escape_strings_in_defaults(kw.args.defaults)
         if kw.args.embedded:
@@ -176,8 +188,8 @@ class KeywordDocBuilder:
             name=kw.name,
             args=kw.args,
             doc=doc,
-            tags=tags,
-            private=tags.robot("private"),
+            tags=kw.tags,
+            private=kw.tags.robot("private"),
             deprecated=doc.startswith("*DEPRECATED") and "*" in doc[1:],
             source=kw.source,
             lineno=kw.lineno,
@@ -208,17 +220,6 @@ class KeywordDocBuilder:
                 result += f"[{escape(item)}]"
             match = search_variable(match.after)
         return result + match.string
-
-    def _get_doc_and_tags(self, kw):
-        doc, doc_tags = split_tags_from_doc(self._get_doc(kw))
-        tags = Tags(kw.tags)
-        tags.add(doc_tags, remove_negated=self._resource)
-        return doc, tags
-
-    def _get_doc(self, kw):
-        if self._resource:
-            return unescape(kw.doc)
-        return kw.doc
 
     def _remove_embedded(self, spec: ArgumentSpec):
         embedded = len(spec.embedded)

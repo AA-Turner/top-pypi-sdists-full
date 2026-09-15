@@ -1,17 +1,12 @@
 import argparse
-import dataclasses
-import json
 import sys
 from pathlib import Path
 
+from kernels.cli.download import download_kernels
+from kernels.cli.info import print_kernel_info
+from kernels.cli.lock import lock_kernels
 from kernels.cli.verify_signature import verify_signature
 from kernels.cli.versions import print_kernel_versions
-from kernels.compat import tomllib
-from kernels.lockfile import KernelLock, get_kernel_locks
-from kernels.utils import (
-    install_kernel,
-    install_kernel_all_variants,
-)
 
 
 def main():
@@ -34,6 +29,29 @@ def main():
         help="Download all build variants of the kernel",
     )
     download_parser.set_defaults(func=download_kernels)
+
+    info_parser = subparsers.add_parser("info", help="Describe a kernel")
+    info_parser.add_argument(
+        "kernel",
+        type=str,
+        help="The kernel repo ID or a local path to a kernel repository",
+    )
+    info_parser.add_argument(
+        "--revision",
+        type=str,
+        help="The kernel revision (branch, tag, or commit). Cannot be used together with --version.",
+    )
+    info_parser.add_argument(
+        "--version",
+        type=int,
+        help="The kernel version. Cannot be used together with --revision.",
+    )
+    info_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the kernel information as JSON",
+    )
+    info_parser.set_defaults(func=kernel_info)
 
     versions_parser = subparsers.add_parser("versions", help="Show kernel versions")
     versions_parser.add_argument("repo_id", type=str, help="The kernel repo ID")
@@ -107,68 +125,17 @@ def main():
     args.func(args)
 
 
-def download_kernels(args):
-    lock_path = args.project_dir / "kernels.lock"
-
-    if not lock_path.exists():
-        print(f"No kernels.lock file found in: {args.project_dir}", file=sys.stderr)
-        sys.exit(1)
-
-    with open(args.project_dir / "kernels.lock", "r") as f:
-        lock_json = json.load(f)
-
-    all_successful = True
-
-    for kernel_lock_json in lock_json:
-        kernel_lock = KernelLock.from_json(kernel_lock_json)
-        print(
-            f"Downloading `{kernel_lock.repo_id}` with SHA: {kernel_lock.sha}",
-            file=sys.stderr,
-        )
-        if args.all_variants:
-            install_kernel_all_variants(
-                kernel_lock.repo_id,
-                revision=kernel_lock.sha,
-                variant_locks=kernel_lock.variants,
-            )
-        else:
-            try:
-                install_kernel(
-                    kernel_lock.repo_id,
-                    revision=kernel_lock.sha,
-                    variant_locks=kernel_lock.variants,
-                )
-            except FileNotFoundError as e:
-                print(e, file=sys.stderr)
-                all_successful = False
-
-    if not all_successful:
-        sys.exit(1)
+def kernel_info(args):
+    print_kernel_info(
+        args.kernel,
+        revision=args.revision,
+        version=args.version,
+        json_output=args.json,
+    )
 
 
 def kernel_versions(args):
     print_kernel_versions(args.repo_id)
-
-
-def lock_kernels(args):
-    with open(args.project_dir / "pyproject.toml", "rb") as f:
-        data = tomllib.load(f)
-
-    kernel_versions = data.get("tool", {}).get("kernels", {}).get("dependencies", None)
-
-    all_locks = []
-    for kernel, version in kernel_versions.items():
-        all_locks.append(get_kernel_locks(kernel, version))
-
-    with open(args.project_dir / "kernels.lock", "w") as f:
-        json.dump(all_locks, f, cls=_JSONEncoder, indent=2)
-
-
-class _JSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if dataclasses.is_dataclass(o):
-            return dataclasses.asdict(o)
-        return super().default(o)
 
 
 def _check_moved(_args):

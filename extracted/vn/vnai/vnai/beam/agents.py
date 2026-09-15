@@ -244,16 +244,255 @@ def load_doc(doc_id: str) -> Optional[str]:
     except Exception as e:
         logger.error(f"Lỗi khi tải tài liệu '{doc_id}': {e}")
         return None
+_BOOTSTRAP_BLOCK_PATTERN = (
+    r'(?s)(?:---\n(?:(?!---).)*?name: vnstock-bootstrap(?:(?!---).)*?\n---\n*'
+    r'# Vnstock AI Agent.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*'
+    r'|<!-- vnai-bootstrap.*?>.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*'
+    r'|# Vnstock AI Agent.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*)'
+)
+AGENT_CONFIG_PATH = Path.home() / ".vnstock" / "config" / "agent.json"
+AGENT_TARGETS = {
+    "project": (
+        lambda root: Path(root) / "AGENTS.md",
+        "AGENTS.md in the project root (cross-tool standard)",
+    ),
+    "antigravity": (
+        lambda root: Path.home() / ".gemini" / "GEMINI.md",
+        "Google Antigravity, global rules",
+    ),
+    "claude": (
+        lambda root: Path.home() / ".claude" / "CLAUDE.md",
+        "Claude Code, global memory",
+    ),
+    "codex": (
+        lambda root: Path.home() / ".codex" / "AGENTS.md",
+        "ChatGPT Codex, global instructions",
+    ),
+}
+LEGACY_AGENT_TARGETS = {
+    "cursor": (lambda root: Path.home() / ".cursorrules", "Cursor IDE (no longer written)"),
+    "windsurf": (lambda root: Path.home() / ".windsurfrules", "Windsurf IDE (no longer written)"),
+    "cline": (lambda root: Path.home() / ".clinerules", "Cline / Roo Code (no longer written)"),
+    "copilot": (
+        lambda root: Path.home() / ".github" / "copilot-instructions.md",
+        "GitHub Copilot (no longer written)",
+    ),
+    "gemini-config": (
+        lambda root: Path.home() / ".gemini" / "config" / "AGENTS.md",
+        "wrong Antigravity path used before 2.6.0",
+    ),
+    "clauderc": (
+        lambda root: Path.home() / ".clauderc",
+        "wrong Claude Code path used before 2.6.0",
+    ),
+    "home": (
+        lambda root: Path.home() / "AGENTS.md",
+        "AGENTS.md written into the home directory when Python ran from $HOME",
+    ),
+}
+ALL_AGENT_TARGETS = {**AGENT_TARGETS, **LEGACY_AGENT_TARGETS}
+AGENT_TARGET_ORDER = list(AGENT_TARGETS)
+LEGACY_TARGET_ORDER = list(LEGACY_AGENT_TARGETS)
+GLOBAL_AGENT_TARGETS = [name for name in AGENT_TARGET_ORDER if name != "project"]
+
+def target_path(name: str, project_root: str = ".") -> Path:
+    return ALL_AGENT_TARGETS[name][0](project_root)
+
+def load_agent_config() -> Dict[str, Any]:
+    try:
+        import json
+        with open(AGENT_CONFIG_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+def save_agent_config(config: Dict[str, Any]) -> bool:
+    try:
+        import json
+        AGENT_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(AGENT_CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        return True
+    except OSError as e:
+        logger.warning(f"Không thể ghi cấu hình agent vào {AGENT_CONFIG_PATH}: {e}")
+        return False
+
+def agent_setup_enabled() -> bool:
+    if os.environ.get("VNSTOCK_DISABLE_AGENT_SETUP") == "1":
+        return False
+    if os.environ.get("VNSTOCK_AGENT_TARGETS", "").strip().lower() == "none":
+        return False
+    return load_agent_config().get("enabled", True) is not False
+
+def resolve_agent_targets() -> list:
+    if not agent_setup_enabled():
+        return []
+    explicit = os.environ.get("VNSTOCK_AGENT_TARGETS")
+    if explicit:
+        wanted = [t.strip().lower() for t in explicit.split(",") if t.strip()]
+        unknown = [t for t in wanted if t not in AGENT_TARGETS]
+        if unknown:
+            logger.warning(
+                f"Bỏ qua target không hợp lệ trong VNSTOCK_AGENT_TARGETS: {unknown}. "
+                f"Hợp lệ: {AGENT_TARGET_ORDER}"
+            )
+        return [t for t in AGENT_TARGET_ORDER if t in wanted]
+    if os.environ.get("VNSTOCK_DISABLE_GLOBAL_AGENT") == "1":
+        return ["project"]
+    configured = load_agent_config().get("targets") or {}
+    return [
+        name
+        for name in AGENT_TARGET_ORDER
+        if configured.get(name, True) is not False
+    ]
+
+def agent_status(project_root: str = ".") -> Dict[str, Any]:
+    enabled = resolve_agent_targets()
+    return {
+        "enabled": agent_setup_enabled(),
+        "config_file": str(AGENT_CONFIG_PATH),
+        "config_file_exists": AGENT_CONFIG_PATH.exists(),
+        "env_overrides": {
+            var: os.environ[var]
+            for var in (
+                "VNSTOCK_DISABLE_AGENT_SETUP",
+                "VNSTOCK_DISABLE_GLOBAL_AGENT",
+                "VNSTOCK_AGENT_TARGETS",
+            )
+            if var in os.environ
+        },
+        "targets": {
+            name: {
+                "enabled": name in enabled,
+                "path": str(target_path(name, project_root)),
+                "exists": target_path(name, project_root).exists(),
+                "scope": "project" if name == "project" else "global",
+                "description": AGENT_TARGETS[name][1],
+            }
+            for name in AGENT_TARGET_ORDER
+        },
+        "legacy_files_present": {
+            name: str(target_path(name))
+            for name in LEGACY_TARGET_ORDER
+            if target_path(name).exists()
+        },
+    }
+
+def disable_agent_setup(*targets: str) -> Dict[str, Any]:
+    config = load_agent_config()
+    if not targets:
+        config["enabled"] = False
+    else:
+        names = []
+        for t in targets:
+            t = t.strip().lower()
+            names.extend(GLOBAL_AGENT_TARGETS if t == "global" else [t])
+        unknown = [n for n in names if n not in AGENT_TARGETS]
+        if unknown:
+            raise ValueError(
+                f"Target không hợp lệ: {unknown}. Hợp lệ: {AGENT_TARGET_ORDER + ['global']}"
+            )
+        config.setdefault("targets", {}).update({n: False for n in names})
+    save_agent_config(config)
+    return agent_status()
+
+def enable_agent_setup(*targets: str) -> Dict[str, Any]:
+    config = load_agent_config()
+    config["enabled"] = True
+    if targets:
+        names = []
+        for t in targets:
+            t = t.strip().lower()
+            names.extend(GLOBAL_AGENT_TARGETS if t == "global" else [t])
+        unknown = [n for n in names if n not in AGENT_TARGETS]
+        if unknown:
+            raise ValueError(
+                f"Target không hợp lệ: {unknown}. Hợp lệ: {AGENT_TARGET_ORDER + ['global']}"
+            )
+        config.setdefault("targets", {}).update({n: True for n in names})
+    else:
+        config["targets"] = {}
+    save_agent_config(config)
+    return agent_status()
+_BOOTSTRAP_START_MARKERS = (
+    "<!-- vnai-bootstrap",
+    "# Vnstock AI Agent",
+    "# Vnstock Vibe Onboarding",
+    "# Vnstock Ecosystem Guidelines",
+)
+
+def find_bootstrap_span(content: str):
+    import re
+    match = re.search(_BOOTSTRAP_BLOCK_PATTERN, content)
+    if match:
+        return match.span()
+    starts = []
+    yaml = re.match(r"(?s)^---\n(?:(?!---).)*?name:\s*vnstock-bootstrap.*?\n---\n", content)
+    if yaml:
+        starts.append(0)
+    for marker in _BOOTSTRAP_START_MARKERS:
+        idx = content.find(marker)
+        if idx != -1:
+            starts.append(idx)
+    if not starts:
+        return None
+    return (min(starts), len(content))
+
+def remove_agent_files(*targets: str) -> Dict[str, str]:
+    import re
+    groups = {
+        "global": GLOBAL_AGENT_TARGETS,
+        "legacy": LEGACY_TARGET_ORDER,
+        "all": AGENT_TARGET_ORDER + LEGACY_TARGET_ORDER,
+    }
+    names = list(targets) or list(AGENT_TARGET_ORDER)
+    expanded = []
+    for t in names:
+        t = t.strip().lower()
+        expanded.extend(groups.get(t, [t]))
+    results = {}
+    for name in expanded:
+        if name not in ALL_AGENT_TARGETS:
+            results[name] = "unknown target"
+            continue
+        path = target_path(name)
+        if not path.exists():
+            results[name] = "absent"
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+            span = find_bootstrap_span(content)
+            if span is None:
+                results[name] = f"no vnstock block found in {path}"
+                continue
+            removed = span[1] - span[0]
+            cleaned = (content[: span[0]] + content[span[1] :]).strip()
+            if cleaned:
+                path.write_text(
+                    re.sub(r"\n{3,}", "\n\n", cleaned) + "\n", encoding="utf-8"
+                )
+                results[name] = f"removed {removed} chars from {path}"
+            else:
+                path.unlink()
+                results[name] = f"deleted {path} ({removed} chars)"
+        except OSError as e:
+            results[name] = f"error: {e}"
+    return results
 _FALLBACK_INSTRUCTION = """# Vnstock Vibe Onboarding
 Please visit https://vnstocks.com/onboard/agent-guide to learn how to setup AI Agents for vnstock.
 """
 
 def setup_agent_environment(project_root: str = ".") -> bool:
     try:
-        if os.environ.get("VNSTOCK_DISABLE_AGENT_SETUP") == "1":
-            logger.debug("Agent setup disabled via VNSTOCK_DISABLE_AGENT_SETUP")
+        if not agent_setup_enabled():
+            logger.debug("Agent setup disabled by configuration")
             return False
-        home = Path.home()
+        enabled_targets = resolve_agent_targets()
+        if not enabled_targets:
+            logger.debug("No agent target enabled; nothing to write")
+            return False
         api_key = get_api_key()
         instruction_content = load_skill("vnstock-bootstrap", "content") if api_key else None
         if not instruction_content:
@@ -279,21 +518,13 @@ def setup_agent_environment(project_root: str = ".") -> bool:
                 instruction_content = html_anchor + instruction_content
             elif not instruction_content.startswith("<!-- vnai-bootstrap"):
                 instruction_content = "<!-- vnai-bootstrap | auto-generated -->\n" + instruction_content
-        project_agents_md = Path(project_root) / "AGENTS.md"
-        global_targets = [
-            project_agents_md,
-            home / ".gemini" / "config" / "AGENTS.md",
-            home / ".cursorrules",
-            home / ".windsurfrules",
-            home / ".clinerules",
-            home / ".github" / "copilot-instructions.md",
-            home / ".clauderc",
+        targets = [
+            (name, target_path(name, project_root))
+            for name in AGENT_TARGET_ORDER
+            if name in enabled_targets
         ]
-        if os.environ.get("VNSTOCK_DISABLE_GLOBAL_AGENT") == "1":
-            logger.debug("Global agent config injection disabled via VNSTOCK_DISABLE_GLOBAL_AGENT")
-            global_targets = [project_agents_md]
         success = False
-        for target in global_targets:
+        for target_name, target in targets:
             try:
                 if not target.parent.exists():
                     try:
@@ -312,7 +543,7 @@ def setup_agent_environment(project_root: str = ".") -> bool:
                     logger.debug(f"File {target} có vẻ là JSON. Bỏ qua để tránh làm hỏng config.")
                     continue
                 import re
-                pattern = r'(?s)(?:---\n(?:(?!---).)*?name: vnstock-bootstrap(?:(?!---).)*?\n---\n*# Vnstock AI Agent.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*|<!-- vnai-bootstrap.*?>.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*|# Vnstock AI Agent.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*)'
+                pattern = _BOOTSTRAP_BLOCK_PATTERN
                 matches = re.findall(pattern, content)
                 if len(matches) > 1:
                     logger.debug(f"Phát hiện nội dung bị lặp trong {target}, tiến hành dọn dẹp...")

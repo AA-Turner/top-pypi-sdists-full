@@ -12,10 +12,15 @@ from __future__ import annotations
 import logging
 
 from .base import (
+    META_ATTACHMENT_IDS,
     META_CHUNK_ID,
     CausalEdgeRecord,
     DeletePredicate,
     FactRecord,
+    FullRecallRequest,
+    KnowledgePageEntry,
+    KnowledgePageMatch,
+    KnowledgePageRef,
     MemoriesExtension,
     MemoryPatch,
     MemoryScopeWatermark,
@@ -71,13 +76,18 @@ def set_memories(memories: MemoriesExtension | None) -> None:
 
 
 __all__ = [
+    "META_ATTACHMENT_IDS",
     "META_CHUNK_ID",
     "CausalEdgeRecord",
     "DeletePredicate",
     "FactRecord",
+    "KnowledgePageEntry",
+    "KnowledgePageMatch",
+    "KnowledgePageRef",
     "MemoriesExtension",
     "MemoryPatch",
     "MemoryScopeWatermark",
+    "FullRecallRequest",
     "RecallArms",
     "ScanPage",
     "StoredMemory",

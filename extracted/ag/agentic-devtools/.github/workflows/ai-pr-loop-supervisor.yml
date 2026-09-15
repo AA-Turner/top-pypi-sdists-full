@@ -23,6 +23,7 @@ jobs:
       - name: Check out supervisor configuration
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           persist-credentials: false
 
       - name: Set up Python
@@ -36,6 +37,8 @@ jobs:
 
       - name: Run read-only supervisor scan
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: agdt-ai-pr-loop-supervisor --repo "$GITHUB_REPOSITORY" --max-candidates 10

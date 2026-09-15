@@ -11,6 +11,7 @@ from nominal_api import (
     scout_asset_api,
     scout_assets,
     scout_run_api,
+    scout_spatial,
 )
 from typing_extensions import Self, deprecated
 
@@ -76,6 +77,8 @@ class Asset(_DatasetWrapper, HasRid, RefreshableConjureMixin[scout_asset_api.Ass
         def comments(self) -> comments_pb2_grpc.CommentsServiceStub: ...
         @property
         def run(self) -> scout.RunService: ...
+        @property
+        def spatial(self) -> scout_spatial.SpatialService: ...
 
     @property
     def nominal_url(self) -> str:
@@ -159,6 +162,9 @@ class Asset(_DatasetWrapper, HasRid, RefreshableConjureMixin[scout_asset_api.Ass
 
         Returns:
             (data_scope_name, scope) pairs, where scope can be a dataset, connection, or video.
+
+            Spatials are not included: they live in `nominal.experimental.spatial`, whose
+            `list_spatials_in_asset` lists them.
         """
         return (*self.list_datasets(), *self.list_connections(), *self.list_videos())
 
@@ -173,6 +179,7 @@ class Asset(_DatasetWrapper, HasRid, RefreshableConjureMixin[scout_asset_api.Ass
         Args:
             names: Names of datascopes to remove
             scopes: Rids or instances of scope types (dataset, video, connection) to remove.
+                A spatial can be removed by passing its rid.
         """
         scope_names_to_remove = names or []
         data_scopes_to_remove = scopes or []
@@ -191,7 +198,12 @@ class Asset(_DatasetWrapper, HasRid, RefreshableConjureMixin[scout_asset_api.Ass
             if ds.data_scope_name not in scope_names_to_remove
             and all(
                 rid not in scope_rids_to_remove
-                for rid in (ds.data_source.dataset, ds.data_source.connection, ds.data_source.video)
+                for rid in (
+                    ds.data_source.dataset,
+                    ds.data_source.connection,
+                    ds.data_source.video,
+                    ds.data_source.spatial,
+                )
             )
         ]
 

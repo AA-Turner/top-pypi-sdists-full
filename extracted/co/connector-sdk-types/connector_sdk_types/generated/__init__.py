@@ -101,6 +101,7 @@ from .models.downgrade_license_request import DowngradeLicenseRequest
 from .models.downgrade_license_response import DowngradeLicenseResponse
 from .models.downgraded_license import DowngradedLicense
 from .models.effect import Effect
+from .models.empty_credential import EmptyCredential
 from .models.entitlement_graph import EntitlementGraph
 from .models.entitlement_requirement import EntitlementRequirement
 from .models.entitlement_type import EntitlementType
@@ -452,6 +453,7 @@ __all__ = [
     "DowngradeLicenseResponse",
     "DowngradedLicense",
     "Effect",
+    "EmptyCredential",
     "EntitlementGraph",
     "EntitlementRequirement",
     "EntitlementType",

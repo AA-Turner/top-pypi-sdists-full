@@ -18,11 +18,11 @@ class TestDispatchConflictRepair:
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    def test_raises_when_speckit_pr_token_missing(self, mock_read_file, mock_run_safe) -> None:
+    def test_raises_when_default_workflow_token_missing(self, mock_read_file, mock_run_safe) -> None:
         provider = GitHubActionsProvider(repo="owner/repo")
 
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(RuntimeError, match="SPECKIT_PR_TOKEN"):
+            with pytest.raises(RuntimeError, match="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"):
                 provider.dispatch_conflict_repair(
                     pr_number=42,
                     head_sha="abc123",
@@ -36,7 +36,7 @@ class TestDispatchConflictRepair:
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    @patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-pat-token"}, clear=False)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-pat-token"}, clear=False)
     def test_posts_comment_starting_with_copilot(self, mock_read_file, mock_run_safe) -> None:
         """The posted comment body must begin with '@copilot'."""
         mock_read_file.return_value = "## Prompt content"
@@ -59,7 +59,7 @@ class TestDispatchConflictRepair:
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    @patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-pat-token"}, clear=False)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-pat-token"}, clear=False)
     def test_embeds_conflict_repair_marker(self, mock_read_file, mock_run_safe) -> None:
         """The comment body must embed the conflict-repair idempotency marker."""
         mock_read_file.return_value = "Prompt content"
@@ -82,7 +82,7 @@ class TestDispatchConflictRepair:
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    @patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-pat-token"}, clear=False)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-pat-token"}, clear=False)
     def test_embeds_prompt_file_content(self, mock_read_file, mock_run_safe) -> None:
         """When the prompt file is readable, its content is embedded in the comment."""
         mock_read_file.return_value = "# Cloud Agent Conflict Resolution Prompt"
@@ -103,7 +103,7 @@ class TestDispatchConflictRepair:
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    @patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-pat-token"}, clear=False)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-pat-token"}, clear=False)
     def test_graceful_fallback_when_prompt_file_missing(self, mock_read_file, mock_run_safe) -> None:
         """When the prompt file cannot be read, the comment is still posted."""
         mock_read_file.return_value = ""  # _read_repo_file returns "" on error
@@ -125,9 +125,9 @@ class TestDispatchConflictRepair:
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    @patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-speckit-pat"}, clear=False)
-    def test_uses_speckit_pr_token(self, mock_read_file, mock_run_safe) -> None:
-        """Authentication uses SPECKIT_PR_TOKEN (has issues:write permission)."""
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-default-pat"}, clear=False)
+    def test_uses_default_workflow_token(self, mock_read_file, mock_run_safe) -> None:
+        """Authentication uses DEFAULT_CLASSIC_REPO_WORKFLOW_PAT (has issues:write permission)."""
         mock_read_file.return_value = ""
         mock_run_safe.return_value = MagicMock(returncode=0, stdout=_api_response({"id": 1}), stderr="")
 
@@ -143,11 +143,11 @@ class TestDispatchConflictRepair:
         # The POST call environment should have GH_TOKEN set to our PAT
         post_call = next(c for c in mock_run_safe.call_args_list if "--method" in c[0][0] and "POST" in c[0][0])
         call_env = post_call[1].get("env", {})
-        assert call_env.get("GH_TOKEN") == "test-speckit-pat"
+        assert call_env.get("GH_TOKEN") == "test-default-pat"
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    @patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-pat"}, clear=False)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-pat"}, clear=False)
     def test_returns_comment_id(self, mock_read_file, mock_run_safe) -> None:
         """The method returns the integer comment ID from the API response."""
         mock_read_file.return_value = ""
@@ -166,7 +166,7 @@ class TestDispatchConflictRepair:
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    @patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-pat", "GITHUB_REPOSITORY": ""}, clear=False)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-pat", "GITHUB_REPOSITORY": ""}, clear=False)
     def test_no_repo_uses_plain_prompt_path(self, mock_read_file, mock_run_safe) -> None:
         """When no repo is available the prompt link falls back to a plain path (no URL)."""
         mock_read_file.return_value = ""
@@ -189,7 +189,7 @@ class TestDispatchConflictRepair:
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    @patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-pat"}, clear=False)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-pat"}, clear=False)
     def test_prompt_link_uses_head_sha_when_available(self, mock_read_file, mock_run_safe) -> None:
         """The prompt URL should use the PR head SHA to match the embedded prompt content."""
         mock_read_file.return_value = ""
@@ -211,7 +211,7 @@ class TestDispatchConflictRepair:
 
     @patch("agentic_devtools.cli.ci.github_provider.run_safe")
     @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
-    @patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "test-pat"}, clear=False)
+    @patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "test-pat"}, clear=False)
     def test_conflict_marker_appended_at_end_after_details(self, mock_read_file, mock_run_safe) -> None:
         """The conflict-repair marker is the final line, after the closing </details>.
 

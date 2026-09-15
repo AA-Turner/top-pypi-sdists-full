@@ -12,6 +12,11 @@ from agentic_devtools.cli.speckit.cloud_agent_guard import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _default_repository_workflow_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "default-secret")
+
+
 def _marker(issue: int = 7, phase: int = 1, hierarchy: str = "feature") -> str:
     return (
         "<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent "
@@ -40,7 +45,7 @@ def test_detects_matching_labels_and_pull_requests(
         "agentic_devtools.cli.speckit.cloud_agent_guard._gh_api_call",
         side_effect=[json.dumps(labels), json.dumps(pulls)],
     ):
-        result = check_cloud_agent_in_flight("owner/repo", 7, phase=phase, token="secret")
+        result = check_cloud_agent_in_flight("owner/repo", 7, phase=phase)
 
     assert result.in_flight is (expected_reason != "none")
     assert result.reason == expected_reason
@@ -63,7 +68,7 @@ def test_ignores_fallback_nonmatching_and_malformed_pull_requests() -> None:
         "agentic_devtools.cli.speckit.cloud_agent_guard._gh_api_call",
         side_effect=[json.dumps([]), json.dumps(pulls)],
     ):
-        result = check_cloud_agent_in_flight("owner/repo", 7, phase=1, token="secret")
+        result = check_cloud_agent_in_flight("owner/repo", 7, phase=1)
 
     assert result.in_flight is False
     assert result.reason == "none"
@@ -75,7 +80,7 @@ def test_ignores_malformed_label_entries_and_phase_mismatch() -> None:
         "agentic_devtools.cli.speckit.cloud_agent_guard._gh_api_call",
         side_effect=[json.dumps([None, {"name": 123}]), json.dumps(pulls)],
     ):
-        result = check_cloud_agent_in_flight("owner/repo", 7, phase=1, token="secret")
+        result = check_cloud_agent_in_flight("owner/repo", 7, phase=1)
 
     assert result.in_flight is False
 
@@ -93,7 +98,7 @@ def test_ignores_pull_request_with_unsupported_marker_hierarchy() -> None:
         "agentic_devtools.cli.speckit.cloud_agent_guard._gh_api_call",
         side_effect=[json.dumps([]), json.dumps(pulls)],
     ):
-        result = check_cloud_agent_in_flight("owner/repo", 7, phase=3, token="secret")
+        result = check_cloud_agent_in_flight("owner/repo", 7, phase=3)
 
     assert result.in_flight is False
     assert result.reason == "none"
@@ -112,7 +117,7 @@ def test_specific_phase_three_lookup_requires_matching_hierarchy_level() -> None
         "agentic_devtools.cli.speckit.cloud_agent_guard._gh_api_call",
         side_effect=[json.dumps([]), json.dumps(pulls)],
     ):
-        result = check_cloud_agent_in_flight("owner/repo", 7, phase=3, hierarchy_level="task", token="secret")
+        result = check_cloud_agent_in_flight("owner/repo", 7, phase=3, hierarchy_level="task")
 
     assert result.in_flight is False
     assert result.reason == "none"
@@ -131,7 +136,7 @@ def test_any_phase_lookup_uses_marker_hierarchy_for_task_pull_request() -> None:
         "agentic_devtools.cli.speckit.cloud_agent_guard._gh_api_call",
         side_effect=[json.dumps([]), json.dumps(pulls)],
     ):
-        result = check_cloud_agent_in_flight("owner/repo", 7, phase=0, token="secret")
+        result = check_cloud_agent_in_flight("owner/repo", 7, phase=0)
 
     assert result.in_flight is True
     assert result.reason == "pull-request"
@@ -140,7 +145,7 @@ def test_any_phase_lookup_uses_marker_hierarchy_for_task_pull_request() -> None:
 
 def test_rejects_invalid_hierarchy_level() -> None:
     with pytest.raises(ValueError, match="hierarchy_level"):
-        check_cloud_agent_in_flight("owner/repo", 7, hierarchy_level="invalid", token="secret")
+        check_cloud_agent_in_flight("owner/repo", 7, hierarchy_level="invalid")
 
 
 @pytest.mark.parametrize("payload", ["", "   \n\t  "])
@@ -150,7 +155,7 @@ def test_raises_on_empty_paginated_payload(payload: str) -> None:
         side_effect=[payload, json.dumps([])],
     ):
         with pytest.raises(RuntimeError, match="empty response"):
-            check_cloud_agent_in_flight("owner/repo", 7, token="secret")
+            check_cloud_agent_in_flight("owner/repo", 7)
 
 
 @pytest.mark.parametrize("payload", ["{}", "null"])
@@ -160,7 +165,7 @@ def test_raises_on_non_array_paginated_labels_payload(payload: str) -> None:
         side_effect=[payload, json.dumps([])],
     ):
         with pytest.raises(RuntimeError, match="non-array response"):
-            check_cloud_agent_in_flight("owner/repo", 7, token="secret")
+            check_cloud_agent_in_flight("owner/repo", 7)
 
 
 @pytest.mark.parametrize("payload", ["{}", "null"])
@@ -170,11 +175,11 @@ def test_raises_on_non_array_paginated_pulls_payload(payload: str) -> None:
         side_effect=[json.dumps([]), payload],
     ):
         with pytest.raises(RuntimeError, match="non-array response"):
-            check_cloud_agent_in_flight("owner/repo", 7, token="secret")
+            check_cloud_agent_in_flight("owner/repo", 7)
 
 
 def test_uses_token_fallback_and_paginated_documents() -> None:
-    with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "", "COPILOT_GITHUB_TOKEN": "fallback"}, clear=False):
+    with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "fallback"}, clear=False):
         with patch(
             "agentic_devtools.cli.speckit.cloud_agent_guard._gh_api_call",
             side_effect=[json.dumps([]) + "\n" + json.dumps([]), json.dumps([])],
@@ -183,3 +188,14 @@ def test_uses_token_fallback_and_paginated_documents() -> None:
 
     assert result.in_flight is False
     assert api.call_args.kwargs["token"] == "fallback"
+
+
+def test_uses_explicit_token_for_compatibility() -> None:
+    with patch(
+        "agentic_devtools.cli.speckit.cloud_agent_guard._gh_api_call",
+        side_effect=[json.dumps([]), json.dumps([])],
+    ) as api:
+        result = check_cloud_agent_in_flight("owner/repo", 7, token="explicit-token")
+
+    assert result.in_flight is False
+    assert api.call_args.kwargs["token"] == "explicit-token"

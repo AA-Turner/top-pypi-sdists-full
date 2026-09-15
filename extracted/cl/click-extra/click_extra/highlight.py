@@ -37,6 +37,7 @@ from click.core import _format_deprecated_label
 from cloup._util import identity
 
 from . import theme as _theme
+from .styling import open_ansi
 from .theme import HelpTheme, ThemeChoice
 
 TYPE_CHECKING = False
@@ -79,6 +80,17 @@ class HelpKeywords:
     metavars: set[str] = field(default_factory=set)
     envvars: set[str] = field(default_factory=set)
     defaults: set[str] = field(default_factory=set)
+    deprecated: set[str] = field(default_factory=set)
+    """Markers a CLI paints with the `deprecated` slot beside Click's own.
+
+    {data}`DEPRECATED_RE` covers the spellings Click writes, and only those. A
+    project marking a parameter in its own vocabulary (`(unmaintained)` for a
+    tool whose upstream is gone, where the option itself is not being retired)
+    otherwise gets no color for it, since the word is the whole pattern.
+
+    Each entry is matched literally, so a marker is written the way it reads on
+    the screen, punctuation included.
+    """
 
     def merge(self, other: HelpKeywords) -> None:
         """Merge another `HelpKeywords` into this one.
@@ -160,6 +172,19 @@ class _HelpColorsMixin:
         # command parameters. User-defined help options (like -h, --help) are
         # seeded into the options set.
         options: set[str] = set(ctx.help_option_names)
+
+        # Add the option names of each direct subcommand, so an example
+        # invoking one ("$ basket pick --ripe") colors the options that
+        # invocation passes. Names only: a subcommand's choices, metavars,
+        # envvars and defaults would feed the cross-reference passes values
+        # this screen never renders, and paint them wherever the prose reuses
+        # the word.
+        for subcommand in subcommand_objs:
+            for param in subcommand.get_params(ctx):
+                if isinstance(param, click.Option) and not param.hidden:
+                    options.update(param.opts)
+                    options.update(param.secondary_opts)
+
         # Static methods are qualified with the class name (not `self`) so
         # `collect_keywords` can be called on commands that don't inherit the
         # mixin (used by `cli_wrapper.patch_click` for third-party CLIs).
@@ -271,7 +296,15 @@ class _HelpColorsMixin:
             elif isinstance(param, click.Argument):
                 # Collect argument metavars (like "MY_ARG") as a distinct
                 # category from option metavars.
-                kw.arguments.add(param.make_metavar(ctx=ctx))
+                metavar = param.make_metavar(ctx=ctx)
+                kw.arguments.add(metavar)
+                # A hand-written metavar can name several operands at once,
+                # like the `SCRIPT [ARGS]...` of a command taking a target and
+                # forwarding the rest. The prose then refers to one of them by
+                # name, so each is worth a keyword of its own. The whole string
+                # stays one too, and the usage line still paints it as a single
+                # run: `highlight` merges the spans it overlaps.
+                kw.arguments.update(_metavar_operands(metavar))
 
             # Only Choice and DateTime types produce their own structured
             # metavar (with delimiters like brackets and pipes). All other
@@ -295,9 +328,16 @@ class _HelpColorsMixin:
                 kw.metavars.add(param.make_metavar(ctx=ctx))
 
             # A user-provided metavar (like `metavar="LEVEL"`) is always
-            # worth highlighting, even for Choice/DateTime types.
+            # worth highlighting, even for Choice/DateTime types. One that
+            # enumerates its parts (`INTEGER|auto`, from a hybrid type Click
+            # renders nothing structured for) is styled part by part instead:
+            # the cross-reference pass would otherwise paint the value it
+            # recognizes and leave the type placeholder beside it bare.
             if param.metavar and not isinstance(param, click.Argument):
-                kw.metavars.add(param.metavar)
+                if "|" in param.metavar or "," in param.metavar:
+                    kw.choice_metavars.add(param.metavar)
+                else:
+                    kw.metavars.add(param.metavar)
 
             if param.envvar:
                 if isinstance(param.envvar, str):
@@ -339,6 +379,24 @@ class _HelpColorsMixin:
         formatter.keywords = self.collect_keywords(ctx)
         formatter.excluded_keywords = self._collect_excluded_keywords(ctx)
         super().format_help(ctx, formatter)  # type: ignore[misc]
+
+
+#: Matches an operand name inside a compound metavar, ignoring the brackets and
+#: ellipsis marking it optional or variadic.
+_OPERAND_RE = re.compile(r"[A-Z][A-Z0-9_]*")
+
+
+def _metavar_operands(metavar: str) -> set[str]:
+    """Split a compound metavar into the operand names it holds.
+
+    `SCRIPT [ARGS]...` names two, and a plain `MY_ARG` names itself, which the
+    caller already has. Returns nothing for a single-operand metavar, so no
+    keyword is added twice.
+    """
+    operands = set(_OPERAND_RE.findall(metavar))
+    if operands == {metavar}:
+        return set()
+    return operands
 
 
 @lru_cache(maxsize=512)
@@ -417,7 +475,11 @@ class HelpFormatter(cloup.HelpFormatter):
         r"("  # Capture the bracket content.
         r"(?:env\s+var:|default:|required"  # Must start with a recognized label.
         r"|(?:[^\]\s]+(?:<|<=))?x(?:<|<=|>|>=)[^\]\s]+)"  # Or a range (see _range_re).
-        r"[^\]]*"  # Followed by any non-] characters.
+        # Followed by any non-] characters, plus whole bracketed runs, so a
+        # default that is itself bracketed (`[default: [...]]`) closes on its
+        # own `]` instead of the first one on screen. The alternation cannot
+        # eat a bare `]`, so a field still stops at its own end.
+        r"(?:[^\]\[]|\[[^\]]*\])*"
         r")"
         r"\]",  # Closing bracket.
         re.DOTALL,
@@ -425,6 +487,13 @@ class HelpFormatter(cloup.HelpFormatter):
     _sep_re: ClassVar[re.Pattern] = re.compile(r";\s+")
     _envvar_re: ClassVar[re.Pattern] = re.compile(r"(env\s+var:\s+)(.*)", re.DOTALL)
     _default_re: ClassVar[re.Pattern] = re.compile(r"(default:\s+)(.*)", re.DOTALL)
+
+    #: Matches a lone `--`, the POSIX end-of-options separator.
+    _separator_re: ClassVar[re.Pattern] = re.compile(r"(?<!\S)--(?!\S)")
+
+    #: Matches what an example line puts before the CLI name: an indent, and
+    #: the shell prompt a transcript is written with.
+    _prompt_re: ClassVar[re.Pattern] = re.compile(r"[ \t]*(?:[$>#]\s+)?")
 
     #: The marker pattern the help screen paints, see {data}`DEPRECATED_RE`.
     _deprecated_re: ClassVar[re.Pattern] = DEPRECATED_RE
@@ -516,6 +585,51 @@ class HelpFormatter(cloup.HelpFormatter):
         store[key] = styled
         return key
 
+    def _highlight_invoked_subcommands(
+        self,
+        help_text: str,
+        kw: HelpKeywords,
+    ) -> str:
+        """Paint subcommand names written as part of an invocation.
+
+        An invocation line opens on the CLI name, under an optional indent and
+        shell prompt, and every subcommand it names after that is styled,
+        whatever sits in between: `$ basket --lang fr pick --ripe` colors
+        `pick`.
+
+        A subcommand often carries the name of what it does, so reading a whole
+        line, or reading prose at all, colors the word where it is a plain
+        English one. The `installed` of "List installed packages." describes
+        the subcommand rather than running it.
+        """
+        if not kw.cli_names:
+            return help_text
+
+        cli_alt = "|".join(
+            re.escape(name) for name in sorted(kw.cli_names, key=len, reverse=True)
+        )
+        subcommand_re = re.compile(
+            r"(?<![\w\-])(?:"
+            + "|".join(
+                re.escape(name)
+                for name in sorted(kw.subcommands, key=len, reverse=True)
+            )
+            + r")(?![\w\-])"
+        )
+        invocation_re = re.compile(
+            rf"^(?P<head>{self._prompt_re.pattern}(?:{cli_alt})(?![\w\-]))"
+            r"(?P<tail>.*)$",
+            re.MULTILINE,
+        )
+
+        def style_tail(match: re.Match[str]) -> str:
+            return match.group("head") + subcommand_re.sub(
+                lambda m: self.theme.subcommand(m.group()),
+                match.group("tail"),
+            )
+
+        return invocation_re.sub(style_tail, help_text)
+
     def highlight_extra_keywords(self, help_text: str) -> str:
         """Highlight extra keywords in help screens based on the theme.
 
@@ -527,11 +641,25 @@ class HelpFormatter(cloup.HelpFormatter):
 
         # Highlight deprecated messages. Uses a case-insensitive regex to catch
         # both Click-native "(DEPRECATED)" markers and manually-added variants
-        # like "(Deprecated)" in help strings.
-        help_text = highlight(help_text, [self._deprecated_re], self.theme.deprecated)
+        # like "(Deprecated)" in help strings. A CLI's own markers ride in the
+        # same pass rather than a second one, so an entry overlapping Click's
+        # spelling is painted once instead of twice.
+        help_text = highlight(
+            help_text,
+            [
+                self._deprecated_re,
+                *(
+                    re.compile(re.escape(marker))
+                    for marker in sorted(kw.deprecated, key=len, reverse=True)
+                ),
+            ],
+            self.theme.deprecated,
+        )
 
-        # Highlight subcommand names. Requires 2-space indentation as a
-        # leading boundary.
+        # Highlight subcommand names in the list a group draws, where each
+        # entry gets a column of its own at a two-space indent. The other
+        # place a name appears, an invocation line, is prose, so it rides
+        # with the cross-reference passes below.
         if kw.subcommands:
             help_text = highlight(
                 help_text,
@@ -541,6 +669,14 @@ class HelpFormatter(cloup.HelpFormatter):
                 ),
                 self.theme.subcommand,
             )
+
+        # Style the `--` end-of-options separator. Whitespace on each side is
+        # what tells the separator apart from an option name, so `--help` and
+        # a `--` inside a word are both left alone.
+        help_text = self._separator_re.sub(
+            lambda match: self.theme.separator(match.group()),
+            help_text,
+        )
 
         # Style command aliases and their parenthetical punctuation, like
         # "(lock, freeze, snapshot)". The whole group is rebuilt through
@@ -609,7 +745,15 @@ class HelpFormatter(cloup.HelpFormatter):
         # Cross-reference highlighting can be disabled via the theme to avoid
         # over-interpretation in help text that references external identifiers.
         if self.theme.cross_ref_highlight:
-            # Highlight CLI names and commands.
+            # Highlight subcommands invoked in an example line. Runs before
+            # the CLI names it reads are styled, since the pattern anchors on
+            # the bare name.
+            if kw.subcommands:
+                help_text = self._highlight_invoked_subcommands(help_text, kw)
+
+            # Highlight CLI names and commands. A path of several words is
+            # split the way the usage line splits it: the command it ends on
+            # is the one a parent screen lists under `subcommand`.
             if kw.cli_names:
                 help_text = highlight(
                     help_text,
@@ -617,16 +761,34 @@ class HelpFormatter(cloup.HelpFormatter):
                         re.compile(rf"(?<=\s){re.escape(name)}(?=\s)")
                         for name in sorted(kw.cli_names, key=len, reverse=True)
                     ),
-                    self.theme.invoked_command,
+                    self._style_command_path,
                 )
 
-            # Highlight options (long and short combined). Per-keyword lookbehind
-            # excludes the option's own leading symbol to prevent matching repeated
-            # prefixes (for example, "---debug" should not match "--debug").
             all_options = sorted(
                 kw.long_options | kw.short_options, key=len, reverse=True
             )
             if all_options:
+                # Paint a numeric value spelled out beside the option it feeds,
+                # like the `1` of "--jobs 1 for sequential execution". A number
+                # is the one value shape that cannot be read as prose, so the
+                # pass stops there: the word after an option name is a value in
+                # "--jobs max" and an ordinary verb in "--wrap routes it".
+                option_alt = "|".join(re.escape(name) for name in all_options)
+                option_value_re = re.compile(
+                    rf"(?<![\w\-])(?:{option_alt})(?:\s+|=)"
+                    r"(?P<value>\d+(?:\.\d+)?)(?![\w\-])"
+                )
+
+                def style_option_value(match: re.Match[str]) -> str:
+                    value = match.group("value")
+                    return match.group()[: -len(value)] + self.theme.choice(value)
+
+                help_text = option_value_re.sub(style_option_value, help_text)
+
+                # Highlight options (long and short combined). Per-keyword
+                # lookbehind excludes the option's own leading symbol to prevent
+                # matching repeated prefixes (for example, "---debug" should not
+                # match "--debug").
                 help_text = highlight(
                     help_text,
                     (
@@ -683,6 +845,35 @@ class HelpFormatter(cloup.HelpFormatter):
             help_text = help_text.replace(key, styled)
 
         return help_text
+
+    def _style_command_path(self, path: str) -> str:
+        """Paint a command path, naming its last component a subcommand.
+
+        A root CLI is one word and keeps `invoked_command` whole. Shared by the
+        usage line and the cross-reference pass, so `my-cli pick` reads the same
+        wherever a screen writes it.
+        """
+        parent, separator, subcommand = path.rpartition(" ")
+        if not separator:
+            return self.theme.invoked_command(path)
+        return (
+            self.theme.invoked_command(parent)
+            + separator
+            + self.theme.subcommand(subcommand)
+        )
+
+    def write_usage(self, prog: str, args: str = "", prefix: str | None = None) -> None:
+        """Draw the usage line, naming the command the same way the rest does.
+
+        Reimplements `cloup.HelpFormatter.write_usage`, which paints the whole
+        command path with the `invoked_command` slot. A subcommand's path ends
+        on a name the parent screen lists under `subcommand`, and the same word
+        in two colors across two screens reads as two different things.
+        """
+        prefix = self.theme.heading("Usage:" if prefix is None else prefix) + " "
+        click.HelpFormatter.write_usage(
+            self, self._style_command_path(prog), args, prefix
+        )
 
     def write_command_help_text(self, cmd: click.Command) -> None:
         """Draw the command's description, with Click's deprecation label.
@@ -741,9 +932,16 @@ def style_choice_metavar(
     """
     wrappers = {"[": "]", "{": "}"}
     closing = wrappers.get(metavar[:1])
-    if closing is None or not metavar.endswith(closing):
+    if closing is not None and metavar.endswith(closing):
+        opening, inner = metavar[:1], metavar[1:-1]
+    elif "|" in metavar or "," in metavar:
+        # A hybrid type is free to declare its enumeration unwrapped, like the
+        # `INTEGER|auto` of a width that also takes a keyword. The separator is
+        # what makes it one, so the parts are painted with no brackets to read.
+        opening = closing = ""
+        inner = metavar
+    else:
         return None
-    inner = metavar[1:-1]
     # Read the separator off the metavar itself: a pipe for a pick-one
     # `click.Choice`, a comma for a multi-pick `MultiChoice`.
     sep = "|" if "|" in inner else ","
@@ -751,7 +949,7 @@ def style_choice_metavar(
     styled = [
         theme.choice(part) if part in choices else theme.metavar(part) for part in parts
     ]
-    return metavar[:1] + sep.join(styled) + closing
+    return opening + sep.join(styled) + closing
 
 
 def highlight(
@@ -839,12 +1037,24 @@ def highlight(
             merged.append([start, end])
 
     # Stitch the result back: unmatched gaps verbatim, matched runs styled.
+    # A styled run closes with a reset, which also closes whatever styling the
+    # run was sitting inside. Re-open what `content` left dangling there, else
+    # a keyword matched inside an already-painted region (an option name quoted
+    # in a deprecation message) strips the color off the rest of that region.
     parts: list[str] = []
     cursor = 0
+    opened = ""
     for start, end in merged:
         if start > cursor:
-            parts.append(content[cursor:start])
-        parts.append(styling_func(content[start:end]))
+            gap = content[cursor:start]
+            parts.append(gap)
+            opened = open_ansi(gap, opened)
+        raw = content[start:end]
+        styled = styling_func(raw)
+        parts.append(styled)
+        opened = open_ansi(raw, opened)
+        if opened and styled != raw:
+            parts.append(opened)
         cursor = end
     if cursor < len(content):
         parts.append(content[cursor:])

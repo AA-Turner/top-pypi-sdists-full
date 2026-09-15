@@ -19,6 +19,7 @@ from agentic_devtools.cli.audit.instruction_size import (
     check_instruction_file_sizes,
 )
 from agentic_devtools.cli.audit.labeling import cleanup_failed_batch, finalize_batch_labels
+from agentic_devtools.cli.ci.credential_roles import require_default_repo_workflow_token
 from agentic_devtools.cli.ci.provider import CIPlatformProvider
 from agentic_devtools.cli.ci.scheduler import AUTO_MERGE_LABEL
 from agentic_devtools.cli.git.remote_push import commit_and_push_branch
@@ -462,19 +463,11 @@ def _create_instruction_pr(
 
     branch_name = f"audit/instruction-update-{batch_id[:8]}"
 
-    # SPECKIT_PR_TOKEN (exposed as GH_TOKEN in the apply workflow) is only needed
-    # for PR creation, not for the push.  The push uses the ambient GITHUB_TOKEN
-    # credentials persisted by actions/checkout (contents: write on the job).
-    # We validate early so we fail fast before any git work.
-    gh_token = (os.environ.get("GH_TOKEN") or "").strip() or (os.environ.get("SPECKIT_PR_TOKEN") or "").strip()
-    if not gh_token:
-        logger.error("GH_TOKEN (or SPECKIT_PR_TOKEN) is required for pull request creation in audit apply.")
+    try:
+        gh_token = require_default_repo_workflow_token("create the instruction update pull request")
+    except RuntimeError as exc:
+        logger.error("%s", exc)
         return ""
-    # Always normalise GH_TOKEN to the final stripped value so `gh pr create` can
-    # authenticate regardless of which variable the token came from.  This also
-    # handles the edge case where GH_TOKEN was set to whitespace only: stripping
-    # it above yielded "" and we fell back to SPECKIT_PR_TOKEN, so we must update
-    # GH_TOKEN to reflect the resolved token.
     os.environ["GH_TOKEN"] = gh_token
 
     def _run_git_capture(step: str, *args: str) -> subprocess.CompletedProcess[str]:
@@ -602,7 +595,7 @@ def _create_instruction_pr(
 
         # Branch is already checked out above; skip_checkout=True delegates only
         # the stage → config → commit → push steps to the shared helper.
-        # Push authenticates using the ambient GITHUB_TOKEN credentials persisted
+        # Push authenticates using the default workflow PAT credentials persisted
         # by actions/checkout (the apply-audit job has contents: write).
         commit_and_push_branch(
             repo_path=repo_path,

@@ -26,6 +26,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import click
+import cloup
 import pytest
 from click.testing import CliRunner
 from cloup._util import identity
@@ -39,6 +40,7 @@ from click_extra import (
     echo,
     option,
     theme as _theme,
+    unstyle,
 )
 from click_extra.cli import demo
 from click_extra.theme import (
@@ -126,6 +128,39 @@ def test_demo_themes_renders_each_builtin_palette():
     # to fall back to the 16-color default, no truecolor codes would appear.
     truecolor = set(re.findall(r"\x1b\[38;2;\d+;\d+;\d+m", result.output))
     assert len(truecolor) >= 10
+
+
+def test_demo_themes_renders_only_the_named_palettes():
+    """Named theme IDs narrow the gallery down, and keep the order they were given."""
+    result = CliRunner().invoke(demo, ["themes", "nord", "dracula"], color=True)
+    assert result.exit_code == 0
+    labels = re.findall(r"\[ Theme: (\S+) \]", unstyle(result.output))
+    assert labels == ["nord", "dracula"]
+
+
+def test_demo_themes_resolves_auto_to_a_palette_name():
+    """`auto` is a directive, so the gallery labels the palette it lands on.
+
+    Which palette that is depends on the background detected from the
+    environment, so the expectation is read back from the same resolver rather
+    than pinned to ``dark``.
+    """
+    result = CliRunner().invoke(demo, ["themes", "auto"], color=True)
+    assert result.exit_code == 0
+    labels = re.findall(r"\[ Theme: (\S+) \]", unstyle(result.output))
+    resolved = resolve_auto_theme()
+    assert labels == [
+        name for name, palette in BUILTIN_THEMES.items() if palette is resolved
+    ]
+    assert labels
+
+
+def test_demo_themes_rejects_an_unknown_palette():
+    """An unknown ID fails, and the error lists every name that would have worked."""
+    result = CliRunner().invoke(demo, ["themes", "banana"])
+    assert result.exit_code != 0
+    for name in BUILTIN_THEMES:
+        assert name in result.output
 
 
 def test_theme_meta_key_matches_registry():
@@ -251,6 +286,31 @@ def test_builtin_themes_are_helpextratheme_instances():
         assert isinstance(theme, HelpTheme), (
             f"BUILTIN_THEMES[{name!r}] is {type(theme).__name__}, expected HelpTheme."
         )
+
+
+@pytest.mark.parametrize("palette", ("dark", "light"))
+def test_cloup_constructors_keep_the_subclass(palette):
+    """``dark()`` and ``light()`` are shadowed to return a click-extra theme.
+
+    Cloup declares both as static methods naming its own class, so the
+    inherited ones hand back a bare :class:`cloup.HelpTheme`. Reported at
+    https://github.com/janluke/cloup/issues/225
+    """
+    theme = getattr(HelpTheme, palette)()
+    assert type(theme) is HelpTheme
+
+    # The slots this subclass adds are there, at their default.
+    assert theme.metavar is identity
+
+    # Cloup's palette is carried over, widened to click-extra's Style so the
+    # theme stays serializable.
+    cloup_theme = getattr(cloup.HelpTheme, palette)()
+    for field in dataclasses.fields(cloup.HelpTheme):
+        value = getattr(theme, field.name)
+        assert value == getattr(cloup_theme, field.name)
+        if isinstance(value, cloup.Style):
+            assert isinstance(value, Style)
+    assert theme.to_dict()
 
 
 @pytest.mark.parametrize("theme_name", sorted(BUILTIN_THEMES))

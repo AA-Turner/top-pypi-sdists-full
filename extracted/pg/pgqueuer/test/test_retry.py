@@ -4,7 +4,9 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 from pgqueuer import db, queries
+from pgqueuer.adapters.persistence.query_helpers import cell
 from pgqueuer.domain.settings import DBSettings
+from pgqueuer.domain.types import QueueEntrypoint
 from pgqueuer.models import Job
 from pgqueuer.qm import QueueManager
 from pgqueuer.types import JobId
@@ -195,7 +197,7 @@ async def test_heartbeat_db_datetime(apgdriver: db.Driver) -> None:
         sql = f"""SELECT NOW() - heartbeat AS dt FROM {DBSettings().queue_table} WHERE id = ANY($1::bigint[])"""  # noqa: E501
         rows = await apgdriver.fetch(sql, [jobid])
         assert len(rows) == 1
-        return rows[0]["dt"]
+        return cell(rows[0], "dt", timedelta)
 
     @qm.entrypoint("fetch")
     async def fetch(context: Job) -> None:
@@ -305,7 +307,7 @@ async def test_retry_reclaims_stale_picked_job_after_crash(apgdriver: db.Driver)
     (job_id,) = await crashed_manager.queries.enqueue([entrypoint], [None], [0])
 
     execution_params = {
-        entrypoint: queries.EntrypointExecutionParameter(
+        QueueEntrypoint(entrypoint): queries.EntrypointExecutionParameter(
             concurrency_limit=concurrency_limit,
         )
     }
@@ -351,7 +353,7 @@ async def test_stale_recovery_at_concurrency_limit(apgdriver: db.Driver) -> None
     retry_timer = timedelta(milliseconds=100)
     entrypoint = "stale_at_limit"
     execution_params = {
-        entrypoint: queries.EntrypointExecutionParameter(concurrency_limit=1),
+        QueueEntrypoint(entrypoint): queries.EntrypointExecutionParameter(concurrency_limit=1),
     }
 
     q = queries.Queries(apgdriver)

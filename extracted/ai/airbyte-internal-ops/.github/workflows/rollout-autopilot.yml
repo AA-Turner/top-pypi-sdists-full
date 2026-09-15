@@ -150,6 +150,8 @@ jobs:
           AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
           AIRBYTE_INTERNAL_ADMIN_FLAG: airbyte.io
           AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
+          DEVIN_AI_ADMIN_SERVICE_TOKEN: ${{ secrets.DEVIN_AI_ADMIN_SERVICE_TOKEN }}
+          DEVIN_AI_ORG_ID: ${{ vars.DEVIN_AI_ORG_ID }}
           GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
           GITHUB_TOKEN: ${{ github.token }}
           SLACK_BOT_TOKEN_HITL: ${{ secrets.SLACK_HYDRA_BOT_TOKEN || secrets.SLACK_BOT_TOKEN_HITL || secrets.SLACK_BOT_TOKEN_AIRBYTE_TEAM }}

@@ -150,12 +150,8 @@ class AdaBoostClassifier(BaseTransformer):
         a trade-off between the `learning_rate` and `n_estimators` parameters.
         Values must be in the range `(0.0, inf)`.
 
-    algorithm: {'SAMME', 'SAMME.R'}, default='SAMME.R'
-        If 'SAMME.R' then use the SAMME.R real boosting algorithm.
-        ``estimator`` must support calculation of class probabilities.
-        If 'SAMME' then use the SAMME discrete boosting algorithm.
-        The SAMME.R algorithm typically converges faster than SAMME,
-        achieving a lower test error with fewer boosting iterations.
+    algorithm: {'SAMME'}, default='SAMME'
+        Use the SAMME discrete boosting algorithm.
 
     random_state: int, RandomState instance or None, default=None
         Controls the random seed given at each `estimator` at each
@@ -171,7 +167,7 @@ class AdaBoostClassifier(BaseTransformer):
         estimator=None,
         n_estimators=50,
         learning_rate=1.0,
-        algorithm="SAMME.R",
+        algorithm="deprecated",
         random_state=None,
         input_cols: Optional[Union[str, Iterable[str]]] = None,
         output_cols: Optional[Union[str, Iterable[str]]] = None,
@@ -197,7 +193,7 @@ class AdaBoostClassifier(BaseTransformer):
         init_args = {'estimator':(estimator, None, False),
             'n_estimators':(n_estimators, 50, False),
             'learning_rate':(learning_rate, 1.0, False),
-            'algorithm':(algorithm, "SAMME.R", False),
+            'algorithm':(algorithm, "deprecated", False),
             'random_state':(random_state, None, False),}
         cleaned_up_init_args = validate_sklearn_args(
             args=init_args,
@@ -954,7 +950,7 @@ class AdaBoostClassifier(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.ensemble.AdaBoostClassifier.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.AdaBoostClassifier.html#sklearn.ensemble.AdaBoostClassifier.score)
 

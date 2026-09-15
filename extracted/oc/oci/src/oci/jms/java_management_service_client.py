@@ -107,7 +107,7 @@ class JavaManagementServiceClient(object):
             'service_endpoint_template': 'https://javamanagement.{region}.{dualStack?ds.:}oci.{secondLevelDomain}',
             'endpoint_service_name': 'javamanagement',
             'service_endpoint_template_per_realm': {  },  # noqa: E201 E202
-            'service_uses_dualstack_endpoints_by_default': False,
+            'service_uses_dualstack_endpoints_by_default': True,
             'skip_deserialization': kwargs.get('skip_deserialization', False),
             'circuit_breaker_strategy': kwargs.get('circuit_breaker_strategy', circuit_breaker.GLOBAL_CIRCUIT_BREAKER_STRATEGY),
             'client_level_realm_specific_endpoint_template_enabled': kwargs.get('client_level_realm_specific_endpoint_template_enabled'),

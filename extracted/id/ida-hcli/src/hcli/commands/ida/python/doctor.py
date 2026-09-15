@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+from pathlib import Path
 
 import rich.status
 import rich_click as click
@@ -75,6 +76,7 @@ class DoctorReport(BaseModel):
     pip_available: bool | None
     externally_managed: bool | None
     idapython_venv_executable: str | None
+    hcli_current_ida_python_exe: str | None
     pattern: SetupPatternModel | None
     findings: list[FindingModel]
     notes: list[str]
@@ -138,7 +140,25 @@ def build_doctor_report() -> DoctorReport:
         idausr = None
 
     if resolved is None:
-        findings = [
+        findings: list[EnvironmentFinding] = []
+        venv_exe = ENV.IDAPYTHON_VENV_EXECUTABLE
+        if venv_exe and not Path(venv_exe).is_file():
+            findings.append(
+                EnvironmentFinding(
+                    id="venv-exe-not-found",
+                    severity="error",
+                    summary=(f"$IDAPYTHON_VENV_EXECUTABLE points to a file that does not exist: {venv_exe}"),
+                    detail=(
+                        "The variable is set, but the interpreter it names is not on disk. "
+                        "The virtual environment may have been deleted, moved, or not yet created."
+                    ),
+                    fix_hint=(
+                        f"Run `{ENV.HCLI_BINARY_NAME} ida python create-environment` to create a virtual "
+                        "environment and configure $IDAPYTHON_VENV_EXECUTABLE."
+                    ),
+                )
+            )
+        findings.append(
             EnvironmentFinding(
                 id="python-not-found",
                 severity="error",
@@ -150,7 +170,7 @@ def build_doctor_report() -> DoctorReport:
                     "that IDA uses."
                 ),
             )
-        ]
+        )
         return DoctorReport(
             ida_install_dir=selected.install_dir,
             ida_install_dir_source=selected.install_dir_source,
@@ -167,6 +187,7 @@ def build_doctor_report() -> DoctorReport:
             pip_available=None,
             externally_managed=None,
             idapython_venv_executable=ENV.IDAPYTHON_VENV_EXECUTABLE,
+            hcli_current_ida_python_exe=ENV.HCLI_CURRENT_IDA_PYTHON_EXE,
             pattern=None,
             findings=[FindingModel.from_finding(f) for f in findings],
             notes=[],
@@ -193,6 +214,7 @@ def build_doctor_report() -> DoctorReport:
         pip_available=state.pip_available,
         externally_managed=state.externally_managed,
         idapython_venv_executable=str(state.idapython_venv_executable) if state.idapython_venv_executable else None,
+        hcli_current_ida_python_exe=ENV.HCLI_CURRENT_IDA_PYTHON_EXE,
         pattern=SetupPatternModel.from_pattern(pattern),
         findings=[FindingModel.from_finding(f) for f in findings],
         notes=collect_context_notes(state),
@@ -234,6 +256,8 @@ def render_doctor_report_text(report: DoctorReport) -> None:
     if report.externally_managed:
         _kv("externally managed (PEP 668)", "yes")
     _kv("$IDAPYTHON_VENV_EXECUTABLE", report.idapython_venv_executable or ("not set" if report.python_exe else None))
+    if report.hcli_current_ida_python_exe:
+        _kv("$HCLI_CURRENT_IDA_PYTHON_EXE", report.hcli_current_ida_python_exe)
     console.print()
 
     if report.pattern:
@@ -255,6 +279,16 @@ def render_doctor_report_text(report: DoctorReport) -> None:
             console.print(f"[bold yellow]Warnings ({len(warnings)})[/bold yellow]")
             for finding in warnings:
                 _render_finding(finding, "yellow")
+
+        console.print(
+            "To install plugins despite these findings, pass `--no-python-environment-check`:",
+            highlight=False,
+        )
+        console.print(
+            f"  {ENV.HCLI_BINARY_NAME} plugin --no-python-environment-check install <name>",
+            highlight=False,
+        )
+        console.print()
 
     if report.notes:
         console.print("[bold]Notes[/bold]")

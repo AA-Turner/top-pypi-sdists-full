@@ -7,9 +7,6 @@ Copyright (c) 2017 Isaac Muse <isaacmuse@gmail.com>
 """
 from __future__ import annotations
 from markdown import Markdown
-from markdown.inlinepatterns import InlineProcessor
-import xml.etree.ElementTree as etree
-from collections import namedtuple
 import sys
 import copy
 import re
@@ -19,11 +16,6 @@ from urllib.parse import urlparse
 from functools import wraps
 import warnings
 from typing import Sequence, Callable, Any
-
-RE_WIN_DRIVE_LETTER = re.compile(r"^[A-Za-z]$")
-RE_WIN_DRIVE_PATH = re.compile(r"^[A-Za-z]:(?:\\.*)?$")
-RE_URL = re.compile('(http|ftp)s?|data|mailto|tel|news')
-RE_WIN_DEFAULT_PROTOCOL = re.compile(r"^///[A-Za-z]:(?:/.*)?$")
 
 if sys.platform.startswith('win'):
     _PLATFORM = "windows"
@@ -65,6 +57,12 @@ def is_mac() -> bool:  # pragma: no cover
     """Is macOS."""
 
     return _PLATFORM == "osx"
+
+
+RE_WIN_DRIVE_LETTER = re.compile(r"^[A-Za-z]$")
+RE_WIN_DRIVE_PATH = re.compile(r"^[A-Za-z]:(?:\\.*)?$")
+RE_URL = re.compile('(http|ftp)s?|data|mailto|tel|news')
+RE_WIN_DEFAULT_PROTOCOL = re.compile(r"^///[A-Za-z]:(?:/.*)?$")
 
 
 def url2path(path: str) -> str:
@@ -176,163 +174,6 @@ def parse_url(url: str) -> tuple[str, str, str, str, str, str, bool, bool]:
         is_absolute = True
 
     return (scheme, netloc, path, params, query, fragment, is_url, is_absolute)
-
-
-class PatSeqItem(namedtuple('PatSeqItem', ['pattern', 'builder', 'tags', 'full_recursion'])):
-    """Pattern sequence item item."""
-
-    def __new__(cls, pattern: re.Pattern[str], builder: str, tags: str, full_recursion: bool = False) -> PatSeqItem:
-        """Create object."""
-
-        return super().__new__(cls, pattern, builder, tags, full_recursion)
-
-
-class PatternSequenceProcessor(InlineProcessor):
-    """Processor for handling complex nested patterns such as strong and em matches."""
-
-    PATTERNS = []  # type: list[PatSeqItem]
-
-    def build_single(self, m: re.Match[str], tag: str, full_recursion: bool, idx: int) -> etree.Element:
-        """Return single tag."""
-        el1 = etree.Element(tag)
-        text = m.group(2)
-        self.parse_sub_patterns(text, el1, None, full_recursion, idx)
-        return el1
-
-    def build_double(self, m: re.Match[str], tags: str, full_recursion: bool, idx: int) -> etree.Element:
-        """Return double tag."""
-
-        tag1, tag2 = tags.split(",")
-        el1 = etree.Element(tag1)
-        el2 = etree.Element(tag2)
-        text = m.group(2)
-        self.parse_sub_patterns(text, el2, None, full_recursion, idx)
-        el1.append(el2)
-        if len(m.groups()) == 3:
-            text = m.group(3)
-            self.parse_sub_patterns(text, el1, el2, full_recursion, idx)
-        return el1
-
-    def build_double2(self, m: re.Match[str], tags: str, full_recursion: bool, idx: int) -> etree.Element:
-        """Return double tags (variant 2): `<strong>text <em>text</em></strong>`."""
-
-        tag1, tag2 = tags.split(",")
-        el1 = etree.Element(tag1)
-        el2 = etree.Element(tag2)
-        text = m.group(2)
-        self.parse_sub_patterns(text, el1, None, full_recursion, idx)
-        text = m.group(3)
-        el1.append(el2)
-        self.parse_sub_patterns(text, el2, None, full_recursion, idx)
-        return el1
-
-    def parse_sub_patterns(
-        self,
-        data: str,
-        parent: etree.Element,
-        last: etree.Element | None,
-        full_recursion: bool,
-        idx: int
-    ) -> None:
-        """
-        Parses sub patterns.
-
-        `data` (`str`):
-            text to evaluate.
-
-        `parent` (`etree.Element`):
-            Parent to attach text and sub elements to.
-
-        `last` (`etree.Element`):
-            Last appended child to parent. Can also be None if parent has no children.
-
-        `idx` (`int`):
-            Current pattern index that was used to evaluate the parent.
-
-        """
-
-        offset = 0
-        pos = 0
-
-        length = len(data)
-        while pos < length:
-            # Find the start of potential emphasis or strong tokens
-            if self.compiled_re.match(data, pos):
-                matched = False
-                # See if the we can match an emphasis/strong pattern
-                for index, item in enumerate(self.PATTERNS):
-                    # Only evaluate patterns that are after what was used on the parent
-                    if not full_recursion and index <= idx:
-                        continue
-                    m = item.pattern.match(data, pos)
-                    if m:
-                        # Append child nodes to parent
-                        # Text nodes should be appended to the last
-                        # child if present, and if not, it should
-                        # be added as the parent's text node.
-                        text = data[offset:m.start(0)]
-                        if text:
-                            if last is not None:
-                                last.tail = text
-                            else:
-                                parent.text = text
-                        el = self.build_element(m, item.builder, item.tags, item.full_recursion, index)
-                        parent.append(el)
-                        last = el
-                        # Move our position past the matched hunk
-                        offset = pos = m.end(0)
-                        matched = True
-                if not matched:
-                    # We matched nothing, move on to the next character
-                    pos += 1
-            else:
-                # Increment position as no potential emphasis start was found.
-                pos += 1
-
-        # Append any leftover text as a text node.
-        text = data[offset:]
-        if text:
-            if last is not None:
-                last.tail = text
-            else:
-                parent.text = text
-
-    def build_element(
-        self,
-        m: re.Match[str],
-        builder: str,
-        tags: str,
-        full_recursion: bool,
-        index: int
-    ) -> etree.Element:
-        """Element builder."""
-
-        if builder == 'double2':
-            return self.build_double2(m, tags, full_recursion, index)
-        elif builder == 'double':
-            return self.build_double(m, tags, full_recursion, index)
-        else:
-            return self.build_single(m, tags, full_recursion, index)
-
-    def handleMatch(  # type: ignore[override]
-        self,
-        m: re.Match[str],
-        data: str
-    ) -> tuple[etree.Element | None, int | None, int | None]:
-        """Parse patterns."""
-
-        el = None
-        start = None
-        end = None
-
-        for index, item in enumerate(self.PATTERNS):
-            m1 = item.pattern.match(data, m.start(0))
-            if m1:
-                start = m1.start(0)
-                end = m1.end(0)
-                el = self.build_element(m1, item.builder, item.tags, item.full_recursion, index)
-                break
-        return el, start, end
 
 
 def deprecated(message: str, stacklevel: int = 2) -> Callable[..., Any]:  # pragma: no cover

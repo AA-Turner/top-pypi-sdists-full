@@ -359,6 +359,7 @@ fn extract_single_page(
     Ok(PageExtraction {
         page: LitePage {
             page_number: page_number as usize,
+            page_label: document.page_label(page_index),
             page_width,
             page_height,
             content_bounds: output_options
@@ -460,13 +461,19 @@ pub struct ExtractionOutputOptions {
     pub emit_word_boxes: bool,
 }
 
+fn non_empty(value: &Option<String>) -> Option<String> {
+    value.as_ref().filter(|v| !v.is_empty()).cloned()
+}
+
 fn document_annotation(annotation: &pdfium::PdfAnnotation) -> DocumentAnnotation {
     DocumentAnnotation {
         subtype: annotation.subtype.clone(),
-        contents: annotation.contents.clone(),
-        created: annotation.created.clone(),
-        modified: annotation.modified.clone(),
-        title: annotation.title.clone(),
+        // The pdfium layer keeps present-but-empty strings as `Some("")`; this
+        // output has always omitted them.
+        contents: non_empty(&annotation.contents),
+        created: non_empty(&annotation.created),
+        modified: non_empty(&annotation.modified),
+        title: non_empty(&annotation.title),
         rect: annotation.rect.map(rect_from_pdfium),
         quadpoint_rects: annotation
             .quadpoint_rects
@@ -3919,6 +3926,7 @@ mod tests {
     fn page_with(items: Vec<TextItem>) -> LitePage {
         LitePage {
             page_number: 1,
+            page_label: None,
             page_width: 100.0,
             page_height: 100.0,
             content_bounds: None,

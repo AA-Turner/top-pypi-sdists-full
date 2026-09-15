@@ -389,9 +389,9 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
                 else:
                     try:
                         display(Markdown(fallback["markdown"]))
-                    except Exception as e:
+                    except Exception:
                         display(HTML(fallback["html"]))
-            except Exception as e:
+            except Exception:
                 pass
         elif environment == "terminal":
             if remote_content:
@@ -405,7 +405,7 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
         fallback = {"html": "", "markdown": "", "terminal": "", "simple": ""}
         if context == "loop":
             fallback["html"] = (
-                f"""
+                """
             <div style="border: 1px solid #e74c3c; padding: 15px; border-radius: 5px; margin: 10px 0;">
                 <h3 style="color: #e74c3c;">⚠️ Bạn đang sử dụng vòng lặp với quá nhiều requests</h3>
                 <p>Để tránh bị giới hạn tốc độ và tối ưu hiệu suất:</p>

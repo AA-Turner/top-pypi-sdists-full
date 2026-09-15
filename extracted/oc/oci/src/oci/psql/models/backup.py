@@ -132,6 +132,10 @@ class Backup(object):
             The value to assign to the copy_status property of this Backup.
         :type copy_status: list[oci.psql.models.BackupCopyStatusDetails]
 
+        :param kms_key_id:
+            The value to assign to the kms_key_id property of this Backup.
+        :type kms_key_id: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this Backup.
         :type freeform_tags: dict(str, str)
@@ -164,6 +168,7 @@ class Backup(object):
             'last_accepted_request_token': 'str',
             'last_completed_request_token': 'str',
             'copy_status': 'list[BackupCopyStatusDetails]',
+            'kms_key_id': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'system_tags': 'dict(str, dict(str, object))'
@@ -187,6 +192,7 @@ class Backup(object):
             'last_accepted_request_token': 'lastAcceptedRequestToken',
             'last_completed_request_token': 'lastCompletedRequestToken',
             'copy_status': 'copyStatus',
+            'kms_key_id': 'kmsKeyId',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'system_tags': 'systemTags'
@@ -209,6 +215,7 @@ class Backup(object):
         self._last_accepted_request_token = None
         self._last_completed_request_token = None
         self._copy_status = None
+        self._kms_key_id = None
         self._freeform_tags = None
         self._defined_tags = None
         self._system_tags = None
@@ -692,6 +699,30 @@ class Backup(object):
         :type: list[oci.psql.models.BackupCopyStatusDetails]
         """
         self._copy_status = copy_status
+
+    @property
+    def kms_key_id(self):
+        """
+        Gets the kms_key_id of this Backup.
+        The OCID of the master encryption key for the backup.
+
+
+        :return: The kms_key_id of this Backup.
+        :rtype: str
+        """
+        return self._kms_key_id
+
+    @kms_key_id.setter
+    def kms_key_id(self, kms_key_id):
+        """
+        Sets the kms_key_id of this Backup.
+        The OCID of the master encryption key for the backup.
+
+
+        :param kms_key_id: The kms_key_id of this Backup.
+        :type: str
+        """
+        self._kms_key_id = kms_key_id
 
     @property
     def freeform_tags(self):

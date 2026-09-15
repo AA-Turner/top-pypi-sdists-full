@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: apache-airflow-providers-influxdb
-Version: 2.11.0
+Version: 2.11.1
 Summary: Provider package apache-airflow-providers-influxdb for Apache Airflow
 Keywords: airflow-provider,influxdb,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -29,12 +29,15 @@ Requires-Dist: influxdb-client>=1.19.0
 Requires-Dist: influxdb3-python>=0.7.0
 Requires-Dist: requests>=2.32.0,<3
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-influxdb/2.11.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-influxdb/2.11.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-influxdb/2.11.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-influxdb/2.11.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
+Import-Name: airflow.providers.influxdb
+Import-Namespace: airflow
+Import-Namespace: airflow.providers
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -61,7 +64,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-influxdb``
 
-Release: ``2.11.0``
+Release: ``2.11.1``
 
 
 `InfluxDB <https://www.influxdata.com/>`__
@@ -74,7 +77,7 @@ This is a provider package for ``influxdb`` provider. All classes for this provi
 are in ``airflow.providers.influxdb`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-influxdb/2.11.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-influxdb/2.11.1/>`_.
 
 Installation
 ------------
@@ -98,25 +101,6 @@ PIP package                                 Version required
 ``requests``                                ``>=2.32.0,<3``
 ==========================================  ==================
 
-Cross provider package dependencies
------------------------------------
-
-Those are dependencies that might be needed in order to use all the features of the package.
-You need to install the specified providers in order to use them.
-
-You can install such cross-provider dependencies when installing from PyPI. For example:
-
-.. code-block:: bash
-
-    pip install apache-airflow-providers-influxdb[common.compat]
-
-
-==================================================================================================================  =================
-Dependent package                                                                                                   Extra
-==================================================================================================================  =================
-`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_  ``common.compat``
-==================================================================================================================  =================
-
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-influxdb/2.11.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-influxdb/2.11.1/changelog.html>`_.
 

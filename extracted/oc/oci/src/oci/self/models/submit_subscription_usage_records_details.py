@@ -37,7 +37,7 @@ class SubmitSubscriptionUsageRecordsDetails(object):
     def subscription_usage_records(self):
         """
         **[Required]** Gets the subscription_usage_records of this SubmitSubscriptionUsageRecordsDetails.
-        The usage records to submit. The array must contain at least one record and no more than 100 records.
+        The usage records to submit. The array must contain at least one record and no more than 1,000 records.
 
 
         :return: The subscription_usage_records of this SubmitSubscriptionUsageRecordsDetails.
@@ -49,7 +49,7 @@ class SubmitSubscriptionUsageRecordsDetails(object):
     def subscription_usage_records(self, subscription_usage_records):
         """
         Sets the subscription_usage_records of this SubmitSubscriptionUsageRecordsDetails.
-        The usage records to submit. The array must contain at least one record and no more than 100 records.
+        The usage records to submit. The array must contain at least one record and no more than 1,000 records.
 
 
         :param subscription_usage_records: The subscription_usage_records of this SubmitSubscriptionUsageRecordsDetails.

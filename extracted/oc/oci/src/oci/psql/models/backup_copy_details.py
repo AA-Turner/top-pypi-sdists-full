@@ -32,20 +32,27 @@ class BackupCopyDetails(object):
             The value to assign to the regions property of this BackupCopyDetails.
         :type regions: list[str]
 
+        :param kms_key_ids:
+            The value to assign to the kms_key_ids property of this BackupCopyDetails.
+        :type kms_key_ids: list[str]
+
         """
         self.swagger_types = {
             'compartment_id': 'str',
             'retention_period': 'int',
-            'regions': 'list[str]'
+            'regions': 'list[str]',
+            'kms_key_ids': 'list[str]'
         }
         self.attribute_map = {
             'compartment_id': 'compartmentId',
             'retention_period': 'retentionPeriod',
-            'regions': 'regions'
+            'regions': 'regions',
+            'kms_key_ids': 'kmsKeyIds'
         }
         self._compartment_id = None
         self._retention_period = None
         self._regions = None
+        self._kms_key_ids = None
 
     @property
     def compartment_id(self):
@@ -118,6 +125,30 @@ class BackupCopyDetails(object):
         :type: list[str]
         """
         self._regions = regions
+
+    @property
+    def kms_key_ids(self):
+        """
+        Gets the kms_key_ids of this BackupCopyDetails.
+        List of key ids of the remote regions
+
+
+        :return: The kms_key_ids of this BackupCopyDetails.
+        :rtype: list[str]
+        """
+        return self._kms_key_ids
+
+    @kms_key_ids.setter
+    def kms_key_ids(self, kms_key_ids):
+        """
+        Sets the kms_key_ids of this BackupCopyDetails.
+        List of key ids of the remote regions
+
+
+        :param kms_key_ids: The kms_key_ids of this BackupCopyDetails.
+        :type: list[str]
+        """
+        self._kms_key_ids = kms_key_ids
 
     def __repr__(self):
         return formatted_flat_dict(self)

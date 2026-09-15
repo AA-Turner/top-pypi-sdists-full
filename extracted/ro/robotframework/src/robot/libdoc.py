@@ -73,25 +73,28 @@ is running the module as a script like `python path/to/robot/libdoc.py`.
 Options
 =======
 
- -f --format HTML|XML|JSON|LIBSPEC
+ -f --format HTML|XML|JSON|LIBSPEC|MARKDOWN
                           Specifies whether to generate an HTML output for
-                          humans or a machine readable spec file in XML or JSON
-                          format. The LIBSPEC format means XML spec with
-                          documentations converted to HTML. The default format
-                          is got from the output file extension.
+                          humans, a machine readable spec file in XML or JSON
+                          format, or a Markdown file. The LIBSPEC format means
+                          XML spec with documentations converted to HTML. The
+                          default format is got from the output file
+                          extension. MARKDOWN is new in RF 7.5.
  -s --specdocformat RAW|HTML
                           Specifies the documentation format used with XML and
                           JSON spec files. RAW means preserving the original
                           documentation format and HTML means converting
                           documentation to HTML. The default is RAW with XML
                           spec files and HTML with JSON specs and when using
-                          the special LIBSPEC format.
- -F --docformat ROBOT|HTML|TEXT|REST
+                          the special LIBSPEC format. Not applicable with HTML
+                          or MARKDOWN outputs.
+ -F --docformat ROBOT|MARKDOWN|HTML|TEXT|REST
                           Specifies the source documentation format. Possible
                           values are Robot Framework's documentation format,
-                          HTML, plain text, and reStructuredText. The default
-                          value can be specified in library source code and
-                          the initial default value is ROBOT.
+                          Markdown, HTML, plain text and reStructuredText.
+                          The default value can be specified in library source
+                          code and the initial default value is ROBOT. Markdown
+                          support is new in RF 7.5.
     --theme DARK|LIGHT|NONE
                           Use dark or light HTML theme. If this option is not
                           used, or the value is NONE, the theme is selected
@@ -112,14 +115,20 @@ Options
 Creating documentation
 ======================
 
-When creating documentation in HTML, XML or JSON format, the output file must
-be specified as the second argument after the library or resource name or path.
+When creating documentation in HTML, XML, JSON or MARKDOWN format, the output
+file must be specified as the second argument after the library or resource
+name or path.
 
 Output format is got automatically from the output file extension. In addition
-to `*.html`, `*.xml` and `*.json` extensions, it is possible to use the special
-`*.libspec` extensions which means XML spec with actual library and keyword
-documentation converted to HTML. The format can also be set explicitly using
-the `--format` option.
+to `*.html`, `*.xml`, `*.json` and `*.md` extensions, it is possible to use the
+special `*.libspec` extensions which means XML spec with actual library and
+keyword documentation converted to HTML. The format can also be set explicitly
+using the `--format` option.
+
+Markdown output (`*.md`) writes the library or resource documentation as a
+single Markdown file, including the introduction, importing and all keywords.
+It is written as-is, with no keyword name filtering or type information.
+MARKDOWN output is new in RF 7.5.
 
 Examples:
 
@@ -127,6 +136,7 @@ Examples:
   libdoc doc/MyLibrary.json doc/MyLibrary.html
   libdoc --name MyLibrary Remote::10.0.0.42:8270 MyLibrary.xml
   libdoc MyLibrary MyLibrary.libspec
+  libdoc MyLibrary MyLibrary.md
 
 Viewing information on console
 ==============================
@@ -206,6 +216,13 @@ class LibDoc(Application):
         format, specdocformat = self._get_format_and_specdocformat(
             format, specdocformat, output
         )
+        lang = self._validate_lang(language)
+        # TODO: Markdown output doesn't support --language yet. Remove this guard,
+        # and thread `lang` through to `LibdocMarkdownWriter`, once it does.
+        if format == "MARKDOWN" and lang:
+            raise DataError(
+                "The --language option is not applicable with MARKDOWN outputs."
+            )
         if (
             format == "HTML"
             or specdocformat == "HTML"
@@ -216,7 +233,7 @@ class LibDoc(Application):
             output,
             format,
             self._validate_theme(theme, format),
-            self._validate_lang(language),
+            lang,
         )
         if not quiet:
             self.console(Path(output).absolute())
@@ -225,15 +242,17 @@ class LibDoc(Application):
         return self._validate(
             "Doc format",
             docformat,
-            ("ROBOT", "TEXT", "HTML", "REST"),
+            ("ROBOT", "MARKDOWN", "TEXT", "HTML", "REST"),
         )
 
     def _get_format_and_specdocformat(self, format, specdocformat, output):
         extension = Path(output).suffix[1:]
+        if extension and extension.lower() == "md":
+            extension = "MARKDOWN"
         format = self._validate(
             "Format",
             format or extension,
-            ("HTML", "XML", "JSON", "LIBSPEC"),
+            ("HTML", "XML", "JSON", "LIBSPEC", "MARKDOWN"),
             allow_none=False,
         )
         specdocformat = self._validate(
@@ -241,9 +260,10 @@ class LibDoc(Application):
             specdocformat,
             ("RAW", "HTML"),
         )
-        if format == "HTML" and specdocformat:
+        if format in ("HTML", "MARKDOWN") and specdocformat:
             raise DataError(
-                "The --specdocformat option is not applicable with HTML outputs."
+                "The --specdocformat option is only applicable with XML, JSON "
+                "and LIBSPEC outputs."
             )
         return format, specdocformat
 
@@ -267,7 +287,10 @@ class LibDoc(Application):
         return theme
 
     def _validate_lang(self, lang):
-        return self._validate("Language", lang, valid=[*LANGUAGES, "NONE"])
+        lang = self._validate("Language", lang, valid=[*LANGUAGES, "NONE"])
+        if not lang or lang == "NONE":
+            return None
+        return lang
 
 
 def libdoc_cli(arguments=None, exit=True):

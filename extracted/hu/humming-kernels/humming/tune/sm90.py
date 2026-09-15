@@ -1,5 +1,6 @@
 from humming import dtypes
 from humming.config import GemmType, LayerConfig
+from humming.device import current_device
 from humming.tune.base import DeviceHeuristics
 from humming.tune.candidate import (
     DeviceProfile,
@@ -33,7 +34,7 @@ class Sm90Heuristics(DeviceHeuristics):
         return DeviceProfile(
             name=f"sm{cls.sm_version}",
             sm_version=cls.sm_version,
-            num_sms=cls.get_num_sms() if include_grid_size else None,
+            num_sms=current_device.sm_count if include_grid_size else None,
             max_smem_size=cls.max_smem_size,
         )
 
@@ -65,9 +66,7 @@ class Sm90Heuristics(DeviceHeuristics):
         gemm_type: GemmType,
     ) -> bool:
         return (
-            gemm_type == GemmType.INDEXED
-            and layer_config.a_dtype.num_bits == 16
-            and not use_batch_invariant
+            gemm_type == GemmType.INDEXED and layer_config.a_dtype.num_bits == 16 and not use_batch_invariant
         )
 
     @classmethod
@@ -124,15 +123,9 @@ class Sm90Heuristics(DeviceHeuristics):
             return False
         if layer_config.use_packed_k_layout:
             return False
-        if (
-            layer_config.input_scale_group_size == 0
-            and layer_config.weight_scale_group_size == 0
-        ):
+        if layer_config.input_scale_group_size == 0 and layer_config.weight_scale_group_size == 0:
             return False
-        return not (
-            layer_config.use_fused_e8m0_scale
-            and layer_config.input_scale_group_size == 0
-        )
+        return not (layer_config.use_fused_e8m0_scale and layer_config.input_scale_group_size == 0)
 
     @classmethod
     def get_tuning_decision(
@@ -159,9 +152,7 @@ class Sm90Heuristics(DeviceHeuristics):
         if cls._uses_grouped_scale_candidates(layer_config):
             return select_grouped_scale(problem)
         if not tune_indexed_a16:
-            raise ValueError(
-                "decision traces are only available for migrated SM90 policies"
-            )
+            raise ValueError("decision traces are only available for migrated SM90 policies")
         return select_indexed_a16(
             problem,
             cls.candidate_policy,
@@ -176,9 +167,9 @@ class Sm90Heuristics(DeviceHeuristics):
         use_batch_invariant: bool = False,
         gemm_type: GemmType = GemmType.DENSE,
     ):
-        use_candidates = cls._uses_grouped_scale_candidates(
-            layer_config
-        ) or cls._uses_indexed_a16_policy(layer_config, use_batch_invariant, gemm_type)
+        use_grouped_scale_candidates = cls._uses_grouped_scale_candidates(layer_config)
+        use_indexed_a16_policy = cls._uses_indexed_a16_policy(layer_config, use_batch_invariant, gemm_type)
+        use_candidates = use_grouped_scale_candidates or use_indexed_a16_policy
         if use_candidates:
             return cls.get_tuning_decision(
                 layer_config,
@@ -202,9 +193,7 @@ class Sm90Heuristics(DeviceHeuristics):
                 gemm_type,
                 config["num_stages"],
                 warp_shape=config["warp_shape"],
-                reduce_overlap_last_stage_only=config.get(
-                    "reduce_overlap_last_stage_only", False
-                ),
+                reduce_overlap_last_stage_only=config.get("reduce_overlap_last_stage_only", False),
                 use_mbarrier=config.get("use_mbarrier", False),
                 use_warp_spec=config.get("use_warp_spec", False),
                 num_write_splits=config.get("num_write_splits", 1),

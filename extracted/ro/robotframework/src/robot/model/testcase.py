@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Generic, Sequence, Type, TYPE_CHECKING, TypeVar
 
@@ -22,6 +23,7 @@ from .body import Body, BodyItem
 from .fixture import create_fixture
 from .itemlist import ItemList
 from .keyword import Keyword
+from .metadata import Metadata
 from .modelobject import DataDict, ModelObject
 from .tags import Tags
 
@@ -52,30 +54,40 @@ class TestCase(ModelObject, Generic[KW]):
         self,
         name: str = "",
         doc: str = "",
-        tags: "Tags|Sequence[str]" = (),
-        timeout: "str|None" = None,
-        lineno: "int|None" = None,
-        parent: "TestSuite[KW, TestCase[KW]]|None" = None,
+        tags: "Tags | Sequence[str]" = (),
+        timeout: "str | None" = None,
+        lineno: "int | None" = None,
+        metadata: "Mapping[str, str] | None" = None,
+        parent: "TestSuite[KW, TestCase[KW]] | None" = None,
     ):
         self.name = name
         self.doc = doc
         self.tags = tags
+        self.metadata = metadata
         self.timeout = timeout
         self.lineno = lineno
         self.parent = parent
         self.body = []
-        self._setup: "KW|None" = None
-        self._teardown: "KW|None" = None
+        self._setup: KW | None = None
+        self._teardown: KW | None = None
 
     @setter
-    def body(self, body: "Sequence[BodyItem|DataDict]") -> Body:
+    def body(self, body: "Sequence[BodyItem | DataDict]") -> Body:
         """Test body as a :class:`~robot.model.body.Body` object."""
         return self.body_class(self, body)
 
     @setter
-    def tags(self, tags: "Tags|Sequence[str]") -> Tags:
+    def tags(self, tags: "Tags | Sequence[str]") -> Tags:
         """Test tags as a :class:`~.model.tags.Tags` object."""
         return Tags(tags)
+
+    @setter
+    def metadata(self, metadata: "Mapping[str, str] | None") -> Metadata:
+        """Test metadata as a :class:`~.model.metadata.Metadata` object.
+
+        New in Robot Framework 7.5.
+        """
+        return Metadata(metadata)
 
     @property
     def setup(self) -> KW:
@@ -112,7 +124,7 @@ class TestCase(ModelObject, Generic[KW]):
         return self._setup
 
     @setup.setter
-    def setup(self, setup: "KW|DataDict|None"):
+    def setup(self, setup: "KW | DataDict | None"):
         self._setup = create_fixture(
             self.fixture_class,
             setup,
@@ -150,7 +162,7 @@ class TestCase(ModelObject, Generic[KW]):
         return self._teardown
 
     @teardown.setter
-    def teardown(self, teardown: "KW|DataDict|None"):
+    def teardown(self, teardown: "KW | DataDict | None"):
         self._teardown = create_fixture(
             self.fixture_class,
             teardown,
@@ -194,7 +206,7 @@ class TestCase(ModelObject, Generic[KW]):
         return self.full_name
 
     @property
-    def source(self) -> "Path|None":
+    def source(self) -> "Path | None":
         return self.parent.source if self.parent is not None else None
 
     def visit(self, visitor: "SuiteVisitor"):
@@ -202,11 +214,13 @@ class TestCase(ModelObject, Generic[KW]):
         visitor.visit_test(self)
 
     def to_dict(self) -> "dict[str, Any]":
-        data: "dict[str, Any]" = {"name": self.name}
+        data: dict[str, Any] = {"name": self.name}
         if self.doc:
             data["doc"] = self.doc
         if self.tags:
             data["tags"] = tuple(self.tags)
+        if self.metadata:
+            data["metadata"] = dict(self.metadata)
         if self.timeout:
             data["timeout"] = self.timeout
         if self.lineno:
@@ -225,8 +239,8 @@ class TestCases(ItemList[TC]):
     def __init__(
         self,
         test_class: Type[TC] = TestCase,
-        parent: "TestSuite|None" = None,
-        tests: "Sequence[TC|DataDict]" = (),
+        parent: "TestSuite | None" = None,
+        tests: "Sequence[TC | DataDict]" = (),
     ):
         super().__init__(test_class, {"parent": parent}, tests)
 

@@ -21,6 +21,11 @@ from agentic_devtools.cli.ci.reconciliation.queue_store import (
 from agentic_devtools.state import serialize_queue_document
 
 
+@pytest.fixture(autouse=True)
+def _default_workflow_pat(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "default-token")
+
+
 def _make_state(*, revision: int) -> QueueState:
     return QueueState(
         repo="owner/repo",
@@ -85,7 +90,7 @@ def test_load_entry_decodes_valid_variable(monkeypatch: pytest.MonkeyPatch) -> N
     assert backing.load_entry(("owner/repo", "ai-pr-loop-state")) == (3, state)
 
 
-def test_load_entry_uses_state_writer_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_entry_uses_default_workflow_token(monkeypatch: pytest.MonkeyPatch) -> None:
     state = _make_state(revision=3)
     seen: dict[str, Any] = {}
 
@@ -93,12 +98,23 @@ def test_load_entry_uses_state_writer_token(monkeypatch: pytest.MonkeyPatch) -> 
         seen.update(kwargs)
         return _variable_payload(state)
 
-    monkeypatch.setenv("REPO_VARIABLE_WRITER_PAT", "writer-token")
+    monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "default-token")
     monkeypatch.setattr("agentic_devtools.cli.ci.github_provider._gh_api", _fake_gh_api)
 
     GitHubVariableBackingStore(repo="owner/repo").load_entry(("owner/repo", "ai-pr-loop-state"))
 
-    assert seen["token"] == "writer-token"
+    assert seen["token"] == "default-token"
+
+
+def test_load_entry_requires_default_workflow_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", raising=False)
+    monkeypatch.setenv("AI_PR_LOOP_CREDENTIAL_IDENTITY", "REPO_VARIABLE_WRITER_PAT")
+    monkeypatch.setenv("GH_TOKEN", "writer-token")
+
+    backing = GitHubVariableBackingStore(repo="owner/repo")
+
+    with pytest.raises(RuntimeError, match="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"):
+        backing.load_entry(("owner/repo", "ai-pr-loop-state"))
 
 
 def test_load_entry_rejects_oversized_variable_payload(monkeypatch: pytest.MonkeyPatch) -> None:

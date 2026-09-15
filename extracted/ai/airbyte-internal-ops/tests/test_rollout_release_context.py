@@ -15,6 +15,9 @@ from airbyte_ops_mcp.registry.release_attribution import (
     ReleaseAttributionLookupResult,
 )
 from airbyte_ops_mcp.registry.store import RegistryStore
+from airbyte_ops_mcp.slack_posting import SlackPostResult
+
+_POSTED = SlackPostResult(channel_id="C0HITL", ts="1789000000.000001")
 
 
 def _rollout() -> ConnectorRolloutRecord:
@@ -176,16 +179,42 @@ def test_alert_is_sent_when_attribution_lookup_fails(monkeypatch) -> None:
     )
     sent: dict[str, str] = {}
 
-    def capture(**kwargs: Any) -> None:
+    def capture(**kwargs: Any) -> SlackPostResult:
         sent.update(kwargs)
+        return _POSTED
 
     monkeypatch.setattr(autopilot, "send_hitl_notification", capture)
 
-    assert autopilot._send_failure_threshold_hitl(_rollout(), "1.2.3", _gate())
+    assert (
+        autopilot._send_failure_threshold_hitl(_rollout(), "1.2.3", _gate()) == _POSTED
+    )
     assert "Release PR" not in sent["message"]
     assert "Rollout paused" in sent["message"]
     assert sent["target_person"] == autopilot._AUTOPILOT_ESCALATION_FALLBACK
     assert sent["cc_persons"] == []
+
+
+def test_alert_reports_failed_investigation_lookup(monkeypatch) -> None:
+    monkeypatch.setattr(
+        autopilot, "lookup_release_attribution", lambda *args, **kwargs: _result()
+    )
+    monkeypatch.setattr(autopilot.devin_api, "is_configured", lambda: True)
+    sent: dict[str, Any] = {}
+
+    def capture(**kwargs: Any) -> SlackPostResult:
+        sent.update(kwargs)
+        return _POSTED
+
+    monkeypatch.setattr(autopilot, "send_hitl_notification", capture)
+
+    autopilot._send_failure_threshold_hitl(
+        _rollout(), "1.2.3", _gate(), investigation_lookup_failed=True
+    )
+    assert "no investigation was started" in sent["message"]
+    assert "is starting a Devin investigation" not in sent["message"]
+
+    autopilot._send_failure_threshold_hitl(_rollout(), "1.2.3", _gate())
+    assert "is starting a Devin investigation" in sent["message"]
 
 
 def test_alert_targets_the_resolved_release_contact(monkeypatch) -> None:
@@ -209,9 +238,16 @@ def test_alert_targets_the_resolved_release_contact(monkeypatch) -> None:
         autopilot, "format_github_login_contact", lambda login: f"<@{login}>"
     )
     sent: dict[str, Any] = {}
-    monkeypatch.setattr(autopilot, "send_hitl_notification", sent.update)
 
-    assert autopilot._send_failure_threshold_hitl(_rollout(), "1.2.3", _gate())
+    def capture(**kwargs: Any) -> SlackPostResult:
+        sent.update(kwargs)
+        return _POSTED
+
+    monkeypatch.setattr(autopilot, "send_hitl_notification", capture)
+
+    assert (
+        autopilot._send_failure_threshold_hitl(_rollout(), "1.2.3", _gate()) == _POSTED
+    )
     assert sent["target_person"] == "@airbyte-engineer"
     assert sent["cc_persons"] == [autopilot._AUTOPILOT_ESCALATION_FALLBACK]
     assert "Release contact: <@airbyte-engineer>" in sent["message"]

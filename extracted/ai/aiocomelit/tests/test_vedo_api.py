@@ -1,3 +1,6 @@
+# Copyright 2023 Simone Chemelli and contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for Comelit VEDO API."""
 
 from __future__ import annotations
@@ -9,7 +12,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from aiocomelit.api import ComelitVedoApi, ComelitVedoAreaObject
+from aiocomelit.api import ComelitVedoAreaObject
 from aiocomelit.const import (
     ALARM_AREA,
     ALARM_ZONE,
@@ -17,6 +20,7 @@ from aiocomelit.const import (
     VEDO,
     AlarmAreaState,
 )
+from aiocomelit.devices.vedo import ComelitVedoApi
 from aiocomelit.exceptions import CannotRetrieveData
 from tests.conftest import (
     call_private_async,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiocomelit
-Version: 2.0.7
+Version: 3.0.0
 Summary: Python library to control Comelit Simplehome
 Author-email: Simone Chemelli <simone.chemelli@gmail.com>
 License-Expression: Apache-2.0

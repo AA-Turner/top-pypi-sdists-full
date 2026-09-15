@@ -48,6 +48,7 @@ from click_extra import (
     pass_context,
     version_option,
 )
+from click_extra.cli import demo
 from click_extra.commands import (
     DEFAULT_OPTION_GROUPS,
     DEFAULT_PRIORITY,
@@ -66,6 +67,8 @@ from click_extra.pytest import (
     default_options_colored_help,
     default_options_uncolored_help,
 )
+
+from .conftest import walk_commands
 
 
 @pytest.mark.once
@@ -433,7 +436,8 @@ def test_subcommand_help(invoke, all_command_cli, cmd_id, param, assert_output_r
     colored_help_header = (
         r"It works!\n"
         r"\x1b\[94m\x1b\[4mUsage:\x1b\[0m "
-        rf"\x1b\[97m\x1b\[1mcommand-cli1 {cmd_id}\x1b\[0m"
+        r"\x1b\[97m\x1b\[1mcommand-cli1\x1b\[0m "
+        rf"\x1b\[36m\x1b\[1m{cmd_id}\x1b\[0m"
         r" \x1b\[36m\x1b\[2m\x1b\[3m\[OPTIONS\]\x1b\[0m\n"
         r"\n"
         r"\x1b\[94m\x1b\[4mOptions:\x1b\[0m\n"
@@ -1805,6 +1809,39 @@ def test_default_option_groups_name_no_stale_flag():
     assert not duplicated, f"flags claimed by more than one section: {duplicated}"
 
 
+def test_option_swapped_by_a_params_hook_keeps_its_section():
+    """An option a `params` hook replaces stays in the section of the original.
+
+    `default_params` files the instances it builds, so a replacement built after
+    that call carries none, and cloup draws it in the command's own `Options`
+    block where it reads as one the CLI author declared. Each default option is
+    swapped in turn, sections being declared one flag at a time: an option losing
+    its own would pass unseen while its siblings still hold theirs.
+    """
+    for original in default_params():
+        filed = getattr(original, "group", None)
+        assert isinstance(filed, ExtraOptionGroup)
+
+        def hook(flags=frozenset(original.opts)):
+            params = default_params()
+            for index, param in enumerate(params):
+                if flags.issubset(param.opts):
+                    params[index] = type(param)()
+            return params
+
+        @command(params=hook)
+        def cli():
+            pass
+
+        swapped = next(param for param in cli.params if param.opts == original.opts)
+        assert swapped is not original
+        refiled = getattr(swapped, "group", None)
+        assert isinstance(refiled, ExtraOptionGroup), (
+            f"{swapped.opts} lost its section on the way through the hook"
+        )
+        assert refiled.title == filed.title
+
+
 def test_lazy_group_subcommand_order_is_stable_across_loading(tmp_path, monkeypatch):
     """A lazy subcommand holds its slot before and after it is imported.
 
@@ -1941,3 +1978,74 @@ def test_option_priorities_never_reorder_positional_arguments():
     priority = cli.param_priority  # type: ignore[attr-defined]
     assert [p.name for p in arguments] == ["first", "second"]
     assert all(priority(p) == DEFAULT_PRIORITY for p in arguments)
+
+
+def _first_sentence(paragraph: str) -> str:
+    """Return what a reader takes as the first sentence of `paragraph`.
+
+    A sentence ends on a period that closes the text, or one followed by a
+    capital. An abbreviation ends on a period too, and is followed by a
+    lowercase word, which is what tells the two apart.
+    """
+    collapsed = " ".join(paragraph.split())
+    match = re.search(r"\.(?:\s+(?=[A-Z])|$)", collapsed)
+    return collapsed[: match.end()].strip() if match else collapsed
+
+
+@pytest.mark.once
+def test_command_listing_is_not_cut_by_an_abbreviation():
+    """A subcommand's line in its parent's list holds its whole first sentence.
+
+    Click ends the listing at the first word closing on a period, so an
+    abbreviation mid-sentence (`vs.`, `e.g.`, `etc.`) cuts it into a fragment:
+    `gradient` once read "Render 24-bit RGB gradients vs.", which says nothing.
+
+    The guard is narrower than "the listing reads well": it only catches a cut
+    landing before the first sentence ends, which is the one failure a docstring
+    can cause without anyone noticing.
+    """
+    # Local on purpose, against the usual module-scope rule: this private helper
+    # is absent from Click 8.4.x, and the marker above keeps the test off every
+    # matrix cell pinned to it. Collection imports the module regardless, so at
+    # module scope this import errors the whole file on those cells.
+    from click.utils import _make_default_short_help
+
+    root_ctx = click.Context(demo, info_name="click-extra")
+    offenders = []
+    for path, subcommand in walk_commands(demo, root_ctx):
+        if not path or not subcommand.help:
+            continue
+        first_paragraph = subcommand.help.split("\n\n")[0]
+        # A high limit isolates the sentence-end rule from the width one.
+        listing = _make_default_short_help(subcommand.help, 10_000)
+        expected = _first_sentence(first_paragraph)
+        if listing != expected:
+            offenders.append((" ".join(path), listing, expected))
+
+    assert not offenders, "\n".join(
+        f"{name}: listed as {listing!r}, sentence is {expected!r}"
+        for name, listing, expected in offenders
+    )
+
+
+@pytest.mark.once
+def test_no_help_screen_leaks_a_no_rewrap_marker():
+    r"""A ``\b`` marker never reaches the rendered help of any command.
+
+    Click strips the marker only where it opens a paragraph, and paragraphs are
+    split on blank lines. An epilog writing one between two indented blocks
+    without a blank line around it therefore ships the raw backspace character:
+    a terminal hides it, an HTML page does not.
+    """
+    root_ctx = click.Context(demo, info_name="click-extra")
+    offenders = []
+    for path, subcommand in walk_commands(demo, root_ctx):
+        name = " ".join(("click-extra", *path))
+        ctx = click.Context(subcommand, info_name=name)
+        # Pushed on the stack: rendering a help screen reads the active context
+        # back to resolve the theme.
+        with ctx:
+            if "\b" in subcommand.get_help(ctx):
+                offenders.append(name)
+
+    assert not offenders, "help screens leaking a \\b marker: " + ", ".join(offenders)

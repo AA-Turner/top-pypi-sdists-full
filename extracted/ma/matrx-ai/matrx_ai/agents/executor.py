@@ -67,6 +67,45 @@ from matrx_ai.config.usage_config import AggregatedUsage, TokenUsage
 ParsedT = TypeVar("ParsedT", bound=BaseModel)
 
 
+# A cancellation can arrive after Agent.execute() returned but while the
+# terminal runtime-spine write is being awaited. Keep that write alive outside
+# the caller task: otherwise the already-open utility remains RUNNING until its
+# lease expires and the reaper falsely reports it abandoned.
+_SPINE_SETTLE_TASKS: set[asyncio.Task[Any]] = set()
+
+
+def _discard_spine_settle(task: asyncio.Task[Any]) -> None:
+    _SPINE_SETTLE_TASKS.discard(task)
+    if task.cancelled():
+        return
+    try:
+        task.exception()
+    except Exception:
+        pass
+
+
+async def _settle_spine(
+    settle: Any,
+    status: str,
+    *,
+    error: str | None = None,
+    meters: dict[str, Any] | None = None,
+) -> None:
+    """Await a terminal settle without letting caller cancellation cancel it."""
+    task = asyncio.create_task(
+        settle(status, error=error, meters=meters),
+        name="internal_agent_run_spine_settle",
+    )
+    _SPINE_SETTLE_TASKS.add(task)
+    task.add_done_callback(_discard_spine_settle)
+    await asyncio.shield(task)
+
+
+# A cancellation can arrive after Agent.execute() returned but while the
+# terminal runtime-spine write is being awaited. Keep that write alive outside
+# the caller task: otherwise the already-open utility remains RUNNING until its
+# lease expires and the reaper falsely reports it abandoned.
+
 # ---------------------------------------------------------------------------
 # Result type
 # ---------------------------------------------------------------------------
@@ -216,9 +255,14 @@ def _parse_with_schema(
     return?") and return a structured error message. The raw output is
     preserved on ``AgentRunResult.output`` regardless.
     """
+    from matrx_ai.agents.response_parser import decode_residual_escapes
+
     try:
         candidate = extract_json_block(raw_output)
-        data = json.loads(candidate)
+        # THE SECOND PARSE FUNNEL. `extract_json` is the other one; both decode
+        # residual double-escaped `\uXXXX` sequences so no consumer of a parsed
+        # agent answer ever receives the literal text a model escaped twice.
+        data = decode_residual_escapes(json.loads(candidate))
     except json.JSONDecodeError as exc:
         vcprint(
             raw_output,
@@ -266,6 +310,29 @@ def _parse_with_schema(
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
+
+def bind_structured_output(agent: Agent, json_schema: type[BaseModel] | dict[str, Any]) -> None:
+    """Bind a provider-native structured-output contract onto ``agent``.
+
+    THE ONE binding step: ``run_agent`` calls it before a live run, and the
+    Batch lane (aidream ``mandates.batch_lane``) calls it before
+    ``render_agent_provider_request``, so a batched request carries the exact
+    ``response_format`` a live run would send. Raises when the schema cannot
+    be enforced (the caller decides whether that refuses the run)."""
+    from matrx_ai.config.response_format import (
+        response_format_for_model,
+        response_format_for_schema,
+    )
+
+    bound_format = (
+        response_format_for_schema(json_schema)
+        if isinstance(json_schema, dict)
+        else response_format_for_model(json_schema)
+    )
+    bound_wire = bound_format.model_dump(mode="json", by_alias=True, exclude_none=True)
+    agent.config.response_format = bound_wire
+    agent.output_schema = bound_wire["json_schema"]
 
 
 async def run_agent(
@@ -386,19 +453,7 @@ async def run_agent(
     """
     if json_schema is not None:
         try:
-            from matrx_ai.config.response_format import (
-                response_format_for_model,
-                response_format_for_schema,
-            )
-
-            bound_format = (
-                response_format_for_schema(json_schema)
-                if isinstance(json_schema, dict)
-                else response_format_for_model(json_schema)
-            )
-            bound_wire = bound_format.model_dump(mode="json", by_alias=True, exclude_none=True)
-            agent.config.response_format = bound_wire
-            agent.output_schema = bound_wire["json_schema"]
+            bind_structured_output(agent, json_schema)
         except Exception as exc:
             vcprint(
                 f"[AgentExecutor:{label}] Refusing structured-output call: {exc}",
@@ -583,7 +638,7 @@ async def run_agent(
         # The settle itself detaches its DB write, so this await is instant.
         if _spine_settle is not None:
             try:
-                await _spine_settle("cancelled")
+                await _settle_spine(_spine_settle, "cancelled")
             except Exception:  # noqa: BLE001 — the host's reaper is the backstop
                 pass
         raise
@@ -594,7 +649,9 @@ async def run_agent(
         )
         if _spine_settle is not None:
             try:
-                await _spine_settle("failed", error=str(exc) or type(exc).__name__)
+                await _settle_spine(
+                    _spine_settle, "failed", error=str(exc) or type(exc).__name__
+                )
             except Exception:  # noqa: BLE001 — the host's reaper is the backstop
                 pass
         return AgentRunResult(
@@ -661,7 +718,8 @@ async def run_agent(
             meters: dict[str, Any] = cost_meters_from_totals(
                 getattr(execute_result.usage, "total", None), label=label
             )
-            await _spine_settle(
+            await _settle_spine(
+                _spine_settle,
                 "failed" if execution_failed else "completed",
                 error=execution_error,
                 meters=meters or None,

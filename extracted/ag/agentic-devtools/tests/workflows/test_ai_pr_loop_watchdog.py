@@ -39,9 +39,9 @@ class TestAiPrLoopWatchdog:
         assert "group: ai-pr-loop-watchdog" in content
         assert "cancel-in-progress: false" in content
 
-    def test_uses_speckit_pr_token(self) -> None:
+    def test_uses_default_workflow_token_and_writer_pat(self) -> None:
         content = AI_PR_LOOP_WATCHDOG.read_text(encoding="utf-8")
-        assert "SPECKIT_PR_TOKEN" in content
+        assert "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" in content
         assert "REPO_VARIABLE_WRITER_PAT" in content
 
     def test_delegates_to_watchdog_cli(self) -> None:

@@ -11,8 +11,9 @@ Airbyte Agents connectors expose read and write actions on individual entities, 
 one action at a time, rather than the batch record replication that `airbyte.cloud`
 provides. This module is that interface.
 
-Airbyte Cloud credentials authenticate against the Agents API, so no Agents-specific
-credentials or environment variables exist: the `AIRBYTE_CLOUD_*` variables are reused.
+Airbyte Cloud credentials authenticate against the Agents API, so the `AIRBYTE_CLOUD_*`
+variables are reused. Set `AIRBYTE_AGENTS_API_URL` to override the Agents API root when
+connecting through a proxy or local development endpoint.
 
 ## Usage Examples
 
@@ -94,9 +95,14 @@ from airbyte.agents.models import (
     AgentContextStoreReadiness,
     AgentExecuteResult,
     AgentExecutionMetadata,
+    AgentSkillDocs,
+    AgentSkillInfo,
+    AgentSkillList,
+    AgentSkillSection,
     AgentWorkspaceInfo,
 )
 from airbyte.agents.organizations import AgentOrganization
+from airbyte.agents.skills import AgentSkill
 from airbyte.agents.workspaces import AgentWorkspace
 
 
@@ -107,6 +113,7 @@ if TYPE_CHECKING:
         connectors,
         models,
         organizations,
+        skills,
         workspaces,
     )
 
@@ -116,6 +123,7 @@ __all__ = [
     "connectors",
     "models",
     "organizations",
+    "skills",
     "workspaces",
     # Classes
     "AgentConnector",
@@ -127,6 +135,11 @@ __all__ = [
     "AgentExecuteResult",
     "AgentExecutionMetadata",
     "AgentOrganization",
+    "AgentSkill",
+    "AgentSkillDocs",
+    "AgentSkillInfo",
+    "AgentSkillList",
+    "AgentSkillSection",
     "AgentWorkspace",
     "AgentWorkspaceInfo",
 ]

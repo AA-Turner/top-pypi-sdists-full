@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autogluon.multimodal
-Version: 1.6.1
+Version: 1.6.2
 Summary: Fast and Accurate ML in 3 Lines of Code
 Author: AutoGluon Community
 License-Expression: Apache-2.0
@@ -44,7 +44,7 @@ Requires-Dist: torch<2.11,>=2.10; platform_system == "Darwin"
 Requires-Dist: lightning<2.7,>=2.5.1
 Requires-Dist: transformers[sentencepiece]<5.15,>=5.3
 Requires-Dist: accelerate<2.0,>=1.1.0
-Requires-Dist: fsspec[http]<=2025.3
+Requires-Dist: fsspec[http]<2027.0
 Requires-Dist: requests<3,>=2.30
 Requires-Dist: jsonschema<4.24,>=4.18
 Requires-Dist: seqeval<1.3.0,>=1.2.2
@@ -55,12 +55,12 @@ Requires-Dist: scikit-image<0.26.0,>=0.19.1
 Requires-Dist: text-unidecode<1.4,>=1.3
 Requires-Dist: torchmetrics<1.8,>=1.2.0
 Requires-Dist: omegaconf<2.4.0,>=2.1.1
-Requires-Dist: autogluon.core[raytune]==1.6.1
-Requires-Dist: autogluon.features==1.6.1
-Requires-Dist: autogluon.common==1.6.1
+Requires-Dist: autogluon.core[raytune]==1.6.2
+Requires-Dist: autogluon.features==1.6.2
+Requires-Dist: autogluon.common==1.6.2
 Requires-Dist: pytorch-metric-learning<2.9,>=1.3.0
 Requires-Dist: nlpaug<1.2.0,>=1.1.10
-Requires-Dist: nltk<3.11,>=3.10
+Requires-Dist: nltk<3.11,>=3.10.3
 Requires-Dist: openmim<0.4.0,>=0.3.7
 Requires-Dist: defusedxml<0.7.2,>=0.7.1
 Requires-Dist: jinja2<3.2,>=3.0.3

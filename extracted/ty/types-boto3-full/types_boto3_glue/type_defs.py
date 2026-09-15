@@ -881,6 +881,8 @@ __all__ = (
     "IntegrationPartitionTypeDef",
     "IntegrationResourcePropertyFilterTypeDef",
     "IntegrationResourcePropertyTypeDef",
+    "IntegrationTablePropertiesFilterTypeDef",
+    "IntegrationTablePropertiesTypeDef",
     "IntegrationTypeDef",
     "ItemErrorTypeDef",
     "IterableFormEntryTypeDef",
@@ -970,6 +972,8 @@ __all__ = (
     "ListGlossaryTermsResponseTypeDef",
     "ListIntegrationResourcePropertiesRequestTypeDef",
     "ListIntegrationResourcePropertiesResponseTypeDef",
+    "ListIntegrationTablePropertiesRequestTypeDef",
+    "ListIntegrationTablePropertiesResponseTypeDef",
     "ListIterableFormsRequestPaginateTypeDef",
     "ListIterableFormsRequestTypeDef",
     "ListIterableFormsResponseTypeDef",
@@ -3796,6 +3800,11 @@ class IntegrationPartitionTypeDef(TypedDict):
 
 
 class IntegrationResourcePropertyFilterTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Values: NotRequired[Sequence[str]]
+
+
+class IntegrationTablePropertiesFilterTypeDef(TypedDict):
     Name: NotRequired[str]
     Values: NotRequired[Sequence[str]]
 
@@ -7024,17 +7033,25 @@ class TargetTableConfigOutputTypeDef(TypedDict):
     UnnestSpec: NotRequired[UnnestSpecType]
     PartitionSpec: NotRequired[list[IntegrationPartitionTypeDef]]
     TargetTableName: NotRequired[str]
+    IntegrationArn: NotRequired[str]
 
 
 class TargetTableConfigTypeDef(TypedDict):
     UnnestSpec: NotRequired[UnnestSpecType]
     PartitionSpec: NotRequired[Sequence[IntegrationPartitionTypeDef]]
     TargetTableName: NotRequired[str]
+    IntegrationArn: NotRequired[str]
 
 
 class ListIntegrationResourcePropertiesRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     Filters: NotRequired[Sequence[IntegrationResourcePropertyFilterTypeDef]]
+    MaxRecords: NotRequired[int]
+
+
+class ListIntegrationTablePropertiesRequestTypeDef(TypedDict):
+    Marker: NotRequired[str]
+    Filters: NotRequired[Sequence[IntegrationTablePropertiesFilterTypeDef]]
     MaxRecords: NotRequired[int]
 
 
@@ -8704,6 +8721,13 @@ class GetIntegrationTablePropertiesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class IntegrationTablePropertiesTypeDef(TypedDict):
+    ResourceArn: str
+    TableName: str
+    SourceTableConfig: NotRequired[SourceTableConfigOutputTypeDef]
+    TargetTableConfig: NotRequired[TargetTableConfigOutputTypeDef]
+
+
 TargetTableConfigUnionTypeDef = Union[TargetTableConfigTypeDef, TargetTableConfigOutputTypeDef]
 
 
@@ -9489,6 +9513,12 @@ TableOptimizerTypeDef = TypedDict(
     },
 )
 IcebergSchemaUnionTypeDef = Union[IcebergSchemaTypeDef, IcebergSchemaOutputTypeDef]
+
+
+class ListIntegrationTablePropertiesResponseTypeDef(TypedDict):
+    IntegrationTablePropertiesList: list[IntegrationTablePropertiesTypeDef]
+    Marker: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateIntegrationTablePropertiesRequestTypeDef(TypedDict):

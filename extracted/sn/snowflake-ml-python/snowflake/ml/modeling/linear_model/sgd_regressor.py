@@ -153,6 +153,9 @@ class SGDRegressor(BaseTransformer):
         'elasticnet' might bring sparsity to the model (feature selection)
         not achievable with 'l2'. No penalty is added when set to `None`.
 
+        You can see a visualisation of the penalties in
+        :ref:`sphx_glr_auto_examples_linear_model_plot_sgd_penalties.py`.
+
     alpha: float, default=0.0001
         Constant that multiplies the regularization term. The higher the
         value, the stronger the regularization. Also used to compute the
@@ -163,7 +166,8 @@ class SGDRegressor(BaseTransformer):
         The Elastic Net mixing parameter, with 0 <= l1_ratio <= 1.
         l1_ratio=0 corresponds to L2 penalty, l1_ratio=1 to L1.
         Only used if `penalty` is 'elasticnet'.
-        Values must be in the range `[0.0, 1.0]`.
+        Values must be in the range `[0.0, 1.0]` or can be `None` if
+        `penalty` is not `elasticnet`.
 
     fit_intercept: bool, default=True
         Whether the intercept should be estimated or not. If False, the
@@ -232,6 +236,9 @@ class SGDRegressor(BaseTransformer):
         training when validation score returned by the `score` method is not
         improving by at least `tol` for `n_iter_no_change` consecutive
         epochs.
+
+        See :ref:`sphx_glr_auto_examples_linear_model_plot_sgd_early_stopping.py` for an
+        example of the effects of early stopping.
 
     validation_fraction: float, default=0.1
         The proportion of training data to set aside as validation set for
@@ -1078,7 +1085,7 @@ class SGDRegressor(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.linear_model.SGDRegressor.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html#sklearn.linear_model.SGDRegressor.score)
 

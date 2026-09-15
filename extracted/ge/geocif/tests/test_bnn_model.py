@@ -307,7 +307,13 @@ def test_geocif_wiring_for_bnn():
     assert '"gpr", "george", "bnn"' not in src
 
     trainers_src = (ROOT / "ml" / "trainers.py").read_text(encoding="utf-8")
-    assert '"tabicl_ft", "bnn"]' in trainers_src  # estimate_ci early-return
+    # estimate_ci must return bnn UNWRAPPED (native sigma intervals, not
+    # conformal). Asserted behaviourally: the old literal-list match broke
+    # every time another native-interval model joined that list.
+    from geocif.ml.trainers import estimate_ci as _estimate_ci
+
+    _sentinel = object()
+    assert _estimate_ci("REGRESSION", "bnn", _sentinel, 0.2, "crepes") is _sentinel
 
     utils_src = (ROOT / "utils.py").read_text(encoding="utf-8")
     assert '"bnn": "BNN"' in utils_src

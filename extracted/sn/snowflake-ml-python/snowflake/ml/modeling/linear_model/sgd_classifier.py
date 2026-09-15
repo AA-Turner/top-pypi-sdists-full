@@ -146,14 +146,19 @@ class SGDClassifier(BaseTransformer):
           in classification as well; see
           :class:`~sklearn.linear_model.SGDRegressor` for a description.
 
-        More details about the losses formulas can be found in the
-        :ref:`User Guide <sgd_mathematical_formulation>`.
+        More details about the losses formulas can be found in the :ref:`User Guide
+        <sgd_mathematical_formulation>` and you can find a visualisation of the loss
+        functions in
+        :ref:`sphx_glr_auto_examples_linear_model_plot_sgd_loss_functions.py`.
 
     penalty: {'l2', 'l1', 'elasticnet', None}, default='l2'
         The penalty (aka regularization term) to be used. Defaults to 'l2'
         which is the standard regularizer for linear SVM models. 'l1' and
         'elasticnet' might bring sparsity to the model (feature selection)
         not achievable with 'l2'. No penalty is added when set to `None`.
+
+        You can see a visualisation of the penalties in
+        :ref:`sphx_glr_auto_examples_linear_model_plot_sgd_penalties.py`.
 
     alpha: float, default=0.0001
         Constant that multiplies the regularization term. The higher the
@@ -165,7 +170,8 @@ class SGDClassifier(BaseTransformer):
         The Elastic Net mixing parameter, with 0 <= l1_ratio <= 1.
         l1_ratio=0 corresponds to L2 penalty, l1_ratio=1 to L1.
         Only used if `penalty` is 'elasticnet'.
-        Values must be in the range `[0.0, 1.0]`.
+        Values must be in the range `[0.0, 1.0]` or can be `None` if
+        `penalty` is not `elasticnet`.
 
     fit_intercept: bool, default=True
         Whether the intercept should be estimated or not. If False, the
@@ -242,6 +248,9 @@ class SGDClassifier(BaseTransformer):
         a stratified fraction of training data as validation and terminate
         training when validation score returned by the `score` method is not
         improving by at least tol for n_iter_no_change consecutive epochs.
+
+        See :ref:`sphx_glr_auto_examples_linear_model_plot_sgd_early_stopping.py` for an
+        example of the effects of early stopping.
 
     validation_fraction: float, default=0.1
         The proportion of training data to set aside as validation set for
@@ -1109,7 +1118,7 @@ class SGDClassifier(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.linear_model.SGDClassifier.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html#sklearn.linear_model.SGDClassifier.score)
 

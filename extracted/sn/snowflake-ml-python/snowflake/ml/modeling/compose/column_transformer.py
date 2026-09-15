@@ -193,19 +193,27 @@ class ColumnTransformer(BaseTransformer):
         If True, the time elapsed while fitting each transformer will be
         printed as it is completed.
 
-    verbose_feature_names_out: bool, default=True
-        If True, :meth:`ColumnTransformer.get_feature_names_out` will prefix
-        all feature names with the name of the transformer that generated that
-        feature.
-        If False, :meth:`ColumnTransformer.get_feature_names_out` will not
-        prefix any feature names and will error if feature names are not
-        unique.
+    verbose_feature_names_out: bool, str or Callable[[str, str], str], default=True
 
-    force_int_remainder_cols: bool, default=True
-        Force the columns of the last entry of `transformers_`, which
-        corresponds to the "remainder" transformer, to always be stored as
-        indices (int) rather than column names (str). See description of the
-        `transformers_` attribute for details.
+        - If True, :meth:`ColumnTransformer.get_feature_names_out` will prefix
+          all feature names with the name of the transformer that generated that
+          feature. It is equivalent to setting
+          `verbose_feature_names_out="{transformer_name}__{feature_name}"`.
+        - If False, :meth:`ColumnTransformer.get_feature_names_out` will not
+          prefix any feature names and will error if feature names are not
+          unique.
+        - If ``Callable[[str, str], str]``,
+          :meth:`ColumnTransformer.get_feature_names_out` will rename all the features
+          using the name of the transformer. The first argument of the callable is the
+          transformer name and the second argument is the feature name. The returned
+          string will be the new feature name.
+        - If ``str``, it must be a string ready for formatting. The given string will
+          be formatted using two field names: ``transformer_name`` and ``feature_name``.
+          e.g. ``"{feature_name}__{transformer_name}"``. See :meth:`str.format` method
+          from the standard library for more info.
+
+    force_int_remainder_cols: bool, default=False
+        This parameter has no effect.
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -218,7 +226,7 @@ class ColumnTransformer(BaseTransformer):
         transformer_weights=None,
         verbose=False,
         verbose_feature_names_out=True,
-        force_int_remainder_cols=True,
+        force_int_remainder_cols="deprecated",
         input_cols: Optional[Union[str, Iterable[str]]] = None,
         output_cols: Optional[Union[str, Iterable[str]]] = None,
         label_cols: Optional[Union[str, Iterable[str]]] = None,
@@ -247,7 +255,7 @@ class ColumnTransformer(BaseTransformer):
             'transformer_weights':(transformer_weights, None, False),
             'verbose':(verbose, False, False),
             'verbose_feature_names_out':(verbose_feature_names_out, True, False),
-            'force_int_remainder_cols':(force_int_remainder_cols, True, False),}
+            'force_int_remainder_cols':(force_int_remainder_cols, "deprecated", False),}
         cleaned_up_init_args = validate_sklearn_args(
             args=init_args,
             klass=sklearn.compose.ColumnTransformer

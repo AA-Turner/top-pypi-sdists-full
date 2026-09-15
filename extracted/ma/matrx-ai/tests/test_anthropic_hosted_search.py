@@ -69,7 +69,90 @@ def test_hosted_search_blocks_never_become_local_tool_calls():
         ],
     )
 
-    assert [type(block).__name__ for block in message.content] == ["TextContent"]
+    # Carried as provider state — never a ToolCallContent the local executor
+    # would try to dispatch, and never dropped (see the round-trip test below).
+    assert [type(block).__name__ for block in message.content] == [
+        "HostedToolContent",
+        "HostedToolContent",
+        "TextContent",
+    ]
+    from matrx_ai.config import ToolCallContent
+
+    assert not any(isinstance(block, ToolCallContent) for block in message.content)
+
+
+_INTERLEAVED_TURN = [
+    {"type": "thinking", "thinking": "look it up", "signature": "sig-1"},
+    {
+        "type": "server_tool_use",
+        "id": "srvtoolu_1",
+        "name": "web_search",
+        "input": {"query": "MX Master 4 810-010674"},
+        "cache_control": None,
+    },
+    {
+        "type": "web_search_tool_result",
+        "tool_use_id": "srvtoolu_1",
+        "content": [
+            {
+                "type": "web_search_result",
+                "url": "https://example.test/spec",
+                "title": "Spec",
+                "encrypted_content": "enc",
+                "page_age": None,
+            }
+        ],
+    },
+    {"type": "thinking", "thinking": "the 810 prefix differs", "signature": "sig-2"},
+    {"type": "tool_use", "id": "toolu_1", "name": "web", "input": {"action": "read", "url": "u"}},
+]
+
+
+def test_interleaved_hosted_search_turn_replays_block_for_block():
+    """The 2026-09-14 class: hosted search + extended thinking + a LOCAL tool call
+    in one turn. Anthropic requires the latest assistant message back exactly as
+    produced once a tool result follows it; dropping the hosted blocks turned
+    ``[thinking, server_tool_use, web_search_tool_result, thinking, tool_use]``
+    into ``[thinking, thinking, tool_use]`` and Anthropic refused the resend
+    ("`thinking` or `redacted_thinking` blocks ... cannot be modified")."""
+    message = Message.from_anthropic_content("assistant", _INTERLEAVED_TURN)
+    replayed = message.to_anthropic_blocks()
+
+    assert [b["type"] for b in replayed] == [b["type"] for b in _INTERLEAVED_TURN]
+    assert replayed[0] == {"type": "thinking", "thinking": "look it up", "signature": "sig-1"}
+    # Verbatim, minus the SDK's null-valued optional fields.
+    assert replayed[1] == {
+        "type": "server_tool_use",
+        "id": "srvtoolu_1",
+        "name": "web_search",
+        "input": {"query": "MX Master 4 810-010674"},
+    }
+    assert replayed[2]["content"][0] == {
+        "type": "web_search_result",
+        "url": "https://example.test/spec",
+        "title": "Spec",
+        "encrypted_content": "enc",
+    }
+    assert replayed[4]["id"] == "toolu_1"
+
+
+def test_hosted_blocks_survive_storage_and_reload():
+    from matrx_ai.config.unified_content import reconstruct_content
+
+    message = Message.from_anthropic_content("assistant", _INTERLEAVED_TURN)
+    stored = [block.to_storage_dict() for block in message.content]
+    assert stored[1]["type"] == "hosted_tool"
+    assert stored[1]["provider"] == "anthropic"
+
+    rebuilt = [reconstruct_content(item) for item in stored]
+    assert [type(b).__name__ for b in rebuilt] == [type(b).__name__ for b in message.content]
+    assert rebuilt[2].to_anthropic() == message.content[2].to_anthropic()
+
+
+def test_hosted_blocks_are_dropped_for_other_providers():
+    message = Message.from_anthropic_content("assistant", _INTERLEAVED_TURN)
+    hosted = [b for b in message.content if type(b).__name__ == "HostedToolContent"]
+    assert hosted and all(b.to_openai() is None and b.to_google() is None for b in hosted)
 
 
 async def test_nonstreaming_pause_turn_continues_and_aggregates_usage():

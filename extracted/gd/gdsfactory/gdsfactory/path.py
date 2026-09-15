@@ -989,6 +989,15 @@ def _get_named_sections(sections: tuple[Section, ...]) -> dict[str, Section]:
     return named_sections
 
 
+def _is_implicit_section_name(name: str) -> bool:
+    """Return whether a section name was assigned by gdsfactory."""
+    return name == "_default" or (
+        len(name) == 10
+        and name.startswith("s_")
+        and all(character in "0123456789abcdef" for character in name[2:])
+    )
+
+
 @overload
 def extrude(
     p: Path,
@@ -1214,10 +1223,20 @@ def extrude(
             new_stop_point = v_stop_inset + p_pts[stop_diff_idx, :]
 
             _path_points = [new_start_point]
-            _path_points.extend(p_pts[start_diff_idx + 1 : stop_diff_idx])
+            _path_points.extend(p_pts[start_diff_idx + 1 : stop_diff_idx + 1])
             _path_points.append(new_stop_point)
+            trimmed_points = np.array(_path_points, dtype=np.float64)
+            trimmed_points = trimmed_points[
+                np.concatenate(
+                    ([True], np.any(np.diff(trimmed_points, axis=0) != 0, axis=1))
+                )
+            ]
 
-            p_sec = Path(np.array(_path_points, dtype=np.float64))
+            p_sec = Path(
+                trimmed_points,
+                start_angle=p.start_angle if section.insets[0] == 0 else None,
+                end_angle=p.end_angle if section.insets[1] == 0 else None,
+            )
 
         if callable(offset_function):
             p_sec.offset(offset_function)
@@ -1408,6 +1427,17 @@ def extrude_transition(
     names2 = list(named_sections2.keys())
 
     common_sections = set(names1).intersection(names2)
+    if not common_sections and len(names1) == len(names2) == 1:
+        name1, name2 = names1[0], names2[0]
+        section1 = named_sections1[name1]
+        section2 = named_sections2[name2]
+        if (
+            _is_implicit_section_name(name1)
+            and _is_implicit_section_name(name2)
+            and get_layer(section1.layer) == get_layer(section2.layer)
+        ):
+            named_sections2[name1] = named_sections2.pop(name2)
+            common_sections = {name1}
     if not common_sections:
         raise ValueError(
             f"transition() found no common section names X1 {names1} and X2 {names2}"
@@ -1599,7 +1629,7 @@ def _compute_offset_directions(
     """
     dx = np.diff(points[:, 0])
     dy = np.diff(points[:, 1])
-    theta = np.arctan2(dy, dx)
+    theta = np.unwrap(np.arctan2(dy, dx))
     theta = np.concatenate([theta[:1], theta, theta[-1:]])
     theta_mid = (np.pi + theta[1:] + theta[:-1]) / 2
     dtheta_int = np.pi + theta[:-1] - theta[1:]

@@ -163,11 +163,12 @@ class LogisticRegressionCV(BaseTransformer):
         - `'elasticnet'`: both L1 and L2 penalty terms are added.
 
     scoring: str or callable, default=None
-        A string (see model evaluation documentation) or
-        a scorer callable object / function with signature
-        ``scorer(estimator, X, y)``. For a list of scoring functions
-        that can be used, look at :mod:`sklearn.metrics`. The
-        default scoring option used is 'accuracy'.
+        The scoring method to use for cross-validation. Options:
+
+        - str: see :ref:`scoring_string_names` for options.
+        - callable: a scorer callable object (e.g., function) with signature
+          ``scorer(estimator, X, y)``. See :ref:`scoring_callable` for details.
+        - `None`: :ref:`accuracy <accuracy_score>` is used.
 
     solver: {'lbfgs', 'liblinear', 'newton-cg', 'newton-cholesky', 'sag', 'saga'},             default='lbfgs'
 
@@ -176,18 +177,18 @@ class LogisticRegressionCV(BaseTransformer):
 
         - For small datasets, 'liblinear' is a good choice, whereas 'sag'
           and 'saga' are faster for large ones;
-        - For multiclass problems, only 'newton-cg', 'sag', 'saga' and
-          'lbfgs' handle multinomial loss;
+        - For multiclass problems, all solvers except 'liblinear' minimize the full
+          multinomial loss;
         - 'liblinear' might be slower in :class:`LogisticRegressionCV`
           because it does not handle warm-starting.
-        - 'liblinear' and 'newton-cholesky' can only handle binary classification
-          by default. To apply a one-versus-rest scheme for the multiclass setting
-          one can wrapt it with the `OneVsRestClassifier`.
-        - 'newton-cholesky' is a good choice for `n_samples` >> `n_features`,
-          especially with one-hot encoded categorical features with rare
-          categories. Be aware that the memory usage of this solver has a quadratic
-          dependency on `n_features` because it explicitly computes the Hessian
-          matrix.
+        - 'liblinear' can only handle binary classification by default. To apply a
+          one-versus-rest scheme for the multiclass setting one can wrap it with the
+          :class:`~sklearn.multiclass.OneVsRestClassifier`.
+        - 'newton-cholesky' is a good choice for
+          `n_samples` >> `n_features * n_classes`, especially with one-hot encoded
+          categorical features with rare categories. Be aware that the memory usage
+          of this solver has a quadratic dependency on `n_features * n_classes`
+          because it explicitly computes the full Hessian matrix.
 
            ================= ============================== ======================
            solver            penalty                        multinomial multiclass
@@ -195,7 +196,7 @@ class LogisticRegressionCV(BaseTransformer):
            'lbfgs'           'l2'                           yes
            'liblinear'       'l1', 'l2'                     no
            'newton-cg'       'l2'                           yes
-           'newton-cholesky' 'l2',                          no
+           'newton-cholesky' 'l2',                          yes
            'sag'             'l2',                          yes
            'saga'            'elasticnet', 'l1', 'l2'       yes
            ================= ============================== ======================
@@ -235,17 +236,13 @@ class LogisticRegressionCV(BaseTransformer):
         best scores across folds are averaged.
 
     intercept_scaling: float, default=1
-        Useful only when the solver 'liblinear' is used
-        and self.fit_intercept is set to True. In this case, x becomes
-        [x, self.intercept_scaling],
+        Useful only when the solver `liblinear` is used
+        and `self.fit_intercept` is set to `True`. In this case, `x` becomes
+        `[x, self.intercept_scaling]`,
         i.e. a "synthetic" feature with constant value equal to
-        intercept_scaling is appended to the instance vector.
-        The intercept becomes ``intercept_scaling * synthetic_feature_weight``.
-
-        Note! the synthetic feature weight is subject to l1/l2 regularization
-        as all other features.
-        To lessen the effect of regularization on synthetic feature weight
-        (and therefore on the intercept) intercept_scaling has to be increased.
+        `intercept_scaling` is appended to the instance vector.
+        The intercept becomes
+        ``intercept_scaling * synthetic_feature_weight``.
 
     multi_class: {'auto, 'ovr', 'multinomial'}, default='auto'
         If the option chosen is 'ovr', then a binary problem is fit for each

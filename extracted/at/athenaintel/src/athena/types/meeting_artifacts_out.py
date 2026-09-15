@@ -8,31 +8,33 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 class MeetingArtifactsOut(UniversalBaseModel):
     """
-    Asset IDs of the downloadable artifacts attached to a meeting.
+    Legacy asset IDs of the downloadable artifacts attached to a meeting.
 
-    Each artifact is itself an asset; a null value means the meeting does
-    not (yet) have that artifact. Individual artifacts can be downloaded
-    via the meeting download endpoint or the generic raw file data endpoint.
+    Meetings captured since September 2026 are a single asset: their
+    recording, transcript and chat are stored on the meeting itself, so every
+    ID here is null for them and the artifacts are downloaded through the
+    meeting download endpoint (``GET /meetings/{asset_id}/download``), which
+    serves both shapes. Older meetings keep their child assets and their IDs.
     """
 
     chat_asset_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Asset ID of the in-meeting chat transcript (JSON)
+    Asset ID of the in-meeting chat transcript (JSON) for meetings captured before September 2026; null for newer meetings, whose chat is downloaded via the meeting download endpoint
     """
 
     formatted_transcript_asset_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Asset ID of the formatted meeting transcript (JSON)
+    Asset ID of the formatted meeting transcript (JSON) for meetings captured before September 2026; null for newer meetings
     """
 
     recording_asset_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Asset ID of the meeting video recording (MP4)
+    Asset ID of the meeting video recording (MP4) for meetings captured before September 2026; null for newer meetings, whose recording is downloaded via the meeting download endpoint
     """
 
     transcript_asset_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Asset ID of the raw meeting transcript (JSON)
+    Asset ID of the raw meeting transcript (JSON) for meetings captured before September 2026; null for newer meetings, whose transcript is downloaded via the meeting download endpoint
     """
 
     if IS_PYDANTIC_V2:

@@ -34,25 +34,22 @@ except ImportError:
 
 def asyncio_run(coro: Coroutine[object, object, object]) -> None:
     """Run *coro* on the best event loop for this platform."""
-    if sys.platform != "win32":
-        if HAS_UVLOOP:
-            uvloop.run(coro)
+    if sys.platform == "win32":
+        # psycopg async rejects ProactorEventLoop (Windows default); force the
+        # selector loop on every supported Windows + Python combination.
+        if sys.version_info >= (3, 12):
+            asyncio.run(coro, loop_factory=asyncio.SelectorEventLoop)
+        elif sys.version_info >= (3, 11):
+            with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+                runner.run(coro)
         else:
+            # Python 3.10: no Runner, no loop_factory; mutate policy.
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
             asyncio.run(coro)
-        return
-
-    # psycopg async rejects ProactorEventLoop (Windows default); force the
-    # selector loop on every supported Windows + Python combination.
-    if sys.version_info >= (3, 12):
-        asyncio.run(coro, loop_factory=asyncio.SelectorEventLoop)
-        return
-    if sys.version_info >= (3, 11):
-        with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
-            runner.run(coro)
-        return
-    # Python 3.10: no Runner, no loop_factory; mutate policy.
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    asyncio.run(coro)
+    elif HAS_UVLOOP:
+        uvloop.run(coro)
+    else:
+        asyncio.run(coro)
 
 
 app = typer.Typer(
@@ -144,7 +141,7 @@ def main(
 def create_default_queries_factory(
     config: AppConfig,
     settings: qb.DBSettings,
-) -> Callable[..., contextlib.AbstractAsyncContextManager[queries.Queries]]:
+) -> Callable[[], contextlib.AbstractAsyncContextManager[queries.Queries]]:
     """Default Queries factory: try asyncpg, fall back to psycopg."""
 
     @contextlib.asynccontextmanager
@@ -185,12 +182,15 @@ async def yield_queries(
 ) -> AsyncGenerator[queries.Queries, None]:
     """Yield Queries from the user-supplied factory or the built-in default."""
     config: AppConfig = ctx.obj
+    factory_fn: Callable[[], object]
     if config.factory_fn_ref:
         factory_fn = factories.load_factory(config.factory_fn_ref)
     else:
         factory_fn = create_default_queries_factory(config, settings)
-    async with factories.validate_factory_result(factory_fn()) as q:
-        yield q
+    async with factories.validate_factory_result(factory_fn()) as entered:
+        if not isinstance(entered, queries.Queries):
+            raise TypeError(f"Factory must yield Queries, got {type(entered).__name__}")
+        yield entered
 
 
 def tablefmt() -> str:
@@ -219,7 +219,7 @@ async def display_stats(log_stats: list[models.LogStatistics]) -> None:
 
 async def display_pg_channel(
     connection: Driver,
-    channel: models.Channel,
+    channel: types.Channel,
 ) -> None:
     queue = asyncio.Queue[models.AnyEvent]()
     await listeners.initialize_notice_event_listener(
@@ -239,10 +239,10 @@ async def display_schedule(schedules: list[models.Schedule]) -> None:
                 (
                     x.id,
                     x.expression,
-                    x.heartbeat.astimezone() if x.heartbeat else "",
-                    x.created.astimezone() if x.created else "",
-                    x.updated.astimezone() if x.updated else "",
-                    x.next_run.astimezone() if x.next_run else "",
+                    x.heartbeat.astimezone(),
+                    x.created.astimezone(),
+                    x.updated.astimezone(),
+                    x.next_run.astimezone(),
                     x.last_run.astimezone() if x.last_run else "",
                     x.status,
                     x.entrypoint,
@@ -463,7 +463,7 @@ def listen(
 ) -> None:
     async def run() -> None:
         async with yield_queries(ctx, qb.DBSettings()) as q:
-            await display_pg_channel(q.driver, models.Channel(channel))
+            await display_pg_channel(q.driver, types.Channel(channel))
 
     asyncio_run(run())
 
@@ -565,7 +565,7 @@ def schedules(
     async def run_async() -> None:
         async with yield_queries(ctx, qb.DBSettings()) as q:
             if remove:
-                schedule_ids = {models.ScheduleId(int(x)) for x in remove if x.isdigit()}
+                schedule_ids = {types.ScheduleId(int(x)) for x in remove if x.isdigit()}
                 schedule_names = {types.CronEntrypoint(x) for x in remove if not x.isdigit()}
                 await q.delete_schedule(schedule_ids, schedule_names)
             await display_schedule(await q.peek_schedule())

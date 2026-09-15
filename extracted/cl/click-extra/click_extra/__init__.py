@@ -191,6 +191,7 @@ from .highlight import (
     HelpKeywords,
 )
 from .humanize import format_duration, format_size
+from .layout import wrap_ansi
 from .logging import (
     DebugOption,
     Formatter,
@@ -244,9 +245,9 @@ from .styling import (
     ansi_to_jira,
     ansi_to_latex,
     ansi_to_textile,
+    open_ansi,
     render_ansi,
     split_ansi,
-    wrap_ansi,
 )
 from .table import (
     ColumnsOption,
@@ -484,6 +485,7 @@ __all__ = [
     "no_color_option",
     "no_config_option",
     "normalize_config_keys",
+    "open_ansi",
     "open_file",
     "option",
     "option_group",
@@ -578,11 +580,14 @@ def _scrub_foreign_modules() -> None:
 
     click ships no `__all__`, so `from click import *` copies every submodule
     its own `__init__` binds (`click.core`, `click.globals`, `click.termui`,
-    ...), and cloup's `__all__` leaks the stdlib `warnings` module. These
-    bindings are traps: `click_extra.core.Group` would resolve to click's
-    original class instead of click-extra's override, and `globals` even
-    shadows the builtin. The package's genuine submodules, bound by the
-    relative imports above, are kept. A unittest checks none of this
+    ...), and cloup's `__all__` exports its own `warnings` and `_version`
+    submodules, the first of which shadows the stdlib name (reported at
+    [janluke/cloup#204](https://github.com/janluke/cloup/issues/204#issuecomment-5600674392)).
+    These bindings are traps: `click_extra.core.Group` would resolve to
+    click's original class instead of click-extra's override, and `globals`
+    even shadows the builtin. The package's genuine submodules, bound by the
+    relative imports above, are kept. The scrub outlives any fix upstream,
+    since click declares no `__all__` at all. A unittest checks none of this
     regresses.
     """
     import sys
@@ -602,13 +607,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "9.1.0"
+__version__ = "9.2.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "ff9f120819055a74ce31d7b780bc6c2e45ffe265"
+__git_tag_sha__ = "0537b896769a526294863265f3367174454d6e33"
 
 
 _LAZY_TEST_TOOLING = {

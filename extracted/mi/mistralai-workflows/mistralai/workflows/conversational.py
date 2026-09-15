@@ -627,6 +627,7 @@ def TextField(
     *,
     pattern: str | None = None,
     prefilled_value: str | None = None,
+    error_message: str | None = None,
 ) -> Any:
     """Create a text field for form inputs.
 
@@ -635,11 +636,18 @@ def TextField(
         pattern: Optional regex pattern for validation.
         prefilled_value: Optional pre-filled value for the UI form. This is a display hint
             only — the field remains required and must be explicitly submitted.
+        error_message: Optional human-readable message the UI shows when the value is
+            rejected, in place of the generated one such as `must match pattern "^00\\d{8}$"`.
 
     Example:
         ```python
         class MyForm(FormInput):
             name: str = TextField(description="Enter your name", prefilled_value="John Doe")
+            booking: str = TextField(
+                description="Booking reference",
+                pattern=r"^00\\d{8}$",
+                error_message="Booking reference must be 00 followed by 8 digits.",
+            )
         ```
     """
 
@@ -657,6 +665,10 @@ def TextField(
         schema["type"] = "string"
         if validated_initial is not None:
             schema["default"] = validated_initial
+        if error_message is not None:
+            # `errorMessage` is the ajv-errors JSON Schema extension the Le Chat
+            # form renderer reads. Server-side validation stays on the pattern.
+            schema["errorMessage"] = error_message
         schema.pop("title", None)
 
     return Field(

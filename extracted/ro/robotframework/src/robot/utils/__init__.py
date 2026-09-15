@@ -88,6 +88,7 @@ from .misc import (
     seq2str as seq2str,
     seq2str2 as seq2str2,
     test_or_task as test_or_task,
+    validate_literal as validate_literal,
 )
 from .normalizing import (
     normalize as normalize,
@@ -139,7 +140,6 @@ from .robottypes import (
     is_falsy as is_falsy,
     is_list_like as is_list_like,
     is_truthy as is_truthy,
-    is_union as is_union,
     type_name as type_name,
     type_repr as type_repr,
     typeddict_types as typeddict_types,
@@ -157,19 +157,12 @@ from .text import (
     getshortdoc as getshortdoc,
     pad_console_length as pad_console_length,
     split_args_from_name_or_path as split_args_from_name_or_path,
-    split_tags_from_doc as split_tags_from_doc,
 )
 from .typehints import (
     copy_signature as copy_signature,
     KnownAtRuntime as KnownAtRuntime,
 )
 from .unic import prepr as prepr, safe_str as safe_str
-
-
-def read_rest_data(rstfile):
-    from .restreader import read_rest_data
-
-    return read_rest_data(rstfile)
 
 
 def unic(item):
@@ -186,9 +179,16 @@ def __getattr__(name):
     # See also 'unic' above and 'PY2' in 'platform.py'.
     # https://github.com/robotframework/robotframework/issues/4501
 
+    import sys
     from io import StringIO
     from os import PathLike
+    from typing import get_origin, Union
     from xml.etree import ElementTree as ET
+
+    if sys.version_info >= (3, 10):
+        from types import UnionType
+    else:
+        UnionType = ()
 
     from .robottypes import FALSE_STRINGS, TRUE_STRINGS
 
@@ -217,6 +217,25 @@ def __getattr__(name):
     def is_pathlike(item):
         return isinstance(item, PathLike)
 
+    def read_rest_data(rstfile):
+        from robot.running.builder.restreader import read_rest_data
+
+        return read_rest_data(rstfile)
+
+    def split_tags_from_doc(doc):
+        doc = doc.rstrip()
+        tags = []
+        if not doc:
+            return doc, tags
+        lines = doc.splitlines()
+        if lines[-1].upper().strip().startswith("TAGS:"):
+            doc = "\n".join(lines[:-1]).rstrip()
+            tags = [tag.strip() for tag in lines[-1].split(":", 1)[1].split(",")]
+        return doc, tags
+
+    def is_union(item):
+        return isinstance(item, UnionType) or get_origin(item) is Union
+
     deprecated = {
         "RERAISED_EXCEPTIONS": (KeyboardInterrupt, SystemExit, MemoryError),
         "FALSE_STRINGS": FALSE_STRINGS,
@@ -237,6 +256,9 @@ def __getattr__(name):
         "roundup": round,
         "py2to3": py2to3,
         "py3to2": py3to2,
+        "read_rest_data": read_rest_data,
+        "split_tags_from_doc": split_tags_from_doc,
+        "is_union": is_union,
     }
 
     if name in deprecated:

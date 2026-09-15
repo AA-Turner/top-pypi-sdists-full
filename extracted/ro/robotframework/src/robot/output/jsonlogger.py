@@ -60,6 +60,7 @@ class JsonLogger:
             name=test.name,
             doc=test.doc,
             tags=test.tags,
+            metadata=test.metadata,
             lineno=test.lineno,
             timeout=str(test.timeout) if test.timeout else None,
             **self._status(test),
@@ -225,15 +226,15 @@ class JsonLogger:
 
     def _dict(
         self,
-        container: "str|None" = "body",
-        name: "str|None" = None,
+        container: "str | None" = "body",
+        name: "str | None" = None,
         /,
         **items,
     ):
         self._start(container, name, **items)
         self._end()
 
-    def _list(self, name: "str|None", items: list):
+    def _list(self, name: "str | None", items: list):
         self.writer.start_list(name)
         for item in items:
             self._dict(None, None, **item)
@@ -241,8 +242,8 @@ class JsonLogger:
 
     def _start(
         self,
-        container: "str|None" = "body",
-        name: "str|None" = None,
+        container: "str | None" = "body",
+        name: "str | None" = None,
         /,
         **items,
     ):
@@ -299,7 +300,7 @@ class JsonWriter:
         self._write(char)
         self.comma = False
 
-    def _newline(self, comma: "bool|None" = None, newline: bool = True):
+    def _newline(self, comma: "bool | None" = None, newline: bool = True):
         if self.comma if comma is None else comma:
             self._write(",")
         if newline:

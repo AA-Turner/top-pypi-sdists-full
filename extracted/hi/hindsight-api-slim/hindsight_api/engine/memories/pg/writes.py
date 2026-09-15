@@ -71,6 +71,7 @@ async def insert_facts(
     tags_list = []
     observation_scopes_list = []
     text_signals_list = []
+    attachment_ids_list = []
 
     for fact in facts:
         fact_texts.append(_sanitize_text(fact.fact_text))
@@ -110,6 +111,10 @@ async def insert_facts(
             except (ValueError, AttributeError):
                 pass
         text_signals_list.append(" ".join(signal_parts) if signal_parts else None)
+        # Short ids of the attachments this fact was drawn from, as the extractor
+        # attributed them. Empty for a fact stated in the prose — which is most of
+        # them, and the reason this is per fact rather than per chunk.
+        attachment_ids_list.append(json.dumps(list(dict.fromkeys(fact.attachment_ids))))
 
     # Batch insert all facts — delegates to DataAccessOps which handles
     # unnest (PG) vs row-by-row (Oracle) transparently.
@@ -132,6 +137,7 @@ async def insert_facts(
         tags_list,
         observation_scopes_list,
         text_signals_list,
+        attachment_ids_list,
         text_search_extension=config.text_search_extension,
     )
 
@@ -469,23 +475,26 @@ async def restore_memory(*, conn, fq_table, bank_id: str, unit_id: str) -> Store
         str(unit_id),
         bank_id,
     )
+    from .graph import _ops_for
+
     # Restore the entity postings for entities that still exist — some may have
-    # been swept as orphans while the memory was archived.
+    # been swept as orphans while the memory was archived — and give each one
+    # back the mention invalidation took from it (#4291). One call: the credit
+    # has to follow the postings actually written, so the two cannot be decided
+    # separately.
     if arch_row["entity_ids"]:
-        await conn.execute(
-            f"INSERT INTO {ue} (unit_id, entity_id) "
-            f"SELECT $1, eid FROM unnest($2::uuid[]) AS eid "
-            f"WHERE EXISTS (SELECT 1 FROM {ent} e WHERE e.id = eid AND e.bank_id = $3) "
-            f"ON CONFLICT DO NOTHING",
+        await _ops_for(conn).restore_entity_postings(
+            conn,
+            ue,
+            ent,
+            bank_id,
             str(unit_id),
             arch_row["entity_ids"],
-            bank_id,
         )
     # Rematerialize the causal edges parked at invalidation (#2864). Edges whose peer is still
     # archived or permanently deleted are skipped — the peer keeps its own copy and recreates the
     # edge when it reverts, so the restore is order-independent and idempotent.
     from ...retain.link_utils import rematerialize_causal_links
-    from .graph import _ops_for
 
     causal_json = await conn.fetchval(
         f"SELECT causal_links FROM {arch} WHERE id = $1 AND bank_id = $2", str(unit_id), bank_id
@@ -529,6 +538,7 @@ async def apply_edit(
     event_date,
     mentioned_at,
     entity_ids: list[str] | None,
+    embedding=None,
 ) -> None:
     # `entity_ids` and `mentioned_at` are unused here: the entity postings are
     # re-linked into `unit_entities` by the caller, and an edit does not move the
@@ -548,22 +558,23 @@ async def apply_edit(
     # would see the pre-edit values.
     sv_expr = pg_search_vector_expr(get_config(), text_col="$3", context_col="$4")
     sv_clause = f", search_vector = {sv_expr}" if sv_expr else ""
+    # The re-embedded vector rides the edit's own UPDATE. It describes the text being written by
+    # this statement, so writing it here is what keeps the two from ever disagreeing — and it
+    # spares a store whose write is not a row update a second write of this row.
+    params: list = [str(unit_id), bank_id, text, context, fact_type, occurred_start, occurred_end, event_date]
+    embedding_clause = ""
+    if embedding is not None:
+        params.append(embedding)
+        embedding_clause = f", embedding = ${len(params)}::vector"
     await conn.execute(
         f"""
         UPDATE {mu}
         SET text = $3, context = $4, fact_type = $5, occurred_start = $6, occurred_end = $7,
             event_date = $8, consolidated_at = NULL, consolidation_failed_at = NULL,
-            edited_at = now(), updated_at = now(){sv_clause}
+            edited_at = now(), updated_at = now(){sv_clause}{embedding_clause}
         WHERE id = $1 AND bank_id = $2
         """,
-        str(unit_id),
-        bank_id,
-        text,
-        context,
-        fact_type,
-        occurred_start,
-        occurred_end,
-        event_date,
+        *params,
     )
     # Drop only the DERIVED links — graph maintenance recomputes temporal/semantic. Causal edges
     # are retain-time extraction output that nothing recreates, so an edit preserves them (#2864).

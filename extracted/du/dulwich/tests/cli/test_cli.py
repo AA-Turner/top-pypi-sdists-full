@@ -48,7 +48,7 @@ from dulwich.cli import (
     parse_time_to_timestamp,
     write_columns,
 )
-from dulwich.objects import Blob, Tag, Tree
+from dulwich.objects import Blob, Commit, Tag, Tree
 from dulwich.porcelain import gc, rev_parse
 from dulwich.repo import Repo
 from dulwich.tests.utils import (
@@ -288,6 +288,146 @@ class CommitCommandTest(DulwichCliTestCase):
         _result, _stdout, _stderr = self._run_cli("commit", "--message=Initial commit")
         # Check that HEAD points to a commit
         self.assertIsNotNone(self.repo.head())
+
+    def test_commit_author(self):
+        """Explicit authors, including Unicode names, do not change the committer."""
+        self.overrideEnv("GIT_COMMITTER_NAME", "Test Committer")
+        self.overrideEnv("GIT_COMMITTER_EMAIL", "committer@example.com")
+        for author in (
+            "Other Author <author@example.com>",
+            "Zoë Example <zoe@example.com>",
+        ):
+            with self.subTest(author=author):
+                result, _stdout, _stderr = self._run_cli(
+                    "commit", "-m", "Authored commit", "--author", author
+                )
+                self.assertIsNone(result)
+                commit = self.repo[self.repo.head()]
+                self.assertEqual(commit.author, author.encode("utf-8"))
+                self.assertEqual(
+                    commit.committer, b"Test Committer <committer@example.com>"
+                )
+
+    def test_commit_amend_author(self):
+        """Amend preserves the original author unless explicitly overridden."""
+        self.overrideEnv("GIT_COMMITTER_NAME", "Test Committer")
+        self.overrideEnv("GIT_COMMITTER_EMAIL", "committer@example.com")
+        original_author = b"Original Author <original@example.com>"
+        for author in (None, "Other Author <other@example.com>"):
+            with self.subTest(author=author):
+                original_id = porcelain.commit(
+                    self.repo, message=b"Original commit", author=original_author
+                )
+                original = self.repo[original_id]
+                args = ["commit", "--amend", "-m", "Amended commit"]
+                if author is not None:
+                    args.extend(["--author", author])
+                result, _stdout, _stderr = self._run_cli(*args)
+                self.assertIsNone(result)
+                commit = self.repo[self.repo.head()]
+                expected_author = (
+                    original_author if author is None else author.encode("utf-8")
+                )
+                self.assertEqual(commit.author, expected_author)
+                self.assertEqual(
+                    commit.committer, b"Test Committer <committer@example.com>"
+                )
+                self.assertEqual(commit.parents, original.parents)
+                self.assertEqual(commit.message, b"Amended commit")
+
+    def test_commit_reuse_message(self):
+        """Reusing a message preserves authorship, not committer or parents."""
+        self.overrideEnv("GIT_COMMITTER_NAME", "New Committer")
+        self.overrideEnv("GIT_COMMITTER_EMAIL", "new@example.com")
+        for flag in ("-C", "--reuse-message", "-c", "--reedit-message"):
+            with self.subTest(flag=flag):
+                original_id = porcelain.commit(
+                    self.repo,
+                    message="Original café\n",
+                    author=b"Old <old@example.com>",
+                    author_timestamp=1234567890,
+                    author_timezone=19800,
+                    commit_timestamp=1234567890,
+                )
+                with patch(
+                    "dulwich.cli.launch_editor", return_value=b"Edited message\n"
+                ) as editor:
+                    result, _, _ = self._run_cli("commit", flag, original_id.decode())
+                self.assertIsNone(result)
+                commit = self.repo[self.repo.head()]
+                self.assertEqual(commit.author, b"Old <old@example.com>")
+                self.assertEqual(commit.author_time, 1234567890)
+                self.assertEqual(commit.author_timezone, 19800)
+                self.assertEqual(commit.committer, b"New Committer <new@example.com>")
+                self.assertNotEqual(commit.commit_time, 1234567890)
+                self.assertEqual(commit.parents, [original_id])
+                if flag in ("-c", "--reedit-message"):
+                    self.assertEqual(commit.message, b"Edited message\n")
+                    self.assertTrue(
+                        editor.call_args.args[0].startswith("Original café\n".encode())
+                    )
+                else:
+                    self.assertEqual(commit.message, "Original café\n".encode())
+                    editor.assert_not_called()
+
+    def test_commit_reuse_message_amend_author_override(self):
+        """An explicit author overrides reused authorship when amending."""
+        source = porcelain.commit(
+            self.repo, message=b"Source", author_timestamp=1234567890
+        )
+        head = porcelain.commit(self.repo, message=b"Head")
+        result, _, _ = self._run_cli(
+            "commit",
+            "--amend",
+            "-C",
+            source.decode(),
+            "--author",
+            "Other <other@example.com>",
+        )
+        self.assertIsNone(result)
+        commit = self.repo[self.repo.head()]
+        self.assertEqual(commit.message, b"Source")
+        self.assertEqual(commit.author, b"Other <other@example.com>")
+        self.assertEqual(commit.author_time, 1234567890)
+        self.assertEqual(commit.parents, self.repo[head].parents)
+
+    def test_commit_reuse_invalid_arguments(self):
+        """Conflicting message flags leave HEAD unchanged."""
+        head = porcelain.commit(self.repo, message=b"Original")
+        for args in (
+            ("-m", "new", "-C", "HEAD"),
+            ("-C", "HEAD", "-c", "HEAD"),
+        ):
+            with self.subTest(args=args):
+                with self.assertRaises(SystemExit) as error:
+                    self._run_cli("commit", *args)
+                self.assertEqual(error.exception.code, 2)
+                self.assertEqual(self.repo.head(), head)
+
+    def test_commit_reuse_invalid_source(self):
+        """Commit resolution errors propagate without changing HEAD."""
+        head = porcelain.commit(self.repo, message=b"Original")
+        blob = Blob.from_string(b"not a commit")
+        self.repo.object_store.add_object(blob)
+        for flag in ("-C", "--reuse-message", "-c", "--reedit-message"):
+            for source, error_type in (
+                ("missing", KeyError),
+                ("", KeyError),
+                (blob.id.decode(), ValueError),
+            ):
+                with self.subTest(flag=flag, source=source):
+                    with self.assertRaises(error_type):
+                        self._run_cli("commit", flag, source)
+                    self.assertEqual(self.repo.head(), head)
+
+    @patch("dulwich.cli.launch_editor", return_value=b"")
+    def test_commit_reedit_empty_message(self, editor):
+        """Cancelling the reused message editor leaves the existing commit intact."""
+        head = porcelain.commit(self.repo, message=b"Original")
+        result, _, _ = self._run_cli("commit", "-c", "HEAD")
+        self.assertEqual(result, 1)
+        self.assertEqual(self.repo.head(), head)
+        editor.assert_called_once()
 
     def test_commit_all_flag(self):
         # Create initial commit
@@ -544,6 +684,33 @@ class StatusCommandTest(DulwichCliTestCase):
 
 class BranchCommandTest(DulwichCliTestCase):
     """Tests for branch command."""
+
+    def test_branch_list_local_defaults(self) -> None:
+        self._run_cli("commit", "--message=Initial")
+        self._run_cli("branch", "feature-one")
+        self._run_cli("branch", "feature-two")
+        refs_before = self.repo.refs.as_dict()
+        local_names = {"master", "feature-one", "feature-two"}
+        cases = [
+            ((), local_names),
+            (("--list",), local_names),
+            (("--list", "feature-*"), {"feature-one", "feature-two"}),
+            (("--list", "missing-*"), set()),
+            (("--column",), local_names),
+        ]
+        for args, expected in cases:
+            with self.subTest(args=args):
+                result, stdout, _stderr = self._run_cli("branch", *args)
+                self.assertEqual(result, 0)
+                self.assertEqual(set(stdout.split()), expected)
+                self.assertEqual(self.repo.refs.as_dict(), refs_before)
+
+    def test_branch_list_empty_repository(self) -> None:
+        for args in [(), ("--list",), ("--list", "missing-*")]:
+            with self.subTest(args=args):
+                result, stdout, _stderr = self._run_cli("branch", *args)
+                self.assertEqual(result, 0)
+                self.assertEqual(stdout, "")
 
     def test_branch_create(self):
         # Create initial commit
@@ -1021,7 +1188,7 @@ class VerifyCommitCommandTest(DulwichCliTestCase):
         # Mock the porcelain.verify_commit function since we don't have GPG setup
         with patch("dulwich.cli.porcelain.verify_commit") as mock_verify:
             _result, stdout, _stderr = self._run_cli("verify-commit", "HEAD")
-            mock_verify.assert_called_once_with(".", "HEAD")
+            mock_verify.assert_called_once_with(None, "HEAD")
             self.assertIn("Good signature", stdout)
 
     def test_verify_commit_multiple(self):
@@ -1056,7 +1223,7 @@ class VerifyCommitCommandTest(DulwichCliTestCase):
         with patch("dulwich.cli.porcelain.verify_commit") as mock_verify:
             # Test that verify-commit without arguments defaults to HEAD
             _result, stdout, _stderr = self._run_cli("verify-commit")
-            mock_verify.assert_called_once_with(".", "HEAD")
+            mock_verify.assert_called_once_with(None, "HEAD")
             self.assertIn("Good signature", stdout)
 
 
@@ -1077,7 +1244,7 @@ class VerifyTagCommandTest(DulwichCliTestCase):
         # Mock the porcelain.verify_tag function since we don't have GPG setup
         with patch("dulwich.cli.porcelain.verify_tag") as mock_verify:
             _result, stdout, _stderr = self._run_cli("verify-tag", "v1.0")
-            mock_verify.assert_called_once_with(".", "v1.0")
+            mock_verify.assert_called_once_with(None, "v1.0")
             self.assertIn("Good signature", stdout)
 
     def test_verify_tag_multiple(self):
@@ -1722,6 +1889,86 @@ class ShowRefCommandTest(DulwichCliTestCase):
         expected = f"{v1_sha} refs/tags/v1.0\n{v2_sha} refs/tags/v2.0"
         self.assertEqual(output, expected)
 
+    def test_show_ref_dereference_nested_tags(self):
+        """show-ref --dereference peels chains of annotated tags."""
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("test content")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=Test commit")
+        commit_sha = self.repo.refs[b"HEAD"]
+
+        # Build a chain of annotated tags on top of the commit, with two refs
+        # pointing at the tip so the shared chain is peeled more than once.
+        obj_id = commit_sha
+        obj_class = Commit
+        for i in range(3):
+            tag = Tag()
+            tag.name = b"nested-%d" % i
+            tag.message = b"nested tag\n"
+            tag.tagger = b"Test <test@example.com>"
+            tag.tag_time = 0
+            tag.tag_timezone = 0
+            tag.object = (obj_class, obj_id)
+            self.repo.object_store.add_object(tag)
+            obj_id, obj_class = tag.id, Tag
+
+        self.repo.refs[b"refs/tags/tip-a"] = obj_id
+        self.repo.refs[b"refs/tags/tip-b"] = obj_id
+
+        result = porcelain.show_ref(self.repo, tags=True, dereference=True)
+        self.assertEqual(
+            [
+                (obj_id, b"refs/tags/tip-a"),
+                (commit_sha, b"refs/tags/tip-a^{}"),
+                (obj_id, b"refs/tags/tip-b"),
+                (commit_sha, b"refs/tags/tip-b^{}"),
+            ],
+            result,
+        )
+
+    def test_show_ref_dereference_shared_chain_work_bound(self):
+        """Refs sharing a tag chain peel it once, not once per ref."""
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("test content")
+        self._run_cli("add", "test.txt")
+        self._run_cli("commit", "--message=Test commit")
+
+        depth = 20
+        obj_id = self.repo.refs[b"HEAD"]
+        obj_class = Commit
+        for i in range(depth):
+            tag = Tag()
+            tag.name = b"chain-%d" % i
+            tag.message = b"chain tag\n"
+            tag.tagger = b"Test <test@example.com>"
+            tag.tag_time = 0
+            tag.tag_timezone = 0
+            tag.object = (obj_class, obj_id)
+            self.repo.object_store.add_object(tag)
+            obj_id, obj_class = tag.id, Tag
+
+        refs = 20
+        for i in range(refs):
+            self.repo.refs[b"refs/tags/shared-%02d" % i] = obj_id
+
+        loaded: list[bytes] = []
+        store = self.repo.object_store
+        real_getitem = type(store).__getitem__
+
+        def counting_getitem(inner_store, sha):
+            loaded.append(sha)
+            return real_getitem(inner_store, sha)
+
+        with patch.object(type(store), "__getitem__", counting_getitem):
+            result = porcelain.show_ref(self.repo, tags=True, dereference=True)
+
+        self.assertEqual(2 * refs, len(result))
+        # Without memoization this is refs * depth; the chain is walked once
+        # and each remaining ref only costs its own lookup.
+        self.assertLess(len(loaded), depth + 2 * refs)
+
     def test_show_ref_hash_only(self):
         """Test show-ref with --hash option to show only OID."""
         # Create a commit
@@ -2352,7 +2599,7 @@ class PushCommandTest(DulwichCliTestCase):
     def test_push_force(self, mock_push):
         _result, _stdout, _stderr = self._run_cli("push", "-f", "origin")
         mock_push.assert_called_with(
-            ".",
+            None,
             "origin",
             None,
             force=True,
@@ -2374,7 +2621,7 @@ class PushCommandTest(DulwichCliTestCase):
             "push", "-o", "topic=my-feature", "origin"
         )
         mock_push.assert_called_with(
-            ".",
+            None,
             "origin",
             None,
             force=False,
@@ -2401,7 +2648,7 @@ class PushCommandTest(DulwichCliTestCase):
             "origin",
         )
         mock_push.assert_called_with(
-            ".",
+            None,
             "origin",
             None,
             force=False,
@@ -2421,7 +2668,7 @@ class PushCommandTest(DulwichCliTestCase):
     def test_push_all(self, mock_push):
         _result, _stdout, _stderr = self._run_cli("push", "--all", "origin")
         mock_push.assert_called_with(
-            ".",
+            None,
             "origin",
             None,
             force=False,
@@ -2441,7 +2688,7 @@ class PushCommandTest(DulwichCliTestCase):
     def test_push_tags(self, mock_push):
         _result, _stdout, _stderr = self._run_cli("push", "--tags", "origin")
         mock_push.assert_called_with(
-            ".",
+            None,
             "origin",
             None,
             force=False,
@@ -2463,7 +2710,7 @@ class PushCommandTest(DulwichCliTestCase):
             "push", "--delete", "origin", "refs/heads/foo"
         )
         mock_push.assert_called_with(
-            ".",
+            None,
             "origin",
             ["refs/heads/foo"],
             force=False,
@@ -2483,7 +2730,7 @@ class PushCommandTest(DulwichCliTestCase):
     def test_push_dry_run(self, mock_push):
         _result, _stdout, _stderr = self._run_cli("push", "--dry-run", "origin")
         mock_push.assert_called_with(
-            ".",
+            None,
             "origin",
             None,
             force=False,
@@ -2503,7 +2750,7 @@ class PushCommandTest(DulwichCliTestCase):
     def test_push_set_upstream(self, mock_push):
         _result, _stdout, _stderr = self._run_cli("push", "-u", "origin", "main")
         mock_push.assert_called_with(
-            ".",
+            None,
             "origin",
             ["main"],
             force=False,
@@ -2523,7 +2770,7 @@ class PushCommandTest(DulwichCliTestCase):
     def test_push_mirror(self, mock_push):
         _result, _stdout, _stderr = self._run_cli("push", "--mirror", "origin")
         mock_push.assert_called_with(
-            ".",
+            None,
             "origin",
             None,
             force=False,
@@ -5186,6 +5433,52 @@ class DiagnoseCommandTest(DulwichCliTestCase):
 
             # Check that at least core dependencies are listed
             self.assertIn("urllib3:", log_output)
+
+
+class RepoDiscoveryTest(DulwichCliTestCase):
+    """Tests that commands locate the repository like git does."""
+
+    def _run_cli_in(self, cwd, *args, env=None):
+        """Run a CLI command from an arbitrary directory."""
+        old_cwd = os.getcwd()
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        old_environ = dict(os.environ)
+        try:
+            if env is not None:
+                os.environ.update(env)
+            sys.stdout = io.StringIO()
+            sys.stderr = io.StringIO()
+            os.chdir(cwd)
+            return cli.main(list(args)), sys.stdout.getvalue()
+        finally:
+            os.chdir(old_cwd)
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+            os.environ.clear()
+            os.environ.update(old_environ)
+
+    def setUp(self):
+        super().setUp()
+        path = os.path.join(self.repo_path, "a.txt")
+        with open(path, "w") as f:
+            f.write("contents")
+        self._run_cli("add", "a.txt")
+        self._run_cli("commit", "--message=Initial commit")
+
+    def test_discovery_from_subdirectory(self):
+        subdir = os.path.join(self.repo_path, "sub", "dir")
+        os.makedirs(subdir)
+        _result, stdout = self._run_cli_in(subdir, "log")
+        self.assertIn("Initial commit", stdout)
+
+    def test_git_dir_environment_variable(self):
+        outside = os.path.join(self.test_dir, "outside")
+        os.mkdir(outside)
+        _result, stdout = self._run_cli_in(
+            outside, "log", env={"GIT_DIR": os.path.join(self.repo_path, ".git")}
+        )
+        self.assertIn("Initial commit", stdout)
 
 
 if __name__ == "__main__":

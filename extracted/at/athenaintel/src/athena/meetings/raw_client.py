@@ -158,7 +158,7 @@ class RawMeetingsClient:
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[MeetingOut]:
         """
-        Retrieve a single meeting by its asset ID, including status, AI summary, participants, and the asset IDs of its downloadable artifacts (recording, transcripts, chat).
+        Retrieve a single meeting by its asset ID, including status, AI summary, participants, and the asset IDs of its downloadable artifacts (recording, transcripts, chat). Meetings captured since September 2026 store their artifacts on the meeting itself, so those IDs are null for them; use the download endpoint, which serves both shapes.
 
         Parameters
         ----------
@@ -234,7 +234,7 @@ class RawMeetingsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[typing.Optional[typing.Any]]:
         """
-        Download a meeting artifact. By default streams a ZIP archive containing metadata.json plus every available artifact (video recording, raw transcript, formatted transcript, chat). Pass the artifact parameter to download a single artifact instead.
+        Download a meeting artifact. By default streams a ZIP archive containing metadata.json plus every available artifact (video recording, raw transcript, formatted transcript, chat). Pass the artifact parameter to download a single artifact instead. Works for every meeting, whether its artifacts are stored on the meeting itself (meetings captured since September 2026, whose artifact asset IDs are null) or as separate child assets.
 
         Parameters
         ----------
@@ -448,7 +448,7 @@ class AsyncRawMeetingsClient:
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[MeetingOut]:
         """
-        Retrieve a single meeting by its asset ID, including status, AI summary, participants, and the asset IDs of its downloadable artifacts (recording, transcripts, chat).
+        Retrieve a single meeting by its asset ID, including status, AI summary, participants, and the asset IDs of its downloadable artifacts (recording, transcripts, chat). Meetings captured since September 2026 store their artifacts on the meeting itself, so those IDs are null for them; use the download endpoint, which serves both shapes.
 
         Parameters
         ----------
@@ -524,7 +524,7 @@ class AsyncRawMeetingsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
         """
-        Download a meeting artifact. By default streams a ZIP archive containing metadata.json plus every available artifact (video recording, raw transcript, formatted transcript, chat). Pass the artifact parameter to download a single artifact instead.
+        Download a meeting artifact. By default streams a ZIP archive containing metadata.json plus every available artifact (video recording, raw transcript, formatted transcript, chat). Pass the artifact parameter to download a single artifact instead. Works for every meeting, whether its artifacts are stored on the meeting itself (meetings captured since September 2026, whose artifact asset IDs are null) or as separate child assets.
 
         Parameters
         ----------

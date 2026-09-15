@@ -1,5 +1,3 @@
-
-
 [build-system]
 requires = ["setuptools>=61.0", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
@@ -24,13 +22,15 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: GIS",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
+    "joblib",
     "libpysal>=4.12",
-    "matplotlib>=3.8",
-    "numpy>=1.26",
-    "pandas>=2.1",
-    "scipy>=1.12",
+    "matplotlib>=3.10",
+    "numpy>=2.0",
+    "pandas>=2.3",
+    "scipy>=1.14",
+    "tqdm",
 ]
 
 [project.urls]
@@ -43,13 +43,15 @@ dev = [
     "ruff",
 ]
 docs = [
+    "geopandas",
+    "ipykernel",
     "nbsphinx",
     "numpydoc",
+    "pydata-sphinx-theme",
     "sphinx",
-    "sphinxcontrib-bibtex",
     "sphinx-gallery",
     "sphinx_bootstrap_theme",
-    "pydata-sphinx-theme"
+    "sphinxcontrib-bibtex",
 ]
 tests = [
     "codecov",
@@ -95,4 +97,3 @@ exclude_lines = [
 ]
 ignore_errors = true
 omit = ["inequality/tests/*", "docs/conf.py"]
- 

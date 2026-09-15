@@ -12,6 +12,7 @@ from matrx_ai.config.config_utils import (
 from matrx_ai.config.extra_config import (
     CodeExecutionContent,
     CodeExecutionResultContent,
+    HostedToolContent,
     WebSearchCallContent,
 )
 from matrx_ai.config.media_config import (
@@ -832,6 +833,7 @@ UnifiedContent = (
     | CodeExecutionContent
     | CodeExecutionResultContent
     | WebSearchCallContent
+    | HostedToolContent
     # The full STRUCTURED_INPUT_TYPE_MAP, all fourteen.
     | WebpageInputContent
     | NotesInputContent
@@ -1039,6 +1041,15 @@ def _decode_content_block(block: dict[str, Any]) -> UnifiedContent:
             id=block.get("id", ""),
             status=block.get("status", ""),
             action=meta.get("action", {}),
+        )
+
+    elif block_type == "hosted_tool":
+        raw_block = block.get("block")
+        raw_meta = block.get("metadata")
+        return HostedToolContent(
+            provider=str(block.get("provider", "") or ""),
+            block=dict(raw_block) if isinstance(raw_block, dict) else {},
+            metadata=dict(raw_meta) if isinstance(raw_meta, dict) else {},
         )
 
     elif block_type in STRUCTURED_INPUT_TYPE_MAP:

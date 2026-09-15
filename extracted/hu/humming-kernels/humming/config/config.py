@@ -7,7 +7,17 @@ import torch
 
 from humming import dtypes
 from humming.config.base import BaseHummingConfig
-from humming.config.enum import GemmType, MmaType, WeightScale2Type, WeightScaleType
+from humming.config.enum import (
+    ActivationType,
+    GemmType,
+    InputQuantizationMode,
+    MmaType,
+    ProcessInputLayoutType,
+    WeightScale2Type,
+    WeightScaleType,
+)
+from humming.device import DeviceInfo, current_device
+from humming.utils.math import round_up
 
 
 @functools.cache
@@ -18,6 +28,8 @@ def _cuda_compiler_version(compiler_cls):
 
 @dataclasses.dataclass(kw_only=True, unsafe_hash=True)
 class LayerConfig(BaseHummingConfig):
+    sm_version: int | None = None
+
     # shape config
     shape_n: int
     shape_k: int
@@ -31,6 +43,7 @@ class LayerConfig(BaseHummingConfig):
     c_dtype: dtypes.DataType
     bs_dtype: dtypes.DataType | None = None
     as_dtype: dtypes.DataType | None = None
+    input_quant_mode: InputQuantizationMode | str | None = None
 
     # quant param config
     input_scale_group_size: int = 0
@@ -63,6 +76,12 @@ class LayerConfig(BaseHummingConfig):
         "has_channel_weight_scale",
         "has_tensor_weight_scale",
         "has_input_scale",
+        "has_input_scale_2",
+        "is_group_input_scale",
+        "is_token_input_scale",
+        "is_tensor_input_scale",
+        "is_token_input_scale_2",
+        "is_tensor_input_scale_2",
         "use_native_dequant",
     )
 
@@ -71,15 +90,14 @@ class LayerConfig(BaseHummingConfig):
         from humming.jit.runtime import KernelRuntime
 
         cuda_version = _cuda_compiler_version(KernelRuntime._get_compiler())
-        major, minor = torch.cuda.get_device_capability()
-        sm = major * 10 + minor
-        native_low_bit_sm = sm >= 100
-        if self.mma_type != MmaType.MMA:
+        assert self.sm_version is not None
+        native_low_bit_sm = self.sm_version >= 100
+        if self.mma_type not in (MmaType.MMA, MmaType.UMMA):
             return False
 
         accepted_b_dtype = tuple()
         if self.a_dtype == dtypes.float16:
-            if sm >= 89 and cuda_version >= (11, 8):
+            if self.sm_version >= 89 and cuda_version >= (11, 8):
                 accepted_b_dtype += (dtypes.float8e4m3, dtypes.float8e5m2)
             if native_low_bit_sm and cuda_version >= (12, 7):
                 accepted_b_dtype += (dtypes.float4e2m1, dtypes.float6e3m2, dtypes.float6e2m3)
@@ -97,9 +115,16 @@ class LayerConfig(BaseHummingConfig):
 
     @property
     def mxmma_supported(self):
-        if torch.cuda.get_device_capability()[0] != 12:
+        assert self.sm_version is not None
+        if self.sm_version // 10 != 12:
             return False
-        if not (self.is_group_weight_scale or self.is_channel_weight_scale):
+        if self.input_quant_mode == InputQuantizationMode.DynamicGroupToken:
+            if self.a_dtype not in (dtypes.float4e2m1, dtypes.float4e0m3):
+                return False
+            if self.input_scale_group_size != 16:
+                return False
+        is_channel_or_tensor_weight_scale = self.is_channel_weight_scale or self.is_tensor_weight_scale
+        if not (self.is_group_weight_scale or is_channel_or_tensor_weight_scale):
             return False
         if (
             self.is_group_weight_scale
@@ -109,7 +134,7 @@ class LayerConfig(BaseHummingConfig):
             return False
         if self.a_dtype in (dtypes.float8e4m3, dtypes.float8e5m2, dtypes.float8e3m4):
             return self.input_scale_group_size in (0, 32) and (
-                self.is_channel_weight_scale
+                is_channel_or_tensor_weight_scale
                 or self.weight_scale_group_size == 32
                 and self.bs_dtype == dtypes.float8e8m0
             )
@@ -118,7 +143,7 @@ class LayerConfig(BaseHummingConfig):
                 return False
 
             return self.input_scale_group_size in (0, 16, 32) and (
-                self.is_channel_weight_scale
+                is_channel_or_tensor_weight_scale
                 or self.weight_scale_group_size == 16
                 and self.bs_dtype in (dtypes.float8e8m0, dtypes.float8e4m3)
                 or self.weight_scale_group_size == 32
@@ -128,6 +153,9 @@ class LayerConfig(BaseHummingConfig):
         return False
 
     def __post_init__(self):
+        if self.sm_version is None:
+            self.sm_version = current_device.sm_version
+
         self.problem_shape = (0, self.shape_n, self.shape_k)
         self.pad_shape = (0, self.pad_shape_n, self.pad_shape_k)
 
@@ -165,7 +193,25 @@ class LayerConfig(BaseHummingConfig):
                 value = dtypes.DataType.from_str(value)
             setattr(self, f"{name}_dtype", value)
 
-        self.has_input_scale = self.a_dtype.num_bits != 16
+        if isinstance(self.input_quant_mode, str):
+            self.input_quant_mode = InputQuantizationMode(self.input_quant_mode)
+        elif self.input_quant_mode is None:
+            if self.a_dtype.num_bits == 16:
+                self.input_quant_mode = InputQuantizationMode.Disabled
+            elif self.input_scale_group_size > 0:
+                self.input_quant_mode = InputQuantizationMode.DynamicGroup
+            else:
+                self.input_quant_mode = InputQuantizationMode.DynamicToken
+
+        self.has_input_scale = self.input_quant_mode.should_quantize
+        self.has_input_scale_2 = self.input_quant_mode.has_secondary_scale
+        self.is_group_input_scale = self.input_quant_mode.has_group_scale
+        self.is_token_input_scale = self.input_quant_mode == InputQuantizationMode.DynamicToken
+        self.is_tensor_input_scale = self.input_quant_mode == InputQuantizationMode.StaticTensor
+        self.is_token_input_scale_2 = self.input_quant_mode == InputQuantizationMode.DynamicGroupToken
+        self.is_tensor_input_scale_2 = self.input_quant_mode == InputQuantizationMode.StaticTensorDynamicGroup
+        assert self.has_input_scale == (self.a_dtype.num_bits != 16)
+        assert self.is_group_input_scale == (self.input_scale_group_size > 0)
         self.bs_dtype = self.bs_dtype or self.c_dtype
 
         if isinstance(self.b_dtype, dtypes.IntegerType):
@@ -181,15 +227,25 @@ class LayerConfig(BaseHummingConfig):
         if isinstance(self.mma_type, str):
             self.mma_type = MmaType(self.mma_type)
         elif self.mma_type is None:
-            sm_version = torch.cuda.get_device_capability()[0]
-            if sm_version == 9:
+            assert self.sm_version is not None
+            if self.sm_version // 10 == 9:
                 self.mma_type = MmaType.WGMMA
             elif self.mxmma_supported:
                 self.mma_type = MmaType.MXMMA
+            elif self.sm_version // 10 == 10 and self.a_dtype == self.c_dtype == dtypes.bfloat16:
+                from humming.jit.runtime import KernelRuntime
+
+                version = _cuda_compiler_version(KernelRuntime._get_compiler())
+                self.mma_type = MmaType.UMMA if version >= (12, 9) else MmaType.MMA
             else:
                 self.mma_type = MmaType.MMA
+        if self.has_input_scale_2:
+            assert self.mma_type == MmaType.MXMMA, f"{self.input_quant_mode.value} requires mma_type='mxmma'"
         if self.mma_type == MmaType.MXMMA and self.is_group_weight_scale and self.input_scale_group_size > 0:
             assert self.input_scale_group_size == self.weight_scale_group_size
+        if self.input_quant_mode == InputQuantizationMode.DynamicGroupToken:
+            assert self.a_dtype in (dtypes.float4e2m1, dtypes.float4e0m3)
+            assert self.input_scale_group_size == 16
 
         if not self.has_input_scale:
             self.as_dtype = None
@@ -203,6 +259,11 @@ class LayerConfig(BaseHummingConfig):
                     self.as_dtype = dtypes.float8e8m0
             else:
                 self.as_dtype = dtypes.float32
+
+        if self.input_quant_mode == InputQuantizationMode.DynamicGroupToken:
+            assert self.as_dtype == dtypes.float8e4m3
+        if self.mma_type == MmaType.MXMMA and self.is_group_input_scale and self.is_group_weight_scale:
+            assert self.as_dtype == self.bs_dtype
 
         is_channel_scale_2 = self.weight_scale_2_type == WeightScale2Type.CHANNEL
 
@@ -276,22 +337,19 @@ class LayerConfig(BaseHummingConfig):
             raise AttributeError(f"Instance is frozen, cannot set {name}")
         super().__setattr__(name, value)
 
-    def estimate_bound_min_shape_m(self, use_f16_accum: bool = False):
-        from humming.utils.device import estimate_compute_bound_threshold
-
-        return estimate_compute_bound_threshold(
-            weight_nbytes=self.weight_nbytes // (self.num_experts or 1),
-            shape_n=self.shape_n,
-            shape_k=self.shape_k,
-            dtype=str(self.a_dtype),
-            use_f16_accum=use_f16_accum,
-        )
+    def check_device(self, device: int | torch.device) -> None:
+        actual_sm = DeviceInfo(device).sm_version
+        if actual_sm != self.sm_version:
+            raise RuntimeError(
+                f"LayerConfig targets sm{self.sm_version}, but the input is on sm{actual_sm}; "
+                "transform the layer separately for each GPU architecture"
+            )
 
     @property
     def mma_type_id(self):
         assert self.mma_type is not None
         value = self.mma_type.value.lower()
-        return ["mma", "wgmma", "umma_placeholder", "mxmma"].index(value)
+        return ["mma", "wgmma", "umma", "mxmma"].index(value)
 
     @property
     def mxmma_native_mixed(self) -> bool:
@@ -307,7 +365,7 @@ class LayerConfig(BaseHummingConfig):
         num_groups = self.shape_k / (self.weight_scale_group_size or self.shape_k)
         assert self.bs_dtype is not None
         nbytes2 = self.shape_n * num_groups * self.bs_dtype.num_bits // 8
-        nbytes3 = self.shape_n * num_groups * (math.ceil(self.b_dtype.num_bits / 4) * 4) // 8
+        nbytes3 = self.shape_n * num_groups * round_up(self.b_dtype.num_bits, 4) // 8
         nbytes = nbytes1 + nbytes2
         if self.has_zero_point and self.is_fp_zero_point:
             nbytes = nbytes + nbytes2
@@ -328,7 +386,7 @@ class LayerConfig(BaseHummingConfig):
     def should_apply_bs_on_c(self):
         if self.use_fused_e8m0_scale:
             return False
-        elif self.mma_type == MmaType.MMA:
+        elif self.mma_type in (MmaType.MMA, MmaType.UMMA):
             return self.weight_scale_group_size == 0 or self.a_dtype.num_bits != 16
         elif self.mma_type == MmaType.WGMMA:
             return self.weight_scale_group_size == 0
@@ -360,6 +418,8 @@ class ComputeConfig(BaseHummingConfig):
         self.is_grouped_contiguous_gemm = self.gemm_type == GemmType.GROUPED_CONTIGUOUS
         self.is_grouped_masked_gemm = self.gemm_type == GemmType.GROUPED_MASKED
         self.is_grouped_gemm = self.is_grouped_contiguous_gemm or self.is_grouped_masked_gemm
+        if self.is_indexed_gemm:
+            assert not self.use_m_major_input_scale, "indexed GEMM does not support m-major input scales"
 
     @property
     def gemm_type_id(self):
@@ -385,6 +445,7 @@ class TuningConfig(BaseHummingConfig):
     use_tma: bool | None = None
     use_tma_a: bool | None = None
     use_tma_as: bool | None = None
+    use_tma_as2: bool | None = None
     use_tma_b: bool | None = None
     use_tma_c: bool | None = None
     use_tma_bs: bool | None = None
@@ -410,6 +471,7 @@ class TuningConfig(BaseHummingConfig):
     _name_map = {
         "use_mbarrier": "kUseMBarrier",
         "use_tma_as": "kUseTmaAS",
+        "use_tma_as2": "kUseTmaAS2",
         "use_tma_bs": "kUseTmaBS",
         "use_tma_bs2": "kUseTmaBS2",
         "use_tma_bzp": "kUseTmaBZP",
@@ -427,8 +489,7 @@ class TuningConfig(BaseHummingConfig):
             self.use_mbarrier = self.use_tma or self.use_warp_spec
 
         if self.use_cp_async is None:
-            sm_version = torch.cuda.get_device_capability()
-            self.use_cp_async = sm_version[0] >= 8
+            self.use_cp_async = current_device.sm_major >= 8
 
         self.num_math_threads = math.prod(self.block_shape) // math.prod(self.warp_shape) * 32
         if self.use_warp_spec:
@@ -448,3 +509,99 @@ class TuningConfig(BaseHummingConfig):
                 assert getattr(self, name) is not True
             if getattr(self, name) is None:
                 setattr(self, name, self.use_tma)
+
+
+@dataclasses.dataclass(kw_only=True, unsafe_hash=True)
+class ProcessInputProblemConfig(BaseHummingConfig):
+    input_dtype: dtypes.DataType
+    hidden_size: int
+    quant_mode: InputQuantizationMode = InputQuantizationMode.Disabled
+    quant_dtype: dtypes.DataType | None = None
+    quant_group_size: int | None = None
+    group_scale_dtype: dtypes.DataType | None = None
+    use_m_major_input_scale: bool = False
+    activation_type: ActivationType = ActivationType.None_
+    activation_impl: str | None = None
+    hadamard_block_size: int | None = None
+    layout: ProcessInputLayoutType = ProcessInputLayoutType.Normal
+    scatter_width: int = 1
+    zero_invalid: bool = False
+
+    def __post_init__(self):
+        self.quant_mode = InputQuantizationMode(self.quant_mode)
+        self.activation_type = ActivationType(self.activation_type)
+        self.layout = ProcessInputLayoutType(self.layout)
+        self.input_dtype = self.input_dtype and dtypes.DataType.from_any(self.input_dtype)
+        self.quant_dtype = self.quant_dtype and dtypes.DataType.from_any(self.quant_dtype)
+        self.group_scale_dtype = self.group_scale_dtype and dtypes.DataType.from_any(self.group_scale_dtype)
+        assert self.hidden_size > 0
+        assert self.quant_mode.should_quantize == (self.quant_dtype is not None)
+
+        if self.activation_type != ActivationType.None_:
+            assert self.activation_impl, "activation_impl is required"
+
+        self.hadamard_block_size = self.hadamard_block_size or 1
+        if self.quant_mode.has_group_scale:
+            self.quant_group_size = self.quant_group_size or min(self.hidden_size & -self.hidden_size, 512)
+        else:
+            self.quant_group_size = self.hidden_size
+
+        if self.group_scale_dtype is None:
+            self.group_scale_dtype = dtypes.float32
+            if self.quant_mode == InputQuantizationMode.DynamicGroupToken:
+                self.group_scale_dtype = dtypes.float8e4m3
+
+    @property
+    def input_row_size(self) -> int:
+        return self.hidden_size * (2 if self.activation_type.is_binary else 1)
+
+    @property
+    def input_torch_dtype(self) -> torch.dtype:
+        return dtypes.torch_dtype_map[self.input_dtype]
+
+    @property
+    def output_packing(self) -> int:
+        return 8 // self.quant_dtype.num_bits if self.quant_dtype is not None else 1
+
+    @property
+    def output_row_size(self) -> int:
+        return self.hidden_size // self.output_packing
+
+    @property
+    def output_torch_dtype(self) -> torch.dtype:
+        dtype = self.quant_dtype or self.input_dtype
+        return dtypes.torch_dtype_map.get(dtype, torch.uint8)
+
+    @property
+    def group_scale_torch_dtype(self) -> torch.dtype:
+        if self.group_scale_dtype.num_bits == 8:
+            return torch.int32
+        return dtypes.torch_dtype_map[self.group_scale_dtype]
+
+    def get_group_scale_shape(self, rows: int) -> tuple[int, int]:
+        groups = self.hidden_size // self.quant_group_size
+        if self.group_scale_dtype.num_bits == 8:
+            groups = (groups + 3) // 4
+        if self.use_m_major_input_scale:
+            return groups, round_up(rows, 4)
+        return rows, groups
+
+
+@dataclasses.dataclass(kw_only=True, unsafe_hash=True)
+class ProcessInputTuningConfig(BaseHummingConfig):
+    threads_per_task: int
+    values_per_thread: int
+    tokens_per_block: int = 1
+    use_tile_partition: bool = False
+    separate_outputs: bool = False
+    two_stage: bool = False
+    finalize_tokens_per_block: int = 4
+    use_pdl: bool = False
+
+    @property
+    def threads(self) -> int:
+        return self.threads_per_task * self.tokens_per_block
+
+    @property
+    def columns_per_task(self) -> int:
+        return self.threads_per_task * self.values_per_thread

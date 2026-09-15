@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: networkit
-Version: 11.2.1
+Version: 11.2.2
 Summary: NetworKit is a toolbox for high-performance network analysis
 Home-page: https://networkit.github.io/
 Download-URL: https://pypi.python.org/pypi/networkit
@@ -58,10 +58,6 @@ Description-Content-Type: text/markdown
 Requires-Dist: scipy
 Requires-Dist: numpy
 Requires-Dist: tabulate
-Dynamic: author-email
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: platform
 
 <div id="top"></div>
 

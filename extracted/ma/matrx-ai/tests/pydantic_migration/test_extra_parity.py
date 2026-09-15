@@ -15,11 +15,13 @@ import pytest
 from matrx_ai.config.extra_config import (
     CodeExecutionContent,
     CodeExecutionResultContent,
+    HostedToolContent,
     WebSearchCallContent,
 )
 from matrx_ai.config.models.extra import (
     CodeExecutionContentModel,
     CodeExecutionResultContentModel,
+    HostedToolContentModel,
     ProviderChargeModel,
     WebSearchCallContentModel,
 )
@@ -29,6 +31,7 @@ PAIRS = [
     (CodeExecutionContent, CodeExecutionContentModel),
     (CodeExecutionResultContent, CodeExecutionResultContentModel),
     (WebSearchCallContent, WebSearchCallContentModel),
+    (HostedToolContent, HostedToolContentModel),
     (ProviderCharge, ProviderChargeModel),
 ]
 IDS = [old.__name__ for old, _ in PAIRS]

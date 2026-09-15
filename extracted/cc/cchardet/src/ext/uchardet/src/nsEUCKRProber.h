@@ -50,16 +50,20 @@ public:
     Reset();
   }
   virtual ~nsEUCKRProber(void){delete mCodingSM;}
-  nsProbingState HandleData(const char* aBuf, PRUint32 aLen);
+  nsProbingState HandleData(const char* aBuf, PRUint32 aLen,
+                            int** codePointBuffer,
+                            int*  codePointBufferIdx);
+  virtual int GetCandidates() { return 1; }
   /* "Unified Hangul Code", also called "CP949" or "Windows-949" is a
    * superset of EUC-KR. Though not fully ok to return UHC here (a
    * separate prober would be better), it is acceptable, since many
    * Korean documents are actually created with this character set.
    */
-  const char* GetCharSetName() {return "UHC";}
+  const char* GetCharSetName(int) {return "UHC";}
+  const char* GetLanguage(int) {return "ko";}
   nsProbingState GetState(void) {return mState;}
   void      Reset(void);
-  float     GetConfidence(void);
+  float     GetConfidence(int);
   void      SetOpion() {}
 
 protected:

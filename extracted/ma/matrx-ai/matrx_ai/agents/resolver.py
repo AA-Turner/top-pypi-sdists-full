@@ -96,6 +96,8 @@ class ConversationResolver:
         conversation_id: str,
         user_input: str | list[dict[str, Any]] | None = None,
         config_overrides: LLMParams | None = None,
+        responder_agent_id: str | None = None,
+        responder_is_version: bool = False,
     ) -> UnifiedConfig:
         """Return a UnifiedConfig ready for execution.
 
@@ -104,8 +106,42 @@ class ConversationResolver:
         can reuse structural resolution; cached continuations still fence their
         messages against durable history.
 
+        ``responder_agent_id`` names an agent that supplies the STRUCTURAL
+        configuration for this turn — system prompt, model, tools, settings —
+        while the conversation still supplies the history. It exists for a
+        conversation that has no configuration of its own to resolve: a coding
+        session mirrored into AI Matrx is agentless by construction and its
+        ``config`` blob is empty, so the ordinary path resolved a config with no
+        model and the turn died at the provider. With a responder the SAME send
+        boundary, history fence, and override handling below apply — this is not
+        a second resolution path, only a different source for the structural
+        half. The conversation row is never rewritten: the choice is per turn,
+        and the process cache is deliberately NOT primed with it, so a later
+        change to that choice takes effect on the very next turn.
+
         Raises HTTPException(404) if the conversation cannot be found.
         """
+
+        if responder_agent_id:
+            responder = await Agent.from_agent(
+                responder_agent_id, is_version=responder_is_version, variables={}
+            )
+            config = deepcopy(responder.config)
+            try:
+                persisted_messages = await _load_persisted_messages(conversation_id)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Conversation not found: {conversation_id}",
+                ) from exc
+            config.messages.clear()
+            config.messages.extend(deepcopy(persisted_messages))
+            return await ConversationResolver._finish(
+                config,
+                conversation_id=conversation_id,
+                user_input=user_input,
+                config_overrides=config_overrides,
+            )
 
         agent = AgentCache.get(conversation_id)
 
@@ -164,6 +200,23 @@ class ConversationResolver:
             agent = Agent(config=deepcopy(config))
             AgentCache.set(conversation_id, agent)
 
+        return await ConversationResolver._finish(
+            config,
+            conversation_id=conversation_id,
+            user_input=user_input,
+            config_overrides=config_overrides,
+        )
+
+    @staticmethod
+    async def _finish(
+        config: UnifiedConfig,
+        *,
+        conversation_id: str,
+        user_input: str | list[dict[str, Any]] | None,
+        config_overrides: LLMParams | None,
+    ) -> UnifiedConfig:
+        """Overrides, the new user turn, and THE SEND BOUNDARY — for every source
+        of the structural config, so a responder turn can never skip them."""
         if config_overrides is not None:
             config.apply_overrides(config_overrides)
 

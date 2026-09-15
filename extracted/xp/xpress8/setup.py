@@ -42,7 +42,7 @@ xpress8_module = Extension(
 
 setup(
     name="xpress8",
-    version="0.1.0",
+    version="0.1.1",
     description="Python bindings for the Microsoft Xpress8 (ESE) compression library",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -62,6 +62,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Operating System :: OS Independent",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: System :: Archiving :: Compression",

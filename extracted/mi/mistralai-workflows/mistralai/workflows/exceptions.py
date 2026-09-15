@@ -22,7 +22,7 @@ from mistralai.workflows.worker_client.errors import SDKError
 
 _TERMINAL_CODES: dict[str, str] = {
     # WF_1104 = WorkflowsErrorCode.WORKFLOW_REGISTRATION_FAILED (abraxas)
-    "WF_1104": "Workflow registration failed: credential is not authorized for this deployment",
+    "WF_1104": "Workflow registration failed: this principal is not authorized for this deployment",
 }
 
 _TRANSIENT_STATUSES: frozenset[HTTPStatus] = frozenset(

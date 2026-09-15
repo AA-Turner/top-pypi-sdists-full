@@ -11,7 +11,11 @@ from geocif.progress import pbar as _pbar
 logger = logging.getLogger(__name__)
 
 # Models that need a model-agnostic SHAP explainer (no TreeExplainer support).
-_MODEL_AGNOSTIC_XAI = {"tabpfn", "tabicl", "bnn"}
+# mitra/mitra_ft: a 12-layer Transformer behind a plain .predict, so the
+# permutation path is the only option -- and every permutation is a fresh
+# in-context forward pass, so keep do_xai off for them unless the fold count
+# is small.
+_MODEL_AGNOSTIC_XAI = {"tabpfn", "tabicl", "bnn", "mitra", "mitra_ft"}
 
 # TabPFN-family models get the shapiq path (faster + supports k-SII
 # interactions + PDP via the new xai_shapiq module). Falls back to

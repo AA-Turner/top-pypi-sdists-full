@@ -1730,8 +1730,8 @@ def get_table_from_name(
 
     Incremental read (``start-snapshot-id`` / ``end-snapshot-id``) is
     also mutually exclusive with the three time-travel inputs. It routes
-    to Snowpark's ``CHANGES (INFORMATION => APPEND_ONLY) AT (VERSION =>
-    ...) [END (VERSION => ...)]`` surface.
+    to Snowpark's ``TABLE(SPARK_INCREMENTAL_READ('<table>', S1 [, S2]))``
+    surface, which supports both managed and unmanaged Iceberg tables.
     """
 
     # Verify if recursive view read is not attempted
@@ -1901,19 +1901,11 @@ def get_table_from_name(
     elif iceberg_branch is not None:
         df = session.read.option("branch", iceberg_branch).table(snowpark_name)
     elif iceberg_start_snapshot_id is not None:
-        from snowflake.snowpark_connect.utils.cld_context import is_in_cld_context
-
-        if is_in_cld_context():
-            # CHANGES (incremental/changelog) is managed-only; CLD rejects it
-            # (091947). A MINUS version-diff isn't faithful to append-only
-            # semantics, so raise rather than approximate.
-            exception = AnalysisException(
-                "Iceberg incremental and changelog reads "
-                "('start-snapshot-id' / 'end-snapshot-id') are not supported "
-                "on catalog-linked databases."
-            )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
+        # SNOW-3527701: Snowpark routes incremental reads through
+        # TABLE(SPARK_INCREMENTAL_READ(...)), which supports unmanaged Iceberg
+        # (including CLD). The legacy CHANGES clause was managed-only; SCOS
+        # previously raised UNSUPPORTED_OPERATION in CLD rather than forwarding
+        # start/end snapshot ids. Forward the options to Snowpark now.
         reader = session.read.option("start-snapshot-id", iceberg_start_snapshot_id)
         if iceberg_end_snapshot_id is not None:
             reader = reader.option("end-snapshot-id", iceberg_end_snapshot_id)

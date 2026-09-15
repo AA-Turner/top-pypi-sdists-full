@@ -3,6 +3,7 @@ import functools
 import torch
 
 from humming.config import GemmType, LayerConfig
+from humming.device import DeviceInfo, get_device_index
 from humming.tune.base import DeviceHeuristics
 from humming.tune.raster import raster_group_m_for_config
 from humming.tune.sm8x import (
@@ -27,26 +28,25 @@ heuristics_map: dict[int, type[DeviceHeuristics]] = {
     90: Sm90Heuristics,
     100: Sm100Heuristics,
     103: Sm100Heuristics,
+    110: Sm100Heuristics,
     120: Sm120Heuristics,
     121: Sm121Heuristics,
 }
 
 
-def get_heuristics_class(
-    sm_version: int | tuple[int, int] | None = None,
-    device: int | torch.device | None = None,
-) -> type[DeviceHeuristics]:
-    if sm_version is None:
-        sm_version = torch.cuda.get_device_capability(device)
-    if isinstance(sm_version, tuple):
-        sm_version = sm_version[0] * 10 + sm_version[1]
-    assert isinstance(sm_version, int)
+def get_heuristics_class(device: int | torch.device | None = None) -> type[DeviceHeuristics]:
+    info = DeviceInfo(device)
+    sm_version = info.sm_version
     if sm_version == 90:
-        name = torch.cuda.get_device_name(device)
-        if "H20" in name and "H200" not in name:
+        if "H20" in info.name and "H200" not in info.name:
             return Sm90H20Heuristics
 
-    return heuristics_map[sm_version]
+    if sm_version in heuristics_map:
+        return heuristics_map[sm_version]
+
+    sm_version_base = sm_version // 10 * 10
+
+    return heuristics_map[sm_version_base]
 
 
 def _apply_m_major_input_scale(
@@ -58,8 +58,16 @@ def _apply_m_major_input_scale(
     if not use_m_major_input_scale:
         return
     use_tma = config.get("use_tma", False)
-    if use_tma and layer_config.input_scale_group_size > 0 and gemm_type == GemmType.DENSE:
+    if use_tma and layer_config.input_scale_group_size > 0 and gemm_type != GemmType.INDEXED:
         config["use_tma_as"] = True
+
+
+def _disable_indexed_input_scale_tma(config: dict, gemm_type: GemmType) -> None:
+    if gemm_type == GemmType.INDEXED:
+        config["use_tma_a"] = False
+        config["use_tma_c"] = False
+        config["use_tma_as"] = False
+        config["use_tma_as2"] = False
 
 
 def _apply_raster_group_m(config: dict, layer_config, gemm_type) -> None:
@@ -78,20 +86,19 @@ def _apply_raster_group_m(config: dict, layer_config, gemm_type) -> None:
 
 
 @functools.lru_cache(maxsize=1024)
-def get_heuristics_config(
-    layer_config: LayerConfig | dict,
+def _get_heuristics_config(
+    layer_config: LayerConfig,
     shape_m: int | None = None,
     use_f16_accum: bool = False,
     use_batch_invariant: bool = False,
     use_m_major_input_scale: bool = False,
     gemm_type: str | GemmType = "dense",
+    device_index: int = 0,
 ):
     if isinstance(gemm_type, str):
         gemm_type = GemmType(gemm_type)
 
-    if isinstance(layer_config, dict):
-        layer_config = LayerConfig(**layer_config)
-    heuristics_cls = get_heuristics_class()
+    heuristics_cls = get_heuristics_class(device=device_index)
     if isinstance(shape_m, int):
         config = heuristics_cls.get_config(
             layer_config=layer_config,
@@ -101,6 +108,7 @@ def get_heuristics_config(
             gemm_type=gemm_type,
         )
         _apply_m_major_input_scale(config, use_m_major_input_scale, layer_config, gemm_type)
+        _disable_indexed_input_scale_tma(config, gemm_type)
         _apply_raster_group_m(config, layer_config, gemm_type)
         return config
     else:
@@ -112,5 +120,31 @@ def get_heuristics_config(
         )
         for entry in configs:
             _apply_m_major_input_scale(entry[2], use_m_major_input_scale, layer_config, gemm_type)
+            _disable_indexed_input_scale_tma(entry[2], gemm_type)
             _apply_raster_group_m(entry[2], layer_config, gemm_type)
         return configs
+
+
+def get_heuristics_config(
+    layer_config: LayerConfig | dict,
+    shape_m: int | None = None,
+    use_f16_accum: bool = False,
+    use_batch_invariant: bool = False,
+    use_m_major_input_scale: bool = False,
+    gemm_type: str | GemmType = "dense",
+    device: int | torch.device | None = None,
+):
+    device_index = get_device_index(device)
+    with torch.cuda.device(device_index):
+        if isinstance(layer_config, dict):
+            layer_config = LayerConfig(**layer_config)
+        layer_config.check_device(device_index)
+        return _get_heuristics_config(
+            layer_config,
+            shape_m,
+            use_f16_accum,
+            use_batch_invariant,
+            use_m_major_input_scale,
+            gemm_type,
+            device_index,
+        )

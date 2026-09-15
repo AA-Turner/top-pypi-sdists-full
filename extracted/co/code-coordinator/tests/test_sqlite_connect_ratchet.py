@@ -170,6 +170,28 @@ SQLITE_CONNECT_ALLOWLIST: dict[str, Classification] = {
         "no second connection can reach) could not observe the property at "
         "all.",
     ),
+    "test_smoke_fanout_manifest_3333.py": Classification(
+        4, (BUCKET_A, BUCKET_C),
+        "#3333's cross-process regression: the fan-out manifest merge has to "
+        "be proven safe against two *separate OS processes* (the daemon "
+        "host's `coord notify` and `coord drive-queue tick` systemd units, "
+        "which are exactly the pair that raced in the incident), because a "
+        "process-local threading.Lock passed every sequential test while that "
+        "topology stayed broken. Two subprocesses can only meet on a database "
+        "they each open *by path*, so a real on-disk SQLite file is the unit "
+        "under test's own deployment shape, not incidental setup (A): one "
+        "site seeds the parent work row, the other reads the merged manifest "
+        "back after both children exit. The autouse coord_db fixture's "
+        "`:memory:` database is invisible to a child process, and "
+        "scratch_database() is out for the usual backend-following reason — "
+        "every test here is skipped under COORD_TEST_BACKEND=postgres, where "
+        "a second process would reach the server rather than a file. "
+        "+2 for the daemon half of the same seam (C): the standard "
+        "`rw_db`/`file_db` pair every POST-route test in this tree uses — "
+        "SqliteStore resolves the daemon's database by path, and TestClient "
+        "runs the handler on a worker thread, which is doubly load-bearing "
+        "here because this route now does its merge in a threadpool.",
+    ),
     "test_deploy_coord_db_backup.py": Classification(
         2, (BUCKET_A,),
         "On-disk coord.db file backup/copy and snapshot verification — the "
@@ -258,15 +280,21 @@ SQLITE_CONNECT_ALLOWLIST: dict[str, Classification] = {
         "alongside it rather than split across two buckets.",
     ),
     "test_board_schema.py": Classification(
-        3, (BUCKET_A, BUCKET_C),
+        4, (BUCKET_A, BUCKET_C),
         "Judgement call, reclassified from B during review: "
         "test_project_row_reads_sqlite_row_column_names_not_values exists "
         "specifically to pin that `sqlite3.Row` is a *sequence*, so `\"x\" in "
         "row` tests values not keys — the #632-class trap that blanks the "
         "whole board. Handing it a dict_row connection under "
         "COORD_TEST_BACKEND=postgres would silently stop testing the thing it "
-        "was written to test. The other two sites are C: a seeded fixture DB "
-        "for SqliteStore plus a reopen to prove a column really leaked.",
+        "was written to test. The other three sites are C: a seeded fixture DB "
+        "for SqliteStore, a reopen to prove a column really leaked, and "
+        "(#3339, test_premise_rechecked_fields_reach_the_board_wire_and_project) "
+        "a seeded refusal row written into the same on-disk `_seeded_db` file "
+        "the TestClient's SqliteStore then reads back over HTTP — the autouse "
+        "`coord_db` connection is `:memory:` and `SqliteStore` opens its own "
+        "`mode=ro` connection BY PATH, so a fixture-only version of that test "
+        "would assert against an empty board.",
     ),
 
     # ── C: genuinely needs a second / separate connection ─────────────────

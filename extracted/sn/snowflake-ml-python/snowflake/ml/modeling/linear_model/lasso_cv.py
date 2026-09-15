@@ -139,9 +139,10 @@ class LassoCV(BaseTransformer):
     n_alphas: int, default=100
         Number of alphas along the regularization path.
 
-    alphas: array-like, default=None
-        List of alphas where to compute the models.
-        If ``None`` alphas are set automatically.
+    alphas: array-like or int, default=None
+        Values of alphas to test along the regularization path.
+        If int, `alphas` values are generated automatically.
+        If array-like, list of alpha values to use.
 
     fit_intercept: bool, default=True
         Whether to calculate the intercept for this model. If set
@@ -208,8 +209,8 @@ class LassoCV(BaseTransformer):
         self,
         *,
         eps=0.001,
-        n_alphas=100,
-        alphas=None,
+        n_alphas="deprecated",
+        alphas="warn",
         fit_intercept=True,
         precompute="auto",
         max_iter=1000,
@@ -243,8 +244,8 @@ class LassoCV(BaseTransformer):
         self._deps = list(deps)
         
         init_args = {'eps':(eps, 0.001, False),
-            'n_alphas':(n_alphas, 100, False),
-            'alphas':(alphas, None, False),
+            'n_alphas':(n_alphas, "deprecated", False),
+            'alphas':(alphas, "warn", False),
             'fit_intercept':(fit_intercept, True, False),
             'precompute':(precompute, "auto", False),
             'max_iter':(max_iter, 1000, False),
@@ -304,7 +305,7 @@ class LassoCV(BaseTransformer):
         return selected_cols
 
     def _fit(self, dataset: Union[DataFrame, pd.DataFrame]) -> "LassoCV":
-        """Fit linear model with coordinate descent
+        """Fit Lasso model with coordinate descent
         For more details on this function, see [sklearn.linear_model.LassoCV.fit]
         (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LassoCV.html#sklearn.linear_model.LassoCV.fit)
 
@@ -1005,7 +1006,7 @@ class LassoCV(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.linear_model.LassoCV.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LassoCV.html#sklearn.linear_model.LassoCV.score)
 

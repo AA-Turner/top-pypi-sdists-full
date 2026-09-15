@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tcp-modbus-aio"
-version = "0.4.7"
+version = "0.4.8"
 description = "asyncio client library for tcp modbus devices"
 authors = ["Josh Gruenstein <josh@tutorintelligence.com>"]
 license = "MIT"
@@ -26,7 +26,7 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-style = "poetry_scripts:style"
+tcp-modbus-aio-style = "poetry_scripts:style"
 
 [tool.semantic_release]
 version_variables = ["tcp_modbus_aio/__init__.py:__version__"]

@@ -25,6 +25,7 @@ from airbyte_connector_models.metadata.v0.connector_registry_v0 import (
 )
 from packaging.version import InvalidVersion, Version
 
+from airbyte_ops_mcp import devin_api
 from airbyte_ops_mcp.cloud_admin import api_client
 from airbyte_ops_mcp.cloud_admin.auth import get_admin_user_id
 from airbyte_ops_mcp.cloud_admin.version_overrides import ResolvedCloudAuth
@@ -60,6 +61,10 @@ from airbyte_ops_mcp.connector_ops.rollouts.models import (
     AutopilotResult,
     ConnectorRolloutRecord,
 )
+from airbyte_ops_mcp.connector_ops.rollouts.paused_report import (
+    lookup_investigation_session,
+    start_investigation_session,
+)
 from airbyte_ops_mcp.connector_ops.rollouts.state_transitions import pause_rollout
 from airbyte_ops_mcp.prod_db_access.queries import query_connector_rollouts
 from airbyte_ops_mcp.registry.release_attribution import (
@@ -69,7 +74,10 @@ from airbyte_ops_mcp.registry.release_attribution import (
 )
 from airbyte_ops_mcp.registry.store import RegistryStore
 from airbyte_ops_mcp.slack_posting import (
+    SlackAPIError,
+    SlackPostResult,
     format_github_login_contact,
+    post_thread_reply,
     send_hitl_notification,
 )
 
@@ -2000,17 +2008,35 @@ def _send_failure_threshold_hitl(
     rollout: ConnectorRolloutRecord,
     rc_version: str,
     gate: HealthGateResult,
-) -> bool:
+    investigation_url: str | None = None,
+    investigation_lookup_failed: bool = False,
+) -> SlackPostResult | None:
     """Send HITL notification for a rollout that hit the failure threshold.
 
     Uses direct Slack API call via `send_hitl_notification()` with roster-based
-    person resolution. Requires `SLACK_BOT_TOKEN_HITL` env var.
+    person resolution. Requires `SLACK_BOT_TOKEN_HITL` env var. When
+    `investigation_url` is given (a repeated pause re-using an existing Devin
+    session) the alert carries a "View investigation" button.
 
-    Returns `True` if the notification was sent successfully, `False` otherwise.
-    Failures are logged but not raised.
+    Returns the posted message (channel + `ts`) or `None` on failure. Failures
+    are logged but not raised.
     """
     release_context = _release_context(rollout.connector_name, rc_version)
     release_section = f"\n\n{release_context.text}" if release_context.text else ""
+    if not devin_api.is_configured():
+        report_section = ""
+    elif investigation_lookup_failed:
+        report_section = (
+            "\n\nAutoPilot could not check for an existing Devin investigation "
+            "of this rollout, so no investigation was started for this pause."
+        )
+    else:
+        report_section = (
+            "\n\nAutoPilot is starting a Devin investigation of the failing "
+            "connections; if it starts, its summary and recommendation should "
+            "land in this thread."
+        )
+    actions = {"View investigation": investigation_url} if investigation_url else None
     message = (
         f"🚨 *Rollout paused (failure threshold)*\n\n"
         f"Connector: `{rollout.connector_name}`\n"
@@ -2023,10 +2049,10 @@ def _send_failure_threshold_hitl(
         f"{gate.actors_with_sync_signal} connectors "
         f"({gate.failure_percent:.1%}), {gate.failure_count} failed syncs\n\n"
         f"Action required: review sync failures and decide whether to "
-        f"rollback or resume the rollout.{release_section}"
+        f"rollback or resume the rollout.{report_section}{release_section}"
     )
     try:
-        send_hitl_notification(
+        return send_hitl_notification(
             target_person=release_context.escalation_target,
             cc_persons=release_context.escalation_cc,
             message=message,
@@ -2034,6 +2060,7 @@ def _send_failure_threshold_hitl(
             connector_name=rollout.connector_name,
             header_emoji="🚨",
             header_label="Rollout Failure Threshold",
+            additional_actions=actions,
         )
     except Exception as exc:
         logger.warning(
@@ -2041,8 +2068,170 @@ def _send_failure_threshold_hitl(
             rollout.connector_name,
             exc,
         )
-        return False
-    return True
+        return None
+
+
+def _post_investigation_link(thread: SlackPostResult, session_url: str) -> None:
+    """Reply in the pause thread with the investigation session link."""
+    try:
+        post_thread_reply(
+            thread.channel_id,
+            thread.ts,
+            f"🔎 Devin is investigating the failing connections: {session_url}\n"
+            "Its summary and recommendation will land in this thread.",
+        )
+    except (SlackAPIError, requests.RequestException, RuntimeError) as exc:
+        logger.warning(
+            "auto-triage-failed: Failed to post investigation link to thread %s: %s",
+            thread.permalink,
+            exc,
+        )
+
+
+PAUSE_THREAD_PREFIX = "Slack thread:"
+"""Text that precedes the HITL permalink appended to an auto-pause `paused_reason`."""
+
+
+def _record_pause_thread(
+    rollout: ConnectorRolloutRecord,
+    rc_version: str,
+    gate_reason: str,
+    thread: SlackPostResult,
+    auth: ResolvedCloudAuth,
+    user_id: str,
+) -> None:
+    """Re-pause the already-paused rollout so `paused_reason` carries the thread link.
+
+    The platform accepts a pause request on a `paused` rollout and simply rewrites
+    the reason, which is the only rollout field the Connector Version Manager
+    shows for a paused tier. Failure here is logged and otherwise ignored: the
+    rollout is already paused with the gate reason.
+    """
+    try:
+        pause_rollout(
+            docker_repository=rollout.rc_docker_repository or "",
+            docker_image_tag=rc_version,
+            actor_definition_id=rollout.actor_definition_id,
+            rollout_id=rollout.rollout_id,
+            updated_by=user_id,
+            config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+            client_id=auth.client_id,
+            client_secret=auth.client_secret,
+            bearer_token=auth.bearer_token,
+            paused_reason=(
+                f"{FAILURE_THRESHOLD_EXCEEDED_MARKER} {gate_reason} "
+                f"{PAUSE_THREAD_PREFIX} {thread.permalink}"
+            ),
+        )
+    except (PyAirbyteInputError, requests.RequestException) as exc:
+        logger.warning(
+            "auto-triage-failed: Failed to record pause thread %s on rollout %s: %s",
+            thread.permalink,
+            rollout.rollout_id,
+            exc,
+        )
+
+
+def _needs_investigation_backfill(rollout: ConnectorRolloutRecord) -> bool:
+    """True for an auto-paused rollout whose pause never got its Slack thread.
+
+    Rows paused before the investigation hook existed, or whose alert failed at
+    pause time, carry the gate marker but no `Slack thread:` permalink.
+    """
+    reason = rollout.paused_reason or ""
+    return (
+        rollout.state == "paused"
+        and FAILURE_THRESHOLD_EXCEEDED_MARKER in reason
+        and PAUSE_THREAD_PREFIX not in reason
+    )
+
+
+def _backfill_paused_investigation(
+    rollout: ConnectorRolloutRecord,
+    rc_version: str,
+    auth: ResolvedCloudAuth,
+    user_id: str,
+) -> AutopilotAction | None:
+    """Run the pause alert/investigation sequence for an already-paused rollout.
+
+    An existing `rollout:<id>`-tagged Devin session is reused (the alert links it
+    and the session gets a follow-up message); a failed lookup skips, to avoid
+    duplicating a session. The alert and prompt use a fresh gate snapshot; the
+    persisted `paused_reason` keeps the gate reason that was recorded at pause
+    time and only gains the thread permalink, and only once both the thread and
+    the session exist, so a partial failure is retried on the next run. Returns
+    `None` when nothing was attempted.
+    """
+    if not devin_api.is_configured():
+        return None
+    lookup = lookup_investigation_session(rollout.rollout_id)
+    if lookup.failed:
+        return None
+
+    try:
+        rollout_config = get_connector_rollout_config(
+            rollout.actor_definition_id, rc_version=rc_version
+        )
+        autopilot_config = rollout_config.autopilot_config or AutopilotConfig()
+        raw_strategy = (
+            autopilot_config.strategy.value
+            if autopilot_config.strategy
+            else STRATEGY_DEFAULT
+        )
+        strategy = resolve_strategy(raw_strategy)
+        sync_info = api_client.get_actor_sync_info(
+            rollout_id=rollout.rollout_id,
+            config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+            client_id=auth.client_id,
+            client_secret=auth.client_secret,
+            bearer_token=auth.bearer_token,
+        )
+    except (ValueError, PyAirbyteInputError, requests.RequestException) as exc:
+        return AutopilotAction(
+            rollout_id=rollout.rollout_id,
+            actor_definition_id=rollout.actor_definition_id,
+            connector_name=rollout.connector_name,
+            rc_version=rc_version,
+            action="triage",
+            success=False,
+            message=f"Failed to snapshot gate for paused-rollout investigation: {exc}",
+            tier=rollout.tier,
+        )
+    gate = check_health_gate(rollout, sync_info, strategy)
+
+    recorded_reason = (
+        (rollout.paused_reason or "")
+        .replace(FAILURE_THRESHOLD_EXCEEDED_MARKER, "", 1)
+        .strip()
+    )
+    existing = lookup.session
+    thread = _send_failure_threshold_hitl(
+        rollout,
+        rc_version,
+        gate,
+        investigation_url=existing.url if existing else None,
+    )
+    session = start_investigation_session(rollout, rc_version, gate, thread, lookup)
+    if thread is not None and session is not None:
+        _record_pause_thread(
+            rollout, rc_version, recorded_reason, thread, auth, user_id
+        )
+        if existing is None:
+            _post_investigation_link(thread, session.url)
+    report_note = f"; investigation at {session.url}" if session else ""
+    return AutopilotAction(
+        rollout_id=rollout.rollout_id,
+        actor_definition_id=rollout.actor_definition_id,
+        connector_name=rollout.connector_name,
+        rc_version=rc_version,
+        action="triage",
+        success=thread is not None and session is not None,
+        message=(
+            f"Backfilled pause investigation for already-paused rollout; HITL "
+            f"notification {'sent' if thread else 'FAILED'}: {gate.reason}{report_note}"
+        ),
+        tier=rollout.tier,
+    )
 
 
 def run_auto_triage_failed(
@@ -2219,7 +2408,24 @@ def run_auto_triage_failed(
             )
             continue
 
-        sent = _send_failure_threshold_hitl(rollout, rc_version, gate)
+        lookup = lookup_investigation_session(rollout.rollout_id)
+        thread = _send_failure_threshold_hitl(
+            rollout,
+            rc_version,
+            gate,
+            investigation_url=lookup.session.url if lookup.session else None,
+            investigation_lookup_failed=lookup.failed,
+        )
+        sent = thread is not None
+        if thread is not None:
+            _record_pause_thread(
+                rollout, rc_version, gate.reason, thread, auth, user_id
+            )
+        # The alert goes first so the session knows which thread to reply in.
+        session = start_investigation_session(rollout, rc_version, gate, thread, lookup)
+        if session is not None and thread is not None and lookup.session is None:
+            _post_investigation_link(thread, session.url)
+        report_note = f"; investigation at {session.url}" if session else ""
         result.actions.append(
             AutopilotAction(
                 rollout_id=rollout.rollout_id,
@@ -2230,7 +2436,7 @@ def run_auto_triage_failed(
                 success=sent,
                 message=(
                     f"Rollout paused and HITL notification "
-                    f"{'sent' if sent else 'FAILED'}: {gate.reason}"
+                    f"{'sent' if sent else 'FAILED'}: {gate.reason}{report_note}"
                 ),
                 tier=rollout.tier,
             )
@@ -2256,6 +2462,13 @@ def run_auto_triage_failed(
             rollout.failed_reason or "unknown",
             rollout.paused_reason or "none",
         )
+
+        if not dry_run and _needs_investigation_backfill(rollout):
+            backfill = _backfill_paused_investigation(
+                rollout, rc_version, auth, user_id
+            )
+            if backfill is not None:
+                (result.actions if backfill.success else result.errors).append(backfill)
 
         # Check if safe to unpin (version not in unsafeDowngrades)
         unsafe_versions = get_unsafe_downgrades(rollout.actor_definition_id)

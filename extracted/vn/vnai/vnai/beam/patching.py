@@ -269,7 +269,8 @@ def patch_quote_history():
                 if "resolution" in kwargs:
                     actual_interval = kwargs["resolution"]
                 df_limited = limit_ohlcv_periods(df, actual_interval)
-                if len(df_limited) < len(df):
+                if len(df_limited) < len(df) and not _notice_shown['quote_history']:
+                    _notice_shown['quote_history'] = True
                     from vnstock.core.utils.logger import get_logger
                     logger = get_logger(__name__)
                     interval_str = str(actual_interval)
@@ -298,14 +299,16 @@ def patch_quote_history():
                 max_rows = 30000
                 if len(df) > max_rows:
                     df_limited = df.head(max_rows).copy()
-                    from vnstock.core.utils.logger import get_logger
-                    logger = get_logger(__name__)
-                    logger.warning(
-                        f"⚠️ Phiên bản cộng đồng: Dữ liệu khớp lệnh giới hạn tối đa 30,000 dòng. "
-                        f"Nâng cấp gói tài trợ để mở rộng giới hạn cho phân tích chuyên nghiệp: https://vnstocks.com/insiders-program\n"
-                        f"⚠️ Community edition: Intraday data limited to 30,000 rows. "
-                        f"Upgrade your plan to unlock full data limits for professional use: https://vnstocks.com/insiders-program"
-                    )
+                    if not _notice_shown['quote_intraday']:
+                        _notice_shown['quote_intraday'] = True
+                        from vnstock.core.utils.logger import get_logger
+                        logger = get_logger(__name__)
+                        logger.warning(
+                            "⚠️ Phiên bản cộng đồng: Dữ liệu khớp lệnh giới hạn tối đa 30,000 dòng. "
+                            "Nâng cấp gói tài trợ để mở rộng giới hạn cho phân tích chuyên nghiệp: https://vnstocks.com/insiders-program\n"
+                            "⚠️ Community edition: Intraday data limited to 30,000 rows. "
+                            "Upgrade your plan to unlock full data limits for professional use: https://vnstocks.com/insiders-program"
+                        )
                     return df_limited
             return df
         Quote.history = history_with_limit
@@ -331,6 +334,6 @@ def apply_all_patches():
                 'kbs': kbs_patched,
                 'quote': quote_patched,
             }
-        except Exception as e:
+        except Exception:
             _patches_applied = True
             return {'vci': False, 'kbs': False}

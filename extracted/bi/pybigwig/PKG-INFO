@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyBigWig
-Version: 0.3.25
+Version: 0.3.26
 Summary: A package for accessing bigWig files using libBigWig
 Author-email: "Devon P. Ryan" <dryan79@gmail.com>
 License: MIT
@@ -158,6 +158,8 @@ If the start and end positions are omitted then the entire chromosome is used:
 
     >>> bw.stats("1")
     [1.3351851569281683]
+
+> For type="mean", bases with no associated bigWig value are excluded from the denominator. To compute a mean over the full queried interval with missing bases treated as zero, use values() and replace NaN with zero before averaging.
 
 ### A note on statistics and zoom levels
 

@@ -106,6 +106,8 @@ class PythonEnvironmentState:
 
     # the interpreter HCLI would install plugin dependencies with
     python_exe: Path
+    # whether python_exe exists on disk
+    python_exe_exists: bool
     # what selected it, like "$IDAPYTHON_VENV_EXECUTABLE" (see ResolvedPython.source)
     source: str
     system: System
@@ -124,6 +126,8 @@ class PythonEnvironmentState:
     uv_ephemeral: bool
     # $IDAPYTHON_VENV_EXECUTABLE as HCLI sees it
     idapython_venv_executable: Path | None
+    # whether the file at idapython_venv_executable exists on disk
+    idapython_venv_executable_exists: bool
     # $VIRTUAL_ENV as HCLI sees it, excluding HCLI's own venv and uv overlays
     shell_virtual_env: Path | None
     idapythonrc_path: Path | None
@@ -190,14 +194,14 @@ def get_venv_python_path(venv_root: Path, system: System) -> Path:
 
 
 def render_set_env_var_command(name: str, value: str, system: System) -> str:
-    """The shell command that sets an environment variable persistently for the user.
+    """A representative command that sets an environment variable persistently.
 
-    `setx` writes the user's registry environment, so it survives new
-    terminals and reaches IDA launched from the Start menu.  On POSIX, this is
-    the line to add to a shell profile.
+    On Windows, the PowerShell .NET API writes to the user registry without the
+    1024-character truncation that setx has.  On POSIX, this is the line to add
+    to a shell login profile.
     """
     if system == "windows":
-        return f'setx {name} "{value}"'
+        return f'[Environment]::SetEnvironmentVariable("{name}", "{value}", "User")'
     return f'export {name}="{value}"'
 
 
@@ -265,6 +269,7 @@ def collect_python_environment_state(
 
     raw_venv_exe = ENV.IDAPYTHON_VENV_EXECUTABLE
     idapython_venv_executable = Path(raw_venv_exe) if raw_venv_exe else None
+    idapython_venv_executable_exists = idapython_venv_executable is not None and idapython_venv_executable.is_file()
 
     shell_virtual_env = resolve_user_virtual_env()
 
@@ -275,6 +280,7 @@ def collect_python_environment_state(
 
     return PythonEnvironmentState(
         python_exe=python_exe,
+        python_exe_exists=python_exe.is_file(),
         source=resolved.source,
         system=system,
         idausr=idausr,
@@ -285,6 +291,7 @@ def collect_python_environment_state(
         externally_managed=externally_managed,
         uv_ephemeral=uv_ephemeral,
         idapython_venv_executable=idapython_venv_executable,
+        idapython_venv_executable_exists=idapython_venv_executable_exists,
         shell_virtual_env=shell_virtual_env,
         idapythonrc_path=idapythonrc_path,
         idapythonrc_activates_venv=idapythonrc_activates_venv,
@@ -353,7 +360,60 @@ def check_python_environment(state: PythonEnvironmentState) -> list[EnvironmentF
             )
         )
 
-    if state.venv_root is None:
+    if state.idapython_venv_executable is not None and not state.idapython_venv_executable_exists:
+        findings.append(
+            EnvironmentFinding(
+                id="venv-exe-not-found",
+                severity="error",
+                summary=(
+                    f"$IDAPYTHON_VENV_EXECUTABLE points to a file that does not exist: "
+                    f"{state.idapython_venv_executable}"
+                ),
+                detail=(
+                    "The variable is set, but the interpreter it names is not on disk. HCLI fell back to "
+                    "probing IDA directly, which found a different Python. The virtual environment may have "
+                    "been deleted, moved, or not yet created."
+                ),
+                fix_hint=_render_create_environment_hint(state),
+            )
+        )
+
+    if state.source == "$HCLI_CURRENT_IDA_PYTHON_EXE":
+        unset_hint = (
+            "Unset HCLI_CURRENT_IDA_PYTHON_EXE and use $IDAPYTHON_VENV_EXECUTABLE instead.\n"
+            "That variable is read by both IDA and HCLI, so they stay in sync."
+        )
+        findings.append(
+            EnvironmentFinding(
+                id="hcli-override-active",
+                severity="warning",
+                summary=f"$HCLI_CURRENT_IDA_PYTHON_EXE overrides normal Python detection: {exe}",
+                detail=(
+                    "This variable makes HCLI use a specific interpreter without consulting IDA. "
+                    "IDA does not read it, so IDA may load a different Python than the one HCLI installs into. "
+                    "It is intended for test harnesses, not normal use."
+                ),
+                fix_hint=unset_hint,
+            )
+        )
+
+    if not state.python_exe_exists:
+        findings.append(
+            EnvironmentFinding(
+                id="python-exe-not-found",
+                severity="error",
+                summary=f"IDA's Python interpreter does not exist: {exe}",
+                detail=(
+                    f"The interpreter was selected by {state.source}, but the file is not on disk. "
+                    "HCLI cannot install packages or run scripts with a missing interpreter."
+                ),
+                fix_hint=_render_create_environment_hint(state),
+            )
+        )
+        if state.source == "$HCLI_CURRENT_IDA_PYTHON_EXE":
+            return findings
+
+    if state.venv_root is None and state.python_exe_exists:
         summary = f"IDA's Python is not a virtual environment: {exe}"
         detail = (
             "IDA loads a global Python (system, Homebrew, python.org, or Windows Store). Plugin dependencies "
@@ -390,7 +450,7 @@ def check_python_environment(state: PythonEnvironmentState) -> list[EnvironmentF
             )
         )
 
-    if state.pip_available is False:
+    if state.pip_available is False and state.python_exe_exists:
         venv_hint = ""
         if state.venv_root is not None:
             venv_hint = (
@@ -440,7 +500,8 @@ def check_python_environment(state: PythonEnvironmentState) -> list[EnvironmentF
             )
         )
 
-    if state.venv_root is not None and not venv_executable_points_at(state):
+    dangling_var = state.idapython_venv_executable is not None and not state.idapython_venv_executable_exists
+    if state.venv_root is not None and not venv_executable_points_at(state) and not dangling_var:
         venv_python = get_venv_python_path(state.venv_root, state.system)
         set_var = render_set_env_var_command("IDAPYTHON_VENV_EXECUTABLE", str(venv_python), state.system)
         if state.idapython_venv_executable is None:
@@ -508,7 +569,12 @@ def format_environment_warnings(findings: list[EnvironmentFinding]) -> str:
         tag = "[red]error[/red]  " if finding.severity == "error" else "[yellow]warning[/yellow]"
         lines.append(f"  {tag} {escape(finding.summary)}")
 
-    lines.append(f"Run `{ENV.HCLI_BINARY_NAME} ida python doctor` for details and fixes.")
+    lines.extend(
+        [
+            f"Run `{ENV.HCLI_BINARY_NAME} ida python doctor` for details and fixes.",
+            f"To skip this check: `{ENV.HCLI_BINARY_NAME} plugin --no-python-environment-check install <name>`",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -517,7 +583,12 @@ def format_environment_findings_plain(findings: list[EnvironmentFinding]) -> str
     lines = []
     for finding in findings:
         lines.append(f"- [{finding.severity}] {finding.summary}")
-    lines.append(f"Run '{ENV.HCLI_BINARY_NAME} ida python doctor' for details and fixes.")
+    lines.extend(
+        [
+            f"Run '{ENV.HCLI_BINARY_NAME} ida python doctor' for details and fixes.",
+            f"To skip this check: {ENV.HCLI_BINARY_NAME} plugin --no-python-environment-check install <name>",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -608,6 +679,26 @@ def identify_setup_pattern(state: PythonEnvironmentState) -> SetupPattern:
             description=(
                 "HCLI runs under `uv run --with`. The virtualenv it sees is uv's temporary overlay, not IDA's "
                 "environment."
+            ),
+        )
+
+    if not state.python_exe_exists:
+        return SetupPattern(
+            id="missing-interpreter",
+            name="Missing interpreter",
+            description=(
+                f"The interpreter selected by {state.source} does not exist on disk. "
+                "HCLI cannot install packages or run scripts until this is corrected."
+            ),
+        )
+
+    if state.idapython_venv_executable is not None and not state.idapython_venv_executable_exists:
+        return SetupPattern(
+            id="dangling-venv-exe",
+            name="Missing virtual environment",
+            description=(
+                "$IDAPYTHON_VENV_EXECUTABLE is set, but the interpreter it names does not exist on disk. "
+                "The virtual environment may have been deleted, moved, or not yet created."
             ),
         )
 

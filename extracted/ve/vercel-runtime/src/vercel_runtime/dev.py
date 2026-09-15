@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import logging
 import logging.config
 import mimetypes
@@ -499,12 +500,19 @@ def _start_asgi(host: str, port: int) -> None:
         except (ImportError, AttributeError):
             pass
 
+    has_watchfiles = bool(importlib.util.find_spec("watchfiles"))
+
+    # If watchfiles isn't installed, turn up the reload_delay so we don't
+    # hammer the CPU.
+    reload_delay = 0.25 if has_watchfiles else 2.0
+
     vendored_uvicorn.run(
         "vercel_runtime.dev:asgi_app",
         host=host,
         port=port,
         use_colors=not _NO_COLOR,
         reload=True,
+        reload_delay=reload_delay,
         log_config=_build_uvicorn_log_config(),
     )
 

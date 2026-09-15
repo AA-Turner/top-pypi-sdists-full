@@ -19,14 +19,14 @@ from robot.utils import NormalizedDict
 
 
 class Metadata(NormalizedDict[str]):
-    """Free suite metadata as a mapping.
+    """Free suite or test metadata as a mapping.
 
     Keys are case, space, and underscore insensitive.
     """
 
     def __init__(
         self,
-        initial: "Mapping[str, str]|Iterable[tuple[str, str]]|None" = None,
+        initial: "Mapping[str, str] | Iterable[tuple[str, str]] | None" = None,
     ):
         super().__init__(initial, ignore="_")
 

@@ -389,12 +389,11 @@ class TestEvaluationOptimize:
         statuses = [call.args[1].status for call in patch.call_args_list]
         assert "failed" in statuses
 
-        # Trials created before the failure are finalized as failed, not left running under a failed
-        # optimization.
+        # The workflow no longer fails trials one-by-one: the backend fails any still-running trials in
+        # the same transaction as the failed optimization PATCH (OBS-2262), so no per-trial PATCH is
+        # issued on the failure path.
         patch_trial = mock_client.evaluation._endpoints.patch_optimization_trial
-        trial_statuses = [call.args[1].status for call in patch_trial.call_args_list]
-        assert trial_statuses, "expected the in-flight trial to be finalized"
-        assert all(s == "failed" for s in trial_statuses)
+        assert [call.args[1].status for call in patch_trial.call_args_list] == []
 
 
 @pytest.mark.asyncio

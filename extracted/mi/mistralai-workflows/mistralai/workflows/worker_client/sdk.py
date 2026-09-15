@@ -10,7 +10,7 @@ import httpx
 import importlib
 from mistralai.workflows.worker_client import errors, models, utils
 from mistralai.workflows.worker_client._hooks import HookContext, SDKHooks
-from mistralai.workflows.worker_client.types import OptionalNullable, UNSET
+from mistralai.workflows.worker_client.types import Nullable, OptionalNullable, UNSET
 from mistralai.workflows.worker_client.utils.unmarshal_json_response import (
     unmarshal_json_response,
 )
@@ -895,7 +895,7 @@ class PrivateWorkerClient(BaseSDK):
         execution_token_hash: str,
         temporal_parent_workflow_id: OptionalNullable[str] = UNSET,
         temporal_root_workflow_id: OptionalNullable[str] = UNSET,
-        search_key_metadata: Optional[Dict[str, str]] = None,
+        search_key_metadata: Optional[Dict[str, Nullable[str]]] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -1004,7 +1004,7 @@ class PrivateWorkerClient(BaseSDK):
         execution_token_hash: str,
         temporal_parent_workflow_id: OptionalNullable[str] = UNSET,
         temporal_root_workflow_id: OptionalNullable[str] = UNSET,
-        search_key_metadata: Optional[Dict[str, str]] = None,
+        search_key_metadata: Optional[Dict[str, Nullable[str]]] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -1107,7 +1107,7 @@ class PrivateWorkerClient(BaseSDK):
         self,
         *,
         temporal_workflow_id: str,
-        search_key_metadata: Optional[Dict[str, str]] = None,
+        search_key_metadata: Optional[Dict[str, Nullable[str]]] = None,
         temporal_run_id: OptionalNullable[str] = UNSET,
         execution_token_hash: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
@@ -1224,7 +1224,7 @@ class PrivateWorkerClient(BaseSDK):
         self,
         *,
         temporal_workflow_id: str,
-        search_key_metadata: Optional[Dict[str, str]] = None,
+        search_key_metadata: Optional[Dict[str, Nullable[str]]] = None,
         temporal_run_id: OptionalNullable[str] = UNSET,
         execution_token_hash: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
@@ -1639,7 +1639,7 @@ class PrivateWorkerClient(BaseSDK):
                 errors.HTTPValidationErrorData, http_res
             )
             raise errors.HTTPValidationError(response_data, http_res)
-        if utils.match_response(http_res, "4XX", "*"):
+        if utils.match_response(http_res, ["409", "4XX"], "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
         if utils.match_response(http_res, "5XX", "*"):
@@ -1740,7 +1740,7 @@ class PrivateWorkerClient(BaseSDK):
                 errors.HTTPValidationErrorData, http_res
             )
             raise errors.HTTPValidationError(response_data, http_res)
-        if utils.match_response(http_res, "4XX", "*"):
+        if utils.match_response(http_res, ["409", "4XX"], "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
         if utils.match_response(http_res, "5XX", "*"):
@@ -1955,6 +1955,7 @@ class PrivateWorkerClient(BaseSDK):
         self,
         *,
         workspace_id: OptionalNullable[str] = UNSET,
+        deployment_id: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -1963,6 +1964,7 @@ class PrivateWorkerClient(BaseSDK):
         r"""List Deployment Authorized Credentials
 
         :param workspace_id: Workspace ID to scope the request to. Defaults to the caller's context.
+        :param deployment_id: Restrict the listing to one deployment, which its owner may also read.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1980,6 +1982,7 @@ class PrivateWorkerClient(BaseSDK):
 
         request = models.ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest(
             workspace_id=workspace_id,
+            deployment_id=deployment_id,
         )
 
         req = self._build_request(
@@ -2042,6 +2045,7 @@ class PrivateWorkerClient(BaseSDK):
         self,
         *,
         workspace_id: OptionalNullable[str] = UNSET,
+        deployment_id: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -2050,6 +2054,7 @@ class PrivateWorkerClient(BaseSDK):
         r"""List Deployment Authorized Credentials
 
         :param workspace_id: Workspace ID to scope the request to. Defaults to the caller's context.
+        :param deployment_id: Restrict the listing to one deployment, which its owner may also read.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -2067,6 +2072,7 @@ class PrivateWorkerClient(BaseSDK):
 
         request = models.ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest(
             workspace_id=workspace_id,
+            deployment_id=deployment_id,
         )
 
         req = self._build_request_async(

@@ -1,0 +1,1 @@
+var e=e=>{let t=e.match(/\[(\d+):(\d+)([.:]\d+)?\](.*)/);if(t){let e=parseInt(t[1]),n=parseInt(t[2]),r=0;if(t[3]){let e=t[3].replace(/[.:]/,`.`);r=Math.round(parseFloat(e)*1e3)}return{time:(e*60*1e3+n*1e3+r)/1e3,text:t[4].trim()||` `}}return{time:0,text:e.trim()||` `}};export{e as t};

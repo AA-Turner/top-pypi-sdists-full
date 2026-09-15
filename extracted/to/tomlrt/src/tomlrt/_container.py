@@ -53,11 +53,11 @@ from tomlrt._comments import (
 )
 from tomlrt._errors import TOMLError
 from tomlrt._format import (
-    _canon_slot,
+    _prepare_indent,
     _resolve_format_options,
     format_document_trailing,
     format_inline_root,
-    format_subtree,
+    format_slots,
 )
 from tomlrt._inline_comments import _InlineAdapter
 from tomlrt._kind import _Kind
@@ -72,12 +72,18 @@ from tomlrt._scalar import (
 )
 from tomlrt._slots import KVSlot, StructuralHeaderSlot
 from tomlrt._trivia import split_line
-from tomlrt._typecheck import _require_mapping, _validate_key, _validate_mapping
+from tomlrt._typecheck import (
+    _mapping_items,
+    _require_mapping,
+    _validate_key,
+    _validate_mapping,
+)
 from tomlrt._values import (
     ArrayItem,
     ArrayValue,
     InlineTableEntry,
     InlineTableValue,
+    is_shareable_scalar,
     make_keypart,
     retarget_value_newlines,
 )
@@ -336,66 +342,67 @@ class Container(_View, dict[str, Any]):
         resolved = _resolve_format_options(options=options, comments=comments)
         kind = self._kind
         nl = self._doc_newline
-
         if kind is _Kind.INLINE_ROOT:
             assert self._value is not None
             format_inline_root(
-                self._value,
-                nl=nl,
-                options=resolved,
-                host=_host_kv_slot(self),
+                self._value, nl=nl, options=resolved, host=_host_kv_slot(self)
             )
             return
-
         if kind in (_Kind.INLINE_FACTORY, _Kind.INLINE_DOTTED_INNER):
             msg = "format() is not supported on detached inline-table views"
             raise TOMLError(msg)
-
-        if kind is _Kind.DOCUMENT:
+        doc = self._layout_root
+        if doc is None:
+            msg = "format() requires the container to have document layout"
+            raise TOMLError(msg)
+        whole_document = kind is _Kind.DOCUMENT
+        # A preamble already supplies the document's opening separator.
+        head_blank_cap = None
+        if whole_document:
             assert isinstance(self, Document)
-            # A non-empty preamble already ends in one blank-line
-            # separator, so the first slot must contribute none;
-            # otherwise the document opens with at most one blank line.
-            format_subtree(
-                start=self._head,
-                path=(),
-                owner=None,
+            head_blank_cap = 0 if self._preamble else 1
+        for slots, owns_adjacent_gaps in self._format_scopes():
+            format_slots(
+                slots,
                 nl=nl,
                 options=resolved,
-                head_blank_cap=0 if self._preamble else 1,
+                owns_adjacent_gaps=owns_adjacent_gaps,
+                head_blank_cap=head_blank_cap,
             )
+        if whole_document:
+            assert isinstance(self, Document)
             self._preamble = format_document_trailing(
                 self._preamble, nl=nl, options=resolved
             )
             self._trailing = format_document_trailing(
                 self._trailing, nl=nl, options=resolved
             )
-            return
 
-        if kind is _Kind.SECTION:
-            assert self._header_ref is not None
-            format_subtree(
-                start=self._header_ref.slot,
-                path=self._path,
-                owner=self._owner_aot_entry,
-                nl=nl,
-                options=resolved,
-            )
-            return
+    def _format_scopes(self) -> Iterator[tuple[list[Slot], bool]]:
+        """The disjoint slot runs `format` canonicalises, and who owns each gap.
 
-        # IMPLICIT_SECTION slots are not contiguous, so canonicalise each
-        # owned slot and recurse through dict storage.
-        if not self._attached:
-            msg = "format() requires the container to be attached to a Document"
-            raise TOMLError(msg)
-        for ref in list(self._refs):
-            _canon_slot(ref.slot, nl=nl, target_blanks=None, options=resolved)
-        for value in self.values():
-            if isinstance(value, (Container, Array)):
-                value.format(options=resolved)
-            elif isinstance(value, AoT):
-                for entry in value:
-                    entry.format(options=resolved)
+        A header-bearing receiver is one run: its own block, complete
+        with its subtree. An implicit one owns only the outer-hosted
+        dotted keys that spell it -- lines in someone else's block, so
+        it does not own the gaps between them -- and contributes its
+        first header-bearing descendants as runs of their own.
+        """
+        implicit = self._kind is _Kind.IMPLICIT_SECTION
+        if not implicit:
+            yield _layout_ops.owned_slots(self), True
+            return
+        yield _layout_ops.implicit_body_slots(self), False
+        pending: list[Container] = [self]
+        while pending:
+            for child in pending.pop().values():
+                if _is_section(child):
+                    if child._header_ref is None:  # noqa: SLF001
+                        pending.append(child)
+                    else:
+                        yield _layout_ops.owned_slots(child), True
+                elif isinstance(child, AoT):
+                    for entry in child:
+                        yield _layout_ops.owned_slots(entry), True
 
     @property
     def _attached_doc(self) -> Document:
@@ -517,10 +524,9 @@ class Container(_View, dict[str, Any]):
     # ------------------------------------------------------------------
 
     def to_dict(self) -> dict[str, Any]:
-        """Materialise a plain-Python ``dict`` (recursive)."""
-        out: dict[str, Any] = {}
-        for k, v in self.items():
-            out[k] = _to_python(v)
+        """Materialise independent plain-Python data (recursive)."""
+        out = _to_python(self)
+        assert isinstance(out, dict)
         return out
 
     def _synth_local_value(self, key: str, value: TomlInput) -> tuple[Value, object]:
@@ -679,7 +685,7 @@ class Container(_View, dict[str, Any]):
         views; entries without layout are synthesized in place.
         """
         src_root = value._layout_root  # noqa: SLF001
-        if src_root is not None and not src_root._is_private:  # noqa: SLF001
+        if src_root is not None and not _can_adopt_from(src_root, self._attached_doc):
             _layout_ops.clone_aot(self, key, value)
             return
         emptied = value._host  # noqa: SLF001
@@ -692,7 +698,7 @@ class Container(_View, dict[str, Any]):
             source_doc = entry_table._layout_root  # noqa: SLF001
             if source_doc is None:
                 _layout_ops.add_aot_entry(value, None, rehome=entry_table)
-            elif source_doc._is_private:  # noqa: SLF001
+            elif _can_adopt_from(source_doc, self._attached_doc):
                 _layout_ops.adopt_private_entry(
                     value,
                     entry_table,
@@ -715,7 +721,7 @@ class Container(_View, dict[str, Any]):
         if src_root is None:
             assert isinstance(value, Table), "a section factory must be a Table"
             _layout_ops.attach_section_at(self, (key,), value)
-        elif src_root._is_private:  # noqa: SLF001
+        elif _can_adopt_from(src_root, self._attached_doc):
             assert value._refs, "a private section owns slots"
             emptied = value._parent
             if value._header_ref is not None:
@@ -821,7 +827,7 @@ class Container(_View, dict[str, Any]):
         # Updating from a mapping must not consume it, and reading it
         # once up front keeps an install that unbinds one of its keys
         # from cutting the read short.
-        with _sources_kept_intact(v for _, v in items):
+        with _sources_kept_intact(self._layout_root, (v for _, v in items)):
             for k, v in items:
                 self[k] = v
 
@@ -943,18 +949,13 @@ class Container(_View, dict[str, Any]):
         # ``__setitem__`` has already rejected values an inline host
         # cannot store (``AoT``, sections, non-coerceable types).
         cst, decoded = self._synth_local_value(key, value)
-        old = dict.__getitem__(self, key) if key in self else None
-        # Either replacement branch displaces the old value, so a view of
-        # it must stop resolving against the entry it no longer owns.
-        # ``__setitem__`` has already returned if the new value *is* the
-        # old one.
-        _layout_ops.reset_displaced_views(old)
-        if isinstance(old, Container):
-            # Stay on the CST side when replacing a dotted-prefix
-            # navigator; dict-level delete would prune the parent chain.
+        if key in self:
+            # Overwriting displaces the old value, so a view of it must
+            # stop resolving against the entry it no longer owns.
+            # ``__setitem__`` has already returned if the new value *is*
+            # the old one.
+            _layout_ops.reset_displaced_views(dict.__getitem__(self, key))
             _inline_ops.overwrite_entry(self, key, cst)
-        elif key in self:
-            _inline_ops.replace_entry_value(self, key, cst)
         else:
             _inline_ops.append_entry(self, key, cst)
         dict.__setitem__(self, key, decoded)
@@ -1257,7 +1258,7 @@ def _make_inline_chain(parts: Sequence[str]) -> tuple[Table, Table]:
 
 def _populate_unattached(t: Container, mapping: Mapping[str, TomlInput]) -> None:
     """Populate an unattached ``Container`` whose keys are already validated."""
-    for k, v in mapping.items():
+    for k, v in _mapping_items(mapping):
         dict.__setitem__(t, k, v)
 
 
@@ -1335,7 +1336,11 @@ class Table(Container):
         Returns ``self`` for chaining.
         """
         root = self._require_inline_root("set_multiline")
-        _inline_ops.set_inline_multiline(root, multiline=multiline, indent=" " * indent)
+        _inline_ops.set_inline_multiline(
+            root,
+            multiline=multiline,
+            indent=_prepare_indent(indent) if multiline else "",
+        )
         return self
 
     @classmethod
@@ -1389,6 +1394,7 @@ class Document(Container):
         "_newline",
         "_preamble",
         "_prelude",
+        "_protected_source_roots",
         "_section_blank_separated",
         "_tail",
         "_trailing",
@@ -1425,6 +1431,7 @@ class Document(Container):
         self._newline: str = DEFAULT_NEWLINE
         self._prelude: str = ""
         self._is_private: bool = False
+        self._protected_source_roots: dict[int, Document] | None = None
         self._install_recorders: (
             tuple[
                 list[Slot],
@@ -1435,6 +1442,11 @@ class Document(Container):
         self._section_blank_separated = True
         self._layout_root = self
         if data is None:
+            return
+        if isinstance(data, Document):
+            from tomlrt._build import populate_cloned_document  # noqa: PLC0415
+
+            populate_cloned_document(self, data)
             return
         if _has_extractable_layout(data):
             from tomlrt._build import populate_extracted_document  # noqa: PLC0415
@@ -1507,10 +1519,7 @@ class Document(Container):
 
     @override
     def __copy__(self) -> Document:
-        # Round-trip via dumps/loads: preserves bytes exactly.
-        from tomlrt._public import loads  # noqa: PLC0415
-
-        return loads(self.render())
+        return Document(self)
 
 
 def _inline_value_has_inner_comments(v: object) -> bool:
@@ -1576,17 +1585,21 @@ def _clone_private_layout(value: Container | AoT) -> Table | AoT:
     holder = Document()
     holder._is_private = True  # noqa: SLF001
     holder._newline = value._doc_newline  # noqa: SLF001
-    with _sources_kept_intact((value,)):
+    with _sources_kept_intact(holder, (value,)):
         holder._setitem_validated("", value)  # noqa: SLF001
     result = dict.__getitem__(holder, "")
     assert isinstance(result, (Table, AoT))
     return result
 
 
-def _copy_input(value: TomlInput) -> TomlInput:
+def _copy_input(value: TomlInput, memo: dict[int, object] | None = None) -> TomlInput:
     """Deep-copy validated input without creating layout where none exists."""
-    if is_scalar(value):
+    if is_shareable_scalar(value):
         return value
+    if memo is None:
+        memo = {}
+    if is_scalar(value):
+        return copy.deepcopy(value, memo)
     if is_inline_value(value):
         cst = _detached_inline_value(value)
         if cst is not None:
@@ -1603,20 +1616,20 @@ def _copy_input(value: TomlInput) -> TomlInput:
         return _clone_private_layout(value)
     if isinstance(value, Container):
         table = Table.inline() if value._inline else Table.section()  # noqa: SLF001
-        for key, child in value.items():
-            dict.__setitem__(table, key, _copy_input(child))
+        for key, child in _mapping_items(value):
+            dict.__setitem__(table, key, _copy_input(child, memo))
         return table
     if isinstance(value, AoT):
         aot = AoT()
         for original in value:
-            entry = _copy_input(original)
+            entry = _copy_input(original, memo)
             assert isinstance(entry, Table)
             list.append(aot, entry)
         return aot
     if isinstance(value, Mapping):
-        return {key: _copy_input(child) for key, child in value.items()}
+        return {key: _copy_input(child, memo) for key, child in _mapping_items(value)}
     assert isinstance(value, list), "validated compound input expected"
-    return [_copy_input(child) for child in value]
+    return [_copy_input(child, memo) for child in value]
 
 
 def _clear_inline_document_binding(t: Container) -> None:
@@ -1627,13 +1640,19 @@ def _clear_inline_document_binding(t: Container) -> None:
 
 def _to_python(v: object) -> object:
     """Export independent plain data from views and unmaterialized payloads."""
-    if is_scalar(v):
-        return v
-    if isinstance(v, Mapping):
-        return {key: _to_python(value) for key, value in v.items()}
+    return _to_python_value(v, {})
+
+
+def _to_python_value(v: object, memo: dict[int, object]) -> object:
+    """Walk an export unit without recursing or copying for atomic values."""
+    if isinstance(v, (dict, Mapping)):
+        return {
+            key: value if is_shareable_scalar(value) else _to_python_value(value, memo)
+            for key, value in _mapping_items(v)
+        }
     if isinstance(v, list):
-        return [_to_python(x) for x in v]
-    return v
+        return [x if is_shareable_scalar(x) else _to_python_value(x, memo) for x in v]
+    return copy.deepcopy(v, memo) if is_scalar(v) else v
 
 
 def _is_section(v: object) -> TypeGuard[Container]:
@@ -1696,32 +1715,42 @@ def _collect_private_roots(value: object, found: dict[int, Document]) -> None:
         if root is not None and root._is_private:  # noqa: SLF001
             found[id(root)] = root
     if isinstance(value, Mapping):
-        for sub in value.values():
+        for _, sub in _mapping_items(value):
             _collect_private_roots(sub, found)
     elif isinstance(value, list):
         for sub in value:
             _collect_private_roots(sub, found)
 
 
-@contextlib.contextmanager
-def _sources_kept_intact(values: Iterable[object]) -> Iterator[None]:
-    """Present any private source document as one that must be copied.
+def _can_adopt_from(source: Document, destination: Document) -> bool:
+    """Whether this destination may consume the source root's layout."""
+    protected = destination._protected_source_roots  # noqa: SLF001
+    return source._is_private and (protected is None or id(source) not in protected)  # noqa: SLF001
 
-    An install moves out of a private orphan and clones from anything
-    else. Only the former damages the source, so for the duration the
-    orphans reachable from ``values`` claim to be documents in their
-    own right.
+
+@contextlib.contextmanager
+def _sources_kept_intact(
+    destination: Document | None, values: Iterable[object]
+) -> Iterator[None]:
+    """Protect initial source roots during writes to this destination.
+
+    Newly orphaned roots remain adoptable. Strong references keep the
+    captured identity keys valid until the scope exits.
     """
     roots: dict[int, Document] = {}
     for value in values:
         _collect_private_roots(value, roots)
-    for root in roots.values():
-        root._is_private = False  # noqa: SLF001
+    if destination is None:
+        yield
+        return
+    previous = destination._protected_source_roots  # noqa: SLF001
+    if previous is not None:
+        roots.update(previous)
+    destination._protected_source_roots = roots or None  # noqa: SLF001
     try:
         yield
     finally:
-        for root in roots.values():
-            root._is_private = True  # noqa: SLF001
+        destination._protected_source_roots = previous  # noqa: SLF001
 
 
 def _has_extractable_layout(data: Mapping[str, object]) -> TypeGuard[Table]:
@@ -1866,7 +1895,7 @@ def _validate_mapping_items(
     mapping: Mapping[Any, object], *, inline_only: bool
 ) -> None:
     """Validate each mapping key and its value in one pass."""
-    for raw_key, value in mapping.items():
+    for raw_key, value in _mapping_items(mapping):
         key = _validate_key(raw_key)
         _validate_input(value, inline_only=inline_only, key=key)
 
@@ -1944,7 +1973,7 @@ def _synth_value(
         if isinstance(v, Container) and v._value is None:  # noqa: SLF001
             cst, view = _populate_inline_table(
                 v,
-                list(v.items()),
+                list(_mapping_items(v)),
                 layout_root=layout_root,
                 parent=parent,
                 name=name,
@@ -1977,7 +2006,7 @@ def _synth_value(
     elif isinstance(v, Mapping):
         cst, view = _populate_inline_table(
             Table(),
-            list(v.items()),
+            list(_mapping_items(v)),
             layout_root=layout_root,
             parent=parent,
             name=name,
@@ -2051,7 +2080,7 @@ def _file_inline_child(
 
 def _populate_inline_table(
     table: Container,
-    items: Sequence[tuple[object, TomlInput]],
+    items: Sequence[tuple[str, TomlInput]],
     *,
     layout_root: Document | None,
     parent: Container | None,
@@ -2077,8 +2106,7 @@ def _populate_inline_table(
     table._value = val  # noqa: SLF001
 
     last = len(items) - 1
-    for i, (raw_k, sub) in enumerate(items):
-        k = _validate_key(raw_k)
+    for i, (k, sub) in enumerate(items):
         sub_cst, sub_dec = _synth_value(
             sub,
             layout_root=layout_root,

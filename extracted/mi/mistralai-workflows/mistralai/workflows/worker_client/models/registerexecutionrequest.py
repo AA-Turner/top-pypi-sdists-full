@@ -22,7 +22,7 @@ class RegisterExecutionRequestTypedDict(TypedDict):
     execution_token_hash: str
     temporal_parent_workflow_id: NotRequired[Nullable[str]]
     temporal_root_workflow_id: NotRequired[Nullable[str]]
-    search_key_metadata: NotRequired[Dict[str, str]]
+    search_key_metadata: NotRequired[Dict[str, Nullable[str]]]
     r"""Unencrypted key/value metadata extracted from the input, made searchable (RFC-402)"""
 
 
@@ -41,7 +41,7 @@ class RegisterExecutionRequest(BaseModel):
 
     temporal_root_workflow_id: OptionalNullable[str] = UNSET
 
-    search_key_metadata: Optional[Dict[str, str]] = None
+    search_key_metadata: Optional[Dict[str, Nullable[str]]] = None
     r"""Unencrypted key/value metadata extracted from the input, made searchable (RFC-402)"""
 
     @model_serializer(mode="wrap")

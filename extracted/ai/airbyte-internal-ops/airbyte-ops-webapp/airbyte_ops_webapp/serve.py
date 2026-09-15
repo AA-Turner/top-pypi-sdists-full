@@ -53,6 +53,14 @@ from airbyte_ops_webapp.pages.motherduck_diagnostics.defaults import (
     MOTHERDUCK_DIAGNOSTICS_PATH,
     MOTHERDUCK_DIAGNOSTICS_TOOL_NAME,
 )
+from airbyte_ops_webapp.pages.platform_admin.data_worker_allocation.defaults import (
+    DATA_WORKER_ALLOCATION_PATH,
+    DATA_WORKER_ALLOCATION_TOOL_NAME,
+)
+from airbyte_ops_webapp.pages.platform_admin.defaults import (
+    PLATFORM_ADMIN_PATH,
+    PLATFORM_ADMIN_TOOL_NAME,
+)
 from airbyte_ops_webapp.pages.shared_components.layout import OPS_HOME_PATH
 from airbyte_ops_webapp.state import mock_only_enabled
 from airbyte_ops_webapp.theme import RENDERER_OVERRIDE_CSS
@@ -122,6 +130,8 @@ async def _serve() -> None:
         add_connector_version_manager_routes(app, import_map_tag)
         add_customer_billing_routes(app, import_map_tag)
         add_motherduck_diagnostics_routes(app, import_map_tag)
+        add_platform_admin_routes(app, import_map_tag)
+        add_data_worker_allocation_routes(app, import_map_tag)
         add_prefab_renderer_route(app, mcp_url)
         add_oauth_routes(app)
         print(
@@ -294,6 +304,46 @@ def add_motherduck_diagnostics_routes(app: Starlette, import_map_tag: str) -> No
         )
 
     app.routes.insert(0, Route(MOTHERDUCK_DIAGNOSTICS_PATH, motherduck_diagnostics))
+
+
+def add_platform_admin_routes(app: Starlette, import_map_tag: str) -> None:
+    async def platform_admin(request) -> HTMLResponse | RedirectResponse:
+        gate = _login_redirect(request)
+        if gate is not None:
+            return gate
+        tool_args = {
+            key: value for key, value in request.query_params.items() if value.strip()
+        }
+        return HTMLResponse(
+            _tool_host_html(
+                tool_name=PLATFORM_ADMIN_TOOL_NAME,
+                tool_args=tool_args,
+                import_map_tag=import_map_tag,
+                page_title="Airbyte Ops — Platform Admin",
+            )
+        )
+
+    app.routes.insert(0, Route(PLATFORM_ADMIN_PATH, platform_admin))
+
+
+def add_data_worker_allocation_routes(app: Starlette, import_map_tag: str) -> None:
+    async def data_worker_allocation(request) -> HTMLResponse | RedirectResponse:
+        gate = _login_redirect(request)
+        if gate is not None:
+            return gate
+        tool_args = {
+            key: value for key, value in request.query_params.items() if value.strip()
+        }
+        return HTMLResponse(
+            _tool_host_html(
+                tool_name=DATA_WORKER_ALLOCATION_TOOL_NAME,
+                tool_args=tool_args,
+                import_map_tag=import_map_tag,
+                page_title="Airbyte Ops — Data Worker Allocation",
+            )
+        )
+
+    app.routes.insert(0, Route(DATA_WORKER_ALLOCATION_PATH, data_worker_allocation))
 
 
 _TITLE_RE = re.compile(r"<title>[^<]*</title>")

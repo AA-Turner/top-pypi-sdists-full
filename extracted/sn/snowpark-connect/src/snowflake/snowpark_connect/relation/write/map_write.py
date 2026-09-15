@@ -113,6 +113,10 @@ from snowflake.snowpark_connect.relation.utils import (
     qualify_dbtable_with_sf_options,
     random_string,
 )
+from snowflake.snowpark_connect.relation.write.spark_rw_options import (
+    build_spark_rw_options_params_v1,
+    build_spark_rw_options_params_v2,
+)
 from snowflake.snowpark_connect.type_mapping import (
     map_pyspark_types_to_pyarrow_types,
     map_snowpark_to_pyspark_types,
@@ -1392,6 +1396,11 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 cld_create_options, session_conf
             )
 
+            # Forward Iceberg write options to GS via SPARK_RW_OPTIONS.
+            iceberg_statement_params = build_spark_rw_options_params_v1(
+                cld_create_options
+            )
+
             is_insert_into = (
                 write_op.table.save_method
                 == commands_proto.WriteOperation.SaveTable.TableSaveMethod.TABLE_SAVE_METHOD_INSERT_INTO
@@ -1437,6 +1446,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             mode="append",
                             column_order=_column_order_for_write,
                             table_exists=True,
+                            statement_params=iceberg_statement_params,
                         )
                     else:
                         writer.saveAsTable(
@@ -1444,6 +1454,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             mode="errorifexists",
                             column_order=_column_order_for_write,
                             iceberg_config=iceberg_config,
+                            statement_params=iceberg_statement_params,
                         )
                 case "append":
                     if isinstance(table_schema_or_error, DataType):  # Table exists
@@ -1501,6 +1512,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                                 table_exists=isinstance(
                                     table_schema_or_error, DataType
                                 ),
+                                statement_params=iceberg_statement_params,
                             )
                     else:
                         writer = _validate_schema_and_get_writer(
@@ -1548,6 +1560,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                                 # Table was just created above; tell Snowpark not
                                 # to CREATE again (same rationale as append path).
                                 table_exists=True,
+                                statement_params=iceberg_statement_params,
                             )
                         else:
                             _get_writer_for_table_creation(input_df).saveAsTable(
@@ -1555,6 +1568,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                                 mode="ignore",
                                 column_order=_column_order_for_write,
                                 iceberg_config=iceberg_config,
+                                statement_params=iceberg_statement_params,
                             )
                 case "overwrite":
                     table_exists = isinstance(table_schema_or_error, DataType)
@@ -1579,6 +1593,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             table_exists=True,
                             mode="truncate",
                             column_order=_column_order_for_write,
+                            statement_params=iceberg_statement_params,
                         )
                     elif is_cld and not table_exists:
                         if dml_target.has_ref:
@@ -1600,6 +1615,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             table_name=snowpark_table_name,
                             mode="overwrite",
                             column_order=_column_order_for_write,
+                            statement_params=iceberg_statement_params,
                         )
                     else:
                         if not table_exists and dml_target.has_ref:
@@ -1620,6 +1636,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             iceberg_config=iceberg_config,
                             session=session,
                             input_df=input_df,
+                            statement_params=iceberg_statement_params,
                         )
                 case "overwrite_partitions":
                     _validate_table_exist_and_of_type(
@@ -1693,6 +1710,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             iceberg_config=iceberg_config,
                             session=session,
                             input_df=input_df,
+                            statement_params=iceberg_statement_params,
                         )
                         return
 
@@ -1760,6 +1778,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             column_order=_column_order_for_write,
                             overwrite_condition=overwrite_condition,
                             iceberg_config=iceberg_config,
+                            statement_params=iceberg_statement_params,
                         )
                 case _:
                     exception = SnowparkConnectNotImplementedError(
@@ -2015,6 +2034,11 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         _resolve_iceberg_check_ordering(write_options_v2) if is_iceberg else False
     )
 
+    # Forward Iceberg write options to GS via SPARK_RW_OPTIONS.
+    iceberg_statement_params = (
+        build_spark_rw_options_params_v2(dict(write_op.options)) if is_iceberg else None
+    )
+
     # FDN tables have no user-defined partitioning; reject partitionedBy
     # uniformly across all write modes (SNOW-3310107). Iceberg targets honor it.
     if not is_iceberg:
@@ -2141,6 +2165,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     partition_specs=partition_specs_cld,
                     comment=table_comment,
                     iceberg_version=table_format_version,
+                    statement_params=iceberg_statement_params,
                 )
             else:
                 writer.saveAsTable(
@@ -2150,6 +2175,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     iceberg_config=iceberg_config,
                     comment=table_comment,
                     data_retention_time=table_data_retention_days,
+                    statement_params=iceberg_statement_params,
                 )
 
         case commands_proto.WriteOperationV2.MODE_APPEND:
@@ -2199,6 +2225,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     # via _get_table_schema_or_error; without table_exists=True
                     # Snowpark re-issues show tables like on every append.
                     table_exists=isinstance(table_schema_or_error, DataType),
+                    statement_params=iceberg_statement_params,
                 )
 
         case commands_proto.WriteOperationV2.MODE_OVERWRITE:
@@ -2257,6 +2284,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     session=session,
                     is_iceberg=is_iceberg,
                     iceberg_config=iceberg_config,
+                    statement_params=iceberg_statement_params,
                 )
             else:
                 # Reached when the V2 command carries no overwrite condition
@@ -2270,6 +2298,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     table_exists=True,
                     mode="truncate",
                     column_order=_column_order_for_write,
+                    statement_params=iceberg_statement_params,
                 )
 
         case commands_proto.WriteOperationV2.MODE_OVERWRITE_PARTITIONS:
@@ -2346,6 +2375,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                                 table_schema_or_error,
                                 check_nullability=check_nullability,
                                 check_ordering=check_ordering,
+                                statement_params=iceberg_statement_params,
                             )
                             overwrite_partitions_dataframe_to_ref_dml_target(
                                 session,
@@ -2362,6 +2392,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                                 session,
                                 check_nullability=check_nullability,
                                 check_ordering=check_ordering,
+                                statement_params=iceberg_statement_params,
                             )
                     return
 
@@ -2424,6 +2455,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                                 table_schema_or_error,
                                 check_nullability=check_nullability,
                                 check_ordering=check_ordering,
+                                statement_params=iceberg_statement_params,
                             )
                             overwrite_partitions_dataframe_to_ref_dml_target(
                                 session,
@@ -2440,6 +2472,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                                 session,
                                 check_nullability=check_nullability,
                                 check_ordering=check_ordering,
+                                statement_params=iceberg_statement_params,
                             )
                     return
 
@@ -2462,6 +2495,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     table_exists=True,
                     mode="truncate",
                     column_order=_column_order_for_write,
+                    statement_params=iceberg_statement_params,
                 )
 
         case commands_proto.WriteOperationV2.MODE_REPLACE:
@@ -2492,6 +2526,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     partition_specs=partition_specs_cld,
                     comment=table_comment,
                     iceberg_version=table_format_version,
+                    statement_params=iceberg_statement_params,
                 )
             elif is_iceberg:
                 _overwrite_iceberg_with_fallback(
@@ -2502,6 +2537,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     input_df=input_df,
                     comment=table_comment,
                     data_retention_time_days=table_data_retention_days,
+                    statement_params=iceberg_statement_params,
                 )
             else:
                 writer.saveAsTable(
@@ -2532,6 +2568,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     partition_specs=partition_specs_cld,
                     comment=table_comment,
                     iceberg_version=table_format_version,
+                    statement_params=iceberg_statement_params,
                 )
             elif is_iceberg:
                 _overwrite_iceberg_with_fallback(
@@ -2542,6 +2579,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     input_df=input_df,
                     comment=table_comment,
                     data_retention_time_days=table_data_retention_days,
+                    statement_params=iceberg_statement_params,
                 )
             else:
                 writer.saveAsTable(
@@ -3353,6 +3391,94 @@ def _build_target_file_size_clause(options: dict | None = None) -> str:
     return f"TARGET_FILE_SIZE = '{escaped}'"
 
 
+# Property keys the CLD CREATE must not re-emit inside TABLE_PROPERTIES(...),
+# for one of two reasons:
+#   (a) mapped to a dedicated clause / consumed elsewhere — external_volume,
+#       base_location/location, target-file-size, format-version, comment,
+#       storage_serialization_policy, max-snapshot-age.ms, and merge-schema
+#       (consumed by _iceberg_merge_schema_enabled); or
+#   (b) reserved Snowflake parameter names that must not be forwarded as
+#       free-form external-catalog properties — catalog, catalog_sync.
+# Kept in sync with the managed _CONSUMED_TABLE_PROPERTY_KEYS on main.
+_CLD_CONSUMED_TABLE_PROPERTY_KEYS = frozenset(
+    {
+        "external_volume",
+        "iceberg.external_volume",
+        "catalog",
+        "iceberg.catalog",
+        "catalog_sync",
+        "iceberg.catalog_sync",
+        "base_location",
+        "iceberg.base_location",
+        "location",
+        "storage_serialization_policy",
+        "iceberg.storage_serialization_policy",
+        "write.target-file-size",
+        "target_file_size",
+        "format-version",
+        "iceberg.format-version",
+        "max-snapshot-age.ms",
+        "iceberg.max-snapshot-age.ms",
+        "merge-schema",
+        "iceberg.merge-schema",
+        "comment",
+    }
+)
+
+
+# SNOW-4061004: TABLE_PROPERTIES(...) on CREATE / ALTER ICEBERG TABLE is a
+# private GS grammar behind the parameter ENABLE_ICEBERG_TABLE_PROPERTIES_DDL.
+# When the parameter is off GS does not silently ignore the clause — it
+# HARD-REJECTS the statement with "001420 (22023): invalid property
+# 'TABLE_PROPERTIES' for 'TABLE'". So SCOS must not emit the clause unless it
+# has been enabled. We gate on a client-side session config (default off) rather
+# than probing the Snowflake parameter, so no extra SHOW PARAMETERS round trip is
+# issued per CLD CREATE — that query would also pollute the unified-workload
+# captured query set. To emit TABLE_PROPERTIES, enable BOTH this config AND
+# `ALTER SESSION SET ENABLE_ICEBERG_TABLE_PROPERTIES_DDL = TRUE` (so GS accepts
+# the clause).
+_ENABLE_TABLE_PROPERTIES_DDL_CONFIG_KEY = (
+    "snowpark.connect.iceberg.enable_table_properties_ddl"
+)
+
+
+def _iceberg_table_properties_ddl_enabled() -> bool:
+    """Return True when the client-side gate for TABLE_PROPERTIES(...) emission on
+    CREATE / ALTER ICEBERG TABLE is enabled via the session config
+    ``snowpark.connect.iceberg.enable_table_properties_ddl``. Defaults to False.
+    Read from session config only — no Snowflake round trip.
+    """
+    session_config = sessions_config.get(get_spark_session_id(), {})
+    return str_to_bool(
+        str(session_config.get(_ENABLE_TABLE_PROPERTIES_DDL_CONFIG_KEY, "false"))
+    )
+
+
+def _build_table_properties_clause(options: dict | None = None) -> str:
+    """Return ``TABLE_PROPERTIES = ('k'='v', ...)`` for a CLD / unmanaged-writable
+    ``CREATE ICEBERG TABLE`` from the leftover Spark table properties (those not
+    already mapped to a dedicated clause), or ``''`` when none remain.
+
+    Keys are emitted verbatim; keys and values are escaped single-quoted literals
+    (doubling ``'`` and ``\\``). GS commits these to the external catalog on the
+    unmanaged path (SNOW-3892694 / SNOW-3981841); SNOW-4061004.
+    """
+    if not options:
+        return ""
+    leftover = {
+        k: v
+        for k, v in options.items()
+        if k not in _CLD_CONSUMED_TABLE_PROPERTY_KEYS and v is not None
+    }
+    if not leftover:
+        return ""
+    pairs = ", ".join(
+        f"'{escape_sql_comment(k)}'='{escape_sql_comment(v)}'"
+        for k, v in leftover.items()
+    )
+    return f"TABLE_PROPERTIES = ({pairs})"
+
+
 def _create_cld_iceberg_table_then_load(
     session: snowpark.Session,
     writer: snowpark.DataFrameWriter,
@@ -3361,6 +3487,7 @@ def _create_cld_iceberg_table_then_load(
     partition_specs: list[V2PartitionSpec] | None = None,
     comment: str | None = None,
     iceberg_version: int | None = None,
+    statement_params: dict[str, str] | None = None,
 ) -> None:
     """Emit explicit ``CREATE ICEBERG TABLE`` for a CLD target, then append
     rows via Snowpark against the now-existing table.
@@ -3404,6 +3531,7 @@ def _create_cld_iceberg_table_then_load(
         table_name=snowpark_table_name,
         mode="append",
         column_order=_column_order_for_write,
+        statement_params=statement_params,
     )
 
 
@@ -3501,6 +3629,15 @@ def _create_cld_iceberg_table(
     target_file_size = _build_target_file_size_clause(options)
     if target_file_size:
         parts.append(target_file_size)
+
+    # SNOW-4061004: forward the leftover Spark table properties as
+    # TABLE_PROPERTIES = (...); GS commits them to the external catalog on the
+    # unmanaged path. Only emit when ENABLE_ICEBERG_TABLE_PROPERTIES_DDL is set,
+    # otherwise GS hard-rejects the whole CREATE.
+    if _iceberg_table_properties_ddl_enabled():
+        table_properties = _build_table_properties_clause(options)
+        if table_properties:
+            parts.append(table_properties)
 
     if comment:
         parts.append(f"COMMENT = '{escape_sql_comment(comment)}'")
@@ -3733,6 +3870,7 @@ def _overwrite_with_condition_and_cld_fallback(
     session: snowpark.Session,
     is_iceberg: bool,
     iceberg_config: dict | None = None,
+    statement_params: dict[str, str] | None = None,
 ) -> None:
     """Shared core for condition-targeted overwrites with a non-atomic fallback
     for unmanaged (CLD / external-catalog) Iceberg tables.
@@ -3752,6 +3890,8 @@ def _overwrite_with_condition_and_cld_fallback(
     trade-off as ``_overwrite_iceberg_with_fallback``).
     """
     extra = {"iceberg_config": iceberg_config} if iceberg_config is not None else {}
+    if statement_params is not None:
+        extra["statement_params"] = statement_params
     try:
         writer.saveAsTable(
             table_name=snowpark_table_name,
@@ -3809,6 +3949,7 @@ def _overwrite_partitions_with_unmanaged_fallback(
     iceberg_config: dict | None = None,
     check_nullability: bool = False,
     check_ordering: bool = True,
+    statement_params: dict[str, str] | None = None,
 ) -> None:
     """Apply a partition-targeted overwrite, with a non-atomic fallback for
     unmanaged (external-catalog / CLD) Iceberg tables.
@@ -3850,6 +3991,7 @@ def _overwrite_partitions_with_unmanaged_fallback(
         session=session,
         is_iceberg=True,  # this function is only called for Iceberg tables
         iceberg_config=iceberg_config,
+        statement_params=statement_params,
     )
 
 
@@ -3861,6 +4003,7 @@ def _overwrite_iceberg_with_fallback(
     input_df: snowpark.DataFrame | None = None,
     comment: str | None = None,
     data_retention_time_days: int | None = None,
+    statement_params: dict[str, str] | None = None,
 ) -> None:
     """Try a normal Snowpark ``mode='overwrite'`` (CREATE OR REPLACE).
 
@@ -3892,6 +4035,7 @@ def _overwrite_iceberg_with_fallback(
             copy_grants=True,
             comment=comment,
             data_retention_time=data_retention_time_days,
+            statement_params=statement_params,
         )
     except SnowparkSQLException as e:
         if not _is_external_catalog_error(e):
@@ -3936,6 +4080,7 @@ def _overwrite_iceberg_with_fallback(
             table_exists=True,
             mode="truncate",
             column_order=_column_order_for_write,
+            statement_params=statement_params,
         )
 
         # The INSERT OVERWRITE above swaps rows only; it cannot carry the

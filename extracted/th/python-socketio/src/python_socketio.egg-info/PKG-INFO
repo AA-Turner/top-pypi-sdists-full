@@ -1,11 +1,15 @@
 Metadata-Version: 2.4
 Name: python-socketio
-Version: 5.16.4
+Version: 5.17.0
 Summary: Socket.IO server and client for Python
 Author-email: Miguel Grinberg <miguel.grinberg@gmail.com>
 License: MIT
-Project-URL: Homepage, https://github.com/miguelgrinberg/python-socketio
-Project-URL: Bug Tracker, https://github.com/miguelgrinberg/python-socketio/issues
+Project-URL: Homepage, https://code.miguelgrinberg.com/miguelgrinberg/python-socketio
+Project-URL: Documentation, https://python-socketio.readthedocs.io/
+Project-URL: Source Code, https://code.miguelgrinberg.com/miguelgrinberg/python-socketio
+Project-URL: Issue Tracker, https://code.miguelgrinberg.com/miguelgrinberg/python-socketio/issues
+Project-URL: Changelog, https://code.miguelgrinberg.com/miguelgrinberg/python-socketio/src/branch/main/CHANGES.md
+Project-URL: Funding, https://code.miguelgrinberg.com/miguelgrinberg/python-socketio#sponsor-this-project
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -30,19 +34,9 @@ Dynamic: license-file
 python-socketio
 ===============
 
-[![Build status](https://github.com/miguelgrinberg/python-socketio/workflows/build/badge.svg)](https://github.com/miguelgrinberg/python-socketio/actions) [![codecov](https://codecov.io/gh/miguelgrinberg/python-socketio/branch/main/graph/badge.svg)](https://codecov.io/gh/miguelgrinberg/python-socketio)
+[![tests](https://code.miguelgrinberg.com/miguelgrinberg/python-socketio/badges/workflows/tests.yml/badge.svg)](https://code.miguelgrinberg.com/miguelgrinberg/python-socketio/actions)
 
 Python implementation of the `Socket.IO` realtime client and server.
-
-Sponsors
---------
-
-The following organizations are funding this project:
-
-![Socket.IO](https://images.opencollective.com/socketio/050e5eb/logo/64.png)<br>[Socket.IO](https://socket.io)  | [Add your company here!](https://github.com/sponsors/miguelgrinberg)|
--|-
-
-Many individual sponsors also support this project through small ongoing contributions. Why not [join them](https://github.com/sponsors/miguelgrinberg)?
 
 Version compatibility
 ---------------------
@@ -69,7 +63,22 @@ JavaScript Socket.IO version | Socket.IO protocol revision | Engine.IO protocol 
 Resources
 ---------
 
--  [Documentation](http://python-socketio.readthedocs.io/)
--  [PyPI](https://pypi.python.org/pypi/python-socketio)
--  [Change Log](https://github.com/miguelgrinberg/python-socketio/blob/main/CHANGES.md)
--  Questions? See the [questions](https://stackoverflow.com/questions/tagged/python-socketio) others have asked on Stack Overflow, or [ask](https://stackoverflow.com/questions/ask?tags=python+python-socketio) your own question.
+- [git](https://code.miguelgrinberg.com/miguelgrinberg/python-socketio)
+- [Change Log](https://code.miguelgrinberg.com/miguelgrinberg/python-socketio/src/branch/main/CHANGES.md)
+- [Documentation](https://python-socketio.readthedocs.io/)
+- [PyPI](https://pypi.python.org/pypi/python-socketio)
+- [Contributor's guide](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+
+Sponsor this project
+--------------------
+
+This project relies on contributions from its users. If you benefit from it please consider making a single or ongoing monetary contribution in one of the following platforms:
+
+- [Github Sponsors](https://github.com/sponsors/miguelgrinberg)
+- [Patreon](https://patreon.com/miguelgrinberg)
+- [Buy me a Coffee](https://buymeacoffee.com/miguelgrinberg)
+- [thanks.dev](https://thanks.dev/u/gh/miguelgrinberg)
+- [PayPal](https://paypal.me/miguelgrinberg)
+
+Thank you!

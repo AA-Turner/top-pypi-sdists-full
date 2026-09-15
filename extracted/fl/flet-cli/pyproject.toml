@@ -1,13 +1,14 @@
 [project]
 name = "flet-cli"
-version = "0.86.5"
+version = "1.0.0"
 description = "Flet CLI"
 authors = [{ name = "Appveyor Systems Inc.", email = "hello@flet.dev" }]
 license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "flet==0.86.5",
+    "flet==1.0.0",
+    "flet-platform-assets==1.0.0",
     "watchdog >=4.0.0",
     "packaging >=25.0",
     "qrcode >=7.4.2",
@@ -28,6 +29,9 @@ Documentation = "https://flet.dev/docs"
 
 [project.entry-points."pyinstaller40"]
 hook-dirs = "flet_cli.__pyinstaller:get_hook_dirs"
+
+[tool.setuptools.package-data]
+"flet_cli.__pyinstaller" = ["rthooks.dat", "rthooks/*.py"]
 
 [build-system]
 requires = ["setuptools"]

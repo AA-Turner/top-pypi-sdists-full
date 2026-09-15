@@ -1725,12 +1725,12 @@ class AlgorithmConfiguration(System.Object):
         ...
 
     @property
-    def brokerage_data(self) -> typing.Dict[str, str]:
-        """The brokerage data used by the live algorithm, if any"""
+    def deployment_details(self) -> typing.Dict[str, str]:
+        """The deployment details of the live algorithm, if any"""
         ...
 
-    @brokerage_data.setter
-    def brokerage_data(self, value: typing.Dict[str, str]) -> None:
+    @deployment_details.setter
+    def deployment_details(self, value: typing.Dict[str, str]) -> None:
         ...
 
     @property
@@ -1779,7 +1779,7 @@ class AlgorithmConfiguration(System.Object):
         ...
 
     @overload
-    def __init__(self, name: str, tags: System.Collections.Generic.ISet[str], account_currency: str, brokerage_name: QuantConnect.Brokerages.BrokerageName, account_type: QuantConnect.AccountType, parameters: typing.Dict[str, str], start_date: typing.Union[datetime.datetime, datetime.date], end_date: typing.Union[datetime.datetime, datetime.date], out_of_sample_max_end_date: typing.Optional[datetime.datetime], out_of_sample_days: int = 0, trading_days_per_year: int = 0, brokerage_data: typing.Dict[str, str] = None) -> None:
+    def __init__(self, name: str, tags: System.Collections.Generic.ISet[str], account_currency: str, brokerage_name: QuantConnect.Brokerages.BrokerageName, account_type: QuantConnect.AccountType, parameters: typing.Dict[str, str], start_date: typing.Union[datetime.datetime, datetime.date], end_date: typing.Union[datetime.datetime, datetime.date], out_of_sample_max_end_date: typing.Optional[datetime.datetime], out_of_sample_days: int = 0, trading_days_per_year: int = 0, deployment_details: typing.Dict[str, str] = None) -> None:
         """Initializes a new instance of the AlgorithmConfiguration class"""
         ...
 

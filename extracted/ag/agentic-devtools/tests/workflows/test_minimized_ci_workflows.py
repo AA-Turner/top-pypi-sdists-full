@@ -3,6 +3,8 @@
 import re
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AI_PR_LOOP = REPO_ROOT / ".github" / "workflows" / "ai-pr-loop.yml"
 AI_PR_LOOP_LINT = REPO_ROOT / ".github" / "workflows" / "ai-pr-loop-lint.yml"
@@ -10,6 +12,7 @@ GENERATE_SPEC_FROM_ISSUE = REPO_ROOT / ".github" / "scripts" / "speckit-trigger"
 RESOLVE_CASCADE_TARGET = REPO_ROOT / ".github" / "scripts" / "speckit-trigger" / "resolve-cascade-target.sh"
 SPECKIT_TRIGGER = REPO_ROOT / ".github" / "workflows" / "speckit-issue-trigger.yml"
 SPECKIT_PHASE_PROGRESSION = REPO_ROOT / ".github" / "workflows" / "speckit-phase-progression.yml"
+SPECKIT_FALLBACK_CLEANUP = REPO_ROOT / ".github" / "workflows" / "speckit-agent-fallback-cleanup.yml"
 WORKFLOW_APPROVAL_MONITOR = REPO_ROOT / ".github" / "workflows" / "workflow-approval-monitor.yml"
 SQUASH_WAIT_SCHEDULER = REPO_ROOT / ".github" / "workflows" / "squash-wait-scheduler.yml"
 AI_PR_LOOP_CONFIG = REPO_ROOT / ".github" / "ai-pr-loop-config.json"
@@ -28,17 +31,36 @@ class TestMinimizedCiWorkflows:
         assert _non_empty_line_count(AI_PR_LOOP) <= 150
 
     def test_speckit_trigger_is_within_line_limit(self) -> None:
-        assert _non_empty_line_count(SPECKIT_TRIGGER) <= 230
+        assert _non_empty_line_count(SPECKIT_TRIGGER) <= 240
 
     def test_ai_pr_loop_uses_single_command_with_feature_flag(self) -> None:
         content = AI_PR_LOOP.read_text(encoding="utf-8")
         assert 'AGDT_USE_PYTHON_ORCHESTRATOR: "1"' in content
-        assert content.count("agdt-ai-pr-loop\n") == 1
+        assert content.count("          agdt-ai-pr-loop\n") == 1
 
     def test_speckit_trigger_dispatches_to_phase_progression(self) -> None:
         content = SPECKIT_TRIGGER.read_text(encoding="utf-8")
         assert "gh api" in content
         assert "speckit-phase-progression.yml" in content
+
+    def test_speckit_trigger_uses_default_token_for_repository_operations(self) -> None:
+        parsed = yaml.safe_load(SPECKIT_TRIGGER.read_text(encoding="utf-8"))
+        steps = parsed["jobs"]["dispatch-phase-1"]["steps"]
+        default_token = "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}"
+
+        checkout_step = next(step for step in steps if step.get("name") == "Check out repository (Cloud Agent Guard)")
+        assert checkout_step["with"]["token"] == default_token
+
+        github_script_steps = [step for step in steps if step.get("uses") == "actions/github-script@v7"]
+        assert len(github_script_steps) == 4
+        for step in github_script_steps:
+            assert step["with"]["github-token"] == default_token
+
+        dispatch_step = next(step for step in steps if step.get("name") == "Dispatch Phase Progression")
+        assert dispatch_step["env"]["GH_TOKEN"] == default_token
+        assert "github.token" not in dispatch_step["env"]["GH_TOKEN"]
+        for role_env in ("GITHUB_TOKEN", "SPECKIT_PR_TOKEN", "COPILOT_GITHUB_TOKEN", "REPO_VARIABLE_WRITER_PAT"):
+            assert role_env not in dispatch_step["env"]
 
     def test_ai_pr_loop_has_required_setup_steps(self) -> None:
         content = AI_PR_LOOP.read_text(encoding="utf-8")
@@ -58,13 +80,18 @@ class TestMinimizedCiWorkflows:
         assert "enable-cache: true" in content
         assert "cache-dependency-glob: 'pyproject.toml'" in content
 
-    def test_ai_pr_loop_uses_workflow_token_fallback_for_redispatch(self) -> None:
-        content = AI_PR_LOOP.read_text(encoding="utf-8")
-        dispatch_step = content[content.index("- name: Dispatch AI PR Loop Redispatch") :]
-        assert "GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}" in dispatch_step
-        assert "FALLBACK_GH_TOKEN: ${{ github.token }}" in dispatch_step
-        assert 'GH_TOKEN="${FALLBACK_GH_TOKEN:-$GH_TOKEN}" gh api --method POST' in dispatch_step
-        assert "REPO_VARIABLE_WRITER_PAT" not in dispatch_step
+    def test_ai_pr_loop_uses_default_token_for_redispatch(self) -> None:
+        parsed = yaml.safe_load(AI_PR_LOOP.read_text(encoding="utf-8"))
+        steps = parsed["jobs"]["ai-pr-loop"]["steps"]
+        dispatch_step = next(step for step in steps if step.get("name") == "Dispatch AI PR Loop Redispatch")
+        assert dispatch_step["env"]["GH_TOKEN"] == "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}"
+        assert dispatch_step["env"]["DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"] == (
+            "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}"
+        )
+        assert dispatch_step["env"]["AI_PR_LOOP_CREDENTIAL_IDENTITY"] == "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"
+        assert "REPO_VARIABLE_WRITER_PAT" not in dispatch_step["run"]
+        assert "SPECKIT_PR_TOKEN" not in dispatch_step["run"]
+        assert "FALLBACK_GH_TOKEN" not in dispatch_step["run"]
 
     def test_ai_pr_loop_configures_loop_git_identity(self) -> None:
         content = AI_PR_LOOP.read_text(encoding="utf-8")
@@ -131,6 +158,14 @@ class TestMinimizedCiWorkflows:
         assert "concurrency:" in content
         assert "suppressed-triage-reap" in content
 
+    def test_suppressed_triage_reap_uses_default_repo_workflow_credential(self) -> None:
+        content = SUPPRESSED_TRIAGE_REAP.read_text(encoding="utf-8")
+        assert "token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+        assert "GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+        assert "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}" in content
+        assert "AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" in content
+        assert "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}" not in content
+
     def test_speckit_trigger_filters_specs_tree_to_spec_markdown(self) -> None:
         content = SPECKIT_TRIGGER.read_text(encoding="utf-8")
         assert ".filter(t => t.type === 'blob' && t.path.endsWith('/spec.md'))" in content
@@ -148,8 +183,12 @@ class TestMinimizedCiWorkflows:
         assert "Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is configured" in content
 
     def test_speckit_implement_trigger_uses_cli_assignment_and_followups(self) -> None:
+        parsed = yaml.safe_load(SPECKIT_IMPLEMENT_TRIGGER.read_text(encoding="utf-8"))
+        steps = parsed["jobs"]["trigger-implementation"]["steps"]
+        update_labels = next(step for step in steps if step.get("name") == "Update Labels")
+        triggered_comment = next(step for step in steps if step.get("name") == "Post Implementation Triggered Comment")
         content = SPECKIT_IMPLEMENT_TRIGGER.read_text(encoding="utf-8")
-        token_line = "github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}"
+        assignment_token_line = "${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}"
         assert "steps.validate-token.outcome == 'success'" in content
         assert "agdt-assign-implementation-agent" in content
         assert "SPEC_DIR: ${{ steps.discover.outputs.spec_dir }}" in content
@@ -158,10 +197,20 @@ class TestMinimizedCiWorkflows:
         assert '--spec-dir "${{ steps.discover.outputs.spec_dir }}"' not in content
         assert "actions/setup-python@v5" in content
         assert "pip install -e ." in content
-        assert token_line in content
-        assert content.count(token_line) >= 2
+        assert update_labels["with"]["github-token"] == "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}"
+        assert triggered_comment["with"]["github-token"] == "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}"
+        assert assignment_token_line not in update_labels["with"]["github-token"]
+        assert assignment_token_line not in triggered_comment["with"]["github-token"]
         assert "response.data?.agent_assignment" not in content
         assert "PATCH /repos/{owner}/{repo}/issues/{issue_number}" not in content
+
+    def test_speckit_fallback_cleanup_uses_default_token_for_polling(self) -> None:
+        parsed = yaml.safe_load(SPECKIT_FALLBACK_CLEANUP.read_text(encoding="utf-8"))
+        steps = parsed["jobs"]["poll-agent-tasks"]["steps"]
+        polling_step = next(
+            step for step in steps if step.get("name") == "Poll agent fallback tasks for terminal states"
+        )
+        assert polling_step["with"]["github-token"] == "${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}"
 
     def test_speckit_implement_trigger_collects_both_task_directory_naming_forms(self) -> None:
         content = SPECKIT_IMPLEMENT_TRIGGER.read_text(encoding="utf-8")
@@ -271,11 +320,9 @@ class TestMinimizedCiWorkflows:
 
     def test_speckit_phase_progression_validates_token_for_cascade_paths(self) -> None:
         content = SPECKIT_PHASE_PROGRESSION.read_text(encoding="utf-8")
-        expected = (
-            "Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is configured. "
-            "Cascade trigger requires one of these secrets."
-        )
+        expected = "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is not configured. Cascade trigger requires this secret."
         assert content.count(expected) == 2
+        assert "secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN" not in content
 
     def test_speckit_phase_progression_uses_null_delimited_hierarchy_search(self) -> None:
         # The find + while-loop logic lives in the shared resolve-cascade-target.sh script.

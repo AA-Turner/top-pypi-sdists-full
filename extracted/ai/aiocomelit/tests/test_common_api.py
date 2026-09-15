@@ -1,3 +1,6 @@
+# Copyright 2023 Simone Chemelli and contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for shared Comelit API code paths."""
 
 from __future__ import annotations
@@ -13,12 +16,7 @@ from aiohttp import ClientConnectorError, ContentTypeError, RequestInfo
 from multidict import CIMultiDict, CIMultiDictProxy
 from yarl import URL
 
-from aiocomelit.api import (
-    ComeliteSerialBridgeApi,
-    ComelitVedoApi,
-    ComelitVedoAreaObject,
-    ComelitVedoZoneObject,
-)
+from aiocomelit.api import ComelitVedoAreaObject, ComelitVedoZoneObject
 from aiocomelit.const import (
     BRIDGE,
     SLEEP_AFTER_VEDO_LOGIN,
@@ -26,6 +24,8 @@ from aiocomelit.const import (
     AlarmAreaState,
     AlarmZoneState,
 )
+from aiocomelit.devices.bridge import ComeliteSerialBridgeApi
+from aiocomelit.devices.vedo import ComelitVedoApi
 from aiocomelit.exceptions import (
     CannotAuthenticate,
     CannotConnect,

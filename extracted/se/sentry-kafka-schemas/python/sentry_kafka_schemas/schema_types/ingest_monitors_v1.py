@@ -1,4 +1,4 @@
-from typing import Required, Union, Literal, TypedDict
+from typing import Literal, Required, Union, TypedDict, List
 
 
 class CheckIn(TypedDict, total=False):
@@ -68,6 +68,9 @@ class ClockPulse(TypedDict, total=False):
     Required property
     """
 
+    partition_ids: List["_ClockPulsePartitionIdsItem"]
+    """ The Kafka partition ids that this clock pulse was sent to. """
+
 
 
 IngestMonitorMessage = Union["ClockPulse", "CheckIn"]
@@ -76,4 +79,9 @@ ingest_monitor_message.
 
 Aggregation type: oneOf
 """
+
+
+
+_ClockPulsePartitionIdsItem = int
+""" minimum: 0 """
 

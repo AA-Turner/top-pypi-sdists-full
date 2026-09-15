@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import logging
 import time
 import traceback
 from typing import Any
@@ -58,6 +59,8 @@ from pydantic import ValidationError
 from matrx_ai.tools._dispatch_util import format_args_error
 from matrx_ai.tools.arg_models import CtxPatchArgs
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
+
+logger = logging.getLogger(__name__)
 
 # Valid `ctx_patch` commands are enforced by the CtxPatchArgs discriminated union
 # (arg_models/dispatcher_args.py) + tool_def.parameters."$variants" — the source of truth.
@@ -146,21 +149,23 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 new_content=new_content,
             )
             await _emit_context_changed(ctx, obj=updated, command=command)
-            _schedule_writeback(ctx, updated, command=command)
+            delivery = await _schedule_writeback(ctx, updated, command=command)
             from matrx_ai.tools.kinds.context_tools import ContextWriteResult
 
-            return _success(
-                tool_name,
-                ctx.call_id,
-                started_at,
-                output=ContextWriteResult(
-                    key=key,
-                    command=str(command),
-                    matched_at_pass=pass_info,
-                    new_size_chars=len(new_content),
-                    persist=updated.persist.value,
-                ),
+            receipt = ContextWriteResult(
+                key=key,
+                command=str(command),
+                matched_at_pass=pass_info,
+                new_size_chars=len(new_content),
+                persist=updated.persist.value,
+                persisted=delivery.persisted,
+                persist_error=delivery.error,
             )
+            if delivery.failed:
+                return _persist_failure(
+                    tool_name, ctx.call_id, started_at, receipt, delivery.error or ""
+                )
+            return _success(tool_name, ctx.call_id, started_at, output=receipt)
 
         # JSON commands require dict/list content; stringify only for the envelope.
         if command in _JSON_COMMANDS:
@@ -191,19 +196,21 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 new_content=new_content,
             )
             await _emit_context_changed(ctx, obj=updated, command=command)
-            _schedule_writeback(ctx, updated, command=command)
+            delivery = await _schedule_writeback(ctx, updated, command=command)
             from matrx_ai.tools.kinds.context_tools import ContextWriteResult
 
-            return _success(
-                tool_name,
-                ctx.call_id,
-                started_at,
-                output=ContextWriteResult(
-                    key=key,
-                    command=str(command),
-                    persist=updated.persist.value,
-                ),
+            receipt = ContextWriteResult(
+                key=key,
+                command=str(command),
+                persist=updated.persist.value,
+                persisted=delivery.persisted,
+                persist_error=delivery.error,
             )
+            if delivery.failed:
+                return _persist_failure(
+                    tool_name, ctx.call_id, started_at, receipt, delivery.error or ""
+                )
+            return _success(tool_name, ctx.call_id, started_at, output=receipt)
 
         # Defensive — validated above.
         return _validation_err(
@@ -366,24 +373,26 @@ async def _create_from_patch(
             new_content=content,
         )
         await _emit_context_changed(ctx, obj=new_obj, command="create")
-        _schedule_writeback(ctx, new_obj, command="create")
+        delivery = await _schedule_writeback(ctx, new_obj, command="create")
 
         from matrx_ai.tools.kinds.context_tools import ContextWriteResult
 
-        return _success(
-            tool_name,
-            ctx.call_id,
-            started_at,
-            output=ContextWriteResult(
-                key=key,
-                command="create",
-                type=inferred_type.value,
-                label=label,
-                size_hint=new_obj.size_hint,
-                mutable=mutable,
-                persist=persist_mode.value,
-            ),
+        receipt = ContextWriteResult(
+            key=key,
+            command="create",
+            type=inferred_type.value,
+            label=label,
+            size_hint=new_obj.size_hint,
+            mutable=mutable,
+            persist=persist_mode.value,
+            persisted=delivery.persisted,
+            persist_error=delivery.error,
         )
+        if delivery.failed:
+            return _persist_failure(
+                tool_name, ctx.call_id, started_at, receipt, delivery.error or ""
+            )
+        return _success(tool_name, ctx.call_id, started_at, output=receipt)
 
     except Exception as e:
         return ToolResult(
@@ -913,20 +922,119 @@ async def _emit_context_changed(
         pass
 
 
-def _schedule_writeback(ctx: ToolContext, obj: Any, *, command: str) -> None:
-    """Fire-and-forget DB writeback via a host-injected dispatcher.
+CONTEXT_WRITEBACK_UNDELIVERABLE_KIND = "context_writeback_undeliverable"
 
-    The host supplies a `schedule_context_writeback` callable via
-    `matrx_ai.configure(...)`. If it isn't configured (standalone use, or a
-    host that doesn't care about persisting context edits), this is a no-op.
+#: Persist modes that ask for NO durable server-side write. ``never`` is a
+#: scratch/in-request artifact; ``client`` means the client owns persistence
+#: end-to-end. Neither can suffer a lost write-back, so neither announces.
+_NON_DURABLE_PERSIST = frozenset({"never", "client"})
 
-    Safe to call for any mutation: the dispatcher itself no-ops when persist
-    is disabled, when no source is set, or when no handler is registered.
+
+class WritebackDelivery:
+    """Outcome of handing one mutation to the host's write-back dispatcher.
+
+    Three states, and only one of them is silent:
+
+    * ``durable is False`` — the object never asked for a server-side write
+      (``persist`` is ``never``/``client``). Nothing can be lost, so nothing is
+      announced and ``persisted`` stays ``None``.
+    * ``durable is True`` and ``error is None`` — the mutation was accepted by
+      the dispatcher. ``persisted`` is ``True``.
+    * ``durable is True`` and ``error`` is set — the mutation could NOT be
+      delivered. ``persisted`` is ``False`` and ``error`` is the honest
+      sentence (what was not saved, why, and the remedy) that the tool result
+      hands the model. This is the state that used to be ``except Exception:
+      pass`` — an edit the model was told had saved, discarded with no
+      exception, no log and no event (DD-246).
+    """
+
+    __slots__ = ("durable", "error")
+
+    def __init__(self, *, durable: bool, error: str | None = None) -> None:
+        self.durable = durable
+        self.error = error
+
+    @property
+    def persisted(self) -> bool | None:
+        return None if not self.durable else self.error is None
+
+    @property
+    def failed(self) -> bool:
+        return self.durable and self.error is not None
+
+
+def _persist_value(obj: Any) -> str:
+    persist = getattr(obj, "persist", None)
+    return getattr(persist, "value", persist) or ""
+
+
+async def _capture_writeback_undeliverable(
+    ctx: ToolContext, obj: Any, *, command: str, message: str
+) -> None:
+    """File a durable error row for one undeliverable write-back.
+
+    Best-effort by necessity (the errors surface is itself a network call), but
+    NEVER the only signal: the caller has already put the same sentence in the
+    tool result, so a capture outage cannot restore the silence.
+    """
+    try:
+        from matrx_connect.streaming.error_capture import capture_error
+
+        source = getattr(obj, "source", None)
+        await capture_error(
+            RuntimeError(message),
+            kind=CONTEXT_WRITEBACK_UNDELIVERABLE_KIND,
+            route="tool.context_patch.writeback",
+            error_type="ContextWritebackUndeliverable",
+            error_text=message,
+            user_id=getattr(ctx, "user_id", None),
+            context={
+                "key": getattr(obj, "key", None),
+                "command": command,
+                "persist": _persist_value(obj),
+                "source_kind": getattr(source, "kind", None),
+                "source_id": getattr(source, "id", None),
+            },
+        )
+    except Exception:
+        # The tool result already carries the announcement; a failure to ALSO
+        # record it must not replace an honest answer with an exception.
+        logger.exception("[ctx_write] could not capture undeliverable write-back")
+
+
+async def _schedule_writeback(ctx: ToolContext, obj: Any, *, command: str) -> WritebackDelivery:
+    """Hand one mutation to the host's DB write-back dispatcher, honestly.
+
+    The host supplies a ``schedule_context_writeback`` callable via
+    ``matrx_ai.configure(...)``. Delivery is fire-and-forget ONCE ACCEPTED (the
+    dispatcher detaches the DB work); what this function guarantees is that a
+    mutation which could not even be HANDED OVER is never silent.
+
+    An object whose ``persist`` is ``never``/``client`` asked for no durable
+    write — that returns a non-durable delivery and says nothing. An object
+    that DID ask for one and cannot get it (host extension absent, no handler
+    registered for its source kind, no source at all, dispatcher raised)
+    returns ``failed`` with the sentence the model is told.
     """
     from matrx_ai._ext import get_ext, has_ext
 
+    if _persist_value(obj) in _NON_DURABLE_PERSIST:
+        return WritebackDelivery(durable=False)
+
+    key = getattr(obj, "key", "?")
+
     if not has_ext("schedule_context_writeback"):
-        return
+        message = (
+            f"The edit to context object '{key}' was applied for this request but NOT saved: "
+            "this host did not configure a context write-back dispatcher "
+            "('schedule_context_writeback' is absent from the matrx-ai extension registry), "
+            "so there is nowhere to persist it. Remedy: the change is live for the rest of "
+            "this conversation only — tell the user it was not saved, and do not repeat the "
+            "edit (repeating it would apply it twice in memory and still not save it)."
+        )
+        await _capture_writeback_undeliverable(ctx, obj, command=command, message=message)
+        return WritebackDelivery(durable=True, error=message)
+
     try:
         schedule_writeback = get_ext("schedule_context_writeback")
         schedule_writeback(
@@ -935,8 +1043,50 @@ def _schedule_writeback(ctx: ToolContext, obj: Any, *, command: str) -> None:
             emitter=ctx.emitter,
             command=command,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        message = (
+            f"The edit to context object '{key}' was applied for this request but NOT saved: "
+            f"{exc}. Remedy: the change is live for the rest of this conversation only — tell "
+            "the user it was not saved, and do not repeat the edit (repeating it would apply "
+            "it twice in memory and still not save it)."
+        )
+        logger.error("[ctx_write] write-back undeliverable for key=%s: %s", key, exc)
+        await _capture_writeback_undeliverable(ctx, obj, command=command, message=message)
+        return WritebackDelivery(durable=True, error=message)
+
+    return WritebackDelivery(durable=True)
+
+
+def _persist_failure(
+    tool_name: str,
+    call_id: str,
+    started_at: float,
+    output: Any,
+    message: str,
+) -> ToolResult:
+    """A write that reached memory and not the database is a FAILED tool call.
+
+    The receipt rides along (``persisted=False``, the key, the command) so the
+    ledger records exactly which write was lost, and the error carries the
+    sentence the model answers from. ``is_retryable`` is False on purpose: the
+    in-memory edit DID apply, so a retry duplicates it and still cannot save.
+    """
+    return ToolResult(
+        success=False,
+        output=output,
+        error=ToolError(
+            error_type="context_write_not_persisted",
+            message=message,
+            suggested_action=(
+                "Tell the user the change was not saved and why. Do not repeat the edit."
+            ),
+            is_retryable=False,
+        ),
+        started_at=started_at,
+        completed_at=time.time(),
+        tool_name=tool_name,
+        call_id=call_id,
+    )
 
 
 # ---------------------------------------------------------------------------

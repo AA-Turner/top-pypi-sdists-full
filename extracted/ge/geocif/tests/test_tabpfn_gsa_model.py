@@ -166,7 +166,7 @@ def test_wrapper_prefix_regex_leaves_tabpfn_gsa_alone():
 
 def test_geocif_wiring_for_tabpfn_gsa():
     src = (ROOT / "geocif.py").read_text(encoding="utf-8")
-    assert '"exaone", "tabpfn_gsa", "tabfm_gsa"]' in src  # tabular flags dispatch
+    assert '"exaone", "tabpfn_gsa", "tabfm_gsa"' in src  # tabular flags dispatch
     assert '"tabpfn_gsa": TabPFNFitter(self.obj)' in src
     assert "self.gsa_params" in src
     assert "tabpfn_gsa_K" in src and "tabpfn_gsa_s" in src

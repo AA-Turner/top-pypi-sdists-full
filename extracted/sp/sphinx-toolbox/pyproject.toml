@@ -4,7 +4,7 @@ build-backend = "whey"
 
 [project]
 name = "sphinx-toolbox"
-version = "4.3.0"
+version = "4.3.1"
 description = "Box of handy tools for Sphinx 🧰 📔"
 readme = "README.rst"
 keywords = [ "documentation", "sphinx", "sphinx-extension",]
@@ -145,6 +145,7 @@ extensions = [
     "sphinx_toolbox.latex.succinct_seealso",
     "sphinx_toolbox.more_autosummary.column_widths",
 ]
+sphinxemoji_source = "https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js"
 gitstamp_fmt = "%d %b %Y"
 templates_path = [ "_templates",]
 html_static_path = [ "_static",]

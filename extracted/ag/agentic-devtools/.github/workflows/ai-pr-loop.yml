@@ -1,6 +1,5 @@
 name: AI PR Loop
 run-name: AI PR Loop (PR ${{ inputs.pr_number }})
-
 on:
   schedule:
     - cron: "*/20 * * * *"
@@ -34,9 +33,7 @@ jobs:
     steps:
       - name: Checkout workflow sources
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
+        with: {fetch-depth: 0, token: '${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}', persist-credentials: false}
       - name: Set up Python for cooldown gate
         uses: actions/setup-python@v5
         with:
@@ -51,15 +48,19 @@ jobs:
       - name: Check provider cooldown gate
         id: cooldown-gate
         env:
-          GH_TOKEN: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
-          AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
         run: |
           python -c 'import os, sys; from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command; sys.argv = ["watchdog", "--mode", "cooldown-gate", "--repo", os.environ["GITHUB_REPOSITORY"]]; ai_pr_loop_watchdog_command()'
       - name: Resolve PR head ref
         if: steps.cooldown-gate.outputs.cooldown_active != 'true'
         id: dispatch-pr
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           PR_NUMBER_INPUT: ${{ github.event.inputs.pr_number }}
         run: |
           set -euo pipefail
@@ -71,7 +72,7 @@ jobs:
         with:
           ref: ${{ steps.dispatch-pr.outputs.head_ref }}
           fetch-depth: 0
-          token: ${{ secrets.SPECKIT_PR_TOKEN }}
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
       - if: steps.cooldown-gate.outputs.cooldown_active != 'true'
         run: |
           git config user.name "AMARSNIK_swica"
@@ -93,12 +94,12 @@ jobs:
       - if: steps.cooldown-gate.outputs.cooldown_active != 'true'
         id: run-loop
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           AGDT_PR_APPROVER_PAT: ${{ secrets.AGDT_PR_APPROVER_PAT }}
           REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
-          AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           AGDT_ALLOW_PRIVILEGED_PATHS: "1"
           AGDT_OPERATION_ID: ${{ inputs.operation_id }}
           TRIGGER_REASON: ${{ inputs.trigger_reason }}
@@ -117,25 +118,22 @@ jobs:
       - name: Dispatch AI PR Loop Redispatch
         if: always()
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          FALLBACK_GH_TOKEN: ${{ github.token }}
-          COOLDOWN_ACTIVE: ${{ steps.cooldown-gate.outputs.cooldown_active }}
-          LOOP_EXIT_CODE: ${{ steps.run-loop.outputs.exit_code }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
         run: |
-          mode="redispatch-dispatch-redispatch"
-          agdt-ai-pr-loop-watchdog --help 2>&1 | grep -q -- "$mode" \
-            && agdt-ai-pr-loop-watchdog --mode "$mode" --repo "$GITHUB_REPOSITORY" --default-branch "${{ github.event.repository.default_branch }}" \
-            || GH_TOKEN="${FALLBACK_GH_TOKEN:-$GH_TOKEN}" gh api --method POST "/repos/$GITHUB_REPOSITORY/actions/workflows/ai-pr-loop-redispatch.yml/dispatches" -f ref="${{ github.event.repository.default_branch }}" \
-            || echo "::warning::Failed to dispatch ai-pr-loop-redispatch.yml; continuing"
+          agdt-ai-pr-loop-watchdog \
+            --mode redispatch-dispatch-redispatch \
+            --repo "$GITHUB_REPOSITORY" \
+            --default-branch "${{ github.event.repository.default_branch }}" ||
+            echo "::warning::Failed to dispatch ai-pr-loop-redispatch.yml; continuing"
   scheduled-reconciliation:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
+        with: {ref: '${{ github.event.repository.default_branch }}', token: '${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}', persist-credentials: false}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -143,4 +141,6 @@ jobs:
       -
         run: agdt-ci-reconcile --workflow-id ai-pr-loop.yml --provider github --repo "${{ github.repository }}" --json-output
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT

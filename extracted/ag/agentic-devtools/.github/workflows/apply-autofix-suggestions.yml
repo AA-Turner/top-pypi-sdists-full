@@ -47,7 +47,7 @@ jobs:
       - name: Resolve PR head ref
         id: dispatch-pr
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           PR_NUMBER_INPUT: ${{ inputs.pr_number }}
         run: |
           set -euo pipefail
@@ -63,7 +63,7 @@ jobs:
         with:
           ref: ${{ steps.dispatch-pr.outputs.head_ref }}
           fetch-depth: 0
-          token: ${{ secrets.SPECKIT_PR_TOKEN }}
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
       - name: Configure git identity
         run: |
           git config user.name "AMARSNIK_swica"
@@ -89,8 +89,9 @@ jobs:
         run: python -m playwright install --with-deps chromium
       - name: Apply autofix suggestions via browser
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           ENABLE_BROWSER_APPLY_SUGGESTIONS: 'true'
           GH_BROWSER_USERNAME: ${{ secrets.GH_BROWSER_USERNAME }}
           GH_BROWSER_PASSWORD: ${{ secrets.GH_BROWSER_PASSWORD }}

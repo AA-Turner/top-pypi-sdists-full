@@ -351,6 +351,16 @@ class WebSearchPart(_MessagePartBase):
     status: str = ""
 
 
+class HostedToolPart(_MessagePartBase):
+    """A provider-hosted tool block (Anthropic ``server_tool_use`` /
+    ``web_search_tool_result``) stored verbatim so a resumed tool loop can
+    replay the assistant turn block-for-block. Provider state, never a call."""
+
+    type: Literal["hosted_tool"] = "hosted_tool"
+    provider: str = ""
+    block: dict[str, Any] = Field(default_factory=dict)
+
+
 # ---------------------------------------------------------------------------
 # Structured input parts (client-sent context blocks)
 # These are stored verbatim — the resolved_text goes in metadata.
@@ -884,6 +894,7 @@ MESSAGE_PART_REGISTRY: dict[str, type[_MessagePartBase]] = {
     "code_exec": CodeExecPart,
     "code_result": CodeResultPart,
     "web_search": WebSearchPart,
+    "hosted_tool": HostedToolPart,
     "input_webpage": WebpageInputPart,
     "input_notes": NotesInputPart,
     "input_task": TaskInputPart,

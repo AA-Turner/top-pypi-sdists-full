@@ -331,3 +331,70 @@ def test_extract_model_validates_pydantic() -> None:
 def test_extract_model_returns_none_on_invalid_shape() -> None:
     assert extract_model('{"name": "ok"}', _Sample) is None  # missing count
     assert extract_model("", _Sample) is None
+
+
+# ---------------------------------------------------------------------------
+# Residual double-escapes — the artifact class that reached a person's screen
+# ---------------------------------------------------------------------------
+# seo.landscape_brief b532255e (2026-09-14): the site strategy brief persisted
+# "certificate turnaround \u2014 24 hours" verbatim, because the model escaped
+# its own escape and every layer below faithfully decoded exactly one of them.
+
+
+def test_double_escaped_unicode_is_decoded_at_the_parse_funnel() -> None:
+    text = r'{"note": "certificate turnaround \\u2014 24 hours", "who": "the owner\\u2019s brief"}'
+    data = extract_json(text)
+    assert data == {
+        "note": "certificate turnaround — 24 hours",
+        "who": "the owner’s brief",
+    }
+
+
+def test_double_escaped_unicode_is_decoded_inside_lists_and_nested_objects() -> None:
+    text = r'{"open_questions": ["24 hours \\u2014 or five days?"], "a": {"b": "x \\u2014 y"}}'
+    assert extract_json(text) == {
+        "open_questions": ["24 hours — or five days?"],
+        "a": {"b": "x — y"},
+    }
+
+
+def test_normal_escapes_survive_a_single_decode_untouched() -> None:
+    """The ordinary (single-escaped) case must be unchanged — this decode is a
+    repair for a double escape, never a second pass over correct output."""
+    text = '{"note": "certificate turnaround \\u2014 24 hours"}'
+    assert extract_json(text) == {"note": "certificate turnaround — 24 hours"}
+
+
+def test_ascii_escapes_and_code_samples_are_left_alone() -> None:
+    """Deliberately TIGHT: only NON-ASCII \\uXXXX is repaired, and only when the
+    backslash is not itself escaped. Everything a model legitimately writes
+    about escaping survives."""
+    text = (
+        r'{"doc": "write \\u0041 for A", "regex": "\\\\u2014 matches an em dash", '
+        r'"path": "C:\\\\users\\\\ok", "lone": "\\ud800 alone"}'
+    )
+    data = extract_json(text)
+    assert data is not None
+    assert data["doc"] == r"write \u0041 for A"
+    assert data["regex"] == r"\\u2014 matches an em dash"
+    assert data["path"] == r"C:\\users\\ok"
+    assert data["lone"] == r"\ud800 alone"
+
+
+def test_double_escaped_surrogate_pair_decodes_to_one_character() -> None:
+    assert extract_json(r'{"e": "ship it \\ud83d\\ude80"}') == {"e": "ship it 🚀"}
+
+
+def test_residual_escape_decode_is_idempotent() -> None:
+    from matrx_ai.agents.response_parser import decode_residual_escapes
+
+    once = decode_residual_escapes({"x": r"a \u2014 b"})
+    assert once == {"x": "a — b"}
+    assert decode_residual_escapes(once) == once
+
+
+def test_dict_keys_are_never_rewritten() -> None:
+    """Values only — two keys could otherwise collapse onto one and drop a field."""
+    from matrx_ai.agents.response_parser import decode_residual_escapes
+
+    assert decode_residual_escapes({r"a\u2014b": "v"}) == {r"a\u2014b": "v"}

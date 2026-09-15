@@ -140,6 +140,13 @@ class LinearRegression(BaseTransformer):
     copy_X: bool, default=True
         If True, X will be copied; else, it may be overwritten.
 
+    tol: float, default=1e-6
+        The precision of the solution (`coef_`) is determined by `tol` which
+        specifies a different convergence criterion for the `lsqr` solver.
+        `tol` is set as `atol` and `btol` of `scipy.sparse.linalg.lsqr` when
+        fitting on sparse training data. This parameter has no effect when fitting
+        on dense data.
+
     n_jobs: int, default=None
         The number of jobs to use for the computation. This will only provide
         speedup in case of sufficiently large problems, that is if firstly
@@ -151,6 +158,10 @@ class LinearRegression(BaseTransformer):
     positive: bool, default=False
         When set to ``True``, forces the coefficients to be positive. This
         option is only supported for dense arrays.
+
+        For a comparison between a linear regression model with positive constraints
+        on the regression coefficients and a linear regression without such constraints,
+        see :ref:`sphx_glr_auto_examples_linear_model_plot_nnls.py`.
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -158,6 +169,7 @@ class LinearRegression(BaseTransformer):
         *,
         fit_intercept=True,
         copy_X=True,
+        tol=1e-06,
         n_jobs=None,
         positive=False,
         input_cols: Optional[Union[str, Iterable[str]]] = None,
@@ -183,6 +195,7 @@ class LinearRegression(BaseTransformer):
         
         init_args = {'fit_intercept':(fit_intercept, True, False),
             'copy_X':(copy_X, True, False),
+            'tol':(tol, 1e-06, False),
             'n_jobs':(n_jobs, None, False),
             'positive':(positive, False, False),}
         cleaned_up_init_args = validate_sklearn_args(
@@ -934,7 +947,7 @@ class LinearRegression(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.linear_model.LinearRegression.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html#sklearn.linear_model.LinearRegression.score)
 

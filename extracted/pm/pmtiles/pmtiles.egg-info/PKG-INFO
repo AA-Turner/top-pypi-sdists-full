@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pmtiles
-Version: 3.7.0
+Version: 3.8.0
 Summary: Library and utilities to write and read PMTiles archives - cloud-optimized archives of map tiles.
 Home-page: https://github.com/protomaps/pmtiles
 Author: Brandon Liu

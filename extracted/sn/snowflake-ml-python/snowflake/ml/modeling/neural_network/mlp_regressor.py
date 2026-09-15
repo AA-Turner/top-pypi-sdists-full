@@ -132,6 +132,14 @@ class MLPRegressor(BaseTransformer):
     drop_input_cols: Optional[bool], default=False
         If set, the response of predict(), transform() methods will not contain input columns.
 
+    loss: {'squared_error', 'poisson'}, default='squared_error'
+        The loss function to use when training the weights. Note that the
+        "squared error" and "poisson" losses actually implement
+        "half squares error" and "half poisson deviance" to simplify the
+        computation of the gradient. Furthermore, the "poisson" loss internally uses
+        a log-link (exponential as the output activation function) and requires
+        ``y >= 0``.
+
     hidden_layer_sizes: array-like of shape(n_layers - 2,), default=(100,)
         The ith element represents the number of neurons in the ith
         hidden layer.
@@ -285,6 +293,7 @@ class MLPRegressor(BaseTransformer):
     def __init__(  # type: ignore[no-untyped-def]
         self,
         *,
+        loss="squared_error",
         hidden_layer_sizes=(100,),
         activation="relu",
         solver="adam",
@@ -329,7 +338,8 @@ class MLPRegressor(BaseTransformer):
         
         self._deps = list(deps)
         
-        init_args = {'hidden_layer_sizes':(hidden_layer_sizes, (100,), False),
+        init_args = {'loss':(loss, "squared_error", False),
+            'hidden_layer_sizes':(hidden_layer_sizes, (100,), False),
             'activation':(activation, "relu", False),
             'solver':(solver, "adam", False),
             'alpha':(alpha, 0.0001, False),
@@ -1101,7 +1111,7 @@ class MLPRegressor(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.neural_network.MLPRegressor.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPRegressor.html#sklearn.neural_network.MLPRegressor.score)
 

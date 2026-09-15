@@ -148,10 +148,14 @@ class RidgeCV(BaseTransformer):
         (i.e. data is expected to be centered).
 
     scoring: str, callable, default=None
-        A string (see :ref:`scoring_parameter`) or a scorer callable object /
-        function with signature ``scorer(estimator, X, y)``. If None, the
-        negative mean squared error if cv is 'auto' or None (i.e. when using
-        leave-one-out cross-validation), and r2 score otherwise.
+        The scoring method to use for cross-validation. Options:
+
+        - str: see :ref:`scoring_string_names` for options.
+        - callable: a scorer callable object (e.g., function) with signature
+          ``scorer(estimator, X, y)``. See :ref:`scoring_callable` for details.
+        - `None`: negative :ref:`mean squared error <mean_squared_error>` if cv is
+          None (i.e. when using leave-one-out cross-validation), or
+          :ref:`coefficient of determination <r2_score>` (:math:`R^2`) otherwise.
 
     cv: int, cross-validation generator or an iterable, default=None
         Determines the cross-validation splitting strategy.
@@ -183,7 +187,7 @@ class RidgeCV(BaseTransformer):
 
     store_cv_results: bool, default=False
         Flag indicating if the cross-validation values corresponding to
-        each alpha should be stored in the ``cv_values_`` attribute (see
+        each alpha should be stored in the ``cv_results_`` attribute (see
         below). This flag is only compatible with ``cv=None`` (i.e. using
         Leave-One-Out Cross-Validation).
 
@@ -193,12 +197,6 @@ class RidgeCV(BaseTransformer):
         settings: multiple prediction targets). When set to `True`, after
         fitting, the `alpha_` attribute will contain a value for each target.
         When set to `False`, a single alpha is used for all targets.
-
-    store_cv_values: bool
-        Flag indicating if the cross-validation values corresponding to
-        each alpha should be stored in the ``cv_values_`` attribute (see
-        below). This flag is only compatible with ``cv=None`` (i.e. using
-        Leave-One-Out Cross-Validation).
     """
 
     def __init__(  # type: ignore[no-untyped-def]
@@ -209,9 +207,8 @@ class RidgeCV(BaseTransformer):
         scoring=None,
         cv=None,
         gcv_mode=None,
-        store_cv_results=None,
+        store_cv_results=False,
         alpha_per_target=False,
-        store_cv_values="deprecated",
         input_cols: Optional[Union[str, Iterable[str]]] = None,
         output_cols: Optional[Union[str, Iterable[str]]] = None,
         label_cols: Optional[Union[str, Iterable[str]]] = None,
@@ -238,9 +235,8 @@ class RidgeCV(BaseTransformer):
             'scoring':(scoring, None, False),
             'cv':(cv, None, False),
             'gcv_mode':(gcv_mode, None, False),
-            'store_cv_results':(store_cv_results, None, False),
-            'alpha_per_target':(alpha_per_target, False, False),
-            'store_cv_values':(store_cv_values, "deprecated", False),}
+            'store_cv_results':(store_cv_results, False, False),
+            'alpha_per_target':(alpha_per_target, False, False),}
         cleaned_up_init_args = validate_sklearn_args(
             args=init_args,
             klass=sklearn.linear_model.RidgeCV
@@ -990,7 +986,7 @@ class RidgeCV(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.linear_model.RidgeCV.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.RidgeCV.html#sklearn.linear_model.RidgeCV.score)
 

@@ -20,6 +20,7 @@ handoff_capable (headed) tests additionally require Xvfb. Chromium is present at
 from __future__ import annotations
 
 import asyncio
+import base64
 import os
 import shutil
 import subprocess
@@ -165,6 +166,95 @@ async def test_restore_skips_download_for_exact_installed_checkpoint(
     )
 
     await runtime._restore_profile(str(profile), restore)
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_crypto_runs_off_loop_and_zeroizes_after_cancellation(monkeypatch) -> None:
+    """The expensive crypto boundary cannot stall the worker or retain its DEK."""
+    from cryptography.hazmat.primitives.ciphers import aead
+
+    key = b"k" * 32
+    nonce = b"n" * 12
+    plaintext = b"checkpoint archive" * 64
+    original_aesgcm = aead.AESGCM
+    original_sha256 = runtime.hashlib.sha256
+    zeroized: list[bytes] = []
+    loop = asyncio.get_running_loop()
+    third_zeroize = asyncio.Event()
+
+    class _ThreadOnlyAESGCM:
+        def __init__(self, value: bytes) -> None:
+            assert threading.current_thread() is not threading.main_thread()
+            self._inner = original_aesgcm(value)
+
+        def encrypt(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            assert threading.current_thread() is not threading.main_thread()
+            return self._inner.encrypt(*args, **kwargs)
+
+        def decrypt(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            assert threading.current_thread() is not threading.main_thread()
+            return self._inner.decrypt(*args, **kwargs)
+
+    def thread_only_sha256(value: bytes):
+        assert threading.current_thread() is not threading.main_thread()
+        return original_sha256(value)
+
+    original_zeroize = runtime._zeroize
+
+    def record_zeroize(dek: bytearray) -> None:
+        original_zeroize(dek)
+        zeroized.append(bytes(dek))
+        if len(zeroized) == 3:
+            loop.call_soon_threadsafe(third_zeroize.set)
+
+    monkeypatch.setattr(aead, "AESGCM", _ThreadOnlyAESGCM)
+    monkeypatch.setattr(runtime.hashlib, "sha256", thread_only_sha256)
+    monkeypatch.setattr(runtime, "_zeroize", record_zeroize)
+
+    plaintext_hash, ciphertext, ciphertext_hash, encrypted = await asyncio.to_thread(
+        runtime._encrypt_checkpoint,
+        base64.b64encode(key).decode("ascii"),
+        nonce,
+        plaintext,
+    )
+    assert encrypted is True
+    restore = M.CheckpointRestore(
+        download_url="https://download.invalid/checkpoint",
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+        dek_plaintext_b64=base64.b64encode(key).decode("ascii"),
+        nonce_b64=base64.b64encode(nonce).decode("ascii"),
+        ciphertext_hash=ciphertext_hash,
+        plaintext_hash=plaintext_hash,
+    )
+    assert await asyncio.to_thread(runtime._decrypt_and_verify_checkpoint, restore, ciphertext) == plaintext
+
+    started = threading.Event()
+    started_async = asyncio.Event()
+    release = threading.Event()
+
+    def delayed_encrypt(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+        started.set()
+        loop.call_soon_threadsafe(started_async.set)
+        assert release.wait(timeout=2)
+        return ciphertext, ciphertext_hash, True
+
+    monkeypatch.setattr(runtime, "_encrypt", delayed_encrypt)
+    cancelled = asyncio.create_task(
+        asyncio.to_thread(
+            runtime._encrypt_checkpoint,
+            base64.b64encode(key).decode("ascii"),
+            nonce,
+            plaintext,
+        )
+    )
+    await asyncio.wait_for(started_async.wait(), timeout=1)
+    cancelled.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await cancelled
+    release.set()
+    await asyncio.wait_for(third_zeroize.wait(), timeout=1)
+
+    assert zeroized == [b"\0" * len(key)] * 3
 
 
 # ── fixtures ────────────────────────────────────────────────────────────────

@@ -33,6 +33,7 @@ from .enums import ContentType, Provider, Role
 from .extra_config import (
     CodeExecutionContent,
     CodeExecutionResultContent,
+    HostedToolContent,
     WebSearchCallContent,
 )
 from .finish_reason import FinishReason
@@ -182,6 +183,7 @@ __all__ = [
     "CodeExecutionContent",
     "CodeExecutionResultContent",
     "WebSearchCallContent",
+    "HostedToolContent",
     "ToolCallContent",
     "ToolResultContent",
     # Tier 3

@@ -4,7 +4,7 @@
 # datamodel-code-generator: 0.72.4
 # ruff: 0.15.21
 # Generator Python: 3.14
-# Content SHA-256: 2f8d43a3bacf5e304ec52fca1dd92b7c050bbdda4033df72c96c39d2a584380b
+# Content SHA-256: f74abab6482c7f8968add98f0d9d92fd904ff8bcd882c95698778efc1c466ce3
 
 """Generated Prompts REST operations and resource."""
 
@@ -12,18 +12,19 @@ from typing import cast
 
 from .._service import Operation, Parameter, ResourceAPI
 from ..policies import RetryMode
-from .models.common import AppLimitParam, EndingBefore, Ids, OrgName, ProjectIdQuery, ProjectName, StartingAfter
-from .models.prompts import (
-    CreatePrompt,
-    GetPromptResponse,
-    PatchPrompt,
-    Prompt,
+from .models.common import (
+    AppLimitParam,
+    EndingBefore,
+    Ids,
+    OrgName,
+    ProjectIdQuery,
+    ProjectName,
     PromptEnvironment,
-    PromptIdParam,
-    PromptName,
     PromptVersion,
     Slug,
+    StartingAfter,
 )
+from .models.prompts import CreatePrompt, GetPromptResponse, PatchPrompt, Prompt, PromptIdParam, PromptName
 
 
 POST_PROMPT = Operation(

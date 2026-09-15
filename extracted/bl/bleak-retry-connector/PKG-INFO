@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bleak-retry-connector
-Version: 4.7.0
+Version: 4.7.1
 Summary: A connector for Bleak Clients that handles transient connection failures
 License-Expression: MIT
 License-File: LICENSE
@@ -79,6 +79,7 @@ import asyncio
 from bleak import BleakScanner
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 
+
 async def connect_to_device():
     # Find your device
     device = await BleakScanner.find_device_by_address("AA:BB:CC:DD:EE:FF")
@@ -92,7 +93,7 @@ async def connect_to_device():
         BleakClientWithServiceCache,  # Use BleakClientWithServiceCache for service caching
         device,
         device.name or "Unknown Device",
-        max_attempts=3  # Will retry up to 3 times with backoff
+        max_attempts=3,  # Will retry up to 3 times with backoff
     )
 
     try:
@@ -106,6 +107,7 @@ async def connect_to_device():
 
     finally:
         await client.disconnect()
+
 
 # Run the example
 asyncio.run(connect_to_device())

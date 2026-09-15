@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: opendal
-Version: 0.47.8
+Version: 0.47.9
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 License-File: LICENSE
+License-File: LICENSE-libgcc.txt
 License-File: LICENSE-MPL-2.0.txt
 License-File: NOTICE
 Summary: Apache OpenDAL™ Python Binding
@@ -24,7 +25,7 @@ Project-URL: Repository, https://github.com/apache/opendal
 This package provides a native Python binding for **Apache OpenDAL™**, a data access
 layer that allows you to access various storage services in a unified way.
 
-![OpenDAL Python Usage Demo](https://github.com/apache/opendal/assets/5351546/87bbf6e5-f19e-449a-b368-3e283016c887)
+![OpenDAL Architecture](https://opendal.apache.org/img/architectural.png)
 
 We release the OpenDAL Python binding independently of the
 [`opendal` crate](https://crates.io/crates/opendal) (Rust core). For updates
@@ -107,4 +108,8 @@ components. Their source code is available from the linked project pages:
 - `persy` 1.8.1 ([source](https://crates.io/crates/persy/1.8.1), [homepage](https://persy.rs)), licensed under MPL-2.0.
 
 The distribution includes the MPL-2.0 text in `LICENSE-MPL-2.0.txt`.
+
+Musllinux wheels also bundle `libgcc_s`, the [GCC runtime library](https://gcc.gnu.org/),
+licensed under `GPL-3.0-or-later WITH GCC-exception-3.1`. The complete license and
+exception texts are included in `LICENSE-libgcc.txt`.
 

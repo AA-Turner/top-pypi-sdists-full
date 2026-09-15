@@ -9,12 +9,50 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 
 class BridgeAction(StrEnum):
+    """The ONE advertised action vocabulary of the coding-session bridge.
+
+    This enum is not an internal dispatch key: it IS the ``action`` parameter
+    of the remote MCP tool and of ``POST /api/coding-sessions/bridge``, and MCP
+    hosts fetch that schema live. **A member added here is callable by Claude
+    Code, Codex, Cursor and VS Code the moment the server deploys** — so a
+    member arrives only WITH its implementation, or it is refused out loud
+    (:class:`BridgeRefusal`). Never add a placeholder member.
+
+    The dispatch family (``capabilities`` today; ``start``/``send``/``cancel``/
+    ``handoff`` in their own lanes) answers with :class:`BridgeDispatchResult`
+    on ``BridgeResponse.dispatch`` — never by overloading the entry-ledger
+    counters.
+    """
+
     OBSERVE_HOOK = "observe_hook"
     APPEND_NATIVE = "append_native"
     LOAD_NATIVE = "load_native"
     LIST_NATIVE = "list_native"
     DELETE = "delete"
     HEALTH = "health"
+    CAPABILITIES = "capabilities"
+
+
+IMPLEMENTED_ACTIONS: frozenset[BridgeAction] = frozenset(
+    {
+        BridgeAction.OBSERVE_HOOK,
+        BridgeAction.APPEND_NATIVE,
+        BridgeAction.LOAD_NATIVE,
+        BridgeAction.LIST_NATIVE,
+        BridgeAction.DELETE,
+        BridgeAction.HEALTH,
+        BridgeAction.CAPABILITIES,
+    }
+)
+"""The actions this contract actually serves.
+
+A :class:`BridgeAction` member missing from this set is refused with a typed
+:class:`BridgeRefusal` naming the remedy — never a pydantic validation dump and
+never a half-wired execution. Adding a member to the enum without adding it
+here is legal on purpose: that is the only honest way an unimplemented verb can
+exist in a vocabulary four hosts read live. The pairing is asserted by
+``aidream/services/coding_session_bridge/tests/test_dispatch.py``.
+"""
 
 
 class BridgeProvider(StrEnum):
@@ -28,6 +66,52 @@ class BridgeOrigin(StrEnum):
     INDEPENDENT_HOOK = "independent_hook"
     MATRX_LOCAL = "matrx_local"
     MATRX_SANDBOX = "matrx_sandbox"
+
+
+class BridgeRuntimeKind(StrEnum):
+    """Which runtime can actually execute turns for a provider session.
+
+    ``matrx_local`` and ``matrx_sandbox`` mirror the same-named
+    :class:`BridgeOrigin` values (the user's own machine via Matrx Local, and
+    the hosted Matrx Sandbox). ``seeded`` is the no-runtime case: a handoff
+    that carries a seed packet instead of an executor, so a second tool can
+    continue a conversation it never ran. ``independent_hook`` has no runtime
+    by definition — nothing on our side executes those turns.
+    """
+
+    MATRX_LOCAL = "matrx_local"
+    MATRX_SANDBOX = "matrx_sandbox"
+    SEEDED = "seeded"
+
+
+class BridgeOperation(StrEnum):
+    """The ONE capability vocabulary every adapter and runtime reports against.
+
+    Reconciles the two lists that disagreed before 2026-09-14: the ten adapter
+    flags published in the contract doc (``start|send|stream|cancel|
+    resume_native|fork_native|list|mirror|export|open``) and the six
+    fidelity fields of :class:`BridgeCapabilities`. The ten OPERATIONS live
+    here and are answered per provider × origin with a reason; the six
+    fidelity FACTS stay in :class:`BridgeCapabilities`, which is also what
+    ``chat.coding_session.capabilities`` stores. ``handoff`` is the eleventh
+    member because the contract's collaboration section promises it as an
+    operation; it is reported unsupported until its lane lands.
+
+    Never mint a twelfth vocabulary: a new capability question becomes a member
+    here, reported by every runtime descriptor in the same change.
+    """
+
+    START = "start"
+    SEND = "send"
+    STREAM = "stream"
+    CANCEL = "cancel"
+    RESUME_NATIVE = "resume_native"
+    FORK_NATIVE = "fork_native"
+    LIST = "list"
+    MIRROR = "mirror"
+    EXPORT = "export"
+    OPEN = "open"
+    HANDOFF = "handoff"
 
 
 class EntryFidelity(StrEnum):
@@ -211,6 +295,11 @@ class BridgeRequest(BaseModel):
                 )
         if self.action is BridgeAction.LOAD_NATIVE and self.conversation is not None:
             raise ValueError("load_native resolves its persisted binding; omit conversation")
+        if self.action is BridgeAction.CAPABILITIES and self.conversation is not None:
+            raise ValueError(
+                "capabilities answers for a provider and origin; "
+                "name provider_session_id to scope it to an existing binding, not conversation"
+            )
         if self.after_source_sequence is not None and self.action is not BridgeAction.LOAD_NATIVE:
             raise ValueError("after_source_sequence is only valid for load_native")
         return self
@@ -249,6 +338,129 @@ class BridgeCapabilities(BaseModel):
     tool_payload_fidelity: Literal["full", "partial", "none"]
 
 
+class CapabilityVerdict(BaseModel):
+    """One operation's truthful answer for one provider × origin.
+
+    ``reason`` is MANDATORY whenever ``supported`` is false: a UI renders this
+    sentence instead of guessing parity, and "unavailable" with no reason is
+    the silent failure the contract forbids. When ``supported`` is true the
+    reason may still carry the live-probe caveat (a hosted runtime needs a
+    Matrx Sandbox; a local runtime needs Matrx Local running).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    operation: BridgeOperation
+    supported: bool
+    reason: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
+    live_probe: Annotated[str, Field(min_length=1, max_length=512)] | None = None
+
+    @model_validator(mode="after")
+    def enforce_reason_on_refusal(self) -> CapabilityVerdict:
+        if not self.supported and not self.reason:
+            raise ValueError(
+                f"{self.operation.value} is reported unsupported with no reason; "
+                "an unsupported capability always names why"
+            )
+        return self
+
+
+class BridgeCapabilityReport(BaseModel):
+    """The `capabilities` action's answer: provider × origin, with reasons.
+
+    Generalizes the Claude-only ``GET /api/coding-sessions/claude/capabilities``
+    probe to every provider and every origin, and is the ONLY place a client
+    may learn what it can do — see ``supported_actions``. A client that
+    hardcodes an action list breaks on the first server that predates or
+    postdates it, which is why there is no version number to negotiate.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: BridgeProvider
+    origin: BridgeOrigin | None = None
+    runtime: BridgeRuntimeKind | None = None
+    available: bool
+    reason: Annotated[str, Field(min_length=1, max_length=2048)] | None = None
+    operations: Annotated[list[CapabilityVerdict], Field(min_length=1, max_length=64)]
+    fidelity: BridgeCapabilities
+    supported_actions: list[BridgeAction]
+
+    @model_validator(mode="after")
+    def enforce_report_truth(self) -> BridgeCapabilityReport:
+        seen = [verdict.operation for verdict in self.operations]
+        if len(seen) != len(set(seen)):
+            raise ValueError("each operation is reported exactly once")
+        missing = [member for member in BridgeOperation if member not in set(seen)]
+        if missing:
+            raise ValueError(
+                "every BridgeOperation needs a verdict; missing: "
+                + ", ".join(member.value for member in missing)
+            )
+        if not self.available and not self.reason:
+            raise ValueError("an unavailable provider/origin always names why")
+        verdicts = {verdict.operation: verdict.supported for verdict in self.operations}
+        if verdicts[BridgeOperation.RESUME_NATIVE] != self.fidelity.native_resume:
+            raise ValueError(
+                "resume_native verdict and fidelity.native_resume must agree — "
+                "they are the same fact in the two vocabularies"
+            )
+        if verdicts[BridgeOperation.FORK_NATIVE] != self.fidelity.native_fork:
+            raise ValueError(
+                "fork_native verdict and fidelity.native_fork must agree — "
+                "they are the same fact in the two vocabularies"
+            )
+        return self
+
+
+class BridgeRefusalCode(StrEnum):
+    UNKNOWN_ACTION = "unknown_action"
+    """The caller named an action this server has never heard of."""
+
+    UNIMPLEMENTED_ACTION = "unimplemented_action"
+    """The action is in this server's vocabulary but has no implementation."""
+
+    UNSUPPORTED_RUNTIME = "unsupported_runtime"
+    """The action is implemented, but no runtime can serve this provider/origin."""
+
+
+class BridgeRefusal(BaseModel):
+    """A typed refusal — never a validation dump, never silence.
+
+    Every refusal carries the action that was asked for, why it cannot be
+    served, what to do instead, and the live list of actions this server does
+    implement. That list is the version negotiation: there is no version number
+    to compare, so a client asks and believes the answer.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: BridgeRefusalCode
+    requested_action: Annotated[str, Field(min_length=1, max_length=128)]
+    reason: Annotated[str, Field(min_length=1, max_length=2048)]
+    remedy: Annotated[str, Field(min_length=1, max_length=2048)]
+    supported_actions: list[BridgeAction]
+
+
+class BridgeDispatchResult(BaseModel):
+    """Result of a dispatch-family action.
+
+    ``BridgeResponse``'s ``accepted/duplicates/conflicts/receipts`` counters are
+    the RAW-LEDGER receipt and mean nothing for a dispatch verb; reusing them
+    (``accepted: 1`` for "the agent answered") is contract-lying. Dispatch
+    results land here instead, and each future verb adds its own fields in its
+    own lane rather than overloading an existing one.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: BridgeAction
+    status: Literal["completed", "accepted", "in_flight", "refused"]
+    runtime: BridgeRuntimeKind | None = None
+    capabilities: BridgeCapabilityReport | None = None
+    detail: Annotated[str, Field(min_length=1, max_length=2048)] | None = None
+
+
 class BridgeHealth(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -265,6 +477,13 @@ class BridgeResponse(BaseModel):
     schema_version: Literal[1] = 1
     action: BridgeAction
     provider: BridgeProvider
+    # Every response carries what this server implements, so no client ever
+    # hardcodes an action list (there is no version number to negotiate).
+    supported_actions: list[BridgeAction] = Field(
+        default_factory=lambda: sorted(IMPLEMENTED_ACTIONS, key=lambda member: member.value)
+    )
+    refusal: BridgeRefusal | None = None
+    dispatch: BridgeDispatchResult | None = None
     session_id: UUID | None = None
     conversation_id: UUID | None = None
     fidelity: EntryFidelity | None = None

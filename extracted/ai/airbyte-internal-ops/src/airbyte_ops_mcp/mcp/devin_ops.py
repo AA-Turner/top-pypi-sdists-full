@@ -735,6 +735,20 @@ _FEEDBACK_CC_USERGROUPS = [
     "S0BKR63VAN5",  # @oc-internal-ai
 ]
 
+FeedbackArea = Literal["db_sources"]
+
+_FEEDBACK_AREA_CC: dict[str, list[str]] = {
+    # DB source connector feedback goes to Sophie Cui instead of @oc-hydra.
+    "db_sources": ["U098P1QAELQ", "S0BKR63VAN5"],  # Sophie Cui, @oc-internal-ai
+}
+
+
+def _feedback_cc(feedback_area: str | None) -> list[str]:
+    if feedback_area:
+        return list(_FEEDBACK_AREA_CC[feedback_area])
+    return list(_FEEDBACK_CC_USERGROUPS)
+
+
 _TRIAGE_REPO_OWNER = "airbytehq"
 
 _TRIAGE_REPO_NAME = "airbyte-ops-mcp"
@@ -1194,6 +1208,18 @@ def devin_session_feedback(
             ),
         ),
     ] = None,
+    feedback_area: Annotated[
+        FeedbackArea | None,
+        Field(
+            default=None,
+            description=(
+                "Optional domain of the reported task. `db_sources` = database "
+                "source connectors (source-postgres/mysql/mssql/mongodb-v2/oracle, "
+                "db-harness-lib); routes the Slack notification to the DB Sources "
+                "owner instead of @oc-hydra."
+            ),
+        ),
+    ] = None,
     expected_behavior: Annotated[
         str | None,
         Field(
@@ -1302,7 +1328,8 @@ def devin_session_feedback(
     """Report structured feedback about a Devin session experience via Slack.
 
     Posts a formatted feedback message to the #hydra-feedback Slack channel,
-    tagging the reporting user and the @oc-hydra and @oc-internal-ai groups.
+    tagging the reporting user and the @oc-hydra and @oc-internal-ai groups
+    (unless `feedback_area` overrides the default groups).
     The message includes a clickable
     button for the Devin session link. For negative feedback, a triage workflow
     is automatically dispatched to launch a Devin session with v3 analyze mode
@@ -1321,7 +1348,7 @@ def devin_session_feedback(
     know:
     - Their feedback will be posted publicly in the #hydra-feedback Slack channel
     - They may be contacted by the team for more details
-    - The reporting user and the @oc-hydra and @oc-internal-ai groups will be tagged in the message
+    - The reporting user and the @oc-hydra and @oc-internal-ai groups will be tagged in the message, unless `feedback_area` overrides the default groups
     - For negative feedback, a triage session will be automatically launched to inspect the reported session
 
     Depending on the path, the Slack message is posted by this tool or a GitHub
@@ -1369,6 +1396,7 @@ def devin_session_feedback(
             message=validation_error,
         )
 
+    cc = _feedback_cc(feedback_area)
     on_behalf = bool(thread_url) or not agent_session_url
     session_under_investigation = session_to_evaluate or (
         "" if on_behalf else (agent_session_url or "")
@@ -1420,7 +1448,7 @@ def devin_session_feedback(
                     thread_url,
                     target_person=reporting_user,
                     agent_session_url=session_under_investigation or "",
-                    cc_persons=list(_FEEDBACK_CC_USERGROUPS),
+                    cc_persons=cc,
                     issue_url=linear_issue_url or None,
                     header_emoji=_feedback_emoji(feedback_type),
                     header_label=_feedback_label(feedback_type),
@@ -1452,7 +1480,7 @@ def devin_session_feedback(
                     thread_url,
                     target_person=reporting_user,
                     agent_session_url=session_under_investigation or "",
-                    cc_persons=list(_FEEDBACK_CC_USERGROUPS),
+                    cc_persons=cc,
                     issue_url=linear_issue_url or None,
                     header_emoji=_feedback_emoji(feedback_type),
                     header_label=_feedback_label(feedback_type),
@@ -1466,7 +1494,7 @@ def devin_session_feedback(
             reporting_user=reporting_user,
             session_playbook=session_playbook,
             related_skill_name=related_skill_name,
-            cc_persons=",".join(_FEEDBACK_CC_USERGROUPS),
+            cc_persons=",".join(cc),
             header_emoji=_feedback_emoji(feedback_type),
             header_label=_feedback_label(feedback_type),
             linear_issue_url=linear_issue_url or "",
@@ -1533,7 +1561,7 @@ def devin_session_feedback(
                 thread_url,
                 target_person=reporting_user,
                 agent_session_url=session_under_investigation or "",
-                cc_persons=list(_FEEDBACK_CC_USERGROUPS),
+                cc_persons=cc,
                 issue_url=linear_issue_url or None,
                 header_emoji=_feedback_emoji(feedback_type),
                 header_label=_feedback_label(feedback_type),
@@ -1553,7 +1581,7 @@ def devin_session_feedback(
         target_person=reporting_user,
         message=report_message if is_negative_feedback else message_body,
         agent_session_url=agent_session_url or "",
-        cc=list(_FEEDBACK_CC_USERGROUPS),
+        cc=cc,
         channel_override=_FEEDBACK_CHANNEL,
         header_emoji=_feedback_emoji(feedback_type),
         header_label=_feedback_label(feedback_type),
@@ -1565,8 +1593,8 @@ def devin_session_feedback(
         message=(
             f"{tracking_response_note}"
             f"Feedback submitted and posted to #hydra-feedback. "
-            f"The reporting user and the @oc-hydra and @oc-internal-ai groups "
-            f"have been tagged. "
+            "The reporting user and the designated reviewers "
+            "have been tagged. "
             f"View progress at: {view_url}"
         ),
         workflow_url=result.workflow_url,

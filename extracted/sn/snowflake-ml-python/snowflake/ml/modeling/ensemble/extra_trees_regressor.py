@@ -223,6 +223,9 @@ class ExtraTreesRegressor(BaseTransformer):
         Provide a callable with signature `metric(y_true, y_pred)` to use a
         custom metric. Only available if `bootstrap=True`.
 
+        For an illustration of out-of-bag (OOB) error estimation, see the example
+        :ref:`sphx_glr_auto_examples_ensemble_plot_ensemble_oob.py`.
+
     n_jobs: int, default=None
         The number of jobs to run in parallel. :meth:`fit`, :meth:`predict`,
         :meth:`decision_path` and :meth:`apply` are all parallelized over the
@@ -254,7 +257,9 @@ class ExtraTreesRegressor(BaseTransformer):
         Complexity parameter used for Minimal Cost-Complexity Pruning. The
         subtree with the largest cost complexity that is smaller than
         ``ccp_alpha`` will be chosen. By default, no pruning is performed. See
-        :ref:`minimal_cost_complexity_pruning` for details.
+        :ref:`minimal_cost_complexity_pruning` for details. See
+        :ref:`sphx_glr_auto_examples_tree_plot_cost_complexity_pruning.py`
+        for an example of such pruning.
 
     max_samples: int or float, default=None
         If bootstrap is True, the number of samples to draw from X
@@ -1089,7 +1094,7 @@ class ExtraTreesRegressor(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.ensemble.ExtraTreesRegressor.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.ExtraTreesRegressor.html#sklearn.ensemble.ExtraTreesRegressor.score)
 

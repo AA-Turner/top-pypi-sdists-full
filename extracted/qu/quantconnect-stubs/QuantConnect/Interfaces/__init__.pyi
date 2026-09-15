@@ -1948,9 +1948,9 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
 
     @property
     @abc.abstractmethod
-    def brokerage_data(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+    def deployment_details(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
         """
-        Gets a read-only view of the brokerage data shared by the brokerage, data queue handler or any other component,
+        Gets a read-only view of the deployment details shared by the brokerage, data queue handler or any other component,
         for example account information. Usually empty when not running in live mode
         """
         ...
@@ -2367,14 +2367,6 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
         """
         ...
 
-    def set_brokerage_data(self, brokerage_data: Common.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
-        """
-        Sets the brokerage data read-only view
-        
-        :param brokerage_data: The brokerage data
-        """
-        ...
-
     def set_brokerage_message_handler(self, handler: QuantConnect.Brokerages.IBrokerageMessageHandler) -> None:
         """
         Sets the implementation used to handle messages from the brokerage.
@@ -2429,6 +2421,14 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
         Set the DateTime Frontier: This is the master time and is
         
         :param time: 
+        """
+        ...
+
+    def set_deployment_details(self, deployment_details: Common.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
+        """
+        Sets the deployment details read-only view
+        
+        :param deployment_details: The deployment details
         """
         ...
 

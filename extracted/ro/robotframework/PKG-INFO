@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: robotframework
-Version: 7.4.2
+Version: 7.5
 Summary: Generic automation framework for acceptance testing and robotic process automation (RPA)
 Home-page: https://robotframework.org
 Download-URL: https://pypi.org/project/robotframework
@@ -10,7 +10,7 @@ License: Apache License 2.0
 Project-URL: Source, https://github.com/robotframework/robotframework
 Project-URL: Issue Tracker, https://github.com/robotframework/robotframework/issues
 Project-URL: Documentation, https://robotframework.org/robotframework
-Project-URL: Release Notes, https://github.com/robotframework/robotframework/blob/master/doc/releasenotes/rf-7.4.2.rst
+Project-URL: Release Notes, https://github.com/robotframework/robotframework/blob/master/doc/releasenotes/rf-7.5.rst
 Project-URL: Slack, http://slack.robotframework.org
 Keywords: robotframework automation testautomation rpa testing acceptancetesting atdd bdd
 Platform: any
@@ -26,6 +26,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing

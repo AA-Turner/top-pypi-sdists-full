@@ -48,6 +48,7 @@ from .types import (
     CancellationLatch,
     MacOSActionOutcome,
     MacOSPresentationStatus,
+    MacOSStatusMetrics,
     MacOSWindowTarget,
     N2Observation,
     ShellPresentationEvent,
@@ -451,6 +452,7 @@ class MacOSComputer:
         target_window: "MacOSWindowTarget | None" = None,
         allow_foreground_fallback: bool = False,
         exclude_overlay_from_capture: bool = True,
+        exclude_capture_window_ids: "Sequence[int]" = (),
     ) -> None:
         if transport is not None and owns_transport is None:
             raise ValueError("owns_transport must be explicit when transport is injected")
@@ -467,6 +469,9 @@ class MacOSComputer:
         # desktop frames then come from the overlay host, which leaves its own windows out of the
         # capture (`presentation.capture_source == "overlay"`), and only fall back to hiding it.
         self.exclude_overlay_from_capture = exclude_overlay_from_capture
+        # A host application's own window IDs (CGWindowID) to keep out of the model's desktop
+        # frames, on top of the overlay host's own windows; they stay on screen and recordable.
+        self.exclude_capture_window_ids = tuple(int(window_id) for window_id in exclude_capture_window_ids)
         self.allow_local_shell = allow_local_shell
         self.execution_deadline = execution_deadline
         self.cancellation = cancellation or CancellationLatch()
@@ -1310,6 +1315,12 @@ class MacOSComputer:
     def add_polling_time(self, milliseconds: float) -> None:
         self._timings["polling_ms"] += milliseconds
 
+    async def update_status_metrics(self, metrics: MacOSStatusMetrics) -> bool:
+        """Update the run-scoped status item when its optional presentation is available."""
+        if self.presentation is None:
+            return False
+        return await self.presentation.update_status_metrics(metrics)
+
     async def _start_status_presentation(self) -> None:
         """Window scope: the menu bar item, the shell rail, and the activity window's transcript."""
         controller = MacOSPresentationController(
@@ -1349,6 +1360,7 @@ class MacOSComputer:
             show_stop_button=self.show_stop_button,
             restore_native_cursor=self._restore_native_cursor,
             exclude_from_capture=self.exclude_overlay_from_capture,
+            exclude_capture_window_ids=self.exclude_capture_window_ids,
         )
         try:
             await controller.start()
@@ -1427,7 +1439,9 @@ class MacOSComputer:
                 return _decode_inline_frame(result, "get_desktop_state")
             except (ValueError, OSError, MacOSComputerError) as error:
                 last_error = error
-        raise MacOSComputerError(f"get_desktop_state returned no usable frame after 3 attempts: {last_error}")
+        raise MacOSComputerError(
+            f"get_desktop_state returned no usable frame after {_CAPTURE_ATTEMPTS} attempts: {last_error}"
+        )
 
     async def _capture_window_png(self) -> tuple[bytes, int, int]:
         """Grab the driven window only, following it if the driver says the window went away."""
@@ -1469,7 +1483,9 @@ class MacOSComputer:
                 continue
             self._window_capture = (width, height)
             return pixels, width, height
-        raise MacOSComputerError(f"get_window_state returned no usable frame after 3 attempts: {last_error}")
+        raise MacOSComputerError(
+            f"get_window_state returned no usable frame after {_CAPTURE_ATTEMPTS} attempts: {last_error}"
+        )
 
     def _require_window_target(self) -> MacOSWindowTarget:
         if self._target_window is None:

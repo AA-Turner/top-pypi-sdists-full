@@ -34,7 +34,9 @@ jobs:
       - name: Throttle check
         id: throttle
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
         run: |
           set -euo pipefail
 
@@ -83,7 +85,9 @@ jobs:
       - name: Dispatch AI PR Loop Throttler
         if: steps.throttle.outputs.throttled != 'true'
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
         run: |
           gh workflow run ai-pr-loop-throttler.yml \
             --repo "$GITHUB_REPOSITORY" \

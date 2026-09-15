@@ -4,7 +4,9 @@ from typing import Any, ClassVar
 import torch
 
 from humming import dtypes
+from humming.config import InputQuantizationMode
 from humming.config.enum import WeightScale2Type, WeightScaleType
+from humming.device import current_device
 from humming.schema.base import BaseInputSchema, BaseWeightSchema
 from humming.utils.weight import dequantize_weight, quantize_weight
 
@@ -179,6 +181,9 @@ class HummingWeightSchema(BaseWeightSchema):
         has_bias = "bias" in tensors
         return shape_n, shape_k, None, has_bias
 
+    def to_humming_schema(self, param_dtype: torch.dtype) -> "HummingWeightSchema":
+        return dataclasses.replace(self)
+
     @classmethod
     def quant_tensor(
         cls,
@@ -195,7 +200,10 @@ class HummingWeightSchema(BaseWeightSchema):
         if schema.hadamard_block_size > 1:
             from humming import ops
 
-            tensor = ops.hadamard_transform(tensor, schema.hadamard_block_size)
+            origin_shape = tensor.shape
+            tensor = tensor.reshape(-1, tensor.size(-1))
+            tensor = ops.process_input(tensor, hadamard_block_size=schema.hadamard_block_size)[0]
+            tensor = tensor.view(*origin_shape)
         is_tensor_only = schema.weight_scale_type == WeightScaleType.TENSOR
         if schema.weight_scale_2_type == WeightScale2Type.TENSOR:
             scale_2_type = "tensor"
@@ -242,7 +250,7 @@ class HummingWeightSchema(BaseWeightSchema):
         else:
             weight_scale = tensors["weight_scale"]
             weight_scale_2 = tensors.get("weight_scale_2")
-        return dequantize_weight(
+        tensor = dequantize_weight(
             tensors["weight"],
             weight_scale=weight_scale,
             zero_point=zero_point,
@@ -250,6 +258,15 @@ class HummingWeightSchema(BaseWeightSchema):
             dtype=self.b_dtype,
             packed=True,
         )
+        if self.hadamard_block_size > 1:
+            from humming import ops
+
+            origin_shape = tensor.shape
+            tensor = tensor.reshape(-1, tensor.size(-1))
+            tensor = ops.process_input(tensor, hadamard_block_size=self.hadamard_block_size)[0]
+            tensor = tensor.view(*origin_shape)
+
+        return tensor
 
     def requant_tensors(
         self,
@@ -260,7 +277,7 @@ class HummingWeightSchema(BaseWeightSchema):
         dequanted_weight = self.dequant_tensors(tensors)
         return self.quant_tensor(dequanted_weight, target_weight_schema, param_dtype)
 
-    def convert_humming(
+    def _convert_humming(
         self,
         tensors: dict[str, torch.Tensor],
         shape_n_stacks: list[int],
@@ -268,7 +285,7 @@ class HummingWeightSchema(BaseWeightSchema):
         param_dtype: torch.dtype,
         num_experts: int | None = None,
     ) -> tuple["HummingWeightSchema", dict[str, torch.Tensor]]:
-        schema = dataclasses.replace(self)
+        schema = self.to_humming_schema(param_dtype)
         is_tensor_only = self.weight_scale_type == WeightScaleType.TENSOR
         if self.has_tensor_weight_scale:
             if is_tensor_only and "weight_scale" not in tensors and "global_scale" in tensors:
@@ -312,17 +329,27 @@ class HummingWeightSchema(BaseWeightSchema):
         return schema, tensors
 
 
+    def is_compatible_with(
+        self,
+        input_schema: "HummingInputSchema",
+        param_dtype: torch.dtype | None = None,
+    ) -> bool:
+        return is_humming_schema_compatible(input_schema, self, param_dtype)
+
+
 @dataclasses.dataclass(kw_only=True)
 class HummingInputSchema(BaseInputSchema):
     quant_method: str = "humming"
     a_dtype: dtypes.DataType | None = None
     input_scale_group_size: int = 0
     input_scale_dtype: dtypes.DataType | None = None
+    input_quant_mode: InputQuantizationMode | str | None = None
 
     KWARGS_ALIAS: ClassVar[dict[str, list[str]]] = {
         "a_dtype": ["input_dtype", "dtype"],
         "input_scale_group_size": ["group_size"],
         "input_scale_dtype": ["scale_dtype"],
+        "input_quant_mode": ["quant_mode", "quantization_mode"],
     }
 
     def __post_init__(self):
@@ -330,11 +357,21 @@ class HummingInputSchema(BaseInputSchema):
             self.a_dtype = dtypes.DataType.from_str(str(self.a_dtype))
         if isinstance(self.input_scale_dtype, str):
             self.input_scale_dtype = dtypes.DataType.from_str(str(self.input_scale_dtype))
+        if isinstance(self.input_quant_mode, str):
+            self.input_quant_mode = InputQuantizationMode(self.input_quant_mode)
 
     def get_activation_bits(self):
         if self.a_dtype is None:
             return 16
         return self.a_dtype.num_bits
+
+    @property
+    def static_tensor_scale_name(self) -> str | None:
+        if self.input_quant_mode == InputQuantizationMode.StaticTensor:
+            return "input_scale"
+        if self.input_quant_mode == InputQuantizationMode.StaticTensorDynamicGroup:
+            return "input_scale_2"
+        return None
 
     def get_tensors_attrs(
         self,
@@ -343,15 +380,125 @@ class HummingInputSchema(BaseInputSchema):
         num_experts: int | None = None,
         stack_size: int = 1,
     ) -> dict[str, dict[str, Any]]:
-        return {}
+        if self.static_tensor_scale_name is None:
+            return {}
+        return self._get_input_scale_attrs(
+            dtype=torch.float32,
+            input_scale_name=self.static_tensor_scale_name,
+        )
 
-    def convert_humming(
+    def to_humming_schema(self, param_dtype: torch.dtype) -> "HummingInputSchema":
+        return dataclasses.replace(self)
+
+    def _convert_humming(
         self,
         tensors: dict[str, torch.Tensor],
         shape_n_stacks: list[int],
         shape_k_stacks: list[int],
         param_dtype: torch.dtype,
         num_experts: int | None = None,
-        sm_version: int | tuple[int, int] | None = None,
     ) -> tuple["HummingInputSchema", dict[str, torch.Tensor]]:
-        return self, {}
+        schema = self.to_humming_schema(param_dtype)
+        if self.static_tensor_scale_name is None:
+            return schema, {}
+        tensors = self._convert_static_tensor_scale(
+            tensors,
+            source_name=self.static_tensor_scale_name,
+            target_name=self.static_tensor_scale_name,
+        )
+        return schema, tensors
+
+    def is_compatible_with(
+        self,
+        weight_schema: "HummingWeightSchema",
+        param_dtype: torch.dtype | None = None,
+    ) -> bool:
+        return is_humming_schema_compatible(self, weight_schema, param_dtype)
+
+
+def is_humming_schema_compatible(
+    input_schema: HummingInputSchema,
+    weight_schema: HummingWeightSchema,
+    param_dtype: torch.dtype | None = None,
+) -> bool:
+    sm_version = current_device.sm_version
+    if param_dtype is None:
+        param_dtype = torch.get_default_dtype()
+        if param_dtype not in (torch.float16, torch.bfloat16):
+            param_dtype = torch.bfloat16 if sm_version >= 80 else torch.float16
+
+    if param_dtype not in (torch.float16, torch.bfloat16):
+        return False
+
+    a_dtype = input_schema.a_dtype or dtypes.DataType.from_torch_dtype(param_dtype)
+    b_dtype = weight_schema.b_dtype
+    bs_dtype = weight_schema.bs_dtype or dtypes.DataType.from_torch_dtype(param_dtype)
+    has_zero_point = weight_schema.has_zero_point
+
+    dtype_min_sm_version_map = {
+        dtypes.float16: 75,
+        dtypes.bfloat16: 80,
+        dtypes.int8: 75,
+        dtypes.int4: 80,
+        dtypes.float8e4m3: 89,
+        dtypes.float8e5m2: 89,
+        dtypes.float8e3m4: 120,
+        dtypes.float4e2m1: 120,
+        dtypes.float4e0m3: 120,
+    }
+
+    if sm_version < dtype_min_sm_version_map.get(a_dtype, 9999):
+        return False
+
+    if b_dtype.num_bits > min(8, a_dtype.num_bits):
+        return False
+
+    is_mxfp4_weight = b_dtype == dtypes.float4e2m1 and bs_dtype == dtypes.float8e8m0
+    is_mxfp4_weight = is_mxfp4_weight and weight_schema.weight_scale_group_size == 32
+
+    if a_dtype == dtypes.int4:
+        if not b_dtype.is_integer_type or b_dtype.num_bits > 4:
+            return False
+        if b_dtype in [dtypes.int4, dtypes.uint4] and has_zero_point:
+            return False
+    elif a_dtype == dtypes.int8:
+        if not is_mxfp4_weight and (not b_dtype.is_integer_type or b_dtype.num_bits > 8):
+            return False
+        if b_dtype in [dtypes.int8, dtypes.uint8] and has_zero_point:
+            return False
+    elif b_dtype.is_integer_type:
+        if b_dtype.num_bits > a_dtype.mantissa_bits + 2:
+            return False
+        elif has_zero_point and b_dtype.num_bits > a_dtype.mantissa_bits + 1:
+            return False
+    elif b_dtype.is_floating_point_type:
+        assert b_dtype.is_floating_point_type and a_dtype.is_floating_point_type
+        if b_dtype.mantissa_bits > a_dtype.mantissa_bits:
+            return False
+        if b_dtype.exponent_bits > a_dtype.exponent_bits:
+            return False
+        if a_dtype.exponent_bits != 0 and b_dtype.exponent_bits == 0:
+            return False
+
+    input_group_size = input_schema.input_scale_group_size
+    weight_group_size = weight_schema.weight_scale_group_size
+    if input_group_size > 0 and weight_group_size > 0:
+        if input_group_size != weight_group_size and (not is_mxfp4_weight or sm_version >= 120):
+            return False
+
+    if 0 < weight_group_size < 16:
+        return False
+    elif a_dtype.num_bits == 8 and (0 < weight_group_size < 32 or 0 < input_group_size < 32):
+        return False
+    elif a_dtype == dtypes.int4 and (0 < weight_group_size < 64 or 0 < input_group_size < 64):
+        return False
+    elif weight_group_size > 0 and b_dtype in [dtypes.float4e2m1, dtypes.float4e0m3]:
+        as_dtype = input_schema.input_scale_dtype
+        if weight_group_size > 0 and bs_dtype not in [dtypes.float8e8m0, dtypes.float8e4m3]:
+            return False
+        if input_group_size > 0 and as_dtype not in [dtypes.float8e8m0, dtypes.float8e4m3]:
+            return False
+        if input_group_size > 0 and weight_group_size > 0 and as_dtype != bs_dtype:
+            return False
+
+    return True

@@ -99,6 +99,21 @@ class TestUnidiffParser(unittest.TestCase):
         self.assertEqual(modified_unicode_line.value, '\n')
         self.assertEqual(modified_unicode_line.line_type, ' ')
 
+    def test_metadata_only_with_empty_lines(self):
+        # regression test: the metadata_only fast path must treat a bare
+        # newline (including a DOS "\r\n") as an empty context line, matching
+        # the full parser. Previously it raised on such lines (sample5 has
+        # empty "\r\n" / "\n" context lines).
+        utf8_file = os.path.join(self.samples_dir, 'samples/sample5.diff')
+        with open(utf8_file, 'rb') as diff_file:
+            full = PatchSet(diff_file, encoding='utf-8')
+        with open(utf8_file, 'rb') as diff_file:
+            meta = PatchSet(diff_file, encoding='utf-8', metadata_only=True)
+
+        self.assertEqual(len(meta), len(full))
+        self.assertEqual((meta.added, meta.removed), (full.added, full.removed))
+        self.assertEqual((meta.added, meta.removed), (6, 2))
+
     def test_print_hunks_without_gaps(self):
         with codecs.open(self.sample_file, 'r', encoding='utf-8') as diff_file:
             res = PatchSet(diff_file)
@@ -255,6 +270,16 @@ class TestUnidiffParser(unittest.TestCase):
         with open(utf8_file, 'r') as diff_file:
             self.assertRaises(UnidiffParseError, PatchSet, diff_file)
 
+    def test_parse_target_without_source(self):
+        """Parse a target file header with no preceding source header."""
+        # regression test for issue #148: this used to raise UnboundLocalError
+        for diff in ('+++ b/file\n',
+                     '+++ b/file\n@@ -0,0 +1 @@\n+a\n',
+                     'some preamble\n+++ b/file\n'):
+            with self.assertRaises(UnidiffParseError) as cm:
+                PatchSet(diff)
+            self.assertIn('Target without source', str(cm.exception))
+
     def test_from_filename_with_cr_in_diff_text_files(self):
         """Parse git diff text files that contain CR"""
         utf8_file = os.path.join(self.samples_dir, 'samples/git_cr.diff')
@@ -345,6 +370,24 @@ class TestUnidiffParser(unittest.TestCase):
         self.assertTrue(res[4].is_added_file)
         self.assertFalse(res[4].is_binary_file)
         self.assertEqual(res[4].diff_line_no, 15)
+
+    def test_parse_binary_diff_without_target_filename(self):
+        # hg emits "Binary file X has changed", with no target filename;
+        # both sides should then refer to the same file
+        diff = (
+            'diff -r a1b2c3d4 image.png\n'
+            'Binary file image.png has changed\n'
+        )
+        res = PatchSet(diff)
+
+        self.assertEqual(len(res), 1)
+        self.assertTrue(res[0].is_binary_file)
+        self.assertEqual(res[0].source_file, 'image.png')
+        self.assertEqual(res[0].target_file, 'image.png')
+        self.assertFalse(res[0].is_rename)
+        self.assertEqual(res[0].path, 'image.png')
+        # the diff still round-trips
+        self.assertEqual(str(res), diff)
 
     def test_parse_debdiff_binary_file_line_numbers(self):
         # issue #122 / PR #123: a binary change without hunks should still
@@ -444,6 +487,51 @@ class TestUnidiffParser(unittest.TestCase):
         self.assertEqual(res.removed, 1)
         # the parsed patch should round-trip back to the original input
         self.assertEqual(str(res), ''.join(diff))
+
+    def test_parse_multiple_added_files(self):
+        # regression test for issue #143: quilt-style patches that add several
+        # files in a row all share the "/dev/null" source, which must not make
+        # consecutive files be merged into one.
+        diff = (
+            '--- /dev/null\n'
+            '+++ b/1.txt\n'
+            '@@ -0,0 +1 @@\n'
+            '+a\n'
+            '--- /dev/null\n'
+            '+++ b/2.txt\n'
+            '@@ -0,0 +1 @@\n'
+            '+b\n'
+        )
+
+        res = PatchSet(diff)
+
+        self.assertEqual(len(res), 2)
+        self.assertEqual([f.path for f in res], ['1.txt', '2.txt'])
+        self.assertTrue(all(f.is_added_file for f in res))
+        self.assertFalse(any(f.is_rename for f in res))
+        self.assertEqual(res.added, 2)
+        self.assertEqual(res[0].target_file, 'b/1.txt')
+        self.assertEqual(res[1].target_file, 'b/2.txt')
+
+    def test_parse_quilt_diff(self):
+        # issue #143: a realistic quilt patch (DEP-3 header preamble, two added
+        # files sharing the /dev/null source, then a modified file).
+        filename = os.path.join(self.samples_dir, 'samples/quilt.diff')
+        with open(filename) as f:
+            res = PatchSet(f)
+
+        self.assertEqual(len(res), 3)
+        self.assertEqual(
+            [f.path for f in res],
+            ['include/fts64.h', 'io/fts64.c', 'io/Makefile'])
+        self.assertEqual(
+            [f.path for f in res.added_files], ['include/fts64.h', 'io/fts64.c'])
+        self.assertEqual([f.path for f in res.modified_files], ['io/Makefile'])
+        self.assertFalse(any(f.is_rename for f in res))
+        self.assertEqual((res.added, res.removed), (6, 0))
+        # the DEP-3 header preamble is kept as the first file's patch info
+        self.assertTrue(
+            str(res[0].patch_info).startswith('Description: Add fts64 support'))
 
     def test_parse_filename_with_spaces(self):
         filename = os.path.join(self.samples_dir, 'samples/git_filenames_with_spaces.diff')
@@ -554,6 +642,57 @@ class TestUnidiffParser(unittest.TestCase):
         self.assertIsNone(res[0].source_mode)
         self.assertEqual(res[0].target_mode, '120000')
         self.assertTrue(res[0].is_symlink)
+
+    def test_added_submodule_file_mode(self):
+        # issue #147: a new git submodule (gitlink) has mode 160000
+        filename = os.path.join(self.samples_dir, 'samples/git_submodule.diff')
+        with open(filename) as f:
+            res = PatchSet(f)
+
+        self.assertEqual(len(res), 1)
+        self.assertTrue(res[0].is_added_file)
+        self.assertIsNone(res[0].source_mode)
+        self.assertEqual(res[0].target_mode, '160000')
+        self.assertTrue(res[0].is_submodule)
+        self.assertFalse(res[0].is_symlink)
+
+    def test_deleted_submodule_file_mode(self):
+        # issue #147: a removed submodule only carries the old mode
+        diff = (
+            'diff --git a/submodule b/submodule\n'
+            'deleted file mode 160000\n'
+            'index b399108..0000000\n'
+            '--- a/submodule\n'
+            '+++ /dev/null\n'
+            '@@ -1 +0,0 @@\n'
+            '-Subproject commit b399108e316b17e4e6eed616d112c33796289533\n'
+        )
+        res = PatchSet(diff)
+
+        self.assertTrue(res[0].is_removed_file)
+        self.assertEqual(res[0].source_mode, '160000')
+        self.assertIsNone(res[0].target_mode)
+        self.assertTrue(res[0].is_submodule)
+
+    def test_updated_submodule_file_mode(self):
+        # issue #147: a submodule pointer update carries the mode on the
+        # index line
+        diff = (
+            'diff --git a/submodule b/submodule\n'
+            'index b399108..c0ffee1 160000\n'
+            '--- a/submodule\n'
+            '+++ b/submodule\n'
+            '@@ -1 +1 @@\n'
+            '-Subproject commit b399108e316b17e4e6eed616d112c33796289533\n'
+            '+Subproject commit c0ffee1e316b17e4e6eed616d112c33796289533\n'
+        )
+        res = PatchSet(diff)
+
+        self.assertEqual(res[0].source_mode, '160000')
+        self.assertEqual(res[0].target_mode, '160000')
+        self.assertTrue(res[0].is_submodule)
+        self.assertFalse(res[0].is_symlink)
+        self.assertTrue(res[0].is_modified_file)
 
     def test_new_file_mode(self):
         # issue #125: a regular new file carries `new file mode 100644`

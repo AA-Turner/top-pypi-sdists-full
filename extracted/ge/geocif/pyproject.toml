@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.1024"
+version = "0.4.1025"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -165,6 +165,23 @@ powershap = [
     # (This will downgrade shap to <0.46 AND statsmodels to <0.14 â€”
     # bigger env tradeoff than shap_fast, hence its own group.)
     "powershap>=0.0.10",
+]
+mitra = [
+    # Mitra-v2 tabular foundation model (geocif/ml/mitra.py, model='mitra' /
+    # 'mitra_ft'). The backbone, weights loader and in-context trainer all live
+    # inside autogluon.tabular's `mitra` extra -- geocif only supplies the
+    # v2-checkpoint wiring (cross-entropy 1,000-bin head + mean decode) that
+    # AutoGluon's public MitraRegressor does not expose.
+    #
+    # Kept OUT of core because autogluon.common pins pyarrow<25 while the pixi
+    # cluster env ships 25.x, and autogluon.core drags in boto3/ray-adjacent
+    # machinery none of the Mitra path needs. On the cluster this is therefore
+    # installed side-by-side rather than into the production env:
+    #     uv pip install --target <dir> --no-deps     #         autogluon.tabular==1.6.1 autogluon.core==1.6.1     #         autogluon.common==1.6.1 autogluon.features==1.6.1     #         loguru einx omegaconf
+    #     PYTHONPATH=<dir> python -c "from geocif import geocif_runner; ..."
+    # (--no-deps is mandatory: a full install pulls pip pandas/numpy into the
+    # target and shadows the pixi env's pinned versions.)
+    "autogluon.tabular[mitra]>=1.6,<1.7",
 ]
 geospann = [
     # Used by ml/trainers.py only when [DEFAULT] models contains

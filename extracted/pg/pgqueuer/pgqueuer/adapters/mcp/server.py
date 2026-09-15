@@ -86,7 +86,7 @@ def _db(ctx: Ctx) -> PgQueuerDatabase:
     return ctx.request_context.lifespan_context
 
 
-def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
+def _register_tools(mcp: FastMCP[PgQueuerDatabase]) -> None:  # noqa: C901
     """Register all read-only insight tools onto the given FastMCP instance."""
 
     @mcp.tool()
@@ -187,7 +187,8 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
         d = _db(ctx)
         await d.fetch(d.qbq.build_aggregate_log_data_to_statistics_query())
         interval = _parse_interval(period)
-        return await d.fetch(d.qbq.build_log_statistics_query(), limit, interval)
+        query = d.qbq.build_log_statistics_query(limit=limit, last=interval)
+        return await d.fetch(query.sql, *query.args)
 
     @mcp.tool()
     async def throughput_summary(
@@ -461,7 +462,7 @@ def create_mcp_server(
     dsn: str | None = None,
     settings: DBSettings = DBSettings(),
     connection_settings: ConnectionSettings | None = None,
-) -> FastMCP:
+) -> FastMCP[PgQueuerDatabase]:
     """Factory that builds a fully-configured PgQueuer MCP server.
 
     Args:
@@ -477,7 +478,7 @@ def create_mcp_server(
     """
 
     @asynccontextmanager
-    async def app_lifespan(server: FastMCP) -> AsyncIterator[PgQueuerDatabase]:
+    async def app_lifespan(server: FastMCP[PgQueuerDatabase]) -> AsyncIterator[PgQueuerDatabase]:
         async with create_asyncpg_pool(dsn=dsn, settings=connection_settings) as pool:
             yield PgQueuerDatabase(pool, settings)
 

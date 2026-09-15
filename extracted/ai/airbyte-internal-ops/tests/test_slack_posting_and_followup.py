@@ -377,6 +377,99 @@ def test_negative_feedback_with_ticket_dispatches_and_uses_exact_url(
 
 @pytest.mark.unit
 @patch("airbyte_ops_mcp.mcp.devin_ops._dispatch_triage_workflow")
+def test_feedback_area_routes_cc_to_db_sources_owner(
+    mock_dispatch: MagicMock,
+) -> None:
+    mock_dispatch.return_value = WorkflowDispatchResult(
+        workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
+        "devin-session-triage.yml",
+    )
+
+    result = devin_session_feedback(
+        **_negative_feedback_kwargs(),
+        agent_session_url="https://app.devin.ai/sessions/reporter",
+        session_to_evaluate=None,
+        linear_issue_id="issue-uuid",
+        linear_issue_url=ISSUE_URL,
+        feedback_area="db_sources",
+    )
+
+    assert result.success is True
+    cc = mock_dispatch.call_args.kwargs["cc_persons"].split(",")
+    assert cc == ["U098P1QAELQ", "S0BKR63VAN5"]
+    assert "S0BJ4K3LC4X" not in cc
+
+    mock_dispatch.reset_mock()
+    result = devin_session_feedback(
+        **_negative_feedback_kwargs(),
+        agent_session_url="https://app.devin.ai/sessions/reporter",
+        session_to_evaluate=None,
+        linear_issue_id="issue-uuid",
+        linear_issue_url=ISSUE_URL,
+    )
+
+    assert result.success is True
+    cc = mock_dispatch.call_args.kwargs["cc_persons"].split(",")
+    assert cc == ["S0BJ4K3LC4X", "S0BKR63VAN5"]
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
+def test_feedback_area_routes_cc_on_post_only(
+    mock_post: MagicMock,
+) -> None:
+    mock_post.return_value = "https://slack.example/db-sources"
+
+    result = devin_session_feedback(
+        **_negative_feedback_kwargs(),
+        agent_session_url="https://app.devin.ai/sessions/reporter",
+        session_to_evaluate=None,
+        linear_issue_id="issue-uuid",
+        linear_issue_url=ISSUE_URL,
+        post_only=True,
+        thread_url=THREAD_URL,
+        feedback_area="db_sources",
+    )
+
+    assert result.success is True
+    mock_post.assert_called_once()
+    assert mock_post.call_args.kwargs["cc_persons"] == [
+        "U098P1QAELQ",
+        "S0BKR63VAN5",
+    ]
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.devin_ops.dispatch_escalation")
+@patch("airbyte_ops_mcp.mcp.devin_ops._dispatch_triage_workflow")
+def test_feedback_area_routes_cc_on_fallback_handoff(
+    mock_dispatch: MagicMock, mock_escalation: MagicMock
+) -> None:
+    mock_dispatch.return_value = None
+    mock_escalation.return_value = WorkflowDispatchResult(
+        workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
+        "human-in-the-loop.yml",
+    )
+
+    result = devin_session_feedback(
+        **_negative_feedback_kwargs(),
+        agent_session_url="https://app.devin.ai/sessions/reporter",
+        session_to_evaluate=None,
+        linear_issue_id="issue-uuid",
+        linear_issue_url=ISSUE_URL,
+        feedback_area="db_sources",
+    )
+
+    assert result.success is True
+    mock_escalation.assert_called_once()
+    assert mock_escalation.call_args.kwargs["cc"] == [
+        "U098P1QAELQ",
+        "S0BKR63VAN5",
+    ]
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.devin_ops._dispatch_triage_workflow")
 @patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
 def test_post_only_feedback_posts_without_dispatch(
     mock_post: MagicMock, mock_dispatch: MagicMock

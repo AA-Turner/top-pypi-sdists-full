@@ -4,7 +4,7 @@ from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -130,6 +130,7 @@ class Loader(ABC):
 
 
 T_Loader = TypeVar("T_Loader", bound=Loader)
+T_YamlResource = TypeVar("T_YamlResource")
 
 
 class ReadExtra(BaseModel):
@@ -143,6 +144,12 @@ class FailedReadExtra(ReadExtra):
 
 class SuccessExtra(ReadExtra):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    is_list: bool = Field(False, description="Whether the extra content is a list of items or a single item.")
+    resource_field: str | None = Field(
+        description="Name of the resource field where the "
+        "extra content should be placed in the resource. For example, in transformations this is 'query'."
+        "If None, the extra content needs to be written to a separate file."
+    )
     source_hash: str
     suffix: str
     content: str | None = None
@@ -150,7 +157,11 @@ class SuccessExtra(ReadExtra):
     description: str
 
 
-class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
+class ResourceIO(
+    Loader,
+    ABC,
+    Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource],
+):
     """This is the base class for all resource CRUD.
 
     A resource loader consists of the following
@@ -274,7 +285,8 @@ class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respons
         return None
 
     @classmethod
-    def get_dependencies(cls, resource: Any) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+    @abstractmethod
+    def get_dependencies(cls, resource: T_YamlResource) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         """Returns dependencies for a given resource.
         This is used to determine the order of deployment and to check for missing dependencies.
 
@@ -282,20 +294,7 @@ class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respons
             resource: The resource to get dependencies for.
 
         """
-        # TODO: Temporary set to return empty dict until all resource CRUDs have implemented this method.
-        # Once all resource CRUDs have implemented this method,
-        # we can remove the default implementation that returns an empty dict.
-        return {}
-
-    @classmethod
-    def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceIO], Hashable]]":
-        """Returns all items that this item requires.
-
-        For example, a TimeSeries requires a DataSet, so this method would return the
-        DatasetLoader and identifier of that dataset.
-        """
-        return
-        yield
+        raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
 
     @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
@@ -476,7 +475,7 @@ class ResourceIO(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respons
         return request_items
 
 
-class ResourceContainerIO(ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
+class ResourceContainerIO(ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource], ABC):
     """This is the base class for all resource CRUD' containers.
 
     A resource container CRUD is a resource that contains data. For example, Timeseries contains datapoints, and another

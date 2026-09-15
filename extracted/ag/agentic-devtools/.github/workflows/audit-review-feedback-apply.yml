@@ -48,13 +48,15 @@ jobs:
       # in this job (pip install, agdt-audit-apply) comes from the base, never the
       # PR head. Credentials are persisted so we can fetch same-repo data below.
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
       - run: pip install -e .
-      - name: Validate SPECKIT Token
+      - name: Validate default workflow token
         env:
-          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
         run: |
-          if [[ -z "$SPECKIT_PR_TOKEN" ]]; then
-            echo "::error::SPECKIT_PR_TOKEN secret is not configured or empty. This PAT is required for pull request creation in audit apply (the branch push uses the ambient GITHUB_TOKEN)."
+          if [[ -z "$DEFAULT_CLASSIC_REPO_WORKFLOW_PAT" ]]; then
+            echo "::error::DEFAULT_CLASSIC_REPO_WORKFLOW_PAT secret is not configured or empty. This PAT is required for audit apply operations."
             exit 1
           fi
       - id: materialize
@@ -160,5 +162,6 @@ jobs:
             --base-sha "${{ steps.meta.outputs.base_sha }}" \
             --eval-pr-branch "${{ github.event.pull_request.head.ref }}"
         env:
-          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
-          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT

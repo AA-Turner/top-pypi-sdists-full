@@ -29,7 +29,6 @@ from pandas.core.series import Series
 from sqlalchemy.engine import Connectable
 from sqlalchemy.sql.type_api import TypeEngineMixin
 
-from pandas._libs.lib import NoDefault
 from pandas._typing import (
     Axis,
     CompressionOptions,
@@ -94,13 +93,11 @@ class NDFrame:
     def __pos__(self) -> Self: ...
     @final
     def __nonzero__(self) -> None: ...
-    @final
-    def bool(self) -> _bool: ...
     def __abs__(self) -> Self: ...
     @final
-    def __round__(self, decimals: int = ...) -> Self: ...
+    def __round__(self, decimals: int = ..., /) -> Self: ...
     @final
-    def __contains__(self, key: Any) -> _bool: ...
+    def __contains__(self, key: Any, /) -> _bool: ...
     @property
     def empty(self) -> _bool: ...
     __array_priority__: int = ...
@@ -108,7 +105,7 @@ class NDFrame:
         self, dtype: _str | np.dtype = ..., copy: _bool | None = ...
     ) -> np_1darray: ...
     @final
-    def __delitem__(self, key: Hashable) -> None: ...
+    def __delitem__(self, key: Hashable, /) -> None: ...
     @final
     def to_excel(
         self,
@@ -185,7 +182,7 @@ class NDFrame:
             Dtype
             | type[TypeEngineMixin]
             | TypeEngineMixin
-            | Mapping[Hashable, Dtype | type[TypeEngineMixin] | TypeEngineMixin]
+            | Mapping[HashableT1, Dtype | type[TypeEngineMixin] | TypeEngineMixin]
             | None
         ) = None,
         method: (
@@ -472,7 +469,6 @@ class NDFrame:
     def resample(
         self,
         rule: Frequency | dt.timedelta,
-        axis: Axis | NoDefault = 0,
         closed: Literal["right", "left"] | None = None,
         label: Literal["right", "left"] | None = None,
         on: Level | None = None,

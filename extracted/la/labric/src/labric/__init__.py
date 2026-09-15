@@ -57,7 +57,12 @@ if typing.TYPE_CHECKING:
     from .client import AsyncLabric, Labric
     from .environment import LabricEnvironment
     from .jobs import UpdateJobExecutionStatusSchemaStatus
-    from .tools import LabricReadSchemaMode, LabricReadSchemaTargetType, LabricWriteSchemaTargetType
+    from .tools import (
+        LabricReadSchemaMode,
+        LabricReadSchemaTargetType,
+        LabricWriteSchemaOnMatch,
+        LabricWriteSchemaTargetType,
+    )
 _dynamic_imports: typing.Dict[str, str] = {
     "AgentRunEvent": ".types",
     "AgentRunRequest": ".types",
@@ -84,6 +89,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LabricEnvironment": ".environment",
     "LabricReadSchemaMode": ".tools",
     "LabricReadSchemaTargetType": ".tools",
+    "LabricWriteSchemaOnMatch": ".tools",
     "LabricWriteSchemaTargetType": ".tools",
     "MlModelTaskType": ".types",
     "MlProblemType": ".types",
@@ -167,6 +173,7 @@ __all__ = [
     "LabricEnvironment",
     "LabricReadSchemaMode",
     "LabricReadSchemaTargetType",
+    "LabricWriteSchemaOnMatch",
     "LabricWriteSchemaTargetType",
     "MlModelTaskType",
     "MlProblemType",

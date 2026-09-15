@@ -952,7 +952,7 @@ def ns_proof_set() -> Dict:
         },
         'theory_open_rungs': 0,
         'awaiting_outside_data': [
-            'isotropic DNS: SAMPLED GRADE PASSED (B276, JHTDB 8192^3, ratios <= 0.084 vs cap 0.85) and the REYNOLDS LADDER PASSED (B278, Re_lambda 433 -> 2500 incl. isotropic32768, no trend toward the cap; sub-batch envelope drifts up with Re - FLAGGED); extreme-event/trefoil scan still THE kill test, OPEN',
+            'isotropic DNS: SAMPLED GRADE PASSED (B276, JHTDB 8192^3, ratios <= 0.084 vs cap 0.85), the REYNOLDS LADDER PASSED (B278, Re_lambda 433 -> 2500 incl. isotropic32768, no trend toward the cap), the DEEP TAIL SAMPLE PASSED (B282, personal token, 1e6 gradient tensors, chunk ratios <= 0.020; octave efficiency FALLS with intensity) and THE LOCAL MAXIMUM PASSED (B283, full-resolution cubes around the most intense events graded with their own maxima: worst 0.0194, peak 11,763x mean on isotropic32768; two hole-edge artefacts rejected); front 1 for the WHOLE field (more hotspots, time-resolved reconnection frames, the Kerr trefoil) stays OPEN',
             'lab-vs-astro stretching -> pair cap 17/20 vs 197/200: IN-MEDIUM BRANCH SAMPLED CONSISTENCY PASS (B277, JHTDB channel Re_tau ~ 1000, ratios <= 0.0734 under BOTH caps); DISCRIMINATION between the branches still OPEN (far tail)',
             'THz bench dip -> profile FWHM 0.235 + 910-vs-896 discriminator',
             'DNS spectra -> no dynamics above k_c (Theorem A mode count); SHAPE added by Theorem B (B280): roll-off exp(-0.344 (k/k_c)^2), 1/e at 1.71 k_c - Gaussian, not power-law',
@@ -1391,4 +1391,234 @@ def proof_set_closeout() -> Dict:
         'formalization_option': 'Lean 4 / Mathlib machine-check of Theorem B (energy identity, convolution bound, Gronwall) - an option, not a rung',
         'not_claimed': 'the Clay statement (uniform as eps -> 0); that either theorem implies the cap or vice versa; that any front has been passed; that eps is measured',
         'status': 'THEORY_CLOSED_B281 (two theorems, derived cap, ruling, audit; theory rows open 0; four fronts OPEN with instruments named; rulings Q-246/Q-247 OPEN)',
+    }
+
+
+# ---- B282 (PAPER_2277): THE DEEP TAIL SAMPLE - stage 1 of the kill test, personal token
+JHTDB_DEEP_TAIL_CSV = 'jhtdb_grade/jhtdb_deep_tail_2026-09-13.csv'
+DEEP_TAIL_CHUNK = 25000          # points per request (~100-175 s; the service front proxy 502s a 200k request)
+DEEP_TAIL_POLICY = {'getdata_max_points': 2_000_000, 'cutout_max_gb_local': 3, 'cutout_max_gb_sciserver': 16,
+                    'simultaneous_queries': 'forbidden', 'intent': 'small targeted subsets, not whole-field crawls'}
+
+
+def deep_tail_grade(csv_path: str = None) -> Dict:
+    """B282 (PAPER_2277): STAGE 1 of the kill test - the first grade under
+    Daniel's PERSONAL JHTDB token (issued 2026-09-13; value never recorded).
+    500,000 deterministic-LCG points per dataset (seed 40 on isotropic8192
+    t=1, seed 50 on isotropic32768 t=1; Knuth MMIX, three draws per point,
+    the B276-B278 convention), forty sequential 25,000-point GetVariable
+    gradient requests, one in flight at a time (policy), zero errors.
+    Three statistics, each recomputed here from the CSV:
+      (1) the 1182-form ratio mean(w.S.w)/(max|w| mean|w|^2) per 25k chunk
+          and on the 500k aggregate - the harness statistic of B276-B278;
+      (2) the OCTAVE EFFICIENCY eff(oct) = sum(w.S.w)/(sum|w|^2 sqrt(w2_oct))
+          over cells binned by log2(|w|^2/mean): stretching per unit
+          enstrophy per unit |w| at each intensity - the scale-resolved
+          form of the cap, disclosed as a SHARPER diagnostic than the cap
+          (the cap is global; this is per octave);
+      (3) the tail SHARE: what fraction of total stretching the cells above
+          16x / 64x / 256x mean enstrophy carry.
+    FINDINGS: eff FALLS with intensity on both rungs (0.12 at the mean ->
+    0.06 at 16x -> 0.03-0.05 at 64-256x) - intense tubes stretch LESS per
+    unit of their own vorticity - and never exceeds ~0.31 anywhere (the
+    weakest cells); the most intense cell of the record (1052x mean,
+    isotropic32768) is COMPRESSED along w. The chunk-level envelope shows
+    no Re trend at this depth (8192 max 0.0200 vs 32768 max 0.0187),
+    which partly retires the B278 flag at 25k-sample scale. The aggregate
+    1182 ratio falls with sample depth by construction (max|w| keeps
+    rising) and is therefore reported, not leaned on. Anomaly disclosed:
+    166 of 500,000 isotropic32768 points returned |w|^2 = 0 (0.03%),
+    treated as service artefacts and excluded from the octave table.
+    NOT the kill test's end: stage 2 (full-resolution cutouts around the
+    hotspots, local max) is scripted in jhtdb_grade/kt_stage2_cutouts.py
+    and OPEN (SciServer/cutout run)."""
+    import csv as _csv
+    from uqff_paths import resolve
+    if csv_path is None:
+        try:
+            csv_path = str(resolve(JHTDB_DEEP_TAIL_CSV))
+        except Exception:
+            csv_path = JHTDB_DEEP_TAIL_CSV
+    chunks, octs, aggs, hots = [], [], [], []
+    with open(csv_path, encoding='utf-8', newline='') as f:
+        for row in _csv.reader(f):
+            if not row or row[0] == 'record':
+                continue
+            if row[0] == 'chunk':
+                chunks.append({'dataset': row[1], 'seed': int(row[3]), 'skip': int(row[4]), 'n': int(row[5]),
+                               'mean_w2': float(row[6]), 'max_w2': float(row[7]), 'mean_st': float(row[8]),
+                               'ratio': float(row[9]), 'pos_frac': float(row[10])})
+            elif row[0] == 'octave':
+                octs.append({'dataset': row[1], 'octave': int(row[2]), 'cells': int(row[3]), 'st_sum': float(row[4]),
+                             'w2_sum': float(row[5]), 'eff': float(row[6]), 'share': float(row[7])})
+            elif row[0] == 'aggregate':
+                aggs.append({'dataset': row[1], 'n': int(row[2]), 'ratio': float(row[7]), 'zero_points': int(row[9])})
+            elif row[0] == 'hotspot':
+                hots.append({'dataset': row[1], 'rank': int(row[2]), 'xyz': (float(row[3]), float(row[4]), float(row[5])),
+                             'w2': float(row[6]), 'st': float(row[7]), 'local': float(row[8])})
+    out = {'datasets': {}, 'policy': DEEP_TAIL_POLICY, 'chunk_points': DEEP_TAIL_CHUNK}
+    for ds in ('isotropic8192', 'isotropic32768'):
+        cs = [c for c in chunks if c['dataset'] == ds]
+        n = sum(c['n'] for c in cs)
+        mean_w2 = sum(c['mean_w2'] * c['n'] for c in cs) / n
+        mean_st = sum(c['mean_st'] * c['n'] for c in cs) / n
+        max_w2 = max(c['max_w2'] for c in cs)
+        ratio = mean_st / (math.sqrt(max_w2) * mean_w2)
+        os_ = sorted([o for o in octs if o['dataset'] == ds], key=lambda o: o['octave'])
+        eff_by_oct = {o['octave']: o['eff'] for o in os_}
+        tot_st = sum(o['st_sum'] for o in os_)
+        share = {thr: sum(o['st_sum'] for o in os_ if o['octave'] >= thr) / tot_st for thr in (4, 6, 8)}
+        fit = [(o['octave'], math.log2(o['eff'])) for o in os_ if 2 <= o['octave'] <= 8 and o['cells'] >= 20 and o['eff'] > 0]
+        xm = sum(x for x, _ in fit) / len(fit); ym = sum(y for _, y in fit) / len(fit)
+        slope = sum((x - xm) * (y - ym) for x, y in fit) / sum((x - xm) ** 2 for x, _ in fit)
+        agg = next(a for a in aggs if a['dataset'] == ds)
+        out['datasets'][ds] = {
+            'n': n, 'chunks': len(cs), 'mean_w2': mean_w2, 'max_w2': max_w2, 'max_over_mean': max_w2 / mean_w2,
+            'ratio_1182_aggregate': ratio, 'ratio_1182_csv': agg['ratio'],
+            'chunk_ratio_max': max(c['ratio'] for c in cs), 'chunk_ratio_min': min(c['ratio'] for c in cs),
+            'pos_frac': sum(c['pos_frac'] * c['n'] for c in cs) / n,
+            'eff_by_octave': eff_by_oct,
+            # load-bearing octaves only: >= 20 cells and >= 1/64 of mean enstrophy (the weaker cells carry < 0.1 pct of
+            # the stretching budget and, as |w| -> 0 with finite strain, the per-|w| efficiency diverges trivially -
+            # the pointwise analogue is NOT the cap; the cap is the |w|^2-weighted global statement)
+            'eff_max': max(o['eff'] for o in os_ if o['cells'] >= 20 and o['octave'] >= -6),
+            'eff_max_unrestricted': max(v for v in eff_by_oct.values() if v == v),  # nan-free
+            'eff_at_mean': eff_by_oct.get(0), 'eff_at_16x': eff_by_oct.get(4), 'eff_at_64x': eff_by_oct.get(6),
+            'eff_slope_log2_per_octave_oct2_8': slope, 'eff_scaling_exponent_in_omega': 2.0 * slope,
+            'tail_share_of_stretching': share, 'zero_points_excluded': agg['zero_points'],
+            'hotspots': [h for h in hots if h['dataset'] == ds][:10],
+            'most_intense_local_st_over_w3': [h for h in hots if h['dataset'] == ds][0]['local'],
+        }
+    d8, d32 = out['datasets']['isotropic8192'], out['datasets']['isotropic32768']
+    worst_eff = max(d8['eff_max'], d32['eff_max'])
+    worst_chunk = max(d8['chunk_ratio_max'], d32['chunk_ratio_max'])
+    out.update({
+        'total_points': d8['n'] + d32['n'],
+        'requests': d8['chunks'] + d32['chunks'],
+        'worst_chunk_ratio': worst_chunk,
+        'worst_octave_efficiency': worst_eff,
+        'cap': 17.0 / 20.0,
+        'verdict_cap': 'CAP HOLDS' if worst_chunk < 17.0 / 20.0 else 'CAP IS DEAD',
+        'verdict_octave': ('OCTAVE EFFICIENCY HOLDS on every load-bearing octave (max %.3f at 1/64 of mean enstrophy; falls with intensity)' % worst_eff)
+                          if worst_eff < 17.0 / 20.0 else 'OCTAVE EFFICIENCY EXCEEDS THE CAP ON A LOAD-BEARING OCTAVE',
+        'octave_caveat': ('below 1/64 of mean enstrophy the per-|w| efficiency rises without bound as |w| -> 0 at finite strain '
+                          '(unrestricted max %.2f in a 1-2 cell bin) - those cells carry < 0.1 pct of stretching; the pointwise '
+                          'form is not the cap and is not graded as one' % max(d8['eff_max_unrestricted'], d32['eff_max_unrestricted'])),
+        'intensity_trend': ('eff FALLS with |w|: 8192 %.3f -> %.3f -> %.3f, 32768 %.3f -> %.3f -> %.3f at mean / 16x / 64x; '
+                            'scaling ~ |w|^%.2f and |w|^%.2f over octaves 2-8'
+                            % (d8['eff_at_mean'], d8['eff_at_16x'], d8['eff_at_64x'], d32['eff_at_mean'], d32['eff_at_16x'], d32['eff_at_64x'],
+                               d8['eff_scaling_exponent_in_omega'], d32['eff_scaling_exponent_in_omega'])),
+        'b278_envelope_at_25k': ('chunk-ratio envelope 8192 max %.4f vs 32768 max %.4f - NO Re trend at 25k-sample depth; '
+                                 'the B278 drift (0.068 -> 0.107 at 100-point sub-batches) does not persist at this scale'
+                                 % (d8['chunk_ratio_max'], d32['chunk_ratio_max'])),
+        'aggregate_ratio_caveat': 'the max-normalized 1182 ratio falls with sample depth by construction (max|w| rises with N); reported, not leaned on',
+        'honesty': ('sampled points, not whole volumes; stage 2 (local-max cutouts) OPEN; the 1052x-mean cell is compressed along w '
+                    '(local st/|w|^3 = %.4f); 166 zero-gradient points on isotropic32768 excluded and disclosed' % d32['most_intense_local_st_over_w3']),
+        'stage_2': 'jhtdb_grade/kt_stage2_cutouts.py - full-resolution cubes around the hotspots, graded with the LOCAL max; SciServer/cutout run OPEN',
+        'correction_b283': ('PAPER_2278: the 166 zero points are a DATA HOLE in the isotropic32768 store; stage-1 hotspots 3 and 4 of isotropic32768 '
+                            'are hole-edge stencil artefacts (rejected); chunks skip 125000 and 475000 have artefact maxima (ratios biased low); '
+                            'the chunk envelope 0.0187 stands; isotropic8192 unaffected; hotspots 1, 2, 5 verified hole-free in stage 2'),
+        'status': 'DEEP_TAIL_STAGE1_CAP_HOLDS_B282 (1e6 points, eff falls with intensity; stage 2 OPEN)',
+    })
+    return out
+
+
+# ---- B283 (PAPER_2278): THE LOCAL MAXIMUM - stage 2 of the kill test, full-resolution cubes
+JHTDB_KILL_TEST_STAGE2_CSV = 'jhtdb_grade/jhtdb_kill_test_stage2_2026-09-15.csv'
+GLOBAL_MEAN_W2_STAGE1 = {'isotropic8192': 30318.6, 'isotropic32768': 115121.2}   # B282 aggregates (same snapshots)
+
+
+def kill_test_stage2_grade(csv_path: str = None) -> Dict:
+    """B283 (PAPER_2278): STAGE 2 of the kill test - the whole-volume
+    statement tested where it lives. Around the most intense events the
+    deep tail sample (B282) found, full-resolution cubes of grid-point
+    velocity gradients (GetVariable, sint = fd4noint: fourth-order finite
+    differences on the true grid, no interpolation; 64^3 = 262,144 cells,
+    two 128^3 = 2,097,152 cells; slabs of 6-8 z-planes per request, one in
+    flight, 3-19 s each) graded with the cube's OWN maximum:
+      ratio_local = mean(w.S.w) / (max|w| mean|w|^2)  [1182 form, cube max]
+      peak_local  = (w.S.w / |w|^3) at the cube's peak-enstrophy cell
+      eff(oct)    = octave efficiency relative to the CUBE mean
+    A cube above 17/20 kills the vacuum-branch cap. FINDINGS: every clean
+    cube 0.009-0.019 (forty-fold and more under 17/20); the most intense
+    region of the record (isotropic32768, cube mean 75x the global mean,
+    peak |w|^2 = 1.354e9 = 11,760x the global mean - eleven times the
+    stage-1 sample at that spot) grades 0.011-0.012 at 64^3 and 128^3 with
+    peak efficiency 0.074; on isotropic8192 the peak 2.64e7 (870x) grades
+    0.0116-0.0136 with peak efficiency 0.018; the octave efficiency falls
+    with intensity inside every cube exactly as it did across the sample.
+    THE DATA HOLE (Rule 7, the finding of the band): the isotropic32768
+    store returns |w|^2 = 0 exactly over whole spatial blocks (a y-index
+    boundary at 22781 in the region probed; deterministic on re-pull), and
+    the finite-difference stencil straddling such a block manufactures
+    |w| ~ 6,000 spikes two cells in - so two of the five most intense
+    stage-1 'events' on isotropic32768 (hotspots 3 and 4) are HOLE-EDGE
+    ARTEFACTS, rejected here, and the 166 zero points of B282 are the same
+    hole seen from the sample. Every accepted cube has zero zero-cells and
+    a zero-free 3-layer halo (stencil reach is 2). Nothing on isotropic8192
+    shows the artefact. NOT claimed: the cap proved; every event in the
+    field graded (eight cubes, three regions per rung); anything about
+    fronts 2-4."""
+    import csv as _csv
+    from uqff_paths import resolve
+    if csv_path is None:
+        try:
+            csv_path = str(resolve(JHTDB_KILL_TEST_STAGE2_CSV))
+        except Exception:
+            csv_path = JHTDB_KILL_TEST_STAGE2_CSV
+    cubes, rejected, octs = [], [], []
+    with open(csv_path, encoding='utf-8', newline='') as f:
+        for row in _csv.reader(f):
+            if not row or row[0] in ('record',):
+                continue
+            if row[0] == 'cube':
+                cubes.append({'id': row[1], 'dataset': row[2], 'n': int(row[4]), 'centre': tuple(float(v) for v in row[5:8]),
+                              'cells': int(row[11]), 'mean_w2': float(row[12]), 'max_w2': float(row[13]),
+                              'max_over_cube_mean': float(row[14]), 'mean_st': float(row[15]), 'ratio_local': float(row[16]),
+                              'peak_local': float(row[17]), 'pos_frac': float(row[21]), 'eff_max_loadbearing': float(row[22]),
+                              'zero_cells': int(row[23]), 'halo_zero_cells': (int(row[24]) if row[24] != '' else None),
+                              'req_ms': (int(row[25]), int(row[26])), 'verdict': row[27]})
+            elif row[0] == 'rejected':
+                rejected.append({'id': row[1], 'dataset': row[2], 'centre': tuple(float(v) for v in row[5:8]), 'zero_cells': int(row[23]), 'verdict': row[27]})
+            elif row[0] == 'octave':
+                octs.append({'cube': row[1], 'dataset': row[2], 'octave': int(row[3]), 'cells': int(row[4]), 'eff': float(row[5]), 'share': float(row[6])})
+    for c in cubes:
+        c['ratio_local_recomputed'] = c['mean_st'] / (math.sqrt(c['max_w2']) * c['mean_w2'])
+        c['max_over_global_mean'] = c['max_w2'] / GLOBAL_MEAN_W2_STAGE1[c['dataset']]
+        c['cube_mean_over_global_mean'] = c['mean_w2'] / GLOBAL_MEAN_W2_STAGE1[c['dataset']]
+        eo = sorted([o for o in octs if o['cube'] == c['id'] and o['cells'] >= 20 and o['octave'] >= -6], key=lambda o: o['octave'])
+        c['eff_by_octave'] = {o['octave']: o['eff'] for o in eo}
+        c['eff_monotone_falling_0_to_5'] = all(c['eff_by_octave'].get(k, 0) >= c['eff_by_octave'].get(k + 1, 0) for k in range(0, 5) if (k + 1) in c['eff_by_octave'])
+        pts = [(k, math.log2(c['eff_by_octave'][k])) for k in range(0, 6) if k in c['eff_by_octave'] and c['eff_by_octave'][k] > 0]
+        xm = sum(x for x, _ in pts) / len(pts); ym = sum(y for _, y in pts) / len(pts)
+        c['eff_slope_log2_per_octave_0_5'] = sum((x - xm) * (y - ym) for x, y in pts) / sum((x - xm) ** 2 for x, _ in pts)
+        c['eff_ratio_oct5_over_oct0'] = c['eff_by_octave'][5] / c['eff_by_octave'][0]
+    worst = max(cubes, key=lambda c: c['ratio_local'])
+    most = max(cubes, key=lambda c: c['max_w2'])
+    return {
+        'cubes': cubes, 'n_cubes': len(cubes), 'rejected': rejected, 'n_rejected': len(rejected),
+        'total_cells_graded': sum(c['cells'] for c in cubes),
+        'protocol': 'GetVariable velocity gradient sint=fd4noint at every grid node; 64^3 / 128^3 cubes centred on the stage-1 hotspots; slabs of 6-8 z-planes per request; one request in flight; 3-layer zero-free halo required (stencil reach 2)',
+        'worst_ratio_local': worst['ratio_local'], 'worst_cube': worst['id'],
+        'cap': 17.0 / 20.0,
+        'verdict': 'CAP HOLDS (local max, every clean cube)' if worst['ratio_local'] < 17.0 / 20.0 else 'CAP IS DEAD',
+        'most_intense': {'cube': most['id'], 'dataset': most['dataset'], 'max_w2': most['max_w2'],
+                         'max_over_global_mean': most['max_over_global_mean'], 'cube_mean_over_global_mean': most['cube_mean_over_global_mean'],
+                         'ratio_local': most['ratio_local'], 'peak_local': most['peak_local']},
+        'stage1_vs_stage2_peak': ('stage-1 sampled |w|^2 at the isotropic32768 hotspot: 1.211e8 (1052x global mean); the cube around it peaks at %.4g (%.0fx) - '
+                                  'the sample saw one eleventh of the true local maximum, which is why stage 2 exists' % (most['max_w2'], most['max_over_global_mean'])),
+        'resolution_check': {c['id']: (c['ratio_local'], c['n']) for c in cubes if c['id'].endswith('_128') or (c['id'] + '_128') in {x['id'] for x in cubes}},
+        'octave_trend_inside_cubes': all(c['eff_slope_log2_per_octave_0_5'] < 0 for c in cubes),
+        'octave_trend_detail': {c['id']: (round(c['eff_slope_log2_per_octave_0_5'], 3), round(c['eff_ratio_oct5_over_oct0'], 3), c['eff_monotone_falling_0_to_5']) for c in cubes},
+        'octave_trend_note': 'eff falls from the cube mean to 32x the cube mean in every cube (slope of log2 eff vs octave negative; eff(32x)/eff(mean) = 0.14-0.45); strictly monotone octave-by-octave in most cubes, with single-octave bumps in the rest',
+        'eff_max_loadbearing_any_cube': max(c['eff_max_loadbearing'] for c in cubes),
+        'data_hole': ('isotropic32768 returns |w|^2 = 0 exactly over whole spatial blocks (y-index <= 22781 in the region probed; deterministic); '
+                      'the fd4 stencil across the block edge manufactures |w| ~ 6,000 two cells in; stage-1 hotspots 3 and 4 of isotropic32768 are '
+                      'hole-edge artefacts and are REJECTED; the 166 zero points of B282 are the same hole; every accepted cube has 0 zero cells '
+                      'and a zero-free 3-layer halo; isotropic8192 shows no hole in any cube or halo'),
+        'stage1_caveat': ('B282 isotropic32768 chunk ratios for the chunks containing hotspots 3 and 4 (skip 125000 and 475000) carry an artefact '
+                          'maximum in their denominator and are biased LOW; the chunk-ratio envelope (max 0.0187) is unaffected (it comes from other chunks); '
+                          'the isotropic8192 sample is unaffected'),
+        'not_claimed': 'the cap proved by data (derived; here not falsified at the local maximum of eight cubes); every event in the field graded; fronts 2-4',
+        'status': 'KILL_TEST_STAGE2_CAP_HOLDS_B283 (8 clean cubes, 2 rejected as hole-edge artefacts; worst local ratio %.4f)' % worst['ratio_local'],
     }

@@ -140,9 +140,14 @@ _RE_GLYPH_PROTOCOL_Q_RESPONSE = re.compile(
 # Glyph Protocol support probe response: ESC _ 25a1 ; s ; key=val... ST
 _RE_GLYPH_PROTOCOL_S_RESPONSE = re.compile(r'\x1b_25a1;s(;[^\x1b\\]*)\x1b\\')
 _RE_CPR_BOUNDARY = re.compile(r'\x1b\[[0-9]+;[0-9]+R')
-_RE_KITTY_CLIPBOARD = re.compile(r'\x1b\[\?5522;(\d+)\$y')
 _RE_KITTY_POINTER = re.compile(r'\x1b\]22;([^\x07\x1b]+)(?:\x07|\x1b\\)')
 _FONT_QUERY_CHUNK_SIZE = 256
+
+# Small transparent PNG used by does_iterm2_graphics() (base64-encoded).
+_ITERM2_PROBE_IMAGE = (
+    '\x1b]1337;File=inline=1;size=68;width=1;height=1:'
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAA'
+    'SUVORK5CYII=\x07')
 
 _RE_OSC52_RESPONSE = re.compile(r'\x1b\]52;[a-z]*;([^\x07\x1b]*)(?:\x07|\x1b\\)')
 # Color scheme (dark/light mode): CSI ? 997 ; Ps n
@@ -332,16 +337,26 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
 
     def __init__xtgettcap(self) -> TermcapResponse:
         """Probe for core XTGETTCAP capabilities."""
+        # XTGETTCAP provides excellent communication of the terminal's self-reported 'TERM' (TN),
+        # and so it is done at class initialization.  However, some prominent terminals by Microsoft
+        # and Apple erroneously "leak" VT100 Mode DCS queries in error, meaning the hexadecimal
+        # ASCII payloads meant for the terminal to process are displayed as visible text to the
+        # user. And so an XTGETTCAP query is avoided for those terminals when identifiable.
         _xtgettcap_cache = TermcapResponse(supported=False)
-        # These prominent terminals "leak" VT100 Mode DCS queries, meaning the hexedecimal ascii
-        # payloads meant for the terminal to process are displayed as visible text to the user.  Try
-        # our best to avoid to query them, but these variables are not forwarded over SSH.
         if os.environ.get('ANSICON') or os.environ.get('ConEmuANSI'):
             self.errors.append('XTGETTCAP probe: skipped, ansicon')
             return _xtgettcap_cache
         if os.environ.get('TERM_PROGRAM') == 'Apple_Terminal':
             self.errors.append('XTGETTCAP probe: skipped, Terminal.app')
             return _xtgettcap_cache
+        if IS_WINDOWS and not (os.environ.get('TERM') or os.environ.get('WT_SESSION')):
+            if sys.getwindowsversion().build < 22000:  # pylint: disable=no-member
+                # early "modern" conhost.exe (cmd.exe) parses VT100 sequences but not DCS.  fixed by
+                # https://github.com/microsoft/terminal/pull/6328 and never backported.  Build
+                # number is approximate.
+                self.errors.append('XTGETTCAP probe: skipped, bad conhost.exe')
+                return _xtgettcap_cache
+
         if (self.is_a_tty and self._keyboard_fd is not None):
             try:
                 _xtgettcap_cache = self._xtgettcap_batch(
@@ -358,10 +373,8 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         """Determine terminal 'kind' jinxed.setupterm() capability database."""
         # Previous to 1.40, blessed could fallback to 'dumb' when it could not find a meaningful
         # type, but now kind_fallback='xterm-256color' is always guaranteed available and used
-        # instead of 'dumb'.
-        #
-        # I believe now xterm-256 sequences are safe as unknown fallback for the year 2026. If dumb
-        # *is*, use NO_COLOR or force_styling=False which has the same general result.
+        # instead of 'dumb'.  I believe now xterm-256 sequences are safe as unknown fallback for
+        # the year 2026. Use NO_COLOR or force_styling=False to force the same result.
         tn_kind = self._xtgettcap_cache.capabilities.get('TN')
         term_kind = (jinxed.get_term(self._init_descriptor)
                      if IS_WINDOWS and self._init_descriptor is not None
@@ -421,6 +434,8 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         self._kitty_graphics_supported: Optional[bool] = None
         # iTerm2 capabilities cache
         self._iterm2_capabilities_cache: Optional["ITerm2Capabilities"] = None
+        # iTerm2 inline image (graphics) detection cache
+        self._iterm2_graphics_supported: Optional[bool] = None
         # Kitty notifications (OSC 99) detection cache
         self._kitty_notifications_supported: Optional[bool] = None
         # Kitty clipboard protocol (DECRQM 5522) detection cache
@@ -640,10 +655,12 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         # Add DEC event prefixes (mouse, bracketed paste, focus tracking) These
         # are not in the keymap but need to be recognized as valid "prefixes",
         # so that they are *not* detected as a 'metaSendsEscape' sequence until
-        # after esc_delay has elapsed.
+        # after esc_delay has elapsed -- like Alt+M (\x1b[M), Alt+2 ('\x1b[2')
+        # and Alt+Shift+P ('\x1bP') ! Use kitty keyboard protocol if it matters.
         self._keymap_prefixes.update([
             '\x1b[M',     # Legacy mouse (needs 3 more bytes)
             '\x1b[<',     # SGR mouse (variable length)
+            '\x1bP',      # DCS, an XTGETTCAP reply arriving after its query timed out
             '\x1b[200',   # Bracketed paste start and its starting prefixes,
             '\x1b[20',
             '\x1b[2'])
@@ -1357,8 +1374,6 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         :rtype: bool
         :returns: ``True`` if terminal supports sixel graphics, ``False`` otherwise
         """
-        # Although there are additional checks that could be done, such as
-        # get_iterm2_capabilities().features.get('Sx'), it is superfluous to DA1.
         if not self.does_styling:
             return False
         da = self.get_device_attributes(timeout=timeout, force=force)
@@ -1429,6 +1444,13 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         width = new_col - initial_col
         return width if width in {1, 2} else fallback
 
+    def _is_apple_terminal(self, timeout: Optional[float]) -> bool:
+        """Whether the terminal is Apple's Terminal.app."""
+        if os.environ.get('TERM_PROGRAM') == 'Apple_Terminal':
+            return True
+        swv = self.get_software_version(timeout=timeout)
+        return swv is not None and swv.name == 'Apple_Terminal'
+
     def get_dec_mode(self,
                      mode: Union[int,
                                  _DecPrivateMode],
@@ -1449,7 +1471,9 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         In some cases a ``timeout`` value should be set, as it is possible for a
         terminal that succeeds :attr:`is_a_tty` to fail to respond to DEC Private
         Modes, such as in a CI Build Service or other "dumb" terminal, even a few
-        popular modern ones such as Konsole.
+        popular modern ones such as Konsole.  The first query may also make an XTVERSION
+        query, :meth:`get_software_version`, to avoid a DECRQM query to terminals with
+        leaky output (Terminal.app), so the total elapsed time may exceed *timeout*.
 
         If a DEC Private mode query fails to respond within the ``timeout``
         specified, the :class:`DecModeResponse` value returned is
@@ -1495,6 +1519,11 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         if int(mode) in self._dec_mode_cache and not force:
             cached_value = self._dec_mode_cache[int(mode)]
             return DecModeResponse(mode, cached_value)
+
+        # Avoid Terminal.app, which displays rather than parses the '$' intermediate byte,
+        # leaking a stray 'p' (DECRQM) or '$q' and the setting identifier (DECRQSS).
+        if self._is_apple_terminal(timeout):
+            return DecModeResponse(mode, DecModeResponse.NOT_QUERIED)
 
         # Build and send query sequence and expected response pattern
         query = f'\x1b[?{int(mode):d}$p'
@@ -1869,14 +1898,21 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
     def does_xtgettcap(self, timeout: Optional[float] = TERMINAL_QUERY_TIMEOUT_SECONDS,
                        force: bool = False) -> bool:
         """
-        Check if the terminal supports XTGETTCAP (DCS +q) queries.
+        Whether the terminal supports XTGETTCAP (DCS +q) queries.
+
+        Support is determined at class initialization and so this call is always non-blocking unless
+        the *force* argument is used.
 
         :arg float timeout: Timeout in seconds.
         :arg bool force: Bypass cached result.
         :rtype: bool
         """
-        result = self.get_xtgettcap(timeout=timeout, force=force)
-        return result is not None
+        if not force:
+            return self.is_a_tty and self._xtgettcap_cache.supported
+        # Only 'colors' field is checked, it is already answered by the query made at class
+        # initialization, and data gathered by ucs-detect survey shows this is the most common field
+        # supported by all terminals implementing XTGETTCAP.
+        return self.get_xtgettcap(timeout=timeout, force=True, caps=('colors',)) is not None
 
     def get_font_coverage(self, text: str,
                           timeout: Optional[float] = TERMINAL_QUERY_TIMEOUT_SECONDS,
@@ -2004,6 +2040,10 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
             nothing still yields a non-empty dict, so that the result is falsey *only* for
             "unsupported".
         """
+        if self._is_apple_terminal(timeout):
+            # Apple's Terminal.app erroneously displays APC sequences
+            return {}
+
         if (match := self._query_with_boundary('\x1b_25a1;s\x1b\\',
                                                _RE_GLYPH_PROTOCOL_S_RESPONSE,
                                                timeout)) is None:
@@ -2095,6 +2135,11 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         if self._kitty_graphics_supported is not None and not force:
             return self._kitty_graphics_supported
 
+        if self._is_apple_terminal(timeout):
+            # Apple's Terminal.app erroneously displays APC sequences
+            self._kitty_graphics_supported = False
+            return False
+
         match = self._query_with_boundary(
             '\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\',
             _RE_KITTY_GRAPHICS_RESPONSE,
@@ -2147,7 +2192,7 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
     def does_iterm2(self, timeout: Optional[float] = TERMINAL_QUERY_TIMEOUT_SECONDS,
                     force: bool = False) -> bool:
         """
-        Check if the terminal supports any iTerm2 protocols.
+        Check if the terminal answers the ``OSC 1337`` capabilities report.
 
         :arg float timeout: Timeout in seconds.
         :arg bool force: Bypass cached result.
@@ -2159,18 +2204,68 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
     def does_iterm2_graphics(self, timeout: Optional[float] = TERMINAL_QUERY_TIMEOUT_SECONDS,
                              force: bool = False) -> bool:
         """
-        Check if the terminal supports iTerm2 inline image protocol.
+        Check if the terminal supports the iTerm2 inline image protocol.
 
-        This is equivalent to :meth:`does_iterm2` and exists to pair
-        with :meth:`does_kitty_graphics` for graphics capability checks.
+        Draws a transparent image using iTerm2 protocol and detects for expected cursor position
+        advance.  Uses two CPR requests, before and after, for fast negative detection.
 
         .. seealso:: https://iterm2.com/documentation-images.html
 
-        :arg float timeout: Timeout in seconds.
+        :arg float timeout: Timeout in seconds for each cursor position query.
         :arg bool force: Bypass cached result.
         :rtype: bool
+        :returns: True when the cursor advanced a single column, False when the terminal is
+            1-column width or did not answer a cursor position report within timeout.
         """
-        return self.does_iterm2(timeout=timeout, force=force)
+        if not self.is_a_tty or not self.does_styling:
+            return False
+        if self._iterm2_graphics_supported is not None and not force:
+            return self._iterm2_graphics_supported
+        supported = self._probe_iterm2_graphics(timeout)
+        if supported is None:
+            # not measurable, do not cache
+            return False
+        self._iterm2_graphics_supported = supported
+        return supported
+
+    def _probe_iterm2_graphics(self, timeout: Optional[float]) -> Optional[bool]:
+        """
+        Draw a single-cell iTerm2 inline image and measure the cursor movement.
+
+        :arg float timeout: Timeout in seconds for each cursor position query.
+        :rtype: Optional[bool]
+        :returns: True when the cursor advanced a single column, None when the terminal is 1-column
+            width or did not answer a cursor position report.
+        """
+        stime = time.time()
+        row0, col0 = self.get_location(timeout=_time_left(stime, timeout))
+
+        maybe_backspace = ''
+        if col0 >= self.width - 1:
+            col0 -= 1
+            maybe_backspace = '\b'
+
+        if -1 in (row0, col0):
+            return None  # timeout or 1-column terminal
+
+        self.stream.write(maybe_backspace + _ITERM2_PROBE_IMAGE)
+        self.stream.flush()
+        row1, col1 = self.get_location(timeout=_time_left(stime, timeout))
+
+        # 'erase' the probed cell and return the cursor where it began: the space leaves
+        # us one column right of it, which is already where we began when we stepped
+        # back off the final column.
+        self.stream.write('\b' * max(0, col1 - col0) + ' '
+                          + ('' if maybe_backspace else '\b'))
+        self.stream.flush()
+
+        if -1 in (row1, col1):
+            # unusual timeout in second CPR
+            return None
+
+        # All known iTerm2 inline graphics protocol implementations of year 2026: iTerm2, Konsole,
+        # and WezTerm, advance the cursor a single column.
+        return (row1, col1) == (row0, col0 + 1)
 
     def does_kitty_notifications(self, timeout: Optional[float] = TERMINAL_QUERY_TIMEOUT_SECONDS,
                                  force: bool = False) -> bool:
@@ -2205,8 +2300,7 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         """
         Check if the terminal supports the Kitty clipboard protocol (mode 5522).
 
-        Sends a DECRQM query for DEC private mode 5522 (Bracketed Paste MIME) with a CPR boundary
-        guard for fast negative detection on terminals that do not recognize the mode.
+        Queries DEC private mode 5522 (Bracketed Paste MIME) by :meth:`get_dec_mode`.
 
         :arg float timeout: Timeout in seconds.
         :arg bool force: Bypass cached result.
@@ -2215,13 +2309,8 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         if self._kitty_clipboard_supported is not None and not force:
             return self._kitty_clipboard_supported
 
-        match = self._query_with_boundary(
-            '\x1b[?5522$p', _RE_KITTY_CLIPBOARD, timeout)
-        supported = False
-        if match:
-            ps = int(match.group(1))
-            if ps not in (0, 4):
-                supported = True
+        supported = self.get_dec_mode(_DecPrivateMode.BRACKETED_PASTE_MIME, timeout=timeout,
+                                      force=force).supported
         self._kitty_clipboard_supported = supported
         return supported
 
@@ -2435,10 +2524,17 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
             `DECRQSS specification
             <https://vt100.net/docs/vt510-rm/DECRQSS.html>`_
 
+        The first query may also make an XTVERSION query, :meth:`get_software_version`,
+        to avoid a DECRQSS query to terminals with leaky output (Terminal.app).
+
         :arg str setting_id: Setting identifier to query (default: SGR).
         :arg float timeout: Timeout in seconds.
         :rtype: str or None
         """
+        if self._is_apple_terminal(timeout):
+            # Apple's Terminal.app leaks '$q' and setting identifier
+            return None
+
         query = f'\x1bP$q{setting_id}\x1b\\'
         match = self._query_with_boundary(query, _RE_DECRQSS_RESPONSE, timeout)
         if match is not None and match.group(1) == '1':
@@ -4334,6 +4430,19 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         # buffer any remaining text received
         self.ungetch(ucs[len(ks):])
 
+        # An XTGETTCAP reply may arrive long after its query has timed out: fold it into the
+        # response cache and continue awaiting user input.  It is never returned as a keystroke.
+        # Conservatively, although it may be possible to re-initialize self._jinxed_term and
+        # self._number_of_colors by any given response, it is not done to ensure consistency of
+        # API behavior after class initialization.
+        if ks.name == 'XTGETTCAP_RESPONSE':
+            self.errors.append(f'errant/delayed XTGETTCAP_RESPONSE {str(ks)!r}')
+            if self.does_styling and (late_caps := ks.xtgettcap):
+                self._update_xtgettcap_cache(
+                    TermcapResponse(supported=True, capabilities=late_caps))
+            return self.inkey(timeout=_time_left(stime, timeout),
+                              esc_delay=esc_delay, capture_cpr=capture_cpr)
+
         # Update preferred size cache if this is a resize event
         if ks._mode == _DecPrivateMode.IN_BAND_WINDOW_RESIZE:  # pylint: disable=protected-access
             event_vals = ks._mode_values  # pylint: disable=protected-access
@@ -4390,6 +4499,7 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
         """
         # pylint: disable=too-complex,too-many-branches
         loop = asyncio.get_running_loop()
+        stime = time.time()
 
         # drain keyboard buffer (non-blocking)
         ucs = self.flushinp()
@@ -4453,6 +4563,15 @@ class Terminal():  # pylint: disable=attribute-defined-outside-init
 
         # buffer any remaining text
         self.ungetch(ucs[len(ks):])
+
+        # squelch late-arriving XTGETTCAP replies.
+        if ks.name == 'XTGETTCAP_RESPONSE':
+            self.errors.append(f'errant/delayed XTGETTCAP_RESPONSE {str(ks)!r}')
+            if self.does_styling and (late_caps := ks.xtgettcap):
+                self._update_xtgettcap_cache(
+                    TermcapResponse(supported=True, capabilities=late_caps))
+            return await self.async_inkey(timeout=_time_left(stime, timeout),
+                                          esc_delay=esc_delay, capture_cpr=capture_cpr)
 
         # update preferred size cache if this is a resize event
         if ks._mode == _DecPrivateMode.IN_BAND_WINDOW_RESIZE:  # pylint: disable=protected-access

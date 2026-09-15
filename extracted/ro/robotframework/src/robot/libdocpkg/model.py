@@ -14,14 +14,16 @@
 #  limitations under the License.
 
 import json
-import re
+from collections.abc import Sequence
 from itertools import chain
+from pathlib import Path
 
+from robot.api.deco import DocFormat
 from robot.model import Tags
 from robot.running import ArgInfo, ArgumentSpec, TypeInfo
 from robot.utils import getshortdoc, setter, Sortable
 
-from .htmlutils import DocFormatter, DocToHtml, HtmlToText
+from .htmlutils import DocFormatter, HtmlToText
 from .output import get_generation_time, LibdocOutput
 from .writer import LibdocWriter
 
@@ -31,46 +33,26 @@ class LibraryDoc:
 
     def __init__(
         self,
-        name="",
-        doc="",
-        version="",
-        type="LIBRARY",
-        scope="TEST",
-        doc_format="ROBOT",
-        source=None,
-        lineno=-1,
+        name: str = "",
+        doc: str = "",
+        version: str = "",
+        type: str = "LIBRARY",
+        scope: str = "TEST",
+        doc_format: DocFormat = "ROBOT",
+        source: "str | Path | None" = None,
+        lineno: "int | None" = None,
     ):
         self.name = name
-        self._doc = doc
+        self.doc = doc
         self.version = version
         self.type = type
         self.scope = scope
         self.doc_format = doc_format
-        self.source = source
+        self.source = str(source) if isinstance(source, Path) else source
         self.lineno = lineno
         self.inits = ()
         self.keywords = ()
         self.type_docs = ()
-
-    @property
-    def doc(self):
-        if self.doc_format == "ROBOT" and "%TOC%" in self._doc:
-            return self._add_toc(self._doc)
-        return self._doc
-
-    def _add_toc(self, doc):
-        toc = self._create_toc(doc)
-        return "\n".join(
-            line if line.strip() != "%TOC%" else toc for line in doc.splitlines()
-        )
-
-    def _create_toc(self, doc):
-        entries = re.findall(r"^\s*=\s+(.+?)\s+=\s*$", doc, flags=re.MULTILINE)
-        if self.inits:
-            entries.append("Importing")
-        if self.keywords:
-            entries.append("Keywords")
-        return "\n".join(f"- `{entry}`" for entry in entries)
 
     @setter
     def doc_format(self, format):
@@ -113,29 +95,27 @@ class LibraryDoc:
     def convert_docs_to_html(self):
         formatter = DocFormatter(
             self.keywords,
-            self.type_docs,
             self.doc,
             self.doc_format,
         )
-        self._doc = formatter.html(self.doc, intro=True)
+        self.doc = formatter.html(self.doc)
         for item in self.inits + self.keywords:
             # If 'short_doc' is not set, it is generated automatically based on 'doc'
             # when accessed. Generate and set it to avoid HTML format affecting it.
             item.short_doc = item.short_doc
             item.doc = formatter.html(item.doc)
+            for arg in item.args:
+                item.args.docs[arg.name] = formatter.html(arg.doc)
+            item.args.return_doc = formatter.html(item.args.return_doc)
+            for name, doc in item.args.raises.items():
+                item.args.raises[name] = formatter.html(doc)
         for type_doc in self.type_docs:
-            # Standard docs are always in ROBOT format ...
-            if type_doc.type == type_doc.STANDARD:
-                # ... unless they have been converted to HTML already.
-                if not type_doc.doc.startswith("<p>"):
-                    type_doc.doc = DocToHtml("ROBOT")(type_doc.doc)
-            else:
-                type_doc.doc = formatter.html(type_doc.doc)
+            type_doc.doc = formatter.html(type_doc.doc)
         self.doc_format = "HTML"
 
     def to_dictionary(self, include_private=False, theme=None, lang=None):
         data = {
-            "specversion": 3,
+            "specversion": 4,
             "name": self.name,
             "doc": self.doc,
             "version": self.version,
@@ -143,7 +123,7 @@ class LibraryDoc:
             "type": self.type,
             "scope": self.scope,
             "docFormat": self.doc_format,
-            "source": str(self.source) if self.source else None,
+            "source": self.source,
             "lineno": self.lineno,
             "tags": list(self._get_tags(include_private)),
             "inits": [init.to_dictionary() for init in self.inits],
@@ -170,16 +150,16 @@ class KeywordDoc(Sortable):
 
     def __init__(
         self,
-        name="",
-        args=None,
-        doc="",
-        short_doc="",
-        tags=(),
-        private=False,
-        deprecated=False,
-        source=None,
-        lineno=-1,
-        parent=None,
+        name: str = "",
+        args: "ArgumentSpec | None" = None,
+        doc: str = "",
+        short_doc: str = "",
+        tags: "Sequence[str]" = (),
+        private: bool = False,
+        deprecated: bool = False,
+        source: "str | Path | None" = None,
+        lineno: "int | None" = None,
+        parent: "LibraryDoc | None" = None,
     ):
         self.name = name
         self.args = args if args is not None else ArgumentSpec()
@@ -188,11 +168,11 @@ class KeywordDoc(Sortable):
         self.tags = Tags(tags)
         self.private = private
         self.deprecated = deprecated
-        self.source = source
+        self.source = str(source) if isinstance(source, Path) else source
         self.lineno = lineno
         self.parent = parent
         # Map argument types to type documentations.
-        self.type_docs = {arg.name: {} for arg in self.args}
+        self.type_docs = {arg.name: {} for arg in self.args if not arg.is_marker}
 
     @property
     def short_doc(self):
@@ -216,12 +196,17 @@ class KeywordDoc(Sortable):
     def to_dictionary(self):
         data = {
             "name": self.name,
-            "args": [self._arg_to_dict(arg) for arg in self.args],
-            "returnType": self._return_to_dict(self.args.return_type),
             "doc": self.doc,
             "shortdoc": self.short_doc,
+            "args": [self._arg_to_dict(arg) for arg in self.args],
+            "returnType": self._type_to_dict(
+                self.args.return_type,
+                self.type_docs.get("return", {}),
+            ),
+            "returnDoc": self.args.return_doc,
+            "raises": self.args.raises or {},
             "tags": list(self.tags),
-            "source": str(self.source) if self.source else None,
+            "source": self.source,
             "lineno": self.lineno,
         }
         if self.private:
@@ -234,6 +219,7 @@ class KeywordDoc(Sortable):
         type_docs = self.type_docs.get(arg.name, {})
         return {
             "name": arg.name,
+            "doc": arg.doc,
             "type": self._type_to_dict(arg.type, type_docs),
             "defaultValue": arg.default_repr,
             "kind": arg.kind,
@@ -241,16 +227,14 @@ class KeywordDoc(Sortable):
             "repr": str(arg),
         }
 
-    def _return_to_dict(self, return_type):
-        type_docs = self.type_docs.get("return", {})
-        return self._type_to_dict(return_type, type_docs)
-
-    def _type_to_dict(self, type: "TypeInfo|None", type_docs: dict):
-        if not type:
+    def _type_to_dict(self, info: "TypeInfo | None", type_docs: dict):
+        if not info:
             return None
+        nested = info.nested if info.nested and not info.is_recursive else ()
         return {
-            "name": type.name,
-            "typedoc": type_docs.get(type.name),
-            "nested": [self._type_to_dict(t, type_docs) for t in type.nested or ()],
-            "union": type.is_union,
+            "name": info.name,
+            "typedoc": type_docs.get(info.name),
+            "nested": [self._type_to_dict(i, type_docs) for i in nested],
+            "union": info.is_union,
+            "alias": info.alias,
         }

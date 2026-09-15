@@ -119,10 +119,6 @@ class CreateSubscriptionUsageRecordDetails(object):
             The value to assign to the additional_metadata property of this CreateSubscriptionUsageRecordDetails.
         :type additional_metadata: list[oci.self.models.ExtendedMetadata]
 
-        :param usage_record_id:
-            The value to assign to the usage_record_id property of this CreateSubscriptionUsageRecordDetails.
-        :type usage_record_id: str
-
         :param time_usage_started:
             The value to assign to the time_usage_started property of this CreateSubscriptionUsageRecordDetails.
         :type time_usage_started: datetime
@@ -148,7 +144,6 @@ class CreateSubscriptionUsageRecordDetails(object):
             'product_sku': 'str',
             'contract_duration': 'str',
             'additional_metadata': 'list[ExtendedMetadata]',
-            'usage_record_id': 'str',
             'time_usage_started': 'datetime',
             'time_usage_ended': 'datetime'
         }
@@ -168,7 +163,6 @@ class CreateSubscriptionUsageRecordDetails(object):
             'product_sku': 'productSku',
             'contract_duration': 'contractDuration',
             'additional_metadata': 'additionalMetadata',
-            'usage_record_id': 'usageRecordId',
             'time_usage_started': 'timeUsageStarted',
             'time_usage_ended': 'timeUsageEnded'
         }
@@ -187,7 +181,6 @@ class CreateSubscriptionUsageRecordDetails(object):
         self._product_sku = None
         self._contract_duration = None
         self._additional_metadata = None
-        self._usage_record_id = None
         self._time_usage_started = None
         self._time_usage_ended = None
 
@@ -572,30 +565,6 @@ class CreateSubscriptionUsageRecordDetails(object):
         :type: list[oci.self.models.ExtendedMetadata]
         """
         self._additional_metadata = additional_metadata
-
-    @property
-    def usage_record_id(self):
-        """
-        Gets the usage_record_id of this CreateSubscriptionUsageRecordDetails.
-        Partner-provided usage record identifier for traceability.
-
-
-        :return: The usage_record_id of this CreateSubscriptionUsageRecordDetails.
-        :rtype: str
-        """
-        return self._usage_record_id
-
-    @usage_record_id.setter
-    def usage_record_id(self, usage_record_id):
-        """
-        Sets the usage_record_id of this CreateSubscriptionUsageRecordDetails.
-        Partner-provided usage record identifier for traceability.
-
-
-        :param usage_record_id: The usage_record_id of this CreateSubscriptionUsageRecordDetails.
-        :type: str
-        """
-        self._usage_record_id = usage_record_id
 
     @property
     def time_usage_started(self):

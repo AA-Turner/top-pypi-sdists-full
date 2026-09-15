@@ -8,6 +8,10 @@ from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+from agentic_devtools.cli.ci.credential_roles import (
+    DEFAULT_CLASSIC_REPO_WORKFLOW_PAT,
+    LEGACY_SPECKIT_PR_TOKEN,
+)
 from agentic_devtools.cli.ci.github_provider import _gh_api
 from agentic_devtools.cli.ci.reconciliation import config
 from agentic_devtools.cli.ci.reconciliation.metrics import MetricEventType, create_metric_event
@@ -160,6 +164,19 @@ def run_due_probe_wakeup(
                 resume_at=cooldown_state.resume_at,
             )
             store.save(replace(state, probes=[*state.probes, initial_probe]), expected_revision=state.revision)
+    state = store.load()
+    migrated_probes = [
+        replace(probe, credential_identity=DEFAULT_CLASSIC_REPO_WORKFLOW_PAT)
+        if (
+            probe.provider_identity.strip().lower() in {"gh", "github", "github_actions"}
+            and probe.credential_identity.strip() == LEGACY_SPECKIT_PR_TOKEN
+        )
+        else probe
+        for probe in state.probes
+    ]
+    if migrated_probes != state.probes:
+        logger.info("Migrating legacy cooldown probe identities for %s", repo)
+        store.save(replace(state, probes=migrated_probes), expected_revision=state.revision)
     evaluator = DueProbeEvaluator(store=store, adapter=adapter, availability_checker=_build_availability_checker(repo))
     probes = evaluator.evaluate_due_probes(repo=repo, now=datetime.now(UTC))
     return len(probes)
@@ -220,6 +237,20 @@ def _build_availability_checker(repo: str) -> AvailabilityChecker:
         if provider_identity not in {"gh", "github", "github_actions"}:
             logger.warning("Unsupported probe provider identity %r for %s", probe.provider_identity, repo)
             return False
+        if credential_identity == LEGACY_SPECKIT_PR_TOKEN:
+            logger.warning(
+                "Ignoring legacy probe credential identity %r pending migration for %s",
+                credential_identity,
+                repo,
+            )
+            return False
+        if credential_identity != DEFAULT_CLASSIC_REPO_WORKFLOW_PAT:
+            logger.warning(
+                "Ignoring unsupported probe credential identity %r for %s",
+                credential_identity,
+                repo,
+            )
+            return False
         token = _resolve_probe_token(credential_identity)
         if not token:
             logger.warning(
@@ -228,8 +259,9 @@ def _build_availability_checker(repo: str) -> AvailabilityChecker:
                 repo,
             )
             return False
+        endpoint = f"/repos/{repo}/pulls?state=open&per_page=1"
         try:
-            _gh_api(f"/repos/{repo}/pulls?state=open&per_page=1", token=token)
+            _gh_api(endpoint, token=token)
         except RetryableError as exc:
             if not exc.is_rate_limit:
                 logger.warning("Provider availability check failed for %s: %s", repo, exc)

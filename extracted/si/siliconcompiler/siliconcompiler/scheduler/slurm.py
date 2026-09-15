@@ -12,8 +12,7 @@ import os.path
 from typing import List, Tuple, Union, Final
 
 from siliconcompiler import utils, sc_open
-from siliconcompiler.utils.paths import jobdir
-from siliconcompiler.package import RemoteResolver
+from siliconcompiler.utils.paths import jobdir, cachedir as cachedir_path
 from siliconcompiler.scheduler import SchedulerNode
 from siliconcompiler.utils.logging import SCBlankLoggerFormatter
 from siliconcompiler.utils.multiprocessing import MPManager
@@ -35,6 +34,11 @@ class SlurmSchedulerNode(SchedulerNode):
     # Bound on a single scancel call: an unresponsive controller must not stall
     # the caller, which is a server shutting down or answering a cancel request.
     _CANCEL_TIMEOUT = 10
+
+    # Bound on a single sinfo call, for the same reason: this one runs before a
+    # node is submitted, so a wedged controller would otherwise hang the run
+    # before any work starts.
+    _SINFO_TIMEOUT = 10
 
     def __init__(self, project, step, index, replay=False):
         """Initializes a SlurmSchedulerNode.
@@ -137,26 +141,122 @@ class SlurmSchedulerNode(SchedulerNode):
         return f"{SlurmSchedulerNode.get_job_name(jobhash, step, index)}.{ext}"
 
     @staticmethod
-    def get_slurm_partition():
-        """Determines a default Slurm partition by querying the cluster.
+    def get_slurm_partition() -> str:
+        """Determines which Slurm partition to submit to by querying the cluster.
 
         Returns:
-            str: The name of the first available Slurm partition.
+            str: The cluster's default partition, or the first partition it
+                reports if none is marked as the default.
 
         Raises:
-            RuntimeError: If the 'sinfo' command fails.
+            RuntimeError: If the partitions cannot be read from slurm.
         """
-        partitions = subprocess.run(['sinfo', '--json'],
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT)
+        partitions = SlurmSchedulerNode.__get_partitions_text()
+        if not partitions:
+            partitions = SlurmSchedulerNode.__get_partitions_json()
 
-        if partitions.returncode != 0:
+        if not partitions:
             raise RuntimeError('Unable to determine partitions in slurm')
 
-        sinfo = json.loads(partitions.stdout.decode())
+        # sinfo suffixes the default partition with '*'. Prefer it: submitting to
+        # whichever partition happens to be listed first is arbitrary.
+        for partition in partitions:
+            if partition.endswith('*'):
+                return partition[:-1]
 
-        # Return the first listed partition
-        return sinfo['nodes'][0]['partitions'][0]
+        return partitions[0]
+
+    @staticmethod
+    def __get_partitions_text() -> List[str]:
+        """Lists the cluster's partitions from plain sinfo output.
+
+        This is preferred over --json because its shape has not changed across
+        any Slurm release: '%P' has always meant "partition name, with '*'
+        appended to the default", and the default is what this is after.
+
+        Returns:
+            List[str]: Partition names, the default suffixed with '*'. Empty if
+                sinfo failed, or did not answer within _SINFO_TIMEOUT.
+        """
+        try:
+            partitions = subprocess.run(['sinfo', '--noheader', '--format', '%P'],
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL,
+                                        timeout=SlurmSchedulerNode._SINFO_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            return []
+
+        if partitions.returncode != 0:
+            return []
+
+        names = []
+        for line in partitions.stdout.decode(errors='replace').splitlines():
+            name = line.strip()
+            if name and name not in names:
+                names.append(name)
+
+        return names
+
+    @staticmethod
+    def __get_partitions_json() -> List[str]:
+        """Lists the cluster's partitions from 'sinfo --json'.
+
+        Accepts both schemas slurm has emitted: 22.05 returned a top-level
+        "nodes" list whose records carried a "partitions" list of names, and
+        23.02 onwards return a top-level "sinfo" list whose records carry a
+        single "partition" object.
+
+        Neither schema says which partition is the default -- the partition
+        flags are not serialized before data_parser v0.0.45 -- so this only
+        lists them, and is a fallback for when the text output above is
+        unreadable.
+
+        Returns:
+            List[str]: Partition names, in the order sinfo reported them. Empty
+                if sinfo failed, or did not answer within _SINFO_TIMEOUT.
+        """
+        try:
+            partitions = subprocess.run(['sinfo', '--json'],
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL,
+                                        timeout=SlurmSchedulerNode._SINFO_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            return []
+
+        if partitions.returncode != 0:
+            return []
+
+        try:
+            sinfo = json.loads(partitions.stdout.decode(errors='replace'))
+        except json.JSONDecodeError:
+            return []
+
+        if not isinstance(sinfo, dict):
+            return []
+
+        names = []
+        for record in sinfo.get('sinfo', sinfo.get('nodes', [])):
+            if not isinstance(record, dict):
+                continue
+
+            partition = record.get('partition')
+            if isinstance(partition, dict):
+                found = [partition.get('name')]
+            elif isinstance(partition, str):
+                found = [partition]
+            else:
+                found = record.get('partitions', [])
+                if isinstance(found, str):
+                    found = [found]
+
+            if not isinstance(found, list):
+                continue
+
+            for name in found:
+                if isinstance(name, str) and name and name not in names:
+                    names.append(name)
+
+        return names
 
     @staticmethod
     def assert_slurm() -> None:
@@ -181,8 +281,8 @@ class SlurmSchedulerNode(SchedulerNode):
 
         Returns:
             list of tuple: The nodes scancel accepted. Empty if scancel is not
-                available on this machine, and a node whose scancel did not
-                return in time is left out.
+                available on this machine, and a node whose scancel failed or
+                did not return in time is left out.
         """
 
         if shutil.which('scancel') is None:
@@ -192,17 +292,39 @@ class SlurmSchedulerNode(SchedulerNode):
         for step, index in nodes:
             job_name = SlurmSchedulerNode.get_job_name(jobhash, step, index)
             try:
-                subprocess.run(['scancel', '--name', job_name],
-                               stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL,
-                               timeout=SlurmSchedulerNode._CANCEL_TIMEOUT)
+                result = subprocess.run(['scancel', '--name', job_name],
+                                        stdout=subprocess.DEVNULL,
+                                        stderr=subprocess.DEVNULL,
+                                        timeout=SlurmSchedulerNode._CANCEL_TIMEOUT)
             except subprocess.TimeoutExpired:
                 # Nothing is known about this node's job now, so do not claim it
                 # was canceled -- but the remaining nodes still deserve a try.
                 continue
+            if result.returncode != 0:
+                # scancel said no. Reporting that as canceled would have the
+                # caller end this node's local waiter for a job that is still
+                # running on the cluster, with nothing left watching it.
+                continue
             canceled.append((step, index))
 
         return canceled
+
+    def cancel(self) -> None:
+        """Cancels the slurm job submitted for this node.
+
+        The node's process is about to be ended, but the work is not in it: the
+        task is on a compute node, and the process being ended is only waiting
+        for it. Killing the waiter is also what makes the job unreachable, so
+        this runs first.
+
+        A node whose job has already finished has nothing left to cancel, which
+        scancel reports as success.
+        """
+        if not SlurmSchedulerNode.cancel_nodes(self.jobhash, [(self.step, self.index)]):
+            # Either scancel is not on this machine or it did not come back in
+            # time. Both leave a job running that was asked to stop, and neither
+            # is something this process can do anything further about.
+            self.logger.warning(f"Unable to cancel slurm job for {self.step}/{self.index}")
 
     def mark_copy(self) -> bool:
         sharedprefix: List[str] = MPManager.get_settings().get(
@@ -279,7 +401,7 @@ class SlurmSchedulerNode(SchedulerNode):
                     build_dir=shlex.quote(self.project.option.get_builddir()),
                     step=shlex.quote(self.step),
                     index=shlex.quote(self.index),
-                    cachedir=shlex.quote(str(RemoteResolver.determine_cache_dir(self.project)))
+                    cachedir=shlex.quote(cachedir_path(self.project))
                 ))
 
         # This is Python for: `chmod +x [script_path]`

@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from robot import model, result, running
 
 
+ResultFile = Literal["OUTPUT", "REPORT", "LOG", "XUNIT", "DEBUG"]
+
+
 class LoggerApi:
 
     def start_suite(self, data: "running.TestSuite", result: "result.TestSuite"):
@@ -205,47 +208,42 @@ class LoggerApi:
 
         Calls :meth:`result_file` by default.
         """
-        self.result_file("Output", path)
+        self.result_file("OUTPUT", path)
 
     def report_file(self, path: Path):
         """Called when report file is closed.
 
         Calls :meth:`result_file` by default.
         """
-        self.result_file("Report", path)
+        self.result_file("REPORT", path)
 
     def log_file(self, path: Path):
         """Called when log file is closed.
 
         Calls :meth:`result_file` by default.
         """
-        self.result_file("Log", path)
+        self.result_file("LOG", path)
 
     def xunit_file(self, path: Path):
         """Called when xunit file is closed.
 
         Calls :meth:`result_file` by default.
         """
-        self.result_file("XUnit", path)
+        self.result_file("XUNIT", path)
 
     def debug_file(self, path: Path):
         """Called when debug file is closed.
 
         Calls :meth:`result_file` by default.
         """
-        self.result_file("Debug", path)
+        self.result_file("DEBUG", path)
 
-    def result_file(
-        self,
-        kind: Literal["Output", "Report", "Log", "XUnit", "Debug"],
-        path: Path,
-    ):
+    def result_file(self, kind: ResultFile, path: Path):
         """Called when any result file is closed by default.
 
         ``kind`` specifies the file type. This method is not called if a result
         file specific method like :meth:`output_file` is implemented.
         """
-        pass
 
     def imported(self, import_type: str, name: str, attrs):
         pass

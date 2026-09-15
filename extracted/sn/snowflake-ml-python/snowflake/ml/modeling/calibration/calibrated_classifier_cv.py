@@ -144,7 +144,7 @@ class CalibratedClassifierCV(BaseTransformer):
         use isotonic calibration with too few calibration samples
         ``(<<1000)`` since it tends to overfit.
 
-    cv: int, cross-validation generator, iterable or "prefit",             default=None
+    cv: int, cross-validation generator, or iterable, default=None
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -161,9 +161,6 @@ class CalibratedClassifierCV(BaseTransformer):
         Refer to the :ref:`User Guide <cross_validation>` for the various
         cross-validation strategies that can be used here.
 
-        If "prefit" is passed, it is assumed that `estimator` has been
-        fitted already and all data is used for calibration.
-
     n_jobs: int, default=None
         Number of jobs to run in parallel.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
@@ -174,9 +171,11 @@ class CalibratedClassifierCV(BaseTransformer):
 
         See :term:`Glossary <n_jobs>` for more details.
 
-    ensemble: bool, default=True
-        Determines how the calibrator is fitted when `cv` is not `'prefit'`.
-        Ignored if `cv='prefit'`.
+    ensemble: bool, or "auto", default="auto"
+        Determines how the calibrator is fitted.
+
+        "auto" will use `False` if the `estimator` is a
+        :class:`~sklearn.frozen.FrozenEstimator`, and `True` otherwise.
 
         If `True`, the `estimator` is fitted using training data, and
         calibrated using testing data, for each `cv` fold. The final estimator
@@ -199,7 +198,7 @@ class CalibratedClassifierCV(BaseTransformer):
         method="sigmoid",
         cv=None,
         n_jobs=None,
-        ensemble=True,
+        ensemble="auto",
         input_cols: Optional[Union[str, Iterable[str]]] = None,
         output_cols: Optional[Union[str, Iterable[str]]] = None,
         label_cols: Optional[Union[str, Iterable[str]]] = None,
@@ -225,7 +224,7 @@ class CalibratedClassifierCV(BaseTransformer):
             'method':(method, "sigmoid", False),
             'cv':(cv, None, False),
             'n_jobs':(n_jobs, None, False),
-            'ensemble':(ensemble, True, False),}
+            'ensemble':(ensemble, "auto", False),}
         cleaned_up_init_args = validate_sklearn_args(
             args=init_args,
             klass=sklearn.calibration.CalibratedClassifierCV
@@ -979,7 +978,7 @@ class CalibratedClassifierCV(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the mean accuracy on the given test data and labels
+        """Return :ref:`accuracy <accuracy_score>` on provided data and labels
         For more details on this function, see [sklearn.calibration.CalibratedClassifierCV.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.calibration.CalibratedClassifierCV.html#sklearn.calibration.CalibratedClassifierCV.score)
 

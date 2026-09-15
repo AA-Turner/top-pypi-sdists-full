@@ -11,6 +11,7 @@
 //! UniFFI/WASM/server work can reuse the same logic.
 
 pub mod agent_archive;
+pub mod agent_artifact_run_retention;
 pub mod agent_clan_tribe;
 pub mod agent_cleanup;
 pub mod agent_family;
@@ -39,6 +40,7 @@ pub mod commit_subject;
 pub mod config;
 pub mod content_layout;
 pub mod continuation;
+pub mod disk_pressure;
 pub mod editor;
 pub mod effort;
 pub mod effort_override;
@@ -53,6 +55,7 @@ pub mod fleet_mutation;
 pub mod fleet_presentation;
 pub mod gate_decision;
 pub mod gate_followup;
+pub mod git_object_sharing;
 pub mod git_query;
 pub mod glossary;
 pub mod host_bridge;
@@ -95,6 +98,7 @@ pub mod snippet_session;
 pub mod source_language;
 pub mod status;
 mod store_lock;
+pub mod sudo;
 pub mod suffix;
 pub mod task_type;
 pub mod telemetry;
@@ -137,26 +141,29 @@ pub use agent_clan_tribe::{
 };
 pub use agent_cleanup::{
     cleanup_plan_from_json_value, cleanup_request_from_json_value,
-    delete_agent_artifact_markers, mark_comment_agents_as_killed,
-    mark_hook_agents_as_killed, mark_mentor_agents_as_killed,
-    plan_agent_cleanup, release_workspace_from_content,
-    save_dismissed_agents_index, save_dismissed_bundle_json,
-    AgentCleanupArtifactDeleteIntentWire, AgentCleanupArtifactDeleteResultWire,
-    AgentCleanupBundleSaveIntentWire, AgentCleanupBundleWriteResultWire,
-    AgentCleanupCountsWire, AgentCleanupDismissItemWire,
-    AgentCleanupIdentityWire, AgentCleanupKillItemWire,
-    AgentCleanupMonitorStopIntentWire,
+    decide_force_reuse_stop_barrier, delete_agent_artifact_markers,
+    mark_comment_agents_as_killed, mark_hook_agents_as_killed,
+    mark_mentor_agents_as_killed, plan_agent_cleanup,
+    release_workspace_from_content, save_dismissed_agents_index,
+    save_dismissed_bundle_json, AgentCleanupArtifactDeleteIntentWire,
+    AgentCleanupArtifactDeleteResultWire, AgentCleanupBundleSaveIntentWire,
+    AgentCleanupBundleWriteResultWire, AgentCleanupCountsWire,
+    AgentCleanupDismissItemWire, AgentCleanupIdentityWire,
+    AgentCleanupKillItemWire, AgentCleanupMonitorStopIntentWire,
     AgentCleanupNotificationDismissIntentWire, AgentCleanupPlanWire,
     AgentCleanupRequestWire, AgentCleanupSideEffectsWire,
     AgentCleanupSkippedItemWire, AgentCleanupTargetWire,
     AgentCleanupWorkspaceReleaseIntentWire,
-    AgentCleanupWorkspaceReleaseResultWire, AGENT_CLEANUP_WIRE_SCHEMA_VERSION,
+    AgentCleanupWorkspaceReleaseResultWire, ForceReuseStopBarrierDecisionWire,
+    ForceReuseStopBarrierRequestWire, ForceReuseStopItemWire,
+    ForceReuseStopTargetWire, AGENT_CLEANUP_WIRE_SCHEMA_VERSION,
     CLEANUP_MODE_DISMISS_COMPLETED, CLEANUP_MODE_KILL_AND_DISMISS,
     CLEANUP_MODE_PREVIEW_ONLY, CLEANUP_SCOPE_ALL_PANELS,
     CLEANUP_SCOPE_CUSTOM_SELECTION, CLEANUP_SCOPE_EXPLICIT_IDENTITIES,
     CLEANUP_SCOPE_FOCUSED_GROUP, CLEANUP_SCOPE_FOCUSED_PANEL,
     CLEANUP_SCOPE_TRIBE, CONFIRMATION_SEVERITY_DESTRUCTIVE,
-    CONFIRMATION_SEVERITY_DISMISS, CONFIRMATION_SEVERITY_NONE, KILL_KIND_CRS,
+    CONFIRMATION_SEVERITY_DISMISS, CONFIRMATION_SEVERITY_NONE,
+    FORCE_REUSE_STOP_BARRIER_WIRE_SCHEMA_VERSION, KILL_KIND_CRS,
     KILL_KIND_HOOK, KILL_KIND_MENTOR, KILL_KIND_MONITOR, KILL_KIND_RUNNING,
     KILL_KIND_WORKFLOW, SKIPPED_DUPLICATE, SKIPPED_NOT_DISMISSABLE,
     SKIPPED_NOT_IN_SCOPE, SKIPPED_NOT_KILLABLE, SKIPPED_UNKNOWN_KILL_KIND,
@@ -643,6 +650,13 @@ pub use continuation::{
     MonitorResultWire, MonitorTimeoutKindWire, RetainedLogMetadataWire,
     CONTINUATION_WIRE_SCHEMA_VERSION,
 };
+pub use disk_pressure::{
+    classify_disk_pressure, DiskPressureError,
+    DiskPressureObservationResultWire, DiskPressureObservationWire,
+    DiskPressureOwnerRowWire, DiskPressureRequestWire, DiskPressureResultWire,
+    DISK_PRESSURE_WIRE_SCHEMA_VERSION, PRESSURE_STATUS_ERROR,
+    PRESSURE_STATUS_OK, PRESSURE_STATUS_WARN,
+};
 pub use editor::{
     analyze_artifact_refs as editor_analyze_artifact_refs,
     analyze_document as editor_analyze_document,
@@ -717,6 +731,7 @@ pub use editor::{
     model_shortcut_edit as editor_model_shortcut_edit,
     named_args_skeleton as editor_named_args_skeleton,
     placeholder_input_names as editor_placeholder_input_names,
+    plan_argument_colon_to_parentheses_edit as editor_plan_argument_colon_to_parentheses_edit,
     plan_model_alias_shortcut_edit as editor_plan_model_alias_shortcut_edit,
     queue_directive_diagnostics as editor_queue_directive_diagnostics,
     rank_and_filter_bead_entries as editor_rank_and_filter_bead_entries,
@@ -959,6 +974,13 @@ pub use gate_followup::{
     OUTCOME_LAUNCHED_DEGRADED, OUTCOME_NOT_LAUNCHABLE, OUTCOME_SUPPRESSED,
     RECOVERY_ADOPT, RECOVERY_NOOP, RECOVERY_REPORT_AMBIGUOUS, RECOVERY_RESUME,
     RECOVERY_WAIT,
+};
+pub use git_object_sharing::{
+    plan_git_object_sharing, GitObjectSharingError,
+    GitObjectSharingPlanRequestWire, GitObjectSharingPlanWire,
+    GIT_OBJECT_SHARING_ACTION_DELETE, GIT_OBJECT_SHARING_ACTION_FAIL,
+    GIT_OBJECT_SHARING_ACTION_NONE, GIT_OBJECT_SHARING_ACTION_WRITE,
+    GIT_OBJECT_SHARING_WIRE_SCHEMA_VERSION,
 };
 pub use git_query::{
     derive_git_workspace_name, parse_git_branch_name,
@@ -1336,6 +1358,21 @@ pub use status::{
     MENTOR_ACTION_CLEAR, MENTOR_ACTION_NONE, MENTOR_ACTION_SET,
     STATUS_WIRE_SCHEMA_VERSION, SUFFIX_ACTION_APPEND, SUFFIX_ACTION_NONE,
     SUFFIX_ACTION_STRIP, VALID_STATUSES,
+};
+pub use sudo::{
+    derive_sudo_risk_badges, sudo_ledger_from_json_value,
+    sudo_manifest_canonical_json_bytes, sudo_manifest_from_json_slice,
+    sudo_manifest_from_json_value, sudo_manifest_json_sha256,
+    sudo_manifest_sha256, sudo_validate_ledger_json_value,
+    truncate_sudo_output_tail, validate_sudo_ledger, validate_sudo_manifest,
+    SudoCommandWire, SudoErrorCodeWire, SudoErrorWire,
+    SudoLedgerEntryStatusWire, SudoLedgerEntryWire, SudoLedgerOutcomeWire,
+    SudoLedgerWire, SudoManifestWire, SudoOutputPolicyWire,
+    SudoRiskAssessmentWire, SudoRiskBadgeKindWire, SudoWireError,
+    SUDO_LEDGER_MAX_BYTES, SUDO_LEDGER_WIRE_SCHEMA_VERSION,
+    SUDO_MANIFEST_MAX_BYTES, SUDO_MANIFEST_WIRE_SCHEMA_VERSION,
+    SUDO_MAX_COMMANDS, SUDO_MAX_DIAGNOSTIC_BYTES, SUDO_MAX_OUTPUT_TAIL_BYTES,
+    SUDO_MAX_TIMEOUT_SECONDS, SUDO_RISK_WIRE_SCHEMA_VERSION,
 };
 pub use suffix::{is_entry_ref_suffix, parse_suffix_prefix, ParsedSuffix};
 pub use task_type::{

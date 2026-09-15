@@ -1,4 +1,5 @@
 import os
+import sys
 import pathlib
 import json
 import time
@@ -11,7 +12,11 @@ TC_VAR = "ACCEPT_TC"
 TC_VAL = "tôi đồng ý"
 TC_PATH = pathlib.Path.home() / ".vnstock" / "id" / "terms_agreement.txt"
 TERMS_AND_CONDITIONS = """
-Khi tiếp tục sử dụng Vnstock, bạn xác nhận rằng bạn đã đọc, hiểu và đồng ý với Chính sách quyền riêng tư và Điều khoản, điều kiện về giấy phép sử dụng Vnstock.
+Việc sử dụng Vnstock chịu sự điều chỉnh của Giấy phép sử dụng phần mềm và Chính sách
+quyền riêng tư dưới đây. Vui lòng đọc trước khi sử dụng.
+Sự chấp thuận chỉ được ghi nhận khi bạn thực hiện thao tác xác nhận trên website với
+đúng phiên bản văn bản đang có hiệu lực. Việc tải, cài đặt hay tiếp tục sử dụng thư
+viện không thay thế thao tác xác nhận đó.
 Chi tiết:
 - Giấy phép sử dụng phần mềm: https://vnstocks.com/onboard/giay-phep-su-dung
 - Chính sách quyền riêng tư: https://vnstocks.com/onboard/chinh-sach-quyen-rieng-tu
@@ -80,21 +85,39 @@ class Core:
 
     def _accept_terms(self):
         from vnai.scope.profile import inspector
-        system_info = inspector.examine()
-        if TC_VAR in os.environ and os.environ[TC_VAR] == TC_VAL:
-            os.environ[TC_VAR] = TC_VAL
-        else:
-            os.environ[TC_VAR] = TC_VAL
         now = datetime.now()
-        machine_id = system_info['machine_id']
-        signed_agreement = (
-            f"Người dùng có mã nhận dạng {machine_id} "
-            f"đã chấp nhận điều khoản & điều kiện sử dụng Vnstock "
-            f"lúc {now.isoformat()}\n\n"
+        machine_id = inspector.fingerprint()
+        self._show_first_run_notice(now=now, machine_id=machine_id)
+        os.environ[TC_VAR] = TC_VAL
+        notice_record = (
+            f"Thông báo sử dụng Vnstock đã được hiển thị trên môi trường có mã nhận dạng "
+            f"{machine_id} lúc {now.isoformat()}.\n\n"
+            f"Tệp này KHÔNG phải là bản ghi chấp thuận. Việc chấp thuận điều khoản được "
+            f"ghi nhận khi bạn xác nhận trên https://vnstocks.com.\n\n"
             f"{TERMS_AND_CONDITIONS}"
         )
         with open(self.terms_file_path, "w", encoding="utf-8") as f:
-            f.write(signed_agreement)
+            f.write(notice_record)
+
+    def _show_first_run_notice(self, now=None, machine_id=None):
+        message = (
+            "\n[vnstock] Thư viện gửi số liệu đo lường tuỳ chọn (tên hàm, thời gian chạy, "
+            "lỗi) để cải thiện sản phẩm.\n"
+            "          Không thu thập giá trị tham số bạn truyền vào, gồm mã chứng khoán "
+            "và khoảng thời gian tra cứu.\n"
+            "          Tắt: đặt VNSTOCK_TELEMETRY=off hoặc gọi vnai.disable_telemetry()\n"
+            "          Chi tiết: https://vnstocks.com/onboard/chinh-sach-quyen-rieng-tu\n"
+        )
+        try:
+            sys.stderr.write(message)
+            sys.stderr.flush()
+        except Exception:
+            pass
+        if now is None:
+            now = datetime.now()
+        if machine_id is None:
+            from vnai.scope.profile import inspector
+            machine_id = inspector.fingerprint()
         env_file = self.id_dir / "environment.json"
         env_data = {
             "accepted_agreement": True,
@@ -202,8 +225,10 @@ def accept_license_terms(terms_text=None):
     now = datetime.now()
     machine_id = system_info['machine_id']
     with open(terms_file_path, "w", encoding="utf-8") as f:
-        f.write(f"Người dùng có mã nhận dạng {machine_id} "
-                f"đã chấp nhận lúc {now.isoformat()}\n\n")
+        f.write(f"Người dùng trên môi trường có mã nhận dạng {machine_id} "
+                f"đã chủ động gọi vnai.accept_terms() lúc {now.isoformat()}.\n"
+                f"Chấp thuận có giá trị pháp lý được ghi nhận trên "
+                f"https://vnstocks.com.\n\n")
         f.write(terms_text)
     return True
 
@@ -240,6 +265,25 @@ def accept_vnstock_terms():
 def configure_privacy(level="standard"):
     from vnai.scope.state import tracker
     return tracker.setup_privacy(level)
+
+def disable_telemetry():
+    from vnai.scope.state import tracker
+    tracker.setup_privacy("minimal")
+    return True
+
+def enable_telemetry():
+    from vnai.scope.state import tracker
+    tracker.setup_privacy("standard")
+    return True
+
+def telemetry_status():
+    from vnai.flow.relay import telemetry_enabled, TELEMETRY_ENV_VAR
+    from vnai.scope.state import tracker
+    return {
+        "enabled": telemetry_enabled(),
+        "privacy_level": tracker.get_privacy_level(),
+        "env_override": os.environ.get(TELEMETRY_ENV_VAR),
+    }
 
 def check_commercial_usage():
     from vnai.scope.profile import inspector
@@ -346,4 +390,16 @@ from vnai.beam.agents import (
     async_setup_agent_environment,
     clear_skill_cache,
     list_cached_skills,
+    AGENT_TARGETS,
+    AGENT_TARGET_ORDER,
+    LEGACY_AGENT_TARGETS,
+    AGENT_CONFIG_PATH,
+    agent_status,
+    agent_setup_enabled,
+    resolve_agent_targets,
+    enable_agent_setup,
+    disable_agent_setup,
+    remove_agent_files,
+    load_agent_config,
+    save_agent_config,
 )

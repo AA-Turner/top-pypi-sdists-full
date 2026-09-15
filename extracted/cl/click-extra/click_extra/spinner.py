@@ -60,11 +60,11 @@ from gettext import gettext as _
 from typing import TypeVar, cast
 
 import click
-from wcwidth import wcswidth
 
 from . import context
 from .color import COLOR_DISABLING_TERMS, is_a_tty
 from .humanize import format_duration
+from .layout import cell_width
 from .parameters import ExtraOption
 from .spinner_presets import (
     SPINNER_FRAMES,
@@ -1574,19 +1574,20 @@ _SPINNER_PREVIEW_WIDTH = 56
 def _spinner_preview(preset: SpinnerPreset) -> str:
     """Join leading frames into a preview within the display-width budget.
 
-    Frames are measured by terminal cell width ({func}`wcwidth.wcswidth`), not by
-    code points, so 1-cell glyphs and 2-cell emoji fill the column consistently
-    rather than letting an emoji-heavy preview balloon it. Emoji variation
-    selectors (`U+FE0F`) are dropped: `wcwidth` sizes the promoted emoji at
-    two cells while many terminals render the bare symbol in one, and that
-    disagreement misaligns the table. Wide animations (`shark`, `pong`,
-    `dots-8bit`, …) stop at the budget with a `… (+N)` tail.
+    Frames are measured by terminal cell width
+    ({func}`~click_extra.layout.cell_width`), not by code points, so 1-cell
+    glyphs and 2-cell emoji fill the column consistently rather than letting an
+    emoji-heavy preview balloon it. Emoji variation selectors (`U+FE0F`) are
+    dropped: `wcwidth` sizes the promoted emoji at two cells while many
+    terminals render the bare symbol in one, and that disagreement misaligns
+    the table. Wide animations (`shark`, `pong`, `dots-8bit`, …) stop at the
+    budget with a `… (+N)` tail.
     """
     shown: list[str] = []
     width = 0
     for frame in preset.frames:
         glyph = frame.replace("\ufe0f", "")  # Drop emoji variation selectors.
-        cost = max(wcswidth(glyph), 0) + (1 if shown else 0)  # +1 joining space.
+        cost = cell_width(glyph) + (1 if shown else 0)  # +1 joining space.
         if width + cost > _SPINNER_PREVIEW_WIDTH:
             break
         shown.append(glyph)

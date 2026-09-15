@@ -10,7 +10,7 @@ import types
 from typing import Any, Dict, Generator
 
 from omegaconf import DictConfig, OmegaConf
-from pytest import MonkeyPatch, fixture, mark, raises
+from pytest import MonkeyPatch, fixture, mark, raises, warns
 
 from hydra._internal.logging_config import HydraDictConfigurator
 from hydra.core.utils import configure_log
@@ -122,6 +122,58 @@ def test_logging_blocklist_rejects_handler_class_rce() -> None:
     _assert_blocklisted(exc_info.value, "subprocess.Popen")
 
 
+def test_logging_rejects_internal_target_policy_reference() -> None:
+    config = _logging_config(
+        {"()": "hydra._internal.target_policy._capture_target_policy"}
+    )
+
+    with raises(ValueError, match="Unable to configure handler") as exc_info:
+        configure_log(config)
+
+    cause = _root_cause(exc_info.value)
+    assert isinstance(cause, InstantiationException)
+    assert "implementation state" in str(cause)
+
+
+def test_logging_properties_cannot_mutate_function_code() -> None:
+    def victim() -> str:
+        return "safe"
+
+    def replacement() -> str:
+        return "changed"
+
+    def function_factory() -> Any:
+        return victim
+
+    config = OmegaConf.create(
+        {
+            "version": 1,
+            "filters": {
+                "test": {
+                    "()": function_factory,
+                    ".": {"__code__": replacement.__code__},
+                }
+            },
+            "handlers": {
+                "test": {
+                    "class": "logging.StreamHandler",
+                    "filters": ["test"],
+                }
+            },
+            "root": {"handlers": ["test"]},
+        },
+        flags={"allow_objects": True},
+    )
+
+    with raises(ValueError, match="Unable to configure filter") as exc_info:
+        configure_log(config)
+
+    cause = _root_cause(exc_info.value)
+    assert isinstance(cause, InstantiationException)
+    assert "cannot modify Python functions" in str(cause)
+    assert victim() == "safe"
+
+
 def test_logging_allows_custom_factory() -> None:
     config = _logging_config({"()": "tests.test_logging_config.CustomHandler"})
 
@@ -222,7 +274,7 @@ def test_logging_formatter_class_is_resolved_once() -> None:
             if name != "Formatter":
                 raise AttributeError(name)
             self.lookups += 1
-            return logging.Formatter if self.lookups == 1 else payload
+            return CustomFormatter if self.lookups == 1 else payload
 
     module_name = "hydra_logging_alternating_formatter_test"
     module = AlternatingModule(module_name)
@@ -274,6 +326,65 @@ def test_logging_custom_formatter_and_filter_work() -> None:
     handler = logging.getLogger().handlers[0]
     assert isinstance(handler.formatter, CustomFormatter)
     assert isinstance(handler.filters[0], CustomFilter)
+
+
+def test_logging_rejects_object_traversing_format_style() -> None:
+    config = OmegaConf.create(
+        {
+            "version": 1,
+            "formatters": {"test": {"format": "{message}", "style": "{"}},
+            "handlers": {
+                "test": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "test",
+                }
+            },
+            "root": {"handlers": ["test"]},
+        }
+    )
+
+    with raises(ValueError, match="Unable to configure formatter") as exc_info:
+        configure_log(config)
+
+    cause = _root_cause(exc_info.value)
+    assert isinstance(cause, InstantiationException)
+    assert "fields can traverse Python objects" in str(cause)
+
+
+@mark.parametrize(
+    "formatter",
+    [
+        {"()": "builtins.str"},
+        {
+            "class": "builtins.str",
+            "format": b"not-a-formatter",
+            "datefmt": "utf-8",
+            "style": "strict",
+        },
+    ],
+)
+def test_logging_warns_and_drops_invalid_formatter_result(
+    formatter: Dict[str, Any],
+) -> None:
+    config = OmegaConf.create(
+        {
+            "version": 1,
+            "formatters": {"test": formatter},
+            "handlers": {
+                "test": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "test",
+                }
+            },
+            "root": {"handlers": ["test"]},
+        },
+        flags={"allow_objects": True},
+    )
+
+    with warns(UserWarning, match="instead of logging.Formatter"):
+        configure_log(config)
+
+    assert logging.getLogger().handlers[0].formatter is None
 
 
 def test_logging_discovery_factory_rejects_blocked_result() -> None:

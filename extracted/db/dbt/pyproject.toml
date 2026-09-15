@@ -1,0 +1,12 @@
+[build-system]
+requires = ["packaging>=24"]
+build-backend = "_dbt_sa_build"
+backend-path = ["."]
+
+[project]
+name = "dbt"
+version = "2.0.1"
+requires-python = ">=3.11"
+dependencies = [
+  "mashumaro[msgpack]>=3.14",
+]

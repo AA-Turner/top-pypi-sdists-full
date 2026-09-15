@@ -1,6 +1,7 @@
 from hassil.util import (
     is_template,
     merge_dict,
+    normalize_for_matching,
     normalize_text,
     normalize_whitespace,
     remove_escapes,
@@ -48,3 +49,40 @@ def test_remove_punctuation():
     assert remove_punctuation("Main St. next") == "Main St next"
     assert remove_punctuation("Chambre d'Ariane") == "Chambre d'Ariane"
     assert remove_punctuation("Chambre d’Ariane") == "Chambre d’Ariane"
+
+
+def test_normalize_for_matching_apostrophes():
+    """Both apostrophes normalize the same way, whatever follows them."""
+    # Templates only ever contain "'", so "’" has to reach the matcher as "'"
+    # rather than being stripped as punctuation.
+    assert normalize_for_matching("nell'ingresso").text == "nell'ingresso"
+    assert normalize_for_matching("nell’ingresso").text == "nell'ingresso"
+    assert normalize_for_matching("nell' ingresso").text == "nell' ingresso"
+    assert normalize_for_matching("nell’ ingresso").text == "nell' ingresso"
+
+    # Punctuation removal still happens afterwards.
+    assert normalize_for_matching("ciao, come va?").text == "ciao come va"
+
+
+def test_remove_dashes():
+    """Speech-to-text engines sometimes append a dash to the transcript."""
+    assert remove_punctuation("we are going to bed—") == "we are going to bed"
+    assert remove_punctuation("we are going to bed–") == "we are going to bed"
+    assert remove_punctuation("we are going to bed―") == "we are going to bed"
+    assert remove_punctuation("—we are going to bed") == "we are going to bed"
+    assert remove_punctuation("we are going to bed…") == "we are going to bed"
+
+    # Hyphens and minus signs are kept: they are part of words and numbers.
+    assert remove_punctuation("turn on the air-conditioner") == (
+        "turn on the air-conditioner"
+    )
+    assert remove_punctuation("set temperature to -5 degrees") == (
+        "set temperature to -5 degrees"
+    )
+    assert remove_punctuation("set temperature to −5 degrees") == (
+        "set temperature to −5 degrees"
+    )
+
+    # Dashes inside a word are left alone.
+    assert remove_punctuation("bed—time") == "bed—time"
+    assert remove_punctuation("5–10 minutes") == "5–10 minutes"

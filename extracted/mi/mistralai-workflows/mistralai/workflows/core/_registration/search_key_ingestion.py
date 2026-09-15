@@ -65,7 +65,7 @@ DELETE_SEARCH_KEYS_ACTIVITY_NAME = f"{INTERNAL_ACTIVITY_PREFIX}delete_search_key
 
 SearchKeyValue: TypeAlias = str | int | float | bool | Enum | UUID | date | None
 
-_Payload = TypeVar("_Payload", dict[str, str], list[str])
+_Payload = TypeVar("_Payload", dict[str, str | None], list[str])
 
 _CONTAINER_TYPES = (Mapping, list, tuple, set, frozenset)
 
@@ -105,13 +105,15 @@ def _validate_key(key: object, allow_reserved: bool) -> bool:
     return True
 
 
-def _validate_and_coerce(search_keys: Mapping[str, SearchKeyValue], allow_reserved: bool = False) -> dict[str, str]:
+def _validate_and_coerce(
+    search_keys: Mapping[str, SearchKeyValue], allow_reserved: bool = False
+) -> dict[str, str | None]:
     if not isinstance(search_keys, Mapping):
         _raise_invalid(f"add_search_keys expects a mapping, got {type(search_keys).__name__}.")
     if len(search_keys) > MAX_SEARCH_KEYS:
         _raise_invalid(f"add_search_keys accepts at most {MAX_SEARCH_KEYS} keys per call, got {len(search_keys)}.")
 
-    coerced: dict[str, str] = {}
+    coerced: dict[str, str | None] = {}
     for key, value in search_keys.items():
         if isinstance(value, _CONTAINER_TYPES):
             _raise_invalid(f"Search key `{key}` must map to a scalar value, got {type(value).__name__}.")
@@ -199,7 +201,7 @@ async def _upsert_search_keys_impl(
     client: PrivateWorkerClient,
     temporal_workflow_id: str,
     temporal_run_id: str,
-    search_key_metadata: dict[str, str],
+    search_key_metadata: dict[str, str | None],
 ) -> None:
     async with _degrade_on_failure("add_search_keys", temporal_workflow_id):
         response = await client.upsert_execution_metadata_async(
@@ -245,7 +247,7 @@ _delete_with_retries = _retry_transient(_delete_search_keys_impl)
 async def _upsert_search_keys(
     temporal_workflow_id: str,
     temporal_run_id: str,
-    search_key_metadata: dict[str, str],
+    search_key_metadata: dict[str, str | None],
 ) -> None:
     async with get_worker_client(headers=config.worker.mistral_api_headers, timeout=_REQUEST_TIMEOUT_SECONDS) as client:
         try:

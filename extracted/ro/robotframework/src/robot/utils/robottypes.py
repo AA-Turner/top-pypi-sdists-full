@@ -45,17 +45,19 @@ if ExtTypedDict:
 
 
 def is_list_like(item):
-    if isinstance(item, (str, bytes, bytearray, UserString, IOBase)):
+    try:
+        if isinstance(item, (str, bytes, bytearray, UserString, IOBase)):
+            return False
+    except AttributeError:
         return False
     return isinstance(item, Iterable)
 
 
 def is_dict_like(item):
-    return isinstance(item, Mapping)
-
-
-def is_union(item):
-    return isinstance(item, UnionType) or get_origin(item) is Union
+    try:
+        return isinstance(item, Mapping)
+    except AttributeError:
+        return False
 
 
 def type_name(item, capitalize=False):
@@ -63,25 +65,25 @@ def type_name(item, capitalize=False):
 
     For example, 'integer' instead of 'int' and 'file' instead of 'TextIOWrapper'.
     """
-    if is_union(item):
-        return "Union"
     item = get_origin(item) or item
     if isinstance(item, _SpecialForm):
         # Prior to Python 3.10, typing special forms (Any, Union, ...) didn't
         # have `__name__` but instead they had `_name`.
         name = item.__name__ if hasattr(item, "__name__") else item._name
-    elif isinstance(item, IOBase):
-        name = "file"
     else:
         typ = item if isinstance(item, type) else type(item)
-        named_types = {
-            str: "string",
-            bool: "boolean",
-            int: "integer",
-            type(None): "None",
-            dict: "dictionary",
-        }
-        name = named_types.get(typ, typ.__name__.strip("_"))
+        if issubclass(typ, IOBase):
+            name = "file"
+        else:
+            named_types = {
+                str: "string",
+                bool: "boolean",
+                int: "integer",
+                type(None): "None",
+                dict: "dictionary",
+                UnionType: "Union",
+            }
+            name = named_types.get(typ, typ.__name__.strip("_"))
     return name.capitalize() if capitalize and name.islower() else name
 
 
@@ -95,7 +97,7 @@ def type_repr(typ, nested=True):
         return "None"
     if typ is Ellipsis:
         return "..."
-    if is_union(typ):
+    if get_origin(typ) in (Union, UnionType):
         return " | ".join(type_repr(a) for a in get_args(typ)) if nested else "Union"
     name = _get_type_name(typ)
     if nested:

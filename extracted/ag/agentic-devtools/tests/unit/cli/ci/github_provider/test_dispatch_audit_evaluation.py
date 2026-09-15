@@ -26,12 +26,12 @@ class TestDispatchAuditEvaluation:
             task_id="task-77",
             task_url="https://example/task-77",
             attempts=1,
-            token_identity="SPECKIT_PR_TOKEN",
+            token_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
             session_confirmed=True,
         )
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             result = provider.dispatch_audit_evaluation(
                 tracking_issue=2042,
                 batch_id="batch-123",
@@ -47,17 +47,50 @@ class TestDispatchAuditEvaluation:
         assert kwargs["repo"] == "swai-factory/agentic-devtools"
         assert kwargs["issue_number"] == 2042
         assert kwargs["custom_agent"] == "agdt.review-feedback-audit.evaluate"
-        assert kwargs["token_env_vars"] == ("SPECKIT_PR_TOKEN",)
+        assert kwargs["token_env_vars"] == ("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "GH_TOKEN")
         assert "audit-batches/batch-123/batch-summary.md" in kwargs["problem_statement"]
         assert "`AGENTS.md` for directory-scoped guidance" in kwargs["problem_statement"]
         assert "`.github/copilot-instructions.md` for repository-wide guidance" in kwargs["problem_statement"]
         assert kwargs["problem_statement"] == kwargs["custom_instructions"]
 
     @patch("agentic_devtools.cli.ci.github_provider.assign_issue_to_agent")
-    def test_raises_when_speckit_token_missing(self, mock_assign) -> None:
+    @patch("agentic_devtools.cli.ci.github_provider._read_repo_file")
+    def test_dispatches_with_qualified_default_token_alias(
+        self,
+        mock_read_repo_file,
+        mock_assign,
+    ) -> None:
+        mock_read_repo_file.return_value = "# prompt"
+        mock_assign.return_value = AgentAssignmentResult(success=True, method="agent_assignment")
+        provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
+
+        with patch.dict(
+            "os.environ",
+            {
+                "GH_TOKEN": "token-value",
+                "AI_PR_LOOP_CREDENTIAL_IDENTITY": "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+            },
+            clear=True,
+        ):
+            result = provider.dispatch_audit_evaluation(
+                tracking_issue=2042,
+                batch_id="batch-123",
+                batch_branch="audit/batch-batch123",
+                batch_dir="audit-batches/batch-123",
+                pr_numbers=[10],
+            )
+
+        assert result.success is True
+        assert mock_assign.call_args.kwargs["token_env_vars"] == (
+            "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
+            "GH_TOKEN",
+        )
+
+    @patch("agentic_devtools.cli.ci.github_provider.assign_issue_to_agent")
+    def test_raises_when_default_workflow_token_missing(self, mock_assign) -> None:
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(RuntimeError, match="SPECKIT_PR_TOKEN"):
+            with pytest.raises(RuntimeError, match="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"):
                 provider.dispatch_audit_evaluation(
                     tracking_issue=2042,
                     batch_id="batch-123",
@@ -78,12 +111,12 @@ class TestDispatchAuditEvaluation:
         mock_assign.return_value = AgentAssignmentResult(
             success=False,
             method="",
-            token_identity="SPECKIT_PR_TOKEN",
+            token_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
             error="all methods failed",
         )
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             with pytest.raises(RuntimeError, match="all methods failed"):
                 provider.dispatch_audit_evaluation(
                     tracking_issue=2042,
@@ -108,14 +141,14 @@ class TestDispatchAuditEvaluation:
             task_id="",
             task_url="",
             attempts=1,
-            token_identity="SPECKIT_PR_TOKEN",
+            token_identity="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
             session_confirmed=False,
         )
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
         with (
             caplog.at_level(logging.WARNING, logger="agentic_devtools.cli.ci.github_provider"),
-            patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True),
+            patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True),
         ):
             result = provider.dispatch_audit_evaluation(
                 tracking_issue=2042,
@@ -140,7 +173,7 @@ class TestDispatchAuditEvaluation:
         mock_read_repo_file.return_value = ""
         provider = GitHubActionsProvider(repo="swai-factory/agentic-devtools")
 
-        with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "token-value"}, clear=True):
+        with patch.dict("os.environ", {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-value"}, clear=True):
             with pytest.raises(RuntimeError, match="Could not read required agent prompt file"):
                 provider.dispatch_audit_evaluation(
                     tracking_issue=2042,

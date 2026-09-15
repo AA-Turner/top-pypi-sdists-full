@@ -174,7 +174,7 @@ class Birch(BaseTransformer):
         branching_factor=50,
         n_clusters=3,
         compute_labels=True,
-        copy=True,
+        copy="deprecated",
         input_cols: Optional[Union[str, Iterable[str]]] = None,
         output_cols: Optional[Union[str, Iterable[str]]] = None,
         label_cols: Optional[Union[str, Iterable[str]]] = None,
@@ -200,7 +200,7 @@ class Birch(BaseTransformer):
             'branching_factor':(branching_factor, 50, False),
             'n_clusters':(n_clusters, 3, False),
             'compute_labels':(compute_labels, True, False),
-            'copy':(copy, True, False),}
+            'copy':(copy, "deprecated", False),}
         cleaned_up_init_args = validate_sklearn_args(
             args=init_args,
             klass=sklearn.cluster.Birch

@@ -4,6 +4,27 @@ import threading
 from datetime import datetime
 import hashlib
 import json
+import os
+import re
+_HOME_PATTERNS = [
+    re.compile(r'/Users/[^/\s]+'),
+    re.compile(r'/home/[^/\s]+'),
+    re.compile(r'[A-Za-z]:\\Users\\[^\\\s]+'),
+]
+
+def _sanitize_error(error, max_length=200):
+    if not error:
+        return None
+    text = str(error)
+    for pattern in _HOME_PATTERNS:
+        text = pattern.sub('<home>', text)
+    try:
+        cwd = os.getcwd()
+        if cwd and len(cwd) > 3:
+            text = text.replace(cwd, '<cwd>')
+    except Exception:
+        pass
+    return text[:max_length]
 
 class Collector:
     _instance = None
@@ -99,8 +120,7 @@ class Collector:
                             source=data.get("source", "vnai"),
                             execution_time=data.get("execution_time", 0),
                             success=data.get("success", True),
-                            error=data.get("error"),
-                            args=data.get("args")
+                            error=data.get("error")
                         )
                     elif metric_type == "rate_limit":
                         track_rate_limit(
@@ -120,7 +140,7 @@ class Collector:
                             request_size=data.get("request_size", 0),
                             response_size=data.get("response_size", 0)
                         )
-                except Exception as e:
+                except Exception:
                     continue
             self.metrics[metric_type] = []
         self._sending_metrics = False
@@ -146,8 +166,7 @@ def capture(module_type="function"):
                 error = str(e)
                 collector.record("error", {
                     "function": func.__name__,
-                    "error": error,
-                    "args": str(args)[:100] if args else None
+                    "error": _sanitize_error(error)
                 })
                 raise
             finally:
@@ -158,9 +177,9 @@ def capture(module_type="function"):
                         "function": func.__name__,
                         "execution_time": execution_time,
                         "success": success,
-                        "error": error,
+                        "error": _sanitize_error(error),
                         "timestamp": datetime.now().isoformat(),
-                        "args": str(args)[:100] if args else None
+                        "arg_count": (len(args) if args else 0) + (len(kwargs) if kwargs else 0)
                     }
                 )
         return wrapper

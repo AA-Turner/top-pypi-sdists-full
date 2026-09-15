@@ -1,9 +1,9 @@
 Metadata-Version: 2.5
 Name: uvicorn
-Version: 0.52.4
+Version: 0.53.0
 Summary: The lightning-fast ASGI server.
 Project-URL: Changelog, https://uvicorn.dev/release-notes
-Project-URL: Funding, https://github.com/sponsors/encode
+Project-URL: Funding, https://github.com/sponsors/Kludex
 Project-URL: Homepage, https://uvicorn.dev/
 Project-URL: Source, https://github.com/Kludex/uvicorn
 Author-email: Tom Christie <tom@tomchristie.com>
@@ -65,7 +65,7 @@ Until recently Python has lacked a minimal low-level server/application interfac
 async frameworks. The [ASGI specification][asgi] fills this gap, and means we're now able to
 start building a common set of tooling usable across all async frameworks.
 
-Uvicorn supports HTTP/1.1 and WebSockets.
+Uvicorn currently supports HTTP/1.1, HTTP/2 and WebSockets.
 
 ## Quickstart
 

@@ -6,7 +6,12 @@ from agentic_devtools.adapters.pull_request_comments import discover_github_toke
 
 
 def test_token_precedence_and_fallbacks() -> None:
-    assert discover_github_token({"SPECKIT_PR_TOKEN": " primary ", "GH_TOKEN": "fallback"}) == "primary"
-    assert discover_github_token({"GITHUB_TOKEN": "github"}) == "github"
-    assert discover_github_token({"GH_TOKEN": "gh"}) == "gh"
+    assert (
+        discover_github_token({"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": " primary ", "GH_TOKEN": "fallback"}) == "primary"
+    )
+    assert discover_github_token({"GH_TOKEN": "gh"}) == ""
+    assert (
+        discover_github_token({"GH_TOKEN": "gh", "AI_PR_LOOP_CREDENTIAL_IDENTITY": "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"})
+        == "gh"
+    )
     assert discover_github_token({}) == ""

@@ -55,20 +55,32 @@ import subprocess
 import zlib
 from collections import Counter
 from enum import Enum
-from functools import cache
 from hashlib import sha256
 from html import escape
 from importlib import metadata
 from math import ceil, cos, hypot, pi, sin
-from unicodedata import bidirectional
 
 from boltons.strutils import strip_ansi
 from click import style, unstyle
-from wcwidth import wcswidth
 
 from ._utils import generator_tag
 from .color import forced_color
 from .execution import args_cleanup, format_cli_prompt, run_cli
+
+# These were this module's own until the terminal-grid primitives moved to
+# click_extra.layout, and the body still calls every one. They are imports, not a
+# compatibility surface: a name this module stops using goes with it, and importers
+# follow it to its new home.
+from .layout import (
+    PADDING,
+    RULE_COLOR,
+    cell_width,
+    center_in_rule,
+    fit_columns,
+    grid,
+    is_bidirectional,
+    number_lines,
+)
 from .screenshot_presets import (
     MACOS_BUTTONS,
     PRESETS,
@@ -80,11 +92,11 @@ from .screenshot_presets import (
 )
 from .styling import (
     _ANSI_INDEX,
+    _ATTR_CSS,
     _hex_to_rgb,
     _palette_to_rgb,
     _rgb_to_hex,
     ansi_to_html,
-    split_ansi,
 )
 from .theme import BUILTIN_THEMES
 
@@ -435,11 +447,10 @@ for, and anything the command would tailor to that terminal has to be kept
 away from it, or the same capture comes out differently on every machine.
 
 `TERM_PROGRAM` is the one that bites, through
-{data}`~click_extra.table.NARROW_EMOJI_PRESENTATION_TERMINALS`: a table
-carrying an emoji-presentation sequence is padded for the terminal named
-there, so a capture taken under Apple Terminal is wider than the same capture
-taken anywhere else. Committed side by side, the two never stop rewriting each
-other.
+{func}`~click_extra.table._paints_wider_than_it_advances`: a table carrying an
+emoji-presentation sequence is padded for the terminal named there, so a
+capture taken under Apple Terminal is wider than the same capture taken under
+Ghostty. Committed side by side, the two never stop rewriting each other.
 
 Cleared rather than pinned to a value: no name is the honest answer, since a
 capture is drawn for no terminal in particular.
@@ -565,12 +576,6 @@ and both read as the same emphasis. Far enough to find the line at a glance,
 near enough to leave its text the thing being read.
 """
 
-RTL_BIDI_CLASSES = frozenset({"R", "AL", "AN"})
-"""Unicode bidirectional classes written right to left.
-
-Right-to-left letters, Arabic letters and Arabic-Indic numbers, as
-{func}`unicodedata.bidirectional` names them. See {func}`is_bidirectional`.
-"""
 
 HIDDEN_FRAME_ATTRIBUTES = ' visibility="hidden" opacity="0"'
 """How an animated capture hides the frames its still is not made of.
@@ -689,10 +694,10 @@ AUTO_COLUMNS: Literal["auto"] = "auto"
 
 Neither end of the pipeline is pinned: the command wraps to whatever terminal it
 finds (Click's own 80 when that is a pipe, or a documentation build), and the
-image is laid out at the longest line that came back, see {func}`fit_columns`.
-Nothing the command printed folds inside the picture then, which is what a line
-the command does not wrap on its own needs: a prompt, a wide table, a
-machine-readable dump.
+image is laid out at the longest line that came back, see
+{func}`~click_extra.layout.fit_columns`. Nothing the command printed folds
+inside the picture then, which is what a line the command does not wrap on its
+own needs: a prompt, a wide table, a machine-readable dump.
 
 The cost is that the picture stops being a fixed-width terminal, so a capture
 meant to sit beside others at the same width should name that width instead.
@@ -716,22 +721,42 @@ printing nothing but blank lines would otherwise ask for an image no glyph fits
 in.
 """
 
-LINE_NUMBER_SEPARATOR = " │ "
-"""Rule drawn between a line's number and the line itself.
 
-A vertical bar rather than a bare space, so the gutter reads as a column of its
-own even where the output is itself indented.
+AUTO_TRUNCATION: Literal["auto"] = "auto"
+"""Marker asking for a rule as wide as the lines it stands between.
+
+{data}`TRUNCATION_LABEL` centered in a run of {data}`TRUNCATION_RULE`, spanning
+the widest line the capture kept. A bare label sits in the left margin and reads
+as one more line of output; a rule crosses the picture and reads as a seam,
+which is what a cut is. It carries no brackets, unlike a rule naming a section:
+there is nothing to name here, and the label is the cut itself.
+
+Measured on the kept lines alone, so the marker can never be what decides the
+image width. That also makes it track an explicit `columns` only as far as the
+text does: a capture whose lines all stop short draws a rule that stops there
+too.
 """
 
-DEFAULT_TRUNCATION = "[...]"
+TRUNCATION_LABEL = "\N{BLACK SCISSORS}"
+"""What {data}`AUTO_TRUNCATION` centers in its rule."""
+
+TRUNCATION_RULE = "\N{MIDDLE DOT}"
+"""Character {data}`AUTO_TRUNCATION` draws its rule with.
+
+Broken rather than {data}`~click_extra.layout.RULE_GLYPH`: a dotted line reads as
+text missing from that spot, where an unbroken one reads as a section ending.
+
+A dot rather than one of the Box Drawing dashes, which carry two or three
+strokes inside a single cell. Those strokes and the hairline gaps between them
+are each a pixel or two wide at a normal capture scale, and a cell advances a
+fractional number of device pixels, so the gaps land inside a pixel on some
+cells and on a boundary on others: neighbouring dashes merge here and separate
+there, and the rule shimmers. One dot per cell has nothing to merge with.
+"""
+
+
+DEFAULT_TRUNCATION: str = AUTO_TRUNCATION
 """Marker standing in for the lines {func}`trim_lines` cut away."""
-
-PADDING = " \N{NO-BREAK SPACE}"
-"""Characters separating one column of a capture from the next.
-
-{func}`render_svg` emits every space as a non-breaking one, so the padding
-survives an XML round-trip and no renderer collapses a run of them.
-"""
 
 _SGR_RE = re.compile(r"\x1b\[[0-9;]*m")
 """One SGR escape sequence, the kind that changes how the text after it looks.
@@ -773,33 +798,6 @@ _STOP_RE = re.compile(r"^(?P<color>.+?)(?:\s+(?P<position>[\d.]+)%)?$", re.DOTAL
 """One color stop of a gradient, with the position it may pin itself at."""
 
 
-def number_lines(text: str, start: int = 1) -> str:
-    """Prefix each line of `text` with its number, in a dim gutter.
-
-    The numbers are drawn into the terminal text rather than into a column of
-    the image, which is the same trade Pygments makes with its inline line
-    numbers: every renderer places them for free, and every reader copying the
-    capture copies them too.
-
-    Right-aligned on the widest number, so the gutter is one column whatever the
-    output's length, and separated by {data}`LINE_NUMBER_SEPARATOR`.
-
-    :param text: captured output, ANSI escape sequences included.
-    :param start: number given to the first line.
-    :return: the numbered text.
-    """
-    lines = text.splitlines()
-    if not lines:
-        return text
-    width = len(str(start + len(lines) - 1))
-    gutter = (
-        f"{style(str(number).rjust(width), dim=True)}"
-        f"{style(LINE_NUMBER_SEPARATOR, dim=True)}"
-        for number in range(start, start + len(lines))
-    )
-    return "\n".join(f"{prefix}{line}" for prefix, line in zip(gutter, lines))
-
-
 def preset_palette(
     preset: TerminalPreset,
     background: CaptureBackground,
@@ -822,35 +820,6 @@ def resolve_palette(
     if preset is None:
         return CAPTURE_PALETTES[background]
     return preset_palette(preset, background)
-
-
-def is_bidirectional(text: str) -> bool:
-    """Whether `text` carries a character written right to left.
-
-    Arabic, Hebrew and their neighbours are reordered by whoever draws them, and
-    the cursive ones are shaped: a letter's form depends on what it joins. A
-    terminal grid describes neither, which is why {func}`render_svg` stops
-    pinning such a run to an exact width.
-
-    :param text: the text to inspect.
-    :return: `True` when at least one character is right-to-left.
-    """
-    return any(bidirectional(char) in RTL_BIDI_CLASSES for char in text)
-
-
-def cell_width(text: str) -> int:
-    """Columns `text` occupies on a terminal's character grid.
-
-    Not its length: a CJK ideograph is drawn two cells wide, a combining mark
-    none at all. {func}`wcwidth.wcswidth` answers for both, and returns `-1` for
-    a string carrying a control character, where the count of characters is the
-    closest thing to an answer left.
-
-    :param text: the text to measure.
-    :return: the number of cells it occupies.
-    """
-    width = wcswidth(text)
-    return width if width >= 0 else len(text)
 
 
 def cursor_cell(picture: str, columns: int) -> tuple[int, int] | None:
@@ -878,40 +847,11 @@ def cursor_cell(picture: str, columns: int) -> tuple[int, int] | None:
     if not picture.strip():
         return None
     rows = picture.split("\n")
-    # Only the escapes are dropped: they are drawn nowhere, so they occupy no
-    # cell, and counting them would push the cursor off the end of its row.
-    row, column = len(rows) - 1, cell_width(strip_ansi(rows[-1]))
+    row, column = len(rows) - 1, cell_width(rows[-1])
     if column >= columns:
         # A terminal carries a cursor past its last column onto the next row.
         row, column = row + 1, 0
     return (row, column)
-
-
-@cache
-def _char_width(char: str) -> int:
-    """Cells one character occupies, cached.
-
-    {func}`grid` measures every character of a capture one at a time, and
-    terminal output draws from a small alphabet, so the cache turns the
-    repeated width-table walks of {func}`cell_width` into dict hits.
-    """
-    return cell_width(char)
-
-
-def fit_columns(text: str) -> int:
-    """Width, in characters, of the longest line in `text`.
-
-    ANSI escapes are stripped first: they style the glyphs around them and
-    occupy no cell of their own. Measured in terminal cells, so a line of CJK
-    asks for the two columns per glyph it is drawn with. Floored at
-    {data}`MIN_COLUMNS`.
-
-    :param text: captured output, ANSI escape sequences included.
-    :return: the width laying every line out without folding any.
-    """
-    return max(
-        [MIN_COLUMNS, *(cell_width(unstyle(line)) for line in text.splitlines())],
-    )
 
 
 def auto_columns(pictures: Sequence[str], cursor: Cursor | None = None) -> int:
@@ -932,7 +872,7 @@ def auto_columns(pictures: Sequence[str], cursor: Cursor | None = None) -> int:
     :param cursor: the cursor the capture draws, if any.
     :return: the width, in characters.
     """
-    width = max(fit_columns(picture) for picture in pictures)
+    width = max(fit_columns(picture, floor=MIN_COLUMNS) for picture in pictures)
     if cursor is None:
         return width
     # Probed one column wider than the text, so the reading is where the cursor
@@ -1054,11 +994,27 @@ def trim_lines(
     kept = (head or 0) + (tail or 0)
     if kept >= len(lines):
         return text
-    return "\n".join([
-        *(lines[:head] if head else []),
-        truncation,
-        *(lines[-tail:] if tail else []),
-    ])
+    head_lines = lines[:head] if head else []
+    tail_lines = lines[-tail:] if tail else []
+    marker = truncation
+    if truncation == AUTO_TRUNCATION:
+        marker = _rule_marker([*head_lines, *tail_lines])
+    return "\n".join([*head_lines, marker, *tail_lines])
+
+
+def _rule_marker(lines: Sequence[str]) -> str:
+    """Center {data}`TRUNCATION_LABEL` in a rule as wide as the widest of `lines`.
+
+    :param lines: the lines the marker is drawn between.
+    :return: the marker to write in their place.
+    """
+    return center_in_rule(
+        style(TRUNCATION_LABEL, fg=RULE_COLOR),
+        fit_columns("\n".join(lines)),
+        rule=TRUNCATION_RULE,
+        opening=" ",
+        closing=" ",
+    )
 
 
 def palette_color(color: object, palette: TerminalPalette) -> str:
@@ -1113,55 +1069,6 @@ def blend(color: str, into: str, ratio: float) -> str:
     return _rgb_to_hex(
         tuple(round(a + (b - a) * ratio) for a, b in zip(start, end)),  # type: ignore[arg-type]
     )
-
-
-def grid(text: str, columns: int) -> list[list[tuple[Style, str, int]]]:
-    """Lay ANSI text out on a terminal's character grid.
-
-    The one place a capture stops being a stream and becomes a picture. Each
-    styled run of {func}`~click_extra.styling.split_ansi` is split at newlines
-    into rows, then placed on the column it starts at, measured in cells rather
-    than characters so a wide glyph takes the two it is drawn with.
-
-    A line reaching past `columns` soft-wraps onto the next row, the way it would
-    on a terminal that narrow, rather than being cropped: a command is free to
-    print a line it never wraps itself (a long URL, a wide table, a
-    machine-readable dump), and a picture that silently swallowed the overflow
-    would be lying about what ran. A glyph straddling the edge moves down whole.
-
-    Returning the column with each run is what lets {func}`render_svg` place a
-    run without measuring anything back out of its own output.
-
-    :param text: captured output, ANSI escape sequences included.
-    :param columns: width of the grid, in cells.
-    :return: one list of `(style, text, column)` runs per row.
-    """
-    rows: list[list[tuple[Style, str, int]]] = [[]]
-    column = 0
-    for run_style, run in split_ansi(text):
-        for index, line in enumerate(run.split("\n")):
-            if index:
-                rows.append([])
-                column = 0
-            if not line:
-                continue
-            kept: list[str] = []
-            start = column
-            for char in line:
-                size = _char_width(char)
-                # `and column` keeps a glyph wider than the whole grid on the
-                # row it started, instead of wrapping forever onto empty ones.
-                if column + size > columns and column:
-                    if kept:
-                        rows[-1].append((run_style, "".join(kept), start))
-                        kept = []
-                    rows.append([])
-                    column = start = 0
-                kept.append(char)
-                column += size
-            if kept:
-                rows[-1].append((run_style, "".join(kept), start))
-    return rows
 
 
 def _split_arguments(text: str) -> list[str]:
@@ -1528,10 +1435,18 @@ def tile_runs(text: str, column: int) -> Iterator[tuple[str, int]]:
         yield text, column
         return
     cell = column
-    for start in range(0, len(text), TILE_RUN):
-        piece = text[start : start + TILE_RUN]
+    start = 0
+    while start < len(text):
+        end = min(start + TILE_RUN, len(text))
+        # A piece is placed by its first glyph, so one opening on a blank draws
+        # every tile behind it a cell late. Carry the blank into the piece
+        # before it instead, which is the one already holding its own offset.
+        while end < len(text) and text[end] in PADDING:
+            end += 1
+        piece = text[start:end]
         yield piece, cell
         cell += cell_width(piece)
+        start = end
 
 
 def glyph_offsets(text: str, column: int) -> str:
@@ -1569,10 +1484,16 @@ def style_rules(style: Style, palette: TerminalPalette) -> str:
         rules.append("font-weight: bold")
     if style.italic:
         rules.append("font-style: italic")
-    if style.underline:
-        rules.append("text-decoration: underline")
-    if style.strikethrough:
-        rules.append("text-decoration: line-through")
+    # The three decorations share one property, so they are written as one
+    # declaration: CSS keeps the last of a repeated property, and a run that is
+    # both underlined and struck through would otherwise lose the underline.
+    decorations = [
+        _ATTR_CSS[attribute][1]
+        for attribute in ("underline", "overline", "strikethrough")
+        if getattr(style, attribute)
+    ]
+    if decorations:
+        rules.append(f"text-decoration: {' '.join(decorations)}")
     return ";".join(rules)
 
 
@@ -1791,9 +1712,9 @@ def render_svg(
     """Draw captured terminal text as a picture of a terminal window.
 
     A terminal is a fixed grid of identically-sized cells, which is what makes
-    this arithmetic rather than typesetting: {func}`grid` says which cell each
-    run of same-styled characters starts on, and every coordinate below is that
-    column times {data}`CELL_WIDTH`.
+    this arithmetic rather than typesetting: {func}`~click_extra.layout.grid`
+    says which cell each run of same-styled characters starts on, and every
+    coordinate below is that column times {data}`CELL_WIDTH`.
 
     Two primitives draw everything. A `<rect>` fills the cells behind a run that
     carries a background, and a `<text>` draws its glyphs, pinned to its columns
@@ -2764,8 +2685,8 @@ def capture(
     :param merge_stderr: fold `stderr` into the captured output.
     :param timeout: seconds before the command is killed.
     :param line_numbers: draw each line's number in a gutter, see
-        {func}`number_lines`. The prompt counts as the first of them, being the
-        invocation everything under it came from.
+        {func}`~click_extra.layout.number_lines`. The prompt counts as the first
+        of them, being the invocation everything under it came from.
     :param emphasize: lines to draw a band behind, see {func}`render_svg`. The
         prompt is line 1 here too, and a gutter does not shift the count.
     :param cursor: see {func}`render`. A still capture leaves its cursor after

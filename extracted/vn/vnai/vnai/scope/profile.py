@@ -6,6 +6,7 @@ import hashlib
 import threading
 import time
 import importlib.metadata
+import importlib.util
 from datetime import datetime
 import subprocess
 from pathlib import Path
@@ -15,7 +16,6 @@ class Inspector:
     _lock = None
 
     def __new__(cls):
-        import threading
         if cls._lock is None:
             cls._lock = threading.Lock()
         with cls._lock:
@@ -76,7 +76,6 @@ class Inspector:
         }
         info["machine_id"] = self.fingerprint()
         try:
-            import importlib.util
             ipython_spec = importlib.util.find_spec("IPython")
             if ipython_spec:
                 from IPython import get_ipython
@@ -162,7 +161,7 @@ class Inspector:
                     return self.machine_id
             except Exception:
                 pass
-        is_colab = self.detect_colab_with_delayed_auth()
+        self.detect_colab_with_delayed_auth()
         try:
             system_info = platform.node() + platform.platform() + platform.machine()
             self.machine_id = hashlib.md5(system_info.encode()).hexdigest()
@@ -388,7 +387,7 @@ class Inspector:
                 with open(id_path, 'w') as f:
                     f.write(user_id)
                 return user_id
-        except Exception as e:
+        except Exception:
             return self.machine_id
 
     def analyze_vibe_coding_maturity(self):
@@ -470,13 +469,15 @@ class Inspector:
             for framework, markers in framework_markers.items():
                 if any(marker in root_files for marker in markers):
                     frameworks.append(framework)
-        except Exception as e:
+        except Exception:
             root_files = []
             root_dirs = []
             file_project_type = "unknown"
             frameworks = []
         return {
-            "project_dir": current_dir,
+            "project_dir_hash": hashlib.sha256(
+                str(current_dir).encode('utf-8')
+            ).hexdigest()[:12],
             "detected_type": max(project_type.items(), key=lambda x: x[1])[0] if project_type else "unknown",
             "file_type": file_project_type,
             "is_git_repo": ".git" in (root_dirs if 'root_dirs' in locals() else []),
@@ -488,8 +489,6 @@ class Inspector:
 
     def analyze_git_info(self):
         try:
-            import subprocess
-            import os
             result = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
                                 capture_output=True, text=True)
             if result.returncode != 0:

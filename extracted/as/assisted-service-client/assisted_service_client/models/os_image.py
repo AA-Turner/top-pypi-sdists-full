@@ -36,7 +36,8 @@ class OsImage(object):
         'url': 'str',
         'version': 'str',
         'os_stream': 'str',
-        'default_os_stream': 'bool'
+        'default_os_stream': 'bool',
+        'type': 'str'
     }
 
     attribute_map = {
@@ -45,10 +46,11 @@ class OsImage(object):
         'url': 'url',
         'version': 'version',
         'os_stream': 'os_stream',
-        'default_os_stream': 'default_os_stream'
+        'default_os_stream': 'default_os_stream',
+        'type': 'type'
     }
 
-    def __init__(self, openshift_version=None, cpu_architecture='x86_64', url=None, version=None, os_stream=None, default_os_stream=None):  # noqa: E501
+    def __init__(self, openshift_version=None, cpu_architecture='x86_64', url=None, version=None, os_stream=None, default_os_stream=None, type=None):  # noqa: E501
         """OsImage - a model defined in Swagger"""  # noqa: E501
 
         self._openshift_version = None
@@ -57,6 +59,7 @@ class OsImage(object):
         self._version = None
         self._os_stream = None
         self._default_os_stream = None
+        self._type = None
         self.discriminator = None
 
         self.openshift_version = openshift_version
@@ -67,6 +70,8 @@ class OsImage(object):
             self.os_stream = os_stream
         if default_os_stream is not None:
             self.default_os_stream = default_os_stream
+        if type is not None:
+            self.type = type
 
     @property
     def openshift_version(self):
@@ -219,6 +224,35 @@ class OsImage(object):
         """
 
         self._default_os_stream = default_os_stream
+
+    @property
+    def type(self):
+        """Gets the type of this OsImage.  # noqa: E501
+
+        The type of the image. If set to 'disconnected-iso' tags the image as a disconnected ISO image.  # noqa: E501
+
+        :return: The type of this OsImage.  # noqa: E501
+        :rtype: str
+        """
+        return self._type
+
+    @type.setter
+    def type(self, type):
+        """Sets the type of this OsImage.
+
+        The type of the image. If set to 'disconnected-iso' tags the image as a disconnected ISO image.  # noqa: E501
+
+        :param type: The type of this OsImage.  # noqa: E501
+        :type: str
+        """
+        allowed_values = ["disconnected-iso"]  # noqa: E501
+        if type not in allowed_values:
+            raise ValueError(
+                "Invalid value for `type` ({0}), must be one of {1}"  # noqa: E501
+                .format(type, allowed_values)
+            )
+
+        self._type = type
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -982,3 +982,94 @@ async fn test_negative_font_size_is_not_reported_as_rotated() {
     assert!(text.contains("Upright text drawn with a negative font size"));
     assert!(text.contains("Second line stays upright too"));
 }
+
+/// `page_labels.pdf` carries a `/PageLabels` number tree that maps pages 0-1 to
+/// lowercase roman and pages 2-3 to decimal restarting at 1, so the labels
+/// ("i", "ii", "1", "2") deliberately disagree with the 1-based page numbers.
+/// pypdf reports the same four labels for this file, which is the contract the
+/// LlamaIndex reader's `page_label` metadata has to match.
+#[tokio::test]
+async fn parse_reports_pdf_page_labels() {
+    let parser = LiteParse::new(LiteParseConfig::default());
+    let result = parser
+        .parse("../../integration_tests_data/page_labels.pdf")
+        .await
+        .expect("parse page_labels.pdf");
+
+    let labels: Vec<Option<&str>> = result
+        .pages
+        .iter()
+        .map(|p| p.page_label.as_deref())
+        .collect();
+    assert_eq!(
+        labels,
+        vec![Some("i"), Some("ii"), Some("1"), Some("2")],
+        "page labels must come from /PageLabels, not the page index"
+    );
+}
+
+/// A PDF with no `/PageLabels` tree reports `None` rather than a synthesized
+/// label, so callers can tell "no label" from a label that happens to equal
+/// the page number and fall back to `page_number` themselves.
+#[tokio::test]
+async fn parse_reports_no_page_label_when_pdf_has_none() {
+    let parser = LiteParse::new(LiteParseConfig::default());
+    let result = parser
+        .parse("../../integration_tests_data/sample.pdf")
+        .await
+        .expect("parse sample.pdf");
+
+    assert!(
+        result.pages.iter().all(|p| p.page_label.is_none()),
+        "sample.pdf has no /PageLabels tree"
+    );
+}
+
+/// `diagonal_text.pdf` draws each word on its own diagonal baseline. pdfium's
+/// char boxes enclose a rotated glyph in page axes, so a grounding box built
+/// from their corners is far taller across the baseline than the ink is; the
+/// outline-derived box is not. The C extractor's value for the first word is the
+/// pinned figure; the rest are held to a fraction of their enclosing box.
+#[test]
+#[serial]
+fn raw_text_diagonal_grounding_bounds_follow_the_glyph_outlines() {
+    use liteparse::extract_raw_text_items;
+
+    let lib = pdfium::Library::init();
+    let document = lib
+        .load_document("../../integration_tests_data/diagonal_text.pdf", None)
+        .expect("diagonal_text.pdf loads");
+    let page = document.page(0).expect("page 0 loads");
+    let text_page = page.text().expect("text page loads");
+    let view_box = page.view_box().expect("page has a bounding box");
+
+    let items = extract_raw_text_items(&page, &text_page, &view_box, None);
+    let rotated: Vec<_> = items
+        .iter()
+        .filter(|item| {
+            let quarter = std::f32::consts::FRAC_PI_2;
+            (item.angle_radians % quarter).abs() > 0.05
+        })
+        .collect();
+    assert!(!rotated.is_empty(), "the fixture has diagonal text");
+    let first = rotated[0]
+        .grounding_bounds
+        .expect("the first diagonal word has grounding bounds");
+    assert!(
+        ((first.bottom - first.top) - 34.049).abs() < 0.01,
+        "first word across-baseline extent {} differs from the C extractor's 34.049",
+        first.bottom - first.top
+    );
+    for item in rotated {
+        let bounds = item
+            .grounding_bounds
+            .expect("a diagonal word with real glyphs has grounding bounds");
+        let across = bounds.bottom - bounds.top;
+        assert!(
+            across > 0.0 && across < item.height,
+            "{:?}: outline box ({across}) should sit inside the loose box ({})",
+            item.text,
+            item.height
+        );
+    }
+}

@@ -25,6 +25,7 @@ import re
 import subprocess
 import sys
 import unittest.mock
+from dataclasses import dataclass, field
 from pathlib import Path
 from textwrap import dedent
 
@@ -1004,6 +1005,59 @@ def test_export_config_includes_unset_params(invoke):
     assert "<key>tag</key>" in result.stdout
     # plist has no null type: the unset parameter is dropped from the export.
     assert "regexp" not in result.stdout
+
+
+def test_export_config_reads_a_repeatable_flag_as_a_toggle(invoke):
+    """A repeatable boolean flag exports as the boolean a configuration spells.
+
+    It collects occurrences of a toggle rather than values, so dumping an unset
+    one as the empty list of a multi-value parameter advertises a shape no user
+    writes. A repeatable option taking values still reads as a list.
+    """
+
+    @command
+    @option("--sugar/--no-sugar", multiple=True)
+    @option("--fruit", multiple=True)
+    def pantry(sugar, fruit):
+        echo("run")
+
+    result = invoke(pantry, "--export-config", "toml", color=False)
+    assert result.exit_code == 0
+    assert "# sugar =" in result.stdout
+    assert "fruit = []" in result.stdout
+
+    result = invoke(pantry, "--export-config", "json", color=False)
+    assert result.exit_code == 0
+    assert '"sugar": null' in result.stdout
+    assert '"fruit": []' in result.stdout
+
+
+def test_export_config_skips_an_opaque_subtree(invoke):
+    """A subcommand sharing a name with an opaque schema field is not exported.
+
+    The loader hands the whole sub-tree to the app's own validator, so the
+    subcommand's options cannot be read back from there. Exporting them writes a
+    file the same loader refuses.
+    """
+
+    @dataclass
+    class Menu:
+        starters: dict[str, dict] = field(default_factory=dict)
+
+    @group(config_schema=Menu)
+    def kitchen():
+        echo("run")
+
+    @kitchen.command()
+    @option("--spicy", is_flag=True)
+    def starters(spicy):
+        echo("starters")
+
+    result = invoke(kitchen, "--export-config", "toml", color=False)
+    assert result.exit_code == 0
+    assert "[kitchen]" in result.stdout
+    assert "[kitchen.starters]" not in result.stdout
+    assert "spicy" not in result.stdout
 
 
 def test_export_config_kebab_case_keys(invoke, tmp_path):

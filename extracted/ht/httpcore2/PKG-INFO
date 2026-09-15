@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: httpcore2
-Version: 2.12.0
+Version: 2.13.0
 Summary: A minimal low-level HTTP client.
 Project-URL: Changelog, https://github.com/pydantic/httpx2/blob/main/src/httpcore2/CHANGELOG.md
 Project-URL: Homepage, https://github.com/pydantic/httpx2
@@ -36,7 +36,7 @@ Requires-Dist: h2<5,>=3; extra == 'http2'
 Provides-Extra: socks
 Requires-Dist: socksio==1.*; extra == 'socks'
 Provides-Extra: trio
-Requires-Dist: trio<1.0,>=0.33.0; extra == 'trio'
+Requires-Dist: trio<1.0,>=0.34.0; extra == 'trio'
 Description-Content-Type: text/markdown
 
 # HTTPCore 2
@@ -151,6 +151,18 @@ pip install 'httpcore2==2.*'
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## 2.13.0 (September 14th, 2026)
+
+### Changed
+
+* Require Trio 0.34.0 or later for the `trio` extra.
+  ([#1179](https://github.com/pydantic/httpx2/pull/1179))
+
+### Fixed
+
+* Avoid nested async generator finalization errors when streamed responses are abandoned early.
+  ([#1204](https://github.com/pydantic/httpx2/pull/1204))
 
 ## 2.12.0 (August 18th, 2026)
 

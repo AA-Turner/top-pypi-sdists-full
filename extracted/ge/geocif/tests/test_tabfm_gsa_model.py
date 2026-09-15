@@ -111,7 +111,7 @@ def test_wrapper_prefix_regex_leaves_tabfm_gsa_alone():
 def test_geocif_wiring_for_tabfm_gsa():
     src = (ROOT / "geocif.py").read_text(encoding="utf-8")
     # tabular flags dispatch
-    assert '"tabpfn_gsa", "tabfm_gsa"]' in src
+    assert '"tabpfn_gsa", "tabfm_gsa"' in src
     # fitter map
     assert '"tabfm_gsa": TabPFNFitter(self.obj)' in src
     # lat/lon requirement gate + coord-degeneracy warning cover tabfm_gsa

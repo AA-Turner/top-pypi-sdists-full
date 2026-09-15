@@ -520,8 +520,13 @@ def map_logical_plan_expression(exp: jpype.JObject) -> expressions_proto.Express
                     )
                 )
         case "Exists":
-            with push_sql_scope(is_boundary=True):
-                rel_proto = map_logical_plan_relation(exp.plan())
+            plan = exp.plan()
+            with push_sql_scope(
+                is_boundary=True,
+                is_correlation_scope=True,
+                shares_cte_cache_with_siblings=True,
+            ):
+                rel_proto = map_logical_plan_relation(plan)
             any_proto = Any()
             any_proto.Pack(
                 snowflake_proto.ExpExtension(
@@ -551,8 +556,13 @@ def map_logical_plan_expression(exp: jpype.JObject) -> expressions_proto.Express
                     ),
                 )
         case "InSubquery":
-            with push_sql_scope(is_boundary=True):
-                rel_proto = map_logical_plan_relation(exp.query().plan())
+            plan = exp.query().plan()
+            with push_sql_scope(
+                is_boundary=True,
+                is_correlation_scope=True,
+                shares_cte_cache_with_siblings=True,
+            ):
+                rel_proto = map_logical_plan_relation(plan)
             any_proto = Any()
             any_proto.Pack(
                 snowflake_proto.ExpExtension(
@@ -782,8 +792,13 @@ def map_logical_plan_expression(exp: jpype.JObject) -> expressions_proto.Express
                 raise exception
             proto = expressions_proto.Expression(literal=value)
         case "ScalarSubquery":
-            with push_sql_scope(is_boundary=True):
-                rel_proto = map_logical_plan_relation(exp.plan())
+            plan = exp.plan()
+            with push_sql_scope(
+                is_boundary=True,
+                is_correlation_scope=True,
+                shares_cte_cache_with_siblings=True,
+            ):
+                rel_proto = map_logical_plan_relation(plan)
             any_proto = Any()
             any_proto.Pack(
                 snowflake_proto.ExpExtension(
@@ -980,8 +995,13 @@ def map_logical_plan_expression(exp: jpype.JObject) -> expressions_proto.Express
             window_spec = exp.windowSpec()
             proto = get_window_expression_proto(window_spec, exp.windowFunction())
         case "FunctionTableSubqueryArgumentExpression":
-            with push_sql_scope(is_boundary=True):
-                rel_proto = map_logical_plan_relation(exp.plan())
+            plan = exp.plan()
+            with push_sql_scope(
+                is_boundary=True,
+                is_correlation_scope=True,
+                shares_cte_cache_with_siblings=True,
+            ):
+                rel_proto = map_logical_plan_relation(plan)
             any_proto = Any()
             any_proto.Pack(
                 snowflake_proto.ExpExtension(

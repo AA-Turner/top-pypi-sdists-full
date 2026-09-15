@@ -178,6 +178,12 @@ class TestBaseManager:
         self.bm.leave_room(sid, '/foo', 'baz')
         self.bm.leave_room(sid, '/bar', 'baz')
 
+    def test_join_sid_room_not_allowed(self):
+        sid1 = self.bm.connect('123', '/')
+        sid2 = self.bm.connect('456', '/')
+        with pytest.raises(ValueError):
+            self.bm.enter_room(sid2, '/', sid1)
+
     def test_no_room(self):
         rooms = self.bm.get_rooms('123', '/foo')
         assert [] == rooms
@@ -190,6 +196,11 @@ class TestBaseManager:
         self.bm.enter_room(sid1, '/foo', 'bar')
         self.bm.close_room('bar', '/foo')
         assert 'bar' not in self.bm.rooms['/foo']
+
+    def test_close_sid_room_not_allowed(self):
+        sid1 = self.bm.connect('123', '/')
+        with pytest.raises(ValueError):
+            self.bm.close_room(sid1, '/')
 
     def test_close_invalid_room(self):
         self.bm.close_room('bar', '/foo')

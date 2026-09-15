@@ -9,9 +9,11 @@ delivery tiers:
   on demand via ``ctx_get`` or search tools.
 
 Wired into all four entry routers (agents, conversations, chat, prompts) via
-``aidream.services.conversation_context.context_utils.resolve_agent_context_block`` — failures are
-swallowed (logged at WARNING) so a context-engine outage cannot break a
-request.
+``aidream.services.conversation_context.resolve_agent_context_blocks``. A
+context-engine outage still cannot BREAK a request — but as of DD-247 it can no
+longer hide either: the resolver screams to ``system_error`` and puts an
+``<active_context><unavailable>`` block in the turn, so the model is told it has
+no context instead of answering as though the user had selected nothing.
 """
 
 from __future__ import annotations

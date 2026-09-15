@@ -149,6 +149,10 @@ class KNeighborsRegressor(BaseTransformer):
 
         Uniform weights are used by default.
 
+        See the following example for a demonstration of the impact of
+        different weighting schemes on predictions:
+        :ref:`sphx_glr_auto_examples_neighbors_plot_regression.py`.
+
     algorithm: {'auto', 'ball_tree', 'kd_tree', 'brute'}, default='auto'
         Algorithm used to compute the nearest neighbors:
 
@@ -993,7 +997,7 @@ class KNeighborsRegressor(BaseTransformer):
         custom_tags=dict([("autogen", True)]),
     )
     def score(self, dataset: Union[DataFrame, pd.DataFrame]) -> float:
-        """Return the coefficient of determination of the prediction
+        """Return :ref:`coefficient of determination <r2_score>` on test data
         For more details on this function, see [sklearn.neighbors.KNeighborsRegressor.score]
         (https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsRegressor.html#sklearn.neighbors.KNeighborsRegressor.score)
 

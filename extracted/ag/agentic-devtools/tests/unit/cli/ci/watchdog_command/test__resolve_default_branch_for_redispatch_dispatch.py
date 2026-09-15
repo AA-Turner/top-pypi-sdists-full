@@ -3,21 +3,20 @@
 import os
 from unittest.mock import patch
 
+import pytest
+
 from agentic_devtools.cli.ci.watchdog_command import _resolve_default_branch_for_redispatch_dispatch
 
 
 class TestResolveDefaultBranchForRedispatchDispatch:
     """Token-selection policy for redispatch default-branch lookup."""
 
-    def test_prefers_fallback_when_cooldown_is_active(self) -> None:
+    def test_uses_default_workflow_token(self) -> None:
         with (
             patch.dict(
                 os.environ,
                 {
-                    "GH_TOKEN": "preferred",
-                    "FALLBACK_GH_TOKEN": "fallback",
-                    "COOLDOWN_ACTIVE": "true",
-                    "LOOP_EXIT_CODE": "0",
+                    "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token",
                 },
                 clear=True,
             ),
@@ -26,17 +25,15 @@ class TestResolveDefaultBranchForRedispatchDispatch:
             branch = _resolve_default_branch_for_redispatch_dispatch("o/r")
 
         assert branch == "main"
-        resolver.assert_called_once_with("o/r", token="fallback")
+        resolver.assert_called_once_with("o/r", token="workflow-token")
 
-    def test_prefers_fallback_when_loop_exit_code_is_rate_limit_pause(self) -> None:
+    def test_does_not_use_other_credentials(self) -> None:
         with (
             patch.dict(
                 os.environ,
                 {
-                    "GH_TOKEN": "preferred",
-                    "FALLBACK_GH_TOKEN": "fallback",
-                    "COOLDOWN_ACTIVE": "false",
-                    "LOOP_EXIT_CODE": "6",
+                    "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token",
+                    "FALLBACK_GH_TOKEN": "legacy-token",
                 },
                 clear=True,
             ),
@@ -45,23 +42,21 @@ class TestResolveDefaultBranchForRedispatchDispatch:
             branch = _resolve_default_branch_for_redispatch_dispatch("o/r")
 
         assert branch == "main"
-        resolver.assert_called_once_with("o/r", token="fallback")
+        resolver.assert_called_once_with("o/r", token="workflow-token")
 
-    def test_uses_none_token_when_neither_token_is_available(self) -> None:
+    def test_rejects_missing_default_workflow_token(self) -> None:
         with (
             patch.dict(
                 os.environ,
                 {
                     "GH_TOKEN": "",
                     "FALLBACK_GH_TOKEN": "",
-                    "COOLDOWN_ACTIVE": "false",
-                    "LOOP_EXIT_CODE": "0",
                 },
                 clear=True,
             ),
             patch("agentic_devtools.cli.ci.watchdog_command._get_default_branch", return_value="main") as resolver,
         ):
-            branch = _resolve_default_branch_for_redispatch_dispatch("o/r")
+            with pytest.raises(RuntimeError, match="DEFAULT_CLASSIC_REPO_WORKFLOW_PAT is required"):
+                _resolve_default_branch_for_redispatch_dispatch("o/r")
 
-        assert branch == "main"
-        resolver.assert_called_once_with("o/r", token=None)
+        resolver.assert_not_called()

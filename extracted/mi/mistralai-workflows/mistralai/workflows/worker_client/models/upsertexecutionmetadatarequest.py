@@ -15,7 +15,7 @@ from typing_extensions import NotRequired, TypedDict
 
 
 class UpsertExecutionMetadataRequestTypedDict(TypedDict):
-    search_key_metadata: NotRequired[Dict[str, str]]
+    search_key_metadata: NotRequired[Dict[str, Nullable[str]]]
     r"""Unencrypted key/value searchable metadata to upsert for this execution"""
     temporal_run_id: NotRequired[Nullable[str]]
     r"""Temporal run ID identifying the execution to write to"""
@@ -24,7 +24,7 @@ class UpsertExecutionMetadataRequestTypedDict(TypedDict):
 
 
 class UpsertExecutionMetadataRequest(BaseModel):
-    search_key_metadata: Optional[Dict[str, str]] = None
+    search_key_metadata: Optional[Dict[str, Nullable[str]]] = None
     r"""Unencrypted key/value searchable metadata to upsert for this execution"""
 
     temporal_run_id: OptionalNullable[str] = UNSET

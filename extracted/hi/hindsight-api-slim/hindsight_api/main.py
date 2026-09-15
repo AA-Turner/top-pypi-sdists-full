@@ -25,9 +25,9 @@ from . import __version__
 from .banner import print_banner
 from .config import (
     DEFAULT_ACCESS_LOG,
+    DEFAULT_HOST,
     DEFAULT_WORKERS,
     ENV_ACCESS_LOG,
-    ENV_HOST,
     ENV_WORKERS,
     HindsightConfig,
     _get_raw_config,
@@ -35,9 +35,7 @@ from .config import (
 )
 from .daemon import (
     DEFAULT_DAEMON_PORT,
-    DEFAULT_IDLE_TIMEOUT,
     ENV_DAEMON_CHILD,
-    IdleTimeoutMiddleware,
     daemonize,
 )
 
@@ -121,19 +119,18 @@ def resolve_daemon_host_port(
     args_port: int,
     explicit_host: bool,
     explicit_port: bool,
+    configured_host: bool = False,
 ) -> ResolvedDaemonHostPort:
     """Resolve host/port for daemon mode.
 
-    Defaults to 127.0.0.1 for security, but honors explicit user overrides
-    via --host flag or HINDSIGHT_API_HOST env var. Uses DEFAULT_DAEMON_PORT
-    unless the user specified a custom port.
+    Defaults to 127.0.0.1 for security, but honors explicit user overrides via the
+    --host flag (``explicit_host``) or HINDSIGHT_API_HOST (``configured_host``, which
+    the caller reads off the config rather than the environment). Uses
+    DEFAULT_DAEMON_PORT unless the user specified a custom port.
     """
     port = args_port if explicit_port else DEFAULT_DAEMON_PORT
     # Only force localhost if the user didn't explicitly set a host
-    if explicit_host or os.environ.get(ENV_HOST):
-        host = args_host
-    else:
-        host = "127.0.0.1"
+    host = args_host if (explicit_host or configured_host) else "127.0.0.1"
     return ResolvedDaemonHostPort(host=host, port=port)
 
 
@@ -154,7 +151,9 @@ def _parse_cli_args(argv: list[str], config: HindsightConfig) -> ParsedCliArgs:
     parser.add_argument(
         "--host",
         default=argparse.SUPPRESS,
-        help=f"Host to bind to (default: {config.host}, env: HINDSIGHT_API_HOST)",
+        # config.host is None when nothing configured one; show the address that will
+        # actually be bound, not the sentinel that stands for "operator said nothing".
+        help=f"Host to bind to (default: {config.host or DEFAULT_HOST}, env: HINDSIGHT_API_HOST)",
     )
     parser.add_argument(
         "--port",
@@ -174,7 +173,7 @@ def _parse_cli_args(argv: list[str], config: HindsightConfig) -> ParsedCliArgs:
     parser.add_argument(
         "--workers",
         type=int,
-        default=int(os.getenv(ENV_WORKERS, str(DEFAULT_WORKERS))),
+        default=config.workers,
         help=f"Number of worker processes (env: {ENV_WORKERS}, default: {DEFAULT_WORKERS})",
     )
 
@@ -182,7 +181,7 @@ def _parse_cli_args(argv: list[str], config: HindsightConfig) -> ParsedCliArgs:
     parser.add_argument(
         "--access-log",
         action="store_true",
-        default=os.getenv(ENV_ACCESS_LOG, "").lower() in ("1", "true", "yes", "on") or DEFAULT_ACCESS_LOG,
+        default=config.access_log,
         help=f"Enable access log (env: {ENV_ACCESS_LOG}, default: {DEFAULT_ACCESS_LOG})",
     )
     parser.add_argument(
@@ -208,13 +207,14 @@ def _parse_cli_args(argv: list[str], config: HindsightConfig) -> ParsedCliArgs:
     parser.add_argument(
         "--daemon",
         action="store_true",
-        help=f"Run as background daemon (uses port {DEFAULT_DAEMON_PORT}, auto-exits after idle)",
+        help=f"Run as background daemon (uses port {DEFAULT_DAEMON_PORT})",
     )
     parser.add_argument(
         "--idle-timeout",
         type=int,
-        default=DEFAULT_IDLE_TIMEOUT,
-        help=f"Idle timeout in seconds before auto-exit in daemon mode (default: {DEFAULT_IDLE_TIMEOUT})",
+        default=0,
+        help="Deprecated and ignored: the daemon no longer auto-exits when idle (accepted for "
+        "backward compatibility with existing launchers).",
     )
 
     args = parser.parse_args(argv)
@@ -222,7 +222,7 @@ def _parse_cli_args(argv: list[str], config: HindsightConfig) -> ParsedCliArgs:
     explicit_host = hasattr(args, "host")
     explicit_port = hasattr(args, "port")
     if not explicit_host:
-        args.host = config.host
+        args.host = config.host or DEFAULT_HOST
     if not explicit_port:
         args.port = config.port
 
@@ -235,6 +235,13 @@ def main():
 
     load_dotenv_for_entrypoint()
 
+    # Arm profiling here, after .env is loaded and before anything starts serving, so a
+    # report covers the run rather than beginning halfway through it. No-op unless
+    # HINDSIGHT_API_PROFILE is set.
+    from hindsight_api.profiling import install as _install_profiling
+
+    _install_profiling()
+
     # Load configuration from environment (for CLI args defaults)
     config = _get_raw_config()
 
@@ -245,9 +252,17 @@ def main():
     # is_daemon_child is True when we are the re-exec'd child spawned by
     # daemonize() or by hindsight-embed's DaemonEmbedManager.  The child
     # does not have --daemon in its argv, but must still behave as a daemon
-    # (resolve host/port, enable idle timeout, suppress banner, etc.).
+    # (resolve host/port, suppress banner, etc.).
     is_daemon_child = os.environ.get(ENV_DAEMON_CHILD) == "1"
     is_daemon = args.daemon or is_daemon_child
+
+    if args.idle_timeout:
+        # Kept parseable so older launchers (hindsight-embed, the coding-agent
+        # integrations) still start, but deliberately inert — see daemon.py.
+        print(
+            f"--idle-timeout {args.idle_timeout} is ignored: the daemon no longer auto-exits when idle.",
+            file=sys.stderr,
+        )
 
     if is_daemon:
         resolved_daemon_host_port = resolve_daemon_host_port(
@@ -255,6 +270,7 @@ def main():
             args_port=args.port,
             explicit_host=parsed_cli_args.explicit_host,
             explicit_port=parsed_cli_args.explicit_port,
+            configured_host=config.host is not None,
         )
         args.host = resolved_daemon_host_port.host
         args.port = resolved_daemon_host_port.port
@@ -326,7 +342,6 @@ def main():
     # with it, before uvicorn's child bootstrap even starts. See docs/plans/recall-latency.md.
     _memory = None
     app = None
-    idle_middleware = None
 
     if not use_import_string:
         # Create MemoryEngine (reads configuration from environment)
@@ -354,18 +369,6 @@ def main():
             initialize_memory=True,
         )
 
-        # Wrap with idle timeout middleware in daemon mode
-        if is_daemon:
-            idle_middleware = IdleTimeoutMiddleware(app, idle_timeout=args.idle_timeout)
-            app = idle_middleware
-    elif is_daemon:
-        # The idle-timeout middleware wraps an app OBJECT, and this mode serves an import string,
-        # so there is nothing to wrap. That was already true and already silent; say it out loud
-        # rather than let a daemon quietly never time out.
-        logging.warning(
-            "--daemon idle timeout is not applied with --workers > 1 or --reload: "
-            "those modes serve an import string, which the middleware cannot wrap."
-        )
     # Check for uvloop/winloop availability
     loop_impl = "asyncio"
     if sys.platform == "win32":
@@ -404,6 +407,10 @@ def main():
         uvicorn_config["reload"] = True
     if args.workers > 1:
         uvicorn_config["workers"] = args.workers
+    # Export the worker count so each child process can size its share of the CPU
+    # budget (admission limits are per worker). uvicorn spawns children that
+    # re-import the app, so the environment is the only channel that reaches them.
+    os.environ[ENV_WORKERS] = str(args.workers)
     if args.forwarded_allow_ips:
         uvicorn_config["forwarded_allow_ips"] = args.forwarded_allow_ips
     if args.ssl_keyfile:
@@ -428,25 +435,6 @@ def main():
             vector_extension=config.vector_extension,
             text_search_extension=config.text_search_extension,
         )
-
-    # Start idle checker in daemon mode
-    if idle_middleware is not None:
-        # Start the idle checker in a background thread with its own event loop
-        import logging
-        import threading
-
-        def run_idle_checker():
-            import time
-
-            time.sleep(2)  # Wait for uvicorn to start
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(idle_middleware._check_idle())
-            except Exception as e:
-                logging.error(f"Idle checker error: {e}", exc_info=True)
-
-        threading.Thread(target=run_idle_checker, daemon=True).start()
 
     uvicorn.run(**uvicorn_config)
 

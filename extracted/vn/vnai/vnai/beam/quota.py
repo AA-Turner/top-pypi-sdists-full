@@ -4,6 +4,13 @@ import threading
 from collections import defaultdict
 from datetime import datetime
 
+def _package_version():
+    try:
+        from importlib.metadata import version
+        return version("vnai")
+    except Exception:
+        return "unknown"
+
 class RateLimitExceeded(Exception):
     def __init__(self, resource_type, limit_type="min", current_usage=None, limit_value=None, retry_after=None, tier=None, custom_message=None):
         self.resource_type = resource_type
@@ -14,7 +21,7 @@ class RateLimitExceeded(Exception):
         self.tier = tier
         if custom_message:
             message = f"\n{'='*60}\n"
-            message += f"⚠️  GIỚI HẠN API ĐÃ ĐẠT TỐI ĐA (Rate Limit Exceeded)\n"
+            message += "⚠️  GIỚI HẠN API ĐÃ ĐẠT TỐI ĐA (Rate Limit Exceeded)\n"
             message += f"{'='*60}\n\n"
             message += f"{custom_message}\n"
             message += f"\n{'='*60}\n"
@@ -30,10 +37,10 @@ class RateLimitExceeded(Exception):
             if should_show_promotional_for_rate_limit(tier):
                 promotional_message = get_promotional_message() + "\n"
                 mark_promotional_shown()
-        except Exception as e:
+        except Exception:
             pass
         message = f"\n{'='*60}\n"
-        message += f"⚠️  GIỚI HẠN API ĐÃ ĐẠT TỐI ĐA (Rate Limit Exceeded)\n"
+        message += "⚠️  GIỚI HẠN API ĐÃ ĐẠT TỐI ĐA (Rate Limit Exceeded)\n"
         message += f"{'='*60}\n\n"
         scope_names = {
             'min': 'phút (minute)',
@@ -43,8 +50,8 @@ class RateLimitExceeded(Exception):
         }
         scope_display = scope_names.get(limit_type, limit_type)
         message += f"📌 Bạn đã đạt giới hạn tối đa số lượt yêu cầu API trong 1 {scope_display}.\n"
-        message += f"   (You have reached the maximum API request limit for this period)\n\n"
-        message += f"📊 Chi tiết (Details):\n"
+        message += "   (You have reached the maximum API request limit for this period)\n\n"
+        message += "📊 Chi tiết (Details):\n"
         if tier:
             tier_names = {
                 'guest': 'Khách (Guest)',
@@ -60,28 +67,28 @@ class RateLimitExceeded(Exception):
         message += f"   • Đã sử dụng: {current_usage}/{limit_value}\n"
         if retry_after:
             message += f"   • Chờ {round(retry_after)} giây để tiếp tục (Wait to retry)\n"
-        message += f"\n💡 Giải pháp (Solutions):\n"
+        message += "\n💡 Giải pháp (Solutions):\n"
         message += f"   1️⃣ Chờ {round(retry_after) if retry_after else 'một lúc'} giây rồi thử lại\n"
-        message += f"      (Wait and retry)\n"
-        message += f"   2️⃣ Tham gia chương trình tài trợ dự án (Sponsor) để sử dụng không gián đoạn.\n"
-        message += f"      Lưu ý: vnstock là công cụ mã nguồn mở giúp tự động hoá kết nối với\n"
-        message += f"      các API công khai mà bạn vốn đã có quyền truy cập hợp lệ, không\n"
-        message += f"      phải nhà cung cấp dữ liệu. Việc tài trợ giúp duy trì\n"
-        message += f"      nghiên cứu - phát triển công cụ và hạ tầng công nghệ phục vụ cộng đồng.\n"
+        message += "      (Wait and retry)\n"
+        message += "   2️⃣ Tham gia chương trình tài trợ dự án (Sponsor) để sử dụng không gián đoạn.\n"
+        message += "      Lưu ý: vnstock là công cụ mã nguồn mở giúp tự động hoá kết nối với\n"
+        message += "      các API công khai mà bạn vốn đã có quyền truy cập hợp lệ, không\n"
+        message += "      phải nhà cung cấp dữ liệu. Việc tài trợ giúp duy trì\n"
+        message += "      nghiên cứu - phát triển công cụ và hạ tầng công nghệ phục vụ cộng đồng.\n"
         if tier == 'guest':
-            message += f"\n🚀 Nâng cấp (Upgrade):\n"
-            message += f"   • Phiên bản cộng đồng (60 request/phút - Community):\n"
-            message += f"     Đăng ký API key miễn phí: https://vnstocks.com/login\n"
-            message += f"   • Gói thành viên tài trợ (180-600 request/phút - Sponsor):\n"
-            message += f"     Tham gia: https://vnstocks.com/insiders-program\n"
-            message += f"     Sau khi tham gia tài trợ, cài bộ thư viện riêng vnstock_data theo hướng dẫn https://vnstocks.com/onboard-member\n"
+            message += "\n🚀 Nâng cấp (Upgrade):\n"
+            message += "   • Phiên bản cộng đồng (60 request/phút - Community):\n"
+            message += "     Đăng ký API key miễn phí: https://vnstocks.com/login\n"
+            message += "   • Gói thành viên tài trợ (180-600 request/phút - Sponsor):\n"
+            message += "     Tham gia: https://vnstocks.com/insiders-program\n"
+            message += "     Sau khi tham gia tài trợ, cài bộ thư viện riêng vnstock_data theo hướng dẫn https://vnstocks.com/onboard-member\n"
         elif tier == 'free':
-            message += f"\n🚀 Nâng cấp (Upgrade):\n"
-            message += f"   • Gói thành viên tài trợ (180-600 request/phút - Sponsor):\n"
-            message += f"     Tham gia: https://vnstocks.com/insiders-program\n"
+            message += "\n🚀 Nâng cấp (Upgrade):\n"
+            message += "   • Gói thành viên tài trợ (180-600 request/phút - Sponsor):\n"
+            message += "     Tham gia: https://vnstocks.com/insiders-program\n"
         else:
-            message += f"\n🚀 Nâng cấp (Upgrade):\n"
-            message += f"   • Gói cao hơn (Higher tier): https://vnstocks.com/insiders-program\n"
+            message += "\n🚀 Nâng cấp (Upgrade):\n"
+            message += "   • Gói cao hơn (Higher tier): https://vnstocks.com/insiders-program\n"
         message += f"\n{'='*60}\n"
         if promotional_message:
             message += promotional_message
@@ -130,7 +137,7 @@ class Guardian:
                 'api_key': api_key,
                 'device_id': device_id,
                 'package_name': 'vnai',
-                'version': '1.0.0',
+                'version': _package_version(),
                 'usage_count': usage_count
             }
             url = 'https://vnstocks.com/api/vnstock/license/verify'
@@ -158,8 +165,8 @@ class Guardian:
         try:
             from vnai.beam.auth import authenticator
             return authenticator.get_limits()
-        except Exception as e:
-            return {"min": 20, "hour": 1200, "day": 28800}
+        except Exception:
+            return {"min": 20, "hour": 1200, "day": 5000}
 
     def _get_current_tier(self):
         try:
@@ -181,7 +188,6 @@ class Guardian:
             time_since_sync = current_time - getattr(self, '_last_sync', 0)
             if api_key and time_since_sync > 300:
                 self._last_sync = current_time
-                import threading
                 threading.Thread(
                     target=self._sync_to_backend,
                     args=(api_key, 0),

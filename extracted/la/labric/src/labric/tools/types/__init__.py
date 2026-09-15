@@ -8,10 +8,12 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .labric_read_schema_mode import LabricReadSchemaMode
     from .labric_read_schema_target_type import LabricReadSchemaTargetType
+    from .labric_write_schema_on_match import LabricWriteSchemaOnMatch
     from .labric_write_schema_target_type import LabricWriteSchemaTargetType
 _dynamic_imports: typing.Dict[str, str] = {
     "LabricReadSchemaMode": ".labric_read_schema_mode",
     "LabricReadSchemaTargetType": ".labric_read_schema_target_type",
+    "LabricWriteSchemaOnMatch": ".labric_write_schema_on_match",
     "LabricWriteSchemaTargetType": ".labric_write_schema_target_type",
 }
 
@@ -37,4 +39,9 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["LabricReadSchemaMode", "LabricReadSchemaTargetType", "LabricWriteSchemaTargetType"]
+__all__ = [
+    "LabricReadSchemaMode",
+    "LabricReadSchemaTargetType",
+    "LabricWriteSchemaOnMatch",
+    "LabricWriteSchemaTargetType",
+]

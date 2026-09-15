@@ -8014,6 +8014,8 @@ class Client(OpenApiClient):
             query['ResourceOwnerAccount'] = request.resource_owner_account
         if not DaraCore.is_null(request.resource_owner_id):
             query['ResourceOwnerId'] = request.resource_owner_id
+        if not DaraCore.is_null(request.trigger_real_ops):
+            query['TriggerRealOps'] = request.trigger_real_ops
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -8058,6 +8060,8 @@ class Client(OpenApiClient):
             query['ResourceOwnerAccount'] = request.resource_owner_account
         if not DaraCore.is_null(request.resource_owner_id):
             query['ResourceOwnerId'] = request.resource_owner_id
+        if not DaraCore.is_null(request.trigger_real_ops):
+            query['TriggerRealOps'] = request.trigger_real_ops
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )

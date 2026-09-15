@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 import traceback
-import uuid
 from collections.abc import MutableMapping
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Any, Literal, NamedTuple
+from typing import Annotated, Literal, NamedTuple
 
 import anyio
 from pydantic import AwareDatetime, BaseModel, BeforeValidator, Field, RootModel
@@ -18,8 +17,12 @@ from pgqueuer.domain.types import (
     Channel,
     CronEntrypoint,
     CronExpression,
+    HealthCheckId,
     JobId,
+    QueueEntrypoint,
+    QueueManagerId,
     ScheduleId,
+    Slot,
 )
 
 
@@ -65,7 +68,7 @@ class CancellationEvent(Event):
 class HealthCheckEvent(Event):
     """Echo response for a health-check probe; ``id`` matches the originating probe."""
 
-    id: uuid.UUID
+    id: HealthCheckId
     type: Literal["health_check_event"]
 
 
@@ -80,7 +83,11 @@ class AnyEvent(
 
 
 class Job(BaseModel):
-    """A queued or in-flight job row."""
+    """A queued or in-flight job row.
+
+    ``slot`` is the capacity seat held while picked under a ``concurrency_limit``;
+    None for unlimited entrypoints and for rows not currently picked.
+    """
 
     id: JobId
     priority: int
@@ -89,26 +96,32 @@ class Job(BaseModel):
     heartbeat: AwareDatetime
     execute_after: AwareDatetime
     status: JOB_STATUS
-    entrypoint: str
+    entrypoint: QueueEntrypoint
     payload: bytes | None
     attempts: int = 0
-    queue_manager_id: uuid.UUID | None
+    queue_manager_id: QueueManagerId | None
+    slot: Slot | None = None
     headers: Annotated[
-        dict[str, Any] | None,
-        BeforeValidator(lambda x: None if x is None else from_json(x)),
+        dict[str, object] | None,
+        BeforeValidator(lambda x: x if x is None or isinstance(x, dict) else from_json(x)),
     ]
 
-    def logfire_headers(self) -> dict[str, Any] | None:
+    def header_section(self, key: str) -> dict[str, object] | None:
+        """Return the nested header dict under *key*, or None when absent or not a dict."""
+        section = None if self.headers is None else self.headers.get(key)
+        return section if isinstance(section, dict) else None
+
+    def logfire_headers(self) -> dict[str, object] | None:
         """Return the ``logfire`` sub-dict from job headers, or None."""
-        return None if self.headers is None else self.headers.get("logfire")
+        return self.header_section("logfire")
 
-    def sentry_headers(self) -> dict[str, Any] | None:
+    def sentry_headers(self) -> dict[str, object] | None:
         """Return the ``sentry`` sub-dict from job headers, or None."""
-        return None if self.headers is None else self.headers.get("sentry")
+        return self.header_section("sentry")
 
-    def otel_headers(self) -> dict[str, Any] | None:
+    def otel_headers(self) -> dict[str, object] | None:
         """Return the ``otel`` W3C propagation sub-dict from job headers, or None."""
-        return None if self.headers is None else self.headers.get("otel")
+        return self.header_section("otel")
 
 
 class Log(BaseModel):
@@ -118,7 +131,7 @@ class Log(BaseModel):
     job_id: JobId
     status: JOB_STATUS
     priority: int
-    entrypoint: str
+    entrypoint: QueueEntrypoint
     traceback: Annotated[
         TracebackRecord | None,
         BeforeValidator(lambda x: None if x is None else from_json(x)),
@@ -126,11 +139,18 @@ class Log(BaseModel):
     aggregated: bool
 
 
+class JobStatusRow(BaseModel):
+    """One ``(job_id, status)`` pair from a job-status lookup."""
+
+    job_id: JobId
+    status: JOB_STATUS
+
+
 class QueueStatistics(BaseModel):
     """Per-(entrypoint, priority, status) job count snapshot."""
 
     count: int
-    entrypoint: str
+    entrypoint: QueueEntrypoint
     priority: int
     status: JOB_STATUS
 
@@ -140,7 +160,7 @@ class LogStatistics(BaseModel):
 
     count: int
     created: AwareDatetime
-    entrypoint: str
+    entrypoint: QueueEntrypoint
     priority: int
     status: JOB_STATUS
 
@@ -158,7 +178,7 @@ class Context:
     """
 
     cancellation: anyio.CancelScope
-    resources: MutableMapping = dataclasses.field(default_factory=dict)
+    resources: MutableMapping[str, object] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -172,7 +192,7 @@ class ScheduleContext:
             mapping; never None. Users can mutate this at runtime if needed.
     """
 
-    resources: MutableMapping = dataclasses.field(default_factory=dict)
+    resources: MutableMapping[str, object] = dataclasses.field(default_factory=dict)
 
 
 class CronExpressionEntrypoint(NamedTuple):
@@ -195,7 +215,7 @@ class Schedule(BaseModel):
 class QueueAgeStats(BaseModel):
     """Per-entrypoint backlog age for queued jobs."""
 
-    entrypoint: str
+    entrypoint: QueueEntrypoint
     queued_count: int
     oldest_created: AwareDatetime
     oldest_age_seconds: float
@@ -205,7 +225,7 @@ class QueueAgeStats(BaseModel):
 class JobDurationStats(BaseModel):
     """Per-entrypoint execution-duration percentiles derived from log transitions."""
 
-    entrypoint: str
+    entrypoint: QueueEntrypoint
     completed: int
     p50_seconds: float
     p95_seconds: float
@@ -216,7 +236,7 @@ class JobDurationStats(BaseModel):
 class ThroughputStats(BaseModel):
     """Total processed jobs per (entrypoint, status) over a time window."""
 
-    entrypoint: str
+    entrypoint: QueueEntrypoint
     status: JOB_STATUS
     total_count: int
 
@@ -225,7 +245,7 @@ class ThroughputBucket(BaseModel):
     """Per-minute processed-job count for one (entrypoint, status)."""
 
     bucket: AwareDatetime
-    entrypoint: str
+    entrypoint: QueueEntrypoint
     status: JOB_STATUS
     count: int
 
@@ -233,11 +253,11 @@ class ThroughputBucket(BaseModel):
 class ActiveWorker(BaseModel):
     """A queue manager currently holding picked jobs."""
 
-    queue_manager_id: uuid.UUID
+    queue_manager_id: QueueManagerId
     active_jobs: int
     oldest_heartbeat: AwareDatetime
     newest_heartbeat: AwareDatetime
-    entrypoints: list[str]
+    entrypoints: list[QueueEntrypoint]
 
 
 class StaleJob(BaseModel):
@@ -245,13 +265,13 @@ class StaleJob(BaseModel):
 
     id: JobId
     priority: int
-    queue_manager_id: uuid.UUID | None
+    queue_manager_id: QueueManagerId | None
     created: AwareDatetime
     updated: AwareDatetime
     heartbeat: AwareDatetime
     execute_after: AwareDatetime
     status: JOB_STATUS
-    entrypoint: str
+    entrypoint: QueueEntrypoint
     seconds_since_heartbeat: float
 
 
@@ -267,7 +287,7 @@ class TableInfo(BaseModel):
 class EntrypointStat(BaseModel):
     """Combined per-entrypoint health row: depth, latency, durations, failure rate."""
 
-    entrypoint: str
+    entrypoint: QueueEntrypoint
     queued: int
     picked: int
     oldest_age_seconds: float | None
@@ -296,14 +316,14 @@ class TracebackRecord(BaseModel):
     exception_type: str
     exception_message: str
     traceback: str
-    additional_context: dict[str, Any] | None
+    additional_context: dict[str, object] | None
 
     @classmethod
     def from_exception(
         cls,
         exc: Exception,
         job_id: JobId,
-        additional_context: dict[str, Any] | None = None,
+        additional_context: dict[str, object] | None = None,
     ) -> TracebackRecord:
         return cls(
             job_id=job_id,

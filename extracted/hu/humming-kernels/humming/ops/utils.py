@@ -1,13 +1,18 @@
 import contextlib
+import functools
+import inspect
 import os
 import subprocess
 import sys
+import types
+import typing
 from pathlib import Path
 from typing import Callable
 
 import torch
 import torch.utils.cpp_extension
 from filelock import FileLock
+from torch._subclasses.fake_tensor import FakeTensor
 
 import humming.utils.jit as jit_utils
 from humming.utils.cuda import filter_cuda_paths
@@ -16,26 +21,130 @@ _libs = {}
 _launcher_inited = False
 
 
+def _is_optional_tensor(annotation) -> bool:
+    args = typing.get_args(annotation)
+    return len(args) == 2 and torch.Tensor in args and type(None) in args
+
+
+def _infer_op_schema(impl_func: Callable, mutates_args: list[str]) -> str:
+    """Infer an op schema, adding Optional[Tensor] output support missing in PyTorch."""
+    signature = inspect.signature(impl_func)
+    return_annotation = typing.get_type_hints(impl_func).get(
+        "return",
+        signature.return_annotation,
+    )
+    tuple_args = typing.get_args(return_annotation)
+    tuple_return = typing.get_origin(return_annotation) is tuple
+    optional_outputs = (
+        [_is_optional_tensor(arg) for arg in tuple_args]
+        if tuple_return
+        else [_is_optional_tensor(return_annotation)]
+    )
+    if not any(optional_outputs):
+        return torch.library.infer_schema(impl_func, mutates_args=mutates_args)
+
+    normalized_return = torch.Tensor
+    if tuple_return:
+        normalized_args = tuple(
+            torch.Tensor if optional else arg
+            for arg, optional in zip(tuple_args, optional_outputs, strict=True)
+        )
+        normalized_return = tuple[normalized_args]
+
+    def schema_prototype():
+        pass
+
+    prototype = types.FunctionType(
+        schema_prototype.__code__,
+        impl_func.__globals__,
+        impl_func.__name__,
+    )
+    prototype.__signature__ = signature.replace(return_annotation=normalized_return)
+    schema = torch.library.infer_schema(prototype, mutates_args=mutates_args)
+    arguments, returns = schema.rsplit(" -> ", 1)
+
+    if not tuple_return:
+        assert returns == "Tensor"
+        return f"{arguments} -> Tensor?"
+
+    if len(optional_outputs) == 1:
+        assert returns.startswith("((") and returns.endswith("))")
+        return_types = [returns[2:-2]]
+    else:
+        assert returns.startswith("(") and returns.endswith(")")
+        return_types = returns[1:-1].split(", ")
+    for index, optional in enumerate(optional_outputs):
+        if optional:
+            assert return_types[index] == "Tensor"
+            return_types[index] = "Tensor?"
+    if len(return_types) == 1:
+        return f"{arguments} -> (({return_types[0]}))"
+    return f"{arguments} -> ({', '.join(return_types)})"
+
+
+def _prepare_output(
+    outputs: torch.Tensor,
+    shape: tuple[int, ...],
+    dtype: torch.dtype,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    if outputs.nelement() > 0:
+        assert outputs.shape == shape
+        assert outputs.dtype == dtype
+        assert outputs.device == device
+        assert outputs.is_contiguous()
+        returned_outputs = outputs.new_empty((0,))
+    else:
+        outputs = torch.empty(shape, dtype=dtype, device=device)
+        returned_outputs = outputs
+    return outputs, returned_outputs
+
+
+def _prepare_output_arg(
+    inputs: torch.Tensor,
+    outputs: torch.Tensor | None,
+    dtype: torch.dtype,
+) -> torch.Tensor:
+    assert outputs is None or outputs.nelement() > 0
+    return inputs.new_empty((0,), dtype=dtype) if outputs is None else outputs
+
+
+def _should_use_torch_op(inputs: torch.Tensor) -> bool:
+    return torch.compiler.is_compiling() or isinstance(inputs, FakeTensor)
+
+
+def _select_output(outputs: torch.Tensor, returned_outputs: torch.Tensor) -> torch.Tensor:
+    return outputs if outputs.nelement() > 0 else returned_outputs
+
+
 def register_op(
     name: str,
-    impl_func: Callable,
-    fake_impl_func: Callable | None = None,
     mutates_args: list[str] | None = None,
 ):
-    mutates_args = [] if mutates_args is None else mutates_args
-    schema_str = torch.library.infer_schema(impl_func, mutates_args=mutates_args)
-    lib_name, op_name = name.split("::")
+    def decorator(impl_func: Callable):
+        schema_str = _infer_op_schema(impl_func, mutates_args or [])
+        lib_name, op_name = name.split("::")
+        first_arg_name = next(iter(inspect.signature(impl_func).parameters))
 
-    if lib_name not in _libs:
-        _lib = torch.library.Library(lib_name, "FRAGMENT")
-        _libs[lib_name] = _lib
+        @functools.wraps(impl_func)
+        def device_guarded_impl(*args, **kwargs):
+            device_guard = args[0] if args else kwargs[first_arg_name]
+            if isinstance(device_guard, FakeTensor) or not device_guard.is_cuda:
+                return impl_func(*args, **kwargs)
+            with torch.cuda.device(device_guard.device):
+                return impl_func(*args, **kwargs)
 
-    _lib = _libs[lib_name]
-    _lib.define(op_name + schema_str)
-    _lib.impl(op_name, impl_func, dispatch_key="CUDA")
-    if fake_impl_func is not None:
+        if lib_name not in _libs:
+            _libs[lib_name] = torch.library.Library(lib_name, "FRAGMENT")
+
+        lib = _libs[lib_name]
+        lib.define(op_name + schema_str)
+        lib.impl(op_name, device_guarded_impl, dispatch_key="CUDA")
         with _shield_lazy_modules():
-            _lib._register_fake(op_name, fake_impl_func)
+            lib._register_fake(op_name, impl_func)
+        return device_guarded_impl
+
+    return decorator
 
 
 @contextlib.contextmanager
@@ -97,6 +206,8 @@ def init_humming_launcher():
     USE_TORCH_STABLE_API = _resolve_use_torch_stable_api()
     lock_filename = jit_utils.get_humming_lock_filename("launcher")
     with FileLock(lock_filename):
+        if _launcher_inited:
+            return
         precompiled_path = _get_precompiled_launcher_path() if USE_TORCH_STABLE_API else None
         if precompiled_path is not None:
             torch.ops.load_library(str(precompiled_path))

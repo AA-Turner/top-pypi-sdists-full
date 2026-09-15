@@ -61,9 +61,7 @@ copyright = u'2014-2017 by Google LLC; 2018-2026 by Michał Nazarewicz'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-with open('.gitignore') as fd:
-    exclude_patterns = fd.read().splitlines()
-exclude_patterns.append('README.rst')
+exclude_patterns = ['README.rst', 'examples/README.rst']
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 #default_role = None
@@ -182,9 +180,9 @@ autodoc_preserve_defaults = True
 
 
 nitpicky = True
-nitpick_ignore_regex = {
-    (r'py:class', r'^pygtrie\.(?:[KVST]|SupportsKeysAndGetItem)\b'),
-}
+nitpick_ignore_regex = (
+    (r'py:class', r'^pygtrie\.(?:[KVST]|SupportsKeysAndGetItem)$'),
+)
 
 
 def process_signature(
@@ -237,6 +235,10 @@ def sphinx_inspect_define_patch(
         value = value.replace(' | ~pygtrie._Sentinel', '')
         value = value.replace('pygtrie._SupportsKeysAndGetItem',
                               'pygtrie.SupportsKeysAndGetItem')
+        # Because `slice` isn’t subscriptable (yet) and Sphinx gets confused
+        # about `'slice[K, None, None]'`.  Clarify what `K` means there.
+        value = value.replace('slice[K, None, None]',
+                              'slice[~pygtrie.K, None, None]')
         value = re.sub(r'\b(pygtrie\.[KV])_contra\b', r'\1', value).strip()
     annotation = value or inspect.Parameter.empty
 

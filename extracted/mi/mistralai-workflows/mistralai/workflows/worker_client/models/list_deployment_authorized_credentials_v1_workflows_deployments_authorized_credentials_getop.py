@@ -19,6 +19,8 @@ class ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredent
 ):
     workspace_id: NotRequired[Nullable[str]]
     r"""Workspace ID to scope the request to. Defaults to the caller's context."""
+    deployment_id: NotRequired[Nullable[str]]
+    r"""Restrict the listing to one deployment, which its owner may also read."""
 
 
 class ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest(
@@ -30,10 +32,16 @@ class ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredent
     ] = UNSET
     r"""Workspace ID to scope the request to. Defaults to the caller's context."""
 
+    deployment_id: Annotated[
+        OptionalNullable[str],
+        FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
+    ] = UNSET
+    r"""Restrict the listing to one deployment, which its owner may also read."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["workspace_id"])
-        nullable_fields = set(["workspace_id"])
+        optional_fields = set(["workspace_id", "deployment_id"])
+        nullable_fields = set(["workspace_id", "deployment_id"])
         serialized = handler(self)
         m = {}
 

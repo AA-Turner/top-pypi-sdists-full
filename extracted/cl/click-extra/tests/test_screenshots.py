@@ -75,7 +75,10 @@ from click_extra.screenshot import (
     PADDING,
     REDUCED_MOTION_QUERY,
     STDOUT_PATH,
+    TILE_RUN,
     TITLEBAR_HEIGHT,
+    TRUNCATION_LABEL,
+    TRUNCATION_RULE,
     WATERMARK_INK,
     WATERMARK_INSET,
     WATERMARK_URL,
@@ -100,10 +103,13 @@ from click_extra.screenshot import (
     palette_color,
     render,
     render_svg,
+    style_rules,
+    tile_runs,
     trim_lines,
     window_buttons,
 )
 from click_extra.screenshot_presets import PRESETS, Cursor, CursorShape
+from click_extra.styling import split_ansi
 
 _TEXT_ELEMENT_RE = re.compile(r"<text(?P<attrs>[^>]*)>(?P<content>[^<]*)</text>")
 """One run of same-styled characters in a rendered capture.
@@ -247,6 +253,83 @@ def test_trim_lines(head, tail, expected):
         "one\ntwo\nthree\nfour", head=head, tail=tail, truncation="<cut>"
     )
     assert trimmed.splitlines() == expected
+
+
+def test_trim_lines_rules_the_default_marker_across_the_kept_width():
+    """The default marker is a rule, spanning the widest line the capture kept."""
+    text = "\n".join(f"line {index} of the captured output" for index in range(1, 9))
+    trimmed = trim_lines(text, head=2, tail=1).splitlines()
+
+    marker = unstyle(trimmed[2])
+    assert marker.startswith(TRUNCATION_RULE)
+    assert marker.endswith(TRUNCATION_RULE)
+    assert f" {TRUNCATION_LABEL} " in marker
+    # No brackets: a cut names nothing, unlike a rule heading a section.
+    assert "[" not in marker
+    # Painted to recede, the way the theme gallery rules its own screens.
+    assert trimmed[2] != marker
+    # Never the widest line: the marker must not be what decides image width.
+    assert cell_width(marker) == max(cell_width(unstyle(line)) for line in trimmed)
+
+
+def test_trim_lines_keeps_a_marker_too_wide_for_its_rule_bare():
+    """A capture narrower than the frame gets the label alone, not a broken rule."""
+    marker = trim_lines("a\nb\nc", head=1, tail=1).splitlines()[1]
+    assert unstyle(marker) == TRUNCATION_LABEL
+
+
+def test_trim_lines_leaves_an_explicit_marker_alone():
+    """Naming a marker takes it verbatim: only `auto` asks for a rule."""
+    assert trim_lines("a\nb\nc", head=1, tail=1, truncation="<cut>").splitlines() == [
+        "a",
+        "<cut>",
+        "c",
+    ]
+
+
+def test_tile_runs_never_opens_a_piece_on_padding():
+    """A tiled column cut at a blank carries it into the piece before it.
+
+    A piece is placed by its first glyph, so one opening on a blank draws every
+    tile behind it a cell late. The cut is made on character count, which lands
+    on a blank whenever a label sits inside a rule.
+    """
+    text = TRUNCATION_RULE * TILE_RUN + "[ x ]"
+    assert not any(piece[0] in PADDING for piece, _ in tile_runs(text, 0))
+
+
+def test_tile_runs_keeps_every_piece_on_its_own_column():
+    """Cutting a tiled column apart never moves a glyph off its cell."""
+    text = f"{TRUNCATION_RULE * 9}[ x ]{TRUNCATION_RULE * 9}"
+    rebuilt = ""
+    for piece, column in tile_runs(text, 0):
+        assert column == cell_width(rebuilt)
+        rebuilt += piece
+    assert rebuilt == text
+
+
+@pytest.mark.parametrize(
+    ("sgr", "expected"),
+    (
+        ("4", "text-decoration: underline"),
+        ("53", "text-decoration: overline"),
+        ("9", "text-decoration: line-through"),
+        ("4;9", "text-decoration: underline line-through"),
+        ("4;53;9", "text-decoration: underline overline line-through"),
+    ),
+)
+def test_style_rules_writes_one_declaration_per_property(sgr, expected):
+    """Every decoration reaches the CSS, and the three share one declaration.
+
+    CSS keeps the last of a repeated property, so a run written as two
+    `text-decoration` declarations loses all but one of them. `overline` had no
+    branch at all, which left the column of `click-extra styles` naming it
+    identical to the plain one in every viewer.
+    """
+    style = next(iter(split_ansi(f"\x1b[{sgr}mx\x1b[0m")))[0]
+    rules = style_rules(style, next(iter(CAPTURE_PALETTES.values())))
+    assert expected in rules
+    assert rules.count("text-decoration") == 1
 
 
 def test_render_folds_an_unusable_unique_id():
@@ -976,7 +1059,19 @@ def test_screenshot_record_types_its_prompt(invoke, tmp_path):
         found = re.search(r"frames=(\d+)", target.read_text(encoding="UTF-8"))
         assert found
         counts[name] = int(found.group(1))
-    assert counts["typed"] - counts["plain"] == len(f"{PROMPT}basket ripen")
+
+    typed_length = len(f"{PROMPT}basket ripen")
+    # Every typed character is a frame, so the opening cannot be shorter than
+    # the line. The exact count belongs to type_line and is pinned there, by
+    # test_type_line_makes_one_frame_per_character: what this covers is that a
+    # real recording gets that opening prepended.
+    assert counts["typed"] >= typed_length
+    # Typing only ever adds frames to the front of a recording.
+    assert counts["typed"] > counts["plain"]
+    # The difference is deliberately not pinned. Only the typing frames are
+    # deterministic: how many frames the wrapped command itself records depends
+    # on when its output lands, and a loaded runner splits it one more time than
+    # an idle one does.
 
 
 def test_auto_columns_leaves_room_for_a_cursor():
@@ -1978,8 +2073,8 @@ def html_to_text(markup: str) -> str:
     ),
 )
 def test_fit_columns(text, expected):
-    """The width `auto` resolves to is the longest line, floored."""
-    assert fit_columns(text) == expected
+    """The width `auto` resolves to is the longest line, floored by the caller."""
+    assert fit_columns(text, floor=MIN_COLUMNS) == expected
 
 
 def test_render_auto_columns_folds_nothing():

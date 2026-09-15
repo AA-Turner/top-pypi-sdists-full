@@ -7,7 +7,6 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import _bpy_types
 import bmesh.types
 import bpy.types
 import mathutils
@@ -27,7 +26,7 @@ class BVHTree:
     @classmethod
     def FromObject(
         cls,
-        object: _bpy_types.Object,
+        object: bpy.types.Object,
         depsgraph: bpy.types.Depsgraph,
         *,
         deform: bool = True,

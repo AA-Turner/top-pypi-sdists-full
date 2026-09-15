@@ -71,7 +71,7 @@ class Tracker:
 
     def setup_privacy(self, level=None):
         privacy_levels = {
-            "minimal": "Essential system data only",
+            "minimal": "Không gửi số liệu đo lường tuỳ chọn",
             "standard": "Performance metrics and errors",
             "enhanced": "Detailed operation analytics"
         }

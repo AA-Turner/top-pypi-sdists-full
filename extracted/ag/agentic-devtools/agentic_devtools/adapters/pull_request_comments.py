@@ -14,9 +14,10 @@ import requests
 
 from agentic_devtools.cli.azure_devops.auth import get_auth_headers
 from agentic_devtools.cli.azure_devops.config import AzureDevOpsConfig
+from agentic_devtools.cli.ci.credential_roles import DEFAULT_CLASSIC_REPO_WORKFLOW_PAT, GH_TOKEN
 
-GITHUB_PR_COMMENT_TOKEN = "SPECKIT_PR_TOKEN"  # nosec B105 - environment variable name, not a credential
-GITHUB_PR_COMMENT_TOKEN_FALLBACKS = ("GITHUB_TOKEN", "GH_TOKEN")
+GITHUB_PR_COMMENT_TOKEN = DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
+GITHUB_PR_COMMENT_TOKEN_FALLBACKS = (GH_TOKEN,)
 _GITHUB_API = "https://api.github.com"
 _GITHUB_WRITE_SCOPES: frozenset[str] = frozenset({"repo", "public_repo"})
 
@@ -129,11 +130,22 @@ class PullRequestCommentAdapter(Protocol):
 
 
 def discover_github_token(environ: dict[str, str] | None = None) -> str:
-    """Discover the cloud-agent GitHub token without interactive authentication."""
+    """Discover the default-role GitHub token without interactive authentication.
+
+    A direct ``DEFAULT_CLASSIC_REPO_WORKFLOW_PAT`` is accepted.  A ``GH_TOKEN``
+    value is accepted only when ``AI_PR_LOOP_CREDENTIAL_IDENTITY`` declares that
+    it represents the same default workflow PAT; an otherwise populated ambient
+    ``GH_TOKEN`` is rejected.
+    """
     values = os.environ if environ is None else environ
     for name in (GITHUB_PR_COMMENT_TOKEN, *GITHUB_PR_COMMENT_TOKEN_FALLBACKS):
         token = values.get(name, "").strip()
-        if token:
+        if token and (
+            name == GITHUB_PR_COMMENT_TOKEN
+            or (
+                name == GH_TOKEN and values.get("AI_PR_LOOP_CREDENTIAL_IDENTITY", "").strip() == GITHUB_PR_COMMENT_TOKEN
+            )
+        ):
             return token
     return ""
 

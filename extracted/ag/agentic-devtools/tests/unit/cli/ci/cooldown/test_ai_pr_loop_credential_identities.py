@@ -18,6 +18,7 @@ class TestAiPrLoopCredentialIdentities:
         ):
             assert ai_pr_loop_credential_identities() == (
                 "CUSTOM_ID",
+                "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
                 "COPILOT_GITHUB_TOKEN",
                 "SPECKIT_PR_TOKEN",
                 "AGDT_PR_APPROVER_PAT",
@@ -27,6 +28,7 @@ class TestAiPrLoopCredentialIdentities:
     def test_omits_duplicate_fallback_identity(self) -> None:
         with patch.dict("os.environ", {"SPECKIT_PR_TOKEN": "set"}, clear=True):
             assert ai_pr_loop_credential_identities() == (
+                "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
                 "COPILOT_GITHUB_TOKEN",
                 "SPECKIT_PR_TOKEN",
                 "AGDT_PR_APPROVER_PAT",
@@ -37,6 +39,7 @@ class TestAiPrLoopCredentialIdentities:
         with patch.dict("os.environ", {"AI_PR_LOOP_CREDENTIAL_IDENTITY": "SPECKIT_PR_TOKEN"}, clear=True):
             assert ai_pr_loop_credential_identities() == (
                 "SPECKIT_PR_TOKEN",
+                "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
                 "COPILOT_GITHUB_TOKEN",
                 "AGDT_PR_APPROVER_PAT",
                 "REPO_VARIABLE_WRITER_PAT",
@@ -52,6 +55,7 @@ class TestAiPrLoopCredentialIdentities:
             clear=True,
         ):
             assert ai_pr_loop_credential_identities() == (
+                "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT",
                 "COPILOT_GITHUB_TOKEN",
                 "SPECKIT_PR_TOKEN",
                 "AGDT_PR_APPROVER_PAT",

@@ -38,7 +38,9 @@
 #include <stdio.h>
 #include "nsSBCharSetProber.h"
 
-nsProbingState nsSingleByteCharSetProber::HandleData(const char* aBuf, PRUint32 aLen)
+nsProbingState nsSingleByteCharSetProber::HandleData(const char* aBuf, PRUint32 aLen,
+                                                     int** codePointBuffer,
+                                                     int*  codePointBufferIdx)
 {
   unsigned char order;
 
@@ -46,11 +48,8 @@ nsProbingState nsSingleByteCharSetProber::HandleData(const char* aBuf, PRUint32 
   {
     order = mModel->charToOrderMap[(unsigned char)aBuf[i]];
 
-    if (order < SYMBOL_CAT_ORDER)
-    {
-      mTotalChar++;
-    }
-    else if (order == ILL)
+    mTotalChar++;
+    if (order == ILL)
     {
       /* When encountering an illegal codepoint, no need
        * to continue analyzing data. */
@@ -61,7 +60,7 @@ nsProbingState nsSingleByteCharSetProber::HandleData(const char* aBuf, PRUint32 
     {
       mCtrlChar++;
     }
-    if (order < mModel->freqCharCount)
+    else if (order < mModel->freqCharCount)
     {
       mFreqChar++;
 
@@ -73,6 +72,21 @@ nsProbingState nsSingleByteCharSetProber::HandleData(const char* aBuf, PRUint32 
         else // reverse the order of the letters in the lookup
           ++(mSeqCounters[mModel->precedenceMatrix[order*mModel->freqCharCount+mLastOrder]]);
       }
+      else if (mLastOrder < SYMBOL_CAT_ORDER)
+      {
+        mSeqCounters[NEGATIVE_CAT]++;
+        mTotalSeqs++;
+      }
+    }
+    else if (order < SYMBOL_CAT_ORDER)
+    {
+      mOutChar++;
+
+      if (mLastOrder < SYMBOL_CAT_ORDER)
+      {
+        mTotalSeqs++;
+        mSeqCounters[NEGATIVE_CAT]++;
+      }
     }
     mLastOrder = order;
   }
@@ -80,7 +94,7 @@ nsProbingState nsSingleByteCharSetProber::HandleData(const char* aBuf, PRUint32 
   if (mState == eDetecting)
     if (mTotalSeqs > SB_ENOUGH_REL_THRESHOLD)
     {
-      float cf = GetConfidence();
+      float cf = GetConfidence(0);
       if (cf > POSITIVE_SHORTCUT_THRESHOLD)
         mState = eFoundIt;
       else if (cf < NEGATIVE_SHORTCUT_THRESHOLD)
@@ -90,7 +104,7 @@ nsProbingState nsSingleByteCharSetProber::HandleData(const char* aBuf, PRUint32 
   return mState;
 }
 
-void  nsSingleByteCharSetProber::Reset(void)
+void nsSingleByteCharSetProber::Reset(void)
 {
   mState = eDetecting;
   mLastOrder = 255;
@@ -99,12 +113,13 @@ void  nsSingleByteCharSetProber::Reset(void)
   mTotalSeqs = 0;
   mTotalChar = 0;
   mCtrlChar  = 0;
-  mFreqChar = 0;
+  mFreqChar  = 0;
+  mOutChar   = 0;
 }
 
 //#define NEGATIVE_APPROACH 1
 
-float nsSingleByteCharSetProber::GetConfidence(void)
+float nsSingleByteCharSetProber::GetConfidence(int candidate)
 {
 #ifdef NEGATIVE_APPROACH
   if (mTotalSeqs > 0)
@@ -115,39 +130,37 @@ float nsSingleByteCharSetProber::GetConfidence(void)
   float r;
 
   if (mTotalSeqs > 0) {
-    r = ((float)1.0) * mSeqCounters[POSITIVE_CAT] / mTotalSeqs / mModel->mTypicalPositiveRatio;
-    /* Multiply by a ratio of positive sequences per characters.
-     * This would help in particular to distinguish close winners.
-     * Indeed if you add a letter, you'd expect the positive sequence count
-     * to increase as well. If it doesn't, it may mean that this new codepoint
-     * may not have been a letter, but instead a symbol (or some other
-     * character). This could make the difference between very closely related
-     * charsets used for the same language.
-     */
-    r = r * (mSeqCounters[POSITIVE_CAT] + (float) mSeqCounters[PROBABLE_CAT] / 4) / mTotalChar;
-    /* The more control characters (proportionnaly to the size of the text), the
-     * less confident we become in the current charset.
-     */
-    r = r * (mTotalChar - mCtrlChar) / mTotalChar;
-    r = r*mFreqChar/mTotalChar;
-    if (r >= (float)1.00)
-      r = (float)0.99;
+    float positiveSeqs = mSeqCounters[POSITIVE_CAT];
+    float probableSeqs = mSeqCounters[PROBABLE_CAT];
+    float negativeSeqs = mSeqCounters[NEGATIVE_CAT];
+
+    r = (positiveSeqs + probableSeqs / 4 - negativeSeqs * 4) / mTotalSeqs / mModel->mTypicalPositiveRatio;
+    r = r * (mTotalChar - mOutChar - mCtrlChar) / mTotalChar;
+    r = r * mFreqChar / mTotalChar;
+
     return r;
   }
   return (float)0.01;
 #endif
 }
 
-const char* nsSingleByteCharSetProber::GetCharSetName()
+const char* nsSingleByteCharSetProber::GetCharSetName(int candidate)
 {
   if (!mNameProber)
     return mModel->charsetName;
-  return mNameProber->GetCharSetName();
+  return mNameProber->GetCharSetName(0);
+}
+
+const char* nsSingleByteCharSetProber::GetLanguage(int candidate)
+{
+  if (!mNameProber)
+    return mModel->langName;
+  return mNameProber->GetLanguage(0);
 }
 
 #ifdef DEBUG_chardet
 void nsSingleByteCharSetProber::DumpStatus()
 {
-  printf("  SBCS: %1.3f [%s]\r\n", GetConfidence(), GetCharSetName());
+  printf("  SBCS: %1.3f [%s]\r\n", GetConfidence(0), GetCharSetName(0));
 }
 #endif

@@ -20,6 +20,7 @@ from nominal_api import (
     scout_datareview_api,
     scout_datasource,
     scout_datasource_connection,
+    scout_spatial,
     scout_video,
     storage_datasource_api,
     storage_writer_api,
@@ -45,6 +46,7 @@ from nominal.protos.ingest.v2 import containerized_extractor_pb2_grpc, ingest_se
 from nominal.protos.registry.v2 import registry_pb2_grpc
 from nominal.protos.sandbox.v1 import sandbox_workspace_pb2_grpc
 from nominal.protos.secrets.v1 import secrets_pb2_grpc
+from nominal.protos.sql.v1 import sql_pb2_grpc
 from nominal.protos.units.v1 import units_pb2_grpc
 from nominal.protos.workspaces.v1 import workspaces_pb2, workspaces_pb2_grpc
 from nominal.ts import IntegralNanosecondsUTC
@@ -163,6 +165,7 @@ class ClientsBunch:
     proto_write: ProtoWriteService
     run: scout.RunService
     series_metadata: timeseries_metadata.SeriesMetadataService
+    spatial: scout_spatial.SpatialService
     storage_writer: storage_writer_api.NominalChannelWriterService
     storage: storage_datasource_api.NominalDataSourceService
     template: scout.TemplateService
@@ -180,6 +183,7 @@ class ClientsBunch:
     roles: roles_pb2_grpc.RoleServiceStub
     sandbox_workspace: sandbox_workspace_pb2_grpc.SandboxWorkspaceServiceStub
     secrets: secrets_pb2_grpc.SecretServiceStub
+    sql: sql_pb2_grpc.SqlServiceStub
     units: units_pb2_grpc.UnitsServiceStub
     workspace: workspaces_pb2_grpc.WorkspaceServiceStub
 
@@ -329,6 +333,7 @@ class ClientsBunch:
             proto_write=client_factory(ProtoWriteService),
             run=client_factory(scout.RunService),
             series_metadata=client_factory(timeseries_metadata.SeriesMetadataService),
+            spatial=client_factory(scout_spatial.SpatialService),
             storage_writer=client_factory(storage_writer_api.NominalChannelWriterService),
             storage=client_factory(storage_datasource_api.NominalDataSourceService),
             template=client_factory(scout.TemplateService),
@@ -345,6 +350,7 @@ class ClientsBunch:
             roles=grpc_factory(roles_pb2_grpc.RoleServiceStub),
             sandbox_workspace=grpc_factory(sandbox_workspace_pb2_grpc.SandboxWorkspaceServiceStub),
             secrets=grpc_factory(secrets_pb2_grpc.SecretServiceStub),
+            sql=grpc_factory(sql_pb2_grpc.SqlServiceStub),
             units=grpc_factory(units_pb2_grpc.UnitsServiceStub),
             workspace=grpc_factory(workspaces_pb2_grpc.WorkspaceServiceStub),
         )

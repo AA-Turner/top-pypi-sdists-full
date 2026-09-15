@@ -9,7 +9,7 @@ import io
 import json
 import math
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, TypeVar
@@ -28,11 +28,13 @@ from .types import (
     CancellationLatch,
     MacOSPresentationCapabilities,
     MacOSPresentationStatus,
+    MacOSStatusMetrics,
     ShellPresentationEvent,
 )
 
 _READY_TIMEOUT_SECONDS = 15
 _OPERATION_TIMEOUT_SECONDS = 5
+_STATUS_METRICS_TIMEOUT_SECONDS = 0.25
 _ENCODE_TIMEOUT_SECONDS = 30
 # The host's own desktop capture: ScreenCaptureKit plus a PNG encode of a full Retina frame.
 _CAPTURE_TIMEOUT_SECONDS = 15
@@ -461,6 +463,7 @@ class MacOSPresentationController:
         mode: str = "overlay",
         title: "str | None" = None,
         exclude_from_capture: bool = True,
+        exclude_capture_window_ids: "Sequence[int]" = (),
     ) -> None:
         if mode not in {"overlay", "status"}:
             raise ValueError("mode must be 'overlay' or 'status'")
@@ -483,6 +486,9 @@ class MacOSPresentationController:
         # `verify_capture_exclusion` checks the mechanism on this Mac with a probe; until it says
         # "excluded", every capture hides the overlay first (the old path).
         self._exclude_from_capture = exclude_from_capture
+        # Window IDs of a host application's own panels: left out of the model's desktop frame the
+        # way this host's windows are, while staying visible on screen and in recordings.
+        self._exclude_capture_window_ids = tuple(int(window_id) for window_id in exclude_capture_window_ids)
         self._capture_exclusion = "unverified"
         self._capture_source = "driver"
         self._restore_native_cursor = restore_native_cursor
@@ -560,7 +566,7 @@ class MacOSPresentationController:
 
     @property
     def background_counts(self) -> dict[str, int]:
-        counts = {state: 0 for state in ("started", "completed", "failed", "cancelled")}
+        counts = dict.fromkeys(("started", "completed", "failed", "cancelled"), 0)
         for event in self._telemetry:
             if event.get("type") != "background_command":
                 continue
@@ -641,6 +647,22 @@ class MacOSPresentationController:
         if caption is not None:
             self._last_render["status"] = caption
         return True
+
+    async def update_status_metrics(self, metrics: MacOSStatusMetrics) -> bool:
+        """Update the run-scoped menu-bar metrics without risking the presentation or run."""
+        if not self._status.available or self._stopping:
+            return False
+        try:
+            reply = await self._send_command(
+                {"op": "metrics", **asdict(metrics)},
+                timeout=_STATUS_METRICS_TIMEOUT_SECONDS,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:  # noqa: BLE001 - status telemetry is cosmetic
+            self._telemetry.append({"type": "status_metrics_failed", "error_type": type(error).__name__})
+            return False
+        return reply.get("state") == "shown"
 
     def blocking_surface(self, point: tuple[float, float]) -> "str | None":
         """Which Yutori control a model input at this point (0-1000 space) would land on.
@@ -843,7 +865,10 @@ class MacOSPresentationController:
 
     async def _capture_desktop_frame(self) -> tuple[bytes, int, int]:
         """One desktop frame from the host, checked to be the same shape as the driver's."""
-        reply = await self._send_command({"op": "captureDesktop"}, timeout=_CAPTURE_TIMEOUT_SECONDS)
+        command: dict[str, Any] = {"op": "captureDesktop"}
+        if self._exclude_capture_window_ids:
+            command["excludeWindowIDs"] = list(self._exclude_capture_window_ids)
+        reply = await self._send_command(command, timeout=_CAPTURE_TIMEOUT_SECONDS)
         frame = reply.get("frame")
         if not isinstance(frame, dict):
             raise MacOSPresentationError("Overlay desktop capture returned no frame.")

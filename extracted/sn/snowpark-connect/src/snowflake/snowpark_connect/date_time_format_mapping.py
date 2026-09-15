@@ -21,6 +21,7 @@
 # Note that especially these missing specifiers could be a good addition to the existing format because
 # they will not lead to conflict.
 
+import re
 from collections.abc import Iterator
 
 from pyspark.errors.exceptions.base import (
@@ -474,6 +475,143 @@ def spark_format_needs_udf(spark_format: str) -> bool:
         if letter == "E" and count == 4:
             return True
     return False
+
+
+# Digit runs SimpleDateFormat would consume for leftover-tolerant LEGACY parse
+# (SNOW-4030583). These widths apply only where shouldObeyCount makes the field
+# fixed-width, which depends on the *next* element -- see
+# _legacy_next_element_obeys_count. [0-9] not \\d: Snowflake REGEXP is POSIX.
+_LEGACY_PREFIX_DIGIT_RUNS: dict[tuple[str, int], str] = {
+    ("y", 1): r"[0-9]{1,4}",
+    ("y", 2): r"[0-9]{2}",
+    ("y", 3): r"[0-9]{4}",
+    ("y", 4): r"[0-9]{4}",
+    # 'u' is week-based: with the UDF flag on, validate rejects it before the
+    # regex is reached; with the flag off it converts to the literal "u" and the
+    # parse returns NULL, which is what Spark's LEGACY parser returns too.
+    ("u", 1): r"[0-9]{1,4}",
+    ("u", 2): r"[0-9]{2}",
+    ("u", 3): r"[0-9]{4}",
+    ("u", 4): r"[0-9]{4}",
+    ("M", 1): r"[0-9]{1,2}",
+    ("M", 2): r"[0-9]{2}",
+    ("L", 1): r"[0-9]{1,2}",
+    ("L", 2): r"[0-9]{2}",
+    ("d", 1): r"[0-9]{1,2}",
+    ("d", 2): r"[0-9]{2}",
+    ("H", 1): r"[0-9]{1,2}",
+    ("H", 2): r"[0-9]{2}",
+    ("h", 1): r"[0-9]{1,2}",
+    ("h", 2): r"[0-9]{2}",
+    # 'k'/'K' are UDF letters, so these are reachable only with the UDF flag off.
+    # 'K' maps to None, dropping the hour and always yielding NULL, so it has no
+    # entry -- one would be inert.
+    ("k", 1): r"[0-9]{1,2}",
+    ("k", 2): r"[0-9]{2}",
+    ("m", 1): r"[0-9]{1,2}",
+    ("m", 2): r"[0-9]{2}",
+    ("s", 1): r"[0-9]{1,2}",
+    ("s", 2): r"[0-9]{2}",
+}
+
+# Letters whose SimpleDateFormat tag returns true from ``shouldObeyCount``
+# (java.text.SimpleDateFormat:1587-1611). Month is the conditional case: MMM is
+# text, so it obeys the count only at ``count <= 2``. Text fields parse greedily
+# and belong in neither set. test_obeys_count_matches_jdk_should_obey_count
+# pins both sets against the JDK rule.
+_LEGACY_NUMERIC_LETTERS = frozenset("ydkHmsSDFwWhKYu")
+_LEGACY_NUMERIC_LETTERS_IF_SHORT = frozenset("ML")
+
+
+def _legacy_next_element_obeys_count(spark_format: str, i: int) -> bool:
+    """Whether the element at ``i`` makes the field before it fixed-width.
+
+    Mirrors ``SimpleDateFormat.shouldObeyCount``, which is evaluated against the
+    *next* compiled element: a numeric field is truncated to its count only when
+    another numeric field follows it. A literal (``TAG_QUOTE_ASCII_CHAR``) or the
+    end of the pattern hits the ``default: return false`` arm, and the field then
+    parses greedily over every adjacent digit.
+    """
+    if i >= len(spark_format):
+        return False
+    char = spark_format[i]
+    if not ("a" <= char <= "z" or "A" <= char <= "Z"):
+        return False
+    if char in _LEGACY_NUMERIC_LETTERS_IF_SHORT:
+        run_end = i
+        while run_end < len(spark_format) and spark_format[run_end] == char:
+            run_end += 1
+        return run_end - i <= 2
+    return char in _LEGACY_NUMERIC_LETTERS
+
+
+def spark_format_to_legacy_prefix_regex(spark_format: str) -> str | None:
+    """Regex for the prefix Spark LEGACY (SimpleDateFormat) would parse.
+
+    ``to_timestamp`` under ``timeParserPolicy=LEGACY`` ignores leftover text
+    after a matching prefix (``ExtraText``, extra time when the pattern is
+    shorter). Returns ``None`` when the pattern has tokens this helper cannot
+    express (month names, AM/PM, zones, optional sections); callers keep the
+    strict native/UDF path.
+    """
+    if not spark_format or "[" in spark_format or "]" in spark_format:
+        return None
+    parts: list[str] = ["^"]
+    i = 0
+    n = len(spark_format)
+    while i < n:
+        char = spark_format[i]
+        if char == "'":
+            if spark_format[i : i + 2] == "''":
+                parts.append(re.escape("'"))
+                i += 2
+                continue
+            i += 1
+            literal = ""
+            while i < n:
+                if spark_format[i] == "'":
+                    if spark_format[i : i + 2] == "''":
+                        literal += "'"
+                        i += 2
+                    else:
+                        i += 1
+                        break
+                else:
+                    literal += spark_format[i]
+                    i += 1
+            parts.append(re.escape(literal))
+            continue
+        if "a" <= char <= "z" or "A" <= char <= "Z":
+            start = i
+            while i < n and spark_format[i] == char:
+                i += 1
+            count = i - start
+            if char == "S":
+                parts.append(
+                    rf"[0-9]{{1,{count}}}"
+                    if _legacy_next_element_obeys_count(spark_format, i)
+                    else r"[0-9]+"
+                )
+                continue
+            if char == "a":
+                # POSIX REGEXP has no (?:…). Fail closed so LEGACY AM/PM stays
+                # on the native path (SNOW-4030583 leftover does not need 'a').
+                return None
+            run = _LEGACY_PREFIX_DIGIT_RUNS.get((char, count))
+            if run is None:
+                return None
+            # The lookup gates supported letters; its width applies only when
+            # another numeric field follows. Otherwise SimpleDateFormat is
+            # greedy: '12:45:001' is second 1, and '2024/02/261' is rejected.
+            if not _legacy_next_element_obeys_count(spark_format, i):
+                run = r"[0-9]+"
+            parts.append(run)
+            continue
+        parts.append(re.escape(char))
+        i += 1
+    regex = "".join(parts)
+    # An unterminated quote leaves just the anchor, matching every row.
+    return None if regex == "^" else regex
 
 
 def convert_spark_format_to_snowflake(

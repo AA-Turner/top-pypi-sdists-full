@@ -114,7 +114,9 @@ void  nsLatin1Prober::Reset(void)
 }
 
 
-nsProbingState nsLatin1Prober::HandleData(const char* aBuf, PRUint32 aLen)
+nsProbingState nsLatin1Prober::HandleData(const char* aBuf, PRUint32 aLen,
+                                          int** codePointBuffer,
+                                          int*  codePointBufferIdx)
 {
   char *newBuf1 = 0;
   PRUint32 newLen1 = 0;
@@ -144,7 +146,7 @@ nsProbingState nsLatin1Prober::HandleData(const char* aBuf, PRUint32 aLen)
   return mState;
 }
 
-float nsLatin1Prober::GetConfidence(void)
+float nsLatin1Prober::GetConfidence(int candidate)
 {
   if (mState == eNotMe)
     return 0.01f;
@@ -175,7 +177,7 @@ float nsLatin1Prober::GetConfidence(void)
 #ifdef DEBUG_chardet
 void  nsLatin1Prober::DumpStatus()
 {
-  printf(" Latin1Prober: %1.3f [%s]\r\n", GetConfidence(), GetCharSetName());
+  printf(" Latin1Prober: %1.3f [%s]\r\n", GetConfidence(0), GetCharSetName());
 }
 #endif
 

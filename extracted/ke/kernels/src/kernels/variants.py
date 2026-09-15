@@ -3,26 +3,35 @@ import platform
 import re
 import sys
 import sysconfig
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, constants
 from huggingface_hub.dataclasses import strict
 from huggingface_hub.hf_api import RepoFolder
 from packaging.version import Version, parse
 
+from kernels._versions import select_revision_or_version
 from kernels.backends import (
     CANN,
     CUDA,
     XPU,
     Backend,
+    Metal,
     ROCm,
     _select_backend,
     parse_backend,
 )
 from kernels.compat import has_torch, has_tvm_ffi
+
+logger = logging.getLogger(__name__)
+
+# Metal kernels are currently built with `-std=metal4.0`, which requires
+# macOS 26 or later. Until the macOS/Metal version is encoded in the build
+# variant, reject Metal arch variants on older systems, since they fail to
+# load at runtime.
+_METAL_MIN_MACOS_VERSION = Version("26.0")
 
 
 @dataclass(unsafe_hash=True)
@@ -285,8 +294,12 @@ def resolve_variants(variants: list[Variant], backend: str | None = None) -> tup
     cpu = platform.machine()
     os = platform.system().lower()
 
+    macos_version = None
     if os == "darwin":
         cpu = "aarch64" if cpu == "arm64" else cpu
+        mac_release = platform.mac_ver()[0]
+        if mac_release:
+            macos_version = parse(mac_release)
     elif os == "windows":
         cpu = "x86_64" if cpu == "AMD64" else cpu
 
@@ -317,6 +330,7 @@ def resolve_variants(variants: list[Variant], backend: str | None = None) -> tup
         torch_version=torch_version,
         torch_cxx11_abi=torch_cxx11_abi,
         tvm_ffi_version=tvm_ffi_version,
+        macos_version=macos_version,
     )
 
 
@@ -328,6 +342,7 @@ def _resolve_variant_for_system(
     torch_version: Version | None,
     torch_cxx11_abi: bool | None,
     tvm_ffi_version: Version | None,
+    macos_version: Version | None = None,
 ) -> tuple[list[Variant], list[Decision]]:
     """Resolve the best matching variant given explicit system parameters.
 
@@ -341,6 +356,7 @@ def _resolve_variant_for_system(
         torch_version,
         torch_cxx11_abi,
         tvm_ffi_version,
+        macos_version,
     )
     trace = _sort_variants(trace)
 
@@ -362,17 +378,17 @@ def _check_variants(
     torch_version: Version | None,
     torch_cxx11_abi: bool | None,
     tvm_ffi_version: Version | None,
+    macos_version: Version | None = None,
 ) -> list[Decision]:
     """Return only the variants applicable to the current system."""
     is_unsupported_free_threaded = _is_unsupported_free_threaded_build()
     # Prefilter all arch kernels on free-threaded Python pre-3.15, since
     # they do not support the stable ABI.
     if is_unsupported_free_threaded:
-        warnings.warn(
+        logger.warning(
             "Arch kernels use the stable ABI, which is not supported on free-threaded "
             "Python before version 3.15. Arch kernels will not be used. Consider using "
             "a non-free-threaded interpreter, or upgrade to Python 3.15+.",
-            UserWarning,
             stacklevel=2,
         )
         variants = [v for v in variants if not isinstance(v, ArchVariant)]
@@ -466,6 +482,16 @@ def _check_variants(
                     )
                 )
                 continue
+            elif isinstance(v.arch.backend, Metal) and (
+                macos_version is None or macos_version < _METAL_MIN_MACOS_VERSION
+            ):
+                result.append(
+                    VariantRejected(
+                        variant=v,
+                        reason=f"Metal kernels require macOS {_METAL_MIN_MACOS_VERSION} or later, system macOS version is {macos_version}",
+                    )
+                )
+                continue
         elif isinstance(v, NoarchVariant):
             # Only noarch variants with a matching backend or "universal"
             # are applicable.
@@ -527,6 +553,63 @@ def _sort_variants(
             return (decision_order, 2, 0, 0, universal_order)
 
     return sorted(variants, key=sort_key)
+
+
+def get_kernel_variants(
+    repo_id: str,
+    *,
+    revision: str | None = None,
+    version: int | None = None,
+    backend: str | None = None,
+) -> list[Decision]:
+    """
+    Resolve all build variants of a kernel against the current environment.
+
+    The decisions are sorted with compatible variants first, the most preferred
+    variant leading.
+
+    Args:
+        repo_id (`str`):
+            The Hub repository containing the kernel.
+        revision (`str`, *optional*):
+            The specific revision (branch, tag, or commit) to inspect. Cannot be used together with `version`.
+        version (`int`, *optional*):
+            The kernel version to inspect. Cannot be used together with `revision`.
+            Either `version` or `revision` must be specified.
+        backend (`str`, *optional*):
+            The backend to resolve variants for. Can only be `cpu` or the backend that Torch is compiled for.
+            The backend will be detected automatically if not provided.
+
+    Returns:
+        `list[Decision]`: One `VariantAccepted` or `VariantRejected` per build variant
+            in the repository, compatible variants first.
+
+    Example:
+        ```python
+        from kernels import get_kernel_variants, VariantAccepted
+
+        for decision in get_kernel_variants("kernels-community/activation", version=1):
+            name = decision.variant.variant_str
+            if isinstance(decision, VariantAccepted):
+                print(f"{name}: compatible")
+            else:
+                print(f"{name}: rejected ({decision.reason})")
+
+        ```
+    """
+    from kernels.hf_hub import _get_hf_api
+
+    revision = select_revision_or_version(
+        repo_id,
+        revision=revision,
+        version=version,
+        local_files_only=constants.HF_HUB_OFFLINE,
+    )
+
+    api = _get_hf_api()
+    variants = get_variants(api, repo_id=repo_id, revision=revision)
+    _, trace = resolve_variants(variants, backend)
+    return trace
 
 
 def variants_trace_str(trace: list[Decision]) -> str:

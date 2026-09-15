@@ -45,7 +45,7 @@ class TestGitHubPullRequestCommentAdapter:
             calls.append((method, url, kwargs))
             return responses.pop(0)
 
-        monkeypatch.setenv("SPECKIT_PR_TOKEN", "secret-token")
+        monkeypatch.setenv("DEFAULT_CLASSIC_REPO_WORKFLOW_PAT", "secret-token")
         adapter = GitHubPullRequestCommentAdapter(request_fn=fake_request)
 
         result = adapter.add_comment(request)

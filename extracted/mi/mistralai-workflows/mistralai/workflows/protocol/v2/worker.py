@@ -51,3 +51,6 @@ class EventRouteClaims(BaseModel):
     parent_workflow_exec_id: str | None = Field(default=None, min_length=1)
     # Optional during migration; lets the events handler skip the run lookup.
     execution_id: JSONSerializableUUID | None = None
+    # Identifies one start of an execution, spanning its continue-as-new, retry and
+    # reset runs and every sub-workflow below it. Optional while workers roll out.
+    chain_run_id: str | None = Field(default=None, min_length=1)

@@ -50,7 +50,7 @@ import json
 import time
 import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable
-from typing import Any, Protocol, Union
+from typing import Any, Protocol
 
 from .macos.process_lifecycle import race_against_cancellation
 from .macos.sanitize import sanitize_command_preview
@@ -93,8 +93,8 @@ from .n2_payload import (
     image_dimensions,
     latest_image_url,
     prune_n2_screenshots_to_budget,
-    serialized_messages_bytes,
 )
+from .payload import estimate_messages_size_bytes
 
 # The two shell tools the n2 tool sets serve, each mapped to the optional
 # handler method that runs it. They are separate rather than one normalized
@@ -118,7 +118,7 @@ BROWSER_ACTION_HANDLERS = {"goto_url": "goto_url"}
 CUSTOM_TOOL_ACTION = "run_custom_tool"
 CUSTOM_ACTION_HANDLERS = {CUSTOM_TOOL_ACTION: "run_custom_tool"}
 
-ConfirmationCallback = Callable[[dict], Union[bool, Awaitable[bool]]]
+ConfirmationCallback = Callable[[dict], bool | Awaitable[bool]]
 
 # Loop budgets; each is a constructor keyword.
 N2_MAX_COMPLETION_TOKENS = 20_480
@@ -1410,7 +1410,7 @@ class N2ComputerAgent:
         convert_request_images(completion_messages, self.image_format)
         prune_n2_screenshots_to_budget(completion_messages, DEFAULT_MAX_MESSAGES_BYTES)
 
-        request_bytes = serialized_messages_bytes(completion_messages)
+        request_bytes = estimate_messages_size_bytes(completion_messages)
         if request_bytes > MAX_REQUEST_BODY_BYTES:
             raise ValueError(
                 f"Serialized n2 request is {request_bytes} bytes, above the "

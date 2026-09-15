@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mysqlclient
-Version: 2.2.8
+Version: 2.3.0
 Summary: Python interface to MySQL
 Author-email: Inada Naoki <songofacandy@gmail.com>
 License-Expression: GPL-2.0-or-later

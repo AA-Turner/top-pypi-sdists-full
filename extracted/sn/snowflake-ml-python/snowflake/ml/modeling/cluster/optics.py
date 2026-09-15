@@ -147,9 +147,9 @@ class OPTICS(BaseTransformer):
 
     metric: str or callable, default='minkowski'
         Metric to use for distance computation. Any metric from scikit-learn
-        or scipy.spatial.distance can be used.
+        or :mod:`scipy.spatial.distance` can be used.
 
-        If metric is a callable function, it is called on each
+        If `metric` is a callable function, it is called on each
         pair of instances (rows) and the resulting value recorded. The callable
         should take two arrays as input and return one value indicating the
         distance between them. This works for Scipy's metrics, but is less
@@ -169,8 +169,7 @@ class OPTICS(BaseTransformer):
           'yule']
 
         Sparse matrices are only supported by scikit-learn metrics.
-        See the documentation for scipy.spatial.distance for details on these
-        metrics.
+        See :mod:`scipy.spatial.distance` for details on these metrics.
 
     p: float, default=2
         Parameter for the Minkowski metric from
@@ -181,9 +180,9 @@ class OPTICS(BaseTransformer):
     metric_params: dict, default=None
         Additional keyword arguments for the metric function.
 
-    cluster_method: str, default='xi'
+    cluster_method: {'xi', 'dbscan'}, default='xi'
         The extraction method used to extract clusters using the calculated
-        reachability and ordering. Possible values are "xi" and "dbscan".
+        reachability and ordering.
 
     eps: float, default=None
         The maximum distance between two samples for one to be considered as

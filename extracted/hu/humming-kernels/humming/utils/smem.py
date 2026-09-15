@@ -1,4 +1,4 @@
-import math
+import torch
 
 from humming.config import (
     ComputeConfig,
@@ -7,14 +7,10 @@ from humming.config import (
     MmaType,
     TuningConfig,
 )
+from humming.device import DeviceInfo
+from humming.utils.math import ceil_div, round_up
 
 _INT4 = 16
-
-
-def _align_up(size: int, alignment: int = 128) -> int:
-    if size <= 0:
-        return 0
-    return math.ceil(size / alignment) * alignment
 
 
 def _struct_size(fields: list[tuple[int, int]], struct_align: int) -> int:
@@ -22,21 +18,26 @@ def _struct_size(fields: list[tuple[int, int]], struct_align: int) -> int:
     for nbytes, align in fields:
         if nbytes <= 0:
             continue
-        offset = math.ceil(offset / align) * align
+        offset = round_up(offset, align)
         offset += nbytes
     if offset == 0:
         return 0
-    return math.ceil(offset / struct_align) * struct_align
+    return round_up(offset, struct_align)
 
 
-def _stage_storage_bytes(layer_config: LayerConfig, block_shape, is_mxmma: bool) -> int:
+def _stage_storage_bytes(
+    layer_config: LayerConfig,
+    block_shape,
+    is_mxmma: bool,
+    scale_block_m: int,
+) -> int:
     block_m, block_n, block_k = block_shape
     a_bits = layer_config.a_dtype.num_bits
     b_bits = layer_config.b_dtype.num_bits
     bs_bits = (layer_config.bs_dtype or layer_config.c_dtype).num_bits
 
-    has_input_scale = a_bits != 16
-    is_group_input_scale = has_input_scale and layer_config.input_scale_group_size > 0
+    has_input_scale = layer_config.has_input_scale
+    is_group_input_scale = has_input_scale and layer_config.is_group_input_scale
     is_group_or_block_ws = layer_config.is_group_weight_scale or layer_config.is_block_weight_scale
     has_stage_zp = layer_config.has_zero_point and not layer_config.is_channel_weight_scale
     zp_bits = 16 if layer_config.is_fp_zero_point else max(4, _next_pow2(b_bits))
@@ -47,16 +48,18 @@ def _stage_storage_bytes(layer_config: LayerConfig, block_shape, is_mxmma: bool)
     fields.append((block_n * block_k * b_bits // 8, 128))
 
     if is_group_input_scale:
-        num_groups_a = math.ceil(block_k / layer_config.input_scale_group_size)
+        num_groups_a = ceil_div(block_k, layer_config.input_scale_group_size)
         if is_mxmma:
-            ng_storage = math.ceil(num_groups_a / 4) * 4
-            as_bytes = math.ceil(ng_storage * block_m * bs_bits / 8 / _INT4) * _INT4
+            assert layer_config.as_dtype is not None
+            ng_storage = round_up(num_groups_a, 4)
+            as_bits = layer_config.as_dtype.num_bits
+            as_bytes = round_up(ceil_div(ng_storage * scale_block_m * as_bits, 8), _INT4)
         else:
-            as_bytes = (num_groups_a * block_m // 4) * _INT4
+            as_bytes = (num_groups_a * scale_block_m // 4) * _INT4
         fields.append((as_bytes, 128))
 
     if is_group_or_block_ws and layer_config.weight_scale_group_size > 0:
-        num_groups_b = math.ceil(block_k / layer_config.weight_scale_group_size)
+        num_groups_b = ceil_div(block_k, layer_config.weight_scale_group_size)
         fields.append((num_groups_b * block_n * bs_bits // 8, 128))
         if has_stage_zp:
             fields.append((num_groups_b * block_n * zp_bits // 8, 128))
@@ -86,18 +89,25 @@ def estimate_smem_size_layer(
 ) -> int:
     block_m, block_n, block_k = block_shape
     is_mxmma = layer_config.mma_type == MmaType.MXMMA
-    a_bits = layer_config.a_dtype.num_bits
+    is_grouped = gemm_type in (GemmType.GROUPED_CONTIGUOUS, GemmType.GROUPED_MASKED)
+    scale_block_m = block_m + (4 if is_grouped else 0)
     bs_bits = (layer_config.bs_dtype or layer_config.c_dtype).num_bits
     zp_bits = 16 if layer_config.is_fp_zero_point else max(4, _next_pow2(layer_config.b_dtype.num_bits))
 
-    stage_bytes = _stage_storage_bytes(layer_config, block_shape, is_mxmma)
+    stage_bytes = _stage_storage_bytes(layer_config, block_shape, is_mxmma, scale_block_m)
 
     channel_zp = layer_config.has_zero_point and layer_config.is_channel_weight_scale
     channel_zp_bytes = (block_n * zp_bits // 8) if channel_zp else 0
     channel_bs_bytes = (block_n * bs_bits // 8) if layer_config.is_channel_weight_scale else 0
     channel_bs2_bytes = (block_n * 16 // 8) if layer_config.is_channel_weight_scale_2 else 0
     bias_bytes = (block_n * 2) if layer_config.has_bias else 0
-    channel_as_bytes = (block_m * 4) if (a_bits != 16 and layer_config.input_scale_group_size == 0) else 0
+    has_channel_input_scale = (
+        layer_config.has_input_scale
+        and not layer_config.is_group_input_scale
+        and not layer_config.is_tensor_input_scale
+    )
+    has_channel_input_scale |= layer_config.has_input_scale_2 and not layer_config.is_tensor_input_scale_2
+    channel_as_bytes = (scale_block_m * 4) if has_channel_input_scale else 0
 
     struct_a = _struct_size(
         [
@@ -131,7 +141,7 @@ def estimate_smem_size_layer(
     struct_b_fields.append((reduce_bytes, 128))
     struct_b = _struct_size(struct_b_fields, 1024)
 
-    union_bytes = _align_up(max(struct_a, struct_b), 1024)
+    union_bytes = round_up(max(struct_a, struct_b), 1024)
 
     offset = union_bytes
 
@@ -139,7 +149,7 @@ def estimate_smem_size_layer(
         nonlocal offset
         if nbytes <= 0:
             return
-        offset = math.ceil(offset / align) * align
+        offset = round_up(offset, align)
         offset += nbytes
 
     if gemm_type == GemmType.INDEXED:
@@ -159,7 +169,11 @@ def estimate_smem_size_layer(
             num_math_mbarriers += 1
         add(num_math_mbarriers * 8, 8)  # math_mbar
 
-    return _align_up(offset, 1024)
+    if layer_config.mma_type == MmaType.UMMA:
+        add(4, 4)  # TMEM allocation
+        add(8, 8)  # MMA completion barrier
+
+    return round_up(offset, 1024)
 
 
 def estimate_smem_size_config(
@@ -185,3 +199,13 @@ def estimate_smem_size_config(
         num_write_splits=tuning_config.num_write_splits,
         mma_accum_bits=16 if compute_config.use_f16_accum else 32,
     )
+
+
+def fits_device_smem(
+    layer_config: LayerConfig,
+    compute_config: ComputeConfig,
+    tuning_config: TuningConfig,
+    device: int | torch.device | None = None,
+) -> bool:
+    estimated = estimate_smem_size_config(layer_config, compute_config, tuning_config)
+    return estimated <= DeviceInfo(device).max_smem_size

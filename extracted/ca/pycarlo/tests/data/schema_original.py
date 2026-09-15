@@ -225,7 +225,7 @@ class AgentEvaluationRunSamplesStatus(sgqlc.types.Enum):
 
 
 class AgentEvaluationRunSamplesUnsupportedReason(sgqlc.types.Enum):
-    """Why an evaluation run's exact samples are unsupported.
+    """Classify why exact samples cannot be produced for a run.
 
     Enumeration Choices:
 
@@ -1862,6 +1862,21 @@ class ComputationId(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("SNOWFLAKE_CORTEX_TOKEN_RATE",)
+
+
+class ComputeBillingModel(sgqlc.types.Enum):
+    """How a platform bills compute usage. Set only for platforms with
+    more than one compute billing model.
+
+    Enumeration Choices:
+
+    * `ON_DEMAND`: Billed by data scanned (per TiB).
+    * `SLOT_COMPUTE`: Billed by slot-time under a reservation (per
+      slot-hour).
+    """
+
+    __schema__ = schema
+    __choices__ = ("ON_DEMAND", "SLOT_COMPUTE")
 
 
 class ConnectionModelType(sgqlc.types.Enum):
@@ -6914,6 +6929,22 @@ class PreflightRunStatus(sgqlc.types.Enum):
     )
 
 
+class PriceRateUnit(sgqlc.types.Enum):
+    """The billing unit a price rate is denominated in.
+
+    Enumeration Choices:
+
+    * `CREDIT`: One Snowflake compute credit.
+    * `SLOT_HOUR`: One hour of one BigQuery slot (capacity billing).
+    * `TB`: One decimal terabyte (10^12 bytes).
+    * `TIB`: One binary tebibyte (2^40 bytes) — BigQuery's on-demand
+      billing unit.
+    """
+
+    __schema__ = schema
+    __choices__ = ("CREDIT", "SLOT_HOUR", "TB", "TIB")
+
+
 class Priority(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -7146,7 +7177,8 @@ class QueuedJobType(sgqlc.types.Enum):
 class RateType(sgqlc.types.Enum):
     """Enumeration Choices:
 
-    * `COMPUTE`: Price of compute usage (one compute credit).
+    * `COMPUTE`: Price of compute usage; the billing unit varies by
+      platform.
     * `STORAGE`: Price of storage usage (one terabyte of storage per
       month).
     """
@@ -17632,8 +17664,10 @@ class SelfHostedCredentialsConnectionDetails(sgqlc.types.Input):
     """Optional external id for AWS assumable role"""
 
     bq_project_id = sgqlc.types.Field(String, graphql_name="bqProjectId")
-    """Optional BigQuery project ID for running queries. Required for
-    BigQuery connections with self-hosted credentials.
+    """Optional BigQuery project ID for running queries, defaulting to
+    the service account's project. When omitted, the collector
+    discovers all projects the service account can access. Setting it
+    limits collection to that project.
     """
 
     databricks_warehouse_id = sgqlc.types.Field(String, graphql_name="databricksWarehouseId")
@@ -17767,8 +17801,10 @@ class SelfHostedUpdateCredentialsConnectionDetails(sgqlc.types.Input):
     """Optional external id for AWS assumable role"""
 
     bq_project_id = sgqlc.types.Field(String, graphql_name="bqProjectId")
-    """Optional BigQuery project ID for running queries. Required for
-    BigQuery connections with self-hosted credentials.
+    """Optional BigQuery project ID for running queries, defaulting to
+    the service account's project. When omitted, the collector
+    discovers all projects the service account can access. Setting it
+    limits collection to that project.
     """
 
     databricks_warehouse_id = sgqlc.types.Field(String, graphql_name="databricksWarehouseId")
@@ -21149,6 +21185,7 @@ class Account(sgqlc.types.Type):
         "enable_pr_agent_paid_tier",
         "enable_pr_agent_metering",
         "enable_proactive_tune_creator_notifications",
+        "enable_unified_lineage_read",
         "enable_cost_agent_paid_tier",
         "agent_monitor_default_collection_lag_hours",
         "validate_monitor_domains",
@@ -21804,6 +21841,13 @@ class Account(sgqlc.types.Type):
     """Whether monitor creators receive proactive tuning recommendation
     digests and see tuning views that highlight the monitors they
     created.
+    """
+
+    enable_unified_lineage_read = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="enableUnifiedLineageRead"
+    )
+    """Whether the account can read a job's lineage: the tables the job
+    reads and writes, and the jobs it triggers.
     """
 
     enable_cost_agent_paid_tier = sgqlc.types.Field(Boolean, graphql_name="enableCostAgentPaidTier")
@@ -22965,10 +23009,18 @@ class AgentCost(sgqlc.types.Type):
     cost_unit = sgqlc.types.Field(String, graphql_name="costUnit")
 
     cache_savings = sgqlc.types.Field(Float, graphql_name="cacheSavings")
-    """What the prompt cache saved over the window, in `costUnit`: the
-    cache-read tokens billed at the cache rate rather than the input
-    rate. None when the window was not read whole, or when nothing in
-    it could be priced -- which is not zero.
+    """What the prompt cache saved over the window, in `costUnit`,
+    measured against `cost` itself: the cache-read tokens billed at
+    the cache rate rather than the input rate, less the cache-write
+    tokens' charge in full. That write tax is the coded charge, which
+    double-counts cache writes to keep `cost` close to the billed
+    total, so savings are conservative against the real bill -- on
+    models whose cache-write rate equals the input rate the real
+    surcharge of caching is zero while this still charges it. Negative
+    when a window wrote more cache than it read back, which is what a
+    cold cache costs the window that fills it. None when the window
+    was not read whole, or when nothing in it could be priced -- which
+    is not zero.
     """
 
     trace_count = sgqlc.types.Field(Int, graphql_name="traceCount")
@@ -27953,6 +28005,7 @@ class BillingMonitorUsage(sgqlc.types.Type):
         "agent_observability_monitor_credits",
         "pr_agent_monitor_credits",
         "triage_monitor_credits",
+        "pii_agent_monitor_credits",
     )
     date = sgqlc.types.Field(Date, graphql_name="date")
     """The date for this data point"""
@@ -28011,6 +28064,9 @@ class BillingMonitorUsage(sgqlc.types.Type):
 
     triage_monitor_credits = sgqlc.types.Field(Float, graphql_name="triageMonitorCredits")
     """Credits used by automated alert triage"""
+
+    pii_agent_monitor_credits = sgqlc.types.Field(Float, graphql_name="piiAgentMonitorCredits")
+    """Credits used by the PII Agent"""
 
 
 class BillingMonitorUsageResults(sgqlc.types.Type):
@@ -40461,8 +40517,14 @@ class GenieCollectorStatus(sgqlc.types.Type):
     """
 
     last_successful_run_time = sgqlc.types.Field(DateTime, graphql_name="lastSuccessfulRunTime")
-    """End time of the most recent successful collector run — the
-    freshness signal for the materialized trace table.
+    """End time of the most recent collector run that advanced trace
+    coverage — the freshness signal for the materialized trace table.
+    A successful run that collected nothing (every registered space
+    denied or unreadable — with no spaces registered, the teardown
+    window, it still advances) does not move an existing value; two
+    exceptions still set or advance it — the install's first success
+    (it establishes the trace table even when no space is readable)
+    and a success whose exit report could not be read.
     """
 
     last_triggered_time = sgqlc.types.Field(DateTime, graphql_name="lastTriggeredTime")
@@ -40510,12 +40572,14 @@ class GenieCollectorStatus(sgqlc.types.Type):
     is_stale = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isStale")
     """True when the collector is enabled and scheduled but its
     materialized trace table has not refreshed recently — the most
-    recent successful run is more than several collection cadences old
-    (a run hung past its schedule so the table stopped refreshing)
-    even though installStatus and runStatus may read healthy. A
-    freshness signal distinct from install/run errors; false when the
-    collector is disabled, has no schedule, or has not yet completed
-    its first successful run.
+    recent coverage-advancing run is more than several collection
+    cadences old, either because a run hung past its schedule so the
+    table stopped refreshing or because every registered space is
+    denied or unreadable (its runs keep succeeding but collect
+    nothing), even though installStatus and runStatus may read
+    healthy. A freshness signal distinct from install/run errors;
+    false when the collector is disabled, has no schedule, or has not
+    yet completed its first successful run.
     """
 
 
@@ -78772,7 +78836,13 @@ class Query(sgqlc.types.Type):
     warehouse — the prompt-cache counts it needs exist nowhere else —
     so a client can render first and fill cost in after. Returns empty
     for any agent whose platform publishes no per-token cost; today
-    that is everything except Cortex.
+    that is everything except Cortex. Two error shapes are expected
+    traffic rather than failures: a request carrying an idempotency id
+    whose scan is still running answers REQUEST_IN_PROGRESS, which the
+    client re-sends under the same id until rows come back; and a
+    request under an id whose earlier attempt failed answers a
+    validation error carrying the IDEMPOTENT_REQUEST_FAILED code, on
+    which the client must mint a fresh id for the same variables.
 
     Arguments:
 
@@ -78847,7 +78917,14 @@ class Query(sgqlc.types.Type):
     that is Cortex but priced nothing in the window comes back with a
     null cost, which is not zero. Two entries naming the same agent
     come back indistinguishable, so match results on the agent name
-    and mcon they carry rather than by position.
+    and mcon they carry rather than by position. Two error shapes are
+    expected traffic rather than failures: a request carrying an
+    idempotency id whose scan is still running answers
+    REQUEST_IN_PROGRESS, which the client re-sends under the same id
+    until rows come back; and a request under an id whose earlier
+    attempt failed answers a validation error carrying the
+    IDEMPOTENT_REQUEST_FAILED code, on which the client must mint a
+    fresh id for the same variables.
 
     Arguments:
 
@@ -95701,6 +95778,14 @@ class Query(sgqlc.types.Type):
                 ),
                 ("parent_mcon", sgqlc.types.Arg(String, graphql_name="parentMcon", default=None)),
                 ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
+                (
+                    "domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainIds",
+                        default=None,
+                    ),
+                ),
                 ("tags_only", sgqlc.types.Arg(Boolean, graphql_name="tagsOnly", default=False)),
                 (
                     "include_facet_types",
@@ -95801,7 +95886,11 @@ class Query(sgqlc.types.Type):
     * `mcon` (`String`): Filter on mcon
     * `mcons` (`[String]`): Filter on multiple mcons
     * `parent_mcon` (`String`): Filter on parent_mcon
-    * `domain_id` (`UUID`): Filter by domain UUID
+    * `domain_id` (`UUID`): Filter by domain UUID. Use domainIds to
+      filter by several domains
+    * `domain_ids` (`[UUID!]`): Filter by several domain UUIDs; an
+      asset in any one of them matches. Cannot be combined with
+      domainId
     * `tags_only` (`Boolean`): Search only tags and descriptions (no
       display_name) (default: `false`)
     * `include_facet_types` (`[FacetType]`): Facet types to include
@@ -98121,14 +98210,28 @@ class Query(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("Warehouse"))),
         graphql_name="getWarehouses",
         args=sgqlc.types.ArgDict(
-            (("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),)
+            (
+                ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
+                (
+                    "domain_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainUuids",
+                        default=None,
+                    ),
+                ),
+            )
         ),
     )
     """(experimental) Get warehouses accessible to the current user
 
     Arguments:
 
-    * `domain_uuid` (`UUID`): Filter warehouses by domain UUID
+    * `domain_uuid` (`UUID`): Filter warehouses by domain UUID. Use
+      domainUuids to filter by several domains
+    * `domain_uuids` (`[UUID!]`): Filter warehouses by several domain
+      UUIDs; a warehouse in any one of them matches. Cannot be
+      combined with domainUuid
     """
 
     get_warehouse = sgqlc.types.Field(
@@ -114149,13 +114252,19 @@ class WarehousePriceRateOutput(sgqlc.types.Type):
     """A warehouse price rate: what one unit of usage costs."""
 
     __schema__ = schema
-    __field_names__ = ("rate_type", "amount", "currency", "description")
+    __field_names__ = ("rate_type", "amount", "unit", "billing_model", "currency", "description")
     rate_type = sgqlc.types.Field(sgqlc.types.non_null(RateType), graphql_name="rateType")
     """Which usage this rate prices."""
 
     amount = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="amount")
-    """Price of one usage unit, in `currency`. For storage, the price of
-    one TB per month.
+    """Price of one `unit` of usage, in `currency`."""
+
+    unit = sgqlc.types.Field(sgqlc.types.non_null(PriceRateUnit), graphql_name="unit")
+    """The billing unit one `amount` prices."""
+
+    billing_model = sgqlc.types.Field(ComputeBillingModel, graphql_name="billingModel")
+    """How this compute usage is billed. Set only for compute rates on
+    platforms with more than one billing model; null otherwise.
     """
 
     currency = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="currency")
@@ -122006,8 +122115,8 @@ class PlatformAgent(sgqlc.types.Type, Node):
     collector_status = sgqlc.types.Field(GenieCollectorStatus, graphql_name="collectorStatus")
     """Run-health of the Monte-Carlo-managed Genie trace collector for
     this agent — its install state, last run outcome, last error, and
-    last successful refresh. Null for non-Genie agents (Snowflake /
-    Agent Bricks), which have no collector.
+    last coverage-advancing refresh. Null for non-Genie agents
+    (Snowflake / Agent Bricks), which have no collector.
     """
 
 
