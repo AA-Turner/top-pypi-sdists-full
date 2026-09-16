@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulpcore
-Version: 3.117.2
+Version: 3.118.0
 Summary: Pulp Django Application and Related Modules
 Author-email: Pulp Team <pulp-list@redhat.com>
 License-Expression: GPL-2.0-or-later
@@ -23,7 +23,7 @@ Requires-Dist: aiofiles<=25.1.0,>=22.1
 Requires-Dist: aiohttp<3.15,>=3.10.10
 Requires-Dist: asyncio-throttle<=1.0.2,>=1.0
 Requires-Dist: backoff<2.3,>=2.1.2
-Requires-Dist: click<8.5,>=8.1.0
+Requires-Dist: click<8.6,>=8.1.0
 Requires-Dist: cryptography<51.0,>=49.0.0
 Requires-Dist: Django<5.3,>=5.2.0
 Requires-Dist: django-filter<=26.1,>=24.3
@@ -47,7 +47,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.45,>=1.27.0
 Requires-Dist: protobuf<8.0,>=4.21.1
 Requires-Dist: pulp-glue<0.41,>=0.35.0
 Requires-Dist: PyOpenSSL<27.0,>=26.3.0
-Requires-Dist: pygtrie<=2.5.0,>=2.5
+Requires-Dist: pygtrie<2.7,>=2.5
 Requires-Dist: psycopg[binary]<3.4,>=3.3.4
 Requires-Dist: pyparsing<3.4,>=3.1.0
 Requires-Dist: pysequoia<0.2.0,>=0.1.35

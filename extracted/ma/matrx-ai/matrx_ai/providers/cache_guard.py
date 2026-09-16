@@ -137,7 +137,12 @@ class _LoopCacheState:
 _LOOPS: OrderedDict[str, _LoopCacheState] = OrderedDict()
 
 
-def _loop_key(provider: str, conversation_id: str | None, request_id: str | None) -> str:
+def _loop_key(
+    provider: str,
+    conversation_id: str | None,
+    request_id: str | None,
+    loop_id: str | None = None,
+) -> str:
     # One persisted conversation spans many independent user requests. The
     # request id is the actual provider/tool-loop identity: it remains stable
     # across rounds of one run and changes for the next user turn. Using the
@@ -149,6 +154,12 @@ def _loop_key(provider: str, conversation_id: str | None, request_id: str | None
     # system prefix), identified by its conversation id. Key on both: request
     # alone conflates sibling agents, while conversation alone conflates
     # separate user turns in one durable conversation.
+    # ``request_id`` names the user action and intentionally spans its child
+    # executions.  When the executor gives us its per-invocation loop id,
+    # prefer it: otherwise independent one-shot calls in the same durable
+    # conversation look like consecutive rounds and produce a false drift.
+    if loop_id:
+        return f"{provider}:execution:{loop_id}"
     request_scope = request_id or "unknown-request"
     conversation_scope = conversation_id or "unknown-conversation"
     return f"{provider}:{request_scope}:{conversation_scope}"
@@ -265,6 +276,7 @@ def observe_cache_usage(
     model: str,
     conversation_id: str | None,
     request_id: str | None,
+    loop_id: str | None = None,
     system_text: str,
     tool_names: tuple[str, ...] | list[str] | None,
     raw_usage: dict[str, Any] | None,
@@ -283,6 +295,7 @@ def observe_cache_usage(
             model=model,
             conversation_id=conversation_id,
             request_id=request_id,
+            loop_id=loop_id,
             system_text=system_text or "",
             tool_names=tuple(tool_names or ()),
             raw_usage=raw_usage or {},
@@ -301,11 +314,12 @@ def _observe(
     model: str,
     conversation_id: str | None,
     request_id: str | None,
+    loop_id: str | None,
     system_text: str,
     tool_names: tuple[str, ...],
     raw_usage: dict[str, Any],
 ) -> None:
-    key = _loop_key(provider, conversation_id, request_id)
+    key = _loop_key(provider, conversation_id, request_id, loop_id)
     state = _get_or_create(key, provider, model)
 
     call_index = state.call_count  # 0 for the first call in this loop

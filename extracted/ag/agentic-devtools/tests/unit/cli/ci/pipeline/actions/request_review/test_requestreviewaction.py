@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from agentic_devtools.cli.ci.models import ReviewInfo
 from agentic_devtools.cli.ci.pipeline.actions.request_review import RequestReviewAction
 from agentic_devtools.cli.ci.pipeline.gate_verdict import (
     REASON_API_ERROR,
@@ -115,6 +116,26 @@ class TestRequestReviewAction:
         assert result.decision == ActionDecision.SKIP
         assert "repair dispatched" in result.details.lower()
 
+    def test_skip_when_repair_cycle_limit_reached(self) -> None:
+        """Review request is blocked when the global repair cycle limit is reached."""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            is_draft=False,
+            ci_status="passing",
+            review_state="",
+            copilot_review_id=0,
+            copilot_review_pending=False,
+        )
+        derived = DerivedState(snapshot)
+        derived.set("cycle_limit_reached", True)
+        action = RequestReviewAction()
+
+        with patch(_PATCH_DETECTOR, return_value=False):
+            result = action.evaluate(snapshot, derived)
+
+        assert result.decision == ActionDecision.SKIP
+        assert "human intervention" in result.details.lower()
+
     def test_skip_when_active_session(self) -> None:
         """Review request is blocked when Copilot coding session is active."""
         snapshot = PRStateSnapshot(
@@ -206,6 +227,103 @@ class TestRequestReviewAction:
         with patch(_PATCH_DETECTOR, return_value=False):
             result = action.evaluate(snapshot, derived)
         assert result.decision == ActionDecision.EXECUTE
+
+    def test_execute_when_review_targets_stale_head(self) -> None:
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="head-sha",
+            is_draft=False,
+            ci_status="passing",
+            review_state="APPROVED",
+            copilot_review_id=100,
+            copilot_review_pending=False,
+            reviews=[
+                ReviewInfo(
+                    id=100,
+                    user="copilot-pull-request-reviewer[bot]",
+                    state="APPROVED",
+                    commit_sha="stale-sha",
+                )
+            ],
+        )
+        derived = DerivedState(snapshot)
+        action = RequestReviewAction()
+
+        with patch(_PATCH_DETECTOR, return_value=False):
+            result = action.evaluate(snapshot, derived)
+
+        assert result.decision == ActionDecision.EXECUTE
+
+    def test_skip_when_review_targets_current_head(self) -> None:
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="head-sha",
+            is_draft=False,
+            ci_status="passing",
+            review_state="APPROVED",
+            copilot_review_id=100,
+            copilot_review_pending=False,
+            reviews=[
+                ReviewInfo(
+                    id=100,
+                    user="copilot-pull-request-reviewer[bot]",
+                    state="APPROVED",
+                    commit_sha="head-sha",
+                )
+            ],
+        )
+        derived = DerivedState(snapshot)
+        action = RequestReviewAction()
+
+        with patch(_PATCH_DETECTOR, return_value=False):
+            result = action.evaluate(snapshot, derived)
+
+        assert result.decision == ActionDecision.SKIP
+
+    def test_execute_when_commented_review_does_not_prove_clean_gate(self) -> None:
+        """A COMMENTED review without a clean gate verdict does not suppress a request."""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="head-sha",
+            is_draft=False,
+            ci_status="passing",
+            review_state="COMMENTED",
+            copilot_review_id=100,
+            copilot_review_pending=False,
+        )
+        derived = DerivedState(snapshot)
+        action = RequestReviewAction()
+
+        with patch(_PATCH_DETECTOR, return_value=False):
+            result = action.evaluate(snapshot, derived)
+
+        assert result.decision == ActionDecision.EXECUTE
+        assert result.preconditions["no_effective_review_on_head"] is True
+
+    def test_skip_when_commented_review_has_clean_gate_verdict(self) -> None:
+        """A clean gate verdict proves a COMMENTED review has no actionable feedback."""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="head-sha",
+            is_draft=False,
+            ci_status="passing",
+            review_state="COMMENTED",
+            copilot_review_id=100,
+            copilot_review_pending=False,
+            copilot_gate_verdict=CopilotGateVerdict(
+                passed=True,
+                reason=REASON_CLEAN,
+                review_id=100,
+            ),
+        )
+        derived = DerivedState(snapshot)
+        action = RequestReviewAction()
+
+        with patch(_PATCH_DETECTOR, return_value=False):
+            result = action.evaluate(snapshot, derived)
+
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions["no_effective_review_on_head"] is False
 
     def test_execute_when_ci_pending_but_squash_preserved_green(self) -> None:
         """A tree-preserving squash this run relaxes the ci_passing gate on the new HEAD."""
@@ -448,6 +566,25 @@ class TestRequestReviewActionGateVerdictCarryOver:
         )
         snapshot = self._snapshot(verdict)
         derived = DerivedState(snapshot)
+        action = RequestReviewAction()
+
+        with patch(_PATCH_DETECTOR, return_value=False):
+            result = action.evaluate(snapshot, derived)
+
+        assert result.decision == ActionDecision.EXECUTE
+        assert result.preconditions["no_effective_review_on_head"] is True
+
+    @pytest.mark.parametrize("review_state", ["CHANGES_REQUESTED", "APPROVED"])
+    def test_execute_when_repair_limit_reached_and_head_review_is_blocked(self, review_state: str) -> None:
+        """A blocked head review must not suppress a fresh request after repair exhaustion."""
+        verdict = CopilotGateVerdict(
+            passed=False,
+            reason=REASON_SUPPRESSED_COMMENTS,
+            review_id=100,
+        )
+        snapshot = self._snapshot(verdict, review_state=review_state, copilot_review_id=100)
+        derived = DerivedState(snapshot)
+        derived.set("repair_limit_reached", True)
         action = RequestReviewAction()
 
         with patch(_PATCH_DETECTOR, return_value=False):

@@ -455,6 +455,8 @@
 //! - `bead_append_note(beads_dir: str, issue_id: str, entry: str, author: str | None = None, now: str | None = None) -> dict` (`issue["notes"]` is a list of note records)
 //! - `bead_note_edit(beads_dir: str, issue_id: str, note_id: str, text: str, author: str | None = None, now: str | None = None) -> dict`
 //! - `bead_note_remove(beads_dir: str, issue_id: str, note_id: str, author: str | None = None, now: str | None = None) -> dict`
+//! - `bead_target_routing_wire_schema_version() -> int`
+//! - `bead_route_targets(request: dict) -> dict`
 //! - `bead_plus_one(beads_dir: str, issue_id: str, reporter: str, note: str, refs: list[str] | None = None, now: str | None = None, observed_since: str | None = None) -> dict`
 //! - `bead_snooze(beads_dir: str, issue_id: str, until: str, plus_ones: int | None = None, reason: str = "", actor: str = "", now: str | None = None) -> dict`
 //! - `bead_snooze_cancel(beads_dir: str, issue_id: str, actor: str = "", now: str | None = None) -> dict`
@@ -1018,6 +1020,7 @@ use sase_core::bead::{
     repair_event_store_manifest as core_repair_event_store_manifest,
     resolution_migration_sql as core_bead_resolution_migration_sql,
     resolve_issue_id as core_bead_resolve_issue_id,
+    route_bead_targets as core_bead_route_targets,
     search_issues as core_bead_search_issues,
     set_bead_link_projection as core_bead_set_link_projection,
     show_issue as core_bead_show_issue,
@@ -1032,8 +1035,9 @@ use sase_core::bead::{
     update_issue as core_bead_update_issue,
     update_issues as core_bead_update_issues, BeadCreateRequestWire, BeadError,
     BeadEventStoreManifestWire, BeadEventStreamWire,
-    BeadPreclaimAssignmentWire, BeadResolutionWire, BeadUpdateFieldsWire,
-    IssueWire,
+    BeadPreclaimAssignmentWire, BeadResolutionWire,
+    BeadTargetRoutingRequestWire, BeadUpdateFieldsWire, IssueWire,
+    BEAD_TARGET_ROUTING_WIRE_SCHEMA_VERSION,
 };
 use sase_core::bead_action::{
     decide_bead_action_from_json as core_decide_bead_action_from_json,
@@ -1544,9 +1548,12 @@ use sase_core::{
     editor_plan_model_alias_shortcut_edit as core_plan_model_alias_shortcut_edit,
     filter_model_completion_entries as core_filter_model_completion_entries,
     load_editor_snippet_catalog as core_load_editor_snippet_catalog,
+    resolve_xprompt_skill_definition as core_resolve_xprompt_skill_definition,
     validate_snippet_trigger as core_validate_snippet_trigger, EditorPosition,
     EditorSnippetCatalogRequestWire, ModelCompletionEntryWire,
-    XpromptCatalogLoadOptions, MODEL_COMPLETION_ENTRY_WIRE_FIELDS,
+    XpromptCatalogLoadOptions, XpromptCatalogResourcePaths,
+    XpromptSkillDefinitionRequestWire, MODEL_COMPLETION_ENTRY_WIRE_FIELDS,
+    XPROMPT_SKILL_DEFINITION_WIRE_SCHEMA_VERSION,
 };
 use sase_core::{
     runner_capacity_policy_schema_version as core_runner_capacity_policy_schema_version,
@@ -1559,6 +1566,7 @@ use serde::ser::{
     SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
     SerializeTupleVariant, Serializer,
 };
+use serde::Deserialize;
 use serde_json::{Map as JsonMap, Value as JsonValue};
 
 #[pyclass(name = "QueryCorpusHandle", module = "sase_core_rs")]
@@ -2417,6 +2425,78 @@ fn py_load_editor_snippet_catalog(
         PyValueError::new_err(format!("internal serialize error: {error}"))
     })?;
     json_value_to_py(py, &value)
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct PyXpromptCatalogOptions {
+    root_dir: Option<PathBuf>,
+    package_xprompts_dir: Option<PathBuf>,
+    package_skills_dir: Option<PathBuf>,
+    default_xprompts_dir: Option<PathBuf>,
+    default_config_path: Option<PathBuf>,
+    #[serde(default)]
+    plugin_xprompt_dirs: BTreeMap<String, PathBuf>,
+    #[serde(default)]
+    plugin_skill_dirs: BTreeMap<String, PathBuf>,
+    #[serde(default)]
+    plugin_config_paths: BTreeMap<String, PathBuf>,
+}
+
+fn xprompt_catalog_options_from_py(
+    options: Option<&Bound<'_, PyDict>>,
+) -> PyResult<XpromptCatalogLoadOptions> {
+    let raw = match options {
+        Some(options) => serde_json::from_value::<PyXpromptCatalogOptions>(
+            py_to_json_value(options.as_any())?,
+        )
+        .map_err(|error| {
+            PyValueError::new_err(format!(
+                "xprompt catalog options are invalid: {error}"
+            ))
+        })?,
+        None => PyXpromptCatalogOptions::default(),
+    };
+    let resource_paths = XpromptCatalogResourcePaths {
+        package_xprompts_dir: raw.package_xprompts_dir,
+        package_skills_dir: raw.package_skills_dir,
+        default_xprompts_dir: raw.default_xprompts_dir,
+        default_config_path: raw.default_config_path,
+        plugin_xprompt_dirs: raw.plugin_xprompt_dirs,
+        plugin_skill_dirs: raw.plugin_skill_dirs,
+        plugin_config_paths: raw.plugin_config_paths,
+    };
+    Ok(XpromptCatalogLoadOptions::new(raw.root_dir)
+        .with_resource_paths(resource_paths))
+}
+
+#[pyfunction]
+#[pyo3(name = "resolve_xprompt_skill_definition")]
+#[pyo3(signature = (request, options = None))]
+fn py_resolve_xprompt_skill_definition<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+    options: Option<&Bound<'py, PyDict>>,
+) -> PyResult<PyObject> {
+    let request: XpromptSkillDefinitionRequestWire =
+        serde_json::from_value(py_to_json_value(request.as_any())?).map_err(
+            |error| {
+                PyValueError::new_err(format!(
+                    "request is not a valid XpromptSkillDefinitionRequestWire dict: {error}"
+                ))
+            },
+        )?;
+    let options = xprompt_catalog_options_from_py(options)?;
+    let resolution = core_resolve_xprompt_skill_definition(&request, &options);
+    let value = serde_json::to_value(resolution).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+#[pyfunction]
+#[pyo3(name = "xprompt_skill_definition_wire_schema_version")]
+fn py_xprompt_skill_definition_wire_schema_version() -> u64 {
+    XPROMPT_SKILL_DEFINITION_WIRE_SCHEMA_VERSION
 }
 
 #[pyfunction]
@@ -5248,6 +5328,35 @@ fn py_bead_needs_task_type_migration(create_table_sql: Option<&str>) -> bool {
 #[pyo3(name = "bead_task_type_migration_sql")]
 fn py_bead_task_type_migration_sql() -> &'static str {
     core_bead_task_type_migration_sql()
+}
+
+#[pyfunction]
+#[pyo3(name = "bead_target_routing_wire_schema_version")]
+fn py_bead_target_routing_wire_schema_version() -> u64 {
+    BEAD_TARGET_ROUTING_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "bead_route_targets")]
+fn py_bead_route_targets<'py>(
+    py: Python<'py>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let request: BeadTargetRoutingRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid BeadTargetRoutingRequestWire dict: {error}"
+        ))
+    })?;
+    let value = serde_json::to_value(core_bead_route_targets(&request))
+        .map_err(|error| {
+            PyValueError::new_err(format!(
+                "internal bead target-routing serialize error: {error}"
+            ))
+        })?;
+    json_value_to_py(py, &value)
 }
 
 #[pyfunction]
@@ -17904,6 +18013,11 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_compose_snippet_catalog, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_snippet_trigger, m)?)?;
     m.add_function(wrap_pyfunction!(py_load_editor_snippet_catalog, m)?)?;
+    m.add_function(wrap_pyfunction!(py_resolve_xprompt_skill_definition, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_xprompt_skill_definition_wire_schema_version,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_filter_model_completion_entries, m)?)?;
     m.add_function(wrap_pyfunction!(py_model_shortcut_context, m)?)?;
     m.add_function(wrap_pyfunction!(py_model_shortcut_edit, m)?)?;
@@ -18151,6 +18265,11 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     m.add_function(wrap_pyfunction!(py_bead_needs_task_type_migration, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_task_type_migration_sql, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_bead_target_routing_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_bead_route_targets, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_read_store, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_read_event_store, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_read_legacy_jsonl, m)?)?;
@@ -19531,6 +19650,41 @@ COMMITS:
         });
     }
 
+    #[test]
+    fn bead_target_routing_binding_round_trips() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            assert!(module.getattr("bead_route_targets").is_ok());
+            assert_eq!(py_bead_target_routing_wire_schema_version(), 1);
+
+            let request = json_value_to_py(
+                py,
+                &json!({
+                    "targets": ["bob-cli-1"],
+                    "candidate_stores": [{
+                        "store_key": "bob",
+                        "project_key": "gh_acme__bob-cli",
+                        "project_label": "bob-cli",
+                        "issue_ids": ["bob-cli-1"]
+                    }]
+                }),
+            )
+            .unwrap()
+            .into_bound(py);
+            let request = request.downcast::<PyDict>().unwrap();
+            let result = py_bead_route_targets(py, request).unwrap();
+            let value = py_to_json_value(result.bind(py)).unwrap();
+
+            assert_eq!(value["routes"][0]["resolved_id"], json!("bob-cli-1"));
+            assert_eq!(
+                value["routes"][0]["store"]["project_label"],
+                json!("bob-cli")
+            );
+        });
+    }
+
     fn commit_at(
         repo: &Path,
         timestamp: i64,
@@ -20201,6 +20355,50 @@ COMMITS:
             let pruned = py_prune_tasks(py, path, 0).unwrap();
             let pruned = py_to_json_value(pruned.bind(py)).unwrap();
             assert!(pruned["pruned_proc_ids"].as_array().unwrap().is_empty());
+        });
+    }
+
+    #[test]
+    fn proc_runtime_retention_binding_requires_trustworthy_store_snapshot() {
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+        let store = temp.path().join("procs.jsonl");
+        let runtime_root = temp.path().join("runtime");
+        let runtime_dir = runtime_root.join("0123456789ab");
+        fs::create_dir_all(&runtime_dir).unwrap();
+        fs::write(runtime_dir.join("request.json"), "{}").unwrap();
+        fs::write(&store, "not-json\n").unwrap();
+
+        Python::with_gil(|py| {
+            let request_obj = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "store_path": store.to_string_lossy(),
+                    "runtime_root": runtime_root.to_string_lossy(),
+                    "now_epoch_seconds": 9_999_999_999.0,
+                    "orphan_horizon_seconds": 1.0,
+                    "max_orphan_removals": 10,
+                    "apply": true,
+                    "pruned_proc_ids": [],
+                    "sweep_orphans": true
+                }),
+            )
+            .unwrap();
+            let request = request_obj.bind(py).downcast::<PyDict>().unwrap();
+
+            let error =
+                py_apply_proc_runtime_retention(py, request).unwrap_err();
+            assert!(error
+                .to_string()
+                .contains("incomplete proc store snapshot"));
+            assert!(runtime_dir.exists());
+
+            fs::write(&store, "").unwrap();
+            let outcome = py_apply_proc_runtime_retention(py, request).unwrap();
+            let outcome = py_to_json_value(outcome.bind(py)).unwrap();
+            assert_eq!(outcome["removed"], json!(1));
+            assert!(!runtime_dir.exists());
         });
     }
 
@@ -24404,7 +24602,7 @@ MENTORS:
             .unwrap();
             let document_scan =
                 py_to_json_value(document_scan.bind(py)).unwrap();
-            assert_eq!(document_scan["schema_version"], json!(1));
+            assert_eq!(document_scan["schema_version"], json!(2));
             assert_eq!(
                 document_scan["links"][0]["target"],
                 json!("plan:202607/plan.md")
@@ -24460,7 +24658,7 @@ MENTORS:
                 1
             );
 
-            assert_eq!(py_artifact_ref_document_scan_wire_schema_version(), 1);
+            assert_eq!(py_artifact_ref_document_scan_wire_schema_version(), 2);
             assert_eq!(py_artifact_ref_link_location_wire_schema_version(), 1);
             let split =
                 py_artifact_ref_split_link_location(py, "src/app.py:12:5-40")
@@ -24592,6 +24790,18 @@ MENTORS:
             let denied = py_to_json_value(denied.bind(py)).unwrap();
             assert_eq!(denied["status"], json!("denied"));
             assert_eq!(denied["failure_category"], json!("denied_filtered"));
+
+            let home_error = py_artifact_ref_resolve_document_source_target(
+                py,
+                "~/.ssh/config",
+                owner,
+                context,
+            )
+            .unwrap_err();
+            assert!(home_error.is_instance_of::<PyValueError>(py));
+            assert!(home_error
+                .to_string()
+                .contains("home paths belong to the filesystem resolver"));
         });
     }
 

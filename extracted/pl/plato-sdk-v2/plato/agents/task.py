@@ -257,6 +257,7 @@ class AgentTask:
             exec_ctx = AgentContext(
                 image=self._agent.image,
                 package=self._agent.package,
+                agent_name=self._agent.agent_name,
                 config={**run_agent_config, "continue_session": True},
                 instruction=compaction_text,
                 # First-class compaction op: dispatches to BaseAgent.compact
@@ -458,44 +459,101 @@ class AgentTask:
 
         return await self._run_impl(instruction, display_name)
 
+    async def warm(self) -> bool:
+        """Prepare this task's VM ahead of its next ``run`` (see
+        ``AgentExecutionManager.warm``). True when a VM is now leased and
+        prepared; False when this task has no pool or no idle-release lease
+        to hold the VM in. Raises when the acquire or install fails, after
+        destroying the VM."""
+        if self._execution_manager is not None:
+            return await self._execution_manager.warm(self)
+        from plato.agents.warmpool import RuntimeLease
+
+        idle_seconds = self._agent.runtime_idle_release_seconds
+        if self._warm_pool is None or idle_seconds is None:
+            return False
+        if self._runtime_lease is None:
+            self._runtime_lease = RuntimeLease(self._warm_pool, idle_seconds)
+        return await self._warm_leased(self._warm_pool, self._runtime_lease)
+
+    async def release_runtime(self) -> None:
+        """End this task's runtime lease now, destroying its bound idle VM
+        (see ``AgentExecutionManager.release``). A no-op without a lease."""
+        if self._execution_manager is not None:
+            await self._execution_manager.release(self)
+            return
+        lease, self._runtime_lease = self._runtime_lease, None
+        if lease is not None:
+            async with lease.turn_lock:
+                await lease.release()
+
+    async def _warm_leased(self, pool: WarmPool, lease: RuntimeLease) -> bool:
+        """The warm itself: the pre-turn half of the leased run path.
+
+        A bound, healthy VM is kept and re-bound (restarting its idle clock);
+        otherwise a VM is acquired, the agent installed and configured on it,
+        and the lease bound with the setup fingerprint the next run compares
+        against. Workspace mounts, hooks and sign-in still happen per turn.
+        """
+        workspace_paths = [mount.agent_path for mount in self._all_mounts()]
+        # The turn lock keeps this warm and a run on the same task from
+        # overlapping (see RuntimeLease.turn_lock); a warm that lands during
+        # a turn waits for it, then re-binds the turn's VM.
+        async with lease.turn_lock:
+            held = await lease.checkout_healthy(workspace_paths)
+            if held is not None:
+                await asyncio.shield(lease.bind(held, workspace_paths, fingerprint=lease.last_fingerprint))
+                return True
+            pooled = await pool.acquire()
+            try:
+                await self._install_and_configure(
+                    pooled.runtime_info, self._agent_context(self._display_name), skip_vm_setup=False
+                )
+            except BaseException:
+                # Never leave the VM checked out: a failed or cancelled warm destroys it.
+                with contextlib.suppress(Exception):
+                    await asyncio.shield(pool.release(pooled, workspace_paths=workspace_paths, destroy=True))
+                raise
+            await asyncio.shield(lease.bind(pooled, workspace_paths, fingerprint=self._setup_fingerprint()))
+            return True
+
+    def _agent_context(self, display_name: str | None) -> AgentContext:
+        return AgentContext(
+            image=self._agent.image,
+            package=self._agent.package,
+            agent_name=self._agent.agent_name,
+            config=self._agent.config,
+            instruction="",
+            display_name=display_name,
+            ssh_probe_timeout=self._agent.ssh_probe_timeout,
+            ssh_probe_retries=self._agent.ssh_probe_retries,
+            runtime=self._agent.runtime.model_dump(),
+            agent_code_path=self._agent_code_path,
+        )
+
     async def _run_with_warm_pool(self, instruction: str, display_name: str | None = None) -> str:
         from plato.agents.warmpool import RuntimeLease
 
         assert self._warm_pool is not None
-        mounts = [mount.clone_for_run() for mount in self._all_mounts()]
-
         idle_seconds = self._agent.runtime_idle_release_seconds
         lease: RuntimeLease | None = None
-        pooled_runtime = None
         if idle_seconds is not None:
             if self._runtime_lease is None:
                 self._runtime_lease = RuntimeLease(self._warm_pool, idle_seconds)
             lease = self._runtime_lease
-            pooled_runtime = await lease.checkout()
-            if pooled_runtime is not None:
-                # A cancellation between checkout and the run's own handlers
-                # would orphan the VM — destroy it on the way out.
-                try:
-                    leased_healthy = await self._warm_pool.health_check(pooled_runtime)
-                except BaseException:
-                    with contextlib.suppress(Exception):
-                        await asyncio.shield(
-                            self._warm_pool.release(
-                                pooled_runtime,
-                                workspace_paths=[mount.agent_path for mount in mounts],
-                                destroy=True,
-                            )
-                        )
-                    raise
-                if not leased_healthy:
-                    await asyncio.shield(
-                        self._warm_pool.release(
-                            pooled_runtime,
-                            workspace_paths=[mount.agent_path for mount in mounts],
-                            destroy=True,
-                        )
-                    )
-                    pooled_runtime = None
+        # Serialized against warm()/release_runtime() on this task — see
+        # RuntimeLease.turn_lock.
+        async with lease.turn_lock if lease is not None else contextlib.nullcontext():
+            return await self._run_with_warm_pool_leased(instruction, display_name, lease)
+
+    async def _run_with_warm_pool_leased(
+        self, instruction: str, display_name: str | None, lease: RuntimeLease | None
+    ) -> str:
+        assert self._warm_pool is not None
+        mounts = [mount.clone_for_run() for mount in self._all_mounts()]
+        pooled_runtime = None
+        if lease is not None:
+            pooled_runtime = await lease.checkout_healthy([mount.agent_path for mount in mounts])
         skip_vm_setup = (
             pooled_runtime is not None and lease is not None and lease.last_fingerprint == self._setup_fingerprint()
         )
@@ -568,7 +626,13 @@ class AgentTask:
                     mounts=mounts,
                 )
             except RuntimeError as exc:
-                if "Permission denied (publickey)" in str(exc) and attempt < _retries:
+                # An AgentExitError quotes the agent's own output, which can
+                # contain the SSH phrase without the VM's auth being at fault.
+                if (
+                    not isinstance(exc, vm_setup.AgentExitError)
+                    and "Permission denied (publickey)" in str(exc)
+                    and attempt < _retries
+                ):
                     logger.warning(
                         "SSH auth failed on %s (attempt %d/%d), retrying with fresh VM",
                         info.runtime_id,
@@ -639,17 +703,7 @@ class AgentTask:
         final_error: Exception | None = None
 
         try:
-            agent_ctx = AgentContext(
-                image=self._agent.image,
-                package=self._agent.package,
-                config=self._agent.config,
-                instruction="",
-                display_name=current_display_name,
-                ssh_probe_timeout=self._agent.ssh_probe_timeout,
-                ssh_probe_retries=self._agent.ssh_probe_retries,
-                runtime=runtime_dict,
-                agent_code_path=self._agent_code_path,
-            )
+            agent_ctx = self._agent_context(current_display_name)
             await self._install_and_configure(info, agent_ctx, skip_vm_setup=skip_vm_setup)
 
             # Resolve runner path (needs agent code installed)
@@ -728,6 +782,7 @@ class AgentTask:
                     exec_ctx = AgentContext(
                         image=self._agent.image,
                         package=self._agent.package,
+                        agent_name=self._agent.agent_name,
                         config=agent_config,
                         instruction=current_instruction,
                         display_name=current_display_name,

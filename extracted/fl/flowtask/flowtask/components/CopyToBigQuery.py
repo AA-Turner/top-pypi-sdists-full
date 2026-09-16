@@ -14,7 +14,6 @@ from ..interfaces.copy_to import CopyTo
 from ..interfaces.dataframes import PandasDataframe
 from ..exceptions import (
     ComponentError,
-    DataNotFound
 )
 from querysource.conf import (
     BIGQUERY_CREDENTIALS,
@@ -305,7 +304,7 @@ class CopyToBigQuery(CopyTo, PandasDataframe):
 
     async def _truncate_table(self):
         """Truncate the BigQuery table using the driver's built-in method."""
-        async with await self._connection.connection() as conn:
+        async with await self._connection.connection():
             await self._connection.truncate_table(
                 table_id=self.tablename,
                 dataset_id=self.schema
@@ -421,7 +420,7 @@ class CopyToBigQuery(CopyTo, PandasDataframe):
                 table_ref,
                 job_config=job_config
             )
-            result = load_job.result()  # Wait for completion
+            load_job.result()  # Wait for completion
             self._logger.info(f'CopyTo: Loaded {len(records)} rows into {table_ref}')
 
     async def _copy_with_json_loader(self, json_columns, column_types):
@@ -656,9 +655,27 @@ class CopyToBigQuery(CopyTo, PandasDataframe):
                 if pd.api.types.is_datetime64_any_dtype(converted_df[col]):
                     converted_df[col] = pd.to_datetime(converted_df[col]).dt.date
                     self._logger.debug(f'CopyTo: Converted {col} to DATE (BigQuery schema type)')
-                elif pd.api.types.is_integer_dtype(converted_df[col]):
-                    # Unix timestamp to date
-                    converted_df[col] = pd.to_datetime(converted_df[col], unit='s').dt.date
+                elif pd.api.types.is_numeric_dtype(converted_df[col]):
+                    # Numeric DATE values represent Unix timestamps. This also
+                    # converts an all-null float column to Python None values
+                    # instead of passing float64/NaN to PyArrow as DATE.
+                    dates = pd.to_datetime(
+                        converted_df[col], unit="s", errors="coerce"
+                    ).dt.date
+                    converted_df[col] = dates.astype(object).where(
+                        dates.notna(), None
+                    )
+                    self._logger.debug(
+                        f"CopyTo: Converted {col} to DATE (from numeric values)"
+                    )
+                elif not pd.api.types.is_object_dtype(converted_df[col]):
+                    dates = pd.to_datetime(converted_df[col], errors="coerce").dt.date
+                    converted_df[col] = dates.astype(object).where(
+                        dates.notna(), None
+                    )
+                    self._logger.debug(
+                        f"CopyTo: Converted {col} to DATE (BigQuery schema type)"
+                    )
 
             # Handle DATETIME type
             elif bq_type == "DATETIME":

@@ -25,6 +25,7 @@ from .resolver_registry import (
 from .ruby_resolution import resolve_ruby_member_calls
 from .csharp_dispatch import resolve_csharp_interface_dispatch
 from .pascal_resolution import resolve_pascal_inherited_calls
+from .markdown_resolution import MARKDOWN_MENTION_SUFFIXES, resolve_markdown_mentions
 
 # --- migrated to graphify/extractors/ (see graphify/extractors/MIGRATION.md) ---
 from graphify.extractors.base import (  # noqa: F401
@@ -57,7 +58,7 @@ from graphify.extractors.robot import extract_robot  # noqa: F401
 from graphify.extractors.rust import extract_rust  # noqa: F401
 from graphify.extractors.sln import extract_sln  # noqa: F401
 from graphify.extractors.sql import extract_sql  # noqa: F401
-from graphify.extractors.terraform import extract_terraform  # noqa: F401
+from graphify.extractors.terraform import extract_terraform, prepare_terraform, resolve_terraform_modules  # noqa: F401
 from graphify.extractors.verilog import extract_verilog  # noqa: F401
 from graphify.extractors.zig import extract_zig  # noqa: F401
 from graphify.security import sanitize_metadata
@@ -4729,6 +4730,9 @@ _KOTLIN_IMPORT_TARGET_RESOLVER = LanguageResolver(
 # by adding one register() call below — no edits to extract()'s body. Order
 # preserved from the prior inlined wiring: Swift (#1356) before Python (#1446).
 register_language_resolver(
+    LanguageResolver("terraform_modules", frozenset({".tf"}), resolve_terraform_modules)
+)
+register_language_resolver(
     LanguageResolver("swift_member_calls", frozenset({".swift"}), _resolve_swift_member_calls)
 )
 register_language_resolver(
@@ -4804,6 +4808,15 @@ register_language_resolver(
 register_language_resolver(
     LanguageResolver(
         "csharp_interface_dispatch", frozenset({".cs"}), resolve_csharp_interface_dispatch
+    )
+)
+# Markdown code-span mentions (`Widget`, `mod.py::Widget::render`) become
+# heading --references--> symbol edges once every file is extracted and ids are
+# final. Lives in graphify.markdown_resolution; the shared call pass above skips
+# these raw_calls so a mention is never mistaken for a call.
+register_language_resolver(
+    LanguageResolver(
+        "markdown_mentions", MARKDOWN_MENTION_SUFFIXES, resolve_markdown_mentions
     )
 )
 
@@ -6375,11 +6388,10 @@ def extract(
             unchanged callee. They are never parsed, mutated, or returned;
             raw_calls come only from `paths`, so only edges sourced by the
             re-extracted files are emitted.
-        resolution_context_edges: the `contains`/`method` edges of the same
-            unchanged corpus (#2437). The member-call resolvers walk these to
-            map a receiver type to the single class owning the called method;
-            without them an unchanged callee's class never passes the
-            single-definition guard. Read-only, same contract as
+        resolution_context_edges: structural resolver edges from the same
+            unchanged corpus (#2437). These map receiver types to their methods
+            and preserve inheritance evidence for language-specific resolvers.
+            Read-only, same contract as
             resolution_context_nodes: they widen the resolvers' view but only
             fresh results are appended to the returned nodes/edges.
     """
@@ -6648,6 +6660,10 @@ def extract(
             f"may be partially extracted: {_shown}{_more}",
             file=sys.stderr, flush=True,
         )
+
+    for path, result in zip(paths, per_file):
+        if path.suffix in (".tf", ".tfvars", ".hcl"):
+            prepare_terraform(result, path, root)
 
     all_nodes: list[dict] = []
     all_edges: list[dict] = []
@@ -7375,6 +7391,12 @@ def extract(
         # in the corpus — exactly what #2141 must not do.
         if rc.get("language") == "bash":
             continue
+        # A Markdown code span names a symbol, it does not call one. The
+        # markdown_mentions resolver turns it into a `references` edge with the
+        # cited file as evidence; a global name match here would mint a `calls`
+        # edge from a heading to whatever shares the name.
+        if rc.get("language") == "markdown":
+            continue
         # A Go predeclared function is never a cross-file call: the extractor
         # already drops bare `append(s, x)` (extractors/go.py), so this is the
         # backstop for Go raw_calls minted on any other path. Language-gated
@@ -7484,6 +7506,12 @@ def extract(
                     if tgt is None:
                         continue
                     has_import_evidence = False
+        # A source-less candidate is an unresolved external stub, not a
+        # project-defined callable. It can remain a target of type/reference
+        # edges, but a name-only call must not turn it into a cross-file calls
+        # hub (#3156). Source-backed project definitions continue normally.
+        if not nid_to_source_file.get(tgt):
+            continue
         if rc.get("indirect"):
             # Cross-file indirect dispatch: a callback passed BY NAME
             # (`from .h import fn; pool.submit(fn)`, or listed in a dispatch

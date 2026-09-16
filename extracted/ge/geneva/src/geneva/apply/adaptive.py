@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import logging
+import math
 from collections import deque
 from typing import TYPE_CHECKING, Any
 
@@ -15,6 +17,12 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
+_LOG = logging.getLogger(__name__)
+
+
+_FLOOR_PROBE_INTERVAL = 16
+
+
 @attrs.define
 class AdaptiveCheckpointSizer:
     """Track and adjust checkpoint batch size based on observed durations."""
@@ -24,6 +32,11 @@ class AdaptiveCheckpointSizer:
     target_seconds: float = attrs.field(default=10.0)
     initial_size: int | None = attrs.field(default=None)
     _current_size: int = attrs.field(init=False, repr=False)
+    _floor_probe_ceiling: int = attrs.field(init=False, repr=False)
+    _consecutive_floor_measurements: int = attrs.field(
+        default=0, init=False, repr=False
+    )
+    _next_floor_probe_size: int = attrs.field(init=False, repr=False)
 
     def __attrs_post_init__(self) -> None:
         max_size = int(self.max_size)
@@ -40,6 +53,8 @@ class AdaptiveCheckpointSizer:
         elif initial > max_size:
             initial = max_size
         self._current_size = initial
+        self._floor_probe_ceiling = min(max_size, max(initial, min_size + 1))
+        self._next_floor_probe_size = min(self._floor_probe_ceiling, min_size + 1)
 
     @property
     def current_size(self) -> int:
@@ -53,16 +68,59 @@ class AdaptiveCheckpointSizer:
         smoothing by recording the last N durations and rows)
         without changing the calling contract.
         """
-        if duration_seconds <= 0 or rows <= 0:
+        if not math.isfinite(duration_seconds) or duration_seconds <= 0 or rows <= 0:
             return
 
         desired = int(round((rows / duration_seconds) * self.target_seconds))
         if desired < self.min_size:
+            clamped_by = "min"
             desired = self.min_size
         elif desired > self.max_size:
+            clamped_by = "max"
             desired = self.max_size
+        else:
+            clamped_by = "none"
+
+        reason = "measurement"
+        if desired == self.min_size:
+            self._consecutive_floor_measurements += 1
+            can_probe = (
+                self.min_size < self.max_size
+                and self._next_floor_probe_size > self.min_size
+            )
+            if (
+                can_probe
+                and self._consecutive_floor_measurements >= _FLOOR_PROBE_INTERVAL
+            ):
+                desired = min(self._next_floor_probe_size, self._floor_probe_ceiling)
+                self._next_floor_probe_size = min(
+                    self._floor_probe_ceiling,
+                    desired + 1,
+                )
+                self._consecutive_floor_measurements = 0
+                reason = "floor_probe"
+        else:
+            self._consecutive_floor_measurements = 0
+            self._next_floor_probe_size = min(
+                self._floor_probe_ceiling, self.min_size + 1
+            )
+
+        old_size = self._current_size
+        if desired == old_size:
+            return
 
         self._current_size = desired
+        _LOG.info(
+            "Adaptive checkpoint size transition: rows=%s "
+            "duration_seconds=%s old_size=%s new_size=%s "
+            "clamped_by=%s reason=%s",
+            rows,
+            duration_seconds,
+            old_size,
+            desired,
+            clamped_by,
+            reason,
+        )
 
 
 @attrs.define

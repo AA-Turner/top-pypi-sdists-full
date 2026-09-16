@@ -377,6 +377,30 @@ extra/test_structural_key.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_key.cc.s
 .PHONY : extra/test_structural_key.cc.s
 
+extra/test_structural_mutate.o: extra/test_structural_mutate.cc.o
+.PHONY : extra/test_structural_mutate.o
+
+# target to build an object file
+extra/test_structural_mutate.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_mutate.cc.o
+.PHONY : extra/test_structural_mutate.cc.o
+
+extra/test_structural_mutate.i: extra/test_structural_mutate.cc.i
+.PHONY : extra/test_structural_mutate.i
+
+# target to preprocess a source file
+extra/test_structural_mutate.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_mutate.cc.i
+.PHONY : extra/test_structural_mutate.cc.i
+
+extra/test_structural_mutate.s: extra/test_structural_mutate.cc.s
+.PHONY : extra/test_structural_mutate.s
+
+# target to generate assembly for a file
+extra/test_structural_mutate.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_mutate.cc.s
+.PHONY : extra/test_structural_mutate.cc.s
+
 extra/test_structural_visit.o: extra/test_structural_visit.cc.o
 .PHONY : extra/test_structural_visit.o
 
@@ -1087,6 +1111,9 @@ help:
 	@echo "... extra/test_structural_key.o"
 	@echo "... extra/test_structural_key.i"
 	@echo "... extra/test_structural_key.s"
+	@echo "... extra/test_structural_mutate.o"
+	@echo "... extra/test_structural_mutate.i"
+	@echo "... extra/test_structural_mutate.s"
 	@echo "... extra/test_structural_visit.o"
 	@echo "... extra/test_structural_visit.i"
 	@echo "... extra/test_structural_visit.s"

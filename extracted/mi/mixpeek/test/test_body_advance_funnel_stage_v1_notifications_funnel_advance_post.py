@@ -36,7 +36,8 @@ class TestBodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost(unittest.TestCa
         model = BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost()
         if include_optional:
             return BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost(
-                stage = ''
+                stage = '',
+                source = ''
             )
         else:
             return BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost(

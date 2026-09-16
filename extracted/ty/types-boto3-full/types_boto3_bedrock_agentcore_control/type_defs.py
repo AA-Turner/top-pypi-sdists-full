@@ -6545,6 +6545,7 @@ class GetAgentRuntimeResponseTypeDef(TypedDict):
     metadataConfiguration: RuntimeMetadataConfigurationTypeDef
     filesystemConfigurations: list[FilesystemConfigurationTypeDef]
     capacityProviderConfiguration: CapacityProviderConfigurationTypeDef
+    platformVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -7177,6 +7178,7 @@ class CreateAgentRuntimeRequestTypeDef(TypedDict):
     filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
     capacityProviderConfiguration: NotRequired[CapacityProviderConfigurationTypeDef]
     tags: NotRequired[Mapping[str, str]]
+    platformVersion: NotRequired[str]
 
 
 class CreateGatewayRequestTypeDef(TypedDict):
@@ -7229,6 +7231,7 @@ class UpdateAgentRuntimeRequestTypeDef(TypedDict):
     environmentVariables: NotRequired[Mapping[str, str]]
     filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
     capacityProviderConfiguration: NotRequired[CapacityProviderConfigurationTypeDef]
+    platformVersion: NotRequired[str]
     clientToken: NotRequired[str]
 
 

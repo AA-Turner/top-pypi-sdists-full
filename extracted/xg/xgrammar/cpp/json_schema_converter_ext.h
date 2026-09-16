@@ -19,6 +19,51 @@
 namespace xgrammar {
 
 /*!
+ * \brief Converter for MiniMax M3's recursive namespace-prefixed XML format.
+ *
+ * This initial implementation supports schemas whose object property names are
+ * known when the grammar is built. Schemas requiring runtime element names are
+ * rejected explicitly.
+ */
+class MiniMaxM3XMLToolCallingConverter : public JSONSchemaConverter {
+ public:
+  MiniMaxM3XMLToolCallingConverter(
+      std::optional<int> indent,
+      std::optional<std::pair<std::string, std::string>> separators,
+      bool any_whitespace,
+      std::optional<int> max_whitespace_cnt,
+      RefResolver ref_resolver = nullptr,
+      bool any_order = false
+  );
+
+ protected:
+  int32_t GenerateString(const StringSpec& spec, const std::string& rule_name) override;
+  int32_t GenerateArray(const ArraySpec& spec, const std::string& rule_name) override;
+  int32_t GenerateObject(
+      const ObjectSpec& spec, const std::string& rule_name, bool dummy_need_braces = false
+  ) override;
+  int32_t GenerateAny(const AnySpec& spec, const std::string& rule_name) override;
+  int32_t GenerateConst(const ConstSpec& spec, const std::string& rule_name) override;
+  int32_t GenerateEnum(const EnumSpec& spec, const std::string& rule_name) override;
+
+  int32_t FormatProperty(
+      const std::string& key,
+      int32_t value_rule_id,
+      const std::string& rule_name,
+      int64_t idx,
+      const SchemaSpecPtr& schema
+  ) override;
+  std::string NextSeparator(bool is_end = false) override;
+  void AddBasicRules() override;
+
+ private:
+  int32_t FormatElement(const std::string& name, int32_t value_rule_id);
+  int32_t GenerateLiteral(const picojson::value& value);
+  void ValidateObject(const ObjectSpec& spec) const;
+  static void ValidateElementName(const std::string& name);
+};
+
+/*!
  * \brief Converter for XML Tool Calling format (e.g., Qwen style).
  *
  * This converter generates a grammar where:
@@ -121,6 +166,17 @@ class XMLToolCallingConverter : public JSONSchemaConverter {
    */
   int32_t XMLKeySuffix(const std::optional<std::string>& pinned_type = std::nullopt);
 
+  /*!
+   * \brief Build a deepseek_v4_1_xml parameter's string attribute, value and closing tag.
+   * string="true" wraps raw strings, string="false" wraps JSON values. Unions and mixed enums
+   * produce one alternative per option; KimiK3TypeAttr supplies the type classification.
+   */
+  int32_t FormatDeepSeekV41ParamSuffix(const SchemaSpecPtr& schema, int32_t value_rule_id);
+
+  // Parameter suffix rules are independent of the key, so references can be shared across
+  // named and dynamic parameters. Allocate them before resolving refs to handle cycles.
+  std::unordered_map<std::string, int32_t> deepseek_v41_param_ref_rules_;
+
   JSONFormat json_format_;
   // Track if we're at the root object level
   int nested_object_level_ = 0;
@@ -176,26 +232,41 @@ class CohereXMLToolCallingConverter : public XMLToolCallingConverter {
   ) override;
   std::string NextSeparator(bool is_end = false) override;
 
+  void AddBasicRules() override;
   void AddCache(const std::string& key, int32_t rule_id) override;
   std::optional<int32_t> GetCache(const std::string& key) const override;
 
  private:
-  struct XMLIdentifierTrieNode {
+  struct CohereKeyTrieNode {
     bool is_terminal = false;
-    std::map<char, XMLIdentifierTrieNode> children;
+    std::map<int32_t, CohereKeyTrieNode> children;
   };
 
+  static const std::string kCohereKey;
+  static const std::string kCohereAnyScalar;
+  static const std::string kCohereAnyList;
+
+  /*! \brief `<cofl:value` plus the optional ` name="..."` attribute of one parameter. */
+  int32_t CohereParamPrefix(
+      const std::optional<std::string>& name, const std::optional<int32_t>& key_pattern_expr
+  );
+  /*!
+   * \brief The type attribute, value and closing tag of one parameter, correlated with
+   * \p schema. The suffix does not depend on the parameter name, so `$ref` schemas get one
+   * memoized rule per URI that is registered before the reference is resolved; recursive
+   * references (directly, or through nested dict/list items) then point back at that rule.
+   */
+  int32_t FormatCohereParamSuffix(const SchemaSpecPtr& schema, int32_t value_rule_id);
+  int32_t FormatCohereSuffixWithType(int32_t type_expression, int32_t value_rule_id);
+  int32_t FormatAnyCohereSuffix();
   int32_t FormatCohereParam(
       const std::optional<std::string>& name,
       const std::optional<int32_t>& key_pattern_expr,
       const SchemaSpecPtr& schema,
       int32_t value_rule_id
   );
-  int32_t FormatSingleCohereParam(
-      const std::optional<std::string>& name,
-      const std::optional<int32_t>& key_pattern_expr,
-      const SchemaSpecPtr& schema,
-      int32_t value_rule_id
+  int32_t FormatAnyCohereParam(
+      const std::optional<std::string>& name, const std::optional<int32_t>& key_pattern_expr
   );
   int32_t FormatCohereValue(int32_t value_rule_id);
   int32_t GetCohereTypePattern(const SchemaSpecPtr& schema);
@@ -205,13 +276,14 @@ class CohereXMLToolCallingConverter : public XMLToolCallingConverter {
   );
   std::optional<std::vector<SchemaSpecPtr>> GetCohereCompositeOptions(const SchemaSpecPtr& schema
   ) const;
-  int32_t BuildXMLIdentifierExcludingBody(
-      const XMLIdentifierTrieNode& node, const std::string& rule_name, int depth
-  );
+  int32_t BuildCohereKeyExcludingBody(const CohereKeyTrieNode& node, int depth);
+  bool AtCohereRoot() const;
   bool InCohereValueContext() const;
 
   std::vector<const ObjectSpec*> object_stack_;
   std::vector<SchemaSpecPtr> additional_property_stack_;
+  // Parameter suffix rules keyed by `$ref` URI; see FormatCohereParamSuffix.
+  std::unordered_map<std::string, int32_t> cohere_param_ref_rules_;
   int cohere_array_level_ = 0;
 };
 

@@ -32,7 +32,13 @@ _: TypeGetText
 instanceSequence: dict[str, int] = {"schemaRef": 1, "linkbaseRef": 2, "roleRef": 3, "arcroleRef": 4}
 schemaTop: set[str] = {"import", "include", "redefine"}
 schemaBottom: set[str] = {"element", "attribute", "notation", "simpleType", "complexType", "group", "attributeGroup"}
-xsd1_1datatypes: set[QName] = {qname(XbrlConst.xsd, "anyAtomicType"), qname(XbrlConst.xsd, "yearMonthDuration"), qname(XbrlConst.xsd, "dayTimeDuration"), qname(XbrlConst.xsd, "dateTimeStamp"), qname(XbrlConst.xsd, "precisionDecimal")}
+xsd1_1datatypes: set[QName] = {
+    QName.fromParts("anyAtomicType", XbrlConst.xsd),
+    QName.fromParts("yearMonthDuration", XbrlConst.xsd),
+    QName.fromParts("dayTimeDuration", XbrlConst.xsd),
+    QName.fromParts("dateTimeStamp", XbrlConst.xsd),
+    QName.fromParts("precisionDecimal", XbrlConst.xsd),
+}
 link_loc_spec_sections: dict[str, str] = {"labelLink": "5.2.2.1",
                                           "referenceLink": "5.2.3.1",
                                           "calculationLink": "5.2.5.1",
@@ -140,6 +146,7 @@ def checkDTS(val: ValidateXbrl, modelDocument: ModelDocument, checkedModelDocume
             val.validateIXDS = True
             val.ixdsDocs = []
             val.ixdsFootnotes = {}
+            val.ixdsFootnotesById = {}
             val.ixdsHeaderCount = 0
             val.ixdsTuples = {}
             val.ixdsReferences = defaultdict(list)
@@ -695,7 +702,7 @@ def checkElements(val: ValidateXbrl, modelDocument: ModelDocument, parent: _Elem
                                     _("%(element)s %(roleURI)s usedOn %(value)s on has s-equal duplicate"),
                                     modelObject=elt, element=elt.qname, roleURI=roleURI, value=qName,
                                     messageCodes=("xbrl.5.1.3:roleTypes-inequality", "xbrl.5.1.4:arcroleTypes-inequality"))
-                            if val.validateSBRNL:
+                            if val.validateSBRNL and qName is not None:
                                 val.valUsedPrefixes.add(qName.prefix)  # type: ignore[arg-type]
                                 if qName == XbrlConst.qnLinkCalculationLink:
                                     val.modelXbrl.error("SBR.NL.2.2.3.01",
@@ -966,6 +973,9 @@ def checkElements(val: ValidateXbrl, modelDocument: ModelDocument, parent: _Elem
                                 _("Inline XBRL footnote %(footnoteID)s is missing an xml:lang attribute"),
                                 modelObject=elt, footnoteID=id)
                     if elt.namespaceURI == XbrlConst.ixbrl:
+                        if elt.footnoteID not in val.ixdsFootnotesById:
+                            val.ixdsFootnotesById[elt.footnoteID] = []
+                        val.ixdsFootnotesById[elt.footnoteID].append(elt)
                         val.ixdsFootnotes[elt.footnoteID] = elt
                     else:
                         checkIxContinuationChain(val, elt)

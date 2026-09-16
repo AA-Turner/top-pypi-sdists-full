@@ -195,9 +195,28 @@ def test_remote_zarr_disk_carrier_reopens_warm(tmp_path, zarr):
     np.testing.assert_array_equal(reopened[:3, :4], data[:3, :4])
 
 
-def test_zarr_requires_lazy_open():
-    with pytest.raises(NotImplementedError, match="lazy=True"):
-        blosc2.open("memory://zarr-tests/not-opened.zarr", source_format="zarr")
+@pytest.mark.parametrize("zarr_format", [2, 3])
+@pytest.mark.parametrize(
+    ("path", "options"),
+    [("inferred.zarr", {}), ("hierarchy.zarr/d0/a2", {}), ("suffix-free", {"source_format": "zarr"})],
+)
+def test_zarr_infers_lazy_open(zarr, zarr_format, path, options):
+    url = f"memory://zarr-tests/inferred-{zarr_format}/{path}"
+    data = np.arange(35, dtype=np.int32).reshape(5, 7)
+    zarr.create_array(url, data=data, chunks=(3, 4), zarr_format=zarr_format)
+
+    proxy = blosc2.open(url, **options)
+    assert isinstance(proxy, blosc2.RemoteArray)
+    assert proxy.source["kind"] == "zarr"
+    assert "RemoteArray" in repr(proxy.info)
+    np.testing.assert_array_equal(proxy[1:5, 2:6], data[1:5, 2:6])
+
+
+def test_zarr_rejects_explicit_eager_open(zarr):
+    url = "memory://zarr-tests/explicit-eager.zarr"
+    zarr.create_array(url, shape=(3,), chunks=(3,), dtype="i4")
+    with pytest.raises(NotImplementedError, match="requires lazy=True"):
+        blosc2.open(url, lazy=False)
 
 
 def test_zarr_rejects_mutable_source_mode():
@@ -353,3 +372,49 @@ def test_open_remote_zarr_with_query_and_fragment(monkeypatch):
         proxy._source["urlpath"]
         == "https://example.org/data.zarr/group/arr?token=secret_123&expire=999#myfragment"
     )
+
+
+@pytest.mark.parametrize("zarr_format", [2, 3])
+@pytest.mark.parametrize("reopen", ["url", "carrier", "cframe"])
+def test_remote_zarr_bootstrap_reopens_without_metadata_reads(
+    tmp_path, monkeypatch, zarr, zarr_format, reopen
+):
+    root_url = f"memory://zarr-tests/bootstrap-{reopen}-{zarr_format}.zarr"
+    data = np.arange(35, dtype=np.int32).reshape(5, 7)
+    array = zarr.create_array(
+        f"{root_url}/d0/a",
+        data=data,
+        chunks=(3, 4),
+        zarr_format=zarr_format,
+        attributes={"greeting": "hello"},
+    )
+    first = blosc2.open(root_url, dataset="/d0/a", lazy=True, cache_dir=tmp_path)
+    np.testing.assert_array_equal(first[:3, :4], data[:3, :4])
+    metadata = first._carrier.schunk.vlmeta["zarr-metadata"]
+    assert metadata
+    assert all(value is None or isinstance(value, bytes) for value in metadata.values())
+
+    reads = []
+    original = zarr.storage.FsspecStore.get
+
+    async def counted(self, key, prototype, byte_range=None):
+        assert key not in metadata, "warm reopen must not fetch Zarr metadata"
+        reads.append(key)
+        return await original(self, key, prototype, byte_range)
+
+    monkeypatch.setattr(zarr.storage.FsspecStore, "get", counted)
+    if reopen == "url":
+        second = blosc2.open(root_url, dataset="/d0/a", lazy=True, cache_dir=tmp_path)
+        assert second._cache_status == "reused"
+    elif reopen == "carrier":
+        second = blosc2.open(first.cache_path)
+    else:
+        second = blosc2.from_cframe(first.to_cframe())
+    assert not reads
+    assert dict(second.vlmeta) == dict(array.attrs)
+    np.testing.assert_array_equal(second[:3, :4], data[:3, :4])
+    assert not reads
+    assert second.traffic.requests == 0
+    np.testing.assert_array_equal(second[:], data)
+    assert reads
+    assert second.traffic.nbytes > 0

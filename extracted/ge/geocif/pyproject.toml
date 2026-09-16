@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.1025"
+version = "0.4.1029"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -133,6 +133,15 @@ aquacrop_calibration = [
 ]
 spatial = [
     "pysal>=2.6",            # full pysal meta-package (esda + libpysal already in core)
+]
+causilo = [
+    # model = 'causilo' (geocif/ml/trainers.py). Deliberately NOT a core dep:
+    # the CODE is Apache-2.0 but the WEIGHTS ship under the Causilo License
+    # v1.0, which allows non-commercial research only -- commercial or
+    # production use, and hosted/API/SaaS services paid or free, require a
+    # separate license from Nums AI Inc. Installing it must stay an explicit,
+    # informed choice. Needs Python 3.10-3.12 and torch >= 2.13.
+    "causilo>=1.0.1",
 ]
 gee = [
     "earthengine-api>=1.0",  # geocif/playground/gee_access.py and wolayita_*.py

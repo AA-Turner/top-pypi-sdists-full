@@ -10,6 +10,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from agentic_devtools.cli.ci.models import CopilotSessionSummary
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,6 +46,8 @@ class GitHubResolutionContext:
     head_commit_oid: str
     swe_session_started_after_review: bool = False
     swe_agent_commented_on_pr: bool = False
+    post_review_copilot_comments: tuple[GitHubThreadComment, ...] = ()
+    post_review_session_summaries: tuple[CopilotSessionSummary, ...] = ()
 
 
 class GitHubThreadAdapter:

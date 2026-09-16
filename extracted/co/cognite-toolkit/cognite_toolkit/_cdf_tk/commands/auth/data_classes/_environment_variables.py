@@ -1,0 +1,425 @@
+import os
+from dataclasses import Field, dataclass, field, fields
+from typing import Any
+
+from cognite.client.credentials import (
+    CredentialProvider,
+    OAuthClientCredentials,
+    OAuthDeviceCode,
+    OAuthInteractive,
+    Token,
+)
+from rich.console import Console
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.constants import TOOLKIT_CLIENT_ENTRA_ID
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyError, ToolkitMissingValueError
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+
+from ._constants import CLIENT_NAME, PROVIDERS, parse_login_flow
+from ._env_options import ALL_CASES, EnvOptions, all_providers
+from ._types import LoginFlow, Provider
+
+
+@dataclass
+class EnvironmentVariables:
+    CDF_CLUSTER: str = field(metadata=EnvOptions("CDF cluster", "westeurope-1"))
+    CDF_PROJECT: str = field(metadata=EnvOptions("CDF project", "publicdata"))
+    PROVIDER: Provider = field(default="entra_id", metadata=EnvOptions("Provider", "entra_id"))
+    LOGIN_FLOW: LoginFlow = field(default="client_credentials", metadata=EnvOptions("Login flow", "client_credentials"))
+    CDF_URL: str | None = field(
+        default=None,
+        metadata=EnvOptions(
+            "CDF URL", default_example="https://{CDF_CLUSTER}.cognitedata.com", optional=frozenset(ALL_CASES)
+        ),
+    )
+    CDF_TOKEN: str | None = field(
+        default=None, metadata=EnvOptions("OAuth2 token", required=frozenset([(None, "token")]))
+    )
+    IDP_CLIENT_ID: str | None = field(
+        default=None,
+        metadata=EnvOptions(
+            display_name="client id",
+            required=frozenset(
+                [(None, "client_credentials"), (None, "interactive"), *all_providers("device_code", exclude="entra_id")]
+            ),
+        ),
+    )
+    IDP_CLIENT_SECRET: str | None = field(
+        default=None,
+        metadata=EnvOptions(
+            display_name="client secret", is_secret=True, required=frozenset({(None, "client_credentials")})
+        ),
+    )
+    IDP_TOKEN_URL: str | None = field(
+        default=None,
+        metadata=EnvOptions(
+            display_name="token URL",
+            example={
+                "entra_id": "https://login.microsoftonline.com/{IDP_TENANT_ID}/oauth2/v2.0/token",
+                "auth0": "https://<my_auth_url>/oauth/token",
+            },
+            required=all_providers(flow="client_credentials", exclude={"entra_id", "cdf"}),
+            optional=frozenset([("entra_id", "client_credentials")]),
+        ),
+    )
+    IDP_TENANT_ID: str | None = field(
+        default=None,
+        metadata=EnvOptions(
+            display_name="Tenant id for Microsoft Entra ID",
+            example={"entra_id": "00000000-0000-0000-0000-000000000000 or mytenant.onmicrosoft.com"},
+            required=frozenset(
+                [("entra_id", "device_code"), ("entra_id", "client_credentials"), ("entra_id", "interactive")]
+            ),
+        ),
+    )
+    IDP_AUDIENCE: str | None = field(
+        default=None,
+        metadata=EnvOptions(
+            display_name="IDP audience",
+            example={
+                "entra_id": "https://{CDF_CLUSTER}.cognitedata.com",
+                "auth0": "https: //{CDF_PROJECT}.fusion.cognite.com/{CDF_PROJECT}",
+                "other": "https://{CDF_CLUSTER}.cognitedata.com",
+            },
+            required=all_providers(flow="client_credentials", exclude={"entra_id", "auth0", "cdf"}),
+            optional=frozenset([("entra_id", "client_credentials"), ("auth0", "client_credentials")]),
+        ),
+    )
+
+    IDP_SCOPES: str | None = field(
+        default=None,
+        metadata=EnvOptions(
+            display_name="IDP scopes",
+            example={
+                "entra_id": "https://{CDF_CLUSTER}.cognitedata.com/.default",
+                "auth0": "IDENTITY,user_impersonation",
+            },
+            optional=frozenset([*all_providers("client_credentials", exclude="cdf"), (None, "interactive")]),
+        ),
+    )
+    IDP_AUTHORITY_URL: str | None = field(
+        default=None,
+        metadata=EnvOptions(
+            display_name="IDP authority URL",
+            example={"entra_id": "https://login.microsoftonline.com/{IDP_TENANT_ID}"},
+            required=all_providers("interactive", exclude="entra_id"),
+            optional=frozenset([("entra_id", "interactive"), ("auth0", "device_code")]),
+        ),
+    )
+    IDP_DISCOVERY_URL: str | None = field(
+        default=None,
+        metadata=EnvOptions(
+            display_name="IDP OIDC discovery URL (root URL excl. /.well-known/...)",
+            default_example="https://<auth0-tenant>.auth0.com/oauth",
+            required=all_providers("device_code", exclude="entra_id"),
+        ),
+    )
+    CDF_CLIENT_TIMEOUT: int = field(
+        default=30,
+        metadata=EnvOptions(display_name="CDF client timeout", default_example="30", optional=frozenset(ALL_CASES)),
+    )
+    CDF_CLIENT_MAX_WORKERS: int = field(
+        default=5,
+        metadata=EnvOptions(display_name="CDF client max workers", default_example="5", optional=frozenset(ALL_CASES)),
+    )
+    _client: ToolkitClient | None = field(init=False, default=None)
+
+    def __post_init__(self) -> None:
+        try:
+            self.LOGIN_FLOW = parse_login_flow(self.LOGIN_FLOW)
+        except ValueError as exc:
+            raise AuthenticationError(str(exc)) from exc
+        if self.PROVIDER not in PROVIDERS:
+            raise AuthenticationError(f"Invalid provider: {self.PROVIDER}. Valid options are {tuple(PROVIDERS)}")
+
+    @classmethod
+    def login_flow_from_environment(cls) -> LoginFlow | None:
+        raw = os.environ.get("LOGIN_FLOW", "").strip()
+        if not raw:
+            return None
+        try:
+            return parse_login_flow(raw)
+        except ValueError:
+            return None
+
+    # All derived properties
+    @property
+    def idp_tenant_id(self) -> str:
+        if self.IDP_TENANT_ID:
+            return self.IDP_TENANT_ID
+        if self.PROVIDER == "entra_id" and self.IDP_TOKEN_URL:
+            return self.IDP_TOKEN_URL.removeprefix("https://login.microsoftonline.com/").removesuffix(
+                "/oauth2/v2.0/token"
+            )
+        raise ToolkitMissingValueError("IDP_TENANT_ID is missing", "IDP_TENANT_ID")
+
+    @property
+    def idp_token_url(self) -> str:
+        if self.PROVIDER == "cdf":
+            return "https://auth.cognite.com/oauth2/token"
+        if self.IDP_TOKEN_URL:
+            return self.IDP_TOKEN_URL
+        if self.PROVIDER == "entra_id" and self.IDP_TENANT_ID:
+            return f"https://login.microsoftonline.com/{self.IDP_TENANT_ID}/oauth2/v2.0/token"
+        alternative = ""
+        if self.PROVIDER == "entra_id":
+            alternative = " or provide IDP_TENANT_ID"
+        raise ToolkitMissingValueError(
+            f"IDP_TOKEN_URL is missing. Please provide it{alternative} in the environment variables.",
+            "IDP_TOKEN_URL",
+        )
+
+    @property
+    def cdf_url(self) -> str:
+        return self.CDF_URL or f"https://{self.CDF_CLUSTER}.cognitedata.com"
+
+    @property
+    def idp_audience(self) -> str:
+        if self.IDP_AUDIENCE:
+            return self.IDP_AUDIENCE
+        if self.PROVIDER == "auth0":
+            return f"https://{self.CDF_PROJECT}.fusion.cognite.com/{self.CDF_PROJECT}"
+        else:
+            return f"https://{self.CDF_CLUSTER}.cognitedata.com"
+
+    @property
+    def idp_scopes(self) -> list[str]:
+        if self.IDP_SCOPES:
+            return self.IDP_SCOPES.split(",")
+        if self.PROVIDER == "auth0":
+            return ["IDENTITY", "user_impersonation"]
+        return [f"https://{self.CDF_CLUSTER}.cognitedata.com/.default"]
+
+    @property
+    def idp_authority_url(self) -> str:
+        if self.IDP_AUTHORITY_URL:
+            return self.IDP_AUTHORITY_URL
+        if self.PROVIDER == "entra_id" and self.idp_tenant_id:
+            return f"https://login.microsoftonline.com/{self.idp_tenant_id}"
+        alternative = ""
+        if self.PROVIDER == "entra_id":
+            alternative = " or provide IDP_TENANT_ID"
+        raise ToolkitMissingValueError(
+            f"IDP_AUTHORITY_URL is missing. Please provide it{alternative} in the environment variables.",
+            "IDP_AUTHORITY_URL",
+        )
+
+    @classmethod
+    def _fields(cls, inst: "EnvironmentVariables | None" = None) -> tuple[Field, ...]:
+        return tuple(f for f in fields(inst or cls) if not f.name.startswith("_"))
+
+    @classmethod
+    def create_from_environment(cls) -> "EnvironmentVariables":
+        if missing := [key for key in ["CDF_CLUSTER", "CDF_PROJECT"] if key not in os.environ]:
+            raise ToolkitMissingValueError(f"Missing environment variables: {humanize_collection(missing)}")
+        args: dict[str, Any] = {
+            field_.name: field_.type(os.environ[field_.name]) if field_.type is int else os.environ[field_.name]
+            for field_ in cls._fields()
+            if field_.name in os.environ
+        }
+        return cls(**args)
+
+    def get_credentials(self) -> CredentialProvider:
+        method_by_flow = {
+            "client_credentials": self._get_oauth_client_credentials,
+            "interactive": self._get_oauth_interactive,
+            "device_code": self._get_oauth_device_code,
+            "token": self._get_token,
+        }
+        if self.LOGIN_FLOW not in method_by_flow:
+            # Should already be checked in __post_init__
+            raise AuthenticationError(f"Login flow {self.LOGIN_FLOW} is not supported.")
+
+        if missing_vars := self.get_missing_vars():
+            raise ToolkitMissingValueError(
+                f"The login flow '{self.LOGIN_FLOW}' requires the following environment variables: {humanize_collection(missing_vars)}.",
+            )
+        return method_by_flow[self.LOGIN_FLOW]()
+
+    def _get_oauth_client_credentials(self) -> OAuthClientCredentials:
+        if self.PROVIDER == "cdf":
+            return OAuthClientCredentials(
+                client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+                client_secret=self.IDP_CLIENT_SECRET,  # type: ignore[arg-type]
+                token_url=self.idp_token_url,
+                scopes=None,
+            )
+        return OAuthClientCredentials(
+            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+            client_secret=self.IDP_CLIENT_SECRET,  # type: ignore[arg-type]
+            token_url=self.idp_token_url,
+            audience=self.idp_audience,
+            scopes=self.idp_scopes,
+        )
+
+    def _get_oauth_interactive(self) -> OAuthInteractive:
+        return OAuthInteractive(
+            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+            authority_url=self.idp_authority_url,
+            scopes=self.idp_scopes,
+        )
+
+    def _get_oauth_device_code(self) -> OAuthDeviceCode:
+        if self.PROVIDER == "entra_id":
+            # TODO: If the user has submitted the wrong scopes, we may get a valid token that gives 401 on the CDF API.
+            # The user will then have to wait until the token has expired to retry with the correct scopes.
+            # If we add clear_cache=True to the OAuthDeviceCode, the token cache will be cleared.
+            # We could add a cli option to auth verify, e.g. --clear-token-cache, that will clear the cache.
+            return OAuthDeviceCode.default_for_azure_ad(
+                tenant_id=self.IDP_TENANT_ID,
+                client_id=TOOLKIT_CLIENT_ENTRA_ID,
+                cdf_cluster=self.CDF_CLUSTER,
+                clear_cache=False,
+            )
+        return OAuthDeviceCode(
+            authority_url=self.IDP_AUTHORITY_URL,
+            cdf_cluster=self.CDF_CLUSTER,
+            oauth_discovery_url=self.IDP_DISCOVERY_URL,
+            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+            audience=self.idp_audience,
+        )
+
+    def _get_token(self) -> Token:
+        if not self.CDF_TOKEN:
+            raise ToolkitKeyError("CDF_TOKEN must be set in the environment", "CDF_TOKEN")
+        return Token(self.CDF_TOKEN)
+
+    def get_config(self, is_strict_validation: bool) -> ToolkitClientConfig:
+        return ToolkitClientConfig(
+            client_name=CLIENT_NAME,
+            project=self.CDF_PROJECT,
+            credentials=self.get_credentials(),
+            base_url=self.cdf_url,
+            is_strict_validation=is_strict_validation,
+            timeout=self.CDF_CLIENT_TIMEOUT,
+        )
+
+    def get_client(self, is_strict_validation: bool | None = None, console: Console | None = None) -> ToolkitClient:
+        """Gets the client.
+
+        The client is a singleton, so if it has already been created, it will be returned. If not, it will be created
+        using the current environment variables.
+
+        Args:
+            is_strict_validation: Whether to use strict validation or not. This will set it on the singleton.
+
+        Returns:
+            ToolkitClient
+        """
+        if self._client is None:
+            self._client = ToolkitClient(config=self.get_config(is_strict_validation or True), console=console)
+        if is_strict_validation is not None:
+            self._client.config.is_strict_validation = is_strict_validation
+        if console is not None:
+            self._client.console = console
+        return self._client
+
+    def dump(self, include_os: bool = True) -> dict[str, str | None]:
+        variables: dict[str, Any] = {}
+        if include_os:
+            variables.update(os.environ)
+        for field_ in self._fields(self):
+            value = self._get_value(field_)
+            if isinstance(value, list):
+                value = ",".join(value)
+            if value is not None:
+                if field_.type is int:
+                    variables[field_.name] = value
+                else:
+                    variables[field_.name] = str(value)
+        return variables
+
+    def as_string(self) -> str:
+        env_lines: list[str] = [f"CDF_URL={self.cdf_url}"]
+        body = "\n".join(env_lines)
+        return f"CDF Project {self.CDF_PROJECT!r} in cluster {self.CDF_CLUSTER!r}:\n{body}"
+
+    def get_missing_vars(self) -> set[str]:
+        provider, flow = self.PROVIDER, self.LOGIN_FLOW
+        missing: set[str] = set()
+        for field_ in self._fields(self):
+            required = field_.metadata["required"]
+            value = getattr(self, field_.name)
+            if value is None and required and ((provider, flow) in required or (None, flow) in required):
+                missing.add(field_.name)
+
+        # Special cases, if IDP_TENANT_ID is missing.
+        if (provider, flow) == ("entra_id", "client_credentials") and "IDP_TENANT_ID" in missing and self.IDP_TOKEN_URL:
+            missing -= {"IDP_TENANT_ID"}
+        if (provider, flow) == ("entra_id", "interactive") and "IDP_TENANT_ID" in missing and self.IDP_AUTHORITY_URL:
+            missing -= {"IDP_TENANT_ID"}
+        return missing
+
+    def get_required_with_value(self, lookup_default: bool = False) -> list[tuple[Field, Any]]:
+        provider, flow = self.PROVIDER, self.LOGIN_FLOW
+        values: list[tuple[Field, Any]] = []
+        for field_ in self._fields(self):
+            required = field_.metadata["required"]
+            if required and ((provider, flow) in required or (None, flow) in required):
+                if field_.name == "IDP_TOKEN_URL" and provider == "entra_id":
+                    continue
+                value = self._get_value(field_, lookup_default)
+                values.append((field_, value))
+        return values
+
+    def _get_value(self, field_: Field, lookup_default: bool = True) -> Any:
+        if lookup_default and (default_name := field_.name.casefold()):
+            try:
+                if hasattr(self, default_name):
+                    return getattr(self, default_name)
+            except ToolkitMissingValueError:
+                ...
+        return getattr(self, field_.name)
+
+    def get_optional_with_value(self) -> list[tuple[Field, Any]]:
+        provider, flow = self.PROVIDER, self.LOGIN_FLOW
+        values: list[tuple[Field, Any]] = []
+        for field_ in self._fields(self):
+            optional = field_.metadata["optional"]
+            if optional and ((provider, flow) in optional or (None, flow) in optional):
+                value = self._get_value(field_)
+                values.append((field_, value))
+        return values
+
+    def create_dotenv_file(self) -> str:
+        if self.LOGIN_FLOW == "session":
+            return (
+                "\n".join(
+                    [
+                        "# .env file generated by cognite-toolkit",
+                        f"CDF_CLUSTER={self.CDF_CLUSTER}",
+                        f"CDF_PROJECT={self.CDF_PROJECT}",
+                        f"PROVIDER={self.PROVIDER}",
+                        f"LOGIN_FLOW={self.LOGIN_FLOW}",
+                    ]
+                )
+                + "\n"
+            )
+
+        lines = [
+            "# .env file generated by cognite-toolkit",
+            f"CDF_CLUSTER={self.CDF_CLUSTER}",
+            f"CDF_PROJECT={self.CDF_PROJECT}",
+        ]
+        if self.LOGIN_FLOW != "token":
+            lines += [
+                f"PROVIDER={self.PROVIDER}",
+            ]
+        lines += [
+            f"LOGIN_FLOW={self.LOGIN_FLOW}",
+        ]
+        lines.append("")
+        lines.append("# Required variables")
+        for field_, value in self.get_required_with_value(lookup_default=True):
+            if value is not None:
+                lines.append(f"{field_.name}={value}")
+        lines.append("")
+        lines.append("# Optional variables (derived from the required variables)")
+        for field_, value in self.get_optional_with_value():
+            if value is None:
+                continue
+            if isinstance(value, list):
+                value = ",".join(value)
+            lines.append(f"{field_.name}={value}")
+        return "\n".join(lines) + "\n"

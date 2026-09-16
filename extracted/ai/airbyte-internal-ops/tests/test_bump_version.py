@@ -85,6 +85,20 @@ from airbyte_ops_mcp.airbyte_repo.bump_version import (
             "2.0.0",
             id="promote_major_rc_to_stable",
         ),
+        pytest.param(
+            "4.0.1",
+            None,
+            "4.0.2-preview.0421797",
+            "4.0.2-preview.0421797",
+            id="explicit_preview_leading_zero_sha",
+        ),
+        pytest.param(
+            "4.0.1",
+            None,
+            "4.0.2-preview.abcdef1",
+            "4.0.2-preview.abcdef1",
+            id="explicit_preview_hex_sha",
+        ),
     ],
 )
 def test_calculate_new_version(
@@ -104,6 +118,18 @@ def test_calculate_new_version(
     [
         pytest.param(
             "1.0.0", "invalid", InvalidVersionError, id="invalid_explicit_version"
+        ),
+        pytest.param(
+            "4.0.1",
+            "4.0.2-preview.042179",
+            InvalidVersionError,
+            id="explicit_preview_bad_sha",
+        ),
+        pytest.param(
+            "4.0.1",
+            "04.0.2-preview.0421797",
+            InvalidVersionError,
+            id="explicit_preview_leading_zero_core",
         ),
         pytest.param(
             "invalid", BumpType.PATCH, InvalidVersionError, id="invalid_current_version"
@@ -505,6 +531,38 @@ def test_bump_connector_version_connector_not_found():
             connector_name="source-nonexistent",
             bump_type="patch",
         )
+
+
+@pytest.mark.unit
+def test_bump_connector_version_preview_changelog_rejected():
+    """Changelog updates are rejected for non-semver preview versions."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        connector_dir = _make_connector(tmpdir, version="4.0.1")
+        original_metadata = (connector_dir / "metadata.yaml").read_text()
+
+        with pytest.raises(InvalidVersionError, match="non-semver pre-release"):
+            bump_connector_version(
+                repo_path=tmpdir,
+                connector_name="source-test",
+                new_version="4.0.2-preview.0421797",
+                changelog_message="Preview build",
+            )
+
+        # metadata.yaml must be unchanged — the error fires before any writes
+        assert (connector_dir / "metadata.yaml").read_text() == original_metadata
+
+        # The same bump succeeds with no_changelog=True
+        result = bump_connector_version(
+            repo_path=tmpdir,
+            connector_name="source-test",
+            new_version="4.0.2-preview.0421797",
+            changelog_message="Preview build",
+            no_changelog=True,
+        )
+
+        assert result.new_version == "4.0.2-preview.0421797"
+        metadata = (connector_dir / "metadata.yaml").read_text()
+        assert "dockerImageTag: 4.0.2-preview.0421797" in metadata
 
 
 @pytest.mark.unit

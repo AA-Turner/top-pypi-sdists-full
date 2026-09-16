@@ -331,6 +331,8 @@ class TestSquashAction:
         assert result.decision == ActionDecision.FAILED
         assert result.details == "squash_post_repair failed"
         assert result.error == "squash failed"
+        assert result.invalidates_snapshot is True
+        assert result.preserves_diff_fingerprint is True
 
     def test_execute_sets_squash_preserved_green_when_tree_preserved_and_green(self) -> None:
         """Tree-preserving squash after green CI sets the run-scoped optimization flag."""
@@ -444,5 +446,7 @@ class TestSquashAction:
         provider = MagicMock()
         provider.squash_post_repair.side_effect = ProviderRateLimitError(is_rate_limit=True)
 
-        with pytest.raises(ProviderRateLimitError):
+        with pytest.raises(ProviderRateLimitError) as exc_info:
             SquashAction().execute(provider, snapshot, derived)
+        assert bool(getattr(exc_info.value, "invalidates_snapshot", False)) is True
+        assert bool(getattr(exc_info.value, "preserves_diff_fingerprint", False)) is True

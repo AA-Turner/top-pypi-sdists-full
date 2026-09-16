@@ -5,6 +5,7 @@ import pyarrow as pa
 import pytest
 
 from geneva.utils.schema import (
+    field_path_covers,
     format_field_path,
     parse_field_path,
     resolve_arrow_field_path,
@@ -57,6 +58,17 @@ def test_parse_and_format_field_path_quotes_literal_segments() -> None:
     assert format_field_path(["metadata", "user_id"]) == "metadata.user_id"
     assert format_field_path(["literal", "a.b"]) == "literal.`a.b`"
     assert format_field_path(["meta-data", "user-id"]) == "`meta-data`.`user-id`"
+
+
+def test_field_path_covers_uses_parsed_segments() -> None:
+    assert field_path_covers("image", "image.image_bytes")
+    assert field_path_covers("image.image_bytes", "image.image_bytes")
+    assert not field_path_covers("image.image_bytes", "image")
+    assert field_path_covers("literal", "literal.`a.b`")
+    assert not field_path_covers("literal.a", "literal.`a.b`")
+    assert not field_path_covers("literal.a.b", "literal.`a.b`")
+    assert field_path_covers("`a.b`", "`a.b`")
+    assert not field_path_covers("a.b", "`a.b`")
 
 
 def test_resolve_arrow_field_path_returns_canonical_schema_path() -> None:

@@ -539,13 +539,16 @@ def test_ray_add_column_pipeline_cpu_only_pool(
         pa.Table.from_pydict({"a": pa.array(range(SIZE))}),
     )
     try:
-        table.add_columns(
-            {"b": plus_one},  # type: ignore[arg-type]
+        # use_cpu_only_pool is a backfill knob: add_columns() discards
+        # unknown kwargs, so passing it there never reached the pipeline.
+        table.add_columns({"b": plus_one})  # type: ignore[arg-type]
+        table.backfill(
+            "b",
             batch_size=32,
             concurrency=4,
             use_cpu_only_pool=True,
+            **backfill_args,
         )
-        table.backfill("b", **backfill_args)
 
         assert table.to_arrow() == pa.Table.from_pydict(
             {"a": pa.array(range(SIZE)), "b": pa.array(range(1, SIZE + 1))}

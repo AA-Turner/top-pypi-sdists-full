@@ -112,6 +112,7 @@ from airbyte_ops_mcp.mcp.connector_registry import register_connector_registry_t
 from airbyte_ops_mcp.mcp.connector_versions import register_connector_version_tools
 from airbyte_ops_mcp.mcp.context_store_ops import register_context_store_ops_tools
 from airbyte_ops_mcp.mcp.devin_ops import register_devin_ops_tools
+from airbyte_ops_mcp.mcp.feature_flags import register_launchdarkly_ops_tools
 from airbyte_ops_mcp.mcp.github_ops import register_github_ops_tools
 from airbyte_ops_mcp.mcp.human_in_the_loop import register_human_in_the_loop_tools
 from airbyte_ops_mcp.mcp.logging import register_logging_tools
@@ -526,6 +527,7 @@ def register_server_assets(app: FastMCP) -> None:
     register_logging_tools(app)
     register_context_store_ops_tools(app)
     register_organization_admin_tools(app)
+    register_launchdarkly_ops_tools(app)
     register_github_ops_tools(app)
     register_human_in_the_loop_tools(app)
     register_devin_ops_tools(app)

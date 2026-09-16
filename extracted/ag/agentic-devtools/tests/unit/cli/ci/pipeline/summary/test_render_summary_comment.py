@@ -443,3 +443,197 @@ class TestRenderSummaryComment:
             return_value=2,
         ):
             assert post_summary_comment(provider, pr_number=42, summary=summary) is True
+
+    def test_post_summary_comment_updates_existing_in_place(self) -> None:
+        """When an existing active summary comment is found, updates it in place."""
+        from agentic_devtools.cli.ci.models import IssueCommentInfo
+
+        provider = MagicMock()
+        old_body = (
+            "<!-- agdt:ai-pr-loop-summary -->\n\n"
+            "#### 🤖 AI PR Loop Run — [View Logs](old_url)\n\n"
+            "<details><summary>State snapshot</summary>\n\n- HEAD: `old1234`\n</details>"
+        )
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(id=99, author="github-actions[bot]", body=old_body),
+        ]
+        summary = PipelineRunSummary()
+
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            assert post_summary_comment(provider, pr_number=42, summary=summary) is True
+
+        provider.update_comment.assert_called_once()
+        assert provider.update_comment.call_args.args[0] == 99
+        provider.post_comment.assert_not_called()
+
+    def test_post_summary_comment_suppresses_update_on_identical_noop_pass(self) -> None:
+        """When the summary is identical to existing and made no progress, suppresses update."""
+        from agentic_devtools.cli.ci.models import IssueCommentInfo
+
+        summary = PipelineRunSummary()
+        current_body = render_summary_comment(summary)
+
+        # Existing comment has identical body except a different run URL in header
+        existing_body = current_body.replace("[View Logs](", "[View Logs](other-run-url-")
+
+        provider = MagicMock()
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(id=101, author="github-actions[bot]", body=existing_body),
+        ]
+
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            assert post_summary_comment(provider, pr_number=42, summary=summary) is True
+
+        provider.update_comment.assert_not_called()
+        provider.post_comment.assert_not_called()
+
+    def test_post_summary_comment_updates_when_action_executed(self) -> None:
+        """When an action executed, it is not a no-op pass and updates in place."""
+        from agentic_devtools.cli.ci.models import IssueCommentInfo
+
+        results = [
+            ActionResult(name="takeover", decision=ActionDecision.EXECUTE, details="reclaimed"),
+        ]
+        summary = PipelineRunSummary(results=results)
+        current_body = render_summary_comment(summary)
+
+        provider = MagicMock()
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(id=102, author="github-actions[bot]", body=current_body),
+        ]
+
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            assert post_summary_comment(provider, pr_number=42, summary=summary) is True
+
+        provider.update_comment.assert_called_once()
+        assert provider.update_comment.call_args.args[0] == 102
+        provider.post_comment.assert_not_called()
+
+    def test_post_summary_comment_update_fails_returns_false(self) -> None:
+        """When update_comment raises non-rate-limit error, returns False."""
+        from agentic_devtools.cli.ci.models import IssueCommentInfo
+
+        provider = MagicMock()
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=103,
+                author="github-actions[bot]",
+                body="<!-- agdt:ai-pr-loop-summary -->\n\n#### 🤖 AI PR Loop Run — different",
+            ),
+        ]
+        provider.update_comment.side_effect = RuntimeError("update error")
+        summary = PipelineRunSummary()
+
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            assert post_summary_comment(provider, pr_number=42, summary=summary) is False
+
+    def test_post_summary_comment_update_rate_limit_reraises(self) -> None:
+        """When update_comment raises ProviderRateLimitError, it propagates."""
+        from agentic_devtools.cli.ci.models import IssueCommentInfo
+
+        provider = MagicMock()
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=104,
+                author="github-actions[bot]",
+                body="<!-- agdt:ai-pr-loop-summary -->\n\n#### 🤖 AI PR Loop Run — different",
+            ),
+        ]
+        provider.update_comment.side_effect = ProviderRateLimitError(provider="github")
+        summary = PipelineRunSummary()
+
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            with pytest.raises(ProviderRateLimitError):
+                post_summary_comment(provider, pr_number=42, summary=summary)
+
+    def test_find_active_summary_fallback_path(self) -> None:
+        """When list_issue_comments is absent, uses find_comment fallback."""
+        provider = MagicMock(spec=["find_comment", "update_comment"])
+        body = "<!-- agdt:ai-pr-loop-summary -->\n\n#### 🤖 AI PR Loop Run — old"
+        provider.find_comment.return_value = (105, body)
+        summary = PipelineRunSummary()
+
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            assert post_summary_comment(provider, pr_number=42, summary=summary) is True
+
+        provider.update_comment.assert_called_once()
+        assert provider.update_comment.call_args.args[0] == 105
+
+    def test_find_active_summary_error_handling(self) -> None:
+        """Rate limit and generic exceptions in _find_active_summary_comment."""
+        # Rate limit in list_issue_comments propagates
+        provider_rl = MagicMock()
+        provider_rl.list_issue_comments.side_effect = ProviderRateLimitError(provider="github")
+        summary = PipelineRunSummary()
+        with pytest.raises(ProviderRateLimitError):
+            post_summary_comment(provider_rl, pr_number=42, summary=summary)
+
+        # Generic error in list_issue_comments logs and falls through to post_comment
+        provider_err = MagicMock()
+        provider_err.list_issue_comments.side_effect = RuntimeError("comments error")
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            assert post_summary_comment(provider_err, pr_number=42, summary=summary) is True
+        provider_err.post_comment.assert_called_once()
+
+        # Rate limit in find_comment fallback propagates
+        provider_fc_rl = MagicMock(spec=["find_comment"])
+        provider_fc_rl.find_comment.side_effect = ProviderRateLimitError(provider="github")
+        with pytest.raises(ProviderRateLimitError):
+            post_summary_comment(provider_fc_rl, pr_number=42, summary=summary)
+
+        # Generic error in find_comment fallback logs and posts comment
+        provider_fc_err = MagicMock(spec=["find_comment", "post_comment"])
+        provider_fc_err.find_comment.side_effect = RuntimeError("find error")
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            assert post_summary_comment(provider_fc_err, pr_number=42, summary=summary) is True
+        provider_fc_err.post_comment.assert_called_once()
+
+    def test_find_active_summary_skips_unmatched_and_non_bot(self) -> None:
+        """Comments that do not match expected sentinel/format or author are ignored."""
+        from agentic_devtools.cli.ci.models import IssueCommentInfo
+
+        provider = MagicMock()
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(id=201, author="github-actions[bot]", body="Buried <!-- agdt:ai-pr-loop-summary --> text"),
+            IssueCommentInfo(
+                id=202, author="human-user", body="<!-- agdt:ai-pr-loop-summary -->\n\n#### 🤖 AI PR Loop Run"
+            ),
+            IssueCommentInfo(id=203, author="", body="<!-- agdt:ai-pr-loop-summary -->\n\n#### 🤖 AI PR Loop Run"),
+            IssueCommentInfo(
+                id=204, author="github-actions[bot]", body="<!-- agdt:ai-pr-loop-summary -->\n\nOther title"
+            ),
+        ]
+        summary = PipelineRunSummary()
+
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            assert post_summary_comment(provider, pr_number=42, summary=summary) is True
+
+        # None matched, so a new comment was posted
+        provider.post_comment.assert_called_once()
+        provider.update_comment.assert_not_called()
+
+    def test_find_active_summary_fallback_skips_unmatched_marker(self) -> None:
+        """Fallback find_comment skips comments not starting with sentinel."""
+        provider = MagicMock(spec=["find_comment", "post_comment"])
+        # First marker returns buried sentinel, second marker returns None
+        provider.find_comment.side_effect = [
+            (301, "Prefix <!-- agdt:ai-pr-loop-summary -->"),
+            None,
+        ]
+        summary = PipelineRunSummary()
+
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            assert post_summary_comment(provider, pr_number=42, summary=summary) is True
+
+        provider.post_comment.assert_called_once()
+
+    def test_find_active_summary_non_list_comments_returns_none(self) -> None:
+        """When list_issue_comments returns non-list, posts new comment."""
+        provider = MagicMock()
+        provider.list_issue_comments.return_value = "not-a-list"
+        summary = PipelineRunSummary()
+
+        with patch("agentic_devtools.cli.ci.pipeline.summary.collapse_prior_summaries", return_value=0):
+            assert post_summary_comment(provider, pr_number=42, summary=summary) is True
+
+        provider.post_comment.assert_called_once()

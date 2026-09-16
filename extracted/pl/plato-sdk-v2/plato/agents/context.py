@@ -10,12 +10,17 @@ from pathlib import Path
 from opentelemetry import trace
 from pydantic import BaseModel, computed_field
 
+from plato.cli.chronos.registry import parse_package_string
+
 
 class AgentContext(BaseModel):
     """Context for running an agent."""
 
     image: str
     package: str | None = None
+    # Registered agent to run when the package registers several; defaults to
+    # the package name (AgentConfig.agent_name).
+    agent_name: str | None = None
     config: dict[str, object]
     instruction: str
     # Agent-runner subcommand to invoke: "run" (normal execution) or "compact"
@@ -29,6 +34,16 @@ class AgentContext(BaseModel):
     runtime: dict[str, object] | None = None
     # Path on world VM to agent code (for syncing to agent VM in dev mode)
     agent_code_path: Path | None = None
+
+    @property
+    def runner_agent_name(self) -> str:
+        """The ``--agent-package`` value for the runner: the requested agent
+        name, else the package name without its version."""
+        if self.agent_name:
+            return self.agent_name
+        if self.package:
+            return parse_package_string(self.package)[0]
+        return ""
 
     @computed_field
     @property

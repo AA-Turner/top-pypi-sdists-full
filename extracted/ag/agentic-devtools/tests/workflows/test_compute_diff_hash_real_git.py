@@ -168,6 +168,51 @@ class TestComputeDiffHashRealGit:
         assert after_hash is not None
         assert before_hash == after_hash
 
+    def test_duplicate_base_hunk_changes_fingerprint(self, tmp_path: Path, monkeypatch) -> None:
+        """Adding a duplicate old-side hunk elsewhere changes the ambiguity state."""
+        remote, work = _make_remote_with_worktree(tmp_path)
+        maint = tmp_path / "maint"
+        _run_git(tmp_path, "clone", str(remote), str(maint))
+        _run_git(maint, "config", "user.name", "Maintainer")
+        _run_git(maint, "config", "user.email", "maintainer@example.com")
+
+        monkeypatch.chdir(work)
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        base_lines = ["header", "context", "old", "context", "footer"]
+        (maint / "tracked.txt").write_text("\n".join(base_lines) + "\n", encoding="utf-8")
+        _run_git(maint, "add", "tracked.txt")
+        _run_git(maint, "commit", "-m", "prepare unique hunk")
+        _run_git(maint, "push", "origin", "main")
+
+        _run_git(work, "fetch", "origin", "main")
+        _run_git(work, "checkout", "-B", "feature/duplicate-hunk", "origin/main")
+        feature_lines = base_lines.copy()
+        feature_lines[2] = "new"
+        (work / "tracked.txt").write_text("\n".join(feature_lines) + "\n", encoding="utf-8")
+        _run_git(work, "add", "tracked.txt")
+        _run_git(work, "commit", "-m", "feature change")
+        before_sha = _run_git(work, "rev-parse", "HEAD")
+        before_hash = provider.compute_diff_hash(base_branch="main", sha=before_sha)
+
+        advanced_lines = base_lines + ["context", "old", "context", "trailer"]
+        (maint / "tracked.txt").write_text("\n".join(advanced_lines) + "\n", encoding="utf-8")
+        _run_git(maint, "add", "tracked.txt")
+        _run_git(maint, "commit", "-m", "add unrelated duplicate hunk")
+        _run_git(maint, "push", "origin", "main")
+
+        _run_git(work, "fetch", "origin", "main")
+        _run_git(work, "rebase", "origin/main")
+        after_sha = _run_git(work, "rev-parse", "HEAD")
+        after_hash = provider.compute_diff_hash(base_branch="main", sha=after_sha)
+
+        assert before_hash is not None
+        assert after_hash is not None
+        # The originally unique hunk becomes ambiguous after the base update.
+        # The location suffix is therefore added and the preservation gate must
+        # revalidate rather than treating the fingerprints as interchangeable.
+        assert before_hash != after_hash
+
     def test_distinguishes_binary_content_changes(self, tmp_path: Path, monkeypatch) -> None:
         _, work = _make_remote_with_worktree(tmp_path)
         monkeypatch.chdir(work)
@@ -220,19 +265,59 @@ class TestComputeDiffHashRealGit:
         monkeypatch.chdir(work)
         provider = GitHubActionsProvider(repo="owner/repo")
 
-        (work / "tracked.txt").write_text("prefix\nold\nmiddle\nold\nsuffix\n", encoding="utf-8")
+        (work / "tracked.txt").write_text(
+            "alpha\ncontext\nold\ncontext\nbeta\ncontext\nold\ncontext\ngamma\n",
+            encoding="utf-8",
+        )
         _run_git(work, "add", "tracked.txt")
         _run_git(work, "commit", "-m", "prepare repeated content")
         _run_git(work, "push", "origin", "HEAD:main")
 
         def _change_first_occurrence(repo: Path) -> None:
-            (repo / "tracked.txt").write_text("prefix\nnew\nmiddle\nold\nsuffix\n", encoding="utf-8")
+            (repo / "tracked.txt").write_text(
+                "alpha\ncontext\nnew\ncontext\nbeta\ncontext\nold\ncontext\ngamma\n",
+                encoding="utf-8",
+            )
 
         def _change_second_occurrence(repo: Path) -> None:
-            (repo / "tracked.txt").write_text("prefix\nold\nmiddle\nnew\nsuffix\n", encoding="utf-8")
+            (repo / "tracked.txt").write_text(
+                "alpha\ncontext\nold\ncontext\nbeta\ncontext\nnew\ncontext\ngamma\n",
+                encoding="utf-8",
+            )
 
         first_hash = _hash_for_branch_change(work, provider, "feature/replace-first", _change_first_occurrence)
         second_hash = _hash_for_branch_change(work, provider, "feature/replace-second", _change_second_occurrence)
+        assert first_hash != second_hash
+
+    def test_distinguishes_identical_replacement_in_adjacent_repeated_blocks(self, tmp_path: Path, monkeypatch) -> None:
+        _, work = _make_remote_with_worktree(tmp_path)
+        monkeypatch.chdir(work)
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        (work / "tracked.txt").write_text(
+            "context\nold\ncontext\nold\ncontext\n",
+            encoding="utf-8",
+        )
+        _run_git(work, "add", "tracked.txt")
+        _run_git(work, "commit", "-m", "prepare adjacent repeated content")
+        _run_git(work, "push", "origin", "HEAD:main")
+
+        def _change_first_occurrence(repo: Path) -> None:
+            (repo / "tracked.txt").write_text(
+                "context\nnew\ncontext\nold\ncontext\n",
+                encoding="utf-8",
+            )
+
+        def _change_second_occurrence(repo: Path) -> None:
+            (repo / "tracked.txt").write_text(
+                "context\nold\ncontext\nnew\ncontext\n",
+                encoding="utf-8",
+            )
+
+        first_hash = _hash_for_branch_change(work, provider, "feature/replace-adjacent-first", _change_first_occurrence)
+        second_hash = _hash_for_branch_change(
+            work, provider, "feature/replace-adjacent-second", _change_second_occurrence
+        )
         assert first_hash != second_hash
 
     def test_distinguishes_delete_from_create(self, tmp_path: Path, monkeypatch) -> None:

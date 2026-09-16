@@ -25,6 +25,14 @@ class VIEW3D_FH_camera_background_image(_bpy_types.FileHandler):
         :return: The class or default when not found.
         """
 
+    def label_with_extensions(self, *args, **kwargs) -> None:
+        """FileHandler.label_with_extensions(idname)
+        Return the label of the file handler with the given ID, with its file extensions
+
+                :param args:
+                :param kwargs:
+        """
+
     @classmethod
     def poll_drop(cls, context) -> None:
         """
@@ -52,6 +60,14 @@ class VIEW3D_FH_empty_image(_bpy_types.FileHandler):
         :return: The class or default when not found.
         """
 
+    def label_with_extensions(self, *args, **kwargs) -> None:
+        """FileHandler.label_with_extensions(idname)
+        Return the label of the file handler with the given ID, with its file extensions
+
+                :param args:
+                :param kwargs:
+        """
+
     @classmethod
     def poll_drop(cls, context) -> None:
         """
@@ -77,6 +93,14 @@ class VIEW3D_FH_vdb_volume(_bpy_types.FileHandler):
         """
 
         :return: The class or default when not found.
+        """
+
+    def label_with_extensions(self, *args, **kwargs) -> None:
+        """FileHandler.label_with_extensions(idname)
+        Return the label of the file handler with the given ID, with its file extensions
+
+                :param args:
+                :param kwargs:
         """
 
     @classmethod

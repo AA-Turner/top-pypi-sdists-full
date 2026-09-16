@@ -8,6 +8,7 @@ class ModifyOperateVulRequest(DaraModel):
     def __init__(
         self,
         client_token: str = None,
+        dry_run: bool = None,
         from_: str = None,
         info: str = None,
         operate_type: str = None,
@@ -17,6 +18,8 @@ class ModifyOperateVulRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request. Use a different token for each request. Only ASCII characters are supported. The token can be up to 64 characters in length.
         self.client_token = client_token
+        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        self.dry_run = dry_run
         # The source identifier of the request. Set the value to **sas**.
         self.from_ = from_
         # The information about the vulnerability to handle. This parameter is in JSON format and contains the following fields:
@@ -77,6 +80,9 @@ class ModifyOperateVulRequest(DaraModel):
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
+
         if self.from_ is not None:
             result['From'] = self.from_
 
@@ -101,6 +107,9 @@ class ModifyOperateVulRequest(DaraModel):
         m = m or dict()
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
 
         if m.get('From') is not None:
             self.from_ = m.get('From')

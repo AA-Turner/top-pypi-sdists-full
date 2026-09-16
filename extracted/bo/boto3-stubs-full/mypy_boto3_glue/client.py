@@ -437,6 +437,8 @@ from .type_defs import (
     ListGlossaryTermsResponseTypeDef,
     ListIntegrationResourcePropertiesRequestTypeDef,
     ListIntegrationResourcePropertiesResponseTypeDef,
+    ListIntegrationTablePropertiesRequestTypeDef,
+    ListIntegrationTablePropertiesResponseTypeDef,
     ListIterableFormsRequestTypeDef,
     ListIterableFormsResponseTypeDef,
     ListJobsRequestTypeDef,
@@ -2738,6 +2740,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_integration_resource_properties.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_integration_resource_properties)
+        """
+
+    def list_integration_table_properties(
+        self, **kwargs: Unpack[ListIntegrationTablePropertiesRequestTypeDef]
+    ) -> ListIntegrationTablePropertiesResponseTypeDef:
+        """
+        Lists the integration table properties in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_integration_table_properties.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_integration_table_properties)
         """
 
     def list_iterable_forms(

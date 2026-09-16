@@ -53,6 +53,22 @@ subprocess, and it drags in ``tabarena`` (openml, ray, bencheval). geocif fits
 thousands of small LOOCV folds per run, so that shape is unusable here. This
 module is the same recipe without the harness.
 
+ATTRIBUTION
+-----------
+The recipe above — cross-entropy head + mean decode + mirror-aware grid
+mapping — was learned by reading the reference implementation in
+``autogluon/mitra-finetune`` (https://huggingface.co/autogluon/mitra-finetune,
+Boran Han et al., Amazon; Apache License 2.0), in particular
+``patches.install_reg_ce_patches``, ``patches._mean_decode_source`` and
+``patches._member_grid_in_target_units``. ``_member_histogram`` below follows
+that last function's edge/probability flip and its ``nan_to_num`` guard. No
+code from that package is vendored and geocif does not depend on it; the
+rest of this module (zero-shot path, encoder, single-grid quantile inversion,
+RNG handling, caching) is original to geocif. The backbone, weight loader and
+in-context trainer are AutoGluon's own (``autogluon.tabular``, Apache-2.0),
+used as a library. The checkpoint repo ``autogluon/mitra-regressor-2``
+contains weights and a config only, no code.
+
 BINS AND THE TARGET SCALE (why intervals come for free)
 -------------------------------------------------------
 Mitra min-max normalises y to [0, 1] on the SUPPORT set, and the 1,000 bins

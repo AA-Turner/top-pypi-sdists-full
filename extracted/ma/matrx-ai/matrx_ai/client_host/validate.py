@@ -108,19 +108,11 @@ def validate_client_host_config(
         )
 
     if get_jwt is not None:
-        import inspect
-
         if not callable(get_jwt):
             errors.append(
                 "get_jwt must be a zero-argument callable returning str | None "
+                "or Awaitable[str | None] "
                 f"(the current user's JWT); got {type(get_jwt).__name__!r}."
-            )
-        elif inspect.iscoroutinefunction(get_jwt):
-            errors.append(
-                "get_jwt must be a SYNC zero-argument callable returning "
-                "str | None — an async def returns a coroutine at call time, "
-                "which would be serialized into the Authorization header. "
-                "Wrap your token cache in a sync getter."
             )
         if not server_url:
             errors.append(

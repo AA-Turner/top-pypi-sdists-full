@@ -663,3 +663,24 @@ invariants:
       assumed. Plain UDTF MVs are unaffected -- they rebuild via
       LanceOperation.Overwrite.
     vibecheck: null
+
+  - id: SRID-G17
+    layer: geneva
+    statement: >
+      A materialized view table is created with stable row IDs if and only if
+      its source table has them.
+    geneva_depends_on: >
+      All three local MV creators -- create_materialized_view (query.py),
+      create_udtf_view and its chunker impl _create_udtf_view (db.py) -- request
+      new_table_enable_stable_row_ids only when the source already uses them.
+      Views used to request it unconditionally, which introduced stable-row-ID
+      tables into deployments whose own tables have none.
+    severity: medium
+    status: holds
+    bug: GEN-952
+    note: >
+      This qualifies SRID-G08 rather than contradicting it: the backend
+      capability predicate is still unconditionally True, and it is still
+      consulted. The source check is a second, independent gate applied on top
+      of it, so an enterprise view over a stable-row-ID source is unaffected.
+    vibecheck: null

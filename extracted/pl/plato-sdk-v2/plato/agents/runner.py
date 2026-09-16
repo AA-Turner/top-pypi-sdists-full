@@ -91,6 +91,15 @@ def _load_registered_agent_cls(
         return agent_cls
 
     if len(registered_agents) != 1:
+        # A package may register variants beside its default agent (computer-use
+        # ships `exploration-agent` from computer_use_agent.exploration). Without
+        # a name, the default is the one defined at the package's top level, so
+        # a runner invoked the old way -- no --agent-package -- still gets the
+        # same agent it always did. Variants live in sub-packages and are only
+        # reachable by name.
+        top_level = [n for n, c in registered_agents.items() if "." not in c.__module__]
+        if len(top_level) == 1:
+            return registered_agents[top_level[0]]
         available = ", ".join(sorted(registered_agents))
         raise ValueError(
             f"Multiple agents registered but no agent package was specified. Registered agents: {available}"

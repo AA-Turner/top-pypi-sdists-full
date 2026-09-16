@@ -1,15 +1,17 @@
 import asyncio
-import logging
 import datetime
 import builtins
 from dateutil.relativedelta import relativedelta
 from numbers import Number
 from collections.abc import Callable
 from asyncdb.exceptions import NoDataFound, ProviderError
-from querysource.exceptions import DataNotFound
 from querysource.utils.functions import format_date
 import querysource.utils.functions as qsfunctions
-from ..exceptions import ComponentError, NotSupported
+from ..exceptions import ComponentError, NotSupported, DataNotFound
+from ..interfaces.skip_policy import (
+    ConsecutiveFailureTracker,
+    SKIPPED_ITERATION,
+)
 from ..utils import fnExecutor
 from .IteratorBase import IteratorBase
 
@@ -228,47 +230,61 @@ class DateList(IteratorBase):
                 job.close()
 
     async def run(self):
-        """Async Run Method."""
-        status = False
+        """Itera el rango de fechas ejecutando el paso siguiente por fecha.
+
+        Contrato tras FEAT-554 (spec §3 M3):
+          - `DataNotFound`/`NoDataFound`: `continue` INCONDICIONAL (D3) y **no**
+            cuenta para el umbral -- verified: DateList.py:247-252
+          - Familias no-de-datos: `async_job` ya aplico `skipError`; si llega
+            una excepcion aqui, la politica era ENFORCE y se propaga
+          - Aborta cuando los fallos CONSECUTIVOS alcanzan
+            `self.max_consecutive_failures` (0/None desactiva), con
+            `tracker.last_error` como causa
+
+        Returns:
+            `True` si hubo al menos una iteracion util y no se abortó; `False`
+            si no se completo ninguna. El veredicto NO depende del `status` de
+            la ultima vuelta (S8, §7 #10).
+        """
         if not self._iterator:
             return False
-        if self.iterate:
-            # iterate over next task
-            step, target, params = self.get_step()
-            step_name = step.name
-            for d in self._iterator:
-                dt = format_date(d, self._format)
-
-                self.setAttributes(dt)
-                job = self.createJob(target, params, dt, d)
-                if job:
-                    try:
-                        status = await self.async_job(job, step_name)
-                    except (NoDataFound, DataNotFound) as err:
-                        # its a data component a no data was found
-                        logging.debug(
-                            f"Data not Found for Task {step_name}, Error: {err}"
-                        )
-                        continue
-                    except (ProviderError, ComponentError) as err:
-                        raise ComponentError(
-                            f"Error running Component {step_name}, error: {err}"
-                        ) from err
-                    except NotSupported as err:
-                        raise NotSupported(
-                            f"Not Supported: Error on Component {step_name}, error: {err}"
-                        ) from err
-                    except Exception as err:
-                        raise ComponentError(
-                            f"DateList: Component Error on {step_name}, error: {err}"
-                        ) from err
-                    finally:
-                        await self.close(job)
-            if status is False:
-                return False
-            else:
-                return True
-        else:
-            # return the list of date
+        if not self.iterate:
             self._result = list(self._iterator)
             return True
+        step, target, params = self.get_step()
+        step_name = step.name
+        tracker = ConsecutiveFailureTracker(self.max_consecutive_failures)
+        for d in self._iterator:
+            dt = format_date(d, self._format)
+            self.setAttributes(dt)
+            job = self.createJob(target, params, dt, d)
+            if not job:
+                continue
+            try:
+                status = await self.async_job(job, step_name)
+            except (NoDataFound, DataNotFound) as err:
+                # D3: continue INCONDICIONAL, y NO cuenta para el umbral.
+                self._logger.debug(
+                    f"Data not Found for Task {step_name} at {dt}, Error: {err}"
+                )
+                continue
+            except (ProviderError, ComponentError, NotSupported):
+                # async_job ya consulto skipError: si llega aqui era ENFORCE.
+                raise
+            except Exception as err:
+                raise ComponentError(
+                    f"DateList: Component Error on {step_name} at {dt}, error: {err}"
+                ) from err
+
+            if status is SKIPPED_ITERATION:
+                should_abort = tracker.record_skip(ComponentError(f"Skipped iteration at {dt}"))
+                if should_abort:
+                    tracker.publish(self)
+                    raise ComponentError(
+                        f"DateList: Aborted due to {tracker.consecutive} consecutive failures at {dt}. Last error: {tracker.last_error}"
+                    ) from tracker.last_error
+            else:
+                tracker.record_success()
+
+        tracker.publish(self)
+        return tracker.successes > 0

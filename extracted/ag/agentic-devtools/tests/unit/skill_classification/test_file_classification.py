@@ -112,6 +112,7 @@ GITHUB_REQUIRED_FILES: list[str] = [
     "ai-pr-loop-supervisor.task-recovery",
     "ai-pr-loop-supervisor.thread-adjudicator",
     "ai-pr-loop-supervisor.verifier",
+    "ai-pr-loop-supervision.workflow-monitor",
     "pr-merge-execute",
     "pr-merge-manager",
 ]

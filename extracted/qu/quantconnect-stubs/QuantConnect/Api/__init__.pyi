@@ -2038,6 +2038,18 @@ class LiveAlgorithmResults(QuantConnect.Api.RestResponse):
     def charts(self, value: System.Collections.Generic.IDictionary[str, QuantConnect.Chart]) -> None:
         ...
 
+    @property
+    def deployment_details(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """
+        Deployment details shared by the brokerage, data queue handler or any other component,
+        for example account information. Null when the deployment reported none
+        """
+        ...
+
+    @deployment_details.setter
+    def deployment_details(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
 
 class Portfolio(System.Object):
     """Class containing the basic portfolio information of a live algorithm"""

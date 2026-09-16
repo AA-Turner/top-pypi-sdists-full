@@ -7,7 +7,7 @@ import pandas as pd
 from vnai import optimize_execution
 
 from vnstock.core.models import TickerModel
-from vnstock.core.utils.client import ProxyConfig, send_request
+from vnstock.core.utils.client import send_request
 from vnstock.core.utils.interval import normalize_interval
 from vnstock.core.utils.logger import get_logger
 from vnstock.core.utils.lookback import (
@@ -58,9 +58,8 @@ class Quote:
 
     Parameters:
         - symbol (required): the stock symbol to fetch data for.
-        - random_agent (optional): whether to use random user agent.
-            Default is False.
-        - proxy_config (optional): proxy configuration. Default is None.
+        - random_agent (optional): deprecated and ignored. Đã lỗi thời,
+        không còn tác dụng. Default is False.
         - show_log (optional): whether to show log. Default is True.
     """
 
@@ -68,10 +67,7 @@ class Quote:
         self,
         symbol,
         random_agent=False,
-        proxy_config: Optional[ProxyConfig] = None,
         show_log=True,
-        proxy_mode: Optional[str] = None,
-        proxy_list: Optional[list] = None,
     ):
         self.symbol = validate_symbol(symbol)
         self.data_source = "VCI"
@@ -95,21 +91,6 @@ class Quote:
         )
         self.interval_map = _INTERVAL_MAP
         self.show_log = show_log
-
-        # Handle proxy configuration
-        if proxy_config is None:
-            # Create ProxyConfig from individual arguments
-            p_mode = proxy_mode if proxy_mode else "try"
-            # If user asks for 'auto' or provides list, set request_mode to PROXY
-            req_mode = "direct"
-            if proxy_mode == "auto" or (proxy_list and len(proxy_list) > 0):
-                req_mode = "proxy"
-
-            self.proxy_config = ProxyConfig(
-                proxy_mode=p_mode, proxy_list=proxy_list, request_mode=req_mode
-            )
-        else:
-            self.proxy_config = proxy_config
 
         if not show_log:
             logger.setLevel("CRITICAL")
@@ -164,19 +145,19 @@ class Quote:
         length: Optional[Union[str, int]] = None,
     ) -> pd.DataFrame:
         """
-        Tải lịch sử giá của mã chứng khoán từ nguồn dữ liệu VCI.
+        Load the price history of a symbol from the VCI data source.
 
-        Tham số:
-            - start (tùy chọn): thời gian bắt đầu lấy dữ liệu.
-              Bắt buộc nếu không có length hoặc count_back.
-            - end (tùy chọn): thời gian kết thúc lấy dữ liệu.
-              Mặc định là None (hiện tại).
-            - interval (tùy chọn): Khung thời gian. Mặc định "1D".
-            - length (tùy chọn): Khoảng thời gian phân tích (vd: '3M', 150, '150').
-              Nhận giá trị chuỗi (vd 3M), số ngày (int/str), hoặc số bars (vd '100b').
-            - count_back (tùy chọn): Số lượng nến (bars) cần lấy.
-            - show_log (tùy chọn): Hiển thị log.
-            - floating (tùy chọn): Số chữ số thập phân.
+        Args:
+            - start (optional): start of the window.
+              Required unless length or count_back is given.
+            - end (optional): end of the window.
+              Defaults to None, meaning now.
+            - interval (optional): timeframe. Defaults to "1D".
+            - length (optional): lookback window. Accepts a period string ('3M'),
+              a day count (150 or '150') or a bar count ('100b').
+            - count_back (optional): number of bars to return.
+            - show_log (optional): show debug logs.
+            - floating (optional): decimal places for prices.
         """
         # Calculate start if not provided
         if start is None:
@@ -288,9 +269,6 @@ class Quote:
             method="POST",
             payload=payload,
             show_log=show_log if show_log is not None else False,
-            proxy_list=self.proxy_config.proxy_list,
-            proxy_mode=self.proxy_config.proxy_mode,
-            request_mode=self.proxy_config.request_mode,
         )
 
         # Debug: log response structure
@@ -360,20 +338,18 @@ class Quote:
         show_log: bool = False,
     ) -> pd.DataFrame:
         """
-        Truy xuất dữ liệu khớp lệnh của mã chứng khoán bất kỳ từ
-        nguồn dữ liệu VCI.
+        Retrieve the matched trades of any symbol from the VCI data source.
 
-        Tham số:
-            - page_size (tùy chọn): Số lượng dữ liệu trả về trong
-              một lần request. Mặc định là 100.
-            - last_time (tùy chọn): Thời gian cắt dữ liệu, dùng để
-              lấy dữ liệu sau thời gian cắt. Có thể là epoch timestamp
-              (int/float) hoặc chuỗi datetime. Mặc định là None.
-            - last_time_format (tùy chọn): Định dạng để parse last_time
-              nếu là chuỗi. Mặc định sẽ thử 'YYYY-MM-DD HH:MM:SS'
-              và 'YYYY-MM-DD'.
-            - show_log (tùy chọn): Hiển thị thông tin log giúp debug
-              dễ dàng. Mặc định là False.
+        Args:
+            - page_size (optional): records returned per request.
+              Defaults to 100.
+            - last_time (optional): cut-off used to fetch trades after a given
+              point. Either an epoch timestamp (int/float) or a datetime
+              string. Defaults to None.
+            - last_time_format (optional): format used to parse last_time when
+              it is a string. By default 'YYYY-MM-DD HH:MM:SS' and
+              'YYYY-MM-DD' are both tried.
+            - show_log (optional): show debug logs. Defaults to False.
         """
         # Validator: Intraday data is not supported for indices
         if self.asset_type == "index":
@@ -420,9 +396,6 @@ class Quote:
             method="POST",
             payload=payload,
             show_log=show_log,
-            proxy_list=self.proxy_config.proxy_list,
-            proxy_mode=self.proxy_config.proxy_mode,
-            request_mode=self.proxy_config.request_mode,
         )
 
         # Ensure data is a list

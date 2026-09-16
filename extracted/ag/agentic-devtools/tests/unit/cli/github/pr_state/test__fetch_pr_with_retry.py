@@ -16,11 +16,14 @@ class TestFetchPrWithRetry:
         mock_result.returncode = 0
         mock_result.stdout = '{"state": "OPEN", "headRefOid": "abc1234", "locked": false}'
 
-        with patch.object(pr_state_module, "run_safe", return_value=mock_result):
+        with patch.object(pr_state_module, "run_safe", return_value=mock_result) as mock_run:
             data = pr_state_module._fetch_pr_with_retry(42, "owner/repo", retry_delay=0)
 
         assert data["state"] == "OPEN"
         assert data["headRefOid"] == "abc1234"
+        requested_fields = mock_run.call_args.args[0][-1].split(",")
+        assert "baseRefName" in requested_fields
+        assert "baseRefOid" in requested_fields
 
     def test_retry_on_api_failure(self):
         """Retries on non-zero exit code then succeeds."""
@@ -190,3 +193,56 @@ class TestFetchPrWithRetry:
 
         assert data["state"] == "OPEN"
         assert data["locked"] is None
+
+    def test_base_ref_oid_fallback_uses_api(self):
+        """Resolves baseRefOid through the API when gh lacks that JSON field."""
+        base_oid_fail = MagicMock()
+        base_oid_fail.returncode = 1
+        base_oid_fail.stderr = "unknown field: baseRefOid"
+
+        pr_result = MagicMock()
+        pr_result.returncode = 0
+        pr_result.stdout = '{"state": "OPEN", "baseRefName": "feature/with#hash", "locked": false}'
+
+        ref_result = MagicMock()
+        ref_result.returncode = 0
+        ref_result.stdout = "abcdef1234567890\n"
+
+        with patch.object(
+            pr_state_module,
+            "run_safe",
+            side_effect=[base_oid_fail, pr_result, ref_result],
+        ) as mock_run:
+            data = pr_state_module._fetch_pr_with_retry(42, "owner/repo", retry_delay=0)
+
+        assert data["baseRefOid"] == "abcdef1234567890"
+        assert mock_run.call_args_list[-1].args[0] == [
+            "gh",
+            "api",
+            "repos/owner/repo/git/ref/heads/feature%2Fwith%23hash",
+            "--jq",
+            ".object.sha",
+        ]
+
+    def test_base_ref_oid_fallback_keeps_empty_on_api_failure(self):
+        """Leaves baseRefOid empty when the compatibility API lookup fails."""
+        base_oid_fail = MagicMock()
+        base_oid_fail.returncode = 1
+        base_oid_fail.stderr = "unknown field: baseRefOid"
+
+        pr_result = MagicMock()
+        pr_result.returncode = 0
+        pr_result.stdout = '{"state": "OPEN", "baseRefName": "feature/with#hash", "locked": false}'
+
+        ref_result = MagicMock()
+        ref_result.returncode = 1
+        ref_result.stderr = "API failure"
+
+        with patch.object(
+            pr_state_module,
+            "run_safe",
+            side_effect=[base_oid_fail, pr_result, ref_result],
+        ):
+            data = pr_state_module._fetch_pr_with_retry(42, "owner/repo", retry_delay=0)
+
+        assert data["baseRefOid"] == ""

@@ -7,11 +7,11 @@ import logging
 import uuid
 import weakref
 from collections.abc import Awaitable, Callable
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager, nullcontext, suppress
 from typing import TYPE_CHECKING
 
 from plato.agents.mounts import AgentWorkspaceMount, GitCheckoutPolicy, GitSyncPolicy
-from plato.agents.vm_setup import make_agent_pool_prefix
+from plato.agents.vm_setup import AgentExitError, make_agent_pool_prefix
 from plato.agents.warmpool import AgentVMBudget, RuntimeLease, WarmPool
 from plato.git_ops.merge import delete_remote_ref, merge_ref_to_main
 from plato.git_ops.repo import trust_git_directory
@@ -41,6 +41,12 @@ def _is_retryable_warm_pool_run_error(exc: BaseException) -> bool:
     # this, RPC-path infra failures fail the run outright instead of retrying.
     if isinstance(exc, RetryableInfraError):
         return True
+    # The daemon reported a real exit status: the agent ran and quit. Its
+    # message carries the process's own output tail, which can quote the
+    # substrings below (an agent that ran ssh/scp itself), so never classify
+    # it by text.
+    if isinstance(exc, AgentExitError):
+        return False
     # SSH path: the same conditions are only visible as stderr text.
     message = str(exc)
     return "Permission denied (publickey)" in message or "lost connection" in message
@@ -121,11 +127,68 @@ class AgentExecutionManager:
                 await lease.release()
         await self._warm_pool.shutdown()
 
+    def _lease_for(self, task: AgentTask, idle_seconds: float) -> RuntimeLease:
+        lease = self._leases.get(task)
+        if lease is None:
+            lease = RuntimeLease(self._warm_pool, idle_seconds)
+            self._leases[task] = lease
+        return lease
+
+    async def warm(self, task: AgentTask) -> bool:
+        """Prepare ``task``'s VM ahead of its next ``run``: acquire, install the
+        agent, and bind the lease with the setup fingerprint, so the run checks
+        the VM out and takes its skip-setup path (the follow-up-turn latency
+        instead of a cold start). No model turn runs.
+
+        Returns True when a VM is now leased and prepared — freshly, or an
+        already-bound healthy one whose idle clock was restarted. Returns
+        False when the agent config has no ``runtime_idle_release_seconds``:
+        without a lease there is nowhere to hold the VM between now and the
+        run. Raises when the acquire or the install fails; the VM is destroyed
+        first, so a failed warm never pins a pool slot.
+        """
+        idle_seconds = self._agent_config.runtime_idle_release_seconds
+        if idle_seconds is None:
+            return False
+        return await task._warm_leased(self._warm_pool, self._lease_for(task, idle_seconds))
+
+    async def release(self, task: AgentTask) -> None:
+        """End ``task``'s runtime lease now, destroying its bound idle VM.
+
+        For a task that will not run again (a closed chat lane): the idle
+        timer would reclaim the VM eventually, but until then it counts
+        against the world's VM budget. Waits for an in-flight warm or run on
+        the task to finish first, so the VM it produced is destroyed rather
+        than orphaned — cancel a run you do not want to wait for.
+        """
+        lease = self._leases.pop(task, None)
+        if lease is not None:
+            # Under the turn lock: an in-flight warm binds its VM onto this
+            # lease object before we destroy, instead of orphaning it.
+            async with lease.turn_lock:
+                await lease.release()
+
     async def run(
         self,
         task: AgentTask,
         instruction: str,
         display_name: str | None = None,
+    ) -> str:
+        # Runtime lease: reuse the task's bound VM from the previous run when
+        # configured. The turn lock serializes this run against a warm() or
+        # release() on the same task: a run arriving during a warm waits for
+        # the prepared VM instead of racing it for the pool slot.
+        idle_seconds = self._agent_config.runtime_idle_release_seconds
+        lease = self._lease_for(task, idle_seconds) if idle_seconds is not None else None
+        async with lease.turn_lock if lease is not None else nullcontext():
+            return await self._run_turn(task, instruction, display_name, lease)
+
+    async def _run_turn(
+        self,
+        task: AgentTask,
+        instruction: str,
+        display_name: str | None,
+        lease: RuntimeLease | None,
     ) -> str:
         run_mounts = [mount.clone_for_run() for mount in task._all_mounts()]
         task_name = _task_slug(display_name or task._display_name or "agent-task")
@@ -144,47 +207,11 @@ class AgentExecutionManager:
         successful_runtime = None
         last_error: Exception | None = None
 
-        # Runtime lease: reuse the task's bound VM from the previous run when
-        # configured. A stale/unhealthy binding is destroyed and the run falls
-        # through to a fresh acquire; retry attempts always acquire fresh.
-        idle_seconds = self._agent_config.runtime_idle_release_seconds
-        lease: RuntimeLease | None = None
+        # A stale/unhealthy binding is destroyed and the run falls through to
+        # a fresh acquire; retry attempts always acquire fresh.
         leased_runtime = None
-        if idle_seconds is not None:
-            lease = self._leases.get(task)
-            if lease is None:
-                lease = RuntimeLease(self._warm_pool, idle_seconds)
-                self._leases[task] = lease
-            leased_runtime = await lease.checkout()
-            if leased_runtime is not None:
-                # From checkout until the attempt loop's own handlers own the
-                # VM, a cancellation here would orphan it — checked out of the
-                # lease AND never released, pinning a pool slot forever.
-                try:
-                    leased_healthy = await self._warm_pool.health_check(leased_runtime)
-                except BaseException:
-                    with suppress(Exception):
-                        await asyncio.shield(
-                            self._warm_pool.release(
-                                leased_runtime,
-                                workspace_paths=[mount.agent_path for mount in run_mounts],
-                                destroy=True,
-                            )
-                        )
-                    raise
-                if not leased_healthy:
-                    logger.warning(
-                        "Leased runtime %s failed its health check; acquiring a fresh VM",
-                        leased_runtime.runtime_info.runtime_id,
-                    )
-                    await asyncio.shield(
-                        self._warm_pool.release(
-                            leased_runtime,
-                            workspace_paths=[mount.agent_path for mount in run_mounts],
-                            destroy=True,
-                        )
-                    )
-                    leased_runtime = None
+        if lease is not None:
+            leased_runtime = await lease.checkout_healthy([mount.agent_path for mount in run_mounts])
 
         for attempt in range(1, _WARM_POOL_RUN_ATTEMPTS + 1):
             if leased_runtime is not None:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: zarr
-Version: 3.3.0
+Version: 3.4.0
 Summary: An implementation of chunked, compressed, N-dimensional arrays for Python
 Project-URL: issues, https://github.com/zarr-developers/zarr-python/issues
 Project-URL: changelog, https://zarr.readthedocs.io/en/stable/release-notes.html
@@ -27,12 +27,13 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.12
 Requires-Dist: donfig>=0.8
 Requires-Dist: google-crc32c>=1.5
+Requires-Dist: msgspec>=0.19
 Requires-Dist: numcodecs>=0.14
 Requires-Dist: numpy>=2
 Requires-Dist: packaging>=22.0
 Requires-Dist: typing-extensions>=4.14
 Provides-Extra: cast-value-rs
-Requires-Dist: cast-value-rs; extra == 'cast-value-rs'
+Requires-Dist: cast-value-rs>=0.4.2; extra == 'cast-value-rs'
 Provides-Extra: cli
 Requires-Dist: typer; extra == 'cli'
 Provides-Extra: gpu
@@ -61,13 +62,13 @@ Description-Content-Type: text/markdown
 
 ## What is it?
 
-Zarr is a Python package providing an implementation of compressed, chunked, N-dimensional arrays, designed for use in parallel computing. See the [documentation](https://zarr.readthedocs.io/en/stable/) for more information.
+The `zarr` library is a Python implementation of the [Zarr storage format](https://zarr.dev/). `zarr` delivers compressed, chunked, N-dimensional arrays that work well for parallel computing and object storage. See the [documentation](https://zarr.readthedocs.io/en/stable/) for more information.
 
 ## Main Features
 
-- [**Create**](https://zarr.readthedocs.io/en/stable/user-guide/arrays/#creating-an-array) N-dimensional arrays with any NumPy `dtype`.
+- [**Create**](https://zarr.readthedocs.io/en/stable/user-guide/arrays/#creating-an-array) N-dimensional arrays with NumPy-compatible `dtype`s.
 - [**Chunk arrays**](https://zarr.readthedocs.io/en/stable/user-guide/performance/#chunk-optimizations) along any dimension.
-- [**Compress**](https://zarr.readthedocs.io/en/stable/user-guide/arrays/#compressors) and/or filter chunks using any NumCodecs codec.
+- [**Encode**](https://zarr.readthedocs.io/en/stable/user-guide/arrays/#compressors) chunks using a variety of useful encodings (e.g., compression).
 - [**Store arrays**](https://zarr.readthedocs.io/en/stable/user-guide/storage/) in memory, on disk, inside a zip file, on S3, etc...
 - [**Read**](https://zarr.readthedocs.io/en/stable/user-guide/arrays/#reading-and-writing-data) an array [**concurrently**](https://zarr.readthedocs.io/en/stable/user-guide/performance/#parallel-computing-and-synchronization) from multiple threads or processes.
 - [**Write**](https://zarr.readthedocs.io/en/stable/user-guide/arrays/#reading-and-writing-data) to an array concurrently from multiple threads or processes.
@@ -88,3 +89,11 @@ conda install -c conda-forge zarr
 ```
 
 For more details, including how to install from source, see the [installation documentation](https://zarr.readthedocs.io/en/stable/#installation).
+
+## Repository sub-packages
+
+In addition to the primary `zarr` implementation, this repository contains other packages that provide specialized functionality with minimal dependencies:
+
+- [`zarr-metadata`](https://github.com/zarr-developers/zarr-python/tree/main/packages/zarr-metadata): Tools for Zarr metadata. Install with `pip install zarr-metadata`.
+- [`zarr-indexing`](https://github.com/zarr-developers/zarr-python/tree/main/packages/zarr-indexing): Tools for lazily indexing chunked arrays. Install with `pip install zarr-indexing`.
+- [`zarr-http-server`](https://github.com/zarr-developers/zarr-python/tree/main/packages/zarr-http-server): An HTTP server implementation targeting Zarr data. Install with `pip install zarr-http-server`.

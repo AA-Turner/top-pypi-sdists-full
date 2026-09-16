@@ -1,0 +1,126 @@
+[build-system]
+build-backend = "mesonpy"
+requires = [
+    "meson-python>=0.15.0",
+    "Cython>=3.0.9",
+    "numpy>=1.23.5",
+]
+
+[project]
+name = "numpy-financial"
+dynamic = ['version']
+requires-python = ">=3.13"
+description = "Simple financial functions"
+license = "BSD-3-Clause"
+authors = [{name = "Travis E. Oliphant et al."}]
+maintainers = [{ name = "Numpy Financial Developers", email = "numpy-discussion@python.org" }]
+readme = "README.md"
+homepage = "https://numpy.org/numpy-financial/latest/"
+repository = "https://github.com/numpy/numpy-financial"
+documentation = "https://numpy.org/numpy-financial/latest/#functions"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development",
+    "Topic :: Office/Business :: Financial :: Accounting",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Office/Business :: Financial :: Spreadsheet",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+    "Typing :: Typed",
+]
+dependencies = [
+  "numpy>=1.23.5"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-xdist",
+    "hypothesis",
+]
+doc = [
+    "sphinx>=7.0",
+    "numpydoc>=1.5",
+    "pydata-sphinx-theme>=0.15",
+    "myst-parser>=2.0.0",
+]
+dev = [
+    "spin",
+    "ruff>=0.11.5",
+    "asv>=0.6.0",
+    "mypy",
+    "pyright"
+]
+
+
+[tool.mypy]
+exclude = [
+  "^benchmarks/.*",
+  "^doc/.*",
+  "^docweb/.*",
+  "^numpy_financial/tests/.*",
+]
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+local_partial_types = true
+warn_unreachable = false
+warn_unused_ignores = true
+strict_bytes = true
+
+
+[tool.pyright]
+pythonPlatform = "All"
+include = ["numpy_financial"]
+exclude = [
+  "benchmarks",
+  "doc",
+  "docweb",
+  "numpy_financial/tests",
+]
+stubPath = "."
+typeCheckingMode = "standard"
+# _cfinancial is a Cython extension, so we only have a .pyi stub
+reportMissingModuleSource = "none"
+
+
+[tool.spin]
+package = 'numpy_financial'
+
+[tool.spin.commands]
+"Build" = [
+  "spin.cmds.meson.build",
+  "spin.cmds.meson.test",
+  "spin.cmds.build.sdist",
+  "spin.cmds.pip.install",
+]
+"Documentation" = [
+  "spin.cmds.meson.docs"
+]
+"Environments" = [
+  "spin.cmds.meson.shell",
+  "spin.cmds.meson.ipython",
+  "spin.cmds.meson.python",
+  "spin.cmds.meson.run"
+]
+"Lint" = [
+  ".spin/cmds.py:lint"
+]
+
+
+[tool.cibuildwheel]
+build = "cp313-* cp314-*"
+skip = "*-musllinux* *_i686 *-win32"
+test-command = "python -c \"import numpy_financial\""
+
+[tool.changelist]
+title_template = "{version}"
+ignored_user_logins = ["dependabot[bot]", "pre-commit-ci[bot]", "web-flow"]
+
+[tool.ruff.lint]
+ignore = ["F403"]
+select = ["E", "F", "B", "I"]

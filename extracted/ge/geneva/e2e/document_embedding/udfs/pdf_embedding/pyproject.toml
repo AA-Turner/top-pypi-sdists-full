@@ -9,14 +9,8 @@ version = "0.1.0"
 description = "UDFs for downloading, chunking, and embedding PDFs"
 requires-python = ">=3.10,<3.14"
 dependencies = [
-    "geneva",
+    "geneva[udf-document-pdf]",
     "tomli>=2.0; python_version<'3.11'",
-    "pypdf>=6.0",
-    "sentence-transformers==5.4.0",
-    "transformers==5.0.0",
-    "langchain-text-splitters>=0.3.0",
-    "torch>=2.6.0",
-    "numpy>=1.26,<2.0",
 ]
 
 [build-system]

@@ -268,6 +268,14 @@ class SEQUENCER_FH_image_strip(_bpy_types.FileHandler, SequencerFileHandlerBase)
         :return: The class or default when not found.
         """
 
+    def label_with_extensions(self, *args, **kwargs) -> None:
+        """FileHandler.label_with_extensions(idname)
+        Return the label of the file handler with the given ID, with its file extensions
+
+                :param args:
+                :param kwargs:
+        """
+
 class SEQUENCER_FH_movie_strip(_bpy_types.FileHandler, SequencerFileHandlerBase):
     bl_file_extensions: typing.Any
     bl_idname: typing.Any
@@ -286,6 +294,14 @@ class SEQUENCER_FH_movie_strip(_bpy_types.FileHandler, SequencerFileHandlerBase)
         """
 
         :return: The class or default when not found.
+        """
+
+    def label_with_extensions(self, *args, **kwargs) -> None:
+        """FileHandler.label_with_extensions(idname)
+        Return the label of the file handler with the given ID, with its file extensions
+
+                :param args:
+                :param kwargs:
         """
 
 class SEQUENCER_FH_sound_strip(_bpy_types.FileHandler, SequencerFileHandlerBase):
@@ -308,6 +324,14 @@ class SEQUENCER_FH_sound_strip(_bpy_types.FileHandler, SequencerFileHandlerBase)
         :return: The class or default when not found.
         """
 
+    def label_with_extensions(self, *args, **kwargs) -> None:
+        """FileHandler.label_with_extensions(idname)
+        Return the label of the file handler with the given ID, with its file extensions
+
+                :param args:
+                :param kwargs:
+        """
+
 class SEQUENCER_FH_text_strip(_bpy_types.FileHandler, SequencerFileHandlerBase):
     bl_file_extensions: typing.Any
     bl_idname: typing.Any
@@ -326,6 +350,14 @@ class SEQUENCER_FH_text_strip(_bpy_types.FileHandler, SequencerFileHandlerBase):
         """
 
         :return: The class or default when not found.
+        """
+
+    def label_with_extensions(self, *args, **kwargs) -> None:
+        """FileHandler.label_with_extensions(idname)
+        Return the label of the file handler with the given ID, with its file extensions
+
+                :param args:
+                :param kwargs:
         """
 
 def calculate_duration_frames(scene, duration_seconds) -> None: ...

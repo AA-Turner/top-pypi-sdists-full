@@ -6,6 +6,7 @@ entry point functions.
 """
 
 import importlib
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -200,3 +201,83 @@ class TestRunCommand:
         mock_func.assert_called_once()
         captured = capsys.readouterr()
         assert "Warning: could not import persist_if_dirty hook" in captured.err
+
+    def test_help_dispatch_skips_persist_hook(self):
+        """Help-only dispatch does not invoke the post-command persistence hook."""
+        mock_func = MagicMock(side_effect=SystemExit(0))
+        mock_module = MagicMock()
+        mock_module.get_pull_request_details_async_cli = mock_func
+
+        with patch.object(sys, "argv", ["agdt-get-pull-request-details", "--help"]):
+            with patch("importlib.import_module", return_value=mock_module):
+                with patch("agentic_devtools.cli.git.agdt_branch.persist_if_dirty") as mock_persist:
+                    with pytest.raises(SystemExit) as exc_info:
+                        runner.run_command("agdt-get-pull-request-details")
+
+        assert exc_info.value.code == 0
+        mock_func.assert_called_once()
+        mock_persist.assert_not_called()
+
+    @pytest.mark.parametrize("arguments", [["--unknown"], ["--", "--help"]])
+    def test_non_help_arguments_keep_persist_hook(self, arguments):
+        """Unrecognized or terminated help-like arguments keep normal finalization."""
+        mock_func = MagicMock()
+        mock_module = MagicMock()
+        mock_module.get_pull_request_details_async_cli = mock_func
+
+        with patch.object(sys, "argv", ["agdt-get-pull-request-details", *arguments]):
+            real_import = importlib.import_module
+
+            def import_side_effect(name, *args, **kwargs):
+                if name == "agentic_devtools.cli.azure_devops":
+                    return mock_module
+                return real_import(name, *args, **kwargs)
+
+            with patch("importlib.import_module", side_effect=import_side_effect):
+                with patch("agentic_devtools.cli.git.agdt_branch.persist_if_dirty") as mock_persist:
+                    runner.run_command("agdt-get-pull-request-details")
+
+        mock_func.assert_called_once()
+        mock_persist.assert_called_once()
+
+    def test_parser_error_exit_keeps_persist_hook(self):
+        """A parser error (e.g. an invalid explicit --help value) still finalizes.
+
+        A later genuine help flag in argv must not retroactively suppress
+        persistence when the wrapper actually exited due to a parser error
+        (SystemExit with a non-zero code), rather than a genuine help action.
+        """
+        mock_func = MagicMock(side_effect=SystemExit(2))
+        mock_module = MagicMock()
+        mock_module.get_pull_request_details_async_cli = mock_func
+        real_import = importlib.import_module
+
+        def import_side_effect(name, *args, **kwargs):
+            if name == "agentic_devtools.cli.azure_devops":
+                return mock_module
+            return real_import(name, *args, **kwargs)
+
+        with patch.object(sys, "argv", ["agdt-get-pull-request-details", "--help=foo", "--help"]):
+            with patch("importlib.import_module", side_effect=import_side_effect):
+                with patch("agentic_devtools.cli.git.agdt_branch.persist_if_dirty") as mock_persist:
+                    with pytest.raises(SystemExit) as exc_info:
+                        runner.run_command("agdt-get-pull-request-details")
+
+        assert exc_info.value.code == 2
+        mock_func.assert_called_once()
+        mock_persist.assert_called_once()
+
+    def test_help_exit_for_unrelated_command_keeps_persist_hook(self):
+        """A SystemExit(0) from a non-help-aware command still finalizes."""
+        mock_func = MagicMock(side_effect=SystemExit(0))
+        mock_module = MagicMock()
+        mock_module.show_cmd = mock_func
+
+        with patch("importlib.import_module", side_effect=_import_side_effect(mock_module)):
+            with patch("agentic_devtools.cli.git.agdt_branch.persist_if_dirty") as mock_persist:
+                with pytest.raises(SystemExit) as exc_info:
+                    runner.run_command("agdt-show")
+
+        assert exc_info.value.code == 0
+        mock_func.assert_called_once()
+        mock_persist.assert_called_once()

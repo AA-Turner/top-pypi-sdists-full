@@ -53,6 +53,33 @@ def head_pin_options() -> dict:
     }
 
 
+def cpu_only_pool_resources() -> dict[str, float]:
+    """Return the resource request pinning an actor to CPU-only nodes.
+
+    ``{CPU_ONLY_NODE: 1}`` when some live node advertises
+    ``CPU_ONLY_NODE``. Anything else raises: an actor requesting an
+    unadvertised custom resource is unschedulable and pends indefinitely,
+    so an explicitly requested placement fails fast instead. Being a
+    Geneva-managed cluster is not enough -- a GPU-only topology, or a CPU
+    worker group scaled to zero, advertises the resource nowhere, so only
+    a live advertisement counts.
+    """
+    import ray
+
+    resources = ray.cluster_resources()
+    if CPU_ONLY_NODE in resources:
+        return {CPU_ONLY_NODE: 1}
+    raise ValueError(
+        f"use_cpu_only_pool=True requires the cluster to advertise the "
+        f"'{CPU_ONLY_NODE}' custom resource, but no node reports it, so the "
+        "applier would never be scheduled. Geneva-built clusters advertise "
+        "it on CPU worker groups via rayStartParams resources; keep a CPU "
+        "worker group running (minReplicas >= 1 -- a group scaled to zero "
+        "advertises nothing), add the resource to an external cluster's "
+        "worker config, or drop use_cpu_only_pool."
+    )
+
+
 DEFAULT_MAX_WORKER_REPLICAS = 100
 
 

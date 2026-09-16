@@ -310,3 +310,36 @@ class TestCollapsePriorSummaries:
 
         with pytest.raises(ProviderRateLimitError):
             collapse_prior_summaries(provider, pr_number=42)
+
+    def test_collapse_prior_summaries_preserves_keep_active_id(self) -> None:
+        """Comments matching keep_active_id are not collapsed."""
+        provider = MagicMock()
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=301,
+                author="github-actions[bot]",
+                body="<!-- agdt:ai-pr-loop-summary -->\n\n#### 🤖 AI PR Loop Run — keep me",
+            ),
+            IssueCommentInfo(
+                id=302,
+                author="github-actions[bot]",
+                body="<!-- agdt:ai-pr-loop-summary -->\n\n#### 🤖 AI PR Loop Run — collapse me",
+            ),
+        ]
+
+        collapsed = collapse_prior_summaries(provider, pr_number=42, keep_active_id=301)
+
+        assert collapsed == 1
+        provider.update_comment.assert_called_once()
+        assert provider.update_comment.call_args.args[0] == 302
+
+    def test_collapse_prior_summaries_fallback_preserves_keep_active_id(self) -> None:
+        """Fallback path stops when encountering keep_active_id."""
+        provider = MagicMock()
+        provider.list_issue_comments = None
+        provider.find_comment.return_value = (401, "<!-- agdt:ai-pr-loop-summary -->\n\n#### 🤖 AI PR Loop Run — keep")
+
+        collapsed = collapse_prior_summaries(provider, pr_number=42, keep_active_id=401)
+
+        assert collapsed == 0
+        provider.update_comment.assert_not_called()

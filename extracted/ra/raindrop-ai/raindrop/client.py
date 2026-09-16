@@ -53,6 +53,7 @@ from typing import (
 from raindrop import _tracing as _rd_tracing
 from raindrop import analytics as _analytics
 from raindrop import subagent as _subagent
+from raindrop.app_git import AppGitOptions
 from raindrop._state import ClientState
 from raindrop.handoff import TraceContext
 from raindrop.interaction import Interaction
@@ -79,6 +80,7 @@ class Raindrop:
         redact_pii: bool = False,
         debug_logs: bool = False,
         wizard_session: str | None = None,
+        app_git: bool | AppGitOptions = True,
         **traceloop_kwargs: Any,
     ) -> None:
         """Create an independent client. Arguments mirror ``analytics.init()``.
@@ -118,6 +120,7 @@ class Raindrop:
                 local_workshop_url=local_workshop_url,
                 max_text_field_chars=max_text_field_chars,
                 project_id=project_id,
+                app_git=app_git,
                 **traceloop_kwargs,
             )
         except Exception as e:
@@ -178,7 +181,7 @@ class Raindrop:
         Concurrency-safe (contextvars are per-thread and per-asyncio-task);
         nesting restores the outer client on exit.
         """
-        return _rd_tracing.as_current(self._state.project_id, self._state.auth_hint)
+        return _analytics.client_context(self._state)
 
     # -- event tracking ------------------------------------------------------ #
 

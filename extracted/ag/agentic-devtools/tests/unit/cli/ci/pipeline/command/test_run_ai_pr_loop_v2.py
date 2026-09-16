@@ -1,5 +1,6 @@
 """Tests for run_ai_pr_loop_v2 command."""
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -373,3 +374,102 @@ class TestRunAiPrLoopV2:
         ):
             with pytest.raises(RuntimeError, match="pipeline failure"):
                 run_ai_pr_loop_v2(provider, event)
+
+    def test_writes_actions_executed_true_to_github_output(self, tmp_path) -> None:
+        """When an action executed, actions_executed=true is appended to GITHUB_OUTPUT."""
+        output_file = tmp_path / "github_output.txt"
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        mock_summary = MagicMock(
+            results=[MagicMock(name="rebase", decision=MagicMock(name="EXECUTE"))],
+            snapshot=MagicMock(ci_status="passing"),
+        )
+        # Decision comparison must match ActionDecision.EXECUTE
+        from agentic_devtools.cli.ci.pipeline.models import ActionDecision, ActionResult
+
+        mock_summary.results = [ActionResult(name="rebase", decision=ActionDecision.EXECUTE, details="rebased")]
+
+        with (
+            patch.dict("os.environ", {"GITHUB_OUTPUT": str(output_file)}),
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", return_value=mock_summary),
+            patch("agentic_devtools.cli.ci.pipeline.command.post_summary_comment"),
+            patch("agentic_devtools.cli.ci.pipeline.command._determine_exit_code", return_value=EXIT_SUCCESS),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+        ):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_SUCCESS
+
+        content = output_file.read_text(encoding="utf-8")
+        assert "actions_executed=true\n" in content
+
+    def test_writes_actions_executed_false_to_github_output(self, tmp_path) -> None:
+        """When no action executed, actions_executed=false is appended to GITHUB_OUTPUT."""
+        output_file = tmp_path / "github_output.txt"
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        from agentic_devtools.cli.ci.pipeline.models import ActionDecision, ActionResult
+
+        mock_summary = MagicMock(
+            results=[ActionResult(name="guards", decision=ActionDecision.SKIP, details="all skipped")],
+            snapshot=MagicMock(ci_status="passing"),
+        )
+
+        with (
+            patch.dict("os.environ", {"GITHUB_OUTPUT": str(output_file)}),
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", return_value=mock_summary),
+            patch("agentic_devtools.cli.ci.pipeline.command.post_summary_comment"),
+            patch("agentic_devtools.cli.ci.pipeline.command._determine_exit_code", return_value=EXIT_SUCCESS),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+        ):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_SUCCESS
+
+        content = output_file.read_text(encoding="utf-8")
+        assert "actions_executed=false\n" in content
+
+    def test_handles_github_output_oserror(self) -> None:
+        """When writing to GITHUB_OUTPUT raises OSError, logs warning and continues."""
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        from agentic_devtools.cli.ci.pipeline.models import ActionDecision, ActionResult
+
+        mock_summary = MagicMock(
+            results=[ActionResult(name="guards", decision=ActionDecision.SKIP, details="all skipped")],
+            snapshot=MagicMock(ci_status="passing"),
+        )
+
+        with (
+            patch.dict("os.environ", {"GITHUB_OUTPUT": "/nonexistent/invalid/dir/output.txt"}),
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", return_value=mock_summary),
+            patch("agentic_devtools.cli.ci.pipeline.command.post_summary_comment"),
+            patch("agentic_devtools.cli.ci.pipeline.command._determine_exit_code", return_value=EXIT_SUCCESS),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+        ):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_SUCCESS
+
+    def test_runs_when_github_output_not_set(self) -> None:
+        """When GITHUB_OUTPUT is not set in environment, completes normally."""
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        from agentic_devtools.cli.ci.pipeline.models import ActionDecision, ActionResult
+
+        mock_summary = MagicMock(
+            results=[ActionResult(name="guards", decision=ActionDecision.SKIP, details="all skipped")],
+            snapshot=MagicMock(ci_status="passing"),
+        )
+
+        with (
+            patch.dict("os.environ", {}, clear=False),
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", return_value=mock_summary),
+            patch("agentic_devtools.cli.ci.pipeline.command.post_summary_comment"),
+            patch("agentic_devtools.cli.ci.pipeline.command._determine_exit_code", return_value=EXIT_SUCCESS),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+        ):
+            os.environ.pop("GITHUB_OUTPUT", None)
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_SUCCESS

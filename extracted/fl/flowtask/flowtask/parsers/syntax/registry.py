@@ -1,8 +1,11 @@
-"""Lazy reader for the per-component JSON Schemas under ``docs/components/``.
+"""Lazy reader for the per-component JSON Schemas under
+``flowtask/documentation/generated/components/``.
 
 The HTTP handler at ``flowtask.handlers.component.FlowtaskComponentHandler``
-reads the same files; this class is the CLI-side counterpart for the
-``--syntax`` checker.
+already reads from this same package-shipped tree (migrated off the legacy
+``BASE_DIR/docs`` location so the documentation always matches the
+installed wheel — see that module's docstring); this class is the CLI-side
+counterpart for the ``--syntax`` checker and follows the same precedent.
 
 Each component is documented in a single ``<Name>.doc.json`` file that embeds
 the JSON Schema under its ``schema`` key. This registry returns the embedded
@@ -29,15 +32,21 @@ class ComponentSchemaRegistry:
             schema = reg.get("AddDataset")
 
     Args:
-        docs_dir: Path to the ``docs/`` directory.  When ``None``, defaults
-            to ``BASE_DIR / "docs"``.
+        docs_dir: Path to the generated documentation directory. When
+            ``None``, defaults to ``BASE_DIR / "flowtask" / "documentation"
+            / "generated"`` — the same package-shipped tree
+            ``flowtask.handlers.component`` reads (``DOCS_PACKAGE =
+            "flowtask.documentation.generated"``), not the legacy,
+            gitignored ``BASE_DIR / "docs"`` scratch directory.
     """
 
     INDEX_FILENAME = "index.json"
     COMPONENTS_DIRNAME = "components"
 
     def __init__(self, docs_dir: Optional[Path] = None) -> None:
-        self.docs_dir: Path = Path(docs_dir) if docs_dir else (BASE_DIR / "docs")
+        self.docs_dir: Path = Path(docs_dir) if docs_dir else (
+            BASE_DIR / "flowtask" / "documentation" / "generated"
+        )
         self.logger = logging.getLogger("FlowTask.Syntax.Registry")
         self._index: Optional[dict] = None
         self._schema_cache: dict[str, dict] = {}

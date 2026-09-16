@@ -13,7 +13,8 @@ hard assertion).
 
 Without stable row ids the version-based guard applies instead: once the
 source version moves past the MV's base version, every refresh must raise
-``RuntimeError`` mentioning "stable row IDs" and leave the MV byte-identical
+``RuntimeError`` saying the view is pinned to that version, and leave the
+MV byte-identical
 (frozen snapshot), including across a compaction commit that rewrites the
 source's fragments.
 """
@@ -303,7 +304,8 @@ def test_mv_refresh_racing_compaction_guard_without_srid(
 
     An MV over a non-SRID source can only refresh at the source version it was
     created from (table.py version guard). Once the source version moves, every
-    refresh must raise ``RuntimeError`` mentioning "stable row IDs" and the MV
+    refresh must raise ``RuntimeError`` saying the view is pinned to that
+    version, and the MV
     must remain byte-identical -- a frozen snapshot -- across background
     append/delete churn AND a real compaction commit. The churn window is too
     short to reach the background compaction threshold reliably, so the
@@ -318,7 +320,7 @@ def test_mv_refresh_racing_compaction_guard_without_srid(
         src.add(_block(next_id, 50))
         next_id += 50
 
-    with pytest.warns(UserWarning, match="stable row IDs"):
+    with pytest.warns(UserWarning, match="pinned to source version"):
         mv = _create_mv(src.search(None).select(["id", "value"]), db, "mv_nosrid")
 
     # Populate at the base version (same-version refresh is allowed).
@@ -339,13 +341,13 @@ def test_mv_refresh_racing_compaction_guard_without_srid(
         snapshot = mv.to_arrow()
 
         for _ in range(4):
-            with pytest.raises(RuntimeError, match="stable row IDs"):
+            with pytest.raises(RuntimeError, match="pinned to source version"):
                 mv.refresh(_admission_check=False)
             guard_raises += 1
             time.sleep(0.3)
 
     # One more attempt after quiescing: the source has definitely moved.
-    with pytest.raises(RuntimeError, match="stable row IDs"):
+    with pytest.raises(RuntimeError, match="pinned to source version"):
         mv.refresh(_admission_check=False)
     guard_raises += 1
 
@@ -359,7 +361,7 @@ def test_mv_refresh_racing_compaction_guard_without_srid(
     assert src.version != pre_compact_version, (
         "foreground compaction must commit a source version"
     )
-    with pytest.raises(RuntimeError, match="stable row IDs"):
+    with pytest.raises(RuntimeError, match="pinned to source version"):
         mv.refresh(_admission_check=False)
     guard_raises += 1
 

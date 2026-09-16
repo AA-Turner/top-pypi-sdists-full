@@ -1,3 +1,4 @@
+import sys
 import warnings
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -55,6 +56,18 @@ def test_no_file():
     """Test that validation can be done on functions made on the fly."""
     # Just a smoke test for now, <list> will have a None filename
     validate.validate("numpydoc.tests.test_validate._DummyList.clear")
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="PEP 649 lazy annotations")
+def test_signature_params_with_typechecking_only_annotation():
+    ns = {}
+    exec("def func(a, b=1, *args, **kwargs) -> OnlyUnderTypeChecking: ...", ns)
+    assert Validator(get_doc_object(ns["func"])).signature_parameters == (
+        "a",
+        "b",
+        "*args",
+        "**kwargs",
+    )
 
 
 @pytest.mark.parametrize(
@@ -1576,10 +1589,7 @@ class TestValidator:
             (
                 "BadSummaries",
                 "wrong_line",
-                (
-                    "should start in the line immediately after the opening quotes",
-                    "should be placed in the line after the last text",
-                ),
+                ("should be placed in the line after the last text",),
             ),
             ("BadSummaries", "no_punctuation", ("Summary does not end with a period",)),
             (
@@ -1862,6 +1872,9 @@ class DecoratorClass:
     def test_three_decorators(self):
         """Test method with three decorators."""
 
+    async def test_async(self):
+        """Test async method."""
+
 
 class TestValidatorClass:
     @pytest.mark.parametrize("invalid_name", ["unknown_mod", "unknown_mod.MyClass"])
@@ -1902,6 +1915,10 @@ class TestValidatorClass:
             [
                 "numpydoc.tests.test_validate.DecoratorClass.test_three_decorators",
                 getsourcelines(DecoratorClass.test_three_decorators)[-1] + 3,
+            ],
+            [
+                "numpydoc.tests.test_validate.DecoratorClass.test_async",
+                getsourcelines(DecoratorClass.test_async)[-1],
             ],
         ],
     )

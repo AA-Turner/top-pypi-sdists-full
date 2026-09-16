@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dwave-cloud-client
-Version: 0.14.7
+Version: 0.14.8
 Summary: A minimal client for interacting with D-Wave cloud resources.
 Home-page: https://github.com/dwavesystems/dwave-cloud-client
 Author: D-Wave Systems Inc.

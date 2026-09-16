@@ -15,7 +15,7 @@ import json
 
 import pytest
 
-from matrx_ai.client_host.mandate_source import ServerMandateSource, MandateSourceFetchError
+from matrx_ai.client_host.mandate_source import MandateSourceFetchError, ServerMandateSource
 
 
 class _FakeResponse:
@@ -35,7 +35,7 @@ class _FakeClient:
         self._response = response
         self._captured = captured
 
-    async def __aenter__(self) -> "_FakeClient":
+    async def __aenter__(self) -> _FakeClient:
         return self
 
     async def __aexit__(self, *exc_info: object) -> None:
@@ -92,6 +92,39 @@ async def test_resolves_a_mandate_and_carries_the_dbs_version_decision(patch_htt
 
 
 @pytest.mark.asyncio
+async def test_async_provider_is_resolved_at_each_mandate_request(patch_httpx) -> None:
+    captured = patch_httpx(_FakeResponse(200, _ok_payload()))
+    tokens = iter(("first-grant", "rotated-grant"))
+
+    async def current_token() -> str:
+        return next(tokens)
+
+    source = ServerMandateSource("https://server.example.com", current_token)
+    await source("podcast.deep_research")
+    assert captured["headers"]["Authorization"] == "Bearer first-grant"
+    await source("podcast.deep_research")
+    assert captured["headers"]["Authorization"] == "Bearer rotated-grant"
+
+
+@pytest.mark.asyncio
+async def test_provider_failure_refuses_without_leaking_provider_value(patch_httpx) -> None:
+    secret = "must-not-appear-in-error"
+
+    def broken_provider() -> str:
+        raise RuntimeError(secret)
+
+    source = ServerMandateSource("https://server.example.com", broken_provider)
+    with pytest.raises(MandateSourceFetchError) as excinfo:
+        await source("podcast.deep_research")
+    assert "anonymous" in str(excinfo.value)
+    assert secret not in str(excinfo.value)
+
+    signed_out = ServerMandateSource("https://server.example.com", lambda: None)
+    with pytest.raises(MandateSourceFetchError, match="no usable JWT"):
+        await signed_out("podcast.deep_research")
+
+
+@pytest.mark.asyncio
 async def test_a_floating_mandate_resolves_to_a_master_not_a_version(patch_httpx) -> None:
     patch_httpx(_FakeResponse(200, _ok_payload(agent_id="master-abc", is_version=False)))
     source = ServerMandateSource("https://server.example.com", lambda: "jwt-token")
@@ -142,10 +175,10 @@ async def test_a_client_resolver_makes_run_mandated_refuse_loudly_on_failure(
 ) -> None:
     """End to end: a failing client resolution surfaces as the SAME loud
     refusal a server-side failure produces, never a fallback agent."""
-    from matrx_ai import mandates
-    from matrx_ai import _ext
-    from matrx_ai.agents.executor import AgentRunResult
     from pydantic import BaseModel
+
+    from matrx_ai import _ext, mandates
+    from matrx_ai.agents.executor import AgentRunResult
 
     captured: list[dict[str, object]] = []
 

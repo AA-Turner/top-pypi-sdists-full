@@ -49,6 +49,13 @@ from clawmetry import ccr as _ccr  # reversible event-payload compression (#2843
 from clawmetry import event_shape as _event_shape  # v15 typed event columns
 from clawmetry import nonsecret_hash as _nsh
 from clawmetry.trail_store import TrailStoreMixin  # intent / back-fill / git join
+from clawmetry.local_store_projects import ProjectsMixin  # project attribution + budgets (REQ-OBS-PRJ-001)
+# REQ-OBS-OIA-001: a value the store cannot hold is refused on its own, not a
+# store failure (span batch retry, OTLP record refusal, event token count).
+from clawmetry.store_errors import (  # noqa: F401  (re-exported for tests)
+    int32_or_none as _int32_or_none,
+    is_data_error as _is_data_error,
+)
 import threading
 import time
 import uuid
@@ -1374,6 +1381,58 @@ _DDL = [
         updated_at        BIGINT NOT NULL
     )
     """,
+    # REQ-OBS-PRJ-001 — project attribution and per-project budgets. The
+    # read/write surface is clawmetry/local_store_projects.py. A session's
+    # project is DERIVED when read (clawmetry/project_attribution.py); none
+    # of these tables is joined onto sessions at ingest.
+    #
+    # Assignments are append-only: a correction is a new row, so who/when/why
+    # of every earlier assignment survives. effective_from/to are ISO strings
+    # (NULL = unbounded) compared against the session's start.
+    """
+    CREATE TABLE IF NOT EXISTS project_assignments (
+        assignment_id  VARCHAR PRIMARY KEY,
+        match_type     VARCHAR NOT NULL,
+        match_value    VARCHAR NOT NULL,
+        project_name   VARCHAR NOT NULL,
+        effective_from VARCHAR,
+        effective_to   VARCHAR,
+        actor          VARCHAR,
+        reason         VARCHAR,
+        created_at     BIGINT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS project_budgets (
+        budget_id   VARCHAR PRIMARY KEY,
+        project_id  VARCHAR NOT NULL,
+        amount      DOUBLE NOT NULL,
+        currency    VARCHAR NOT NULL,
+        period      VARCHAR NOT NULL,
+        timezone    VARCHAR NOT NULL,
+        basis       VARCHAR NOT NULL,
+        actor       VARCHAR,
+        created_at  BIGINT NOT NULL,
+        updated_at  BIGINT NOT NULL
+    )
+    """,
+    # The once-per-threshold-per-period latch. The primary key IS the rule:
+    # a restart, a second evaluator or a re-read cannot record the same
+    # crossing twice. ``late`` marks a crossing found in an already-closed
+    # period because its usage arrived after the period ended.
+    """
+    CREATE TABLE IF NOT EXISTS project_budget_alerts (
+        budget_id     VARCHAR NOT NULL,
+        period_start  VARCHAR NOT NULL,
+        threshold_pct INTEGER NOT NULL,
+        project_id    VARCHAR,
+        spent_usd     DOUBLE,
+        amount        DOUBLE,
+        fired_at      BIGINT NOT NULL,
+        late          BOOLEAN DEFAULT FALSE,
+        PRIMARY KEY (budget_id, period_start, threshold_pct)
+    )
+    """,
     # Issue #605 follow-up (DuckDB-first rule) — cron-run timeline storage.
     # One row per JSONL line in ``~/.openclaw/cron/runs/<jobId>.jsonl``. The
     # daemon's ``sync_cron_runs`` helper scans those files every cycle and
@@ -1935,6 +1994,22 @@ _DDL = [
     "CREATE INDEX IF NOT EXISTS idx_otlp_records_repo_ts  ON otlp_records(repo, ts)",
     "CREATE INDEX IF NOT EXISTS idx_otlp_records_user_ts  ON otlp_records(user_email, ts)",
     "CREATE INDEX IF NOT EXISTS idx_otlp_records_sess_ts  ON otlp_records(session_id, ts)",
+    # REQ-OBS-GWY-001 (#5940): gateway usage records (a LiteLLM proxy's
+    # requests) share this ledger. ``source`` separates them from the agent
+    # rows every existing rollup reads (NULL on every row written before), and
+    # the rest are what the gateway read groups and joins on: the cost label,
+    # the trace a request belongs to (correlation with other sources), the
+    # provider response id (a cache replay repeats it), and the key / team
+    # labels LiteLLM authenticated. ALTER, not a new CREATE, so existing stores
+    # pick them up; rows are never rewritten.
+    "ALTER TABLE otlp_records ADD COLUMN IF NOT EXISTS source      VARCHAR",
+    "ALTER TABLE otlp_records ADD COLUMN IF NOT EXISTS cost_source VARCHAR",
+    "ALTER TABLE otlp_records ADD COLUMN IF NOT EXISTS trace_id    VARCHAR",
+    "ALTER TABLE otlp_records ADD COLUMN IF NOT EXISTS response_id VARCHAR",
+    "ALTER TABLE otlp_records ADD COLUMN IF NOT EXISTS key_alias   VARCHAR",
+    "ALTER TABLE otlp_records ADD COLUMN IF NOT EXISTS team_alias  VARCHAR",
+    "CREATE INDEX IF NOT EXISTS idx_otlp_records_source_ts ON otlp_records(source, ts)",
+    "CREATE INDEX IF NOT EXISTS idx_otlp_records_response  ON otlp_records(response_id)",
     # ── Git outcomes (REQ-OBS-CEA-022) ────────────────────────────────────
     #
     # The output half of "what did this cost". Every cost figure in the
@@ -3548,7 +3623,7 @@ def _runtime_of_session_id(session_id: str, fallback: str = "openclaw") -> str:
     return fallback or "openclaw"
 
 
-class LocalStore(TrailStoreMixin):
+class LocalStore(ProjectsMixin, TrailStoreMixin):
     """Thread-safe local event store with a background batched flusher.
 
     `read_only=True` opens the DuckDB in RO mode — read paths work the same,
@@ -9698,7 +9773,9 @@ class LocalStore(TrailStoreMixin):
         """
         self.ingest_spans_batch([span])
 
-    def ingest_spans_batch(self, spans: list[dict[str, Any]]) -> int:
+    def ingest_spans_batch(
+        self, spans: list[dict[str, Any]], with_outcome: bool = False,
+    ) -> Any:
         """Upsert many spans in ONE write-lock hold / ONE transaction.
 
         Same INSERT-OR-REPLACE semantics as :meth:`ingest_span` (which
@@ -9711,7 +9788,20 @@ class LocalStore(TrailStoreMixin):
         #5496 — a span whose content matches what the store last wrote for
         that ``span_id`` is skipped entirely (no DELETE, no INSERT, no dead
         row version). A changed field (late ``end_ts``, cost, status) still
-        overwrites. Returns the number of span rows actually written."""
+        overwrites. Returns the number of span rows actually written.
+
+        REQ-OBS-OIA-001 — one span carrying a value the store cannot hold (a
+        token count beyond INTEGER range, a string the driver cannot encode)
+        used to fail the whole transaction, so every valid span in the batch
+        was lost and a retry failed the same way. When the batch fails for
+        that reason it is written again one span at a time: the valid spans
+        land and only the bad one is dropped. Any other store error (closed
+        connection, I/O) still raises.
+
+        ``with_outcome=True`` (the OTLP receiver, which must tell its sender
+        what was refused) returns ``{"written": n, "rejected": n}`` and also
+        counts a span missing a required field as refused. Without it such a
+        span raises ValueError, as it always has."""
         if self._read_only:
             raise RuntimeError(
                 "local_store: ingest_span() called on read-only store"
@@ -9728,17 +9818,28 @@ class LocalStore(TrailStoreMixin):
                 redact = _redaction.redact_span
         except Exception:
             redact = None  # partial install: never block ingest
+        rejected = 0
         rows: dict[str, tuple[list[Any], dict[str, Any], str]] = {}
         for span in spans:
-            params = _span_row(span)
+            try:
+                params = _span_row(span)
+            except ValueError:
+                if not with_outcome:
+                    raise
+                rejected += 1
+                continue
             # Change detection hashes what was RECEIVED, before redaction:
             # an unchanged span re-sent every tick is skipped without paying
             # for a scan (FLYWHEEL 1e), and hashes stored before redaction
             # existed still match, so an upgrade does not rewrite the table.
             # created_at is not content.
             rows[str(params[0])] = (params, span, _content_hash(params[:-1]))
+
+        def _out(n: int) -> Any:
+            return {"written": n, "rejected": rejected} if with_outcome else n
+
         if not rows:
-            return 0
+            return _out(0)
         with self._write_lock:
             cache = self._span_hashes_locked()
             pending = [
@@ -9746,47 +9847,83 @@ class LocalStore(TrailStoreMixin):
                 if not (cache is not None and cache.get(sid) == h)
             ]
         if not pending:
-            return 0
+            return _out(0)
+        # Redact BEFORE any write attempt, outside the write lock (a scan over
+        # a large prompt must not stall every other writer). Both the batch
+        # write and the one-span-at-a-time retry below write these rows, so a
+        # span on the retry path is exactly as redacted as one in the batch.
         to_write: list[list[Any]] = []
         for params, span, h in pending:
             if redact is not None:
-                # Outside the write lock: a scan over a large prompt must not
-                # stall every other writer.
-                params = _span_row(redact(span))
+                try:
+                    params = _span_row(redact(span))
+                except ValueError:
+                    # Redaction left the span unstorable. Never fall back to
+                    # the unredacted row: refuse it instead.
+                    if not with_outcome:
+                        raise
+                    rejected += 1
+                    continue
             to_write.append(params + [h])
+        if not to_write:
+            return _out(0)
         with self._write_lock:
             cache = self._span_hashes_locked()
-            with _txn(self._conn):
-                ids = [p[0] for p in to_write]
-                for off in range(0, len(ids), 500):
-                    chunk = ids[off:off + 500]
-                    ph = ",".join("?" * len(chunk))
-                    self._conn.execute(
-                        f"DELETE FROM spans WHERE span_id IN ({ph})", chunk
-                    )
-                self._conn.executemany("""
-                    INSERT INTO spans (
-                        span_id, trace_id, parent_span_id, agent_type, agent_id,
-                        node_id, session_id, service_name, name, kind,
-                        status_code, status_message, status,
-                        start_ts, end_ts, duration_ms, duration_ns,
-                        model, tool_name, cost_usd, token_count,
-                        tokens_input, tokens_output,
-                        input, output, attributes, events, links,
-                        ts, created_at, content_hash
-                    ) VALUES (?, ?, ?, ?, ?,
-                              ?, ?, ?, ?, ?,
-                              ?, ?, ?,
-                              ?, ?, ?, ?,
-                              ?, ?, ?, ?,
-                              ?, ?,
-                              ?, ?, ?, ?, ?,
-                              ?, ?, ?)
-                """, to_write)
+            try:
+                self._write_span_rows_locked(to_write)
+                written = to_write
+            except Exception as exc:
+                if not _is_data_error(exc):
+                    raise
+                written = []
+                for params in to_write:
+                    try:
+                        self._write_span_rows_locked([params])
+                    except Exception as row_exc:
+                        if not _is_data_error(row_exc):
+                            raise
+                        rejected += 1
+                        log.warning(
+                            "spans: span refused, the store cannot hold one "
+                            "of its values: %s", row_exc,
+                        )
+                        continue
+                    written.append(params)
             if cache is not None:
-                for p in to_write:
+                for p in written:
                     cache[p[0]] = p[-1]
-        return len(to_write)
+        return _out(len(written))
+
+    def _write_span_rows_locked(self, to_write: list[list[Any]]) -> None:
+        """DELETE + INSERT ``to_write`` in one transaction (caller holds
+        ``_write_lock``). Raises with the transaction rolled back."""
+        with _txn(self._conn):
+            ids = [p[0] for p in to_write]
+            for off in range(0, len(ids), 500):
+                chunk = ids[off:off + 500]
+                ph = ",".join("?" * len(chunk))
+                self._conn.execute(
+                    f"DELETE FROM spans WHERE span_id IN ({ph})", chunk
+                )
+            self._conn.executemany("""
+                INSERT INTO spans (
+                    span_id, trace_id, parent_span_id, agent_type, agent_id,
+                    node_id, session_id, service_name, name, kind,
+                    status_code, status_message, status,
+                    start_ts, end_ts, duration_ms, duration_ns,
+                    model, tool_name, cost_usd, token_count,
+                    tokens_input, tokens_output,
+                    input, output, attributes, events, links,
+                    ts, created_at, content_hash
+                ) VALUES (?, ?, ?, ?, ?,
+                          ?, ?, ?, ?, ?,
+                          ?, ?, ?,
+                          ?, ?, ?, ?,
+                          ?, ?, ?, ?,
+                          ?, ?,
+                          ?, ?, ?, ?, ?,
+                          ?, ?, ?)
+            """, to_write)
 
     def _span_hashes_locked(self) -> dict[str, str] | None:
         """The span content-hash map (caller holds ``_write_lock``). ``None``
@@ -9871,7 +10008,23 @@ class LocalStore(TrailStoreMixin):
         "agent_type", "service_name", "model", "provider", "cost_usd",
         "tokens_input", "tokens_output", "token_count", "duration_ms",
         "tool_name", "decision", "success", "attributes",
+        # REQ-OBS-GWY-001: NULL on agent rows, set on gateway usage rows.
+        "source", "cost_source", "trace_id", "response_id", "key_alias",
+        "team_alias",
     )
+
+    def query_gateway_usage(self, *, window_days: int = 7) -> dict[str, Any] | None:
+        """Gateway usage (a LiteLLM proxy's requests) by team, user and key,
+        over the last ``window_days``. REQ-OBS-GWY-001. The SQL and the rules
+        (cache replays, unreported cost, trace correlation) live in
+        ``clawmetry/gateway_litellm.py``; this is the allowlisted entry point.
+        ``None`` when the store could not be read, which is not "no usage"."""
+        from clawmetry import gateway_litellm as _gw
+        try:
+            return _gw.gateway_usage(self._fetch, window_days=window_days)
+        except Exception:
+            log.warning("query_gateway_usage failed", exc_info=True)
+            return None
 
     # Event types the daemon's transcript read ALSO produces. For a session
     # the daemon owns, an OTLP copy of one of these is a duplicate and is
@@ -9906,7 +10059,13 @@ class LocalStore(TrailStoreMixin):
 
         Returns ``{"records": n, "events": n, "events_skipped_daemon_owned":
         n}`` — what was accepted, and what was dropped because a daemon
-        already owns that session (see below).
+        already owns that session (see below) — plus what the OTLP receiver
+        needs to decide whether it may acknowledge the export
+        (REQ-OBS-OIA-001): ``records_rejected`` (malformed, never storable),
+        ``records_duplicate_in_batch``, ``records_already_stored`` (a
+        re-delivery), ``records_failed`` / ``events_failed`` /
+        ``events_flush_failed`` (the store did not take something it should
+        have, so the sender must retry).
         Never raises on a single bad row; a malformed record is skipped and the
         rest of the batch lands.
         """
@@ -9921,18 +10080,26 @@ class LocalStore(TrailStoreMixin):
         except Exception:
             _scrub_attrs = None
         rows: dict[str, list[Any]] = {}
+        rejected = 0
+        dup_in_batch = 0
         for rec in records or []:
             if not isinstance(rec, dict):
+                rejected += 1
                 continue
             rid = rec.get("record_id")
             if not rid:
+                rejected += 1
                 continue
             try:
                 ts = float(rec.get("ts") or 0.0)
             except (TypeError, ValueError):
+                rejected += 1
                 continue
             if ts <= 0:
+                rejected += 1
                 continue
+            if str(rid) in rows:
+                dup_in_batch += 1
 
             def _s(key: str) -> str | None:
                 v = rec.get(key)
@@ -9951,7 +10118,15 @@ class LocalStore(TrailStoreMixin):
 
             def _i(key: str) -> int | None:
                 v = _f(key)
-                return None if v is None else int(v)
+                if v is None:
+                    return None
+                try:
+                    return int(v)
+                except (OverflowError, ValueError):
+                    # inf / NaN: not a count. Unknown, like any other value
+                    # that is not a number, rather than an exception that
+                    # fails the whole export on every retry.
+                    return None
 
             success = rec.get("success")
             if success is not None:
@@ -9973,10 +10148,29 @@ class LocalStore(TrailStoreMixin):
                 _s("tool_name"), _s("decision"), success,
                 _to_blob(_scrub_attrs(rec.get("attributes"))
                          if _scrub_attrs is not None else rec.get("attributes")),
+                _s("source"), _s("cost_source"), _s("trace_id"),
+                _s("response_id"), _s("key_alias"), _s("team_alias"),
             ]
 
         written = 0
+        failed = 0
+        already_stored = 0
         if rows:
+            # How many of these ids the store already holds: an exporter
+            # retrying a batch it never saw acknowledged. Counted, not
+            # skipped -- INSERT OR REPLACE below still lands the row, so a
+            # retry carrying a corrected field is not lost.
+            try:
+                ids = list(rows)
+                for off in range(0, len(ids), 500):
+                    chunk = ids[off:off + 500]
+                    marks = ", ".join(["?"] * len(chunk))
+                    already_stored += len(self._fetch(
+                        f"SELECT record_id FROM otlp_records WHERE record_id IN ({marks})",
+                        chunk,
+                    ))
+            except Exception:
+                log.warning("otlp_records: re-delivery probe failed", exc_info=True)
             placeholders = ", ".join(["?"] * len(self._OTLP_RECORD_COLS))
             sql = (
                 "INSERT OR REPLACE INTO otlp_records ("
@@ -9988,8 +10182,19 @@ class LocalStore(TrailStoreMixin):
                     try:
                         self._conn.execute(sql, params)
                         written += 1
-                    except Exception:
-                        log.warning("otlp_records: row rejected", exc_info=True)
+                    except Exception as exc:
+                        if _is_data_error(exc):
+                            # A value the column cannot hold (a token count
+                            # beyond INTEGER range). A retry resends it, so the
+                            # row is refused, not a write the sender retries.
+                            rejected += 1
+                            log.warning(
+                                "otlp_records: row refused, the store cannot "
+                                "hold one of its values: %s", exc,
+                            )
+                        else:
+                            failed += 1
+                            log.warning("otlp_records: row not written", exc_info=True)
 
         # Sessions whose behaviour stream a DAEMON already owns. On a machine
         # that runs the daemon AND has the org's OTEL config pushed to it, the
@@ -10061,9 +10266,12 @@ class LocalStore(TrailStoreMixin):
 
         ev_written = 0
         ev_skipped = 0
+        ev_rejected = 0
+        ev_failed = 0
         ev_skipped_signal = 0
         for ev in events or []:
             if not isinstance(ev, dict):
+                ev_rejected += 1
                 continue
             ev_sid = str(ev.get("session_id") or "")
             ev_type = str(ev.get("event_type") or "")
@@ -10081,22 +10289,41 @@ class LocalStore(TrailStoreMixin):
             try:
                 self.ingest(ev)
                 ev_written += 1
-            except Exception:
+            except ValueError:
+                # ingest() raises ValueError for an event missing a required
+                # key: malformed, and a retry would be refused the same way.
+                ev_rejected += 1
                 log.warning("otlp events: row rejected", exc_info=True)
+            except Exception:
+                ev_failed += 1
+                log.warning("otlp events: row not written", exc_info=True)
         # The receiver is a request handler, not the daemon's ingest loop, so
         # there is no flusher tick coming to drain the ring on its own
         # schedule. Flush now: "data survives a restart" is this path's
         # acceptance criterion, and a batch sitting in the ring does not.
+        flush_failed = False
         if ev_written:
             try:
                 self._flush_now()
             except Exception:
+                # The ring still holds the batch and the flusher will retry
+                # it, but the receiver may not call it stored: a restart
+                # before that tick loses it. The sender retries instead, and
+                # event ids make the replay idempotent.
+                flush_failed = True
                 log.warning("otlp events: flush failed", exc_info=True)
         return {
             "records": written,
             "events": ev_written,
             "events_skipped_daemon_owned": ev_skipped,
             "events_skipped_other_signal": ev_skipped_signal,
+            "records_rejected": rejected,
+            "records_duplicate_in_batch": dup_in_batch,
+            "records_already_stored": already_stored,
+            "records_failed": failed,
+            "events_rejected": ev_rejected,
+            "events_failed": ev_failed,
+            "events_flush_failed": flush_failed,
         }
 
     def materialize_otlp_sessions(
@@ -10319,7 +10546,10 @@ class LocalStore(TrailStoreMixin):
         dim = str(dimension or "team")
         if dim not in self._OTLP_ROLLUP_DIMENSIONS:
             raise ValueError(f"unsupported rollup dimension: {dimension!r}")
-        clauses = [f"{dim} IS NOT NULL", f"{dim} <> ''"]
+        # Gateway usage rows (REQ-OBS-GWY-001) are a separate subtotal served by
+        # ``query_gateway_usage``. Summed in here they would add a proxy's
+        # figure for a call to the agent's own figure for the same call.
+        clauses = [f"{dim} IS NOT NULL", f"{dim} <> ''", "source IS NULL"]
         params: list[Any] = []
         if since is not None:
             clauses.append("ts >= ?")
@@ -10327,25 +10557,32 @@ class LocalStore(TrailStoreMixin):
         if until is not None:
             clauses.append("ts <= ?")
             params.append(float(until))
+        # REQ-OBS-OIA-001 / AC-OBS-CEA-001.2: a group in which no record
+        # reported a cost has NO spend figure (None), not $0.00, and every
+        # group says how many of its records carried one. Summing NULL to 0
+        # made "the sender never told us" read as "this team spent nothing".
         sql = f"""
             SELECT {dim} AS key,
                    COUNT(*)                     AS records,
                    COUNT(DISTINCT session_id)   AS sessions,
-                   COALESCE(SUM(cost_usd), 0)   AS cost_usd,
-                   COALESCE(SUM(token_count), 0) AS tokens,
-                   COALESCE(SUM(tokens_input), 0) AS tokens_input,
-                   COALESCE(SUM(tokens_output), 0) AS tokens_output,
+                   SUM(cost_usd)                AS cost_usd,
+                   SUM(token_count)             AS tokens,
+                   SUM(tokens_input)            AS tokens_input,
+                   SUM(tokens_output)           AS tokens_output,
+                   COUNT(cost_usd)              AS records_with_cost,
+                   COUNT(token_count)           AS records_with_tokens,
                    MIN(ts)                      AS first_ts,
                    MAX(ts)                      AS last_ts
             FROM otlp_records
             WHERE {' AND '.join(clauses)}
             GROUP BY {dim}
-            ORDER BY cost_usd DESC, records DESC
+            ORDER BY cost_usd DESC NULLS LAST, records DESC
             LIMIT ?
         """
         params.append(int(limit))
         cols = ("key", "records", "sessions", "cost_usd", "tokens",
-                "tokens_input", "tokens_output", "first_ts", "last_ts")
+                "tokens_input", "tokens_output", "records_with_cost",
+                "records_with_tokens", "first_ts", "last_ts")
         return [dict(zip(cols, r)) for r in self._fetch(sql, params)]
 
     def latest_otlp_record(self, *, service_name: str | None = None,
@@ -10596,6 +10833,13 @@ class LocalStore(TrailStoreMixin):
         if rt is not None:
             ts_clauses.append("COALESCE(agent_type,'openclaw') = ?")
             ts_params.append(rt)
+        # A LiteLLM proxy is a gateway, not an agent: its spans keep their own
+        # ``agent_type`` and must never be drawn as an agent node or a spawn
+        # edge (REQ-OBS-GWY-001, AC-OBS-GWY-001.7) -- the same exclusion
+        # query_otlp_app_rollup applies.
+        from clawmetry.gateway_litellm import GATEWAY_SOURCE as _GW
+        ts_clauses.append("LOWER(COALESCE(agent_type,'openclaw')) <> ?")
+        ts_params.append(_GW)
         ts_where = ("WHERE " + " AND ".join(ts_clauses)) if ts_clauses else ""
 
         nodes: list[dict] = []
@@ -10626,8 +10870,12 @@ class LocalStore(TrailStoreMixin):
 
         edges: list[dict] = []
         try:
-            spawn_parts = ["cs.name = 'agent.spawn'"]
-            spawn_params: list[Any] = []
+            spawn_parts = [
+                "cs.name = 'agent.spawn'",
+                "LOWER(COALESCE(cs.agent_type,'openclaw')) <> ?",
+                "LOWER(COALESCE(ps.agent_type,'openclaw')) <> ?",
+            ]
+            spawn_params: list[Any] = [_GW, _GW]
             if since is not None:
                 spawn_parts.append("cs.start_ts >= ?")
                 spawn_params.append(float(since))
@@ -10750,6 +10998,11 @@ class LocalStore(TrailStoreMixin):
         """
         try:
             excl = {str(x).lower() for x in (exclude_agent_types or [])}
+            # A LiteLLM proxy is a gateway, not an agent app: its spans keep
+            # their own ``agent_type`` so they never surface as a runtime
+            # (REQ-OBS-GWY-001). Always excluded, whatever the caller passed.
+            from clawmetry.gateway_litellm import GATEWAY_SOURCE as _GW
+            excl.add(_GW)
             clauses: list[str] = []
             params: list[Any] = []
             if since is not None:
@@ -16249,6 +16502,7 @@ class LocalStore(TrailStoreMixin):
         self,
         *,
         window_hours: int = 24,
+        runtime: str | None = None,
     ) -> dict[str, Any]:
         """Aggregate scores over the recent window. Drives
         ``/api/evals/summary``.
@@ -16257,24 +16511,40 @@ class LocalStore(TrailStoreMixin):
         ``total`` is sessions touched in the window (scored OR not);
         ``scored`` is the subset with a numeric eval_score. The ratio
         ``scored/total`` surfaces coverage on the overview tile.
+
+        ``runtime`` keeps only that runtime's sessions, bucketed by id prefix
+        like :func:`_runtime_of_session_id` (NemoClaw sessions carry OpenClaw
+        ids). ``None`` / ``"all"`` counts every runtime.
         """
         try:
             from datetime import datetime, timedelta, timezone
             cutoff = (datetime.now(timezone.utc) - timedelta(hours=int(window_hours))).isoformat()
         except Exception:
             cutoff = ""
+        rt_sql = ""
+        rt_params: list[Any] = []
+        rt = str(runtime or "").strip().lower()
+        if rt and rt != "all":
+            placeholders = ", ".join(["?"] * len(_NON_OPENCLAW_RUNTIME_PREFIXES))
+            rt_sql = (
+                f" AND (CASE WHEN split_part(session_id, ':', 1) IN ({placeholders})"
+                f" THEN split_part(session_id, ':', 1) ELSE 'openclaw' END) = ?"
+            )
+            rt_params = list(_NON_OPENCLAW_RUNTIME_PREFIXES) + [
+                "openclaw" if rt == "nemoclaw" else rt
+            ]
         # Two queries — one for totals (scored + un-scored), one for the
         # quantile/avg over the scored subset. Keeps the SQL readable
         # without a CTE that would have to handle NULLs in two places.
         try:
             total_row = self._fetch(
-                """
+                f"""
                 SELECT COUNT(*) AS total,
                        COUNT(eval_score) AS scored
                   FROM sessions
-                 WHERE (? = '' OR COALESCE(last_active_at, started_at, '') >= ?)
+                 WHERE (? = '' OR COALESCE(last_active_at, started_at, '') >= ?){rt_sql}
                 """,
-                [cutoff, cutoff],
+                [cutoff, cutoff] + rt_params,
             )
         except Exception as e:
             log.warning("local store: eval summary totals failed: %s", e)
@@ -16288,15 +16558,15 @@ class LocalStore(TrailStoreMixin):
         if scored > 0:
             try:
                 stats = self._fetch(
-                    """
+                    f"""
                     SELECT AVG(eval_score)                      AS avg_score,
                            quantile_cont(eval_score, 0.5)       AS p50,
                            quantile_cont(eval_score, 0.1)       AS p10
                       FROM sessions
                      WHERE eval_score IS NOT NULL
-                       AND (? = '' OR COALESCE(last_active_at, started_at, '') >= ?)
+                       AND (? = '' OR COALESCE(last_active_at, started_at, '') >= ?){rt_sql}
                     """,
-                    [cutoff, cutoff],
+                    [cutoff, cutoff] + rt_params,
                 )
                 if stats:
                     avg = float(stats[0][0] or 0.0)
@@ -18152,116 +18422,13 @@ class LocalStore(TrailStoreMixin):
         # Per-day buckets keyed by YYYY-MM-DD.
         day_bucket: dict[str, dict[str, Any]] = {}
 
-        # Dedup: real OpenClaw + Claude Code installs emit both an
-        # ``assistant`` (Anthropic-SDK envelope, has cache splits) and a
-        # ``model.completed`` (slim ``promptCache.lastCallUsage`` only) for
-        # the SAME LLM turn — typically ~100-200 ms apart because they
-        # come from different log writers. Counting both inflates the
-        # input + output buckets by 2× and silently drops cache splits
-        # whenever the slim sibling wins the dedup race.
-        #
-        # Strategy: bucket events by (session_id, ts-rounded-to-second).
-        # When two events hash to the same bucket OR one second apart
-        # (sibling writers race, ~100-300 ms drift seen in the wild),
-        # prefer the richer envelope (assistant/message > model.completed).
-        # ±1 s is wide enough to catch the writer race without colliding
-        # turns: model-completion latency on a hot Anthropic call is
-        # consistently ≥ 2 s, so two distinct LLM turns never round to
-        # adjacent integer seconds in practice.
-        DEDUP_WINDOW_S = 1
-
-        def _priority(et: str | None) -> int:
-            et = (et or "").lower()
-            if et in ("assistant", "subagent:assistant", "message"):
-                return 2  # full Anthropic envelope
-            if et == "model.completed":
-                return 1  # slim sibling
-            return 0
-
-        def _ts_to_epoch_s(ts_str: str) -> int | None:
-            """ISO-8601 → integer seconds since epoch. Returns None on
-            parse failure (caller treats as "skip dedup, count it")."""
-            if not ts_str:
-                return None
-            try:
-                from datetime import datetime as _dt
-                s = ts_str.replace("Z", "+00:00") if ts_str.endswith("Z") else ts_str
-                return int(_dt.fromisoformat(s).timestamp())
-            except (TypeError, ValueError):
-                return None
-
-        # First pass: parse + dedup. Build a map of
-        # (sid, window_start) -> {priority, splits, cost, day, etype, ts}
-        # so we can collapse sibling events deterministically before
-        # bucketing.
-        chosen: dict[tuple[str, int], dict[str, Any]] = {}
-        loose: list[dict[str, Any]] = []  # rows we couldn't dedup-key
-
-        for ev_id, ts, sid, etype, raw, col_cost in rows:
-            data: dict[str, Any] = {}
-            if raw is not None:
-                try:
-                    raw = _ccr.maybe_decompress(raw)
-                    text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
-                    parsed = json.loads(text) if text else {}
-                    if isinstance(parsed, dict):
-                        data = parsed
-                except (ValueError, TypeError, UnicodeDecodeError):
-                    continue
-            splits = _extract_usage_splits(data)
-            if splits["input_tokens"] <= 0 and splits["output_tokens"] <= 0:
-                # Skip rows with no recoverable usage — the daemon writes
-                # session.started / model.changed / tool.call rows with
-                # the same event_type net but no usage payload.
-                continue
-
-            day = _local_day(ts)
-            if not day:
-                continue
-
-            try:
-                cost_val = float(col_cost or 0.0)
-            except (TypeError, ValueError):
-                cost_val = 0.0
-            if cost_val <= 0:
-                cost_val = _extract_usage_cost(data)
-
-            this_pri = _priority(etype)
-            payload = {
-                "priority":    this_pri,
-                "splits":      splits,
-                "cost_usd":    cost_val,
-                "day":         day,
-                "etype":       etype,
-                "ts":          ts,
-            }
-
-            epoch_s = _ts_to_epoch_s(ts)
-            if epoch_s is None or not sid:
-                # No usable dedup key — keep the row but don't dedup it.
-                loose.append(payload)
-                continue
-
-            # Probe the ±DEDUP_WINDOW_S range for an existing sibling.
-            # First match wins; we keep the higher-priority of the two.
-            collision_key: tuple[str, int] | None = None
-            for delta in range(-DEDUP_WINDOW_S, DEDUP_WINDOW_S + 1):
-                k = (sid, epoch_s + delta)
-                if k in chosen:
-                    collision_key = k
-                    break
-
-            if collision_key is None:
-                chosen[(sid, epoch_s)] = payload
-                continue
-
-            existing = chosen[collision_key]
-            if this_pri > existing["priority"]:
-                # Richer envelope wins — replace the slim one.
-                chosen[collision_key] = payload
+        # Dedup of the v3 sibling pair (assistant + model.completed for the
+        # same LLM turn) lives in _pick_billable_turns, shared with
+        # query_usage_facts so both surfaces count exactly the same turns.
+        picks = _pick_billable_turns(rows)
 
         # Second pass: aggregate the deduped picks into per-day buckets.
-        for payload in list(chosen.values()) + loose:
+        for payload in picks:
             day = payload["day"]
             splits = payload["splits"]
             cost_val = payload["cost_usd"]
@@ -18282,6 +18449,82 @@ class LocalStore(TrailStoreMixin):
             bucket["event_count"]        += 1
 
         return sorted(day_bucket.values(), key=lambda r: r["day"], reverse=True)
+
+    def query_usage_facts(
+        self,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        runtime: str | None = None,
+        limit_events: int = 50000,
+    ) -> list[dict[str, Any]]:
+        """One usage fact per billable LLM turn, oldest first (issue #5936).
+
+        The stored event is the usage fact; this reads it without pricing it.
+        Each row is ``{request_id, observed_at, session_id, model, provider,
+        deployment, resource, input_tokens, output_tokens, cache_read_tokens,
+        cache_write_tokens}``: the event id, its observed time, the model the
+        turn reported, and the Azure OpenAI deployment and resource host when
+        the interceptor recorded them. Turns are deduped exactly as
+        ``query_daily_usage_splits`` dedupes them. No cost is returned and
+        nothing is written: a valuation is derived by the local reader, never
+        stored here.
+        """
+        clauses: list[str] = [f"event_type IN {_sql_in_clause(_BILLABLE_TURN_EVENT_TYPES)}"]
+        params: list[Any] = []
+        if since:
+            clauses.append("ts >= ?")
+            params.append(since)
+        if until:
+            clauses.append("ts <= ?")
+            params.append(until)
+        _rt_clause, _rt_params = _runtime_session_id_clause(runtime)
+        if _rt_clause:
+            clauses.append(_rt_clause)
+            params.extend(_rt_params)
+        sql = f"""
+            SELECT id, ts, session_id, event_type, data, cost_usd, model
+            FROM events
+            WHERE {" AND ".join(clauses)}
+            ORDER BY ts ASC, id ASC
+            LIMIT ?
+        """
+        params.append(int(max(1, limit_events)))
+        rows = self._fetch(sql, params)
+
+        def _extra(data: dict[str, Any], row: tuple) -> dict[str, Any]:
+            model = row[6] if len(row) > 6 else None
+            if not model:
+                msg = data.get("message")
+                model = (msg.get("model") if isinstance(msg, dict) else None) or data.get("model")
+
+            def _text(key: str) -> str | None:
+                v = data.get(key)
+                return v.strip() if isinstance(v, str) and v.strip() else None
+
+            return {
+                "model": model if isinstance(model, str) and model else None,
+                "provider": _text("provider"),
+                "deployment": _text("deployment"),
+                "resource": _text("endpoint_host"),
+            }
+
+        facts: list[dict[str, Any]] = []
+        for p in _pick_billable_turns(rows, extra=_extra):
+            extra = p.get("extra") or {}
+            facts.append({
+                "request_id": p.get("id"),
+                "observed_at": p.get("ts"),
+                "session_id": p.get("session_id"),
+                "model": extra.get("model"),
+                "provider": extra.get("provider"),
+                "deployment": extra.get("deployment"),
+                "resource": extra.get("resource"),
+                **{k: int(p["splits"].get(k) or 0) for k in (
+                    "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens")},
+            })
+        facts.sort(key=lambda f: (str(f.get("observed_at") or ""), str(f.get("request_id") or "")))
+        return facts
 
     def query_cache_metrics(
         self,
@@ -19791,7 +20034,10 @@ def _event_to_row(e: dict[str, Any], usage: dict[str, Any] | None = None) -> tup
         str(e["ts"]),
         data,
         float(cost) if cost is not None else None,
-        int(tokens) if tokens is not None else None,
+        # events.token_count is INTEGER. A count beyond it (OTLP carries
+        # int64) used to fail the ring flush for every event queued beside it,
+        # on every retry. Unknown instead; the rollups are BIGINT and unaffected.
+        _int32_or_none(tokens),
         model,
         int(time.time() * 1000),
         e.get("runtime_kind") or None,
@@ -19874,7 +20120,8 @@ def _span_row(span: dict[str, Any]) -> list[Any]:
             return None
         try:
             return int(v)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
+            # OverflowError: int(float("inf")). Not a count, so unknown.
             return None
 
     def _f(v):
@@ -20405,6 +20652,132 @@ def _read_usage_int(usage: Any, keys: tuple[str, ...]) -> int:
         if iv > 0:
             return iv
     return 0
+
+
+def _pick_billable_turns(rows, extra=None):
+    """Decode, dedupe and keep the billable LLM turns in ``rows``.
+
+    ``rows`` are ``(id, ts, session_id, event_type, data, cost_usd, ...)``
+    tuples ordered by ``ts``. Returns one payload dict per kept turn,
+    ``{priority, splits, cost_usd, day, etype, ts, id, session_id, extra}``,
+    where ``extra`` is ``extra(data, row)`` when given. Shared by
+    ``query_daily_usage_splits`` and ``query_usage_facts`` so the daily chart
+    and the usage facts count exactly the same turns.
+    """
+
+    # Dedup: real OpenClaw + Claude Code installs emit both an
+    # ``assistant`` (Anthropic-SDK envelope, has cache splits) and a
+    # ``model.completed`` (slim ``promptCache.lastCallUsage`` only) for
+    # the SAME LLM turn — typically ~100-200 ms apart because they
+    # come from different log writers. Counting both inflates the
+    # input + output buckets by 2× and silently drops cache splits
+    # whenever the slim sibling wins the dedup race.
+    #
+    # Strategy: bucket events by (session_id, ts-rounded-to-second).
+    # When two events hash to the same bucket OR one second apart
+    # (sibling writers race, ~100-300 ms drift seen in the wild),
+    # prefer the richer envelope (assistant/message > model.completed).
+    # ±1 s is wide enough to catch the writer race without colliding
+    # turns: model-completion latency on a hot Anthropic call is
+    # consistently ≥ 2 s, so two distinct LLM turns never round to
+    # adjacent integer seconds in practice.
+    DEDUP_WINDOW_S = 1
+
+    def _priority(et: str | None) -> int:
+        et = (et or "").lower()
+        if et in ("assistant", "subagent:assistant", "message"):
+            return 2  # full Anthropic envelope
+        if et == "model.completed":
+            return 1  # slim sibling
+        return 0
+
+    def _ts_to_epoch_s(ts_str: str) -> int | None:
+        """ISO-8601 → integer seconds since epoch. Returns None on
+        parse failure (caller treats as "skip dedup, count it")."""
+        if not ts_str:
+            return None
+        try:
+            from datetime import datetime as _dt
+            s = ts_str.replace("Z", "+00:00") if ts_str.endswith("Z") else ts_str
+            return int(_dt.fromisoformat(s).timestamp())
+        except (TypeError, ValueError):
+            return None
+
+    # First pass: parse + dedup. Build a map of
+    # (sid, window_start) -> {priority, splits, cost, day, etype, ts}
+    # so we can collapse sibling events deterministically before
+    # bucketing.
+    chosen: dict[tuple[str, int], dict[str, Any]] = {}
+    loose: list[dict[str, Any]] = []  # rows we couldn't dedup-key
+
+    for row in rows:
+        ev_id, ts, sid, etype, raw, col_cost = row[:6]
+        data: dict[str, Any] = {}
+        if raw is not None:
+            try:
+                raw = _ccr.maybe_decompress(raw)
+                text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
+                parsed = json.loads(text) if text else {}
+                if isinstance(parsed, dict):
+                    data = parsed
+            except (ValueError, TypeError, UnicodeDecodeError):
+                continue
+        splits = _extract_usage_splits(data)
+        if splits["input_tokens"] <= 0 and splits["output_tokens"] <= 0:
+            # Skip rows with no recoverable usage — the daemon writes
+            # session.started / model.changed / tool.call rows with
+            # the same event_type net but no usage payload.
+            continue
+
+        day = _local_day(ts)
+        if not day:
+            continue
+
+        try:
+            cost_val = float(col_cost or 0.0)
+        except (TypeError, ValueError):
+            cost_val = 0.0
+        if cost_val <= 0:
+            cost_val = _extract_usage_cost(data)
+
+        this_pri = _priority(etype)
+        payload = {
+            "priority":    this_pri,
+            "splits":      splits,
+            "cost_usd":    cost_val,
+            "day":         day,
+            "etype":       etype,
+            "ts":          ts,
+            "id":          ev_id,
+            "session_id":  sid,
+            "extra":       extra(data, row) if extra is not None else None,
+        }
+
+        epoch_s = _ts_to_epoch_s(ts)
+        if epoch_s is None or not sid:
+            # No usable dedup key — keep the row but don't dedup it.
+            loose.append(payload)
+            continue
+
+        # Probe the ±DEDUP_WINDOW_S range for an existing sibling.
+        # First match wins; we keep the higher-priority of the two.
+        collision_key: tuple[str, int] | None = None
+        for delta in range(-DEDUP_WINDOW_S, DEDUP_WINDOW_S + 1):
+            k = (sid, epoch_s + delta)
+            if k in chosen:
+                collision_key = k
+                break
+
+        if collision_key is None:
+            chosen[(sid, epoch_s)] = payload
+            continue
+
+        existing = chosen[collision_key]
+        if this_pri > existing["priority"]:
+            # Richer envelope wins — replace the slim one.
+            chosen[collision_key] = payload
+
+    return list(chosen.values()) + loose
 
 
 def _extract_usage_splits(data: dict) -> dict[str, int]:

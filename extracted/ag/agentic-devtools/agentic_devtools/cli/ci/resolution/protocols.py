@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from agentic_devtools.cli.ci.models import CopilotSessionSummary
 from agentic_devtools.cli.ci.resolution.models import TierResult
 
 
@@ -44,6 +45,16 @@ class ResolutionContext(Protocol):
     @property
     def head_commit_oid(self) -> str:
         """Current HEAD commit OID."""
+        ...  # pragma: no cover
+
+    @property
+    def post_review_copilot_comments(self) -> tuple[ThreadComment, ...]:
+        """Copilot comments posted after the originating review."""
+        ...  # pragma: no cover
+
+    @property
+    def post_review_session_summaries(self) -> tuple[CopilotSessionSummary, ...]:
+        """Copilot cloud-agent summaries produced after the originating review."""
         ...  # pragma: no cover
 
 

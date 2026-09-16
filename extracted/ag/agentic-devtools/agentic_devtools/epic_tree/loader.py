@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +25,71 @@ from .validator import check_schema_version, validate_epic_tree
 logger = logging.getLogger(__name__)
 
 _BRACKET_INDEX_RE = re.compile(r"\[(\d+)\]")
+
+
+def migrate_schema_v1_to_v2(
+    path: Path | str,
+    *,
+    dry_run: bool = False,
+    tree_id: str | None = None,
+) -> EpicTree:
+    """Migrate one schema-v1 definition to schema v2 atomically.
+
+    The migration only changes the document wrapper: existing node content is
+    preserved and a UUID is assigned once.  ``dry_run`` validates and returns
+    the resulting model without writing the definition or registry state.
+    """
+    definition_path = Path(path)
+    document = json.loads(definition_path.read_text(encoding="utf-8"))
+    if not isinstance(document, dict):
+        raise ValueError("Epic-tree definition must be a JSON object")
+    version = document.get("schemaVersion")
+    if version == "2.0":
+        existing = document.get("treeId")
+        if not isinstance(existing, str):
+            raise ValueError("Schema-v2 epic-tree definition must contain treeId")
+        selected_tree_id = existing
+    elif isinstance(version, str) and version.startswith("1."):
+        selected_tree_id = tree_id or str(uuid.uuid4())
+        document = {**document, "schemaVersion": "2.0", "treeId": selected_tree_id}
+    else:
+        raise ValueError(f"Only schema-v1 definitions can be migrated, got {version!r}")
+
+    try:
+        parsed = EpicTree.model_validate(document)
+    except Exception as exc:
+        raise ValueError(f"Invalid migrated epic-tree definition: {exc}") from exc
+    if dry_run:
+        return parsed
+
+    from agentic_devtools.cli.workflows.create_epic.registry import (  # noqa: PLC0415
+        promote_binding,
+        reserve_binding,
+    )
+
+    binding = reserve_binding(definition_path, tree_id=selected_tree_id)
+    selected_tree_id = binding["treeId"]
+    document["treeId"] = selected_tree_id
+    payload = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    fd, temporary_name = tempfile.mkstemp(
+        prefix=f".{definition_path.name}.",
+        dir=str(definition_path.parent),
+        text=True,
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as temporary:
+            temporary.write(payload)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        os.replace(temporary_name, definition_path)
+    except Exception:
+        try:
+            os.unlink(temporary_name)
+        except OSError:
+            pass
+        raise
+    promote_binding(definition_path, tree_id=selected_tree_id)
+    return EpicTree.model_validate(document)
 
 
 def _find_repo_root(start: Path) -> Path | None:

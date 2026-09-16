@@ -37,7 +37,7 @@ class DescribeRouteEntryListRequest(DaraModel):
         # 
         # - **ipv6**: IPv6.
         self.ip_version = ip_version
-        # The number of entries per page. Valid values: **1** to **100**. Default value: **10**.
+        # The number of entries per page for a paged query. Valid values: **1** to **100**. Default value: **10**.
         self.max_result = max_result
         # The instance ID of the next hop.
         self.next_hop_id = next_hop_id
@@ -53,7 +53,7 @@ class DescribeRouteEntryListRequest(DaraModel):
         # 
         # - **NetworkInterface**: secondary elastic network interface controller (NIC).
         # 
-        # - **RouterInterface**: routing interface.
+        # - **RouterInterface**: vRouter interface.
         # 
         # - **IPv6Gateway**: IPv6 gateway.
         # 
@@ -62,15 +62,15 @@ class DescribeRouteEntryListRequest(DaraModel):
         # - **GatewayEndpoint**: gateway endpoint.
         # - **Ecr**: Express Connect Router (ECR).
         self.next_hop_type = next_hop_type
-        # The pagination token. Valid values:
-        # - If this is the first request or no subsequent query exists, leave this parameter empty.
-        # - If a subsequent query exists, set the value to the NextToken value returned by the previous API call.
+        # The pagination token that is used in the next request to retrieve a new page of results. Valid values:
+        # - You do not need to specify this parameter for the first request or if no subsequent request exists.
+        # - If a subsequent request exists, set the value to the NextToken value that is returned from the last call.
         self.next_token = next_token
         self.owner_account = owner_account
         self.owner_id = owner_id
         # The region ID of the route table to which the route belongs.
         # 
-        # You can call [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) to query the region ID.
+        # You can call [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) to query the most recent region list.
         # 
         # This parameter is required.
         self.region_id = region_id

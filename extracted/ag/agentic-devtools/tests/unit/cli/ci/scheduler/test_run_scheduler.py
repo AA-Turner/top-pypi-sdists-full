@@ -22,6 +22,7 @@ def _make_provider(
 ) -> MagicMock:
     """Create a mock provider with configurable behavior."""
     provider = MagicMock()
+    provider.get_pr_metadata.return_value.head_sha = "a" * 40
     provider.validate_variable_token.return_value = token_valid
     provider.list_eligible_prs.return_value = eligible or []
     provider.get_recent_dispatch_history.return_value = []
@@ -68,9 +69,24 @@ class TestRunScheduler:
         assert result.had_dispatch_error is False
         provider.dispatch_workflow.assert_called_once_with(
             workflow="ai-pr-loop.yml",
-            inputs={"pr_number": "2021", "trigger_reason": "scheduler_round_robin"},
+            inputs={"pr_number": "2021", "head_sha": "a" * 40, "trigger_reason": "scheduler_round_robin"},
         )
         provider.set_variable.assert_called_once_with("AI_PR_LOOP_LAST_DISPATCHED_PR", "2021")
+
+    @patch.dict("os.environ", {}, clear=False)
+    def test_missing_head_sha_stops_dispatch_batch(self) -> None:
+        provider = _make_provider(
+            eligible=[EligiblePR(number=2021, created_at="2024-01-02")],
+            cursor_var="2020",
+            token_valid=True,
+        )
+        provider.get_pr_metadata.return_value.head_sha = ""
+
+        result = run_scheduler(provider)
+
+        assert result.dispatched_count == 0
+        assert result.had_dispatch_error is True
+        provider.dispatch_workflow.assert_not_called()
 
     @patch.dict("os.environ", {}, clear=False)
     def test_no_eligible_prs_early_exit(self) -> None:

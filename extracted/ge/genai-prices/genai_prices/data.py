@@ -1075,6 +1075,74 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='global.openai.gpt-5.6-luna',
+                match=ClauseContains(contains='global.openai.gpt-5.6-luna'),
+                name='GPT-5.6 Luna (global)',
+                context_window=1000000,
+                price_comments="Global cross-Region inference, priced 10% below in-Region and Geo, and identical to OpenAI's own list price. Cross-Region inference for the GPT-5.6 models launched on 2026-08-17. Cache writes (30m TTL) are billed at 1.25x the input rate. At 272K input tokens and above, input and cache are 2x and output 1.5x. Tier starts are encoded as 271999 because the pricing engines select a tier when the token count is greater than start. The 80% Luna price cut of 2026-07-30 predates global availability, so there is no earlier global rate to record. Refs: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-56-luna.html, https://aws.amazon.com/about-aws/whats-new/2026/08/amazon-bedrock-cross-region-openai-v2/, https://aws.amazon.com/about-aws/whats-new/2026/08/gpt-sol-terra-luna-long-context-bedrock/",
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('0.2'), tiers=[Tier(start=271999, price=Decimal('0.4'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('0.25'), tiers=[Tier(start=271999, price=Decimal('0.5'))]
+                    ),
+                    cache_read_mtok=TieredPrices(
+                        base=Decimal('0.02'), tiers=[Tier(start=271999, price=Decimal('0.04'))]
+                    ),
+                    output_mtok=TieredPrices(base=Decimal('1.2'), tiers=[Tier(start=271999, price=Decimal('1.8'))]),
+                ),
+            ),
+            ModelInfo(
+                id='global.openai.gpt-5.6-sol',
+                match=ClauseContains(contains='global.openai.gpt-5.6-sol'),
+                name='GPT-5.6 Sol (global)',
+                context_window=1000000,
+                price_comments="Global cross-Region inference, priced 10% below in-Region and Geo, and identical to OpenAI's own list price. Cross-Region inference launched 2026-08-17. Cache writes (30m TTL) are billed at 1.25x the input rate. At 272K input tokens and above, input and cache are 2x and output 1.5x. Tier starts are encoded as 271999 because the pricing engines select a tier when the token count is greater than start. AWS cut Sol input prices by 20% and output prices by 33.3% on 2026-08-21, quoting the global rates ($4 input, $20 output); the unconstrained entry keeps the four days of rates between global availability and the cut. Refs: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-56-sol.html, https://aws.amazon.com/about-aws/whats-new/2026/08/bedrock-openai-gpt-56-sol-reduced-pricing/, https://aws.amazon.com/about-aws/whats-new/2026/08/amazon-bedrock-cross-region-openai-v2/, https://aws.amazon.com/about-aws/whats-new/2026/08/gpt-sol-terra-luna-long-context-bedrock/",
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('5'), tiers=[Tier(start=271999, price=Decimal('10'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('6.25'), tiers=[Tier(start=271999, price=Decimal('12.5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.5'), tiers=[Tier(start=271999, price=Decimal('1'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('30'), tiers=[Tier(start=271999, price=Decimal('45'))]
+                            ),
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 8, 21)),
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=271999, price=Decimal('8'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=271999, price=Decimal('10'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.4'), tiers=[Tier(start=271999, price=Decimal('0.8'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=271999, price=Decimal('30'))]
+                            ),
+                        ),
+                    ),
+                ],
+            ),
+            ModelInfo(
+                id='global.openai.gpt-5.6-terra',
+                match=ClauseContains(contains='global.openai.gpt-5.6-terra'),
+                name='GPT-5.6 Terra (global)',
+                context_window=1000000,
+                price_comments="Global cross-Region inference, priced 10% below in-Region and Geo, and identical to OpenAI's own list price. Cross-Region inference for the GPT-5.6 models launched on 2026-08-17. Cache writes (30m TTL) are billed at 1.25x the input rate. At 272K input tokens and above, input and cache are 2x and output 1.5x. Tier starts are encoded as 271999 because the pricing engines select a tier when the token count is greater than start. The 20% Terra price cut of 2026-07-30 predates global availability, so there is no earlier global rate to record. Refs: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-56-terra.html, https://aws.amazon.com/about-aws/whats-new/2026/08/amazon-bedrock-cross-region-openai-v2/, https://aws.amazon.com/about-aws/whats-new/2026/08/gpt-sol-terra-luna-long-context-bedrock/",
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=271999, price=Decimal('4'))]),
+                    cache_write_mtok=TieredPrices(base=Decimal('2.5'), tiers=[Tier(start=271999, price=Decimal('5'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.2'), tiers=[Tier(start=271999, price=Decimal('0.4'))]),
+                    output_mtok=TieredPrices(base=Decimal('12'), tiers=[Tier(start=271999, price=Decimal('18'))]),
+                ),
+            ),
+            ModelInfo(
                 id='google.gemma-3-12b-it',
                 match=ClauseContains(contains='google.gemma-3-12b-it'),
                 name='Gemma 3 12B IT',
@@ -1299,91 +1367,6 @@ providers: list[Provider] = [
                 prices=ModelPrice(
                     input_mtok=Decimal('5.5'), cache_read_mtok=Decimal('0.55'), output_mtok=Decimal('33')
                 ),
-            ),
-            ModelInfo(
-                id='openai.gpt-5.6-luna',
-                match=ClauseEquals(equals='openai.gpt-5.6-luna'),
-                name='GPT-5.6 Luna',
-                context_window=1000000,
-                price_comments='Cache writes (30m TTL) are billed at 1.25x the input rate. AWS reduced Luna prices by 80% on 2026-07-30; the unconstrained entry preserves the launch (2026-07-13) rates, derived from the announced cut applied to the current published rates. The long-context tier (>272K input tokens: 2x input/cache, 1.5x output) arrived with the 1M context window on 2026-08-03; the launch entry stays flat because >272K requests were not possible before then. Refs: https://aws.amazon.com/bedrock/pricing/, https://aws.amazon.com/about-aws/whats-new/2026/07/openai-gpt-terra-luna-pricing-bedrock/, https://aws.amazon.com/about-aws/whats-new/2026/08/gpt-sol-terra-luna-long-context-bedrock/',
-                prices=[
-                    ConditionalPrice(
-                        prices=ModelPrice(
-                            input_mtok=Decimal('1.1'),
-                            cache_write_mtok=Decimal('1.375'),
-                            cache_read_mtok=Decimal('0.11'),
-                            output_mtok=Decimal('6.6'),
-                        )
-                    ),
-                    ConditionalPrice(
-                        constraint=StartDateConstraint(start_date=datetime.date(2026, 7, 30)),
-                        prices=ModelPrice(
-                            input_mtok=TieredPrices(
-                                base=Decimal('0.22'), tiers=[Tier(start=272000, price=Decimal('0.44'))]
-                            ),
-                            cache_write_mtok=TieredPrices(
-                                base=Decimal('0.275'), tiers=[Tier(start=272000, price=Decimal('0.55'))]
-                            ),
-                            cache_read_mtok=TieredPrices(
-                                base=Decimal('0.022'), tiers=[Tier(start=272000, price=Decimal('0.044'))]
-                            ),
-                            output_mtok=TieredPrices(
-                                base=Decimal('1.32'), tiers=[Tier(start=272000, price=Decimal('1.98'))]
-                            ),
-                        ),
-                    ),
-                ],
-            ),
-            ModelInfo(
-                id='openai.gpt-5.6-sol',
-                match=ClauseEquals(equals='openai.gpt-5.6-sol'),
-                name='GPT-5.6 Sol',
-                context_window=1000000,
-                price_comments='Cache writes (30m TTL) are billed at 1.25x the input rate. Sol pricing is unchanged since Bedrock GA (2026-07-13). The long-context tier (>272K input tokens: 2x input/cache, 1.5x output) arrived with the 1M context window on 2026-08-03; >272K requests were not possible before then. Refs: https://aws.amazon.com/bedrock/pricing/, https://aws.amazon.com/about-aws/whats-new/2026/08/gpt-sol-terra-luna-long-context-bedrock/',
-                prices=ModelPrice(
-                    input_mtok=TieredPrices(base=Decimal('5.5'), tiers=[Tier(start=272000, price=Decimal('11'))]),
-                    cache_write_mtok=TieredPrices(
-                        base=Decimal('6.875'), tiers=[Tier(start=272000, price=Decimal('13.75'))]
-                    ),
-                    cache_read_mtok=TieredPrices(
-                        base=Decimal('0.55'), tiers=[Tier(start=272000, price=Decimal('1.1'))]
-                    ),
-                    output_mtok=TieredPrices(base=Decimal('33'), tiers=[Tier(start=272000, price=Decimal('49.5'))]),
-                ),
-            ),
-            ModelInfo(
-                id='openai.gpt-5.6-terra',
-                match=ClauseEquals(equals='openai.gpt-5.6-terra'),
-                name='GPT-5.6 Terra',
-                context_window=1000000,
-                price_comments='Cache writes (30m TTL) are billed at 1.25x the input rate. AWS reduced Terra prices by 20% on 2026-07-30; the unconstrained entry preserves the launch (2026-07-13) rates, derived from the announced cut applied to the current published rates. The long-context tier (>272K input tokens: 2x input/cache, 1.5x output) arrived with the 1M context window on 2026-08-03; the launch entry stays flat because >272K requests were not possible before then. Refs: https://aws.amazon.com/bedrock/pricing/, https://aws.amazon.com/about-aws/whats-new/2026/07/openai-gpt-terra-luna-pricing-bedrock/, https://aws.amazon.com/about-aws/whats-new/2026/08/gpt-sol-terra-luna-long-context-bedrock/',
-                prices=[
-                    ConditionalPrice(
-                        prices=ModelPrice(
-                            input_mtok=Decimal('2.75'),
-                            cache_write_mtok=Decimal('3.4375'),
-                            cache_read_mtok=Decimal('0.275'),
-                            output_mtok=Decimal('16.5'),
-                        )
-                    ),
-                    ConditionalPrice(
-                        constraint=StartDateConstraint(start_date=datetime.date(2026, 7, 30)),
-                        prices=ModelPrice(
-                            input_mtok=TieredPrices(
-                                base=Decimal('2.2'), tiers=[Tier(start=272000, price=Decimal('4.4'))]
-                            ),
-                            cache_write_mtok=TieredPrices(
-                                base=Decimal('2.75'), tiers=[Tier(start=272000, price=Decimal('5.5'))]
-                            ),
-                            cache_read_mtok=TieredPrices(
-                                base=Decimal('0.22'), tiers=[Tier(start=272000, price=Decimal('0.44'))]
-                            ),
-                            output_mtok=TieredPrices(
-                                base=Decimal('13.2'), tiers=[Tier(start=272000, price=Decimal('19.8'))]
-                            ),
-                        ),
-                    ),
-                ],
             ),
             ModelInfo(
                 id='openai.gpt-oss-120b-1:0',
@@ -1813,6 +1796,136 @@ providers: list[Provider] = [
                     cache_read_mtok=Decimal('0.22'),
                     output_mtok=Decimal('11'),
                 ),
+            ),
+            ModelInfo(
+                id='regional.openai.gpt-5.6-luna',
+                match=ClauseOr(
+                    or_=[
+                        ClauseStartsWith(starts_with='openai.gpt-5.6-luna'),
+                        ClauseStartsWith(starts_with='gpt-5.6-luna'),
+                        ClauseContains(contains='us.openai.gpt-5.6-luna'),
+                        ClauseContains(contains='in.openai.gpt-5.6-luna'),
+                    ]
+                ),
+                name='GPT-5.6 Luna (regional)',
+                context_window=1000000,
+                price_comments='In-Region and Geo (`us.`/`in.`) inference, 10% above global. Cache writes (30m TTL) are billed at 1.25x input; at 272K input tokens and above, input and cache are 2x and output 1.5x. Tier starts are encoded as 271999 because the pricing engines select a tier when the token count is greater than start. AWS cut Luna prices by 80% on 2026-07-30; the unconstrained entry preserves the launch (2026-07-13) rates. The long-context tier arrived with the 1M context window on 2026-08-03, so the launch entry stays flat. Refs: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-56-luna.html, https://aws.amazon.com/about-aws/whats-new/2026/07/openai-gpt-terra-luna-pricing-bedrock/, https://aws.amazon.com/about-aws/whats-new/2026/08/gpt-sol-terra-luna-long-context-bedrock/',
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=Decimal('1.1'),
+                            cache_write_mtok=Decimal('1.375'),
+                            cache_read_mtok=Decimal('0.11'),
+                            output_mtok=Decimal('6.6'),
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 7, 30)),
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('0.22'), tiers=[Tier(start=271999, price=Decimal('0.44'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('0.275'), tiers=[Tier(start=271999, price=Decimal('0.55'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.022'), tiers=[Tier(start=271999, price=Decimal('0.044'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('1.32'), tiers=[Tier(start=271999, price=Decimal('1.98'))]
+                            ),
+                        ),
+                    ),
+                ],
+            ),
+            ModelInfo(
+                id='regional.openai.gpt-5.6-sol',
+                match=ClauseOr(
+                    or_=[
+                        ClauseStartsWith(starts_with='openai.gpt-5.6-sol'),
+                        ClauseStartsWith(starts_with='gpt-5.6-sol'),
+                        ClauseContains(contains='us.openai.gpt-5.6-sol'),
+                    ]
+                ),
+                name='GPT-5.6 Sol (regional)',
+                context_window=1000000,
+                price_comments='In-Region and Geo (`us.`) inference, 10% above global. Cache writes (30m TTL) are billed at 1.25x input; at 272K input tokens and above, input and cache are 2x and output 1.5x. Tier starts are encoded as 271999 because the pricing engines select a tier when the token count is greater than start. Sol input prices fell 20% and output prices 33.3% on 2026-08-21; the announcement quotes the global rates, and the in-Region and Geo rates moved with them. Refs: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-56-sol.html, https://aws.amazon.com/about-aws/whats-new/2026/08/bedrock-openai-gpt-56-sol-reduced-pricing/, https://aws.amazon.com/about-aws/whats-new/2026/08/gpt-sol-terra-luna-long-context-bedrock/',
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('5.5'), tiers=[Tier(start=271999, price=Decimal('11'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('6.875'), tiers=[Tier(start=271999, price=Decimal('13.75'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.55'), tiers=[Tier(start=271999, price=Decimal('1.1'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('33'), tiers=[Tier(start=271999, price=Decimal('49.5'))]
+                            ),
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 8, 21)),
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('4.4'), tiers=[Tier(start=271999, price=Decimal('8.8'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5.5'), tiers=[Tier(start=271999, price=Decimal('11'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.44'), tiers=[Tier(start=271999, price=Decimal('0.88'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('22'), tiers=[Tier(start=271999, price=Decimal('33'))]
+                            ),
+                        ),
+                    ),
+                ],
+            ),
+            ModelInfo(
+                id='regional.openai.gpt-5.6-terra',
+                match=ClauseOr(
+                    or_=[
+                        ClauseStartsWith(starts_with='openai.gpt-5.6-terra'),
+                        ClauseStartsWith(starts_with='gpt-5.6-terra'),
+                        ClauseContains(contains='us.openai.gpt-5.6-terra'),
+                        ClauseContains(contains='in.openai.gpt-5.6-terra'),
+                    ]
+                ),
+                name='GPT-5.6 Terra (regional)',
+                context_window=1000000,
+                price_comments='In-Region and Geo (`us.`/`in.`) inference, 10% above global. Cache writes (30m TTL) are billed at 1.25x input; at 272K input tokens and above, input and cache are 2x and output 1.5x. Tier starts are encoded as 271999 because the pricing engines select a tier when the token count is greater than start. AWS cut Terra prices by 20% on 2026-07-30; the unconstrained entry preserves the launch (2026-07-13) rates. The long-context tier arrived with the 1M context window on 2026-08-03, so the launch entry stays flat. Refs: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-56-terra.html, https://aws.amazon.com/about-aws/whats-new/2026/07/openai-gpt-terra-luna-pricing-bedrock/, https://aws.amazon.com/about-aws/whats-new/2026/08/gpt-sol-terra-luna-long-context-bedrock/',
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2.75'),
+                            cache_write_mtok=Decimal('3.4375'),
+                            cache_read_mtok=Decimal('0.275'),
+                            output_mtok=Decimal('16.5'),
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 7, 30)),
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('2.2'), tiers=[Tier(start=271999, price=Decimal('4.4'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('2.75'), tiers=[Tier(start=271999, price=Decimal('5.5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.22'), tiers=[Tier(start=271999, price=Decimal('0.44'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('13.2'), tiers=[Tier(start=271999, price=Decimal('19.8'))]
+                            ),
+                        ),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='writer.palmyra-x4-v1:0',
@@ -3745,6 +3858,419 @@ providers: list[Provider] = [
         ],
     ),
     Provider(
+        id='github-copilot',
+        name='GitHub Copilot',
+        api_pattern='https://api\\.githubcopilot\\.com',
+        pricing_urls=[
+            'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing',
+            'https://docs.github.com/en/copilot/concepts/billing/usage-based-billing-for-individuals',
+        ],
+        description="OpenAI, Anthropic, Google, xAI, Moonshot AI and Microsoft models served through GitHub Copilot's OpenAI-compatible API at api.githubcopilot.com.",
+        price_comments="Copilot meters token usage in AI credits, where 1 credit = $0.01; the rates recorded here are the published per-model USD rates from the models-and-pricing page. Every response also carries a `copilot_usage.token_details[].cost_per_batch` figure in nano-credits, which agreed with the published rate for each of the nine priced models reachable on the plan used to check them on 2026-09-03. Long-context tiers reprice the whole request once the prompt crosses the threshold. Not represented: embedding models and Copilot-internal agent models, which have no published rate, and `gpt-4`, which Copilot routes to GPT-4.1 and bills at a rate the pricing page does not list. Catalog membership varies by subscription and by API integrator, so this is not the union of every plan's models.",
+        provider_match=ClauseContains(contains='copilot'),
+        extractors=[
+            UsageExtractor(
+                root='usage',
+                mappings=[
+                    UsageExtractorMapping(path='prompt_tokens', dest='input_tokens', required=True),
+                    UsageExtractorMapping(
+                        path=['prompt_tokens_details', 'cached_tokens'], dest='cache_read_tokens', required=False
+                    ),
+                    UsageExtractorMapping(
+                        path=['completion_tokens_details', 'reasoning_tokens'],
+                        dest='output_reasoning_tokens',
+                        required=False,
+                    ),
+                    UsageExtractorMapping(path='completion_tokens', dest='output_tokens', required=True),
+                ],
+                api_flavor='chat',
+                model_path='model',
+            ),
+            UsageExtractor(
+                root='usage',
+                mappings=[
+                    UsageExtractorMapping(path='input_tokens', dest='input_tokens', required=True),
+                    UsageExtractorMapping(
+                        path=['input_tokens_details', 'cached_tokens'], dest='cache_read_tokens', required=False
+                    ),
+                    UsageExtractorMapping(
+                        path=['input_tokens_details', 'cache_write_tokens'], dest='cache_write_tokens', required=False
+                    ),
+                    UsageExtractorMapping(
+                        path=['output_tokens_details', 'reasoning_tokens'],
+                        dest='output_reasoning_tokens',
+                        required=False,
+                    ),
+                    UsageExtractorMapping(path='output_tokens', dest='output_tokens', required=True),
+                ],
+                api_flavor='responses',
+                model_path='model',
+            ),
+        ],
+        models=[
+            ModelInfo(
+                id='claude-fable-5',
+                match=ClauseEquals(equals='claude-fable-5'),
+                name='Claude Fable 5',
+                context_window=264000,
+                price_comments='The pricing page gives cached input as a $0.25-$1.00 range; the highest rate is recorded.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('10'),
+                    cache_write_mtok=Decimal('12.5'),
+                    cache_read_mtok=Decimal('1'),
+                    output_mtok=Decimal('50'),
+                ),
+            ),
+            ModelInfo(
+                id='claude-fable-5.1',
+                match=ClauseEquals(equals='claude-fable-5.1'),
+                name='Claude Fable 5.1',
+                context_window=264000,
+                price_comments='The pricing page gives cached input as a $0.25-$1.00 range; the highest rate is recorded.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('10'),
+                    cache_write_mtok=Decimal('12.5'),
+                    cache_read_mtok=Decimal('1'),
+                    output_mtok=Decimal('50'),
+                ),
+            ),
+            ModelInfo(
+                id='claude-haiku-4.5',
+                match=ClauseEquals(equals='claude-haiku-4.5'),
+                name='Claude Haiku 4.5',
+                context_window=144000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('1'),
+                    cache_write_mtok=Decimal('1.25'),
+                    cache_read_mtok=Decimal('0.1'),
+                    output_mtok=Decimal('5'),
+                ),
+            ),
+            ModelInfo(
+                id='claude-opus-4.7',
+                match=ClauseEquals(equals='claude-opus-4.7'),
+                name='Claude Opus 4.7',
+                context_window=264000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('5'),
+                    cache_write_mtok=Decimal('6.25'),
+                    cache_read_mtok=Decimal('0.5'),
+                    output_mtok=Decimal('25'),
+                ),
+            ),
+            ModelInfo(
+                id='claude-opus-4.8',
+                match=ClauseEquals(equals='claude-opus-4.8'),
+                name='Claude Opus 4.8',
+                context_window=264000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('5'),
+                    cache_write_mtok=Decimal('6.25'),
+                    cache_read_mtok=Decimal('0.5'),
+                    output_mtok=Decimal('25'),
+                ),
+            ),
+            ModelInfo(
+                id='claude-opus-4.8-fast',
+                match=ClauseEquals(equals='claude-opus-4.8-fast'),
+                name='Claude Opus 4.8 (fast mode)',
+                context_window=264000,
+                price_comments='Fast mode is priced at 2x the standard Opus 4.8 rates.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('10'),
+                    cache_write_mtok=Decimal('12.5'),
+                    cache_read_mtok=Decimal('1'),
+                    output_mtok=Decimal('50'),
+                ),
+            ),
+            ModelInfo(
+                id='claude-opus-5',
+                match=ClauseEquals(equals='claude-opus-5'),
+                name='Claude Opus 5',
+                context_window=264000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('5'),
+                    cache_write_mtok=Decimal('6.25'),
+                    cache_read_mtok=Decimal('0.5'),
+                    output_mtok=Decimal('25'),
+                ),
+            ),
+            ModelInfo(
+                id='claude-sonnet-5',
+                match=ClauseEquals(equals='claude-sonnet-5'),
+                name='Claude Sonnet 5',
+                context_window=264000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('2'),
+                    cache_write_mtok=Decimal('2.5'),
+                    cache_read_mtok=Decimal('0.2'),
+                    output_mtok=Decimal('10'),
+                ),
+            ),
+            ModelInfo(
+                id='gemini-3.5-flash',
+                match=ClauseEquals(equals='gemini-3.5-flash'),
+                name='Gemini 3.5 Flash',
+                context_window=264000,
+                price_comments='Copilot does not charge for cache writes on the Gemini models.',
+                prices=ModelPrice(input_mtok=Decimal('1.5'), cache_read_mtok=Decimal('0.15'), output_mtok=Decimal('9')),
+            ),
+            ModelInfo(
+                id='gemini-3.6-flash',
+                match=ClauseEquals(equals='gemini-3.6-flash'),
+                name='Gemini 3.6 Flash',
+                context_window=264000,
+                price_comments='Copilot does not charge for cache writes on the Gemini models.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.75'), cache_read_mtok=Decimal('0.075'), output_mtok=Decimal('3.75')
+                ),
+            ),
+            ModelInfo(
+                id='gemini-3.7-flash',
+                match=ClauseEquals(equals='gemini-3.7-flash'),
+                name='Gemini 3.7 Flash',
+                context_window=264000,
+                price_comments='Copilot does not charge for cache writes on the Gemini models.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.75'), cache_read_mtok=Decimal('0.075'), output_mtok=Decimal('3.75')
+                ),
+            ),
+            ModelInfo(
+                id='gemini-3.8-flash',
+                match=ClauseEquals(equals='gemini-3.8-flash'),
+                name='Gemini 3.8 Flash',
+                context_window=265536,
+                price_comments='Copilot does not charge for cache writes on the Gemini models.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.75'), cache_read_mtok=Decimal('0.075'), output_mtok=Decimal('3.75')
+                ),
+            ),
+            ModelInfo(
+                id='gpt-3.5-turbo',
+                match=ClauseOr(or_=[ClauseEquals(equals='gpt-3.5-turbo'), ClauseEquals(equals='gpt-3.5-turbo-0613')]),
+                name='GPT 3.5 Turbo',
+                context_window=16384,
+                price_comments='Included in the subscription: the pricing page lists no rate, and a live request reported a zero token cost on 2026-09-03.',
+                prices=ModelPrice(),
+            ),
+            ModelInfo(
+                id='gpt-4.1',
+                match=ClauseOr(or_=[ClauseEquals(equals='gpt-4.1'), ClauseEquals(equals='gpt-4.1-2025-04-14')]),
+                name='GPT-4.1',
+                context_window=128000,
+                price_comments='Included in the subscription: the pricing page lists no rate, and a live request reported a zero token cost on 2026-09-03.',
+                prices=ModelPrice(),
+            ),
+            ModelInfo(
+                id='gpt-4o',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gpt-4o'),
+                        ClauseEquals(equals='gpt-4o-2024-05-13'),
+                        ClauseEquals(equals='gpt-4o-2024-08-06'),
+                        ClauseEquals(equals='gpt-4o-2024-11-20'),
+                        ClauseEquals(equals='gpt-4-o-preview'),
+                    ]
+                ),
+                name='GPT-4o',
+                context_window=128000,
+                price_comments='Included in the subscription: the pricing page lists no rate, and a live request reported a zero token cost on 2026-09-03.',
+                prices=ModelPrice(),
+            ),
+            ModelInfo(
+                id='gpt-4o-mini',
+                match=ClauseOr(or_=[ClauseEquals(equals='gpt-4o-mini'), ClauseEquals(equals='gpt-4o-mini-2024-07-18')]),
+                name='GPT-4o mini',
+                context_window=128000,
+                price_comments='Included in the subscription: the pricing page lists no rate, and a live request reported a zero token cost on 2026-09-03.',
+                prices=ModelPrice(),
+            ),
+            ModelInfo(
+                id='gpt-5-mini',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='gpt-5-mini'), ClauseRegex(regex='^gpt-5-mini-\\d{4}-\\d{2}-\\d{2}$')]
+                ),
+                name='GPT-5 mini',
+                context_window=264000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.25'), cache_read_mtok=Decimal('0.025'), output_mtok=Decimal('2')
+                ),
+            ),
+            ModelInfo(
+                id='gpt-5.3-codex',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gpt-5.3-codex'),
+                        ClauseRegex(regex='^gpt-5\\.3-codex-\\d{4}-\\d{2}-\\d{2}$'),
+                    ]
+                ),
+                name='GPT-5.3-Codex',
+                context_window=400000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('1.75'), cache_read_mtok=Decimal('0.175'), output_mtok=Decimal('14')
+                ),
+            ),
+            ModelInfo(
+                id='gpt-5.4',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='gpt-5.4'), ClauseRegex(regex='^gpt-5\\.4-\\d{4}-\\d{2}-\\d{2}$')]
+                ),
+                name='GPT-5.4',
+                context_window=400000,
+                price_comments='Prompts over 272,000 tokens are billed at the long-context rates.',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]),
+                    cache_read_mtok=TieredPrices(
+                        base=Decimal('0.25'), tiers=[Tier(start=272000, price=Decimal('0.5'))]
+                    ),
+                    output_mtok=TieredPrices(base=Decimal('15'), tiers=[Tier(start=272000, price=Decimal('22.5'))]),
+                ),
+            ),
+            ModelInfo(
+                id='gpt-5.4-mini',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gpt-5.4-mini'),
+                        ClauseRegex(regex='^gpt-5\\.4-mini-\\d{4}-\\d{2}-\\d{2}$'),
+                    ]
+                ),
+                name='GPT-5.4 mini',
+                context_window=400000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.75'), cache_read_mtok=Decimal('0.075'), output_mtok=Decimal('4.5')
+                ),
+            ),
+            ModelInfo(
+                id='gpt-5.5',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='gpt-5.5'), ClauseRegex(regex='^gpt-5\\.5-\\d{4}-\\d{2}-\\d{2}$')]
+                ),
+                name='GPT-5.5',
+                context_window=400000,
+                price_comments='Prompts over 272,000 tokens are billed at the long-context rates.',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.5'), tiers=[Tier(start=272000, price=Decimal('1'))]),
+                    output_mtok=TieredPrices(base=Decimal('30'), tiers=[Tier(start=272000, price=Decimal('45'))]),
+                ),
+            ),
+            ModelInfo(
+                id='gpt-5.6-luna',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gpt-5.6-luna'),
+                        ClauseRegex(regex='^gpt-5\\.6-luna-\\d{4}-\\d{2}-\\d{2}$'),
+                    ]
+                ),
+                name='GPT-5.6 Luna',
+                context_window=328000,
+                price_comments='Prompts over 200,000 tokens are billed at the long-context rates.',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('0.2'), tiers=[Tier(start=200000, price=Decimal('0.4'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('0.25'), tiers=[Tier(start=200000, price=Decimal('0.5'))]
+                    ),
+                    cache_read_mtok=TieredPrices(
+                        base=Decimal('0.02'), tiers=[Tier(start=200000, price=Decimal('0.04'))]
+                    ),
+                    output_mtok=TieredPrices(base=Decimal('1.2'), tiers=[Tier(start=200000, price=Decimal('1.8'))]),
+                ),
+            ),
+            ModelInfo(
+                id='gpt-5.6-sol',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='gpt-5.6-sol'), ClauseRegex(regex='^gpt-5\\.6-sol-\\d{4}-\\d{2}-\\d{2}$')]
+                ),
+                name='GPT-5.6 Sol',
+                context_window=400000,
+                price_comments='Prompts over 272,000 tokens are billed at the long-context rates.',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=272000, price=Decimal('8'))]),
+                    cache_write_mtok=TieredPrices(base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.4'), tiers=[Tier(start=272000, price=Decimal('0.8'))]),
+                    output_mtok=TieredPrices(base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('30'))]),
+                ),
+            ),
+            ModelInfo(
+                id='gpt-5.6-terra',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gpt-5.6-terra'),
+                        ClauseRegex(regex='^gpt-5\\.6-terra-\\d{4}-\\d{2}-\\d{2}$'),
+                    ]
+                ),
+                name='GPT-5.6 Terra',
+                context_window=400000,
+                price_comments='Prompts over 272,000 tokens are billed at the long-context rates.',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=272000, price=Decimal('4'))]),
+                    cache_write_mtok=TieredPrices(base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]),
+                    output_mtok=TieredPrices(base=Decimal('12'), tiers=[Tier(start=272000, price=Decimal('18'))]),
+                ),
+            ),
+            ModelInfo(
+                id='grok-4.5',
+                match=ClauseEquals(equals='grok-4.5'),
+                name='Grok 4.5',
+                context_window=328000,
+                price_comments='Prompts over 200,000 tokens are billed at the long-context rates.',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=200000, price=Decimal('4'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.5'), tiers=[Tier(start=200000, price=Decimal('1'))]),
+                    output_mtok=TieredPrices(base=Decimal('6'), tiers=[Tier(start=200000, price=Decimal('12'))]),
+                ),
+            ),
+            ModelInfo(
+                id='grok-4.6',
+                match=ClauseEquals(equals='grok-4.6'),
+                name='Grok 4.6',
+                context_window=328000,
+                price_comments='Prompts over 200,000 tokens are billed at the long-context rates.',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=200000, price=Decimal('4'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.5'), tiers=[Tier(start=200000, price=Decimal('1'))]),
+                    output_mtok=TieredPrices(base=Decimal('6'), tiers=[Tier(start=200000, price=Decimal('12'))]),
+                ),
+            ),
+            ModelInfo(
+                id='kimi-k2.7-code',
+                match=ClauseEquals(equals='kimi-k2.7-code'),
+                name='Kimi K2.7 Code',
+                context_window=256000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.95'), cache_read_mtok=Decimal('0.19'), output_mtok=Decimal('4')
+                ),
+            ),
+            ModelInfo(
+                id='kimi-k3',
+                match=ClauseEquals(equals='kimi-k3'),
+                name='Kimi K3',
+                context_window=1048576,
+                prices=ModelPrice(input_mtok=Decimal('3'), cache_read_mtok=Decimal('0.3'), output_mtok=Decimal('15')),
+            ),
+            ModelInfo(
+                id='mai-code-1-flash-picker',
+                match=ClauseEquals(equals='mai-code-1-flash-picker'),
+                name='MAI-Code-1-Flash',
+                context_window=256000,
+                price_comments='The catalog id carries a `-picker` suffix; the pricing page names it MAI-Code-1-Flash.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.75'), cache_read_mtok=Decimal('0.075'), output_mtok=Decimal('4.5')
+                ),
+            ),
+            ModelInfo(
+                id='mai-code-1.1-flash',
+                match=ClauseEquals(equals='mai-code-1.1-flash'),
+                name='MAI-Code-1.1-Flash',
+                context_window=256000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.2'), cache_read_mtok=Decimal('0.02'), output_mtok=Decimal('1.2')
+                ),
+            ),
+        ],
+    ),
+    Provider(
         id='google',
         name='Google',
         api_pattern='https://(.*\\.)?googleapis\\.com',
@@ -4633,6 +5159,27 @@ providers: list[Provider] = [
                 match=ClauseStartsWith(starts_with='gemini-3.7-flash'),
                 name='Gemini 3.7 Flash',
                 description="Google's most capable Flash model, built for complex coding, web development, agentic workflows and reliable multi-step execution.",
+                context_window=1000000,
+                price_comments='See https://ai.google.dev/gemini-api/docs/pricing. Standard tier pricing shown; Batch and Flex tiers offer 50% discount, Priority tier is 1.8x. Introductory rates apply through 2026-12-31. The cache storage price ($0.50 per 1M tokens per hour) has no unit in prices/units.yml and is not represented here.',
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.75'), cache_read_mtok=Decimal('0.075'), output_mtok=Decimal('3.75')
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2027, 1, 1)),
+                        prices=ModelPrice(
+                            input_mtok=Decimal('1.5'), cache_read_mtok=Decimal('0.15'), output_mtok=Decimal('7.5')
+                        ),
+                    ),
+                ],
+            ),
+            ModelInfo(
+                id='gemini-3.8-flash',
+                match=ClauseStartsWith(starts_with='gemini-3.8-flash'),
+                name='Gemini 3.8 Flash',
+                description="Google's most intelligent Flash model, engineered for long-horizon software engineering, autonomous agents, and complex enterprise workflows.",
                 context_window=1000000,
                 price_comments='See https://ai.google.dev/gemini-api/docs/pricing. Standard tier pricing shown; Batch and Flex tiers offer 50% discount, Priority tier is 1.8x. Introductory rates apply through 2026-12-31. The cache storage price ($0.50 per 1M tokens per hour) has no unit in prices/units.yml and is not represented here.',
                 prices=[
@@ -9803,6 +10350,26 @@ providers: list[Provider] = [
                         ),
                     ),
                 ],
+            ),
+            ModelInfo(
+                id='gpt-6-astra',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='gpt-6-astra'), ClauseRegex(regex='^gpt-6-astra-\\d{4}-\\d{2}-\\d{2}$')]
+                ),
+                name='GPT-6 Astra',
+                description='Our most capable model, built for the hardest end-to-end work.',
+                context_window=1050000,
+                price_comments='Cache writes are billed at 1.25x the uncached input rate. OpenAI lists the standard rates for prompts with <272K input tokens, so the 2x input and 1.5x output long-context rates begin at exactly 272K. Tier starts are encoded as 271999 because the pricing engines select a tier when the token count is greater than start. Refs: https://developers.openai.com/api/docs/models/gpt-6-astra, https://developers.openai.com/api/docs/pricing',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('10'), tiers=[Tier(start=271999, price=Decimal('20'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('12.5'), tiers=[Tier(start=271999, price=Decimal('25'))]
+                    ),
+                    cache_read_mtok=TieredPrices(base=Decimal('1'), tiers=[Tier(start=271999, price=Decimal('2'))]),
+                    output_mtok=TieredPrices(base=Decimal('50'), tiers=[Tier(start=271999, price=Decimal('75'))]),
+                    web_searches_kcount=Decimal('10'),
+                    storage_searches_kcount=Decimal('2.5'),
+                ),
             ),
             ModelInfo(
                 id='gpt-audio',

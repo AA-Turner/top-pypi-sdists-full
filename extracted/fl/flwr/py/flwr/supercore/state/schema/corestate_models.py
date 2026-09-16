@@ -145,6 +145,7 @@ class FederationApp(FlwrBase):
     is_hub_app: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     added_by: Mapped[str] = mapped_column(String, nullable=False)
     added_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
 
 
 class Connector(FlwrBase):

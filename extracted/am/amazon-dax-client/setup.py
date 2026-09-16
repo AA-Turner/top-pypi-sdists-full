@@ -17,9 +17,8 @@ import codecs
 import os.path
 import re
 import sys
-from pprint import pprint
 
-from setuptools import setup
+from setuptools import find_packages, setup
 from setuptools.command.test import test as TestCommand
 
 PY2 = sys.version_info[0] == 2
@@ -72,19 +71,11 @@ def read_readme():
     with open('README.rst', encoding='utf-8') as readme:
         return readme.read()
 
-packages = [
-    'amazondax',
-    'amazondax.generated',
-    # Both versions must be included since we don't know where it will end up running
-    'amazondax.grammar',
-    'amazondax.grammar2'
-]
+packages = find_packages(include=["amazondax", "amazondax.*"])
 
 
 install_requires = read_requirements("requirements.txt")
 tests_require = read_requirements('requirements-dev.txt')
-
-print("Version: " + find_version("amazondax", "__init__.py"))
 
 setup_params = dict(
     name='amazon_dax_client',
@@ -112,6 +103,4 @@ setup_params = dict(
     ),
 )
 
-print("setup_params:")
-pprint(setup_params)
 setup(**setup_params)

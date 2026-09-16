@@ -61,6 +61,9 @@ def get_extensions(srcdir="."):
     # Use the find_packages tool to locate all packages and modules
     packages = find_packages(srcdir)
 
+    if not packages:
+        log.warning(f"No packages found in srcdir={srcdir!r}, so no extensions will be collected")
+
     # Update package_dir if the package lies in a subdirectory
     if srcdir != ".":
         package_dir[""] = srcdir
@@ -105,7 +108,8 @@ def get_extensions(srcdir="."):
             os.path.join(srcdir, main_package_dir, "_compiler.c"),
         )
         ext = Extension(
-            main_package_dir + ".compiler_version", [os.path.join(main_package_dir, "_compiler.c")]
+            main_package_dir + ".compiler_version",
+            [os.path.join(srcdir, main_package_dir, "_compiler.c")],
         )
         ext_modules.append(ext)
 
@@ -140,7 +144,8 @@ def get_extensions(srcdir="."):
 
         extension.sources = sources
 
-    abi = get_limited_api_option(srcdir=srcdir)
+    # setup.cfg and pyproject.toml are in the current directory, not in srcdir
+    abi = get_limited_api_option(srcdir=".")
     if abi:
         version_info, version_hex = abi_to_versions(abi)
 
@@ -204,7 +209,7 @@ def iter_pyx_files(package_dir, package_name):
         break  # Don't recurse into subdirectories
 
 
-def get_cython_extensions(srcdir, packages, prevextensions=tuple(), extincludedirs=None):
+def get_cython_extensions(srcdir, packages, prevextensions=(), extincludedirs=None):
     """
     Looks for Cython files and generates Extensions if needed.
 

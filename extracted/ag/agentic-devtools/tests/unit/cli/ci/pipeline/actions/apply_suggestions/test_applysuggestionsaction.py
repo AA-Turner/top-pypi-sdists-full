@@ -369,12 +369,14 @@ class TestApplySuggestionsActionExecute:
                 outdated=False,
                 comment_database_id=101,
                 thread_id="T1",
+                path="z.py",
             ),
             SuggestedChange(
                 suggestion_id="SC2",
                 outdated=False,
                 comment_database_id=102,
                 thread_id="T2",
+                path="a.py",
             ),
         ]
 
@@ -394,6 +396,7 @@ class TestApplySuggestionsActionExecute:
 
         assert result.decision == ActionDecision.EXECUTE
         assert result.invalidates_snapshot is True
+        assert result.allowed_removed_files == ("a.py", "z.py")
         assert "Applied 2 suggestions" in result.details
 
         # Verify ExclusionContext was set
@@ -751,6 +754,7 @@ class TestApplySuggestionsActionExecute:
 
         assert result.decision == ActionDecision.SKIP
         assert "Failed to apply suggestions" in result.details
+        assert result.invalidates_snapshot is True
 
     def test_reraises_rate_limit_from_batch_apply(self) -> None:
         """ProviderRateLimitError must propagate to the pipeline runner."""
@@ -1215,8 +1219,8 @@ class TestApplyCopilotAutofixSuggestions:
         assert result["action_result"].decision == ActionDecision.SKIP
         assert "conflicted" in result["action_result"].details
 
-    def test_returns_none_on_system_exit(self) -> None:
-        """Returns None when apply_pr_suggestions calls sys.exit."""
+    def test_returns_invalidating_skip_on_system_exit(self) -> None:
+        """Returns an invalidating SKIP when apply_pr_suggestions calls sys.exit."""
         provider = MagicMock()
         provider._repo = "owner/repo"
         snapshot = PRStateSnapshot(pr_number=1)
@@ -1225,10 +1229,12 @@ class TestApplyCopilotAutofixSuggestions:
             mock_apply.side_effect = SystemExit(1)
             result = _apply_copilot_autofix_suggestions(provider, snapshot)
 
-        assert result is None
+        assert result is not None
+        assert result["action_result"].decision == ActionDecision.SKIP
+        assert result["action_result"].invalidates_snapshot is True
 
-    def test_returns_none_on_exception(self) -> None:
-        """Returns None when apply_pr_suggestions raises."""
+    def test_returns_invalidating_skip_on_exception(self) -> None:
+        """Returns an invalidating SKIP when apply_pr_suggestions raises."""
         provider = MagicMock()
         provider._repo = "owner/repo"
         snapshot = PRStateSnapshot(pr_number=1)
@@ -1237,7 +1243,9 @@ class TestApplyCopilotAutofixSuggestions:
             mock_apply.side_effect = RuntimeError("Network error")
             result = _apply_copilot_autofix_suggestions(provider, snapshot)
 
-        assert result is None
+        assert result is not None
+        assert result["action_result"].decision == ActionDecision.SKIP
+        assert result["action_result"].invalidates_snapshot is True
 
     def test_uses_github_repository_env_when_no_repo_attr(self) -> None:
         """Falls back to GITHUB_REPOSITORY env var when provider has no _repo."""

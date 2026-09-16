@@ -66,6 +66,15 @@ class TestRunOneCoverage:
         assert cov_arg[0] == "--cov=agentic_devtools.cli.git.core"
 
     @patch(f"{MODULE}.subprocess.run")
+    def test_bundled_fingerprint_uses_script_tests(self, mock_run, tmp_path):
+        mock_run.return_value = CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+
+        passed, _ = run_one_coverage("agentic_devtools/_bundled_skills/skills/fingerprint.py", cwd=tmp_path)
+
+        assert passed is True
+        assert mock_run.call_args.args[0][3] == str(tmp_path / "tests" / "scripts" / "fingerprint")
+
+    @patch(f"{MODULE}.subprocess.run")
     def test_coverage_file_env_isolated(self, mock_run, tmp_path):
         test_dir = tmp_path / "tests" / "unit" / "mymod"
         test_dir.mkdir(parents=True)

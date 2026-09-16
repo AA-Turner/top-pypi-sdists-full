@@ -578,6 +578,111 @@ def test_add_columns_multi_output_udf_backfills_siblings(db, local_ray_context) 
     assert result["width"] == [21, 22, 23]
 
 
+def test_multi_output_udf_none_writes_null_and_stays_backfillable(
+    db, local_ray_context
+) -> None:
+    """GEN-948: a row the UDF returned None for is NULL in every sibling and is
+    still reported as pending work, so a later backfill can reprocess it."""
+
+    class Detection(NamedTuple):
+        height: int
+        label: str
+        asset: bytes
+
+    output_type = pa.struct(
+        [
+            pa.field("height", pa.int64()),
+            pa.field("label", pa.string()),
+            pa.field("asset", pa.large_binary()),
+        ]
+    )
+    table = db.create_table(
+        "table_multi_output_null", pa.table({"image_id": [1, 2, 3]})
+    )
+
+    @udf(data_type=output_type)
+    def detect(image_id: int) -> Columns[Detection]:
+        if image_id == 2:
+            return None
+        return Detection(
+            image_id + 10, f"label-{image_id}", f"blob-{image_id}".encode()
+        )
+
+    table.add_columns(detect)
+    table.backfill("height")
+    table = db.open_table("table_multi_output_null")
+
+    result = table.to_arrow()
+    assert result["height"].to_pylist() == [11, None, 13]
+    assert result["label"].to_pylist() == ["label-1", None, "label-3"]
+    assert result["asset"].to_pylist() == [b"blob-1", None, b"blob-3"]
+    # A zero-length binary value is not a null; assert the bitmap explicitly.
+    assert result["asset"].null_count == 1
+
+    # The row still matches the group's `... IS NULL` resume filter, so a later
+    # backfill can reprocess it. Before the fix nothing matched and the
+    # fragment was skipped entirely.
+    plan = table.plan_backfill("height")
+    assert plan.where == "height IS NULL OR label IS NULL OR asset IS NULL"
+    assert plan.has_work is True
+    assert plan.total_tasks == 1
+
+
+def test_multi_output_udf_none_nulls_nested_struct_sibling(
+    db, local_ray_context
+) -> None:
+    """A struct-typed sibling becomes a genuine NULL struct, so the group's
+    `... IS NULL` resume filter still matches the row."""
+
+    class Asset(NamedTuple):
+        mime_type: str
+        payload: bytes
+
+    class Enrichment(NamedTuple):
+        label: str
+        asset: Asset
+
+    asset_type = pa.struct(
+        [
+            pa.field("mime_type", pa.string()),
+            pa.field(
+                "payload",
+                pa.large_binary(),
+                metadata={b"lance-encoding:blob": b"true"},
+            ),
+        ]
+    )
+    output_type = pa.struct(
+        [pa.field("label", pa.string()), pa.field("asset", asset_type)]
+    )
+    table = db.create_table(
+        "table_multi_output_nested_null", pa.table({"image_id": [1, 2, 3]})
+    )
+
+    @udf(data_type=output_type)
+    def enrich(image_id: int) -> Columns[Enrichment]:
+        if image_id == 2:
+            return None
+        return Enrichment(
+            f"label-{image_id}",
+            Asset("image/png", f"blob-{image_id}".encode()),
+        )
+
+    table.add_columns(enrich)
+    table.backfill("label")
+    table = db.open_table("table_multi_output_nested_null")
+
+    result = table.to_arrow()
+    assert result["label"].to_pylist() == ["label-1", None, "label-3"]
+    # The whole struct is null, not a struct holding empty child values.
+    assert result["asset"].to_pylist()[1] is None
+    assert result["asset"].null_count == 1
+
+    plan = table.plan_backfill("label")
+    assert plan.has_work is True
+    assert plan.total_tasks == 1
+
+
 def test_add_columns_multi_output_udf_with_blob_field(db, local_ray_context) -> None:
     class Enrichment(NamedTuple):
         label: str

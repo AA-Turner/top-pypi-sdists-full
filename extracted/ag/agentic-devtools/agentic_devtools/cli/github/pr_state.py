@@ -9,6 +9,7 @@ import argparse
 import json
 import sys
 import time
+from urllib.parse import quote
 
 from ...state import get_value, set_value
 from ..subprocess_utils import run_safe
@@ -19,13 +20,13 @@ _GH_PR_JSON_FIELDS = [
     "mergedAt",
     "mergeable",
     "mergeStateStatus",
+    "baseRefName",
+    "baseRefOid",
     "headRefName",
     "headRefOid",
     "isDraft",
     "locked",
 ]
-
-_GH_PR_JSON_FIELDS_NO_LOCKED = [f for f in _GH_PR_JSON_FIELDS if f != "locked"]
 
 
 def _evaluate_terminal_condition(
@@ -50,7 +51,12 @@ def _fetch_pr_with_retry(
     max_retries: int = 2,
     retry_delay: float = 10.0,
 ) -> dict:
-    """Fetch PR data from ``gh pr view``, with retry and locked-field fallback.
+    """Fetch PR data with retries and compatibility fallbacks.
+
+    The helper removes unsupported optional ``locked`` and ``baseRefOid`` fields
+    from the ``gh pr view`` request when older ``gh`` versions reject them. If
+    ``baseRefOid`` is unavailable from ``gh pr view``, it resolves the base
+    branch ref through ``gh api``.
 
     Returns the parsed JSON dict on success.
     Calls ``sys.exit(1)`` after all retries are exhausted.
@@ -87,20 +93,22 @@ def _fetch_pr_with_retry(
 
         if result.returncode != 0:
             stderr_text = (result.stderr or "").strip()
-            # Handle unknown/invalid field error specifically for "locked".
-            # This does NOT consume a retry attempt — redo immediately with
-            # the reduced field list.
+            # Handle unknown/invalid field errors for fields that may be
+            # unavailable in older gh versions. These do not consume a retry
+            # attempt — redo immediately with the reduced field list.
             stderr_lower = stderr_text.lower()
-            if (
-                "locked" in fields
-                and "locked" in stderr_lower
-                and (
-                    "unknown field" in stderr_lower
-                    or "invalid field" in stderr_lower
-                    or "unknown json field" in stderr_lower
-                )
-            ):
-                fields = list(_GH_PR_JSON_FIELDS_NO_LOCKED)
+            unknown_field_error = (
+                "unknown field" in stderr_lower
+                or "invalid field" in stderr_lower
+                or "unknown json field" in stderr_lower
+            )
+            field_error_text = stderr_lower.split("available fields:", 1)[0]
+            unsupported_field = next(
+                (field for field in ("locked", "baseRefOid") if field in fields and field.lower() in field_error_text),
+                None,
+            )
+            if unknown_field_error and unsupported_field is not None:
+                fields = [field for field in fields if field != unsupported_field]
                 continue
 
             last_error = stderr_text or f"gh pr view exited with code {result.returncode}"
@@ -139,9 +147,30 @@ def _fetch_pr_with_retry(
             )
             sys.exit(1)
 
-        # If we retried without locked, mark it as None in the response
+        # If we retried without locked, mark it as None in the response.
         if "locked" not in fields:
             data.setdefault("locked", None)
+
+        # Older gh versions do not expose baseRefOid through --json. Resolve
+        # it through the API so callers receive the same state shape.
+        if not data.get("baseRefOid") and data.get("baseRefName"):
+            ref_cmd = [
+                "gh",
+                "api",
+                f"repos/{repo}/git/ref/heads/{quote(data['baseRefName'], safe='')}",
+                "--jq",
+                ".object.sha",
+            ]
+            ref_result = run_safe(
+                ref_cmd,
+                capture_output=True,
+                text=True,
+                shell=False,
+            )
+            if ref_result.returncode == 0:
+                data["baseRefOid"] = ref_result.stdout.strip()
+            else:
+                data["baseRefOid"] = ""
 
         return data
 
@@ -180,6 +209,8 @@ def get_pr_state(pr_number: int, repo: str) -> dict:
         "headRefOidShort": head_ref_oid_short,
         "mergeable": mergeable,
         "mergeStateStatus": merge_state_status,
+        "baseRefName": data.get("baseRefName", ""),
+        "baseRefOid": data.get("baseRefOid", ""),
         "headRefName": data.get("headRefName", ""),
         "mergedAt": merged_at,
         "isDraft": is_draft,
@@ -196,6 +227,8 @@ def get_pr_state(pr_number: int, repo: str) -> dict:
     set_value("github.head_ref_oid_short", head_ref_oid_short)
     set_value("github.mergeable", mergeable)
     set_value("github.merge_state_status", merge_state_status)
+    set_value("github.base_ref_name", data.get("baseRefName", ""))
+    set_value("github.base_ref_oid", data.get("baseRefOid", ""))
     set_value("github.is_draft", is_draft)
     set_value("github.is_terminal", is_terminal)
 

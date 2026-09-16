@@ -1,12 +1,12 @@
 """Financial module for KB Securities (KBS) data source."""
 
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Sequence, Union
 
 import pandas as pd
 from vnai import optimize_execution
 
-from vnstock.core.utils.client import ProxyConfig, send_request
+from vnstock.core.utils.client import send_request
 from vnstock.core.utils.field import FieldHandler
 from vnstock.core.utils.logger import get_logger
 from vnstock.core.utils.parser import get_asset_type
@@ -15,11 +15,17 @@ from vnstock.explorer.kbs.const import (
     _BALANCE_SHEET_MAP,
     _CASH_FLOW_MAP,
     _FINANCIAL_RATIOS_MAP,
+    _FINANCIAL_REPORT_KEY_ALIASES,
     _INCOME_STATEMENT_MAP,
     _SAS_FINANCE_INFO_URL,
 )
 
 logger = get_logger(__name__)
+
+# Hard stop for the pagination loop in _fetch_series_data. KBS serves one period
+# per request, so a long series needs many pages; this guards against looping
+# forever if the API never signals the end of the data.
+_MAX_SERIES_PAGES = 100
 
 
 class FieldDisplayMode(Enum):
@@ -32,7 +38,7 @@ class FieldDisplayMode(Enum):
 
 class Finance:
     """
-    Lớp truy cập dữ liệu tài chính từ KB Securities (KBS).
+    Access financial statement data published by KB Securities (KBS).
     """
 
     def __init__(
@@ -40,27 +46,21 @@ class Finance:
         symbol: str,
         period: Optional[str] = None,
         random_agent: Optional[bool] = False,
-        proxy_config: Optional[ProxyConfig] = None,
         show_log: Optional[bool] = False,
         standardize_columns: Optional[bool] = True,
-        proxy_mode: Optional[str] = None,
-        proxy_list: Optional[List[str]] = None,
     ):
         """
-        Khởi tạo Finance client cho KBS.
+        Initialise the KBS Finance client.
 
         Args:
-            symbol: Mã chứng khoán (VD: 'ACB', 'VNM').
-            period: Kỳ báo cáo mặc định ('year', 'quarter' hoặc None).
-            random_agent: Sử dụng user agent ngẫu nhiên. Mặc định False.
-            proxy_config: Cấu hình proxy. Mặc định None.
-            show_log: Hiển thị log debug. Mặc định False.
-            standardize_columns: Chuẩn hoá tên cột theo schema. Mặc định True.
-            proxy_mode: Chế độ proxy (try, rotate, random, single). Mặc định None.
-            proxy_list: Danh sách proxy URLs. Mặc định None.
+            symbol: Ticker symbol, e.g. 'ACB' or 'VNM'.
+            period: Default report period: 'year', 'quarter' or None.
+            random_agent: Deprecated and ignored. Defaults to False.
+            show_log: Show debug logs. Defaults to False.
+            standardize_columns: Map column names onto the standard schema. Defaults to True.
 
         Raises:
-            ValueError: Nếu mã không phải là cổ phiếu.
+            ValueError: If the symbol is not a stock.
         """
         self.symbol = symbol.upper()
         self.asset_type = get_asset_type(self.symbol)
@@ -86,21 +86,6 @@ class Finance:
         # Initialize field handler for advanced field processing
         self.field_handler = FieldHandler(data_source="KBS")
 
-        # Handle proxy configuration
-        if proxy_config is None:
-            # Create ProxyConfig from individual arguments
-            p_mode = proxy_mode if proxy_mode else "try"
-            # If user provides list, set request_mode to PROXY
-            req_mode = "direct"
-            if proxy_list and len(proxy_list) > 0:
-                req_mode = "proxy"
-
-            self.proxy_config = ProxyConfig(
-                proxy_mode=p_mode, proxy_list=proxy_list, request_mode=req_mode
-            )
-        else:
-            self.proxy_config = proxy_config
-
         # Set logger level based on show_log parameter
         if show_log:
             logger.setLevel("INFO")
@@ -109,13 +94,13 @@ class Finance:
 
     def _get_column_mapping(self, report_type: str) -> Dict[str, str]:
         """
-        Lấy column mapping cho loại báo cáo.
+        Return the column mapping for one report type.
 
         Args:
-            report_type: Loại báo cáo (income_statement, balance_sheet, cash_flow, financial_ratios)
+            report_type: Report type: income_statement, balance_sheet, cash_flow or financial_ratios
 
         Returns:
-            Dictionary chứa mapping từ cột gốc sang cột chuẩn hoá
+            Dictionary mapping the source column names onto the standard ones
         """  # noqa: W293
         mappings = {
             "income_statement": _INCOME_STATEMENT_MAP,
@@ -125,10 +110,50 @@ class Finance:
         }
         return mappings.get(report_type, {})
 
+    @staticmethod
+    def _resolve_report_key(
+        content: Dict, report_key: Union[str, Sequence[str]]
+    ) -> Optional[str]:
+        """
+        Find the key a report actually sits under inside the response Content.
+
+        KBS renames report labels from time to time ("Cân đối kế toán" became
+        "Báo cáo tình hình tài chính", for instance), which leaves a hard-coded key
+        matching nothing and the method returning an empty DataFrame. This tries every
+        known key in turn, and when none matches but Content holds exactly one report,
+        it uses that one - so the next rename does not break anything either.
+
+        Args:
+            content: The Content section of the response.
+            report_key: One key, or several candidates tried left to right.
+
+        Returns:
+            The matching key, or None when it cannot be determined.
+        """
+        if not content:
+            return None
+
+        candidates = (report_key,) if isinstance(report_key, str) else tuple(report_key)
+        for key in candidates:
+            if content.get(key):
+                return key
+
+        # The label changed, but these reports carry a single entry in Content, so the
+        # right one is still identifiable.
+        available = [key for key, value in content.items() if value]
+        if len(available) == 1:
+            logger.warning(
+                f"KBS đã đổi nhãn báo cáo: không tìm thấy {candidates}, "
+                f"dùng '{available[0]}' thay thế. Vui lòng cập nhật vnstock."
+            )
+            return available[0]
+
+        return None
+
     def _parse_financial_response(
         self,
         response: Dict,
-        report_key: str,
+        report_key: Union[str, Sequence[str]],
         include_metadata: bool = False,
         unit_multiplier: float = 1.0,
     ) -> pd.DataFrame:
@@ -137,7 +162,8 @@ class Finance:
 
         Args:
             response: API response containing Audit, Unit, Head, Content
-            report_key: Key in Content (e.g., 'Kết quả kinh doanh')
+            report_key: Key in Content, or several candidate keys tried in order
+                (e.g. 'Kết quả kinh doanh')
             include_metadata: Whether to include Audit and Unit info as rows in DataFrame
             unit_multiplier: Multiplier to apply to values (e.g. 1000.0)
 
@@ -145,13 +171,18 @@ class Finance:
             DataFrame with proper financial data structure
         """  # noqa: W293
         # Extract components from response
+        response = response or {}
         audit_list = response.get("Audit", [])
         unit_list = response.get("Unit", [])
         head_list = response.get("Head", [])
         content = response.get("Content", {})
 
         # Get the report data
-        report_data = content.get(report_key, [])
+        resolved_key = self._resolve_report_key(content, report_key)
+        if resolved_key is None:
+            return pd.DataFrame()
+
+        report_data = content.get(resolved_key, [])
 
         if not report_data:
             return pd.DataFrame()
@@ -326,7 +357,7 @@ class Finance:
             if p in final_periods
         }
         df.attrs["periods"] = final_periods
-        df.attrs["report_key"] = report_key
+        df.attrs["report_key"] = resolved_key
 
         return df
 
@@ -334,7 +365,7 @@ class Finance:
         self,
         report_type: str,
         period_type: int,
-        report_key: str,
+        report_key: Union[str, Sequence[str]],
         limit: Optional[int] = None,
         include_metadata: bool = False,
         show_log: Optional[bool] = False,
@@ -362,6 +393,11 @@ class Finance:
                 show_log=show_log,
             )
 
+            # KBS keeps serving report rows past the last available period, but
+            # with an empty Head. That, not an empty body, marks the end of data.
+            if not (data or {}).get("Head"):
+                break
+
             df = self._parse_financial_response(
                 data,
                 report_key,
@@ -374,7 +410,14 @@ class Finance:
 
             new_periods = df.attrs.get("periods", [])
             if not new_periods:
-                break
+                # This page carries a period whose values are all null, e.g. a
+                # quarter that has not been reported yet. Older periods further
+                # down the pages can still hold data, so skip the page instead
+                # of ending the series here.
+                page += 1
+                if page > _MAX_SERIES_PAGES:
+                    break
+                continue
 
             # Filter out periods we already have
             actual_new_periods = [p for p in new_periods if p not in collected_periods]
@@ -382,7 +425,7 @@ class Finance:
                 # If we got data but no new periods (e.g. duplicate period on a new page),
                 # just skip this page and continue fetching.
                 page += 1
-                if page > 100:
+                if page > _MAX_SERIES_PAGES:
                     break
                 continue
 
@@ -400,7 +443,7 @@ class Finance:
             collected_periods.update(actual_new_periods)
 
             page += 1
-            if page > 100:
+            if page > _MAX_SERIES_PAGES:
                 break
 
         if not dfs:
@@ -449,14 +492,14 @@ class Finance:
         self, df: pd.DataFrame, report_type: str
     ) -> pd.DataFrame:
         """
-        Áp dụng chuẩn hoá schema cho DataFrame.
+        Map a DataFrame onto the standard schema.
 
         Args:
-            df: DataFrame cần chuẩn hoá
-            report_type: Loại báo cáo
+            df: The DataFrame to standardise
+            report_type: Report type
 
         Returns:
-            DataFrame với cột chuẩn hoá
+            DataFrame with standardised columns
         """  # noqa: W293
         if not self.standardize_columns or df.empty:
             return df
@@ -552,14 +595,14 @@ class Finance:
         show_log: Optional[bool] = False,
     ) -> Dict:
         """
-        Lấy dữ liệu tài chính từ API SAS với các tham số chính xác.
+        Fetch financial data from the SAS API.
 
         Args:
-            report_type: Loại báo cáo (CDKT, KQKD, LCTT, CSTC, CTKH, BCTT)
-            period_type: Loại kỳ báo cáo (1=năm, 2=quý)
-            page: Trang (mặc định 1)
-            page_size: Số kỳ trên mỗi trang (mặc định 4)
-            show_log: Hiển thị log debug.
+            report_type: Report type: CDKT, KQKD, LCTT, CSTC, CTKH or BCTT
+            period_type: Period type: 1 for year, 2 for quarter
+            page: Page number. Defaults to 1
+            page_size: Periods per page. Defaults to 4
+            show_log: Show debug logs.
         """
         url = f"{_SAS_FINANCE_INFO_URL}/{self.symbol}"
 
@@ -569,8 +612,8 @@ class Finance:
             "page": page,
             "pageSize": page_size,
             "type": report_type,
-            "unit": 1000,  # Đơn vị ngàn đồng
-            "termtype": period_type,  # 1=năm, 2=quý (lowercase!)
+            "unit": 1000,  # Unit: thousand VND
+            "termtype": period_type,  # 1 = year, 2 = quarter (lowercase!)
         }
 
         # Add languageid for most report types (except cash flow which uses termType)
@@ -594,9 +637,6 @@ class Finance:
                 method="GET",
                 params=params,
                 show_log=show_log or self.show_log,
-                proxy_list=self.proxy_config.proxy_list,
-                proxy_mode=self.proxy_config.proxy_mode,
-                request_mode=self.proxy_config.request_mode,
             )
 
             if show_log or self.show_log:
@@ -620,21 +660,21 @@ class Finance:
         show_log: Optional[bool] = False,
     ) -> pd.DataFrame:
         """
-        Truy xuất báo cáo kết quả kinh doanh (income statement).
+        Retrieve the income statement.
 
         Args:
-            period: Loại kỳ báo cáo ('year' hoặc 'quarter'). Mặc định 'year'.
-            include_metadata: Bao gồm thông tin audit và unit trong rows. Mặc định False.
-            display_mode: Chế độ hiển thị trường dữ liệu. Mặc định FieldDisplayMode.STD.
-                - FieldDisplayMode.STD: Chỉ giữ cột 'item' và 'item_id' (đã chuẩn hóa)
-                - FieldDisplayMode.ALL: Giữ tất cả cột item (item, item_en, item_id)
-                - 'vi': Chỉ giữ tên tiếng Việt (tương thích ngược)
-                - 'en': Chỉ giữ tên tiếng Anh (tương thích ngược)
-                - None: Giữ tất cả cột (tương thích ngược)
-            show_log: Hiển thị log debug.
+            period: Report period, 'year' or 'quarter'. Defaults to 'year'.
+            include_metadata: Include audit and unit information in the rows. Defaults to False.
+            display_mode: How to present the field columns. Defaults to FieldDisplayMode.STD.
+                - FieldDisplayMode.STD: keep only the standardised 'item' and 'item_id' columns
+                - FieldDisplayMode.ALL: keep every item column (item, item_en, item_id)
+                - 'vi': keep the Vietnamese names only (backward compatible)
+                - 'en': keep the English names only (backward compatible)
+                - None: keep every column (backward compatible)
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa báo cáo kết quả kinh doanh.
+            DataFrame holding the income statement.
         """
         # Map period to termType (1=year, 2=quarter)
         effective_period = (
@@ -646,7 +686,7 @@ class Finance:
         df = self._fetch_series_data(
             report_type="KQKD",
             period_type=period_type,
-            report_key="Kết quả kinh doanh",
+            report_key=_FINANCIAL_REPORT_KEY_ALIASES["KQKD"],
             include_metadata=include_metadata,
             show_log=show_log,
         )
@@ -686,21 +726,21 @@ class Finance:
         show_log: Optional[bool] = False,
     ) -> pd.DataFrame:
         """
-        Truy xuất bảng cân đối kế toán (balance sheet).
+        Retrieve the balance sheet.
 
         Args:
-            period: Loại kỳ báo cáo ('year' hoặc 'quarter'). Mặc định 'year'.
-            include_metadata: Bao gồm thông tin audit và unit trong rows. Mặc định False.
-            display_mode: Chế độ hiển thị trường dữ liệu. Mặc định FieldDisplayMode.STD.
-                - FieldDisplayMode.STD: Chỉ giữ cột 'item' và 'item_id' (đã chuẩn hóa)
-                - FieldDisplayMode.ALL: Giữ tất cả cột item (item, item_en, item_id)
-                - 'vi': Chỉ giữ tên tiếng Việt (tương thích ngược)
-                - 'en': Chỉ giữ tên tiếng Anh (tương thích ngược)
-                - None: Giữ tất cả cột (tương thích ngược)
-            show_log: Hiển thị log debug.
+            period: Report period, 'year' or 'quarter'. Defaults to 'year'.
+            include_metadata: Include audit and unit information in the rows. Defaults to False.
+            display_mode: How to present the field columns. Defaults to FieldDisplayMode.STD.
+                - FieldDisplayMode.STD: keep only the standardised 'item' and 'item_id' columns
+                - FieldDisplayMode.ALL: keep every item column (item, item_en, item_id)
+                - 'vi': keep the Vietnamese names only (backward compatible)
+                - 'en': keep the English names only (backward compatible)
+                - None: keep every column (backward compatible)
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa bảng cân đối kế toán.
+            DataFrame holding the balance sheet.
         """
         # Map period to termType (1=year, 2=quarter)
         effective_period = (
@@ -712,7 +752,7 @@ class Finance:
         df = self._fetch_series_data(
             report_type="CDKT",
             period_type=period_type,
-            report_key="Cân đối kế toán",
+            report_key=_FINANCIAL_REPORT_KEY_ALIASES["CDKT"],
             include_metadata=include_metadata,
             show_log=show_log,
         )
@@ -748,21 +788,21 @@ class Finance:
         show_log: Optional[bool] = False,
     ) -> pd.DataFrame:
         """
-        Truy xuất báo cáo lưu chuyển tiền tệ (cash flow statement).
+        Retrieve the cash flow statement.
 
         Args:
-            period: Loại kỳ báo cáo ('year' hoặc 'quarter'). Mặc định 'year'.
-            include_metadata: Bao gồm thông tin audit và unit trong rows. Mặc định False.
-            display_mode: Chế độ hiển thị trường dữ liệu. Mặc định FieldDisplayMode.STD.
-                - FieldDisplayMode.STD: Chỉ giữ cột 'item' và 'item_id' (đã chuẩn hóa)
-                - FieldDisplayMode.ALL: Giữ tất cả cột item (item, item_en, item_id)
-                - 'vi': Chỉ giữ tên tiếng Việt (tương thích ngược)
-                - 'en': Chỉ giữ tên tiếng Anh (tương thích ngược)
-                - None: Giữ tất cả cột (tương thích ngược)
-            show_log: Hiển thị log debug.
+            period: Report period, 'year' or 'quarter'. Defaults to 'year'.
+            include_metadata: Include audit and unit information in the rows. Defaults to False.
+            display_mode: How to present the field columns. Defaults to FieldDisplayMode.STD.
+                - FieldDisplayMode.STD: keep only the standardised 'item' and 'item_id' columns
+                - FieldDisplayMode.ALL: keep every item column (item, item_en, item_id)
+                - 'vi': keep the Vietnamese names only (backward compatible)
+                - 'en': keep the English names only (backward compatible)
+                - None: keep every column (backward compatible)
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa báo cáo lưu chuyển tiền tệ.
+            DataFrame holding the cash flow statement.
         """
         # Map period to termType (1=year, 2=quarter)
         effective_period = (
@@ -778,11 +818,9 @@ class Finance:
             raise ValueError(f"Không tìm thấy dữ liệu tài chính cho mã {self.symbol}.")
 
         content = probe_data.get("Content", {})
-        cash_flow_key = None
-        if "Lưu chuyển tiền tệ gián tiếp" in content:
-            cash_flow_key = "Lưu chuyển tiền tệ gián tiếp"
-        elif "Lưu chuyển tiền tệ trực tiếp" in content:
-            cash_flow_key = "Lưu chuyển tiền tệ trực tiếp"
+        cash_flow_key = self._resolve_report_key(
+            content, _FINANCIAL_REPORT_KEY_ALIASES["LCTT"]
+        )
 
         if not cash_flow_key:
             logger.warning(
@@ -834,21 +872,21 @@ class Finance:
         show_log: Optional[bool] = False,
     ) -> pd.DataFrame:
         """
-        Truy xuất các chỉ số tài chính (financial ratios).
+        Retrieve the financial ratios.
 
         Args:
-            period: Loại kỳ báo cáo ('year' hoặc 'quarter'). Mặc định 'year'.
-            include_metadata: Bao gồm thông tin audit và unit trong rows. Mặc định False.
-            display_mode: Chế độ hiển thị trường dữ liệu. Mặc định FieldDisplayMode.STD.
-                - FieldDisplayMode.STD: Chỉ giữ cột 'item' và 'item_id' (đã chuẩn hóa)
-                - FieldDisplayMode.ALL: Giữ tất cả cột item (item, item_en, item_id)
-                - 'vi': Chỉ giữ tên tiếng Việt (tương thích ngược)
-                - 'en': Chỉ giữ tên tiếng Anh (tương thích ngược)
-                - None: Giữ tất cả cột (tương thích ngược)
-            show_log: Hiển thị log debug.
+            period: Report period, 'year' or 'quarter'. Defaults to 'year'.
+            include_metadata: Include audit and unit information in the rows. Defaults to False.
+            display_mode: How to present the field columns. Defaults to FieldDisplayMode.STD.
+                - FieldDisplayMode.STD: keep only the standardised 'item' and 'item_id' columns
+                - FieldDisplayMode.ALL: keep every item column (item, item_en, item_id)
+                - 'vi': keep the Vietnamese names only (backward compatible)
+                - 'en': keep the English names only (backward compatible)
+                - None: keep every column (backward compatible)
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa các chỉ số tài chính.
+            DataFrame holding the financial ratios.
         """
         # Map period to termType (1=year, 2=quarter)
         effective_period = (

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpydoc
-Version: 1.10.0
+Version: 1.11.0
 Summary: Sphinx extension to support docstrings in Numpy format
 Author-email: Pauli Virtanen and others <pav@iki.fi>
 License: Copyright (C) 2008-2023 Stefan van der Walt <stefan@mentat.za.net>, Pauli Virtanen <pav@iki.fi>
@@ -42,6 +42,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst

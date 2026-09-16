@@ -8,12 +8,14 @@ _ENDPOINT_OWNER_PATHS = frozenset(
     {
         "agentic_devtools/ai_providers/copilot.py",
         "agentic_devtools/ai_providers/agent_tasks_payload.py",
+        "agentic_devtools/cli/ci/github_provider.py",
     }
 )
 # These are the three intentionally retained legacy consumers; each expires with the migration
 # window rather than being silently exempted from the boundary.
 _LEGACY_ALLOWLIST = {
     "agentic_devtools/cli/ci/agent_assignment.py": date(2026, 12, 31),
+    "agentic_devtools/cli/ci/pipeline/session_detector.py": date(2026, 12, 31),
     ".github/scripts/speckit-trigger/agent-fallback.js": date(2026, 12, 31),
     ".github/workflows/speckit-agent-fallback-cleanup.yml": date(2026, 12, 31),
 }

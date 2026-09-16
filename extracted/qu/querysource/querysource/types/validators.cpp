@@ -1671,9 +1671,35 @@ struct __pyx_opt_args_7cpython_8datetime_datetime_from_timestamp {
   int __pyx_n;
   PyObject *tz;
 };
+struct __pyx_opt_args_11querysource_5types_10validators__env_list;
+struct __pyx_opt_args_11querysource_5types_10validators_resolve_udf_conditions;
 struct __pyx_opt_args_11querysource_5types_10validators_is_valid;
 
-/* "querysource/types/validators.pyx":523
+/* "querysource/types/validators.pyx":30
+ * 
+ * 
+ * cdef list _env_list(str name, list default, bint upper = True):             # <<<<<<<<<<<<<<
+ *     """Parse a comma-separated env override; `default` copy when unset/blank."""
+ *     raw = os.environ.get(name)
+ */
+struct __pyx_opt_args_11querysource_5types_10validators__env_list {
+  int __pyx_n;
+  int upper;
+};
+
+/* "querysource/types/validators.pyx":185
+ * cdef tuple _KEYWORD_HINTS = ('date', 'datetime', 'timestamp')
+ * 
+ * cpdef dict resolve_udf_conditions(dict conditions, dict cond_definition = None):             # <<<<<<<<<<<<<<
+ *     """Return a new dict with relative-date keyword values resolved via to_udf.
+ * 
+ */
+struct __pyx_opt_args_11querysource_5types_10validators_resolve_udf_conditions {
+  int __pyx_n;
+  PyObject *cond_definition;
+};
+
+/* "querysource/types/validators.pyx":572
  * 
  * ### Validation of conditions:
  * cpdef object is_valid(object key, object value, str T = None, bint noquote = False):             # <<<<<<<<<<<<<<
@@ -1686,7 +1712,7 @@ struct __pyx_opt_args_11querysource_5types_10validators_is_valid {
   int noquote;
 };
 
-/* "querysource/types/validators.pyx":387
+/* "querysource/types/validators.pyx":436
  * 
  * ## Entity Class:
  * cdef class Entity:             # <<<<<<<<<<<<<<
@@ -2104,94 +2130,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_Call(PyObject *func, PyObject *arg
 /* RaiseException.proto */
 static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause);
 
-/* UnpackUnboundCMethod.proto */
-typedef struct {
-    PyObject *type;
-    PyObject **method_name;
-    PyCFunction func;
-    PyObject *method;
-    int flag;
-} __Pyx_CachedCFunction;
-
-/* CallUnboundCMethod0.proto */
-static PyObject* __Pyx__CallUnboundCMethod0(__Pyx_CachedCFunction* cfunc, PyObject* self);
-#if CYTHON_COMPILING_IN_CPYTHON
-#define __Pyx_CallUnboundCMethod0(cfunc, self)\
-    (likely((cfunc)->func) ?\
-        (likely((cfunc)->flag == METH_NOARGS) ?  (*((cfunc)->func))(self, NULL) :\
-         (PY_VERSION_HEX >= 0x030600B1 && likely((cfunc)->flag == METH_FASTCALL) ?\
-            (PY_VERSION_HEX >= 0x030700A0 ?\
-                (*(__Pyx_PyCFunctionFast)(void*)(PyCFunction)(cfunc)->func)(self, &__pyx_empty_tuple, 0) :\
-                (*(__Pyx_PyCFunctionFastWithKeywords)(void*)(PyCFunction)(cfunc)->func)(self, &__pyx_empty_tuple, 0, NULL)) :\
-          (PY_VERSION_HEX >= 0x030700A0 && (cfunc)->flag == (METH_FASTCALL | METH_KEYWORDS) ?\
-            (*(__Pyx_PyCFunctionFastWithKeywords)(void*)(PyCFunction)(cfunc)->func)(self, &__pyx_empty_tuple, 0, NULL) :\
-            (likely((cfunc)->flag == (METH_VARARGS | METH_KEYWORDS)) ?  ((*(PyCFunctionWithKeywords)(void*)(PyCFunction)(cfunc)->func)(self, __pyx_empty_tuple, NULL)) :\
-               ((cfunc)->flag == METH_VARARGS ?  (*((cfunc)->func))(self, __pyx_empty_tuple) :\
-               __Pyx__CallUnboundCMethod0(cfunc, self)))))) :\
-        __Pyx__CallUnboundCMethod0(cfunc, self))
-#else
-#define __Pyx_CallUnboundCMethod0(cfunc, self)  __Pyx__CallUnboundCMethod0(cfunc, self)
-#endif
-
-/* RaiseUnexpectedTypeError.proto */
-static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
-
-/* PyUnicode_Unicode.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyUnicode_Unicode(PyObject *obj);
-
-/* PyFunctionFastCall.proto */
-#if CYTHON_FAST_PYCALL
-#if !CYTHON_VECTORCALL
-#define __Pyx_PyFunction_FastCall(func, args, nargs)\
-    __Pyx_PyFunction_FastCallDict((func), (args), (nargs), NULL)
-static PyObject *__Pyx_PyFunction_FastCallDict(PyObject *func, PyObject **args, Py_ssize_t nargs, PyObject *kwargs);
-#endif
-#define __Pyx_BUILD_ASSERT_EXPR(cond)\
-    (sizeof(char [1 - 2*!(cond)]) - 1)
-#ifndef Py_MEMBER_SIZE
-#define Py_MEMBER_SIZE(type, member) sizeof(((type *)0)->member)
-#endif
-#if !CYTHON_VECTORCALL
-#if PY_VERSION_HEX >= 0x03080000
-  #include "frameobject.h"
-#if PY_VERSION_HEX >= 0x030b00a6 && !CYTHON_COMPILING_IN_LIMITED_API
-  #ifndef Py_BUILD_CORE
-    #define Py_BUILD_CORE 1
-  #endif
-  #include "internal/pycore_frame.h"
-#endif
-  #define __Pxy_PyFrame_Initialize_Offsets()
-  #define __Pyx_PyFrame_GetLocalsplus(frame)  ((frame)->f_localsplus)
-#else
-  static size_t __pyx_pyframe_localsplus_offset = 0;
-  #include "frameobject.h"
-  #define __Pxy_PyFrame_Initialize_Offsets()\
-    ((void)__Pyx_BUILD_ASSERT_EXPR(sizeof(PyFrameObject) == offsetof(PyFrameObject, f_localsplus) + Py_MEMBER_SIZE(PyFrameObject, f_localsplus)),\
-     (void)(__pyx_pyframe_localsplus_offset = ((size_t)PyFrame_Type.tp_basicsize) - Py_MEMBER_SIZE(PyFrameObject, f_localsplus)))
-  #define __Pyx_PyFrame_GetLocalsplus(frame)\
-    (assert(__pyx_pyframe_localsplus_offset), (PyObject **)(((char *)(frame)) + __pyx_pyframe_localsplus_offset))
-#endif
-#endif
-#endif
-
-/* PyObjectCallMethO.proto */
-#if CYTHON_COMPILING_IN_CPYTHON
-static CYTHON_INLINE PyObject* __Pyx_PyObject_CallMethO(PyObject *func, PyObject *arg);
-#endif
-
-/* PyObjectFastCall.proto */
-#define __Pyx_PyObject_FastCall(func, args, nargs)  __Pyx_PyObject_FastCallDict(func, args, (size_t)(nargs), NULL)
-static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObject **args, size_t nargs, PyObject *kwargs);
-
-/* PyObjectCallOneArg.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg);
-
-/* ArgTypeTest.proto */
-#define __Pyx_ArgTypeTest(obj, type, none_allowed, name, exact)\
-    ((likely(__Pyx_IS_TYPE(obj, type) | (none_allowed && (obj == Py_None)))) ? 1 :\
-        __Pyx__ArgTypeTest(obj, type, name, exact))
-static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact);
-
 /* PyDictVersioning.proto */
 #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
 #define __PYX_DICT_VERSION_INIT  ((PY_UINT64_T) -1)
@@ -2239,6 +2177,124 @@ static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_ve
 static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name);
 #endif
 
+/* PyFunctionFastCall.proto */
+#if CYTHON_FAST_PYCALL
+#if !CYTHON_VECTORCALL
+#define __Pyx_PyFunction_FastCall(func, args, nargs)\
+    __Pyx_PyFunction_FastCallDict((func), (args), (nargs), NULL)
+static PyObject *__Pyx_PyFunction_FastCallDict(PyObject *func, PyObject **args, Py_ssize_t nargs, PyObject *kwargs);
+#endif
+#define __Pyx_BUILD_ASSERT_EXPR(cond)\
+    (sizeof(char [1 - 2*!(cond)]) - 1)
+#ifndef Py_MEMBER_SIZE
+#define Py_MEMBER_SIZE(type, member) sizeof(((type *)0)->member)
+#endif
+#if !CYTHON_VECTORCALL
+#if PY_VERSION_HEX >= 0x03080000
+  #include "frameobject.h"
+#if PY_VERSION_HEX >= 0x030b00a6 && !CYTHON_COMPILING_IN_LIMITED_API
+  #ifndef Py_BUILD_CORE
+    #define Py_BUILD_CORE 1
+  #endif
+  #include "internal/pycore_frame.h"
+#endif
+  #define __Pxy_PyFrame_Initialize_Offsets()
+  #define __Pyx_PyFrame_GetLocalsplus(frame)  ((frame)->f_localsplus)
+#else
+  static size_t __pyx_pyframe_localsplus_offset = 0;
+  #include "frameobject.h"
+  #define __Pxy_PyFrame_Initialize_Offsets()\
+    ((void)__Pyx_BUILD_ASSERT_EXPR(sizeof(PyFrameObject) == offsetof(PyFrameObject, f_localsplus) + Py_MEMBER_SIZE(PyFrameObject, f_localsplus)),\
+     (void)(__pyx_pyframe_localsplus_offset = ((size_t)PyFrame_Type.tp_basicsize) - Py_MEMBER_SIZE(PyFrameObject, f_localsplus)))
+  #define __Pyx_PyFrame_GetLocalsplus(frame)\
+    (assert(__pyx_pyframe_localsplus_offset), (PyObject **)(((char *)(frame)) + __pyx_pyframe_localsplus_offset))
+#endif
+#endif
+#endif
+
+/* PyObjectCallMethO.proto */
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_PyObject_CallMethO(PyObject *func, PyObject *arg);
+#endif
+
+/* PyObjectFastCall.proto */
+#define __Pyx_PyObject_FastCall(func, args, nargs)  __Pyx_PyObject_FastCallDict(func, args, (size_t)(nargs), NULL)
+static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObject **args, size_t nargs, PyObject *kwargs);
+
+/* PyObject_Unicode.proto */
+#if PY_MAJOR_VERSION >= 3
+#define __Pyx_PyObject_Unicode(obj)\
+    (likely(PyUnicode_CheckExact(obj)) ? __Pyx_NewRef(obj) : PyObject_Str(obj))
+#else
+#define __Pyx_PyObject_Unicode(obj)\
+    (likely(PyUnicode_CheckExact(obj)) ? __Pyx_NewRef(obj) : PyObject_Unicode(obj))
+#endif
+
+/* ListCompAppend.proto */
+#if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
+static CYTHON_INLINE int __Pyx_ListComp_Append(PyObject* list, PyObject* x) {
+    PyListObject* L = (PyListObject*) list;
+    Py_ssize_t len = Py_SIZE(list);
+    if (likely(L->allocated > len)) {
+        Py_INCREF(x);
+        #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030d0000
+        L->ob_item[len] = x;
+        #else
+        PyList_SET_ITEM(list, len, x);
+        #endif
+        __Pyx_SET_SIZE(list, len + 1);
+        return 0;
+    }
+    return PyList_Append(list, x);
+}
+#else
+#define __Pyx_ListComp_Append(L,x) PyList_Append(L,x)
+#endif
+
+/* UnpackUnboundCMethod.proto */
+typedef struct {
+    PyObject *type;
+    PyObject **method_name;
+    PyCFunction func;
+    PyObject *method;
+    int flag;
+} __Pyx_CachedCFunction;
+
+/* CallUnboundCMethod0.proto */
+static PyObject* __Pyx__CallUnboundCMethod0(__Pyx_CachedCFunction* cfunc, PyObject* self);
+#if CYTHON_COMPILING_IN_CPYTHON
+#define __Pyx_CallUnboundCMethod0(cfunc, self)\
+    (likely((cfunc)->func) ?\
+        (likely((cfunc)->flag == METH_NOARGS) ?  (*((cfunc)->func))(self, NULL) :\
+         (PY_VERSION_HEX >= 0x030600B1 && likely((cfunc)->flag == METH_FASTCALL) ?\
+            (PY_VERSION_HEX >= 0x030700A0 ?\
+                (*(__Pyx_PyCFunctionFast)(void*)(PyCFunction)(cfunc)->func)(self, &__pyx_empty_tuple, 0) :\
+                (*(__Pyx_PyCFunctionFastWithKeywords)(void*)(PyCFunction)(cfunc)->func)(self, &__pyx_empty_tuple, 0, NULL)) :\
+          (PY_VERSION_HEX >= 0x030700A0 && (cfunc)->flag == (METH_FASTCALL | METH_KEYWORDS) ?\
+            (*(__Pyx_PyCFunctionFastWithKeywords)(void*)(PyCFunction)(cfunc)->func)(self, &__pyx_empty_tuple, 0, NULL) :\
+            (likely((cfunc)->flag == (METH_VARARGS | METH_KEYWORDS)) ?  ((*(PyCFunctionWithKeywords)(void*)(PyCFunction)(cfunc)->func)(self, __pyx_empty_tuple, NULL)) :\
+               ((cfunc)->flag == METH_VARARGS ?  (*((cfunc)->func))(self, __pyx_empty_tuple) :\
+               __Pyx__CallUnboundCMethod0(cfunc, self)))))) :\
+        __Pyx__CallUnboundCMethod0(cfunc, self))
+#else
+#define __Pyx_CallUnboundCMethod0(cfunc, self)  __Pyx__CallUnboundCMethod0(cfunc, self)
+#endif
+
+/* RaiseUnexpectedTypeError.proto */
+static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
+
+/* PyUnicode_Unicode.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyUnicode_Unicode(PyObject *obj);
+
+/* PyObjectCallOneArg.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg);
+
+/* ArgTypeTest.proto */
+#define __Pyx_ArgTypeTest(obj, type, none_allowed, name, exact)\
+    ((likely(__Pyx_IS_TYPE(obj, type) | (none_allowed && (obj == Py_None)))) ? 1 :\
+        __Pyx__ArgTypeTest(obj, type, name, exact))
+static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact);
+
 /* GetTopmostException.proto */
 #if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
 static _PyErr_StackItem * __Pyx_PyErr_GetTopmostException(PyThreadState *tstate);
@@ -2278,15 +2334,6 @@ static CYTHON_INLINE int __Pyx_PyUnicode_ContainsTF(PyObject* substring, PyObjec
     return unlikely(result < 0) ? result : (result == (eq == Py_EQ));
 }
 
-/* PyObject_Unicode.proto */
-#if PY_MAJOR_VERSION >= 3
-#define __Pyx_PyObject_Unicode(obj)\
-    (likely(PyUnicode_CheckExact(obj)) ? __Pyx_NewRef(obj) : PyObject_Str(obj))
-#else
-#define __Pyx_PyObject_Unicode(obj)\
-    (likely(PyUnicode_CheckExact(obj)) ? __Pyx_NewRef(obj) : PyObject_Unicode(obj))
-#endif
-
 /* unicode_tailmatch.proto */
 static int __Pyx_PyUnicode_Tailmatch(
     PyObject* s, PyObject* substr, Py_ssize_t start, Py_ssize_t end, int direction);
@@ -2313,6 +2360,40 @@ static CYTHON_INLINE int __Pyx_PySequence_ContainsTF(PyObject* item, PyObject* s
     int result = PySequence_Contains(seq, item);
     return unlikely(result < 0) ? result : (result == (eq == Py_EQ));
 }
+
+/* py_dict_items.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyDict_Items(PyObject* d);
+
+/* RaiseTooManyValuesToUnpack.proto */
+static CYTHON_INLINE void __Pyx_RaiseTooManyValuesError(Py_ssize_t expected);
+
+/* RaiseNeedMoreValuesToUnpack.proto */
+static CYTHON_INLINE void __Pyx_RaiseNeedMoreValuesError(Py_ssize_t index);
+
+/* IterFinish.proto */
+static CYTHON_INLINE int __Pyx_IterFinish(void);
+
+/* UnpackItemEndCheck.proto */
+static int __Pyx_IternextUnpackEndCheck(PyObject *retval, Py_ssize_t expected);
+
+/* dict_getitem_default.proto */
+static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObject* default_value);
+
+/* CallUnboundCMethod1.proto */
+static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
+#else
+#define __Pyx_CallUnboundCMethod1(cfunc, self, arg)  __Pyx__CallUnboundCMethod1(cfunc, self, arg)
+#endif
+
+/* CallUnboundCMethod2.proto */
+static PyObject* __Pyx__CallUnboundCMethod2(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg1, PyObject* arg2);
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030600B1
+static CYTHON_INLINE PyObject *__Pyx_CallUnboundCMethod2(__Pyx_CachedCFunction *cfunc, PyObject *self, PyObject *arg1, PyObject *arg2);
+#else
+#define __Pyx_CallUnboundCMethod2(cfunc, self, arg1, arg2)  __Pyx__CallUnboundCMethod2(cfunc, self, arg1, arg2)
+#endif
 
 /* PyIntBinop.proto */
 #if !CYTHON_COMPILING_IN_PYPY
@@ -2506,9 +2587,6 @@ static CYTHON_INLINE PyObject* __Pyx__PyNumber_Float(PyObject* obj);
 static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatSimpleAndDecref(PyObject* s, PyObject* f);
 static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatAndDecref(PyObject* s, PyObject* f);
 
-/* IterFinish.proto */
-static CYTHON_INLINE int __Pyx_IterFinish(void);
-
 /* PyObjectCallNoArg.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_CallNoArg(PyObject *func);
 
@@ -2517,15 +2595,6 @@ static int __Pyx_PyObject_GetMethod(PyObject *obj, PyObject *name, PyObject **me
 
 /* PyObjectCallMethod0.proto */
 static PyObject* __Pyx_PyObject_CallMethod0(PyObject* obj, PyObject* method_name);
-
-/* RaiseNeedMoreValuesToUnpack.proto */
-static CYTHON_INLINE void __Pyx_RaiseNeedMoreValuesError(Py_ssize_t index);
-
-/* RaiseTooManyValuesToUnpack.proto */
-static CYTHON_INLINE void __Pyx_RaiseTooManyValuesError(Py_ssize_t expected);
-
-/* UnpackItemEndCheck.proto */
-static int __Pyx_IternextUnpackEndCheck(PyObject *retval, Py_ssize_t expected);
 
 /* RaiseNoneIterError.proto */
 static CYTHON_INLINE void __Pyx_RaiseNoneNotIterableError(void);
@@ -2871,7 +2940,9 @@ static PyObject *__pyx_v_11querysource_5types_10validators_UDF_LIST = 0;
 static PyObject *__pyx_v_11querysource_5types_10validators_PG_CONSTANTS = 0;
 static PyObject *__pyx_v_11querysource_5types_10validators_PG_UDF = 0;
 static PyObject *__pyx_v_11querysource_5types_10validators_eval_field = 0;
+static PyObject *__pyx_v_11querysource_5types_10validators__KEYWORD_HINTS = 0;
 static PyObject *__pyx_v_11querysource_5types_10validators_type_validators = 0;
+static PyObject *__pyx_f_11querysource_5types_10validators__env_list(PyObject *, PyObject *, struct __pyx_opt_args_11querysource_5types_10validators__env_list *__pyx_optional_args); /*proto*/
 static PyObject *__pyx_f_11querysource_5types_10validators_strtobool(PyObject *, int __pyx_skip_dispatch); /*proto*/
 static PyObject *__pyx_f_11querysource_5types_10validators_field_components(PyObject *, int __pyx_skip_dispatch); /*proto*/
 static bool __pyx_f_11querysource_5types_10validators_is_pandas_dataframe(PyObject *, int __pyx_skip_dispatch); /*proto*/
@@ -2883,6 +2954,10 @@ static bool __pyx_f_11querysource_5types_10validators_is_async_callable(PyObject
 static bool __pyx_f_11querysource_5types_10validators_is_udf(PyObject *, int __pyx_skip_dispatch); /*proto*/
 static bool __pyx_f_11querysource_5types_10validators_is_pg_function(PyObject *); /*proto*/
 static bool __pyx_f_11querysource_5types_10validators_is_pgconstant(PyObject *, int __pyx_skip_dispatch); /*proto*/
+static PyObject *__pyx_f_11querysource_5types_10validators_udf_keywords(int __pyx_skip_dispatch); /*proto*/
+static PyObject *__pyx_f_11querysource_5types_10validators_pg_constants(int __pyx_skip_dispatch); /*proto*/
+static PyObject *__pyx_f_11querysource_5types_10validators_pg_udfs(int __pyx_skip_dispatch); /*proto*/
+static PyObject *__pyx_f_11querysource_5types_10validators_resolve_udf_conditions(PyObject *, int __pyx_skip_dispatch, struct __pyx_opt_args_11querysource_5types_10validators_resolve_udf_conditions *__pyx_optional_args); /*proto*/
 static bool __pyx_f_11querysource_5types_10validators_is_array(PyObject *, int __pyx_skip_dispatch); /*proto*/
 static bool __pyx_f_11querysource_5types_10validators_is_epoch(PyObject *, int __pyx_skip_dispatch); /*proto*/
 static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *); /*proto*/
@@ -2938,35 +3013,35 @@ static const char __pyx_k_v[] = "v";
 static const char __pyx_k_w[] = "^(?:(\\@|!|#|~|\\:|))(\\w*)(?:(\\||\\&|\\!|\\~|\\#)|)+$";
 static const char __pyx_k_y[] = "y";
 static const char __pyx_k_z[] = "\\z";
-static const char __pyx_k__6[] = "";
-static const char __pyx_k__7[] = " ";
-static const char __pyx_k__8[] = "'";
-static const char __pyx_k__9[] = "''";
+static const char __pyx_k__6[] = ",";
+static const char __pyx_k__7[] = "";
+static const char __pyx_k__8[] = " ";
+static const char __pyx_k__9[] = "'";
 static const char __pyx_k_gc[] = "gc";
 static const char __pyx_k_no[] = "no";
 static const char __pyx_k_on[] = "on";
 static const char __pyx_k_os[] = "os";
 static const char __pyx_k_re[] = "re";
 static const char __pyx_k_0_2[] = "\\0";
-static const char __pyx_k__10[] = "'{}'";
-static const char __pyx_k__11[] = "\"";
-static const char __pyx_k__17[] = "(";
-static const char __pyx_k__18[] = "\000";
-static const char __pyx_k__19[] = "\r";
-static const char __pyx_k__20[] = "\010";
-static const char __pyx_k__21[] = "\t";
-static const char __pyx_k__22[] = "\032";
-static const char __pyx_k__23[] = "\n";
-static const char __pyx_k__24[] = "\\";
-static const char __pyx_k__25[] = "\\\\";
-static const char __pyx_k__26[] = "%";
-static const char __pyx_k__27[] = "\\%";
-static const char __pyx_k__28[] = ",";
+static const char __pyx_k__10[] = "''";
+static const char __pyx_k__11[] = "'{}'";
+static const char __pyx_k__12[] = "\"";
+static const char __pyx_k__18[] = "(";
+static const char __pyx_k__19[] = "\000";
+static const char __pyx_k__20[] = "\r";
+static const char __pyx_k__21[] = "\010";
+static const char __pyx_k__22[] = "\t";
+static const char __pyx_k__23[] = "\032";
+static const char __pyx_k__24[] = "\n";
+static const char __pyx_k__25[] = "\\";
+static const char __pyx_k__26[] = "\\\\";
+static const char __pyx_k__27[] = "%";
+static const char __pyx_k__28[] = "\\%";
 static const char __pyx_k__29[] = "{}=>{}";
 static const char __pyx_k__30[] = ":";
 static const char __pyx_k__32[] = ".";
 static const char __pyx_k__33[] = "*";
-static const char __pyx_k__92[] = "?";
+static const char __pyx_k__98[] = "?";
 static const char __pyx_k_cls[] = "cls";
 static const char __pyx_k_get[] = "get";
 static const char __pyx_k_int[] = "int";
@@ -3024,6 +3099,7 @@ static const char __pyx_k_numpy[] = "numpy";
 static const char __pyx_k_parse[] = "parse";
 static const char __pyx_k_print[] = "print";
 static const char __pyx_k_state[] = "state";
+static const char __pyx_k_strip[] = "strip";
 static const char __pyx_k_toSQL[] = "toSQL";
 static const char __pyx_k_upper[] = "upper";
 static const char __pyx_k_utf_8[] = "utf-8";
@@ -3071,6 +3147,7 @@ static const char __pyx_k_ndarray[] = "ndarray";
 static const char __pyx_k_noquote[] = "noquote";
 static const char __pyx_k_numeric[] = "numeric";
 static const char __pyx_k_partial[] = "partial";
+static const char __pyx_k_pg_udfs[] = "pg_udfs";
 static const char __pyx_k_replace[] = "replace";
 static const char __pyx_k_varchar[] = "varchar";
 static const char __pyx_k_KeyError[] = "KeyError";
@@ -3107,6 +3184,7 @@ static const char __pyx_k_strtobool[] = "strtobool";
 static const char __pyx_k_timestamp[] = "timestamp";
 static const char __pyx_k_translate[] = "translate";
 static const char __pyx_k_ValueError[] = "ValueError";
+static const char __pyx_k_conditions[] = "conditions";
 static const char __pyx_k_dblQuoting[] = "dblQuoting";
 static const char __pyx_k_is_boolean[] = "is_boolean";
 static const char __pyx_k_is_decimal[] = "is_decimal";
@@ -3131,8 +3209,10 @@ static const char __pyx_k_RuntimeError[] = "RuntimeError";
 static const char __pyx_k_escapeString[] = "escapeString";
 static const char __pyx_k_initializing[] = "_initializing";
 static const char __pyx_k_is_coroutine[] = "_is_coroutine";
+static const char __pyx_k_pg_constants[] = "pg_constants";
 static const char __pyx_k_pyx_checksum[] = "__pyx_checksum";
 static const char __pyx_k_stringsource[] = "<stringsource>";
+static const char __pyx_k_udf_keywords[] = "udf_keywords";
 static const char __pyx_k_use_setstate[] = "use_setstate";
 static const char __pyx_k_CURRENT_MONTH[] = "CURRENT_MONTH";
 static const char __pyx_k_Entity_escape[] = "Entity.escape";
@@ -3150,6 +3230,7 @@ static const char __pyx_k_Entity_is_date[] = "Entity.is_date";
 static const char __pyx_k_Valid_Error_on[] = "Valid Error on ";
 static const char __pyx_k_Entity_is_array[] = "Entity.is_array";
 static const char __pyx_k_collections_abc[] = "collections.abc";
+static const char __pyx_k_cond_definition[] = "cond_definition";
 static const char __pyx_k_pyx_PickleError[] = "__pyx_PickleError";
 static const char __pyx_k_setstate_cython[] = "__setstate_cython__";
 static const char __pyx_k_utils_functions[] = "utils.functions";
@@ -3170,6 +3251,7 @@ static const char __pyx_k_iscoroutinefunction[] = "iscoroutinefunction";
 static const char __pyx_k_pyx_unpickle_Entity[] = "__pyx_unpickle_Entity";
 static const char __pyx_k_Entity_escapeLiteral[] = "Entity.escapeLiteral";
 static const char __pyx_k_Entity___reduce_cython[] = "Entity.__reduce_cython__";
+static const char __pyx_k_resolve_udf_conditions[] = "resolve_udf_conditions";
 static const char __pyx_k_invalid_truth_value_for[] = "invalid truth value for ";
 static const char __pyx_k_Entity___setstate_cython[] = "Entity.__setstate_cython__";
 static const char __pyx_k_querysource_types_validators[] = "querysource.types.validators";
@@ -3192,20 +3274,24 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_10is_callable(CYTHON
 static PyObject *__pyx_pf_11querysource_5types_10validators_12is_async_callable(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_obj); /* proto */
 static PyObject *__pyx_pf_11querysource_5types_10validators_14is_udf(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_11querysource_5types_10validators_16is_pgconstant(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_18is_array(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_20is_epoch(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_22is_date(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_24is_datetime(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_26is_uuid(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_28is_integer(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_30is_float(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_32is_decimal(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_34isnumber(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_36is_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_38is_boolean(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_40is_object(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_42is_string(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_44escape_string(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_18udf_keywords(CYTHON_UNUSED PyObject *__pyx_self); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_20pg_constants(CYTHON_UNUSED PyObject *__pyx_self); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_22pg_udfs(CYTHON_UNUSED PyObject *__pyx_self); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_24resolve_udf_conditions(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_conditions, PyObject *__pyx_v_cond_definition); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_26is_array(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_28is_epoch(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_30is_date(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_32is_datetime(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_34is_uuid(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_36is_integer(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_38is_float(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_40is_decimal(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_42isnumber(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_44is_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_46is_boolean(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_48is_object(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_50is_string(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_52escape_string(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_is_integer(CYTHON_UNUSED PyTypeObject *__pyx_v_cls, PyObject *__pyx_v__type); /* proto */
 static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_2is_number(CYTHON_UNUSED PyTypeObject *__pyx_v_cls, PyObject *__pyx_v__type); /* proto */
 static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_4is_string(CYTHON_UNUSED PyTypeObject *__pyx_v_cls, PyObject *__pyx_v__type); /* proto */
@@ -3221,12 +3307,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
 static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_24dblQuoting(CYTHON_UNUSED PyTypeObject *__pyx_v_cls, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_26__reduce_cython__(struct __pyx_obj_11querysource_5types_10validators_Entity *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_28__setstate_cython__(struct __pyx_obj_11querysource_5types_10validators_Entity *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_46is_valid(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_key, PyObject *__pyx_v_value, PyObject *__pyx_v_T, int __pyx_v_noquote); /* proto */
-static PyObject *__pyx_pf_11querysource_5types_10validators_48__pyx_unpickle_Entity(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_54is_valid(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_key, PyObject *__pyx_v_value, PyObject *__pyx_v_T, int __pyx_v_noquote); /* proto */
+static PyObject *__pyx_pf_11querysource_5types_10validators_56__pyx_unpickle_Entity(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_tp_new_11querysource_5types_10validators_Entity(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new___pyx_scope_struct____Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new___pyx_scope_struct____Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new___pyx_scope_struct____Pyx_CFunc_11querysource_5types_10validators_object__lParenobject__rParen_to_py_5value(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
+static __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_get = {0, 0, 0, 0, 0};
+static __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_items = {0, 0, 0, 0, 0};
 static __Pyx_CachedCFunction __pyx_umethod_PyUnicode_Type_lower = {0, 0, 0, 0, 0};
 /* #### Code section: late_includes ### */
 /* #### Code section: module_state ### */
@@ -3423,7 +3511,7 @@ typedef struct {
   PyObject *__pyx_n_u_YESTERDAY;
   PyObject *__pyx_kp_u__10;
   PyObject *__pyx_kp_u__11;
-  PyObject *__pyx_kp_u__17;
+  PyObject *__pyx_kp_u__12;
   PyObject *__pyx_kp_u__18;
   PyObject *__pyx_kp_u__19;
   PyObject *__pyx_kp_u__20;
@@ -3443,7 +3531,7 @@ typedef struct {
   PyObject *__pyx_kp_u__7;
   PyObject *__pyx_kp_u__8;
   PyObject *__pyx_kp_u__9;
-  PyObject *__pyx_n_s__92;
+  PyObject *__pyx_n_s__98;
   PyObject *__pyx_n_u_array;
   PyObject *__pyx_n_s_asyncio;
   PyObject *__pyx_n_s_asyncio_coroutines;
@@ -3458,6 +3546,8 @@ typedef struct {
   PyObject *__pyx_n_s_collections_abc;
   PyObject *__pyx_n_u_columns;
   PyObject *__pyx_n_s_compile;
+  PyObject *__pyx_n_s_cond_definition;
+  PyObject *__pyx_n_s_conditions;
   PyObject *__pyx_n_s_config;
   PyObject *__pyx_n_s_dataclasses;
   PyObject *__pyx_n_s_date;
@@ -3568,6 +3658,8 @@ typedef struct {
   PyObject *__pyx_n_s_parse;
   PyObject *__pyx_n_s_parser;
   PyObject *__pyx_n_s_partial;
+  PyObject *__pyx_n_s_pg_constants;
+  PyObject *__pyx_n_s_pg_udfs;
   PyObject *__pyx_n_s_pickle;
   PyObject *__pyx_n_s_print;
   PyObject *__pyx_n_s_pyx_PickleError;
@@ -3585,6 +3677,7 @@ typedef struct {
   PyObject *__pyx_n_s_reduce_cython;
   PyObject *__pyx_n_s_reduce_ex;
   PyObject *__pyx_n_s_replace;
+  PyObject *__pyx_n_s_resolve_udf_conditions;
   PyObject *__pyx_n_s_self;
   PyObject *__pyx_n_s_setstate;
   PyObject *__pyx_n_s_setstate_cython;
@@ -3595,6 +3688,7 @@ typedef struct {
   PyObject *__pyx_n_s_str;
   PyObject *__pyx_n_u_string;
   PyObject *__pyx_kp_s_stringsource;
+  PyObject *__pyx_n_s_strip;
   PyObject *__pyx_n_s_strtobool;
   PyObject *__pyx_n_s_t;
   PyObject *__pyx_n_u_t;
@@ -3609,6 +3703,7 @@ typedef struct {
   PyObject *__pyx_n_s_type;
   PyObject *__pyx_n_s_typing;
   PyObject *__pyx_n_u_udf;
+  PyObject *__pyx_n_s_udf_keywords;
   PyObject *__pyx_n_s_update;
   PyObject *__pyx_n_s_upper;
   PyObject *__pyx_n_s_use_setstate;
@@ -3634,30 +3729,32 @@ typedef struct {
   PyObject *__pyx_int_neg_1;
   PyObject *__pyx_tuple_;
   PyObject *__pyx_tuple__5;
-  PyObject *__pyx_slice__12;
   PyObject *__pyx_slice__13;
   PyObject *__pyx_slice__14;
-  PyObject *__pyx_tuple__15;
+  PyObject *__pyx_slice__15;
   PyObject *__pyx_tuple__16;
+  PyObject *__pyx_tuple__17;
   PyObject *__pyx_tuple__31;
   PyObject *__pyx_tuple__34;
   PyObject *__pyx_tuple__35;
   PyObject *__pyx_tuple__37;
   PyObject *__pyx_tuple__39;
-  PyObject *__pyx_tuple__61;
-  PyObject *__pyx_tuple__67;
-  PyObject *__pyx_tuple__71;
-  PyObject *__pyx_tuple__73;
+  PyObject *__pyx_tuple__50;
+  PyObject *__pyx_tuple__51;
+  PyObject *__pyx_tuple__53;
+  PyObject *__pyx_tuple__68;
   PyObject *__pyx_tuple__74;
-  PyObject *__pyx_tuple__76;
   PyObject *__pyx_tuple__78;
   PyObject *__pyx_tuple__80;
-  PyObject *__pyx_tuple__81;
-  PyObject *__pyx_tuple__83;
-  PyObject *__pyx_tuple__85;
+  PyObject *__pyx_tuple__82;
+  PyObject *__pyx_tuple__84;
+  PyObject *__pyx_tuple__86;
   PyObject *__pyx_tuple__87;
   PyObject *__pyx_tuple__89;
-  PyObject *__pyx_tuple__90;
+  PyObject *__pyx_tuple__91;
+  PyObject *__pyx_tuple__93;
+  PyObject *__pyx_tuple__95;
+  PyObject *__pyx_tuple__96;
   PyObject *__pyx_codeobj__2;
   PyObject *__pyx_codeobj__3;
   PyObject *__pyx_codeobj__4;
@@ -3673,10 +3770,7 @@ typedef struct {
   PyObject *__pyx_codeobj__47;
   PyObject *__pyx_codeobj__48;
   PyObject *__pyx_codeobj__49;
-  PyObject *__pyx_codeobj__50;
-  PyObject *__pyx_codeobj__51;
   PyObject *__pyx_codeobj__52;
-  PyObject *__pyx_codeobj__53;
   PyObject *__pyx_codeobj__54;
   PyObject *__pyx_codeobj__55;
   PyObject *__pyx_codeobj__56;
@@ -3684,23 +3778,30 @@ typedef struct {
   PyObject *__pyx_codeobj__58;
   PyObject *__pyx_codeobj__59;
   PyObject *__pyx_codeobj__60;
+  PyObject *__pyx_codeobj__61;
   PyObject *__pyx_codeobj__62;
   PyObject *__pyx_codeobj__63;
   PyObject *__pyx_codeobj__64;
   PyObject *__pyx_codeobj__65;
   PyObject *__pyx_codeobj__66;
-  PyObject *__pyx_codeobj__68;
+  PyObject *__pyx_codeobj__67;
   PyObject *__pyx_codeobj__69;
   PyObject *__pyx_codeobj__70;
+  PyObject *__pyx_codeobj__71;
   PyObject *__pyx_codeobj__72;
+  PyObject *__pyx_codeobj__73;
   PyObject *__pyx_codeobj__75;
+  PyObject *__pyx_codeobj__76;
   PyObject *__pyx_codeobj__77;
   PyObject *__pyx_codeobj__79;
-  PyObject *__pyx_codeobj__82;
-  PyObject *__pyx_codeobj__84;
-  PyObject *__pyx_codeobj__86;
+  PyObject *__pyx_codeobj__81;
+  PyObject *__pyx_codeobj__83;
+  PyObject *__pyx_codeobj__85;
   PyObject *__pyx_codeobj__88;
-  PyObject *__pyx_codeobj__91;
+  PyObject *__pyx_codeobj__90;
+  PyObject *__pyx_codeobj__92;
+  PyObject *__pyx_codeobj__94;
+  PyObject *__pyx_codeobj__97;
 } __pyx_mstate;
 
 #if CYTHON_USE_MODULE_STATE
@@ -3817,7 +3918,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_u_YESTERDAY);
   Py_CLEAR(clear_module_state->__pyx_kp_u__10);
   Py_CLEAR(clear_module_state->__pyx_kp_u__11);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__17);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__12);
   Py_CLEAR(clear_module_state->__pyx_kp_u__18);
   Py_CLEAR(clear_module_state->__pyx_kp_u__19);
   Py_CLEAR(clear_module_state->__pyx_kp_u__20);
@@ -3837,7 +3938,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_u__7);
   Py_CLEAR(clear_module_state->__pyx_kp_u__8);
   Py_CLEAR(clear_module_state->__pyx_kp_u__9);
-  Py_CLEAR(clear_module_state->__pyx_n_s__92);
+  Py_CLEAR(clear_module_state->__pyx_n_s__98);
   Py_CLEAR(clear_module_state->__pyx_n_u_array);
   Py_CLEAR(clear_module_state->__pyx_n_s_asyncio);
   Py_CLEAR(clear_module_state->__pyx_n_s_asyncio_coroutines);
@@ -3852,6 +3953,8 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_collections_abc);
   Py_CLEAR(clear_module_state->__pyx_n_u_columns);
   Py_CLEAR(clear_module_state->__pyx_n_s_compile);
+  Py_CLEAR(clear_module_state->__pyx_n_s_cond_definition);
+  Py_CLEAR(clear_module_state->__pyx_n_s_conditions);
   Py_CLEAR(clear_module_state->__pyx_n_s_config);
   Py_CLEAR(clear_module_state->__pyx_n_s_dataclasses);
   Py_CLEAR(clear_module_state->__pyx_n_s_date);
@@ -3962,6 +4065,8 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_parse);
   Py_CLEAR(clear_module_state->__pyx_n_s_parser);
   Py_CLEAR(clear_module_state->__pyx_n_s_partial);
+  Py_CLEAR(clear_module_state->__pyx_n_s_pg_constants);
+  Py_CLEAR(clear_module_state->__pyx_n_s_pg_udfs);
   Py_CLEAR(clear_module_state->__pyx_n_s_pickle);
   Py_CLEAR(clear_module_state->__pyx_n_s_print);
   Py_CLEAR(clear_module_state->__pyx_n_s_pyx_PickleError);
@@ -3979,6 +4084,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce_cython);
   Py_CLEAR(clear_module_state->__pyx_n_s_reduce_ex);
   Py_CLEAR(clear_module_state->__pyx_n_s_replace);
+  Py_CLEAR(clear_module_state->__pyx_n_s_resolve_udf_conditions);
   Py_CLEAR(clear_module_state->__pyx_n_s_self);
   Py_CLEAR(clear_module_state->__pyx_n_s_setstate);
   Py_CLEAR(clear_module_state->__pyx_n_s_setstate_cython);
@@ -3989,6 +4095,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_str);
   Py_CLEAR(clear_module_state->__pyx_n_u_string);
   Py_CLEAR(clear_module_state->__pyx_kp_s_stringsource);
+  Py_CLEAR(clear_module_state->__pyx_n_s_strip);
   Py_CLEAR(clear_module_state->__pyx_n_s_strtobool);
   Py_CLEAR(clear_module_state->__pyx_n_s_t);
   Py_CLEAR(clear_module_state->__pyx_n_u_t);
@@ -4003,6 +4110,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_type);
   Py_CLEAR(clear_module_state->__pyx_n_s_typing);
   Py_CLEAR(clear_module_state->__pyx_n_u_udf);
+  Py_CLEAR(clear_module_state->__pyx_n_s_udf_keywords);
   Py_CLEAR(clear_module_state->__pyx_n_s_update);
   Py_CLEAR(clear_module_state->__pyx_n_s_upper);
   Py_CLEAR(clear_module_state->__pyx_n_s_use_setstate);
@@ -4028,30 +4136,32 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_int_neg_1);
   Py_CLEAR(clear_module_state->__pyx_tuple_);
   Py_CLEAR(clear_module_state->__pyx_tuple__5);
-  Py_CLEAR(clear_module_state->__pyx_slice__12);
   Py_CLEAR(clear_module_state->__pyx_slice__13);
   Py_CLEAR(clear_module_state->__pyx_slice__14);
-  Py_CLEAR(clear_module_state->__pyx_tuple__15);
+  Py_CLEAR(clear_module_state->__pyx_slice__15);
   Py_CLEAR(clear_module_state->__pyx_tuple__16);
+  Py_CLEAR(clear_module_state->__pyx_tuple__17);
   Py_CLEAR(clear_module_state->__pyx_tuple__31);
   Py_CLEAR(clear_module_state->__pyx_tuple__34);
   Py_CLEAR(clear_module_state->__pyx_tuple__35);
   Py_CLEAR(clear_module_state->__pyx_tuple__37);
   Py_CLEAR(clear_module_state->__pyx_tuple__39);
-  Py_CLEAR(clear_module_state->__pyx_tuple__61);
-  Py_CLEAR(clear_module_state->__pyx_tuple__67);
-  Py_CLEAR(clear_module_state->__pyx_tuple__71);
-  Py_CLEAR(clear_module_state->__pyx_tuple__73);
+  Py_CLEAR(clear_module_state->__pyx_tuple__50);
+  Py_CLEAR(clear_module_state->__pyx_tuple__51);
+  Py_CLEAR(clear_module_state->__pyx_tuple__53);
+  Py_CLEAR(clear_module_state->__pyx_tuple__68);
   Py_CLEAR(clear_module_state->__pyx_tuple__74);
-  Py_CLEAR(clear_module_state->__pyx_tuple__76);
   Py_CLEAR(clear_module_state->__pyx_tuple__78);
   Py_CLEAR(clear_module_state->__pyx_tuple__80);
-  Py_CLEAR(clear_module_state->__pyx_tuple__81);
-  Py_CLEAR(clear_module_state->__pyx_tuple__83);
-  Py_CLEAR(clear_module_state->__pyx_tuple__85);
+  Py_CLEAR(clear_module_state->__pyx_tuple__82);
+  Py_CLEAR(clear_module_state->__pyx_tuple__84);
+  Py_CLEAR(clear_module_state->__pyx_tuple__86);
   Py_CLEAR(clear_module_state->__pyx_tuple__87);
   Py_CLEAR(clear_module_state->__pyx_tuple__89);
-  Py_CLEAR(clear_module_state->__pyx_tuple__90);
+  Py_CLEAR(clear_module_state->__pyx_tuple__91);
+  Py_CLEAR(clear_module_state->__pyx_tuple__93);
+  Py_CLEAR(clear_module_state->__pyx_tuple__95);
+  Py_CLEAR(clear_module_state->__pyx_tuple__96);
   Py_CLEAR(clear_module_state->__pyx_codeobj__2);
   Py_CLEAR(clear_module_state->__pyx_codeobj__3);
   Py_CLEAR(clear_module_state->__pyx_codeobj__4);
@@ -4067,10 +4177,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_codeobj__47);
   Py_CLEAR(clear_module_state->__pyx_codeobj__48);
   Py_CLEAR(clear_module_state->__pyx_codeobj__49);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__50);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__51);
   Py_CLEAR(clear_module_state->__pyx_codeobj__52);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__53);
   Py_CLEAR(clear_module_state->__pyx_codeobj__54);
   Py_CLEAR(clear_module_state->__pyx_codeobj__55);
   Py_CLEAR(clear_module_state->__pyx_codeobj__56);
@@ -4078,23 +4185,30 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_codeobj__58);
   Py_CLEAR(clear_module_state->__pyx_codeobj__59);
   Py_CLEAR(clear_module_state->__pyx_codeobj__60);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__61);
   Py_CLEAR(clear_module_state->__pyx_codeobj__62);
   Py_CLEAR(clear_module_state->__pyx_codeobj__63);
   Py_CLEAR(clear_module_state->__pyx_codeobj__64);
   Py_CLEAR(clear_module_state->__pyx_codeobj__65);
   Py_CLEAR(clear_module_state->__pyx_codeobj__66);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__68);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__67);
   Py_CLEAR(clear_module_state->__pyx_codeobj__69);
   Py_CLEAR(clear_module_state->__pyx_codeobj__70);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__71);
   Py_CLEAR(clear_module_state->__pyx_codeobj__72);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__73);
   Py_CLEAR(clear_module_state->__pyx_codeobj__75);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__76);
   Py_CLEAR(clear_module_state->__pyx_codeobj__77);
   Py_CLEAR(clear_module_state->__pyx_codeobj__79);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__82);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__84);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__86);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__81);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__83);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__85);
   Py_CLEAR(clear_module_state->__pyx_codeobj__88);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__91);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__90);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__92);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__94);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__97);
   return 0;
 }
 #endif
@@ -4189,7 +4303,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_u_YESTERDAY);
   Py_VISIT(traverse_module_state->__pyx_kp_u__10);
   Py_VISIT(traverse_module_state->__pyx_kp_u__11);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__17);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__12);
   Py_VISIT(traverse_module_state->__pyx_kp_u__18);
   Py_VISIT(traverse_module_state->__pyx_kp_u__19);
   Py_VISIT(traverse_module_state->__pyx_kp_u__20);
@@ -4209,7 +4323,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_u__7);
   Py_VISIT(traverse_module_state->__pyx_kp_u__8);
   Py_VISIT(traverse_module_state->__pyx_kp_u__9);
-  Py_VISIT(traverse_module_state->__pyx_n_s__92);
+  Py_VISIT(traverse_module_state->__pyx_n_s__98);
   Py_VISIT(traverse_module_state->__pyx_n_u_array);
   Py_VISIT(traverse_module_state->__pyx_n_s_asyncio);
   Py_VISIT(traverse_module_state->__pyx_n_s_asyncio_coroutines);
@@ -4224,6 +4338,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_collections_abc);
   Py_VISIT(traverse_module_state->__pyx_n_u_columns);
   Py_VISIT(traverse_module_state->__pyx_n_s_compile);
+  Py_VISIT(traverse_module_state->__pyx_n_s_cond_definition);
+  Py_VISIT(traverse_module_state->__pyx_n_s_conditions);
   Py_VISIT(traverse_module_state->__pyx_n_s_config);
   Py_VISIT(traverse_module_state->__pyx_n_s_dataclasses);
   Py_VISIT(traverse_module_state->__pyx_n_s_date);
@@ -4334,6 +4450,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_parse);
   Py_VISIT(traverse_module_state->__pyx_n_s_parser);
   Py_VISIT(traverse_module_state->__pyx_n_s_partial);
+  Py_VISIT(traverse_module_state->__pyx_n_s_pg_constants);
+  Py_VISIT(traverse_module_state->__pyx_n_s_pg_udfs);
   Py_VISIT(traverse_module_state->__pyx_n_s_pickle);
   Py_VISIT(traverse_module_state->__pyx_n_s_print);
   Py_VISIT(traverse_module_state->__pyx_n_s_pyx_PickleError);
@@ -4351,6 +4469,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce_cython);
   Py_VISIT(traverse_module_state->__pyx_n_s_reduce_ex);
   Py_VISIT(traverse_module_state->__pyx_n_s_replace);
+  Py_VISIT(traverse_module_state->__pyx_n_s_resolve_udf_conditions);
   Py_VISIT(traverse_module_state->__pyx_n_s_self);
   Py_VISIT(traverse_module_state->__pyx_n_s_setstate);
   Py_VISIT(traverse_module_state->__pyx_n_s_setstate_cython);
@@ -4361,6 +4480,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_str);
   Py_VISIT(traverse_module_state->__pyx_n_u_string);
   Py_VISIT(traverse_module_state->__pyx_kp_s_stringsource);
+  Py_VISIT(traverse_module_state->__pyx_n_s_strip);
   Py_VISIT(traverse_module_state->__pyx_n_s_strtobool);
   Py_VISIT(traverse_module_state->__pyx_n_s_t);
   Py_VISIT(traverse_module_state->__pyx_n_u_t);
@@ -4375,6 +4495,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_type);
   Py_VISIT(traverse_module_state->__pyx_n_s_typing);
   Py_VISIT(traverse_module_state->__pyx_n_u_udf);
+  Py_VISIT(traverse_module_state->__pyx_n_s_udf_keywords);
   Py_VISIT(traverse_module_state->__pyx_n_s_update);
   Py_VISIT(traverse_module_state->__pyx_n_s_upper);
   Py_VISIT(traverse_module_state->__pyx_n_s_use_setstate);
@@ -4400,30 +4521,32 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_int_neg_1);
   Py_VISIT(traverse_module_state->__pyx_tuple_);
   Py_VISIT(traverse_module_state->__pyx_tuple__5);
-  Py_VISIT(traverse_module_state->__pyx_slice__12);
   Py_VISIT(traverse_module_state->__pyx_slice__13);
   Py_VISIT(traverse_module_state->__pyx_slice__14);
-  Py_VISIT(traverse_module_state->__pyx_tuple__15);
+  Py_VISIT(traverse_module_state->__pyx_slice__15);
   Py_VISIT(traverse_module_state->__pyx_tuple__16);
+  Py_VISIT(traverse_module_state->__pyx_tuple__17);
   Py_VISIT(traverse_module_state->__pyx_tuple__31);
   Py_VISIT(traverse_module_state->__pyx_tuple__34);
   Py_VISIT(traverse_module_state->__pyx_tuple__35);
   Py_VISIT(traverse_module_state->__pyx_tuple__37);
   Py_VISIT(traverse_module_state->__pyx_tuple__39);
-  Py_VISIT(traverse_module_state->__pyx_tuple__61);
-  Py_VISIT(traverse_module_state->__pyx_tuple__67);
-  Py_VISIT(traverse_module_state->__pyx_tuple__71);
-  Py_VISIT(traverse_module_state->__pyx_tuple__73);
+  Py_VISIT(traverse_module_state->__pyx_tuple__50);
+  Py_VISIT(traverse_module_state->__pyx_tuple__51);
+  Py_VISIT(traverse_module_state->__pyx_tuple__53);
+  Py_VISIT(traverse_module_state->__pyx_tuple__68);
   Py_VISIT(traverse_module_state->__pyx_tuple__74);
-  Py_VISIT(traverse_module_state->__pyx_tuple__76);
   Py_VISIT(traverse_module_state->__pyx_tuple__78);
   Py_VISIT(traverse_module_state->__pyx_tuple__80);
-  Py_VISIT(traverse_module_state->__pyx_tuple__81);
-  Py_VISIT(traverse_module_state->__pyx_tuple__83);
-  Py_VISIT(traverse_module_state->__pyx_tuple__85);
+  Py_VISIT(traverse_module_state->__pyx_tuple__82);
+  Py_VISIT(traverse_module_state->__pyx_tuple__84);
+  Py_VISIT(traverse_module_state->__pyx_tuple__86);
   Py_VISIT(traverse_module_state->__pyx_tuple__87);
   Py_VISIT(traverse_module_state->__pyx_tuple__89);
-  Py_VISIT(traverse_module_state->__pyx_tuple__90);
+  Py_VISIT(traverse_module_state->__pyx_tuple__91);
+  Py_VISIT(traverse_module_state->__pyx_tuple__93);
+  Py_VISIT(traverse_module_state->__pyx_tuple__95);
+  Py_VISIT(traverse_module_state->__pyx_tuple__96);
   Py_VISIT(traverse_module_state->__pyx_codeobj__2);
   Py_VISIT(traverse_module_state->__pyx_codeobj__3);
   Py_VISIT(traverse_module_state->__pyx_codeobj__4);
@@ -4439,10 +4562,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_codeobj__47);
   Py_VISIT(traverse_module_state->__pyx_codeobj__48);
   Py_VISIT(traverse_module_state->__pyx_codeobj__49);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__50);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__51);
   Py_VISIT(traverse_module_state->__pyx_codeobj__52);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__53);
   Py_VISIT(traverse_module_state->__pyx_codeobj__54);
   Py_VISIT(traverse_module_state->__pyx_codeobj__55);
   Py_VISIT(traverse_module_state->__pyx_codeobj__56);
@@ -4450,23 +4570,30 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_codeobj__58);
   Py_VISIT(traverse_module_state->__pyx_codeobj__59);
   Py_VISIT(traverse_module_state->__pyx_codeobj__60);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__61);
   Py_VISIT(traverse_module_state->__pyx_codeobj__62);
   Py_VISIT(traverse_module_state->__pyx_codeobj__63);
   Py_VISIT(traverse_module_state->__pyx_codeobj__64);
   Py_VISIT(traverse_module_state->__pyx_codeobj__65);
   Py_VISIT(traverse_module_state->__pyx_codeobj__66);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__68);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__67);
   Py_VISIT(traverse_module_state->__pyx_codeobj__69);
   Py_VISIT(traverse_module_state->__pyx_codeobj__70);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__71);
   Py_VISIT(traverse_module_state->__pyx_codeobj__72);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__73);
   Py_VISIT(traverse_module_state->__pyx_codeobj__75);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__76);
   Py_VISIT(traverse_module_state->__pyx_codeobj__77);
   Py_VISIT(traverse_module_state->__pyx_codeobj__79);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__82);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__84);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__86);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__81);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__83);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__85);
   Py_VISIT(traverse_module_state->__pyx_codeobj__88);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__91);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__90);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__92);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__94);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__97);
   return 0;
 }
 #endif
@@ -4663,7 +4790,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_u_YESTERDAY __pyx_mstate_global->__pyx_n_u_YESTERDAY
 #define __pyx_kp_u__10 __pyx_mstate_global->__pyx_kp_u__10
 #define __pyx_kp_u__11 __pyx_mstate_global->__pyx_kp_u__11
-#define __pyx_kp_u__17 __pyx_mstate_global->__pyx_kp_u__17
+#define __pyx_kp_u__12 __pyx_mstate_global->__pyx_kp_u__12
 #define __pyx_kp_u__18 __pyx_mstate_global->__pyx_kp_u__18
 #define __pyx_kp_u__19 __pyx_mstate_global->__pyx_kp_u__19
 #define __pyx_kp_u__20 __pyx_mstate_global->__pyx_kp_u__20
@@ -4683,7 +4810,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_u__7 __pyx_mstate_global->__pyx_kp_u__7
 #define __pyx_kp_u__8 __pyx_mstate_global->__pyx_kp_u__8
 #define __pyx_kp_u__9 __pyx_mstate_global->__pyx_kp_u__9
-#define __pyx_n_s__92 __pyx_mstate_global->__pyx_n_s__92
+#define __pyx_n_s__98 __pyx_mstate_global->__pyx_n_s__98
 #define __pyx_n_u_array __pyx_mstate_global->__pyx_n_u_array
 #define __pyx_n_s_asyncio __pyx_mstate_global->__pyx_n_s_asyncio
 #define __pyx_n_s_asyncio_coroutines __pyx_mstate_global->__pyx_n_s_asyncio_coroutines
@@ -4698,6 +4825,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_collections_abc __pyx_mstate_global->__pyx_n_s_collections_abc
 #define __pyx_n_u_columns __pyx_mstate_global->__pyx_n_u_columns
 #define __pyx_n_s_compile __pyx_mstate_global->__pyx_n_s_compile
+#define __pyx_n_s_cond_definition __pyx_mstate_global->__pyx_n_s_cond_definition
+#define __pyx_n_s_conditions __pyx_mstate_global->__pyx_n_s_conditions
 #define __pyx_n_s_config __pyx_mstate_global->__pyx_n_s_config
 #define __pyx_n_s_dataclasses __pyx_mstate_global->__pyx_n_s_dataclasses
 #define __pyx_n_s_date __pyx_mstate_global->__pyx_n_s_date
@@ -4808,6 +4937,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_parse __pyx_mstate_global->__pyx_n_s_parse
 #define __pyx_n_s_parser __pyx_mstate_global->__pyx_n_s_parser
 #define __pyx_n_s_partial __pyx_mstate_global->__pyx_n_s_partial
+#define __pyx_n_s_pg_constants __pyx_mstate_global->__pyx_n_s_pg_constants
+#define __pyx_n_s_pg_udfs __pyx_mstate_global->__pyx_n_s_pg_udfs
 #define __pyx_n_s_pickle __pyx_mstate_global->__pyx_n_s_pickle
 #define __pyx_n_s_print __pyx_mstate_global->__pyx_n_s_print
 #define __pyx_n_s_pyx_PickleError __pyx_mstate_global->__pyx_n_s_pyx_PickleError
@@ -4825,6 +4956,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_reduce_cython __pyx_mstate_global->__pyx_n_s_reduce_cython
 #define __pyx_n_s_reduce_ex __pyx_mstate_global->__pyx_n_s_reduce_ex
 #define __pyx_n_s_replace __pyx_mstate_global->__pyx_n_s_replace
+#define __pyx_n_s_resolve_udf_conditions __pyx_mstate_global->__pyx_n_s_resolve_udf_conditions
 #define __pyx_n_s_self __pyx_mstate_global->__pyx_n_s_self
 #define __pyx_n_s_setstate __pyx_mstate_global->__pyx_n_s_setstate
 #define __pyx_n_s_setstate_cython __pyx_mstate_global->__pyx_n_s_setstate_cython
@@ -4835,6 +4967,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_str __pyx_mstate_global->__pyx_n_s_str
 #define __pyx_n_u_string __pyx_mstate_global->__pyx_n_u_string
 #define __pyx_kp_s_stringsource __pyx_mstate_global->__pyx_kp_s_stringsource
+#define __pyx_n_s_strip __pyx_mstate_global->__pyx_n_s_strip
 #define __pyx_n_s_strtobool __pyx_mstate_global->__pyx_n_s_strtobool
 #define __pyx_n_s_t __pyx_mstate_global->__pyx_n_s_t
 #define __pyx_n_u_t __pyx_mstate_global->__pyx_n_u_t
@@ -4849,6 +4982,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_type __pyx_mstate_global->__pyx_n_s_type
 #define __pyx_n_s_typing __pyx_mstate_global->__pyx_n_s_typing
 #define __pyx_n_u_udf __pyx_mstate_global->__pyx_n_u_udf
+#define __pyx_n_s_udf_keywords __pyx_mstate_global->__pyx_n_s_udf_keywords
 #define __pyx_n_s_update __pyx_mstate_global->__pyx_n_s_update
 #define __pyx_n_s_upper __pyx_mstate_global->__pyx_n_s_upper
 #define __pyx_n_s_use_setstate __pyx_mstate_global->__pyx_n_s_use_setstate
@@ -4874,30 +5008,32 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_int_neg_1 __pyx_mstate_global->__pyx_int_neg_1
 #define __pyx_tuple_ __pyx_mstate_global->__pyx_tuple_
 #define __pyx_tuple__5 __pyx_mstate_global->__pyx_tuple__5
-#define __pyx_slice__12 __pyx_mstate_global->__pyx_slice__12
 #define __pyx_slice__13 __pyx_mstate_global->__pyx_slice__13
 #define __pyx_slice__14 __pyx_mstate_global->__pyx_slice__14
-#define __pyx_tuple__15 __pyx_mstate_global->__pyx_tuple__15
+#define __pyx_slice__15 __pyx_mstate_global->__pyx_slice__15
 #define __pyx_tuple__16 __pyx_mstate_global->__pyx_tuple__16
+#define __pyx_tuple__17 __pyx_mstate_global->__pyx_tuple__17
 #define __pyx_tuple__31 __pyx_mstate_global->__pyx_tuple__31
 #define __pyx_tuple__34 __pyx_mstate_global->__pyx_tuple__34
 #define __pyx_tuple__35 __pyx_mstate_global->__pyx_tuple__35
 #define __pyx_tuple__37 __pyx_mstate_global->__pyx_tuple__37
 #define __pyx_tuple__39 __pyx_mstate_global->__pyx_tuple__39
-#define __pyx_tuple__61 __pyx_mstate_global->__pyx_tuple__61
-#define __pyx_tuple__67 __pyx_mstate_global->__pyx_tuple__67
-#define __pyx_tuple__71 __pyx_mstate_global->__pyx_tuple__71
-#define __pyx_tuple__73 __pyx_mstate_global->__pyx_tuple__73
+#define __pyx_tuple__50 __pyx_mstate_global->__pyx_tuple__50
+#define __pyx_tuple__51 __pyx_mstate_global->__pyx_tuple__51
+#define __pyx_tuple__53 __pyx_mstate_global->__pyx_tuple__53
+#define __pyx_tuple__68 __pyx_mstate_global->__pyx_tuple__68
 #define __pyx_tuple__74 __pyx_mstate_global->__pyx_tuple__74
-#define __pyx_tuple__76 __pyx_mstate_global->__pyx_tuple__76
 #define __pyx_tuple__78 __pyx_mstate_global->__pyx_tuple__78
 #define __pyx_tuple__80 __pyx_mstate_global->__pyx_tuple__80
-#define __pyx_tuple__81 __pyx_mstate_global->__pyx_tuple__81
-#define __pyx_tuple__83 __pyx_mstate_global->__pyx_tuple__83
-#define __pyx_tuple__85 __pyx_mstate_global->__pyx_tuple__85
+#define __pyx_tuple__82 __pyx_mstate_global->__pyx_tuple__82
+#define __pyx_tuple__84 __pyx_mstate_global->__pyx_tuple__84
+#define __pyx_tuple__86 __pyx_mstate_global->__pyx_tuple__86
 #define __pyx_tuple__87 __pyx_mstate_global->__pyx_tuple__87
 #define __pyx_tuple__89 __pyx_mstate_global->__pyx_tuple__89
-#define __pyx_tuple__90 __pyx_mstate_global->__pyx_tuple__90
+#define __pyx_tuple__91 __pyx_mstate_global->__pyx_tuple__91
+#define __pyx_tuple__93 __pyx_mstate_global->__pyx_tuple__93
+#define __pyx_tuple__95 __pyx_mstate_global->__pyx_tuple__95
+#define __pyx_tuple__96 __pyx_mstate_global->__pyx_tuple__96
 #define __pyx_codeobj__2 __pyx_mstate_global->__pyx_codeobj__2
 #define __pyx_codeobj__3 __pyx_mstate_global->__pyx_codeobj__3
 #define __pyx_codeobj__4 __pyx_mstate_global->__pyx_codeobj__4
@@ -4913,10 +5049,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_codeobj__47 __pyx_mstate_global->__pyx_codeobj__47
 #define __pyx_codeobj__48 __pyx_mstate_global->__pyx_codeobj__48
 #define __pyx_codeobj__49 __pyx_mstate_global->__pyx_codeobj__49
-#define __pyx_codeobj__50 __pyx_mstate_global->__pyx_codeobj__50
-#define __pyx_codeobj__51 __pyx_mstate_global->__pyx_codeobj__51
 #define __pyx_codeobj__52 __pyx_mstate_global->__pyx_codeobj__52
-#define __pyx_codeobj__53 __pyx_mstate_global->__pyx_codeobj__53
 #define __pyx_codeobj__54 __pyx_mstate_global->__pyx_codeobj__54
 #define __pyx_codeobj__55 __pyx_mstate_global->__pyx_codeobj__55
 #define __pyx_codeobj__56 __pyx_mstate_global->__pyx_codeobj__56
@@ -4924,23 +5057,30 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_codeobj__58 __pyx_mstate_global->__pyx_codeobj__58
 #define __pyx_codeobj__59 __pyx_mstate_global->__pyx_codeobj__59
 #define __pyx_codeobj__60 __pyx_mstate_global->__pyx_codeobj__60
+#define __pyx_codeobj__61 __pyx_mstate_global->__pyx_codeobj__61
 #define __pyx_codeobj__62 __pyx_mstate_global->__pyx_codeobj__62
 #define __pyx_codeobj__63 __pyx_mstate_global->__pyx_codeobj__63
 #define __pyx_codeobj__64 __pyx_mstate_global->__pyx_codeobj__64
 #define __pyx_codeobj__65 __pyx_mstate_global->__pyx_codeobj__65
 #define __pyx_codeobj__66 __pyx_mstate_global->__pyx_codeobj__66
-#define __pyx_codeobj__68 __pyx_mstate_global->__pyx_codeobj__68
+#define __pyx_codeobj__67 __pyx_mstate_global->__pyx_codeobj__67
 #define __pyx_codeobj__69 __pyx_mstate_global->__pyx_codeobj__69
 #define __pyx_codeobj__70 __pyx_mstate_global->__pyx_codeobj__70
+#define __pyx_codeobj__71 __pyx_mstate_global->__pyx_codeobj__71
 #define __pyx_codeobj__72 __pyx_mstate_global->__pyx_codeobj__72
+#define __pyx_codeobj__73 __pyx_mstate_global->__pyx_codeobj__73
 #define __pyx_codeobj__75 __pyx_mstate_global->__pyx_codeobj__75
+#define __pyx_codeobj__76 __pyx_mstate_global->__pyx_codeobj__76
 #define __pyx_codeobj__77 __pyx_mstate_global->__pyx_codeobj__77
 #define __pyx_codeobj__79 __pyx_mstate_global->__pyx_codeobj__79
-#define __pyx_codeobj__82 __pyx_mstate_global->__pyx_codeobj__82
-#define __pyx_codeobj__84 __pyx_mstate_global->__pyx_codeobj__84
-#define __pyx_codeobj__86 __pyx_mstate_global->__pyx_codeobj__86
+#define __pyx_codeobj__81 __pyx_mstate_global->__pyx_codeobj__81
+#define __pyx_codeobj__83 __pyx_mstate_global->__pyx_codeobj__83
+#define __pyx_codeobj__85 __pyx_mstate_global->__pyx_codeobj__85
 #define __pyx_codeobj__88 __pyx_mstate_global->__pyx_codeobj__88
-#define __pyx_codeobj__91 __pyx_mstate_global->__pyx_codeobj__91
+#define __pyx_codeobj__90 __pyx_mstate_global->__pyx_codeobj__90
+#define __pyx_codeobj__92 __pyx_mstate_global->__pyx_codeobj__92
+#define __pyx_codeobj__94 __pyx_mstate_global->__pyx_codeobj__94
+#define __pyx_codeobj__97 __pyx_mstate_global->__pyx_codeobj__97
 /* #### Code section: module_code ### */
 
 /* "cfunc.to_py":67
@@ -8006,7 +8146,362 @@ static CYTHON_INLINE double __pyx_f_7cpython_8datetime_total_seconds(PyDateTime_
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":38
+/* "querysource/types/validators.pyx":30
+ * 
+ * 
+ * cdef list _env_list(str name, list default, bint upper = True):             # <<<<<<<<<<<<<<
+ *     """Parse a comma-separated env override; `default` copy when unset/blank."""
+ *     raw = os.environ.get(name)
+ */
+
+static PyObject *__pyx_f_11querysource_5types_10validators__env_list(PyObject *__pyx_v_name, PyObject *__pyx_v_default, struct __pyx_opt_args_11querysource_5types_10validators__env_list *__pyx_optional_args) {
+  int __pyx_v_upper = ((int)1);
+  PyObject *__pyx_v_raw = NULL;
+  PyObject *__pyx_7genexpr__pyx_v_s = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  unsigned int __pyx_t_4;
+  int __pyx_t_5;
+  int __pyx_t_6;
+  int __pyx_t_7;
+  Py_ssize_t __pyx_t_8;
+  PyObject *__pyx_t_9 = NULL;
+  PyObject *__pyx_t_10 = NULL;
+  PyObject *__pyx_t_11 = NULL;
+  PyObject *__pyx_t_12 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_env_list", 1);
+  if (__pyx_optional_args) {
+    if (__pyx_optional_args->__pyx_n > 0) {
+      __pyx_v_upper = __pyx_optional_args->upper;
+    }
+  }
+
+  /* "querysource/types/validators.pyx":32
+ * cdef list _env_list(str name, list default, bint upper = True):
+ *     """Parse a comma-separated env override; `default` copy when unset/blank."""
+ *     raw = os.environ.get(name)             # <<<<<<<<<<<<<<
+ *     if raw is None or not str(raw).strip():
+ *         return list(default)
+ */
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_os); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_environ); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_get); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = NULL;
+  __pyx_t_4 = 0;
+  #if CYTHON_UNPACK_METHODS
+  if (likely(PyMethod_Check(__pyx_t_2))) {
+    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_2);
+    if (likely(__pyx_t_3)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_2);
+      __Pyx_INCREF(__pyx_t_3);
+      __Pyx_INCREF(function);
+      __Pyx_DECREF_SET(__pyx_t_2, function);
+      __pyx_t_4 = 1;
+    }
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_name};
+    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 32, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  }
+  __pyx_v_raw = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "querysource/types/validators.pyx":33
+ *     """Parse a comma-separated env override; `default` copy when unset/blank."""
+ *     raw = os.environ.get(name)
+ *     if raw is None or not str(raw).strip():             # <<<<<<<<<<<<<<
+ *         return list(default)
+ *     return [
+ */
+  __pyx_t_6 = (__pyx_v_raw == Py_None);
+  if (!__pyx_t_6) {
+  } else {
+    __pyx_t_5 = __pyx_t_6;
+    goto __pyx_L4_bool_binop_done;
+  }
+  __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_raw); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_strip); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = NULL;
+  __pyx_t_4 = 0;
+  #if CYTHON_UNPACK_METHODS
+  if (likely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    if (likely(__pyx_t_2)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
+      __Pyx_INCREF(__pyx_t_2);
+      __Pyx_INCREF(function);
+      __Pyx_DECREF_SET(__pyx_t_3, function);
+      __pyx_t_4 = 1;
+    }
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 33, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  }
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 33, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_7 = (!__pyx_t_6);
+  __pyx_t_5 = __pyx_t_7;
+  __pyx_L4_bool_binop_done:;
+  if (__pyx_t_5) {
+
+    /* "querysource/types/validators.pyx":34
+ *     raw = os.environ.get(name)
+ *     if raw is None or not str(raw).strip():
+ *         return list(default)             # <<<<<<<<<<<<<<
+ *     return [
+ *         (s.strip().upper() if upper else s.strip())
+ */
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_1 = PySequence_List(__pyx_v_default); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 34, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_r = ((PyObject*)__pyx_t_1);
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "querysource/types/validators.pyx":33
+ *     """Parse a comma-separated env override; `default` copy when unset/blank."""
+ *     raw = os.environ.get(name)
+ *     if raw is None or not str(raw).strip():             # <<<<<<<<<<<<<<
+ *         return list(default)
+ *     return [
+ */
+  }
+
+  /* "querysource/types/validators.pyx":35
+ *     if raw is None or not str(raw).strip():
+ *         return list(default)
+ *     return [             # <<<<<<<<<<<<<<
+ *         (s.strip().upper() if upper else s.strip())
+ *         for s in str(raw).split(',') if s.strip()
+ */
+  __Pyx_XDECREF(__pyx_r);
+  { /* enter inner scope */
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 35, __pyx_L8_error)
+    __Pyx_GOTREF(__pyx_t_1);
+
+    /* "querysource/types/validators.pyx":37
+ *     return [
+ *         (s.strip().upper() if upper else s.strip())
+ *         for s in str(raw).split(',') if s.strip()             # <<<<<<<<<<<<<<
+ *     ]
+ * 
+ */
+    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_raw); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 37, __pyx_L8_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_2 = PyUnicode_Split(((PyObject*)__pyx_t_3), __Pyx_NoneAsNull(__pyx_kp_u__6), -1L); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 37, __pyx_L8_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = __pyx_t_2; __Pyx_INCREF(__pyx_t_3);
+    __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    for (;;) {
+      {
+        Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
+        #if !CYTHON_ASSUME_SAFE_MACROS
+        if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 37, __pyx_L8_error)
+        #endif
+        if (__pyx_t_8 >= __pyx_temp) break;
+      }
+      #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+      __pyx_t_2 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_8); __Pyx_INCREF(__pyx_t_2); __pyx_t_8++; if (unlikely((0 < 0))) __PYX_ERR(0, 37, __pyx_L8_error)
+      #else
+      __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 37, __pyx_L8_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      #endif
+      __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_s, __pyx_t_2);
+      __pyx_t_2 = 0;
+      __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_s, __pyx_n_s_strip); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 37, __pyx_L8_error)
+      __Pyx_GOTREF(__pyx_t_9);
+      __pyx_t_10 = NULL;
+      __pyx_t_4 = 0;
+      #if CYTHON_UNPACK_METHODS
+      if (likely(PyMethod_Check(__pyx_t_9))) {
+        __pyx_t_10 = PyMethod_GET_SELF(__pyx_t_9);
+        if (likely(__pyx_t_10)) {
+          PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_9);
+          __Pyx_INCREF(__pyx_t_10);
+          __Pyx_INCREF(function);
+          __Pyx_DECREF_SET(__pyx_t_9, function);
+          __pyx_t_4 = 1;
+        }
+      }
+      #endif
+      {
+        PyObject *__pyx_callargs[2] = {__pyx_t_10, NULL};
+        __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_9, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
+        __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 37, __pyx_L8_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+      }
+      __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 37, __pyx_L8_error)
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (__pyx_t_5) {
+
+        /* "querysource/types/validators.pyx":36
+ *         return list(default)
+ *     return [
+ *         (s.strip().upper() if upper else s.strip())             # <<<<<<<<<<<<<<
+ *         for s in str(raw).split(',') if s.strip()
+ *     ]
+ */
+        if (__pyx_v_upper) {
+          __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_s, __pyx_n_s_strip); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 36, __pyx_L8_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_t_12 = NULL;
+          __pyx_t_4 = 0;
+          #if CYTHON_UNPACK_METHODS
+          if (likely(PyMethod_Check(__pyx_t_11))) {
+            __pyx_t_12 = PyMethod_GET_SELF(__pyx_t_11);
+            if (likely(__pyx_t_12)) {
+              PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_11);
+              __Pyx_INCREF(__pyx_t_12);
+              __Pyx_INCREF(function);
+              __Pyx_DECREF_SET(__pyx_t_11, function);
+              __pyx_t_4 = 1;
+            }
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_12, NULL};
+            __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
+            __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 36, __pyx_L8_error)
+            __Pyx_GOTREF(__pyx_t_10);
+            __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+          }
+          __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_upper); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 36, __pyx_L8_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+          __pyx_t_10 = NULL;
+          __pyx_t_4 = 0;
+          #if CYTHON_UNPACK_METHODS
+          if (likely(PyMethod_Check(__pyx_t_11))) {
+            __pyx_t_10 = PyMethod_GET_SELF(__pyx_t_11);
+            if (likely(__pyx_t_10)) {
+              PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_11);
+              __Pyx_INCREF(__pyx_t_10);
+              __Pyx_INCREF(function);
+              __Pyx_DECREF_SET(__pyx_t_11, function);
+              __pyx_t_4 = 1;
+            }
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_10, NULL};
+            __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
+            __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
+            if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 36, __pyx_L8_error)
+            __Pyx_GOTREF(__pyx_t_9);
+            __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+          }
+          __pyx_t_2 = __pyx_t_9;
+          __pyx_t_9 = 0;
+        } else {
+          __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_s, __pyx_n_s_strip); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 36, __pyx_L8_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_t_10 = NULL;
+          __pyx_t_4 = 0;
+          #if CYTHON_UNPACK_METHODS
+          if (likely(PyMethod_Check(__pyx_t_11))) {
+            __pyx_t_10 = PyMethod_GET_SELF(__pyx_t_11);
+            if (likely(__pyx_t_10)) {
+              PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_11);
+              __Pyx_INCREF(__pyx_t_10);
+              __Pyx_INCREF(function);
+              __Pyx_DECREF_SET(__pyx_t_11, function);
+              __pyx_t_4 = 1;
+            }
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_10, NULL};
+            __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
+            __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
+            if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 36, __pyx_L8_error)
+            __Pyx_GOTREF(__pyx_t_9);
+            __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+          }
+          __pyx_t_2 = __pyx_t_9;
+          __pyx_t_9 = 0;
+        }
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_2))) __PYX_ERR(0, 35, __pyx_L8_error)
+        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+        /* "querysource/types/validators.pyx":37
+ *     return [
+ *         (s.strip().upper() if upper else s.strip())
+ *         for s in str(raw).split(',') if s.strip()             # <<<<<<<<<<<<<<
+ *     ]
+ * 
+ */
+      }
+    }
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_XDECREF(__pyx_7genexpr__pyx_v_s); __pyx_7genexpr__pyx_v_s = 0;
+    goto __pyx_L13_exit_scope;
+    __pyx_L8_error:;
+    __Pyx_XDECREF(__pyx_7genexpr__pyx_v_s); __pyx_7genexpr__pyx_v_s = 0;
+    goto __pyx_L1_error;
+    __pyx_L13_exit_scope:;
+  } /* exit inner scope */
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "querysource/types/validators.pyx":30
+ * 
+ * 
+ * cdef list _env_list(str name, list default, bint upper = True):             # <<<<<<<<<<<<<<
+ *     """Parse a comma-separated env override; `default` copy when unset/blank."""
+ *     raw = os.environ.get(name)
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_XDECREF(__pyx_t_11);
+  __Pyx_XDECREF(__pyx_t_12);
+  __Pyx_AddTraceback("querysource.types.validators._env_list", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_raw);
+  __Pyx_XDECREF(__pyx_7genexpr__pyx_v_s);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "querysource/types/validators.pyx":47
  * 
  * 
  * cpdef object strtobool(str val):             # <<<<<<<<<<<<<<
@@ -8035,20 +8530,20 @@ static PyObject *__pyx_f_11querysource_5types_10validators_strtobool(PyObject *_
   __Pyx_RefNannySetupContext("strtobool", 0);
   __Pyx_INCREF(__pyx_v_val);
 
-  /* "querysource/types/validators.pyx":45
+  /* "querysource/types/validators.pyx":54
  *     'val' is anything else.
  *     """
  *     val = val.lower()             # <<<<<<<<<<<<<<
  *     if val in ('y', 'yes', 't', 'true', 'on', '1'):
  *         return True
  */
-  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyUnicode_Type_lower, __pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyUnicode_Type_lower, __pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 45, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_DECREF_SET(__pyx_v_val, ((PyObject*)__pyx_t_1));
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":46
+  /* "querysource/types/validators.pyx":55
  *     """
  *     val = val.lower()
  *     if val in ('y', 'yes', 't', 'true', 'on', '1'):             # <<<<<<<<<<<<<<
@@ -8057,44 +8552,44 @@ static PyObject *__pyx_f_11querysource_5types_10validators_strtobool(PyObject *_
  */
   __Pyx_INCREF(__pyx_v_val);
   __pyx_t_2 = __pyx_v_val;
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_y, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_y, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
   if (!__pyx_t_4) {
   } else {
     __pyx_t_3 = __pyx_t_4;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_yes, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_yes, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
   if (!__pyx_t_4) {
   } else {
     __pyx_t_3 = __pyx_t_4;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_t, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_t, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
   if (!__pyx_t_4) {
   } else {
     __pyx_t_3 = __pyx_t_4;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_true, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_true, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
   if (!__pyx_t_4) {
   } else {
     __pyx_t_3 = __pyx_t_4;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_on, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_on, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
   if (!__pyx_t_4) {
   } else {
     __pyx_t_3 = __pyx_t_4;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_kp_u_1, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_kp_u_1, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
   __pyx_t_3 = __pyx_t_4;
   __pyx_L4_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_4 = __pyx_t_3;
   if (__pyx_t_4) {
 
-    /* "querysource/types/validators.pyx":47
+    /* "querysource/types/validators.pyx":56
  *     val = val.lower()
  *     if val in ('y', 'yes', 't', 'true', 'on', '1'):
  *         return True             # <<<<<<<<<<<<<<
@@ -8106,7 +8601,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_strtobool(PyObject *_
     __pyx_r = Py_True;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":46
+    /* "querysource/types/validators.pyx":55
  *     """
  *     val = val.lower()
  *     if val in ('y', 'yes', 't', 'true', 'on', '1'):             # <<<<<<<<<<<<<<
@@ -8115,7 +8610,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_strtobool(PyObject *_
  */
   }
 
-  /* "querysource/types/validators.pyx":48
+  /* "querysource/types/validators.pyx":57
  *     if val in ('y', 'yes', 't', 'true', 'on', '1'):
  *         return True
  *     elif val in ('n', 'no', 'f', 'false', 'off', '0', 'null'):             # <<<<<<<<<<<<<<
@@ -8124,50 +8619,50 @@ static PyObject *__pyx_f_11querysource_5types_10validators_strtobool(PyObject *_
  */
   __Pyx_INCREF(__pyx_v_val);
   __pyx_t_2 = __pyx_v_val;
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_n, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_n, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_4 = __pyx_t_3;
     goto __pyx_L10_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_no, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_no, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_4 = __pyx_t_3;
     goto __pyx_L10_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_f, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_f, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_4 = __pyx_t_3;
     goto __pyx_L10_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_false, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_false, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_4 = __pyx_t_3;
     goto __pyx_L10_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_off, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_off, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_4 = __pyx_t_3;
     goto __pyx_L10_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_kp_u_0, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_kp_u_0, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_4 = __pyx_t_3;
     goto __pyx_L10_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_3;
   __pyx_L10_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_3 = __pyx_t_4;
   if (likely(__pyx_t_3)) {
 
-    /* "querysource/types/validators.pyx":49
+    /* "querysource/types/validators.pyx":58
  *         return True
  *     elif val in ('n', 'no', 'f', 'false', 'off', '0', 'null'):
  *         return False             # <<<<<<<<<<<<<<
@@ -8179,7 +8674,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_strtobool(PyObject *_
     __pyx_r = Py_False;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":48
+    /* "querysource/types/validators.pyx":57
  *     if val in ('y', 'yes', 't', 'true', 'on', '1'):
  *         return True
  *     elif val in ('n', 'no', 'f', 'false', 'off', '0', 'null'):             # <<<<<<<<<<<<<<
@@ -8188,7 +8683,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_strtobool(PyObject *_
  */
   }
 
-  /* "querysource/types/validators.pyx":51
+  /* "querysource/types/validators.pyx":60
  *         return False
  *     else:
  *         raise ValueError(             # <<<<<<<<<<<<<<
@@ -8197,35 +8692,35 @@ static PyObject *__pyx_f_11querysource_5types_10validators_strtobool(PyObject *_
  */
   /*else*/ {
 
-    /* "querysource/types/validators.pyx":52
+    /* "querysource/types/validators.pyx":61
  *     else:
  *         raise ValueError(
  *             f"invalid truth value for {val}"             # <<<<<<<<<<<<<<
  *         )
  * 
  */
-    __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 52, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_kp_u_invalid_truth_value_for, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 52, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_kp_u_invalid_truth_value_for, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 61, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "querysource/types/validators.pyx":51
+    /* "querysource/types/validators.pyx":60
  *         return False
  *     else:
  *         raise ValueError(             # <<<<<<<<<<<<<<
  *             f"invalid truth value for {val}"
  *         )
  */
-    __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_builtin_ValueError, __pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 51, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_builtin_ValueError, __pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 60, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 51, __pyx_L1_error)
+    __PYX_ERR(0, 60, __pyx_L1_error)
   }
 
-  /* "querysource/types/validators.pyx":38
+  /* "querysource/types/validators.pyx":47
  * 
  * 
  * cpdef object strtobool(str val):             # <<<<<<<<<<<<<<
@@ -8301,12 +8796,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 38, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "strtobool") < 0)) __PYX_ERR(0, 38, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "strtobool") < 0)) __PYX_ERR(0, 47, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -8317,7 +8812,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("strtobool", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 38, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("strtobool", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 47, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8331,7 +8826,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_val), (&PyUnicode_Type), 1, "val", 1))) __PYX_ERR(0, 38, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_val), (&PyUnicode_Type), 1, "val", 1))) __PYX_ERR(0, 47, __pyx_L1_error)
   __pyx_r = __pyx_pf_11querysource_5types_10validators_strtobool(__pyx_self, __pyx_v_val);
 
   /* function exit code */
@@ -8358,7 +8853,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_strtobool(CYTHON_UNU
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("strtobool", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_strtobool(__pyx_v_val, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_strtobool(__pyx_v_val, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 47, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -8375,7 +8870,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_strtobool(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":55
+/* "querysource/types/validators.pyx":64
  *         )
  * 
  * cpdef list field_components(str field):             # <<<<<<<<<<<<<<
@@ -8407,7 +8902,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_field_components(PyOb
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("field_components", 1);
 
-  /* "querysource/types/validators.pyx":56
+  /* "querysource/types/validators.pyx":65
  * 
  * cpdef list field_components(str field):
  *     try:             # <<<<<<<<<<<<<<
@@ -8423,7 +8918,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_field_components(PyOb
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/types/validators.pyx":57
+      /* "querysource/types/validators.pyx":66
  * cpdef list field_components(str field):
  *     try:
  *         return re.findall(eval_field, field)             # <<<<<<<<<<<<<<
@@ -8431,9 +8926,9 @@ static PyObject *__pyx_f_11querysource_5types_10validators_field_components(PyOb
  *         return (None, field, None)
  */
       __Pyx_XDECREF(__pyx_r);
-      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_re); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 57, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_re); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 66, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_findall); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 57, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_findall); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 66, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_5 = NULL;
@@ -8454,16 +8949,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_field_components(PyOb
         PyObject *__pyx_callargs[3] = {__pyx_t_5, __pyx_v_11querysource_5types_10validators_eval_field, __pyx_v_field};
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_7, 2+__pyx_t_7);
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 57, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 66, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
-      if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 57, __pyx_L3_error)
+      if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 66, __pyx_L3_error)
       __pyx_r = ((PyObject*)__pyx_t_4);
       __pyx_t_4 = 0;
       goto __pyx_L7_try_return;
 
-      /* "querysource/types/validators.pyx":56
+      /* "querysource/types/validators.pyx":65
  * 
  * cpdef list field_components(str field):
  *     try:             # <<<<<<<<<<<<<<
@@ -8476,7 +8971,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_field_components(PyOb
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "querysource/types/validators.pyx":58
+    /* "querysource/types/validators.pyx":67
  *     try:
  *         return re.findall(eval_field, field)
  *     except ValueError:             # <<<<<<<<<<<<<<
@@ -8486,12 +8981,12 @@ static PyObject *__pyx_f_11querysource_5types_10validators_field_components(PyOb
     __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ValueError);
     if (__pyx_t_8) {
       __Pyx_AddTraceback("querysource.types.validators.field_components", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_5) < 0) __PYX_ERR(0, 58, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_5) < 0) __PYX_ERR(0, 67, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_5);
 
-      /* "querysource/types/validators.pyx":59
+      /* "querysource/types/validators.pyx":68
  *         return re.findall(eval_field, field)
  *     except ValueError:
  *         return (None, field, None)             # <<<<<<<<<<<<<<
@@ -8499,18 +8994,18 @@ static PyObject *__pyx_f_11querysource_5types_10validators_field_components(PyOb
  * cpdef bool_t is_pandas_dataframe(obj):
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_9 = PyTuple_New(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 59, __pyx_L5_except_error)
+      __pyx_t_9 = PyTuple_New(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 68, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_INCREF(Py_None);
       __Pyx_GIVEREF(Py_None);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, Py_None)) __PYX_ERR(0, 59, __pyx_L5_except_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, Py_None)) __PYX_ERR(0, 68, __pyx_L5_except_error);
       __Pyx_INCREF(__pyx_v_field);
       __Pyx_GIVEREF(__pyx_v_field);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_v_field)) __PYX_ERR(0, 59, __pyx_L5_except_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_v_field)) __PYX_ERR(0, 68, __pyx_L5_except_error);
       __Pyx_INCREF(Py_None);
       __Pyx_GIVEREF(Py_None);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 2, Py_None)) __PYX_ERR(0, 59, __pyx_L5_except_error);
-      if (!(likely(PyList_CheckExact(__pyx_t_9)) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_9))) __PYX_ERR(0, 59, __pyx_L5_except_error)
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 2, Py_None)) __PYX_ERR(0, 68, __pyx_L5_except_error);
+      if (!(likely(PyList_CheckExact(__pyx_t_9)) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_9))) __PYX_ERR(0, 68, __pyx_L5_except_error)
       __pyx_r = ((PyObject*)__pyx_t_9);
       __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -8520,7 +9015,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_field_components(PyOb
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/types/validators.pyx":56
+    /* "querysource/types/validators.pyx":65
  * 
  * cpdef list field_components(str field):
  *     try:             # <<<<<<<<<<<<<<
@@ -8547,7 +9042,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_field_components(PyOb
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":55
+  /* "querysource/types/validators.pyx":64
  *         )
  * 
  * cpdef list field_components(str field):             # <<<<<<<<<<<<<<
@@ -8623,12 +9118,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 55, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "field_components") < 0)) __PYX_ERR(0, 55, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "field_components") < 0)) __PYX_ERR(0, 64, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -8639,7 +9134,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("field_components", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 55, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("field_components", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 64, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8653,7 +9148,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_field), (&PyUnicode_Type), 1, "field", 1))) __PYX_ERR(0, 55, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_field), (&PyUnicode_Type), 1, "field", 1))) __PYX_ERR(0, 64, __pyx_L1_error)
   __pyx_r = __pyx_pf_11querysource_5types_10validators_2field_components(__pyx_self, __pyx_v_field);
 
   /* function exit code */
@@ -8680,7 +9175,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_2field_components(CY
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("field_components", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_field_components(__pyx_v_field, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_field_components(__pyx_v_field, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -8697,7 +9192,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_2field_components(CY
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":61
+/* "querysource/types/validators.pyx":70
  *         return (None, field, None)
  * 
  * cpdef bool_t is_pandas_dataframe(obj):             # <<<<<<<<<<<<<<
@@ -8720,38 +9215,38 @@ static bool __pyx_f_11querysource_5types_10validators_is_pandas_dataframe(PyObje
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "querysource/types/validators.pyx":71
+  /* "querysource/types/validators.pyx":80
  *     bool: True if the object is a pandas DataFrame, False otherwise.
  *     """
  *     return hasattr(obj, "columns") and hasattr(obj, "index") and hasattr(obj, "loc") and hasattr(obj, "iloc")             # <<<<<<<<<<<<<<
  * 
  * cpdef bool_t is_empty(object value):
  */
-  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_obj, __pyx_n_u_columns); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_obj, __pyx_n_u_columns); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 80, __pyx_L1_error)
   if (__pyx_t_2) {
   } else {
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_obj, __pyx_n_u_index); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_obj, __pyx_n_u_index); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 80, __pyx_L1_error)
   if (__pyx_t_2) {
   } else {
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_obj, __pyx_n_u_loc); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_obj, __pyx_n_u_loc); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 80, __pyx_L1_error)
   if (__pyx_t_2) {
   } else {
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_obj, __pyx_n_u_iloc); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_obj, __pyx_n_u_iloc); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 80, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_2;
   __pyx_L3_bool_binop_done:;
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":61
+  /* "querysource/types/validators.pyx":70
  *         return (None, field, None)
  * 
  * cpdef bool_t is_pandas_dataframe(obj):             # <<<<<<<<<<<<<<
@@ -8821,12 +9316,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 61, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 70, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_pandas_dataframe") < 0)) __PYX_ERR(0, 61, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_pandas_dataframe") < 0)) __PYX_ERR(0, 70, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -8837,7 +9332,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_pandas_dataframe", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 61, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_pandas_dataframe", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 70, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8874,8 +9369,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_4is_pandas_dataframe
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_pandas_dataframe", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_pandas_dataframe(__pyx_v_obj, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 61, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_pandas_dataframe(__pyx_v_obj, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -8892,7 +9387,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_4is_pandas_dataframe
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":73
+/* "querysource/types/validators.pyx":82
  *     return hasattr(obj, "columns") and hasattr(obj, "index") and hasattr(obj, "loc") and hasattr(obj, "iloc")
  * 
  * cpdef bool_t is_empty(object value):             # <<<<<<<<<<<<<<
@@ -8921,7 +9416,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_empty", 1);
 
-  /* "querysource/types/validators.pyx":74
+  /* "querysource/types/validators.pyx":83
  * 
  * cpdef bool_t is_empty(object value):
  *     cdef bool_t result = False             # <<<<<<<<<<<<<<
@@ -8930,7 +9425,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
  */
   __pyx_v_result = 0;
 
-  /* "querysource/types/validators.pyx":75
+  /* "querysource/types/validators.pyx":84
  * cpdef bool_t is_empty(object value):
  *     cdef bool_t result = False
  *     if value is None:             # <<<<<<<<<<<<<<
@@ -8940,7 +9435,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
   __pyx_t_1 = (__pyx_v_value == Py_None);
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":76
+    /* "querysource/types/validators.pyx":85
  *     cdef bool_t result = False
  *     if value is None:
  *         return True             # <<<<<<<<<<<<<<
@@ -8950,7 +9445,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":75
+    /* "querysource/types/validators.pyx":84
  * cpdef bool_t is_empty(object value):
  *     cdef bool_t result = False
  *     if value is None:             # <<<<<<<<<<<<<<
@@ -8959,32 +9454,32 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
  */
   }
 
-  /* "querysource/types/validators.pyx":77
+  /* "querysource/types/validators.pyx":86
  *     if value is None:
  *         return True
  *     if is_pandas_dataframe(value):             # <<<<<<<<<<<<<<
  *         return value.empty
  *     elif isinstance(value, str) and value == '':
  */
-  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_is_pandas_dataframe(__pyx_v_value, 0); if (unlikely(__pyx_t_2 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 77, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_is_pandas_dataframe(__pyx_v_value, 0); if (unlikely(__pyx_t_2 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 86, __pyx_L1_error)
   __pyx_t_1 = (__pyx_t_2 != 0);
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":78
+    /* "querysource/types/validators.pyx":87
  *         return True
  *     if is_pandas_dataframe(value):
  *         return value.empty             # <<<<<<<<<<<<<<
  *     elif isinstance(value, str) and value == '':
  *         result = True
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_empty); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 78, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_empty); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 87, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_r = __pyx_t_2;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":77
+    /* "querysource/types/validators.pyx":86
  *     if value is None:
  *         return True
  *     if is_pandas_dataframe(value):             # <<<<<<<<<<<<<<
@@ -8993,7 +9488,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
  */
   }
 
-  /* "querysource/types/validators.pyx":79
+  /* "querysource/types/validators.pyx":88
  *     if is_pandas_dataframe(value):
  *         return value.empty
  *     elif isinstance(value, str) and value == '':             # <<<<<<<<<<<<<<
@@ -9006,12 +9501,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
     __pyx_t_1 = __pyx_t_4;
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u__6, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u__7, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 88, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_4;
   __pyx_L5_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":80
+    /* "querysource/types/validators.pyx":89
  *         return value.empty
  *     elif isinstance(value, str) and value == '':
  *         result = True             # <<<<<<<<<<<<<<
@@ -9020,7 +9515,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
  */
     __pyx_v_result = 1;
 
-    /* "querysource/types/validators.pyx":79
+    /* "querysource/types/validators.pyx":88
  *     if is_pandas_dataframe(value):
  *         return value.empty
  *     elif isinstance(value, str) and value == '':             # <<<<<<<<<<<<<<
@@ -9030,7 +9525,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
     goto __pyx_L4;
   }
 
-  /* "querysource/types/validators.pyx":81
+  /* "querysource/types/validators.pyx":90
  *     elif isinstance(value, str) and value == '':
  *         result = True
  *     elif isinstance(value, (int, float)) and value == 0:             # <<<<<<<<<<<<<<
@@ -9051,12 +9546,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
     __pyx_t_1 = __pyx_t_4;
     goto __pyx_L7_bool_binop_done;
   }
-  __pyx_t_4 = (__Pyx_PyInt_BoolEqObjC(__pyx_v_value, __pyx_int_0, 0, 0)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyInt_BoolEqObjC(__pyx_v_value, __pyx_int_0, 0, 0)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_4;
   __pyx_L7_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":82
+    /* "querysource/types/validators.pyx":91
  *         result = True
  *     elif isinstance(value, (int, float)) and value == 0:
  *         result = False             # <<<<<<<<<<<<<<
@@ -9065,7 +9560,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
  */
     __pyx_v_result = 0;
 
-    /* "querysource/types/validators.pyx":81
+    /* "querysource/types/validators.pyx":90
  *     elif isinstance(value, str) and value == '':
  *         result = True
  *     elif isinstance(value, (int, float)) and value == 0:             # <<<<<<<<<<<<<<
@@ -9075,18 +9570,18 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
     goto __pyx_L4;
   }
 
-  /* "querysource/types/validators.pyx":83
+  /* "querysource/types/validators.pyx":92
  *     elif isinstance(value, (int, float)) and value == 0:
  *         result = False
  *     elif not value:             # <<<<<<<<<<<<<<
  *         result = True
  *     return result
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 92, __pyx_L1_error)
   __pyx_t_4 = (!__pyx_t_1);
   if (__pyx_t_4) {
 
-    /* "querysource/types/validators.pyx":84
+    /* "querysource/types/validators.pyx":93
  *         result = False
  *     elif not value:
  *         result = True             # <<<<<<<<<<<<<<
@@ -9095,7 +9590,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
  */
     __pyx_v_result = 1;
 
-    /* "querysource/types/validators.pyx":83
+    /* "querysource/types/validators.pyx":92
  *     elif isinstance(value, (int, float)) and value == 0:
  *         result = False
  *     elif not value:             # <<<<<<<<<<<<<<
@@ -9105,7 +9600,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
   }
   __pyx_L4:;
 
-  /* "querysource/types/validators.pyx":85
+  /* "querysource/types/validators.pyx":94
  *     elif not value:
  *         result = True
  *     return result             # <<<<<<<<<<<<<<
@@ -9115,7 +9610,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_empty(PyObject *__pyx_v
   __pyx_r = __pyx_v_result;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":73
+  /* "querysource/types/validators.pyx":82
  *     return hasattr(obj, "columns") and hasattr(obj, "index") and hasattr(obj, "loc") and hasattr(obj, "iloc")
  * 
  * cpdef bool_t is_empty(object value):             # <<<<<<<<<<<<<<
@@ -9187,12 +9682,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 73, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 82, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_empty") < 0)) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_empty") < 0)) __PYX_ERR(0, 82, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -9203,7 +9698,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_empty", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 73, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_empty", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 82, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9240,8 +9735,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6is_empty(CYTHON_UNU
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_empty", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_empty(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 73, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 73, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_empty(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 82, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -9258,7 +9753,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6is_empty(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":87
+/* "querysource/types/validators.pyx":96
  *     return result
  * 
  * cpdef is_camel_case(str value):             # <<<<<<<<<<<<<<
@@ -9287,7 +9782,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_camel_case(PyObjec
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_camel_case", 1);
 
-  /* "querysource/types/validators.pyx":88
+  /* "querysource/types/validators.pyx":97
  * 
  * cpdef is_camel_case(str value):
  *     if ' ' in value:             # <<<<<<<<<<<<<<
@@ -9296,12 +9791,12 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_camel_case(PyObjec
  */
   if (unlikely(__pyx_v_value == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 88, __pyx_L1_error)
+    __PYX_ERR(0, 97, __pyx_L1_error)
   }
-  __pyx_t_1 = (__Pyx_PyUnicode_ContainsTF(__pyx_kp_u__7, __pyx_v_value, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 88, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_ContainsTF(__pyx_kp_u__8, __pyx_v_value, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 97, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":89
+    /* "querysource/types/validators.pyx":98
  * cpdef is_camel_case(str value):
  *     if ' ' in value:
  *         return True             # <<<<<<<<<<<<<<
@@ -9313,7 +9808,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_camel_case(PyObjec
     __pyx_r = Py_True;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":88
+    /* "querysource/types/validators.pyx":97
  * 
  * cpdef is_camel_case(str value):
  *     if ' ' in value:             # <<<<<<<<<<<<<<
@@ -9322,16 +9817,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_camel_case(PyObjec
  */
   }
 
-  /* "querysource/types/validators.pyx":91
+  /* "querysource/types/validators.pyx":100
  *         return True
  *     # Check for CamelCase
  *     camel_case_pattern = re.compile(r'^(?:[A-Z][a-z]+)+$')             # <<<<<<<<<<<<<<
  *     return bool(camel_case_pattern.match(value))
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_re); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_re); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_compile); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_compile); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -9352,14 +9847,14 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_camel_case(PyObjec
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_kp_u_A_Z_a_z};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 91, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __pyx_v_camel_case_pattern = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":92
+  /* "querysource/types/validators.pyx":101
  *     # Check for CamelCase
  *     camel_case_pattern = re.compile(r'^(?:[A-Z][a-z]+)+$')
  *     return bool(camel_case_pattern.match(value))             # <<<<<<<<<<<<<<
@@ -9367,7 +9862,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_camel_case(PyObjec
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_camel_case_pattern, __pyx_n_s_match); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_camel_case_pattern, __pyx_n_s_match); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = NULL;
   __pyx_t_5 = 0;
@@ -9387,19 +9882,19 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_camel_case(PyObjec
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_value};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 92, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyBool_FromLong((!(!__pyx_t_1))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong((!(!__pyx_t_1))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":87
+  /* "querysource/types/validators.pyx":96
  *     return result
  * 
  * cpdef is_camel_case(str value):             # <<<<<<<<<<<<<<
@@ -9475,12 +9970,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 87, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 96, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_camel_case") < 0)) __PYX_ERR(0, 87, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_camel_case") < 0)) __PYX_ERR(0, 96, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -9491,7 +9986,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_camel_case", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 87, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_camel_case", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 96, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9505,7 +10000,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyUnicode_Type), 1, "value", 1))) __PYX_ERR(0, 87, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyUnicode_Type), 1, "value", 1))) __PYX_ERR(0, 96, __pyx_L1_error)
   __pyx_r = __pyx_pf_11querysource_5types_10validators_8is_camel_case(__pyx_self, __pyx_v_value);
 
   /* function exit code */
@@ -9532,7 +10027,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_8is_camel_case(CYTHO
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_camel_case", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_camel_case(__pyx_v_value, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_camel_case(__pyx_v_value, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -9549,7 +10044,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_8is_camel_case(CYTHO
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":95
+/* "querysource/types/validators.pyx":104
  * 
  * 
  * cdef str escapeString(str value):             # <<<<<<<<<<<<<<
@@ -9572,40 +10067,40 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escapeString(PyObject
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("escapeString", 1);
 
-  /* "querysource/types/validators.pyx":96
+  /* "querysource/types/validators.pyx":105
  * 
  * cdef str escapeString(str value):
  *     v = value if value != 'None' else ""             # <<<<<<<<<<<<<<
  *     v = str(v).replace("'", "''")
  *     v = "'{}'".format(v) if isinstance(v, str) else v
  */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 105, __pyx_L1_error)
   if (__pyx_t_2) {
     __Pyx_INCREF(__pyx_v_value);
     __pyx_t_1 = __pyx_v_value;
   } else {
-    __Pyx_INCREF(__pyx_kp_u__6);
-    __pyx_t_1 = __pyx_kp_u__6;
+    __Pyx_INCREF(__pyx_kp_u__7);
+    __pyx_t_1 = __pyx_kp_u__7;
   }
   __pyx_v_v = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":97
+  /* "querysource/types/validators.pyx":106
  * cdef str escapeString(str value):
  *     v = value if value != 'None' else ""
  *     v = str(v).replace("'", "''")             # <<<<<<<<<<<<<<
  *     v = "'{}'".format(v) if isinstance(v, str) else v
  *     return v
  */
-  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_v); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_v); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyUnicode_Replace(((PyObject*)__pyx_t_1), __pyx_kp_u__8, __pyx_kp_u__9, -1L); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_3 = PyUnicode_Replace(((PyObject*)__pyx_t_1), __pyx_kp_u__9, __pyx_kp_u__10, -1L); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":98
+  /* "querysource/types/validators.pyx":107
  *     v = value if value != 'None' else ""
  *     v = str(v).replace("'", "''")
  *     v = "'{}'".format(v) if isinstance(v, str) else v             # <<<<<<<<<<<<<<
@@ -9614,7 +10109,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escapeString(PyObject
  */
   __pyx_t_2 = PyUnicode_Check(__pyx_v_v); 
   if (__pyx_t_2) {
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__10, __pyx_n_s_format); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 98, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__11, __pyx_n_s_format); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -9634,7 +10129,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escapeString(PyObject
       PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_v};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
@@ -9647,7 +10142,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escapeString(PyObject
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":99
+  /* "querysource/types/validators.pyx":108
  *     v = str(v).replace("'", "''")
  *     v = "'{}'".format(v) if isinstance(v, str) else v
  *     return v             # <<<<<<<<<<<<<<
@@ -9655,12 +10150,12 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escapeString(PyObject
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  if (!(likely(PyUnicode_CheckExact(__pyx_v_v))||((__pyx_v_v) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_v))) __PYX_ERR(0, 99, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_v_v))||((__pyx_v_v) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_v))) __PYX_ERR(0, 108, __pyx_L1_error)
   __Pyx_INCREF(__pyx_v_v);
   __pyx_r = ((PyObject*)__pyx_v_v);
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":95
+  /* "querysource/types/validators.pyx":104
  * 
  * 
  * cdef str escapeString(str value):             # <<<<<<<<<<<<<<
@@ -9683,7 +10178,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escapeString(PyObject
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":102
+/* "querysource/types/validators.pyx":111
  * 
  * 
  * cdef str parseString(str value):             # <<<<<<<<<<<<<<
@@ -9704,20 +10199,20 @@ static PyObject *__pyx_f_11querysource_5types_10validators_parseString(PyObject 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("parseString", 1);
 
-  /* "querysource/types/validators.pyx":103
+  /* "querysource/types/validators.pyx":112
  * 
  * cdef str parseString(str value):
  *     if str(value).startswith("'"):             # <<<<<<<<<<<<<<
  *         return value[value.startswith('"') and len('"'):-1]
  *     else:
  */
-  __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 112, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_t_1, __pyx_kp_u__8, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_t_1, __pyx_kp_u__9, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 112, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":104
+    /* "querysource/types/validators.pyx":113
  * cdef str parseString(str value):
  *     if str(value).startswith("'"):
  *         return value[value.startswith('"') and len('"'):-1]             # <<<<<<<<<<<<<<
@@ -9727,16 +10222,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_parseString(PyObject 
     __Pyx_XDECREF(__pyx_r);
     if (unlikely(__pyx_v_value == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 104, __pyx_L1_error)
+      __PYX_ERR(0, 113, __pyx_L1_error)
     }
     if (unlikely(__pyx_v_value == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "startswith");
-      __PYX_ERR(0, 104, __pyx_L1_error)
+      __PYX_ERR(0, 113, __pyx_L1_error)
     }
-    __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_v_value, __pyx_kp_u__11, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 104, __pyx_L1_error)
-    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 104, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_v_value, __pyx_kp_u__12, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 104, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 113, __pyx_L1_error)
     if (__pyx_t_2) {
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     } else {
@@ -9745,8 +10240,8 @@ static PyObject *__pyx_f_11querysource_5types_10validators_parseString(PyObject 
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L4_bool_binop_done;
     }
-    __pyx_t_4 = __Pyx_PyUnicode_GET_LENGTH(__pyx_kp_u__11); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 104, __pyx_L1_error)
-    __pyx_t_3 = PyInt_FromSsize_t(__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 104, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_GET_LENGTH(__pyx_kp_u__12); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_3 = PyInt_FromSsize_t(__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -9755,17 +10250,17 @@ static PyObject *__pyx_f_11querysource_5types_10validators_parseString(PyObject 
     if (__pyx_t_2) {
       __pyx_t_4 = 0;
     } else {
-      __pyx_t_5 = __Pyx_PyIndex_AsSsize_t(__pyx_t_1); if (unlikely((__pyx_t_5 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 104, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyIndex_AsSsize_t(__pyx_t_1); if (unlikely((__pyx_t_5 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 113, __pyx_L1_error)
       __pyx_t_4 = __pyx_t_5;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyUnicode_Substring(__pyx_v_value, __pyx_t_4, -1L); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 104, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_Substring(__pyx_v_value, __pyx_t_4, -1L); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = ((PyObject*)__pyx_t_1);
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":103
+    /* "querysource/types/validators.pyx":112
  * 
  * cdef str parseString(str value):
  *     if str(value).startswith("'"):             # <<<<<<<<<<<<<<
@@ -9774,7 +10269,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_parseString(PyObject 
  */
   }
 
-  /* "querysource/types/validators.pyx":106
+  /* "querysource/types/validators.pyx":115
  *         return value[value.startswith('"') and len('"'):-1]
  *     else:
  *         return value             # <<<<<<<<<<<<<<
@@ -9788,7 +10283,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_parseString(PyObject 
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":102
+  /* "querysource/types/validators.pyx":111
  * 
  * 
  * cdef str parseString(str value):             # <<<<<<<<<<<<<<
@@ -9808,7 +10303,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_parseString(PyObject 
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":108
+/* "querysource/types/validators.pyx":117
  *         return value
  * 
  * cdef str quoteString(object value):             # <<<<<<<<<<<<<<
@@ -9836,43 +10331,43 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("quoteString", 1);
 
-  /* "querysource/types/validators.pyx":109
+  /* "querysource/types/validators.pyx":118
  * 
  * cdef str quoteString(object value):
  *     v = value if value != 'None' else ""             # <<<<<<<<<<<<<<
  *     if value == 'null' or value == 'NULL':
  *             return v
  */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 109, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 118, __pyx_L1_error)
   if (__pyx_t_2) {
     __Pyx_INCREF(__pyx_v_value);
     __pyx_t_1 = __pyx_v_value;
   } else {
-    __Pyx_INCREF(__pyx_kp_u__6);
-    __pyx_t_1 = __pyx_kp_u__6;
+    __Pyx_INCREF(__pyx_kp_u__7);
+    __pyx_t_1 = __pyx_kp_u__7;
   }
   __pyx_v_v = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":110
+  /* "querysource/types/validators.pyx":119
  * cdef str quoteString(object value):
  *     v = value if value != 'None' else ""
  *     if value == 'null' or value == 'NULL':             # <<<<<<<<<<<<<<
  *             return v
  *     if isinstance(v, int):
  */
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 119, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_NULL, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_NULL, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 119, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_3;
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":111
+    /* "querysource/types/validators.pyx":120
  *     v = value if value != 'None' else ""
  *     if value == 'null' or value == 'NULL':
  *             return v             # <<<<<<<<<<<<<<
@@ -9880,12 +10375,12 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  *         # quoting to string:
  */
     __Pyx_XDECREF(__pyx_r);
-    if (!(likely(PyUnicode_CheckExact(__pyx_v_v))||((__pyx_v_v) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_v))) __PYX_ERR(0, 111, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_v_v))||((__pyx_v_v) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_v))) __PYX_ERR(0, 120, __pyx_L1_error)
     __Pyx_INCREF(__pyx_v_v);
     __pyx_r = ((PyObject*)__pyx_v_v);
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":110
+    /* "querysource/types/validators.pyx":119
  * cdef str quoteString(object value):
  *     v = value if value != 'None' else ""
  *     if value == 'null' or value == 'NULL':             # <<<<<<<<<<<<<<
@@ -9894,7 +10389,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  */
   }
 
-  /* "querysource/types/validators.pyx":112
+  /* "querysource/types/validators.pyx":121
  *     if value == 'null' or value == 'NULL':
  *             return v
  *     if isinstance(v, int):             # <<<<<<<<<<<<<<
@@ -9904,7 +10399,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
   __pyx_t_2 = PyInt_Check(__pyx_v_v); 
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":114
+    /* "querysource/types/validators.pyx":123
  *     if isinstance(v, int):
  *         # quoting to string:
  *         return "'{}'".format(v)             # <<<<<<<<<<<<<<
@@ -9912,7 +10407,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  *         start_quote = v.startswith("'")
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__10, __pyx_n_s_format); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__11, __pyx_n_s_format); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 123, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -9932,16 +10427,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
       PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_v};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 114, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 114, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 123, __pyx_L1_error)
     __pyx_r = ((PyObject*)__pyx_t_1);
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":112
+    /* "querysource/types/validators.pyx":121
  *     if value == 'null' or value == 'NULL':
  *             return v
  *     if isinstance(v, int):             # <<<<<<<<<<<<<<
@@ -9950,7 +10445,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  */
   }
 
-  /* "querysource/types/validators.pyx":115
+  /* "querysource/types/validators.pyx":124
  *         # quoting to string:
  *         return "'{}'".format(v)
  *     elif isinstance(v, str):             # <<<<<<<<<<<<<<
@@ -9960,14 +10455,14 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
   __pyx_t_2 = PyUnicode_Check(__pyx_v_v); 
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":116
+    /* "querysource/types/validators.pyx":125
  *         return "'{}'".format(v)
  *     elif isinstance(v, str):
  *         start_quote = v.startswith("'")             # <<<<<<<<<<<<<<
  *         end_quote = v.endswith("'")
  * 
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_startswith); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 116, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_startswith); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -9984,24 +10479,24 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__8};
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__9};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 116, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __pyx_v_start_quote = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "querysource/types/validators.pyx":117
+    /* "querysource/types/validators.pyx":126
  *     elif isinstance(v, str):
  *         start_quote = v.startswith("'")
  *         end_quote = v.endswith("'")             # <<<<<<<<<<<<<<
  * 
  *         # Slice the string if it starts/ends with a quote
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_endswith); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 117, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_endswith); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -10018,48 +10513,48 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__8};
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__9};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 126, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __pyx_v_end_quote = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "querysource/types/validators.pyx":120
+    /* "querysource/types/validators.pyx":129
  * 
  *         # Slice the string if it starts/ends with a quote
  *         inner = v[1:-1] if start_quote and end_quote else (v[1:] if start_quote else (v[:-1] if end_quote else v))             # <<<<<<<<<<<<<<
  *         # Escape single quotes
  *         inner = inner.replace("'", "''")
  */
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_start_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_start_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 129, __pyx_L1_error)
     if (__pyx_t_3) {
     } else {
       __pyx_t_2 = __pyx_t_3;
       goto __pyx_L7_bool_binop_done;
     }
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_end_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_end_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 129, __pyx_L1_error)
     __pyx_t_2 = __pyx_t_3;
     __pyx_L7_bool_binop_done:;
     if (__pyx_t_2) {
-      __pyx_t_4 = __Pyx_PyObject_GetSlice(__pyx_v_v, 1, -1L, NULL, NULL, &__pyx_slice__12, 1, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 120, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetSlice(__pyx_v_v, 1, -1L, NULL, NULL, &__pyx_slice__13, 1, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 129, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_t_1 = __pyx_t_4;
       __pyx_t_4 = 0;
     } else {
-      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_start_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_start_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 129, __pyx_L1_error)
       if (__pyx_t_3) {
-        __pyx_t_5 = __Pyx_PyObject_GetSlice(__pyx_v_v, 1, 0, NULL, NULL, &__pyx_slice__13, 1, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 120, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_GetSlice(__pyx_v_v, 1, 0, NULL, NULL, &__pyx_slice__14, 1, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 129, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __pyx_t_4 = __pyx_t_5;
         __pyx_t_5 = 0;
       } else {
-        __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_end_quote); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_end_quote); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 129, __pyx_L1_error)
         if (__pyx_t_7) {
-          __pyx_t_8 = __Pyx_PyObject_GetSlice(__pyx_v_v, 0, -1L, NULL, NULL, &__pyx_slice__14, 0, 1, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 120, __pyx_L1_error)
+          __pyx_t_8 = __Pyx_PyObject_GetSlice(__pyx_v_v, 0, -1L, NULL, NULL, &__pyx_slice__15, 0, 1, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 129, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __pyx_t_5 = __pyx_t_8;
           __pyx_t_8 = 0;
@@ -10076,32 +10571,32 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
     __pyx_v_inner = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "querysource/types/validators.pyx":122
+    /* "querysource/types/validators.pyx":131
  *         inner = v[1:-1] if start_quote and end_quote else (v[1:] if start_quote else (v[:-1] if end_quote else v))
  *         # Escape single quotes
  *         inner = inner.replace("'", "''")             # <<<<<<<<<<<<<<
  * 
  *         if start_quote: # was already quoted
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_inner, __pyx_n_s_replace); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_inner, __pyx_n_s_replace); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__15, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 122, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__16, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF_SET(__pyx_v_inner, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "querysource/types/validators.pyx":124
+    /* "querysource/types/validators.pyx":133
  *         inner = inner.replace("'", "''")
  * 
  *         if start_quote: # was already quoted             # <<<<<<<<<<<<<<
  *             return "'{}'".format(inner)
  *         elif v.startswith('"'): # is double quoted
  */
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_start_quote); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 124, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_start_quote); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 133, __pyx_L1_error)
     if (__pyx_t_2) {
 
-      /* "querysource/types/validators.pyx":125
+      /* "querysource/types/validators.pyx":134
  * 
  *         if start_quote: # was already quoted
  *             return "'{}'".format(inner)             # <<<<<<<<<<<<<<
@@ -10109,7 +10604,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  *             return v.replace('"', "'")
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__10, __pyx_n_s_format); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__11, __pyx_n_s_format); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_5 = NULL;
       __pyx_t_6 = 0;
@@ -10129,16 +10624,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
         PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_inner};
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 134, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       }
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 125, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 134, __pyx_L1_error)
       __pyx_r = ((PyObject*)__pyx_t_4);
       __pyx_t_4 = 0;
       goto __pyx_L0;
 
-      /* "querysource/types/validators.pyx":124
+      /* "querysource/types/validators.pyx":133
  *         inner = inner.replace("'", "''")
  * 
  *         if start_quote: # was already quoted             # <<<<<<<<<<<<<<
@@ -10147,14 +10642,14 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  */
     }
 
-    /* "querysource/types/validators.pyx":126
+    /* "querysource/types/validators.pyx":135
  *         if start_quote: # was already quoted
  *             return "'{}'".format(inner)
  *         elif v.startswith('"'): # is double quoted             # <<<<<<<<<<<<<<
  *             return v.replace('"', "'")
  *         else:
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_startswith); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 126, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_startswith); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -10171,18 +10666,18 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__11};
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__12};
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 135, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 126, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (__pyx_t_2) {
 
-      /* "querysource/types/validators.pyx":127
+      /* "querysource/types/validators.pyx":136
  *             return "'{}'".format(inner)
  *         elif v.startswith('"'): # is double quoted
  *             return v.replace('"', "'")             # <<<<<<<<<<<<<<
@@ -10190,17 +10685,17 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  *             return "'{}'".format(v)
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_replace); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_replace); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 136, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__16, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__17, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 136, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 127, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 136, __pyx_L1_error)
       __pyx_r = ((PyObject*)__pyx_t_1);
       __pyx_t_1 = 0;
       goto __pyx_L0;
 
-      /* "querysource/types/validators.pyx":126
+      /* "querysource/types/validators.pyx":135
  *         if start_quote: # was already quoted
  *             return "'{}'".format(inner)
  *         elif v.startswith('"'): # is double quoted             # <<<<<<<<<<<<<<
@@ -10209,7 +10704,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  */
     }
 
-    /* "querysource/types/validators.pyx":129
+    /* "querysource/types/validators.pyx":138
  *             return v.replace('"', "'")
  *         else:
  *             return "'{}'".format(v)             # <<<<<<<<<<<<<<
@@ -10218,7 +10713,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  */
     /*else*/ {
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__10, __pyx_n_s_format); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 129, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__11, __pyx_n_s_format); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_t_5 = NULL;
       __pyx_t_6 = 0;
@@ -10238,17 +10733,17 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
         PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_v};
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 129, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       }
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 129, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_1))) __PYX_ERR(0, 138, __pyx_L1_error)
       __pyx_r = ((PyObject*)__pyx_t_1);
       __pyx_t_1 = 0;
       goto __pyx_L0;
     }
 
-    /* "querysource/types/validators.pyx":115
+    /* "querysource/types/validators.pyx":124
  *         # quoting to string:
  *         return "'{}'".format(v)
  *     elif isinstance(v, str):             # <<<<<<<<<<<<<<
@@ -10257,7 +10752,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  */
   }
 
-  /* "querysource/types/validators.pyx":131
+  /* "querysource/types/validators.pyx":140
  *             return "'{}'".format(v)
  *     else:
  *         return v             # <<<<<<<<<<<<<<
@@ -10266,13 +10761,13 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
  */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
-    if (!(likely(PyUnicode_CheckExact(__pyx_v_v))||((__pyx_v_v) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_v))) __PYX_ERR(0, 131, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_v_v))||((__pyx_v_v) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_v))) __PYX_ERR(0, 140, __pyx_L1_error)
     __Pyx_INCREF(__pyx_v_v);
     __pyx_r = ((PyObject*)__pyx_v_v);
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":108
+  /* "querysource/types/validators.pyx":117
  *         return value
  * 
  * cdef str quoteString(object value):             # <<<<<<<<<<<<<<
@@ -10298,7 +10793,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_quoteString(PyObject 
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":133
+/* "querysource/types/validators.pyx":142
  *         return v
  * 
  * cpdef bool_t is_callable(object value):             # <<<<<<<<<<<<<<
@@ -10327,7 +10822,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_callable(PyObject *__py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_callable", 1);
 
-  /* "querysource/types/validators.pyx":136
+  /* "querysource/types/validators.pyx":145
  *     """Return if value is a callable (function object).
  *     """
  *     if value is None:             # <<<<<<<<<<<<<<
@@ -10337,7 +10832,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_callable(PyObject *__py
   __pyx_t_1 = (__pyx_v_value == Py_None);
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":137
+    /* "querysource/types/validators.pyx":146
  *     """
  *     if value is None:
  *         return False             # <<<<<<<<<<<<<<
@@ -10347,7 +10842,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_callable(PyObject *__py
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":136
+    /* "querysource/types/validators.pyx":145
  *     """Return if value is a callable (function object).
  *     """
  *     if value is None:             # <<<<<<<<<<<<<<
@@ -10356,31 +10851,31 @@ static bool __pyx_f_11querysource_5types_10validators_is_callable(PyObject *__py
  */
   }
 
-  /* "querysource/types/validators.pyx":138
+  /* "querysource/types/validators.pyx":147
  *     if value is None:
  *         return False
  *     is_missing = (value == _MISSING_TYPE)             # <<<<<<<<<<<<<<
  *     return callable(value) if not is_missing else False
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_MISSING_TYPE); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_MISSING_TYPE); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 147, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = PyObject_RichCompare(__pyx_v_value, __pyx_t_2, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_v_value, __pyx_t_2, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 147, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_is_missing = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":139
+  /* "querysource/types/validators.pyx":148
  *         return False
  *     is_missing = (value == _MISSING_TYPE)
  *     return callable(value) if not is_missing else False             # <<<<<<<<<<<<<<
  * 
  * cpdef bool_t is_async_callable(object obj):
  */
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_is_missing); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_is_missing); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 148, __pyx_L1_error)
   __pyx_t_5 = (!__pyx_t_4);
   if (__pyx_t_5) {
-    __pyx_t_4 = __Pyx_PyCallable_Check(__pyx_v_value); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 139, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyCallable_Check(__pyx_v_value); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 148, __pyx_L1_error)
     __pyx_t_1 = __pyx_t_4;
   } else {
     __pyx_t_1 = 0;
@@ -10388,7 +10883,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_callable(PyObject *__py
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":133
+  /* "querysource/types/validators.pyx":142
  *         return v
  * 
  * cpdef bool_t is_callable(object value):             # <<<<<<<<<<<<<<
@@ -10462,12 +10957,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 133, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_callable") < 0)) __PYX_ERR(0, 133, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_callable") < 0)) __PYX_ERR(0, 142, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -10478,7 +10973,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_callable", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 133, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_callable", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 142, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10515,8 +11010,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_10is_callable(CYTHON
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_callable", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_callable(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 133, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_callable(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -10533,7 +11028,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_10is_callable(CYTHON
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":141
+/* "querysource/types/validators.pyx":150
  *     return callable(value) if not is_missing else False
  * 
  * cpdef bool_t is_async_callable(object obj):             # <<<<<<<<<<<<<<
@@ -10565,7 +11060,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_async_callable(PyObject
   __Pyx_RefNannySetupContext("is_async_callable", 0);
   __Pyx_INCREF(__pyx_v_obj);
 
-  /* "querysource/types/validators.pyx":142
+  /* "querysource/types/validators.pyx":151
  * 
  * cpdef bool_t is_async_callable(object obj):
  *     while isinstance(obj, partial):             # <<<<<<<<<<<<<<
@@ -10573,35 +11068,35 @@ static bool __pyx_f_11querysource_5types_10validators_is_async_callable(PyObject
  *     return asyncio.iscoroutinefunction(obj) or (
  */
   while (1) {
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_partial); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_partial); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = PyObject_IsInstance(__pyx_v_obj, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 142, __pyx_L1_error)
+    __pyx_t_2 = PyObject_IsInstance(__pyx_v_obj, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 151, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (!__pyx_t_2) break;
 
-    /* "querysource/types/validators.pyx":143
+    /* "querysource/types/validators.pyx":152
  * cpdef bool_t is_async_callable(object obj):
  *     while isinstance(obj, partial):
  *         obj = obj.func             # <<<<<<<<<<<<<<
  *     return asyncio.iscoroutinefunction(obj) or (
  *         callable(obj) and asyncio.iscoroutinefunction(obj.__call__)
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_obj, __pyx_n_s_func); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 143, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_obj, __pyx_n_s_func); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF_SET(__pyx_v_obj, __pyx_t_1);
     __pyx_t_1 = 0;
   }
 
-  /* "querysource/types/validators.pyx":144
+  /* "querysource/types/validators.pyx":153
  *     while isinstance(obj, partial):
  *         obj = obj.func
  *     return asyncio.iscoroutinefunction(obj) or (             # <<<<<<<<<<<<<<
  *         callable(obj) and asyncio.iscoroutinefunction(obj.__call__)
  *     )
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_asyncio); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 144, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_asyncio); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 153, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_iscoroutinefunction); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 144, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_iscoroutinefunction); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 153, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -10622,39 +11117,39 @@ static bool __pyx_f_11querysource_5types_10validators_is_async_callable(PyObject
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_obj};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 144, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 153, __pyx_L1_error)
   if (!__pyx_t_2) {
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
-    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 144, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 153, __pyx_L1_error)
     __pyx_t_3 = __pyx_t_7;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     goto __pyx_L5_bool_binop_done;
   }
 
-  /* "querysource/types/validators.pyx":145
+  /* "querysource/types/validators.pyx":154
  *         obj = obj.func
  *     return asyncio.iscoroutinefunction(obj) or (
  *         callable(obj) and asyncio.iscoroutinefunction(obj.__call__)             # <<<<<<<<<<<<<<
  *     )
  * 
  */
-  __pyx_t_2 = __Pyx_PyCallable_Check(__pyx_v_obj); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyCallable_Check(__pyx_v_obj); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 154, __pyx_L1_error)
   if (__pyx_t_2) {
   } else {
     __pyx_t_3 = __pyx_t_2;
     goto __pyx_L5_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_asyncio); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_asyncio); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_iscoroutinefunction); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_iscoroutinefunction); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_obj, __pyx_n_s_call); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_obj, __pyx_n_s_call); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_8 = NULL;
   __pyx_t_6 = 0;
@@ -10675,18 +11170,18 @@ static bool __pyx_f_11querysource_5types_10validators_is_async_callable(PyObject
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 154, __pyx_L1_error)
   __pyx_t_3 = __pyx_t_7;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_L5_bool_binop_done:;
   __pyx_r = __pyx_t_3;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":141
+  /* "querysource/types/validators.pyx":150
  *     return callable(value) if not is_missing else False
  * 
  * cpdef bool_t is_async_callable(object obj):             # <<<<<<<<<<<<<<
@@ -10762,12 +11257,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 141, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 150, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_async_callable") < 0)) __PYX_ERR(0, 141, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_async_callable") < 0)) __PYX_ERR(0, 150, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -10778,7 +11273,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_async_callable", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 141, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_async_callable", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 150, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10815,8 +11310,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_12is_async_callable(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_async_callable", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_async_callable(__pyx_v_obj, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 141, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 141, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_async_callable(__pyx_v_obj, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 150, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 150, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -10833,7 +11328,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_12is_async_callable(
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":149
+/* "querysource/types/validators.pyx":158
  * 
  * ## Functional validators (is_xxx functions)
  * cpdef bool_t is_udf(object value):             # <<<<<<<<<<<<<<
@@ -10855,18 +11350,18 @@ static bool __pyx_f_11querysource_5types_10validators_is_udf(PyObject *__pyx_v_v
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "querysource/types/validators.pyx":150
+  /* "querysource/types/validators.pyx":159
  * ## Functional validators (is_xxx functions)
  * cpdef bool_t is_udf(object value):
  *     return value in UDF_LIST             # <<<<<<<<<<<<<<
  * 
  * cdef bool_t is_pg_function(object value):
  */
-  __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_v_value, __pyx_v_11querysource_5types_10validators_UDF_LIST, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 150, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_v_value, __pyx_v_11querysource_5types_10validators_UDF_LIST, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 159, __pyx_L1_error)
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":149
+  /* "querysource/types/validators.pyx":158
  * 
  * ## Functional validators (is_xxx functions)
  * cpdef bool_t is_udf(object value):             # <<<<<<<<<<<<<<
@@ -10936,12 +11431,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 149, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 158, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_udf") < 0)) __PYX_ERR(0, 149, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_udf") < 0)) __PYX_ERR(0, 158, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -10952,7 +11447,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_udf", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 149, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_udf", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 158, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10989,8 +11484,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_14is_udf(CYTHON_UNUS
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_udf", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_udf(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 149, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 149, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_udf(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 158, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -11007,7 +11502,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_14is_udf(CYTHON_UNUS
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":152
+/* "querysource/types/validators.pyx":161
  *     return value in UDF_LIST
  * 
  * cdef bool_t is_pg_function(object value):             # <<<<<<<<<<<<<<
@@ -11022,17 +11517,17 @@ static bool __pyx_f_11querysource_5types_10validators_is_pg_function(PyObject *_
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "querysource/types/validators.pyx":153
+  /* "querysource/types/validators.pyx":162
  * 
  * cdef bool_t is_pg_function(object value):
  *     if '(' in value:             # <<<<<<<<<<<<<<
  *         return True
  *     else:
  */
-  __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_kp_u__17, __pyx_v_value, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_kp_u__18, __pyx_v_value, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":154
+    /* "querysource/types/validators.pyx":163
  * cdef bool_t is_pg_function(object value):
  *     if '(' in value:
  *         return True             # <<<<<<<<<<<<<<
@@ -11042,7 +11537,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_pg_function(PyObject *_
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":153
+    /* "querysource/types/validators.pyx":162
  * 
  * cdef bool_t is_pg_function(object value):
  *     if '(' in value:             # <<<<<<<<<<<<<<
@@ -11051,7 +11546,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_pg_function(PyObject *_
  */
   }
 
-  /* "querysource/types/validators.pyx":156
+  /* "querysource/types/validators.pyx":165
  *         return True
  *     else:
  *         return value in PG_UDF             # <<<<<<<<<<<<<<
@@ -11059,12 +11554,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_pg_function(PyObject *_
  * cpdef bool_t is_pgconstant(object value):
  */
   /*else*/ {
-    __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_v_value, __pyx_v_11querysource_5types_10validators_PG_UDF, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 156, __pyx_L1_error)
+    __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_v_value, __pyx_v_11querysource_5types_10validators_PG_UDF, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 165, __pyx_L1_error)
     __pyx_r = __pyx_t_1;
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":152
+  /* "querysource/types/validators.pyx":161
  *     return value in UDF_LIST
  * 
  * cdef bool_t is_pg_function(object value):             # <<<<<<<<<<<<<<
@@ -11080,7 +11575,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_pg_function(PyObject *_
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":158
+/* "querysource/types/validators.pyx":167
  *         return value in PG_UDF
  * 
  * cpdef bool_t is_pgconstant(object value):             # <<<<<<<<<<<<<<
@@ -11102,18 +11597,18 @@ static bool __pyx_f_11querysource_5types_10validators_is_pgconstant(PyObject *__
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "querysource/types/validators.pyx":159
+  /* "querysource/types/validators.pyx":168
  * 
  * cpdef bool_t is_pgconstant(object value):
  *     return value in PG_CONSTANTS             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_v_value, __pyx_v_11querysource_5types_10validators_PG_CONSTANTS, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 159, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PySequence_ContainsTF(__pyx_v_value, __pyx_v_11querysource_5types_10validators_PG_CONSTANTS, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 168, __pyx_L1_error)
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":158
+  /* "querysource/types/validators.pyx":167
  *         return value in PG_UDF
  * 
  * cpdef bool_t is_pgconstant(object value):             # <<<<<<<<<<<<<<
@@ -11183,12 +11678,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 158, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 167, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_pgconstant") < 0)) __PYX_ERR(0, 158, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_pgconstant") < 0)) __PYX_ERR(0, 167, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -11199,7 +11694,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_pgconstant", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 158, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_pgconstant", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 167, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11236,8 +11731,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_16is_pgconstant(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_pgconstant", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_pgconstant(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 158, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_pgconstant(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -11254,7 +11749,920 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_16is_pgconstant(CYTH
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":162
+/* "querysource/types/validators.pyx":171
+ * 
+ * 
+ * cpdef list udf_keywords():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective relative-date keyword list (UDF_LIST)."""
+ *     return list(UDF_LIST)
+ */
+
+static PyObject *__pyx_pw_11querysource_5types_10validators_19udf_keywords(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
+static PyObject *__pyx_f_11querysource_5types_10validators_udf_keywords(CYTHON_UNUSED int __pyx_skip_dispatch) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("udf_keywords", 1);
+
+  /* "querysource/types/validators.pyx":173
+ * cpdef list udf_keywords():
+ *     """Return a copy of the effective relative-date keyword list (UDF_LIST)."""
+ *     return list(UDF_LIST)             # <<<<<<<<<<<<<<
+ * 
+ * cpdef list pg_constants():
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = PySequence_List(__pyx_v_11querysource_5types_10validators_UDF_LIST); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "querysource/types/validators.pyx":171
+ * 
+ * 
+ * cpdef list udf_keywords():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective relative-date keyword list (UDF_LIST)."""
+ *     return list(UDF_LIST)
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("querysource.types.validators.udf_keywords", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_11querysource_5types_10validators_19udf_keywords(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_18udf_keywords, "udf_keywords() -> list\nReturn a copy of the effective relative-date keyword list (UDF_LIST).");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_19udf_keywords = {"udf_keywords", (PyCFunction)__pyx_pw_11querysource_5types_10validators_19udf_keywords, METH_NOARGS, __pyx_doc_11querysource_5types_10validators_18udf_keywords};
+static PyObject *__pyx_pw_11querysource_5types_10validators_19udf_keywords(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("udf_keywords (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_18udf_keywords(__pyx_self);
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_11querysource_5types_10validators_18udf_keywords(CYTHON_UNUSED PyObject *__pyx_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("udf_keywords", 1);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_udf_keywords(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 171, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("querysource.types.validators.udf_keywords", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "querysource/types/validators.pyx":175
+ *     return list(UDF_LIST)
+ * 
+ * cpdef list pg_constants():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective PostgreSQL constant list."""
+ *     return list(PG_CONSTANTS)
+ */
+
+static PyObject *__pyx_pw_11querysource_5types_10validators_21pg_constants(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
+static PyObject *__pyx_f_11querysource_5types_10validators_pg_constants(CYTHON_UNUSED int __pyx_skip_dispatch) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("pg_constants", 1);
+
+  /* "querysource/types/validators.pyx":177
+ * cpdef list pg_constants():
+ *     """Return a copy of the effective PostgreSQL constant list."""
+ *     return list(PG_CONSTANTS)             # <<<<<<<<<<<<<<
+ * 
+ * cpdef list pg_udfs():
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = PySequence_List(__pyx_v_11querysource_5types_10validators_PG_CONSTANTS); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "querysource/types/validators.pyx":175
+ *     return list(UDF_LIST)
+ * 
+ * cpdef list pg_constants():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective PostgreSQL constant list."""
+ *     return list(PG_CONSTANTS)
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("querysource.types.validators.pg_constants", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_11querysource_5types_10validators_21pg_constants(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_20pg_constants, "pg_constants() -> list\nReturn a copy of the effective PostgreSQL constant list.");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_21pg_constants = {"pg_constants", (PyCFunction)__pyx_pw_11querysource_5types_10validators_21pg_constants, METH_NOARGS, __pyx_doc_11querysource_5types_10validators_20pg_constants};
+static PyObject *__pyx_pw_11querysource_5types_10validators_21pg_constants(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("pg_constants (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_20pg_constants(__pyx_self);
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_11querysource_5types_10validators_20pg_constants(CYTHON_UNUSED PyObject *__pyx_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("pg_constants", 1);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_pg_constants(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("querysource.types.validators.pg_constants", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "querysource/types/validators.pyx":179
+ *     return list(PG_CONSTANTS)
+ * 
+ * cpdef list pg_udfs():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective PostgreSQL function allowlist (PG_UDF)."""
+ *     return list(PG_UDF)
+ */
+
+static PyObject *__pyx_pw_11querysource_5types_10validators_23pg_udfs(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
+static PyObject *__pyx_f_11querysource_5types_10validators_pg_udfs(CYTHON_UNUSED int __pyx_skip_dispatch) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("pg_udfs", 1);
+
+  /* "querysource/types/validators.pyx":181
+ * cpdef list pg_udfs():
+ *     """Return a copy of the effective PostgreSQL function allowlist (PG_UDF)."""
+ *     return list(PG_UDF)             # <<<<<<<<<<<<<<
+ * 
+ * cdef tuple _KEYWORD_HINTS = ('date', 'datetime', 'timestamp')
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = PySequence_List(__pyx_v_11querysource_5types_10validators_PG_UDF); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "querysource/types/validators.pyx":179
+ *     return list(PG_CONSTANTS)
+ * 
+ * cpdef list pg_udfs():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective PostgreSQL function allowlist (PG_UDF)."""
+ *     return list(PG_UDF)
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("querysource.types.validators.pg_udfs", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_11querysource_5types_10validators_23pg_udfs(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_22pg_udfs, "pg_udfs() -> list\nReturn a copy of the effective PostgreSQL function allowlist (PG_UDF).");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_23pg_udfs = {"pg_udfs", (PyCFunction)__pyx_pw_11querysource_5types_10validators_23pg_udfs, METH_NOARGS, __pyx_doc_11querysource_5types_10validators_22pg_udfs};
+static PyObject *__pyx_pw_11querysource_5types_10validators_23pg_udfs(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("pg_udfs (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_22pg_udfs(__pyx_self);
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_11querysource_5types_10validators_22pg_udfs(CYTHON_UNUSED PyObject *__pyx_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("pg_udfs", 1);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_pg_udfs(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("querysource.types.validators.pg_udfs", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "querysource/types/validators.pyx":185
+ * cdef tuple _KEYWORD_HINTS = ('date', 'datetime', 'timestamp')
+ * 
+ * cpdef dict resolve_udf_conditions(dict conditions, dict cond_definition = None):             # <<<<<<<<<<<<<<
+ *     """Return a new dict with relative-date keyword values resolved via to_udf.
+ * 
+ */
+
+static PyObject *__pyx_pw_11querysource_5types_10validators_25resolve_udf_conditions(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyObject *__pyx_f_11querysource_5types_10validators_resolve_udf_conditions(PyObject *__pyx_v_conditions, CYTHON_UNUSED int __pyx_skip_dispatch, struct __pyx_opt_args_11querysource_5types_10validators_resolve_udf_conditions *__pyx_optional_args) {
+  PyObject *__pyx_v_cond_definition = ((PyObject*)Py_None);
+  PyObject *__pyx_v_result = 0;
+  PyObject *__pyx_v_hints = 0;
+  PyObject *__pyx_v_raw_hint = 0;
+  PyObject *__pyx_v_key = NULL;
+  PyObject *__pyx_v_value = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_2;
+  PyObject *__pyx_t_3 = NULL;
+  Py_ssize_t __pyx_t_4;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *(*__pyx_t_8)(PyObject *);
+  int __pyx_t_9;
+  unsigned int __pyx_t_10;
+  PyObject *__pyx_t_11 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("resolve_udf_conditions", 1);
+  if (__pyx_optional_args) {
+    if (__pyx_optional_args->__pyx_n > 0) {
+      __pyx_v_cond_definition = __pyx_optional_args->cond_definition;
+    }
+  }
+
+  /* "querysource/types/validators.pyx":192
+ *     mirroring is_valid(). Never mutates ``conditions``; to_udf errors propagate.
+ *     """
+ *     cdef dict result = dict(conditions) if conditions else {}             # <<<<<<<<<<<<<<
+ *     cdef dict hints = cond_definition or {}
+ *     cdef object raw_hint
+ */
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_conditions); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 192, __pyx_L1_error)
+  if (__pyx_t_2) {
+    if (unlikely(__pyx_v_conditions == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' is not iterable");
+      __PYX_ERR(0, 192, __pyx_L1_error)
+    }
+    __pyx_t_3 = PyDict_Copy(__pyx_v_conditions); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 192, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_1 = __pyx_t_3;
+    __pyx_t_3 = 0;
+  } else {
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 192, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_1 = __pyx_t_3;
+    __pyx_t_3 = 0;
+  }
+  __pyx_v_result = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "querysource/types/validators.pyx":193
+ *     """
+ *     cdef dict result = dict(conditions) if conditions else {}
+ *     cdef dict hints = cond_definition or {}             # <<<<<<<<<<<<<<
+ *     cdef object raw_hint
+ *     for key, value in list(result.items()):
+ */
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_cond_definition); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 193, __pyx_L1_error)
+  if (!__pyx_t_2) {
+  } else {
+    __Pyx_INCREF(__pyx_v_cond_definition);
+    __pyx_t_1 = __pyx_v_cond_definition;
+    goto __pyx_L3_bool_binop_done;
+  }
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 193, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_1 = __pyx_t_3;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_L3_bool_binop_done:;
+  __pyx_v_hints = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "querysource/types/validators.pyx":195
+ *     cdef dict hints = cond_definition or {}
+ *     cdef object raw_hint
+ *     for key, value in list(result.items()):             # <<<<<<<<<<<<<<
+ *         if not isinstance(value, str):
+ *             continue
+ */
+  if (unlikely(__pyx_v_result == Py_None)) {
+    PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
+    __PYX_ERR(0, 195, __pyx_L1_error)
+  }
+  __pyx_t_1 = __Pyx_PyDict_Items(__pyx_v_result); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 195, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_3 = __Pyx_PySequence_ListKeepNew(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 195, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __pyx_t_3; __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_4 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  for (;;) {
+    {
+      Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
+      #if !CYTHON_ASSUME_SAFE_MACROS
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 195, __pyx_L1_error)
+      #endif
+      if (__pyx_t_4 >= __pyx_temp) break;
+    }
+    #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+    __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_4); __Pyx_INCREF(__pyx_t_3); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(0, 195, __pyx_L1_error)
+    #else
+    __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 195, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    #endif
+    if ((likely(PyTuple_CheckExact(__pyx_t_3))) || (PyList_CheckExact(__pyx_t_3))) {
+      PyObject* sequence = __pyx_t_3;
+      Py_ssize_t size = __Pyx_PySequence_SIZE(sequence);
+      if (unlikely(size != 2)) {
+        if (size > 2) __Pyx_RaiseTooManyValuesError(2);
+        else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
+        __PYX_ERR(0, 195, __pyx_L1_error)
+      }
+      #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+      if (likely(PyTuple_CheckExact(sequence))) {
+        __pyx_t_5 = PyTuple_GET_ITEM(sequence, 0); 
+        __pyx_t_6 = PyTuple_GET_ITEM(sequence, 1); 
+      } else {
+        __pyx_t_5 = PyList_GET_ITEM(sequence, 0); 
+        __pyx_t_6 = PyList_GET_ITEM(sequence, 1); 
+      }
+      __Pyx_INCREF(__pyx_t_5);
+      __Pyx_INCREF(__pyx_t_6);
+      #else
+      __pyx_t_5 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 195, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_6 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 195, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      #endif
+      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    } else {
+      Py_ssize_t index = -1;
+      __pyx_t_7 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 195, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __pyx_t_8 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_7);
+      index = 0; __pyx_t_5 = __pyx_t_8(__pyx_t_7); if (unlikely(!__pyx_t_5)) goto __pyx_L7_unpacking_failed;
+      __Pyx_GOTREF(__pyx_t_5);
+      index = 1; __pyx_t_6 = __pyx_t_8(__pyx_t_7); if (unlikely(!__pyx_t_6)) goto __pyx_L7_unpacking_failed;
+      __Pyx_GOTREF(__pyx_t_6);
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_8(__pyx_t_7), 2) < 0) __PYX_ERR(0, 195, __pyx_L1_error)
+      __pyx_t_8 = NULL;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      goto __pyx_L8_unpacking_done;
+      __pyx_L7_unpacking_failed:;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __pyx_t_8 = NULL;
+      if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
+      __PYX_ERR(0, 195, __pyx_L1_error)
+      __pyx_L8_unpacking_done:;
+    }
+    __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_5);
+    __pyx_t_5 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_value, __pyx_t_6);
+    __pyx_t_6 = 0;
+
+    /* "querysource/types/validators.pyx":196
+ *     cdef object raw_hint
+ *     for key, value in list(result.items()):
+ *         if not isinstance(value, str):             # <<<<<<<<<<<<<<
+ *             continue
+ *         if value.strip().upper() not in UDF_LIST:
+ */
+    __pyx_t_2 = PyUnicode_Check(__pyx_v_value); 
+    __pyx_t_9 = (!__pyx_t_2);
+    if (__pyx_t_9) {
+
+      /* "querysource/types/validators.pyx":197
+ *     for key, value in list(result.items()):
+ *         if not isinstance(value, str):
+ *             continue             # <<<<<<<<<<<<<<
+ *         if value.strip().upper() not in UDF_LIST:
+ *             continue
+ */
+      goto __pyx_L5_continue;
+
+      /* "querysource/types/validators.pyx":196
+ *     cdef object raw_hint
+ *     for key, value in list(result.items()):
+ *         if not isinstance(value, str):             # <<<<<<<<<<<<<<
+ *             continue
+ *         if value.strip().upper() not in UDF_LIST:
+ */
+    }
+
+    /* "querysource/types/validators.pyx":198
+ *         if not isinstance(value, str):
+ *             continue
+ *         if value.strip().upper() not in UDF_LIST:             # <<<<<<<<<<<<<<
+ *             continue
+ *         raw_hint = hints.get(key)
+ */
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_strip); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 198, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_7 = NULL;
+    __pyx_t_10 = 0;
+    #if CYTHON_UNPACK_METHODS
+    if (likely(PyMethod_Check(__pyx_t_5))) {
+      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_5);
+      if (likely(__pyx_t_7)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
+        __Pyx_INCREF(__pyx_t_7);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_5, function);
+        __pyx_t_10 = 1;
+      }
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_7, NULL};
+      __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_10, 0+__pyx_t_10);
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 198, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    }
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_upper); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 198, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_6 = NULL;
+    __pyx_t_10 = 0;
+    #if CYTHON_UNPACK_METHODS
+    if (likely(PyMethod_Check(__pyx_t_5))) {
+      __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_5);
+      if (likely(__pyx_t_6)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_5);
+        __Pyx_INCREF(__pyx_t_6);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_5, function);
+        __pyx_t_10 = 1;
+      }
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
+      __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_10, 0+__pyx_t_10);
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 198, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    }
+    __pyx_t_9 = (__Pyx_PySequence_ContainsTF(__pyx_t_3, __pyx_v_11querysource_5types_10validators_UDF_LIST, Py_NE)); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 198, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (__pyx_t_9) {
+
+      /* "querysource/types/validators.pyx":199
+ *             continue
+ *         if value.strip().upper() not in UDF_LIST:
+ *             continue             # <<<<<<<<<<<<<<
+ *         raw_hint = hints.get(key)
+ *         # Defensive str(): cond_definition values are documented as strings,
+ */
+      goto __pyx_L5_continue;
+
+      /* "querysource/types/validators.pyx":198
+ *         if not isinstance(value, str):
+ *             continue
+ *         if value.strip().upper() not in UDF_LIST:             # <<<<<<<<<<<<<<
+ *             continue
+ *         raw_hint = hints.get(key)
+ */
+    }
+
+    /* "querysource/types/validators.pyx":200
+ *         if value.strip().upper() not in UDF_LIST:
+ *             continue
+ *         raw_hint = hints.get(key)             # <<<<<<<<<<<<<<
+ *         # Defensive str(): cond_definition values are documented as strings,
+ *         # but this now runs unconditionally on every raw-query provider call
+ */
+    if (unlikely(__pyx_v_hints == Py_None)) {
+      PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
+      __PYX_ERR(0, 200, __pyx_L1_error)
+    }
+    __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_hints, __pyx_v_key, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 200, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_XDECREF_SET(__pyx_v_raw_hint, __pyx_t_3);
+    __pyx_t_3 = 0;
+
+    /* "querysource/types/validators.pyx":205
+ *         # (not just the describe path)  a non-string hint must not crash
+ *         # the request.
+ *         if raw_hint is not None and str(raw_hint).lower() not in _KEYWORD_HINTS:             # <<<<<<<<<<<<<<
+ *             continue
+ *         result[key] = str(to_udf(value.strip()))
+ */
+    __pyx_t_2 = (__pyx_v_raw_hint != Py_None);
+    if (__pyx_t_2) {
+    } else {
+      __pyx_t_9 = __pyx_t_2;
+      goto __pyx_L12_bool_binop_done;
+    }
+    __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_v_raw_hint); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 205, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_lower); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 205, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __pyx_t_5 = NULL;
+    __pyx_t_10 = 0;
+    #if CYTHON_UNPACK_METHODS
+    if (likely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
+      if (likely(__pyx_t_5)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_6);
+        __Pyx_INCREF(__pyx_t_5);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_6, function);
+        __pyx_t_10 = 1;
+      }
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
+      __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_10, 0+__pyx_t_10);
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 205, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    }
+    __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_3, __pyx_v_11querysource_5types_10validators__KEYWORD_HINTS, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 205, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_9 = __pyx_t_2;
+    __pyx_L12_bool_binop_done:;
+    if (__pyx_t_9) {
+
+      /* "querysource/types/validators.pyx":206
+ *         # the request.
+ *         if raw_hint is not None and str(raw_hint).lower() not in _KEYWORD_HINTS:
+ *             continue             # <<<<<<<<<<<<<<
+ *         result[key] = str(to_udf(value.strip()))
+ *     return result
+ */
+      goto __pyx_L5_continue;
+
+      /* "querysource/types/validators.pyx":205
+ *         # (not just the describe path)  a non-string hint must not crash
+ *         # the request.
+ *         if raw_hint is not None and str(raw_hint).lower() not in _KEYWORD_HINTS:             # <<<<<<<<<<<<<<
+ *             continue
+ *         result[key] = str(to_udf(value.strip()))
+ */
+    }
+
+    /* "querysource/types/validators.pyx":207
+ *         if raw_hint is not None and str(raw_hint).lower() not in _KEYWORD_HINTS:
+ *             continue
+ *         result[key] = str(to_udf(value.strip()))             # <<<<<<<<<<<<<<
+ *     return result
+ * 
+ */
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_to_udf); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 207, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 207, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_11 = NULL;
+    __pyx_t_10 = 0;
+    #if CYTHON_UNPACK_METHODS
+    if (likely(PyMethod_Check(__pyx_t_7))) {
+      __pyx_t_11 = PyMethod_GET_SELF(__pyx_t_7);
+      if (likely(__pyx_t_11)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_7);
+        __Pyx_INCREF(__pyx_t_11);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_7, function);
+        __pyx_t_10 = 1;
+      }
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_11, NULL};
+      __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_10, 0+__pyx_t_10);
+      __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 207, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    }
+    __pyx_t_7 = NULL;
+    __pyx_t_10 = 0;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_6);
+      if (likely(__pyx_t_7)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_6);
+        __Pyx_INCREF(__pyx_t_7);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_6, function);
+        __pyx_t_10 = 1;
+      }
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_t_5};
+      __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 207, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    }
+    __pyx_t_6 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 207, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(__pyx_v_result == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+      __PYX_ERR(0, 207, __pyx_L1_error)
+    }
+    if (unlikely((PyDict_SetItem(__pyx_v_result, __pyx_v_key, __pyx_t_6) < 0))) __PYX_ERR(0, 207, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+    /* "querysource/types/validators.pyx":195
+ *     cdef dict hints = cond_definition or {}
+ *     cdef object raw_hint
+ *     for key, value in list(result.items()):             # <<<<<<<<<<<<<<
+ *         if not isinstance(value, str):
+ *             continue
+ */
+    __pyx_L5_continue:;
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "querysource/types/validators.pyx":208
+ *             continue
+ *         result[key] = str(to_udf(value.strip()))
+ *     return result             # <<<<<<<<<<<<<<
+ * 
+ * 
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_INCREF(__pyx_v_result);
+  __pyx_r = __pyx_v_result;
+  goto __pyx_L0;
+
+  /* "querysource/types/validators.pyx":185
+ * cdef tuple _KEYWORD_HINTS = ('date', 'datetime', 'timestamp')
+ * 
+ * cpdef dict resolve_udf_conditions(dict conditions, dict cond_definition = None):             # <<<<<<<<<<<<<<
+ *     """Return a new dict with relative-date keyword values resolved via to_udf.
+ * 
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_11);
+  __Pyx_AddTraceback("querysource.types.validators.resolve_udf_conditions", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_result);
+  __Pyx_XDECREF(__pyx_v_hints);
+  __Pyx_XDECREF(__pyx_v_raw_hint);
+  __Pyx_XDECREF(__pyx_v_key);
+  __Pyx_XDECREF(__pyx_v_value);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_11querysource_5types_10validators_25resolve_udf_conditions(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_24resolve_udf_conditions, "resolve_udf_conditions(dict conditions, dict cond_definition=None) -> dict\nReturn a new dict with relative-date keyword values resolved via to_udf.\n\n    Resolves only str values whose stripped uppercase form is in UDF_LIST and whose\n    cond_definition hint is absent or date/datetime/timestamp (case-insensitive),\n    mirroring is_valid(). Never mutates ``conditions``; to_udf errors propagate.\n    ");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_25resolve_udf_conditions = {"resolve_udf_conditions", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_25resolve_udf_conditions, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_24resolve_udf_conditions};
+static PyObject *__pyx_pw_11querysource_5types_10validators_25resolve_udf_conditions(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_conditions = 0;
+  PyObject *__pyx_v_cond_definition = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[2] = {0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("resolve_udf_conditions (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_MACROS
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject **__pyx_pyargnames[] = {&__pyx_n_s_conditions,&__pyx_n_s_cond_definition,0};
+    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject*)Py_None));
+    if (__pyx_kwds) {
+      Py_ssize_t kw_args;
+      switch (__pyx_nargs) {
+        case  2: values[1] = __Pyx_Arg_FASTCALL(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = __Pyx_NumKwargs_FASTCALL(__pyx_kwds);
+      switch (__pyx_nargs) {
+        case  0:
+        if (likely((values[0] = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_conditions)) != 0)) {
+          (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
+          kw_args--;
+        }
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 185, __pyx_L3_error)
+        else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_cond_definition);
+          if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 185, __pyx_L3_error)
+        }
+      }
+      if (unlikely(kw_args > 0)) {
+        const Py_ssize_t kwd_pos_args = __pyx_nargs;
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "resolve_udf_conditions") < 0)) __PYX_ERR(0, 185, __pyx_L3_error)
+      }
+    } else {
+      switch (__pyx_nargs) {
+        case  2: values[1] = __Pyx_Arg_FASTCALL(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = __Pyx_Arg_FASTCALL(__pyx_args, 0);
+        break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+    }
+    __pyx_v_conditions = ((PyObject*)values[0]);
+    __pyx_v_cond_definition = ((PyObject*)values[1]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("resolve_udf_conditions", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 185, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  {
+    Py_ssize_t __pyx_temp;
+    for (__pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+      __Pyx_Arg_XDECREF_FASTCALL(values[__pyx_temp]);
+    }
+  }
+  __Pyx_AddTraceback("querysource.types.validators.resolve_udf_conditions", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_conditions), (&PyDict_Type), 1, "conditions", 1))) __PYX_ERR(0, 185, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_cond_definition), (&PyDict_Type), 1, "cond_definition", 1))) __PYX_ERR(0, 185, __pyx_L1_error)
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_24resolve_udf_conditions(__pyx_self, __pyx_v_conditions, __pyx_v_cond_definition);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  __pyx_L0:;
+  {
+    Py_ssize_t __pyx_temp;
+    for (__pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+      __Pyx_Arg_XDECREF_FASTCALL(values[__pyx_temp]);
+    }
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_11querysource_5types_10validators_24resolve_udf_conditions(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_conditions, PyObject *__pyx_v_cond_definition) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  struct __pyx_opt_args_11querysource_5types_10validators_resolve_udf_conditions __pyx_t_2;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("resolve_udf_conditions", 1);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_2.__pyx_n = 1;
+  __pyx_t_2.cond_definition = __pyx_v_cond_definition;
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_resolve_udf_conditions(__pyx_v_conditions, 0, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("querysource.types.validators.resolve_udf_conditions", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "querysource/types/validators.pyx":211
  * 
  * 
  * cpdef bool_t is_array(object value):             # <<<<<<<<<<<<<<
@@ -11262,7 +12670,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_16is_pgconstant(CYTH
  * 
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_19is_array(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_27is_array(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -11281,16 +12689,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_array(PyObject *__pyx_v
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_array", 1);
 
-  /* "querysource/types/validators.pyx":163
+  /* "querysource/types/validators.pyx":212
  * 
  * cpdef bool_t is_array(object value):
  *     return isinstance(value,(list, dict, Sequence, ndarray))             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Sequence); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Sequence); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_ndarray); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_ndarray); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 212, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = PyList_Check(__pyx_v_value); 
   if (!__pyx_t_4) {
@@ -11318,7 +12726,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_array(PyObject *__pyx_v
   __pyx_r = __pyx_t_3;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":162
+  /* "querysource/types/validators.pyx":211
  * 
  * 
  * cpdef bool_t is_array(object value):             # <<<<<<<<<<<<<<
@@ -11338,16 +12746,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_array(PyObject *__pyx_v
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_19is_array(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_27is_array(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_18is_array, "is_array(value) -> bool");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_19is_array = {"is_array", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_19is_array, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_18is_array};
-static PyObject *__pyx_pw_11querysource_5types_10validators_19is_array(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_26is_array, "is_array(value) -> bool");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_27is_array = {"is_array", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_27is_array, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_26is_array};
+static PyObject *__pyx_pw_11querysource_5types_10validators_27is_array(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -11391,12 +12799,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 162, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_array") < 0)) __PYX_ERR(0, 162, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_array") < 0)) __PYX_ERR(0, 211, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -11407,7 +12815,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_array", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 162, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_array", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 211, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11421,7 +12829,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_18is_array(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_26is_array(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -11434,7 +12842,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_18is_array(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_26is_array(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -11444,8 +12852,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_18is_array(CYTHON_UN
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_array", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_array(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 162, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 162, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_array(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -11462,7 +12870,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_18is_array(CYTHON_UN
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":166
+/* "querysource/types/validators.pyx":215
  * 
  * 
  * cpdef bool_t is_epoch(object value):             # <<<<<<<<<<<<<<
@@ -11470,7 +12878,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_18is_array(CYTHON_UN
  *         # validate if unix epoch
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_21is_epoch(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_29is_epoch(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -11495,7 +12903,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_epoch(PyObject *__pyx_v
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_epoch", 1);
 
-  /* "querysource/types/validators.pyx":167
+  /* "querysource/types/validators.pyx":216
  * 
  * cpdef bool_t is_epoch(object value):
  *     try:             # <<<<<<<<<<<<<<
@@ -11511,16 +12919,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_epoch(PyObject *__pyx_v
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/types/validators.pyx":169
+      /* "querysource/types/validators.pyx":218
  *     try:
  *         # validate if unix epoch
  *         return dt.fromtimestamp(int(value))             # <<<<<<<<<<<<<<
  *     except Exception:
  *         return False
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_7cpython_8datetime_datetime), __pyx_n_s_fromtimestamp); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 169, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_7cpython_8datetime_datetime), __pyx_n_s_fromtimestamp); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 218, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 169, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 218, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -11541,16 +12949,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_epoch(PyObject *__pyx_v
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 169, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 218, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
-      __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_9 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 169, __pyx_L3_error)
+      __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_9 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 218, __pyx_L3_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_r = __pyx_t_9;
       goto __pyx_L7_try_return;
 
-      /* "querysource/types/validators.pyx":167
+      /* "querysource/types/validators.pyx":216
  * 
  * cpdef bool_t is_epoch(object value):
  *     try:             # <<<<<<<<<<<<<<
@@ -11564,7 +12972,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_epoch(PyObject *__pyx_v
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "querysource/types/validators.pyx":170
+    /* "querysource/types/validators.pyx":219
  *         # validate if unix epoch
  *         return dt.fromtimestamp(int(value))
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -11574,12 +12982,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_epoch(PyObject *__pyx_v
     __pyx_t_10 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_10) {
       __Pyx_AddTraceback("querysource.types.validators.is_epoch", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 170, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 219, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "querysource/types/validators.pyx":171
+      /* "querysource/types/validators.pyx":220
  *         return dt.fromtimestamp(int(value))
  *     except Exception:
  *         return False             # <<<<<<<<<<<<<<
@@ -11594,7 +13002,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_epoch(PyObject *__pyx_v
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/types/validators.pyx":167
+    /* "querysource/types/validators.pyx":216
  * 
  * cpdef bool_t is_epoch(object value):
  *     try:             # <<<<<<<<<<<<<<
@@ -11621,7 +13029,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_epoch(PyObject *__pyx_v
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":166
+  /* "querysource/types/validators.pyx":215
  * 
  * 
  * cpdef bool_t is_epoch(object value):             # <<<<<<<<<<<<<<
@@ -11643,16 +13051,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_epoch(PyObject *__pyx_v
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_21is_epoch(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_29is_epoch(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_20is_epoch, "is_epoch(value) -> bool");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_21is_epoch = {"is_epoch", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_21is_epoch, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_20is_epoch};
-static PyObject *__pyx_pw_11querysource_5types_10validators_21is_epoch(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_28is_epoch, "is_epoch(value) -> bool");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_29is_epoch = {"is_epoch", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_29is_epoch, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_28is_epoch};
+static PyObject *__pyx_pw_11querysource_5types_10validators_29is_epoch(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -11696,12 +13104,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 166, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 215, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_epoch") < 0)) __PYX_ERR(0, 166, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_epoch") < 0)) __PYX_ERR(0, 215, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -11712,7 +13120,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_epoch", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 166, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_epoch", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 215, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11726,7 +13134,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_20is_epoch(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_28is_epoch(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -11739,7 +13147,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_20is_epoch(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_28is_epoch(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -11749,8 +13157,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_20is_epoch(CYTHON_UN
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_epoch", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_epoch(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 166, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_epoch(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 215, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 215, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -11767,7 +13175,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_20is_epoch(CYTHON_UN
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":173
+/* "querysource/types/validators.pyx":222
  *         return False
  * 
  * cdef object to_epoch(object value):             # <<<<<<<<<<<<<<
@@ -11789,7 +13197,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_epoch", 1);
 
-  /* "querysource/types/validators.pyx":174
+  /* "querysource/types/validators.pyx":223
  * 
  * cdef object to_epoch(object value):
  *     if isinstance(value, (datetime.date, datetime.datetime)):             # <<<<<<<<<<<<<<
@@ -11807,7 +13215,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":175
+    /* "querysource/types/validators.pyx":224
  * cdef object to_epoch(object value):
  *     if isinstance(value, (datetime.date, datetime.datetime)):
  *         return value.timestamp() * 1000             # <<<<<<<<<<<<<<
@@ -11815,7 +13223,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
  *         return int(value)
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_timestamp); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 175, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_timestamp); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 224, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -11835,18 +13243,18 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
       PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 0+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 175, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 224, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
-    __pyx_t_4 = __Pyx_PyInt_MultiplyObjC(__pyx_t_3, __pyx_int_1000, 0x3E8, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 175, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyInt_MultiplyObjC(__pyx_t_3, __pyx_int_1000, 0x3E8, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 224, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":174
+    /* "querysource/types/validators.pyx":223
  * 
  * cdef object to_epoch(object value):
  *     if isinstance(value, (datetime.date, datetime.datetime)):             # <<<<<<<<<<<<<<
@@ -11855,7 +13263,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
  */
   }
 
-  /* "querysource/types/validators.pyx":176
+  /* "querysource/types/validators.pyx":225
  *     if isinstance(value, (datetime.date, datetime.datetime)):
  *         return value.timestamp() * 1000
  *     elif isinstance(value, str):             # <<<<<<<<<<<<<<
@@ -11865,7 +13273,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
   __pyx_t_1 = PyUnicode_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":177
+    /* "querysource/types/validators.pyx":226
  *         return value.timestamp() * 1000
  *     elif isinstance(value, str):
  *         return int(value)             # <<<<<<<<<<<<<<
@@ -11873,13 +13281,13 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
  *         return value
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 177, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":176
+    /* "querysource/types/validators.pyx":225
  *     if isinstance(value, (datetime.date, datetime.datetime)):
  *         return value.timestamp() * 1000
  *     elif isinstance(value, str):             # <<<<<<<<<<<<<<
@@ -11888,7 +13296,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
  */
   }
 
-  /* "querysource/types/validators.pyx":179
+  /* "querysource/types/validators.pyx":228
  *         return int(value)
  *     else:
  *         return value             # <<<<<<<<<<<<<<
@@ -11902,7 +13310,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":173
+  /* "querysource/types/validators.pyx":222
  *         return False
  * 
  * cdef object to_epoch(object value):             # <<<<<<<<<<<<<<
@@ -11923,7 +13331,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":181
+/* "querysource/types/validators.pyx":230
  *         return value
  * 
  * cpdef bool_t is_date(object value):             # <<<<<<<<<<<<<<
@@ -11931,7 +13339,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_epoch(PyObject *__
  *     if isinstance(value, list): # between
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_23is_date(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_31is_date(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -11959,7 +13367,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_date", 1);
 
-  /* "querysource/types/validators.pyx":182
+  /* "querysource/types/validators.pyx":231
  * 
  * cpdef bool_t is_date(object value):
  *     response = False             # <<<<<<<<<<<<<<
@@ -11968,7 +13376,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
  */
   __pyx_v_response = 0;
 
-  /* "querysource/types/validators.pyx":183
+  /* "querysource/types/validators.pyx":232
  * cpdef bool_t is_date(object value):
  *     response = False
  *     if isinstance(value, list): # between             # <<<<<<<<<<<<<<
@@ -11978,7 +13386,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
   __pyx_t_1 = PyList_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":184
+    /* "querysource/types/validators.pyx":233
  *     response = False
  *     if isinstance(value, list): # between
  *         return True # TODO: validation of any element (reqcursive)             # <<<<<<<<<<<<<<
@@ -11988,7 +13396,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":183
+    /* "querysource/types/validators.pyx":232
  * cpdef bool_t is_date(object value):
  *     response = False
  *     if isinstance(value, list): # between             # <<<<<<<<<<<<<<
@@ -11997,7 +13405,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
  */
   }
 
-  /* "querysource/types/validators.pyx":185
+  /* "querysource/types/validators.pyx":234
  *     if isinstance(value, list): # between
  *         return True # TODO: validation of any element (reqcursive)
  *     elif isinstance(value, (datetime.date, datetime.datetime)):             # <<<<<<<<<<<<<<
@@ -12015,7 +13423,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":186
+    /* "querysource/types/validators.pyx":235
  *         return True # TODO: validation of any element (reqcursive)
  *     elif isinstance(value, (datetime.date, datetime.datetime)):
  *         return True             # <<<<<<<<<<<<<<
@@ -12025,7 +13433,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":185
+    /* "querysource/types/validators.pyx":234
  *     if isinstance(value, list): # between
  *         return True # TODO: validation of any element (reqcursive)
  *     elif isinstance(value, (datetime.date, datetime.datetime)):             # <<<<<<<<<<<<<<
@@ -12034,7 +13442,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
  */
   }
 
-  /* "querysource/types/validators.pyx":188
+  /* "querysource/types/validators.pyx":237
  *         return True
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -12051,16 +13459,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
       __Pyx_XGOTREF(__pyx_t_5);
       /*try:*/ {
 
-        /* "querysource/types/validators.pyx":189
+        /* "querysource/types/validators.pyx":238
  *     else:
  *         try:
  *             return parser.parse(value).date()             # <<<<<<<<<<<<<<
  *         except Exception:
  *             pass
  */
-        __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_parser); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 189, __pyx_L6_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_parser); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 238, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_parse); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 189, __pyx_L6_error)
+        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_parse); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 238, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __pyx_t_8 = NULL;
@@ -12081,11 +13489,11 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
           PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_v_value};
           __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_9, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
           __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 189, __pyx_L6_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 238, __pyx_L6_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
-        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_date); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 189, __pyx_L6_error)
+        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_date); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 238, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __pyx_t_7 = NULL;
@@ -12106,16 +13514,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
           PyObject *__pyx_callargs[2] = {__pyx_t_7, NULL};
           __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_9, __pyx_callargs+1-__pyx_t_10, 0+__pyx_t_10);
           __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 189, __pyx_L6_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 238, __pyx_L6_error)
           __Pyx_GOTREF(__pyx_t_6);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
-        __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_11 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 189, __pyx_L6_error)
+        __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_11 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 238, __pyx_L6_error)
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __pyx_r = __pyx_t_11;
         goto __pyx_L10_try_return;
 
-        /* "querysource/types/validators.pyx":188
+        /* "querysource/types/validators.pyx":237
  *         return True
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -12129,7 +13537,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "querysource/types/validators.pyx":190
+      /* "querysource/types/validators.pyx":239
  *         try:
  *             return parser.parse(value).date()
  *         except Exception:             # <<<<<<<<<<<<<<
@@ -12143,7 +13551,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
       }
       goto __pyx_L8_except_error;
 
-      /* "querysource/types/validators.pyx":188
+      /* "querysource/types/validators.pyx":237
  *         return True
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -12169,7 +13577,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
       __Pyx_ExceptionReset(__pyx_t_3, __pyx_t_4, __pyx_t_5);
     }
 
-    /* "querysource/types/validators.pyx":192
+    /* "querysource/types/validators.pyx":241
  *         except Exception:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -12185,18 +13593,18 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
       __Pyx_XGOTREF(__pyx_t_3);
       /*try:*/ {
 
-        /* "querysource/types/validators.pyx":194
+        /* "querysource/types/validators.pyx":243
  *         try:
  *             # validate if unix epoch
  *             return is_epoch(value)             # <<<<<<<<<<<<<<
  *         except Exception:
  *             return False
  */
-        __pyx_t_11 = __pyx_f_11querysource_5types_10validators_is_epoch(__pyx_v_value, 0); if (unlikely(__pyx_t_11 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 194, __pyx_L12_error)
+        __pyx_t_11 = __pyx_f_11querysource_5types_10validators_is_epoch(__pyx_v_value, 0); if (unlikely(__pyx_t_11 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 243, __pyx_L12_error)
         __pyx_r = __pyx_t_11;
         goto __pyx_L16_try_return;
 
-        /* "querysource/types/validators.pyx":192
+        /* "querysource/types/validators.pyx":241
  *         except Exception:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -12210,7 +13618,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "querysource/types/validators.pyx":195
+      /* "querysource/types/validators.pyx":244
  *             # validate if unix epoch
  *             return is_epoch(value)
  *         except Exception:             # <<<<<<<<<<<<<<
@@ -12220,12 +13628,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
       __pyx_t_12 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
       if (__pyx_t_12) {
         __Pyx_AddTraceback("querysource.types.validators.is_date", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_9, &__pyx_t_7) < 0) __PYX_ERR(0, 195, __pyx_L14_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_9, &__pyx_t_7) < 0) __PYX_ERR(0, 244, __pyx_L14_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_9);
         __Pyx_XGOTREF(__pyx_t_7);
 
-        /* "querysource/types/validators.pyx":196
+        /* "querysource/types/validators.pyx":245
  *             return is_epoch(value)
  *         except Exception:
  *             return False             # <<<<<<<<<<<<<<
@@ -12240,7 +13648,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
       }
       goto __pyx_L14_except_error;
 
-      /* "querysource/types/validators.pyx":192
+      /* "querysource/types/validators.pyx":241
  *         except Exception:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -12268,7 +13676,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
     }
   }
 
-  /* "querysource/types/validators.pyx":181
+  /* "querysource/types/validators.pyx":230
  *         return value
  * 
  * cpdef bool_t is_date(object value):             # <<<<<<<<<<<<<<
@@ -12290,16 +13698,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_date(PyObject *__pyx_v_
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_23is_date(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_31is_date(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_22is_date, "is_date(value) -> bool");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_23is_date = {"is_date", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_23is_date, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_22is_date};
-static PyObject *__pyx_pw_11querysource_5types_10validators_23is_date(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_30is_date, "is_date(value) -> bool");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_31is_date = {"is_date", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_31is_date, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_30is_date};
+static PyObject *__pyx_pw_11querysource_5types_10validators_31is_date(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12343,12 +13751,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 181, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 230, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_date") < 0)) __PYX_ERR(0, 181, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_date") < 0)) __PYX_ERR(0, 230, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -12359,7 +13767,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_date", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 181, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_date", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 230, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12373,7 +13781,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_22is_date(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_30is_date(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -12386,7 +13794,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_22is_date(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_30is_date(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -12396,8 +13804,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_22is_date(CYTHON_UNU
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_date", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_date(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 181, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_date(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -12414,7 +13822,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_22is_date(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":199
+/* "querysource/types/validators.pyx":248
  * 
  * 
  * cdef str to_date(object value):             # <<<<<<<<<<<<<<
@@ -12433,7 +13841,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_date(PyObject *__p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_date", 1);
 
-  /* "querysource/types/validators.pyx":203
+  /* "querysource/types/validators.pyx":252
  *     Returns obj converted to date.
  *     """
  *     if isinstance(value, (datetime.date, datetime.datetime)):             # <<<<<<<<<<<<<<
@@ -12451,7 +13859,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_date(PyObject *__p
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":204
+    /* "querysource/types/validators.pyx":253
  *     """
  *     if isinstance(value, (datetime.date, datetime.datetime)):
  *         return str(value)             # <<<<<<<<<<<<<<
@@ -12459,13 +13867,13 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_date(PyObject *__p
  *         return quoteString(value)
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 204, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 253, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":203
+    /* "querysource/types/validators.pyx":252
  *     Returns obj converted to date.
  *     """
  *     if isinstance(value, (datetime.date, datetime.datetime)):             # <<<<<<<<<<<<<<
@@ -12474,7 +13882,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_date(PyObject *__p
  */
   }
 
-  /* "querysource/types/validators.pyx":206
+  /* "querysource/types/validators.pyx":255
  *         return str(value)
  *     else:
  *         return quoteString(value)             # <<<<<<<<<<<<<<
@@ -12483,14 +13891,14 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_date(PyObject *__p
  */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 206, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 255, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":199
+  /* "querysource/types/validators.pyx":248
  * 
  * 
  * cdef str to_date(object value):             # <<<<<<<<<<<<<<
@@ -12509,7 +13917,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_date(PyObject *__p
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":209
+/* "querysource/types/validators.pyx":258
  * 
  * 
  * cpdef bool_t is_datetime(object value):             # <<<<<<<<<<<<<<
@@ -12517,7 +13925,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_date(PyObject *__p
  *         return True
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_25is_datetime(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_33is_datetime(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12543,7 +13951,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_datetime", 1);
 
-  /* "querysource/types/validators.pyx":210
+  /* "querysource/types/validators.pyx":259
  * 
  * cpdef bool_t is_datetime(object value):
  *     if isinstance(value, (datetime.datetime, datetime.timedelta)):             # <<<<<<<<<<<<<<
@@ -12561,7 +13969,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":211
+    /* "querysource/types/validators.pyx":260
  * cpdef bool_t is_datetime(object value):
  *     if isinstance(value, (datetime.datetime, datetime.timedelta)):
  *         return True             # <<<<<<<<<<<<<<
@@ -12571,7 +13979,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":210
+    /* "querysource/types/validators.pyx":259
  * 
  * cpdef bool_t is_datetime(object value):
  *     if isinstance(value, (datetime.datetime, datetime.timedelta)):             # <<<<<<<<<<<<<<
@@ -12580,7 +13988,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
  */
   }
 
-  /* "querysource/types/validators.pyx":213
+  /* "querysource/types/validators.pyx":262
  *         return True
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -12597,16 +14005,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
       __Pyx_XGOTREF(__pyx_t_5);
       /*try:*/ {
 
-        /* "querysource/types/validators.pyx":214
+        /* "querysource/types/validators.pyx":263
  *     else:
  *         try:
  *             val = parser.parse(value)             # <<<<<<<<<<<<<<
  *             if val:
  *                 return True
  */
-        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_parser); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 214, __pyx_L6_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_parser); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 263, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_parse); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 214, __pyx_L6_error)
+        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_parse); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 263, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __pyx_t_7 = NULL;
@@ -12627,24 +14035,24 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
           PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_value};
           __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
           __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 214, __pyx_L6_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 263, __pyx_L6_error)
           __Pyx_GOTREF(__pyx_t_6);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
         __pyx_v_val = __pyx_t_6;
         __pyx_t_6 = 0;
 
-        /* "querysource/types/validators.pyx":215
+        /* "querysource/types/validators.pyx":264
  *         try:
  *             val = parser.parse(value)
  *             if val:             # <<<<<<<<<<<<<<
  *                 return True
  *             return False
  */
-        __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_val); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 215, __pyx_L6_error)
+        __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_val); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 264, __pyx_L6_error)
         if (__pyx_t_1) {
 
-          /* "querysource/types/validators.pyx":216
+          /* "querysource/types/validators.pyx":265
  *             val = parser.parse(value)
  *             if val:
  *                 return True             # <<<<<<<<<<<<<<
@@ -12654,7 +14062,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
           __pyx_r = 1;
           goto __pyx_L10_try_return;
 
-          /* "querysource/types/validators.pyx":215
+          /* "querysource/types/validators.pyx":264
  *         try:
  *             val = parser.parse(value)
  *             if val:             # <<<<<<<<<<<<<<
@@ -12663,7 +14071,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
  */
         }
 
-        /* "querysource/types/validators.pyx":217
+        /* "querysource/types/validators.pyx":266
  *             if val:
  *                 return True
  *             return False             # <<<<<<<<<<<<<<
@@ -12673,7 +14081,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
         __pyx_r = 0;
         goto __pyx_L10_try_return;
 
-        /* "querysource/types/validators.pyx":213
+        /* "querysource/types/validators.pyx":262
  *         return True
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -12686,7 +14094,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "querysource/types/validators.pyx":218
+      /* "querysource/types/validators.pyx":267
  *                 return True
  *             return False
  *         except ValueError:             # <<<<<<<<<<<<<<
@@ -12696,12 +14104,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
       __pyx_t_10 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ValueError);
       if (__pyx_t_10) {
         __Pyx_AddTraceback("querysource.types.validators.is_datetime", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_8, &__pyx_t_7) < 0) __PYX_ERR(0, 218, __pyx_L8_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_8, &__pyx_t_7) < 0) __PYX_ERR(0, 267, __pyx_L8_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_8);
         __Pyx_XGOTREF(__pyx_t_7);
 
-        /* "querysource/types/validators.pyx":219
+        /* "querysource/types/validators.pyx":268
  *             return False
  *         except ValueError:
  *             return False             # <<<<<<<<<<<<<<
@@ -12716,7 +14124,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
       }
       goto __pyx_L8_except_error;
 
-      /* "querysource/types/validators.pyx":213
+      /* "querysource/types/validators.pyx":262
  *         return True
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -12744,7 +14152,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
     }
   }
 
-  /* "querysource/types/validators.pyx":209
+  /* "querysource/types/validators.pyx":258
  * 
  * 
  * cpdef bool_t is_datetime(object value):             # <<<<<<<<<<<<<<
@@ -12766,16 +14174,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_datetime(PyObject *__py
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_25is_datetime(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_33is_datetime(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_24is_datetime, "is_datetime(value) -> bool");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_25is_datetime = {"is_datetime", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_25is_datetime, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_24is_datetime};
-static PyObject *__pyx_pw_11querysource_5types_10validators_25is_datetime(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_32is_datetime, "is_datetime(value) -> bool");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_33is_datetime = {"is_datetime", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_33is_datetime, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_32is_datetime};
+static PyObject *__pyx_pw_11querysource_5types_10validators_33is_datetime(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12819,12 +14227,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 209, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 258, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_datetime") < 0)) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_datetime") < 0)) __PYX_ERR(0, 258, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -12835,7 +14243,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_datetime", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 209, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_datetime", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 258, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12849,7 +14257,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_24is_datetime(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_32is_datetime(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -12862,7 +14270,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_24is_datetime(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_32is_datetime(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -12872,8 +14280,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_24is_datetime(CYTHON
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_datetime", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_datetime(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 209, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_datetime(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 258, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 258, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -12890,7 +14298,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_24is_datetime(CYTHON
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":222
+/* "querysource/types/validators.pyx":271
  * 
  * 
  * cpdef bool_t is_uuid(object value):             # <<<<<<<<<<<<<<
@@ -12898,7 +14306,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_24is_datetime(CYTHON
  *     """
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_27is_uuid(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_35is_uuid(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12924,31 +14332,31 @@ static bool __pyx_f_11querysource_5types_10validators_is_uuid(PyObject *__pyx_v_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_uuid", 1);
 
-  /* "querysource/types/validators.pyx":225
+  /* "querysource/types/validators.pyx":274
  *     """Returns if value is an UUID object.
  *     """
  *     if isinstance(value, UUID):             # <<<<<<<<<<<<<<
  *         # already an uuid
  *         return value
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_UUID); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_UUID); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 274, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 274, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":227
+    /* "querysource/types/validators.pyx":276
  *     if isinstance(value, UUID):
  *         # already an uuid
  *         return value             # <<<<<<<<<<<<<<
  *     try:
  *         return UUID(str(value))
  */
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_3 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_3 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 276, __pyx_L1_error)
     __pyx_r = __pyx_t_3;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":225
+    /* "querysource/types/validators.pyx":274
  *     """Returns if value is an UUID object.
  *     """
  *     if isinstance(value, UUID):             # <<<<<<<<<<<<<<
@@ -12957,7 +14365,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_uuid(PyObject *__pyx_v_
  */
   }
 
-  /* "querysource/types/validators.pyx":228
+  /* "querysource/types/validators.pyx":277
  *         # already an uuid
  *         return value
  *     try:             # <<<<<<<<<<<<<<
@@ -12973,16 +14381,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_uuid(PyObject *__pyx_v_
     __Pyx_XGOTREF(__pyx_t_6);
     /*try:*/ {
 
-      /* "querysource/types/validators.pyx":229
+      /* "querysource/types/validators.pyx":278
  *         return value
  *     try:
  *         return UUID(str(value))             # <<<<<<<<<<<<<<
  *     except ValueError:
  *         return False
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_UUID); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 229, __pyx_L4_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_UUID); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 278, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_8 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 229, __pyx_L4_error)
+      __pyx_t_8 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 278, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_8);
       __pyx_t_9 = NULL;
       __pyx_t_10 = 0;
@@ -13003,16 +14411,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_uuid(PyObject *__pyx_v_
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 229, __pyx_L4_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 278, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       }
-      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 229, __pyx_L4_error)
+      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 278, __pyx_L4_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_r = __pyx_t_3;
       goto __pyx_L8_try_return;
 
-      /* "querysource/types/validators.pyx":228
+      /* "querysource/types/validators.pyx":277
  *         # already an uuid
  *         return value
  *     try:             # <<<<<<<<<<<<<<
@@ -13026,7 +14434,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_uuid(PyObject *__pyx_v_
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "querysource/types/validators.pyx":230
+    /* "querysource/types/validators.pyx":279
  *     try:
  *         return UUID(str(value))
  *     except ValueError:             # <<<<<<<<<<<<<<
@@ -13036,12 +14444,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_uuid(PyObject *__pyx_v_
     __pyx_t_11 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ValueError);
     if (__pyx_t_11) {
       __Pyx_AddTraceback("querysource.types.validators.is_uuid", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(0, 230, __pyx_L6_except_error)
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(0, 279, __pyx_L6_except_error)
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_8);
 
-      /* "querysource/types/validators.pyx":231
+      /* "querysource/types/validators.pyx":280
  *         return UUID(str(value))
  *     except ValueError:
  *         return False             # <<<<<<<<<<<<<<
@@ -13056,7 +14464,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_uuid(PyObject *__pyx_v_
     }
     goto __pyx_L6_except_error;
 
-    /* "querysource/types/validators.pyx":228
+    /* "querysource/types/validators.pyx":277
  *         # already an uuid
  *         return value
  *     try:             # <<<<<<<<<<<<<<
@@ -13083,7 +14491,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_uuid(PyObject *__pyx_v_
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":222
+  /* "querysource/types/validators.pyx":271
  * 
  * 
  * cpdef bool_t is_uuid(object value):             # <<<<<<<<<<<<<<
@@ -13105,16 +14513,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_uuid(PyObject *__pyx_v_
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_27is_uuid(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_35is_uuid(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_26is_uuid, "is_uuid(value) -> bool\nReturns if value is an UUID object.\n    ");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_27is_uuid = {"is_uuid", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_27is_uuid, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_26is_uuid};
-static PyObject *__pyx_pw_11querysource_5types_10validators_27is_uuid(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_34is_uuid, "is_uuid(value) -> bool\nReturns if value is an UUID object.\n    ");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_35is_uuid = {"is_uuid", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_35is_uuid, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_34is_uuid};
+static PyObject *__pyx_pw_11querysource_5types_10validators_35is_uuid(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13158,12 +14566,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 222, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 271, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_uuid") < 0)) __PYX_ERR(0, 222, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_uuid") < 0)) __PYX_ERR(0, 271, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -13174,7 +14582,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_uuid", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 222, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_uuid", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 271, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13188,7 +14596,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_26is_uuid(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_34is_uuid(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -13201,7 +14609,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_26is_uuid(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_34is_uuid(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -13211,8 +14619,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_26is_uuid(CYTHON_UNU
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_uuid", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_uuid(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 222, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_uuid(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 271, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 271, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -13229,7 +14637,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_26is_uuid(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":233
+/* "querysource/types/validators.pyx":282
  *         return False
  * 
  * cdef str to_uuid(object value):             # <<<<<<<<<<<<<<
@@ -13247,7 +14655,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_uuid(PyObject *__p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_uuid", 1);
 
-  /* "querysource/types/validators.pyx":236
+  /* "querysource/types/validators.pyx":285
  *     """Returns a UUID version of a str column.
  *     """
  *     return quoteString(str(value))             # <<<<<<<<<<<<<<
@@ -13255,16 +14663,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_uuid(PyObject *__p
  * cpdef bool_t is_integer(value):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 236, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 285, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 236, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 285, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":233
+  /* "querysource/types/validators.pyx":282
  *         return False
  * 
  * cdef str to_uuid(object value):             # <<<<<<<<<<<<<<
@@ -13284,7 +14692,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_uuid(PyObject *__p
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":238
+/* "querysource/types/validators.pyx":287
  *     return quoteString(str(value))
  * 
  * cpdef bool_t is_integer(value):             # <<<<<<<<<<<<<<
@@ -13292,7 +14700,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_uuid(PyObject *__p
  *         return False
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_29is_integer(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_37is_integer(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13317,7 +14725,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_integer", 1);
 
-  /* "querysource/types/validators.pyx":239
+  /* "querysource/types/validators.pyx":288
  * 
  * cpdef bool_t is_integer(value):
  *     if isinstance(value, (dict, list)):             # <<<<<<<<<<<<<<
@@ -13335,7 +14743,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":240
+    /* "querysource/types/validators.pyx":289
  * cpdef bool_t is_integer(value):
  *     if isinstance(value, (dict, list)):
  *         return False             # <<<<<<<<<<<<<<
@@ -13345,7 +14753,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":239
+    /* "querysource/types/validators.pyx":288
  * 
  * cpdef bool_t is_integer(value):
  *     if isinstance(value, (dict, list)):             # <<<<<<<<<<<<<<
@@ -13354,7 +14762,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
  */
   }
 
-  /* "querysource/types/validators.pyx":241
+  /* "querysource/types/validators.pyx":290
  *     if isinstance(value, (dict, list)):
  *         return False
  *     if isinstance(value, int):             # <<<<<<<<<<<<<<
@@ -13364,7 +14772,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
   __pyx_t_1 = PyInt_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":242
+    /* "querysource/types/validators.pyx":291
  *         return False
  *     if isinstance(value, int):
  *         return True             # <<<<<<<<<<<<<<
@@ -13374,7 +14782,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":241
+    /* "querysource/types/validators.pyx":290
  *     if isinstance(value, (dict, list)):
  *         return False
  *     if isinstance(value, int):             # <<<<<<<<<<<<<<
@@ -13383,7 +14791,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
  */
   }
 
-  /* "querysource/types/validators.pyx":244
+  /* "querysource/types/validators.pyx":293
  *         return True
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -13400,21 +14808,21 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
       __Pyx_XGOTREF(__pyx_t_5);
       /*try:*/ {
 
-        /* "querysource/types/validators.pyx":245
+        /* "querysource/types/validators.pyx":294
  *     else:
  *         try:
  *             return int(value)             # <<<<<<<<<<<<<<
  *         except (TypeError, ValueError):
  *             return False
  */
-        __pyx_t_6 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 245, __pyx_L7_error)
+        __pyx_t_6 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 294, __pyx_L7_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_7 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 245, __pyx_L7_error)
+        __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_7 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 294, __pyx_L7_error)
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __pyx_r = __pyx_t_7;
         goto __pyx_L11_try_return;
 
-        /* "querysource/types/validators.pyx":244
+        /* "querysource/types/validators.pyx":293
  *         return True
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -13425,7 +14833,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
       __pyx_L7_error:;
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-      /* "querysource/types/validators.pyx":246
+      /* "querysource/types/validators.pyx":295
  *         try:
  *             return int(value)
  *         except (TypeError, ValueError):             # <<<<<<<<<<<<<<
@@ -13435,12 +14843,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
       __pyx_t_8 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_TypeError, __pyx_builtin_ValueError);
       if (__pyx_t_8) {
         __Pyx_AddTraceback("querysource.types.validators.is_integer", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_9, &__pyx_t_10) < 0) __PYX_ERR(0, 246, __pyx_L9_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_9, &__pyx_t_10) < 0) __PYX_ERR(0, 295, __pyx_L9_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_9);
         __Pyx_XGOTREF(__pyx_t_10);
 
-        /* "querysource/types/validators.pyx":247
+        /* "querysource/types/validators.pyx":296
  *             return int(value)
  *         except (TypeError, ValueError):
  *             return False             # <<<<<<<<<<<<<<
@@ -13455,7 +14863,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
       }
       goto __pyx_L9_except_error;
 
-      /* "querysource/types/validators.pyx":244
+      /* "querysource/types/validators.pyx":293
  *         return True
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -13483,7 +14891,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
     }
   }
 
-  /* "querysource/types/validators.pyx":238
+  /* "querysource/types/validators.pyx":287
  *     return quoteString(str(value))
  * 
  * cpdef bool_t is_integer(value):             # <<<<<<<<<<<<<<
@@ -13504,16 +14912,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_integer(PyObject *__pyx
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_29is_integer(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_37is_integer(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_28is_integer, "is_integer(value) -> bool");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_29is_integer = {"is_integer", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_29is_integer, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_28is_integer};
-static PyObject *__pyx_pw_11querysource_5types_10validators_29is_integer(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_36is_integer, "is_integer(value) -> bool");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_37is_integer = {"is_integer", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_37is_integer, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_36is_integer};
+static PyObject *__pyx_pw_11querysource_5types_10validators_37is_integer(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13557,12 +14965,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 238, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 287, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_integer") < 0)) __PYX_ERR(0, 238, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_integer") < 0)) __PYX_ERR(0, 287, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -13573,7 +14981,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_integer", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 238, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_integer", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 287, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13587,7 +14995,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_28is_integer(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_36is_integer(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -13600,7 +15008,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_28is_integer(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_36is_integer(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -13610,8 +15018,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_28is_integer(CYTHON_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_integer", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_integer(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 238, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 238, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_integer(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 287, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -13628,7 +15036,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_28is_integer(CYTHON_
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":249
+/* "querysource/types/validators.pyx":298
  *             return False
  * 
  * cpdef bool_t is_float(object value):             # <<<<<<<<<<<<<<
@@ -13636,7 +15044,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_28is_integer(CYTHON_
  * 
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_31is_float(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_39is_float(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13661,14 +15069,14 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_float", 1);
 
-  /* "querysource/types/validators.pyx":254
+  /* "querysource/types/validators.pyx":303
  *     Returns object converted to float.
  *     """
  *     if isinstance(value, (float, Decimal)):             # <<<<<<<<<<<<<<
  *         return value
  *     elif isinstance(value, _MISSING_TYPE):
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Decimal); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 254, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Decimal); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 303, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_3 = PyFloat_Check(__pyx_v_value); 
   if (!__pyx_t_3) {
@@ -13682,18 +15090,18 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":255
+    /* "querysource/types/validators.pyx":304
  *     """
  *     if isinstance(value, (float, Decimal)):
  *         return value             # <<<<<<<<<<<<<<
  *     elif isinstance(value, _MISSING_TYPE):
  *         return False
  */
-    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_4 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 255, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_4 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 304, __pyx_L1_error)
     __pyx_r = __pyx_t_4;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":254
+    /* "querysource/types/validators.pyx":303
  *     Returns object converted to float.
  *     """
  *     if isinstance(value, (float, Decimal)):             # <<<<<<<<<<<<<<
@@ -13702,20 +15110,20 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
  */
   }
 
-  /* "querysource/types/validators.pyx":256
+  /* "querysource/types/validators.pyx":305
  *     if isinstance(value, (float, Decimal)):
  *         return value
  *     elif isinstance(value, _MISSING_TYPE):             # <<<<<<<<<<<<<<
  *         return False
  *     else:
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_MISSING_TYPE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_MISSING_TYPE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 305, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 305, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":257
+    /* "querysource/types/validators.pyx":306
  *         return value
  *     elif isinstance(value, _MISSING_TYPE):
  *         return False             # <<<<<<<<<<<<<<
@@ -13725,7 +15133,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":256
+    /* "querysource/types/validators.pyx":305
  *     if isinstance(value, (float, Decimal)):
  *         return value
  *     elif isinstance(value, _MISSING_TYPE):             # <<<<<<<<<<<<<<
@@ -13734,7 +15142,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
  */
   }
 
-  /* "querysource/types/validators.pyx":259
+  /* "querysource/types/validators.pyx":308
  *         return False
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -13751,21 +15159,21 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
       __Pyx_XGOTREF(__pyx_t_7);
       /*try:*/ {
 
-        /* "querysource/types/validators.pyx":260
+        /* "querysource/types/validators.pyx":309
  *     else:
  *         try:
  *             return isinstance(float(value), float)             # <<<<<<<<<<<<<<
  *         except (TypeError, ValueError):
  *             return False
  */
-        __pyx_t_1 = __Pyx_PyNumber_Float(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 260, __pyx_L6_error)
+        __pyx_t_1 = __Pyx_PyNumber_Float(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 309, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_1);
         __pyx_t_2 = PyFloat_Check(__pyx_t_1); 
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __pyx_r = __pyx_t_2;
         goto __pyx_L10_try_return;
 
-        /* "querysource/types/validators.pyx":259
+        /* "querysource/types/validators.pyx":308
  *         return False
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -13776,7 +15184,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
       __pyx_L6_error:;
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "querysource/types/validators.pyx":261
+      /* "querysource/types/validators.pyx":310
  *         try:
  *             return isinstance(float(value), float)
  *         except (TypeError, ValueError):             # <<<<<<<<<<<<<<
@@ -13786,12 +15194,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
       __pyx_t_8 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_TypeError, __pyx_builtin_ValueError);
       if (__pyx_t_8) {
         __Pyx_AddTraceback("querysource.types.validators.is_float", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_9, &__pyx_t_10) < 0) __PYX_ERR(0, 261, __pyx_L8_except_error)
+        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_9, &__pyx_t_10) < 0) __PYX_ERR(0, 310, __pyx_L8_except_error)
         __Pyx_XGOTREF(__pyx_t_1);
         __Pyx_XGOTREF(__pyx_t_9);
         __Pyx_XGOTREF(__pyx_t_10);
 
-        /* "querysource/types/validators.pyx":262
+        /* "querysource/types/validators.pyx":311
  *             return isinstance(float(value), float)
  *         except (TypeError, ValueError):
  *             return False             # <<<<<<<<<<<<<<
@@ -13806,7 +15214,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
       }
       goto __pyx_L8_except_error;
 
-      /* "querysource/types/validators.pyx":259
+      /* "querysource/types/validators.pyx":308
  *         return False
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -13834,7 +15242,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
     }
   }
 
-  /* "querysource/types/validators.pyx":249
+  /* "querysource/types/validators.pyx":298
  *             return False
  * 
  * cpdef bool_t is_float(object value):             # <<<<<<<<<<<<<<
@@ -13855,16 +15263,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_float(PyObject *__pyx_v
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_31is_float(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_39is_float(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_30is_float, "is_float(value) -> bool\nis_float.\n\n    Returns object converted to float.\n    ");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_31is_float = {"is_float", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_31is_float, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_30is_float};
-static PyObject *__pyx_pw_11querysource_5types_10validators_31is_float(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_38is_float, "is_float(value) -> bool\nis_float.\n\n    Returns object converted to float.\n    ");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_39is_float = {"is_float", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_39is_float, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_38is_float};
+static PyObject *__pyx_pw_11querysource_5types_10validators_39is_float(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13908,12 +15316,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 249, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 298, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_float") < 0)) __PYX_ERR(0, 249, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_float") < 0)) __PYX_ERR(0, 298, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -13924,7 +15332,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_float", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 249, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_float", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 298, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13938,7 +15346,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_30is_float(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_38is_float(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -13951,7 +15359,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_30is_float(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_38is_float(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -13961,8 +15369,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_30is_float(CYTHON_UN
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_float", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_float(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 249, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_float(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 298, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 298, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -13979,7 +15387,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_30is_float(CYTHON_UN
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":265
+/* "querysource/types/validators.pyx":314
  * 
  * 
  * cpdef bool_t is_decimal(object value):             # <<<<<<<<<<<<<<
@@ -13987,7 +15395,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_30is_float(CYTHON_UN
  * 
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_33is_decimal(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_41is_decimal(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -14012,31 +15420,31 @@ static bool __pyx_f_11querysource_5types_10validators_is_decimal(PyObject *__pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_decimal", 1);
 
-  /* "querysource/types/validators.pyx":270
+  /* "querysource/types/validators.pyx":319
  *     Returns a Decimal version of object.
  *     """
  *     if isinstance(value, Decimal):             # <<<<<<<<<<<<<<
  *         return value
  *     else:
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Decimal); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 270, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Decimal); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 319, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 270, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 319, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":271
+    /* "querysource/types/validators.pyx":320
  *     """
  *     if isinstance(value, Decimal):
  *         return value             # <<<<<<<<<<<<<<
  *     else:
  *         try:
  */
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_3 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 271, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_3 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 320, __pyx_L1_error)
     __pyx_r = __pyx_t_3;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":270
+    /* "querysource/types/validators.pyx":319
  *     Returns a Decimal version of object.
  *     """
  *     if isinstance(value, Decimal):             # <<<<<<<<<<<<<<
@@ -14045,7 +15453,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_decimal(PyObject *__pyx
  */
   }
 
-  /* "querysource/types/validators.pyx":273
+  /* "querysource/types/validators.pyx":322
  *         return value
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -14062,14 +15470,14 @@ static bool __pyx_f_11querysource_5types_10validators_is_decimal(PyObject *__pyx
       __Pyx_XGOTREF(__pyx_t_6);
       /*try:*/ {
 
-        /* "querysource/types/validators.pyx":274
+        /* "querysource/types/validators.pyx":323
  *     else:
  *         try:
  *             return Decimal(value)             # <<<<<<<<<<<<<<
  *         except (TypeError, ValueError):
  *             return False
  */
-        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_Decimal); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 274, __pyx_L4_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_Decimal); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 323, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_7);
         __pyx_t_8 = NULL;
         __pyx_t_9 = 0;
@@ -14089,16 +15497,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_decimal(PyObject *__pyx
           PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_v_value};
           __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
           __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 274, __pyx_L4_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 323, __pyx_L4_error)
           __Pyx_GOTREF(__pyx_t_1);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
-        __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 274, __pyx_L4_error)
+        __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 323, __pyx_L4_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __pyx_r = __pyx_t_3;
         goto __pyx_L8_try_return;
 
-        /* "querysource/types/validators.pyx":273
+        /* "querysource/types/validators.pyx":322
  *         return value
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -14111,7 +15519,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_decimal(PyObject *__pyx
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "querysource/types/validators.pyx":275
+      /* "querysource/types/validators.pyx":324
  *         try:
  *             return Decimal(value)
  *         except (TypeError, ValueError):             # <<<<<<<<<<<<<<
@@ -14121,12 +15529,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_decimal(PyObject *__pyx
       __pyx_t_10 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_TypeError, __pyx_builtin_ValueError);
       if (__pyx_t_10) {
         __Pyx_AddTraceback("querysource.types.validators.is_decimal", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(0, 275, __pyx_L6_except_error)
+        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(0, 324, __pyx_L6_except_error)
         __Pyx_XGOTREF(__pyx_t_1);
         __Pyx_XGOTREF(__pyx_t_7);
         __Pyx_XGOTREF(__pyx_t_8);
 
-        /* "querysource/types/validators.pyx":276
+        /* "querysource/types/validators.pyx":325
  *             return Decimal(value)
  *         except (TypeError, ValueError):
  *             return False             # <<<<<<<<<<<<<<
@@ -14141,7 +15549,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_decimal(PyObject *__pyx
       }
       goto __pyx_L6_except_error;
 
-      /* "querysource/types/validators.pyx":273
+      /* "querysource/types/validators.pyx":322
  *         return value
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -14169,7 +15577,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_decimal(PyObject *__pyx
     }
   }
 
-  /* "querysource/types/validators.pyx":265
+  /* "querysource/types/validators.pyx":314
  * 
  * 
  * cpdef bool_t is_decimal(object value):             # <<<<<<<<<<<<<<
@@ -14190,16 +15598,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_decimal(PyObject *__pyx
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_33is_decimal(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_41is_decimal(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_32is_decimal, "is_decimal(value) -> bool\nis_decimal.\n\n    Returns a Decimal version of object.\n    ");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_33is_decimal = {"is_decimal", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_33is_decimal, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_32is_decimal};
-static PyObject *__pyx_pw_11querysource_5types_10validators_33is_decimal(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_40is_decimal, "is_decimal(value) -> bool\nis_decimal.\n\n    Returns a Decimal version of object.\n    ");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_41is_decimal = {"is_decimal", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_41is_decimal, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_40is_decimal};
+static PyObject *__pyx_pw_11querysource_5types_10validators_41is_decimal(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -14243,12 +15651,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 265, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 314, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_decimal") < 0)) __PYX_ERR(0, 265, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_decimal") < 0)) __PYX_ERR(0, 314, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -14259,7 +15667,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_decimal", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 265, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_decimal", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 314, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14273,7 +15681,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_32is_decimal(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_40is_decimal(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -14286,7 +15694,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_32is_decimal(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_40is_decimal(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -14296,8 +15704,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_32is_decimal(CYTHON_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_decimal", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_decimal(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 265, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 265, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_decimal(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 314, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -14314,7 +15722,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_32is_decimal(CYTHON_
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":279
+/* "querysource/types/validators.pyx":328
  * 
  * 
  * cpdef bool_t isnumber(object value):             # <<<<<<<<<<<<<<
@@ -14322,7 +15730,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_32is_decimal(CYTHON_
  * 
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_35isnumber(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_43isnumber(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -14337,32 +15745,32 @@ static bool __pyx_f_11querysource_5types_10validators_isnumber(PyObject *__pyx_v
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "querysource/types/validators.pyx":280
+  /* "querysource/types/validators.pyx":329
  * 
  * cpdef bool_t isnumber(object value):
  *     return is_decimal(value) or is_float(value) or is_integer(value)             # <<<<<<<<<<<<<<
  * 
  * is_number = isnumber
  */
-  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_is_decimal(__pyx_v_value, 0); if (unlikely(__pyx_t_2 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 280, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_is_decimal(__pyx_v_value, 0); if (unlikely(__pyx_t_2 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 329, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_is_float(__pyx_v_value, 0); if (unlikely(__pyx_t_2 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 280, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_is_float(__pyx_v_value, 0); if (unlikely(__pyx_t_2 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 329, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_is_integer(__pyx_v_value, 0); if (unlikely(__pyx_t_2 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 280, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_is_integer(__pyx_v_value, 0); if (unlikely(__pyx_t_2 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 329, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_2;
   __pyx_L3_bool_binop_done:;
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":279
+  /* "querysource/types/validators.pyx":328
  * 
  * 
  * cpdef bool_t isnumber(object value):             # <<<<<<<<<<<<<<
@@ -14379,16 +15787,16 @@ static bool __pyx_f_11querysource_5types_10validators_isnumber(PyObject *__pyx_v
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_35isnumber(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_43isnumber(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_34isnumber, "isnumber(value) -> bool");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_35isnumber = {"isnumber", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_35isnumber, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_34isnumber};
-static PyObject *__pyx_pw_11querysource_5types_10validators_35isnumber(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_42isnumber, "isnumber(value) -> bool");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_43isnumber = {"isnumber", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_43isnumber, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_42isnumber};
+static PyObject *__pyx_pw_11querysource_5types_10validators_43isnumber(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -14432,12 +15840,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 279, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 328, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "isnumber") < 0)) __PYX_ERR(0, 279, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "isnumber") < 0)) __PYX_ERR(0, 328, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -14448,7 +15856,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("isnumber", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 279, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("isnumber", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 328, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14462,7 +15870,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_34isnumber(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_42isnumber(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -14475,7 +15883,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_34isnumber(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_42isnumber(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -14485,8 +15893,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_34isnumber(CYTHON_UN
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("isnumber", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_isnumber(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 279, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 279, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_isnumber(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 328, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 328, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -14503,7 +15911,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_34isnumber(CYTHON_UN
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":285
+/* "querysource/types/validators.pyx":334
  * 
  * 
  * cpdef bool_t is_dict(object value):             # <<<<<<<<<<<<<<
@@ -14511,7 +15919,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_34isnumber(CYTHON_UN
  *         return True
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_37is_dict(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_45is_dict(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -14522,7 +15930,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_dict(PyObject *__pyx_v_
   bool __pyx_r;
   int __pyx_t_1;
 
-  /* "querysource/types/validators.pyx":286
+  /* "querysource/types/validators.pyx":335
  * 
  * cpdef bool_t is_dict(object value):
  *     if isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -14532,7 +15940,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_dict(PyObject *__pyx_v_
   __pyx_t_1 = PyDict_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":287
+    /* "querysource/types/validators.pyx":336
  * cpdef bool_t is_dict(object value):
  *     if isinstance(value, dict):
  *         return True             # <<<<<<<<<<<<<<
@@ -14542,7 +15950,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_dict(PyObject *__pyx_v_
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":286
+    /* "querysource/types/validators.pyx":335
  * 
  * cpdef bool_t is_dict(object value):
  *     if isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -14551,7 +15959,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_dict(PyObject *__pyx_v_
  */
   }
 
-  /* "querysource/types/validators.pyx":289
+  /* "querysource/types/validators.pyx":338
  *         return True
  *     else:
  *         return False             # <<<<<<<<<<<<<<
@@ -14563,7 +15971,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_dict(PyObject *__pyx_v_
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":285
+  /* "querysource/types/validators.pyx":334
  * 
  * 
  * cpdef bool_t is_dict(object value):             # <<<<<<<<<<<<<<
@@ -14577,16 +15985,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_dict(PyObject *__pyx_v_
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_37is_dict(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_45is_dict(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_36is_dict, "is_dict(value) -> bool");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_37is_dict = {"is_dict", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_37is_dict, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_36is_dict};
-static PyObject *__pyx_pw_11querysource_5types_10validators_37is_dict(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_44is_dict, "is_dict(value) -> bool");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_45is_dict = {"is_dict", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_45is_dict, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_44is_dict};
+static PyObject *__pyx_pw_11querysource_5types_10validators_45is_dict(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -14630,12 +16038,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 285, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 334, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_dict") < 0)) __PYX_ERR(0, 285, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_dict") < 0)) __PYX_ERR(0, 334, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -14646,7 +16054,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_dict", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 285, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_dict", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 334, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14660,7 +16068,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_36is_dict(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_44is_dict(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -14673,7 +16081,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_36is_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_44is_dict(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -14683,8 +16091,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_36is_dict(CYTHON_UNU
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_dict", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_dict(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 285, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 285, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_dict(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 334, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 334, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -14701,7 +16109,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_36is_dict(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":291
+/* "querysource/types/validators.pyx":340
  *         return False
  * 
  * cpdef bool_t is_boolean(object value):             # <<<<<<<<<<<<<<
@@ -14709,7 +16117,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_36is_dict(CYTHON_UNU
  *         return False # Unable to Test
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_39is_boolean(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_47is_boolean(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -14733,7 +16141,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_boolean", 1);
 
-  /* "querysource/types/validators.pyx":292
+  /* "querysource/types/validators.pyx":341
  * 
  * cpdef bool_t is_boolean(object value):
  *     if isinstance(value, (dict, list)):             # <<<<<<<<<<<<<<
@@ -14751,7 +16159,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":293
+    /* "querysource/types/validators.pyx":342
  * cpdef bool_t is_boolean(object value):
  *     if isinstance(value, (dict, list)):
  *         return False # Unable to Test             # <<<<<<<<<<<<<<
@@ -14761,7 +16169,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":292
+    /* "querysource/types/validators.pyx":341
  * 
  * cpdef bool_t is_boolean(object value):
  *     if isinstance(value, (dict, list)):             # <<<<<<<<<<<<<<
@@ -14770,7 +16178,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
  */
   }
 
-  /* "querysource/types/validators.pyx":294
+  /* "querysource/types/validators.pyx":343
  *     if isinstance(value, (dict, list)):
  *         return False # Unable to Test
  *     elif isinstance(value, bool):             # <<<<<<<<<<<<<<
@@ -14779,11 +16187,11 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
  */
   __pyx_t_3 = ((PyObject*)&PyBool_Type);
   __Pyx_INCREF(__pyx_t_3);
-  __pyx_t_1 = PyObject_IsInstance(__pyx_v_value, __pyx_t_3); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 294, __pyx_L1_error)
+  __pyx_t_1 = PyObject_IsInstance(__pyx_v_value, __pyx_t_3); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 343, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":295
+    /* "querysource/types/validators.pyx":344
  *         return False # Unable to Test
  *     elif isinstance(value, bool):
  *         return True             # <<<<<<<<<<<<<<
@@ -14793,7 +16201,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":294
+    /* "querysource/types/validators.pyx":343
  *     if isinstance(value, (dict, list)):
  *         return False # Unable to Test
  *     elif isinstance(value, bool):             # <<<<<<<<<<<<<<
@@ -14802,7 +16210,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
  */
   }
 
-  /* "querysource/types/validators.pyx":296
+  /* "querysource/types/validators.pyx":345
  *     elif isinstance(value, bool):
  *         return True
  *     try:             # <<<<<<<<<<<<<<
@@ -14818,24 +16226,24 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
     __Pyx_XGOTREF(__pyx_t_6);
     /*try:*/ {
 
-      /* "querysource/types/validators.pyx":297
+      /* "querysource/types/validators.pyx":346
  *         return True
  *     try:
  *         return bool(strtobool(str(value)))             # <<<<<<<<<<<<<<
  *     except ValueError:
  *         return False
  */
-      __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 297, __pyx_L6_error)
+      __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 346, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_7 = __pyx_f_11querysource_5types_10validators_strtobool(((PyObject*)__pyx_t_3), 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 297, __pyx_L6_error)
+      __pyx_t_7 = __pyx_f_11querysource_5types_10validators_strtobool(((PyObject*)__pyx_t_3), 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 346, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 297, __pyx_L6_error)
+      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 346, __pyx_L6_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __pyx_r = (!(!__pyx_t_1));
       goto __pyx_L10_try_return;
 
-      /* "querysource/types/validators.pyx":296
+      /* "querysource/types/validators.pyx":345
  *     elif isinstance(value, bool):
  *         return True
  *     try:             # <<<<<<<<<<<<<<
@@ -14847,7 +16255,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "querysource/types/validators.pyx":298
+    /* "querysource/types/validators.pyx":347
  *     try:
  *         return bool(strtobool(str(value)))
  *     except ValueError:             # <<<<<<<<<<<<<<
@@ -14857,12 +16265,12 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
     __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ValueError);
     if (__pyx_t_8) {
       __Pyx_AddTraceback("querysource.types.validators.is_boolean", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_3, &__pyx_t_9) < 0) __PYX_ERR(0, 298, __pyx_L8_except_error)
+      if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_3, &__pyx_t_9) < 0) __PYX_ERR(0, 347, __pyx_L8_except_error)
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_3);
       __Pyx_XGOTREF(__pyx_t_9);
 
-      /* "querysource/types/validators.pyx":299
+      /* "querysource/types/validators.pyx":348
  *         return bool(strtobool(str(value)))
  *     except ValueError:
  *         return False             # <<<<<<<<<<<<<<
@@ -14877,7 +16285,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
     }
     goto __pyx_L8_except_error;
 
-    /* "querysource/types/validators.pyx":296
+    /* "querysource/types/validators.pyx":345
  *     elif isinstance(value, bool):
  *         return True
  *     try:             # <<<<<<<<<<<<<<
@@ -14904,7 +16312,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":291
+  /* "querysource/types/validators.pyx":340
  *         return False
  * 
  * cpdef bool_t is_boolean(object value):             # <<<<<<<<<<<<<<
@@ -14925,16 +16333,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_boolean(PyObject *__pyx
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_39is_boolean(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_47is_boolean(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_38is_boolean, "is_boolean(value) -> bool");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_39is_boolean = {"is_boolean", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_39is_boolean, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_38is_boolean};
-static PyObject *__pyx_pw_11querysource_5types_10validators_39is_boolean(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_46is_boolean, "is_boolean(value) -> bool");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_47is_boolean = {"is_boolean", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_47is_boolean, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_46is_boolean};
+static PyObject *__pyx_pw_11querysource_5types_10validators_47is_boolean(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -14978,12 +16386,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 291, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 340, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_boolean") < 0)) __PYX_ERR(0, 291, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_boolean") < 0)) __PYX_ERR(0, 340, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -14994,7 +16402,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_boolean", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 291, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_boolean", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 340, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15008,7 +16416,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_38is_boolean(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_46is_boolean(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -15021,7 +16429,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_38is_boolean(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_46is_boolean(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -15031,8 +16439,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_38is_boolean(CYTHON_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_boolean", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_boolean(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 291, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 291, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_boolean(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 340, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 340, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -15049,7 +16457,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_38is_boolean(CYTHON_
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":301
+/* "querysource/types/validators.pyx":350
  *         return False
  * 
  * cdef str to_boolean(object value):             # <<<<<<<<<<<<<<
@@ -15067,7 +16475,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_boolean(PyObject *
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_boolean", 1);
 
-  /* "querysource/types/validators.pyx":302
+  /* "querysource/types/validators.pyx":351
  * 
  * cdef str to_boolean(object value):
  *     if isinstance(value, bool):             # <<<<<<<<<<<<<<
@@ -15076,11 +16484,11 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_boolean(PyObject *
  */
   __pyx_t_1 = ((PyObject*)&PyBool_Type);
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 302, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 351, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":303
+    /* "querysource/types/validators.pyx":352
  * cdef str to_boolean(object value):
  *     if isinstance(value, bool):
  *         return value             # <<<<<<<<<<<<<<
@@ -15088,12 +16496,12 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_boolean(PyObject *
  *         if strtobool(value) is True:
  */
     __Pyx_XDECREF(__pyx_r);
-    if (!(likely(PyUnicode_CheckExact(__pyx_v_value))||((__pyx_v_value) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_value))) __PYX_ERR(0, 303, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_v_value))||((__pyx_v_value) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_value))) __PYX_ERR(0, 352, __pyx_L1_error)
     __Pyx_INCREF(__pyx_v_value);
     __pyx_r = ((PyObject*)__pyx_v_value);
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":302
+    /* "querysource/types/validators.pyx":351
  * 
  * cdef str to_boolean(object value):
  *     if isinstance(value, bool):             # <<<<<<<<<<<<<<
@@ -15102,7 +16510,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_boolean(PyObject *
  */
   }
 
-  /* "querysource/types/validators.pyx":305
+  /* "querysource/types/validators.pyx":354
  *         return value
  *     else:
  *         if strtobool(value) is True:             # <<<<<<<<<<<<<<
@@ -15110,14 +16518,14 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_boolean(PyObject *
  *         else:
  */
   /*else*/ {
-    if (!(likely(PyUnicode_CheckExact(__pyx_v_value))||((__pyx_v_value) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_value))) __PYX_ERR(0, 305, __pyx_L1_error)
-    __pyx_t_1 = __pyx_f_11querysource_5types_10validators_strtobool(((PyObject*)__pyx_v_value), 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 305, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_v_value))||((__pyx_v_value) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_v_value))) __PYX_ERR(0, 354, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_11querysource_5types_10validators_strtobool(((PyObject*)__pyx_v_value), 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 354, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_2 = (__pyx_t_1 == Py_True);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_2) {
 
-      /* "querysource/types/validators.pyx":306
+      /* "querysource/types/validators.pyx":355
  *     else:
  *         if strtobool(value) is True:
  *             return 'TRUE'             # <<<<<<<<<<<<<<
@@ -15129,7 +16537,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_boolean(PyObject *
       __pyx_r = __pyx_n_u_TRUE;
       goto __pyx_L0;
 
-      /* "querysource/types/validators.pyx":305
+      /* "querysource/types/validators.pyx":354
  *         return value
  *     else:
  *         if strtobool(value) is True:             # <<<<<<<<<<<<<<
@@ -15138,7 +16546,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_boolean(PyObject *
  */
     }
 
-    /* "querysource/types/validators.pyx":308
+    /* "querysource/types/validators.pyx":357
  *             return 'TRUE'
  *         else:
  *             return 'FALSE'             # <<<<<<<<<<<<<<
@@ -15153,7 +16561,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_boolean(PyObject *
     }
   }
 
-  /* "querysource/types/validators.pyx":301
+  /* "querysource/types/validators.pyx":350
  *         return False
  * 
  * cdef str to_boolean(object value):             # <<<<<<<<<<<<<<
@@ -15172,7 +16580,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_boolean(PyObject *
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":310
+/* "querysource/types/validators.pyx":359
  *             return 'FALSE'
  * 
  * cpdef bool_t is_object(object value):             # <<<<<<<<<<<<<<
@@ -15180,7 +16588,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_boolean(PyObject *
  * 
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_41is_object(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_49is_object(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -15194,18 +16602,18 @@ static bool __pyx_f_11querysource_5types_10validators_is_object(PyObject *__pyx_
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "querysource/types/validators.pyx":311
+  /* "querysource/types/validators.pyx":360
  * 
  * cpdef bool_t is_object(object value):
  *     return isinstance(value, object)             # <<<<<<<<<<<<<<
  * 
  * cpdef bool_t is_string(object value):
  */
-  __pyx_t_1 = PyObject_IsInstance(__pyx_v_value, __pyx_builtin_object); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 311, __pyx_L1_error)
+  __pyx_t_1 = PyObject_IsInstance(__pyx_v_value, __pyx_builtin_object); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 360, __pyx_L1_error)
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":310
+  /* "querysource/types/validators.pyx":359
  *             return 'FALSE'
  * 
  * cpdef bool_t is_object(object value):             # <<<<<<<<<<<<<<
@@ -15222,16 +16630,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_object(PyObject *__pyx_
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_41is_object(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_49is_object(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_40is_object, "is_object(value) -> bool");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_41is_object = {"is_object", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_41is_object, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_40is_object};
-static PyObject *__pyx_pw_11querysource_5types_10validators_41is_object(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_48is_object, "is_object(value) -> bool");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_49is_object = {"is_object", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_49is_object, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_48is_object};
+static PyObject *__pyx_pw_11querysource_5types_10validators_49is_object(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -15275,12 +16683,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 310, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 359, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_object") < 0)) __PYX_ERR(0, 310, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_object") < 0)) __PYX_ERR(0, 359, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -15291,7 +16699,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_object", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 310, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_object", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 359, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15305,7 +16713,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_40is_object(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_48is_object(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -15318,7 +16726,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_40is_object(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_48is_object(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -15328,8 +16736,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_40is_object(CYTHON_U
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_object", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_object(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 310, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_object(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 359, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 359, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -15346,7 +16754,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_40is_object(CYTHON_U
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":313
+/* "querysource/types/validators.pyx":362
  *     return isinstance(value, object)
  * 
  * cpdef bool_t is_string(object value):             # <<<<<<<<<<<<<<
@@ -15354,7 +16762,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_40is_object(CYTHON_U
  *         return str(value)
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_43is_string(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_51is_string(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -15373,7 +16781,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_string(PyObject *__pyx_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_string", 1);
 
-  /* "querysource/types/validators.pyx":314
+  /* "querysource/types/validators.pyx":363
  * 
  * cpdef bool_t is_string(object value):
  *     if isinstance(value, int):             # <<<<<<<<<<<<<<
@@ -15383,21 +16791,21 @@ static bool __pyx_f_11querysource_5types_10validators_is_string(PyObject *__pyx_
   __pyx_t_1 = PyInt_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":315
+    /* "querysource/types/validators.pyx":364
  * cpdef bool_t is_string(object value):
  *     if isinstance(value, int):
  *         return str(value)             # <<<<<<<<<<<<<<
  *     else:
  *         return isinstance(value, (
  */
-    __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 315, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 364, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 315, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 364, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_r = __pyx_t_3;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":314
+    /* "querysource/types/validators.pyx":363
  * 
  * cpdef bool_t is_string(object value):
  *     if isinstance(value, int):             # <<<<<<<<<<<<<<
@@ -15406,7 +16814,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_string(PyObject *__pyx_
  */
   }
 
-  /* "querysource/types/validators.pyx":317
+  /* "querysource/types/validators.pyx":366
  *         return str(value)
  *     else:
  *         return isinstance(value, (             # <<<<<<<<<<<<<<
@@ -15415,17 +16823,17 @@ static bool __pyx_f_11querysource_5types_10validators_is_string(PyObject *__pyx_
  */
   /*else*/ {
 
-    /* "querysource/types/validators.pyx":322
+    /* "querysource/types/validators.pyx":371
  *             datetime.time,
  *             datetime.timedelta,
  *             UUID             # <<<<<<<<<<<<<<
  *         ))
  * 
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_UUID); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 322, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_UUID); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 371, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
 
-    /* "querysource/types/validators.pyx":318
+    /* "querysource/types/validators.pyx":367
  *     else:
  *         return isinstance(value, (
  *             str,             # <<<<<<<<<<<<<<
@@ -15439,7 +16847,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_string(PyObject *__pyx_
       goto __pyx_L4_bool_binop_done;
     }
 
-    /* "querysource/types/validators.pyx":319
+    /* "querysource/types/validators.pyx":368
  *         return isinstance(value, (
  *             str,
  *             datetime.datetime,             # <<<<<<<<<<<<<<
@@ -15453,7 +16861,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_string(PyObject *__pyx_
       goto __pyx_L4_bool_binop_done;
     }
 
-    /* "querysource/types/validators.pyx":320
+    /* "querysource/types/validators.pyx":369
  *             str,
  *             datetime.datetime,
  *             datetime.time,             # <<<<<<<<<<<<<<
@@ -15467,7 +16875,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_string(PyObject *__pyx_
       goto __pyx_L4_bool_binop_done;
     }
 
-    /* "querysource/types/validators.pyx":321
+    /* "querysource/types/validators.pyx":370
  *             datetime.datetime,
  *             datetime.time,
  *             datetime.timedelta,             # <<<<<<<<<<<<<<
@@ -15481,7 +16889,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_string(PyObject *__pyx_
       goto __pyx_L4_bool_binop_done;
     }
 
-    /* "querysource/types/validators.pyx":322
+    /* "querysource/types/validators.pyx":371
  *             datetime.time,
  *             datetime.timedelta,
  *             UUID             # <<<<<<<<<<<<<<
@@ -15496,7 +16904,7 @@ static bool __pyx_f_11querysource_5types_10validators_is_string(PyObject *__pyx_
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":313
+  /* "querysource/types/validators.pyx":362
  *     return isinstance(value, object)
  * 
  * cpdef bool_t is_string(object value):             # <<<<<<<<<<<<<<
@@ -15515,16 +16923,16 @@ static bool __pyx_f_11querysource_5types_10validators_is_string(PyObject *__pyx_
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_43is_string(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_51is_string(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_42is_string, "is_string(value) -> bool");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_43is_string = {"is_string", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_43is_string, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_42is_string};
-static PyObject *__pyx_pw_11querysource_5types_10validators_43is_string(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_50is_string, "is_string(value) -> bool");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_51is_string = {"is_string", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_51is_string, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_50is_string};
+static PyObject *__pyx_pw_11querysource_5types_10validators_51is_string(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -15568,12 +16976,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 313, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 362, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_string") < 0)) __PYX_ERR(0, 313, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_string") < 0)) __PYX_ERR(0, 362, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -15584,7 +16992,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_string", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 313, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_string", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 362, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15598,7 +17006,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_42is_string(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_50is_string(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -15611,7 +17019,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_42is_string(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_50is_string(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   bool __pyx_t_1;
@@ -15621,8 +17029,8 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_42is_string(CYTHON_U
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_string", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_string(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 313, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 313, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_string(__pyx_v_value, 0); if (unlikely(__pyx_t_1 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -15639,7 +17047,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_42is_string(CYTHON_U
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":325
+/* "querysource/types/validators.pyx":374
  *         ))
  * 
  * cdef object get_config_var(object value):             # <<<<<<<<<<<<<<
@@ -15659,7 +17067,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_get_config_var(PyObje
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_config_var", 1);
 
-  /* "querysource/types/validators.pyx":326
+  /* "querysource/types/validators.pyx":375
  * 
  * cdef object get_config_var(object value):
  *     return config.get(value)             # <<<<<<<<<<<<<<
@@ -15667,9 +17075,9 @@ static PyObject *__pyx_f_11querysource_5types_10validators_get_config_var(PyObje
  * cdef str to_string(object value):
  */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_config); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 326, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_config); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 375, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 326, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 375, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -15690,7 +17098,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_get_config_var(PyObje
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_value};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 326, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 375, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -15698,7 +17106,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_get_config_var(PyObje
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":325
+  /* "querysource/types/validators.pyx":374
  *         ))
  * 
  * cdef object get_config_var(object value):             # <<<<<<<<<<<<<<
@@ -15719,7 +17127,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_get_config_var(PyObje
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":328
+/* "querysource/types/validators.pyx":377
  *     return config.get(value)
  * 
  * cdef str to_string(object value):             # <<<<<<<<<<<<<<
@@ -15737,7 +17145,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_string(PyObject *_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_string", 1);
 
-  /* "querysource/types/validators.pyx":329
+  /* "querysource/types/validators.pyx":378
  * 
  * cdef str to_string(object value):
  *     return quoteString(escape_string(value))             # <<<<<<<<<<<<<<
@@ -15745,16 +17153,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_string(PyObject *_
  * cpdef object escape_string(object value):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_escape_string(__pyx_v_value, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 329, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_escape_string(__pyx_v_value, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 378, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 329, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 378, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":328
+  /* "querysource/types/validators.pyx":377
  *     return config.get(value)
  * 
  * cdef str to_string(object value):             # <<<<<<<<<<<<<<
@@ -15774,7 +17182,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_string(PyObject *_
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":331
+/* "querysource/types/validators.pyx":380
  *     return quoteString(escape_string(value))
  * 
  * cpdef object escape_string(object value):             # <<<<<<<<<<<<<<
@@ -15782,7 +17190,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_to_string(PyObject *_
  *         return value.translate(
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_45escape_string(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_53escape_string(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -15808,7 +17216,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("escape_string", 1);
 
-  /* "querysource/types/validators.pyx":332
+  /* "querysource/types/validators.pyx":381
  * 
  * cpdef object escape_string(object value):
  *     try:             # <<<<<<<<<<<<<<
@@ -15824,7 +17232,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/types/validators.pyx":333
+      /* "querysource/types/validators.pyx":382
  * cpdef object escape_string(object value):
  *     try:
  *         return value.translate(             # <<<<<<<<<<<<<<
@@ -15832,39 +17240,39 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
  *                 "\0": "\\0",
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_translate); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 333, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_translate); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 382, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
 
-      /* "querysource/types/validators.pyx":334
+      /* "querysource/types/validators.pyx":383
  *     try:
  *         return value.translate(
  *             value.maketrans({             # <<<<<<<<<<<<<<
  *                 "\0": "\\0",
  *                 "\r": "\\r",
  */
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_maketrans); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 334, __pyx_L3_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_maketrans); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 383, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_7);
 
-      /* "querysource/types/validators.pyx":335
+      /* "querysource/types/validators.pyx":384
  *         return value.translate(
  *             value.maketrans({
  *                 "\0": "\\0",             # <<<<<<<<<<<<<<
  *                 "\r": "\\r",
  *                 "\x08": "\\b",
  */
-      __pyx_t_8 = __Pyx_PyDict_NewPresized(11); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 335, __pyx_L3_error)
+      __pyx_t_8 = __Pyx_PyDict_NewPresized(11); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 384, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_8);
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__18, __pyx_kp_u_0_2) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__19, __pyx_kp_u_r) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__20, __pyx_kp_u_b) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__21, __pyx_kp_u_t_2) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__22, __pyx_kp_u_z) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__23, __pyx_kp_u_n_2) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__19, __pyx_kp_u_r) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__11, __pyx_kp_u__6) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__8, __pyx_kp_u__6) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__24, __pyx_kp_u__25) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
-      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__26, __pyx_kp_u__27) < 0) __PYX_ERR(0, 335, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__19, __pyx_kp_u_0_2) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__20, __pyx_kp_u_r) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__21, __pyx_kp_u_b) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__22, __pyx_kp_u_t_2) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__23, __pyx_kp_u_z) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__24, __pyx_kp_u_n_2) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__20, __pyx_kp_u_r) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__12, __pyx_kp_u__7) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__9, __pyx_kp_u__7) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__25, __pyx_kp_u__26) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_8, __pyx_kp_u__27, __pyx_kp_u__28) < 0) __PYX_ERR(0, 384, __pyx_L3_error)
       __pyx_t_9 = NULL;
       __pyx_t_10 = 0;
       #if CYTHON_UNPACK_METHODS
@@ -15884,7 +17292,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
         __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 334, __pyx_L3_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 383, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       }
@@ -15907,7 +17315,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 333, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 382, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
@@ -15915,7 +17323,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
       __pyx_t_4 = 0;
       goto __pyx_L7_try_return;
 
-      /* "querysource/types/validators.pyx":332
+      /* "querysource/types/validators.pyx":381
  * 
  * cpdef object escape_string(object value):
  *     try:             # <<<<<<<<<<<<<<
@@ -15931,7 +17339,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "querysource/types/validators.pyx":347
+    /* "querysource/types/validators.pyx":396
  *                 "%": "\\%"
  *             }))
  *     except AttributeError:             # <<<<<<<<<<<<<<
@@ -15941,12 +17349,12 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
     __pyx_t_11 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_AttributeError);
     if (__pyx_t_11) {
       __Pyx_AddTraceback("querysource.types.validators.escape_string", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 347, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 396, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "querysource/types/validators.pyx":348
+      /* "querysource/types/validators.pyx":397
  *             }))
  *     except AttributeError:
  *         return value             # <<<<<<<<<<<<<<
@@ -15962,7 +17370,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
       goto __pyx_L6_except_return;
     }
 
-    /* "querysource/types/validators.pyx":349
+    /* "querysource/types/validators.pyx":398
  *     except AttributeError:
  *         return value
  *     except (TypeError, ValueError):             # <<<<<<<<<<<<<<
@@ -15972,12 +17380,12 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
     __pyx_t_11 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_TypeError, __pyx_builtin_ValueError);
     if (__pyx_t_11) {
       __Pyx_AddTraceback("querysource.types.validators.escape_string", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_5, &__pyx_t_4) < 0) __PYX_ERR(0, 349, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_5, &__pyx_t_4) < 0) __PYX_ERR(0, 398, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_4);
 
-      /* "querysource/types/validators.pyx":350
+      /* "querysource/types/validators.pyx":399
  *         return value
  *     except (TypeError, ValueError):
  *         return None             # <<<<<<<<<<<<<<
@@ -15993,7 +17401,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/types/validators.pyx":332
+    /* "querysource/types/validators.pyx":381
  * 
  * cpdef object escape_string(object value):
  *     try:             # <<<<<<<<<<<<<<
@@ -16020,7 +17428,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":331
+  /* "querysource/types/validators.pyx":380
  *     return quoteString(escape_string(value))
  * 
  * cpdef object escape_string(object value):             # <<<<<<<<<<<<<<
@@ -16045,16 +17453,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_escape_string(PyObjec
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_45escape_string(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_53escape_string(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_44escape_string, "escape_string(value)");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_45escape_string = {"escape_string", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_45escape_string, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_44escape_string};
-static PyObject *__pyx_pw_11querysource_5types_10validators_45escape_string(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_52escape_string, "escape_string(value)");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_53escape_string = {"escape_string", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_53escape_string, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_52escape_string};
+static PyObject *__pyx_pw_11querysource_5types_10validators_53escape_string(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -16098,12 +17506,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 331, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 380, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "escape_string") < 0)) __PYX_ERR(0, 331, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "escape_string") < 0)) __PYX_ERR(0, 380, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -16114,7 +17522,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("escape_string", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 331, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("escape_string", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 380, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -16128,7 +17536,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_44escape_string(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_52escape_string(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   {
@@ -16141,7 +17549,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_44escape_string(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_52escape_string(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -16150,7 +17558,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_44escape_string(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("escape_string", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_escape_string(__pyx_v_value, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 331, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_escape_string(__pyx_v_value, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 380, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -16167,7 +17575,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_44escape_string(CYTH
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":352
+/* "querysource/types/validators.pyx":401
  *         return None
  * 
  * cdef int to_unquoted(value):             # <<<<<<<<<<<<<<
@@ -16191,7 +17599,7 @@ static int __pyx_f_11querysource_5types_10validators_to_unquoted(PyObject *__pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_unquoted", 1);
 
-  /* "querysource/types/validators.pyx":353
+  /* "querysource/types/validators.pyx":402
  * 
  * cdef int to_unquoted(value):
  *     if isinstance(value, int):             # <<<<<<<<<<<<<<
@@ -16201,18 +17609,18 @@ static int __pyx_f_11querysource_5types_10validators_to_unquoted(PyObject *__pyx
   __pyx_t_1 = PyInt_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":354
+    /* "querysource/types/validators.pyx":403
  * cdef int to_unquoted(value):
  *     if isinstance(value, int):
  *         return value             # <<<<<<<<<<<<<<
  *     else:
  *         try:
  */
-    __pyx_t_2 = __Pyx_PyInt_As_int(__pyx_v_value); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 354, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyInt_As_int(__pyx_v_value); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 403, __pyx_L1_error)
     __pyx_r = __pyx_t_2;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":353
+    /* "querysource/types/validators.pyx":402
  * 
  * cdef int to_unquoted(value):
  *     if isinstance(value, int):             # <<<<<<<<<<<<<<
@@ -16221,7 +17629,7 @@ static int __pyx_f_11querysource_5types_10validators_to_unquoted(PyObject *__pyx
  */
   }
 
-  /* "querysource/types/validators.pyx":356
+  /* "querysource/types/validators.pyx":405
  *         return value
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -16238,21 +17646,21 @@ static int __pyx_f_11querysource_5types_10validators_to_unquoted(PyObject *__pyx
       __Pyx_XGOTREF(__pyx_t_5);
       /*try:*/ {
 
-        /* "querysource/types/validators.pyx":357
+        /* "querysource/types/validators.pyx":406
  *     else:
  *         try:
  *             return int(value)             # <<<<<<<<<<<<<<
  *         except (ValueError, TypeError):
  *             raise
  */
-        __pyx_t_6 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 357, __pyx_L4_error)
+        __pyx_t_6 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 406, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_2 = __Pyx_PyInt_As_int(__pyx_t_6); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 357, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyInt_As_int(__pyx_t_6); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 406, __pyx_L4_error)
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __pyx_r = __pyx_t_2;
         goto __pyx_L8_try_return;
 
-        /* "querysource/types/validators.pyx":356
+        /* "querysource/types/validators.pyx":405
  *         return value
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -16263,7 +17671,7 @@ static int __pyx_f_11querysource_5types_10validators_to_unquoted(PyObject *__pyx
       __pyx_L4_error:;
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-      /* "querysource/types/validators.pyx":358
+      /* "querysource/types/validators.pyx":407
  *         try:
  *             return int(value)
  *         except (ValueError, TypeError):             # <<<<<<<<<<<<<<
@@ -16273,12 +17681,12 @@ static int __pyx_f_11querysource_5types_10validators_to_unquoted(PyObject *__pyx
       __pyx_t_2 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_ValueError, __pyx_builtin_TypeError);
       if (__pyx_t_2) {
         __Pyx_AddTraceback("querysource.types.validators.to_unquoted", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(0, 358, __pyx_L6_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_7, &__pyx_t_8) < 0) __PYX_ERR(0, 407, __pyx_L6_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_7);
         __Pyx_XGOTREF(__pyx_t_8);
 
-        /* "querysource/types/validators.pyx":359
+        /* "querysource/types/validators.pyx":408
  *             return int(value)
  *         except (ValueError, TypeError):
  *             raise             # <<<<<<<<<<<<<<
@@ -16290,11 +17698,11 @@ static int __pyx_f_11querysource_5types_10validators_to_unquoted(PyObject *__pyx
         __Pyx_XGIVEREF(__pyx_t_8);
         __Pyx_ErrRestoreWithState(__pyx_t_6, __pyx_t_7, __pyx_t_8);
         __pyx_t_6 = 0; __pyx_t_7 = 0; __pyx_t_8 = 0; 
-        __PYX_ERR(0, 359, __pyx_L6_except_error)
+        __PYX_ERR(0, 408, __pyx_L6_except_error)
       }
       goto __pyx_L6_except_error;
 
-      /* "querysource/types/validators.pyx":356
+      /* "querysource/types/validators.pyx":405
  *         return value
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -16316,7 +17724,7 @@ static int __pyx_f_11querysource_5types_10validators_to_unquoted(PyObject *__pyx
     }
   }
 
-  /* "querysource/types/validators.pyx":352
+  /* "querysource/types/validators.pyx":401
  *         return None
  * 
  * cdef int to_unquoted(value):             # <<<<<<<<<<<<<<
@@ -16336,7 +17744,7 @@ static int __pyx_f_11querysource_5types_10validators_to_unquoted(PyObject *__pyx
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":392
+/* "querysource/types/validators.pyx":441
  *     """
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -16398,12 +17806,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 392, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 441, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_integer") < 0)) __PYX_ERR(0, 392, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_integer") < 0)) __PYX_ERR(0, 441, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -16414,7 +17822,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_integer", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 392, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_integer", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 441, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -16454,7 +17862,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_is_integer(C
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_integer", 1);
 
-  /* "querysource/types/validators.pyx":394
+  /* "querysource/types/validators.pyx":443
  *     @classmethod
  *     def is_integer(cls, _type):
  *         return _type in (int, int64)             # <<<<<<<<<<<<<<
@@ -16464,30 +17872,30 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_is_integer(C
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v__type);
   __pyx_t_1 = __pyx_v__type;
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)(&PyInt_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 394, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 394, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)(&PyInt_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 443, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 443, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (!__pyx_t_4) {
   } else {
     __pyx_t_2 = __pyx_t_4;
     goto __pyx_L3_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_int64); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 394, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_int64); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 443, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_1, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 394, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_1, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 443, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 394, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 443, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_2 = __pyx_t_4;
   __pyx_L3_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 394, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 443, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":392
+  /* "querysource/types/validators.pyx":441
  *     """
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -16508,7 +17916,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_is_integer(C
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":396
+/* "querysource/types/validators.pyx":445
  *         return _type in (int, int64)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -16570,12 +17978,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 396, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 445, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_number") < 0)) __PYX_ERR(0, 396, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_number") < 0)) __PYX_ERR(0, 445, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -16586,7 +17994,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_number", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 396, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_number", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 445, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -16626,7 +18034,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_2is_number(C
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_number", 1);
 
-  /* "querysource/types/validators.pyx":398
+  /* "querysource/types/validators.pyx":447
  *     @classmethod
  *     def is_number(cls, _type):
  *         return _type in (int, int64, float, Decimal, bytes, bool)             # <<<<<<<<<<<<<<
@@ -16636,65 +18044,65 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_2is_number(C
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v__type);
   __pyx_t_1 = __pyx_v__type;
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)(&PyInt_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 398, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)(&PyInt_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (!__pyx_t_4) {
   } else {
     __pyx_t_2 = __pyx_t_4;
     goto __pyx_L3_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_int64); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 398, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_int64); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_1, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_1, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (!__pyx_t_4) {
   } else {
     __pyx_t_2 = __pyx_t_4;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)(&PyFloat_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 398, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)(&PyFloat_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 447, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (!__pyx_t_4) {
   } else {
     __pyx_t_2 = __pyx_t_4;
     goto __pyx_L3_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_Decimal); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 398, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_Decimal); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, __pyx_t_5, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, __pyx_t_5, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (!__pyx_t_4) {
   } else {
     __pyx_t_2 = __pyx_t_4;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)(&PyBytes_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 398, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)(&PyBytes_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (!__pyx_t_4) {
   } else {
     __pyx_t_2 = __pyx_t_4;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject*)&PyBool_Type), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 398, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject*)&PyBool_Type), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_2 = __pyx_t_4;
   __pyx_L3_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":396
+  /* "querysource/types/validators.pyx":445
  *         return _type in (int, int64)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -16715,7 +18123,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_2is_number(C
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":400
+/* "querysource/types/validators.pyx":449
  *         return _type in (int, int64, float, Decimal, bytes, bool)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -16777,12 +18185,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 400, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 449, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_string") < 0)) __PYX_ERR(0, 400, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_string") < 0)) __PYX_ERR(0, 449, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -16793,7 +18201,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_string", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 400, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_string", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 449, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -16831,7 +18239,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_4is_string(C
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_string", 1);
 
-  /* "querysource/types/validators.pyx":402
+  /* "querysource/types/validators.pyx":451
  *     @classmethod
  *     def is_string(cls, _type):
  *         return isinstance(_type, (             # <<<<<<<<<<<<<<
@@ -16840,17 +18248,17 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_4is_string(C
  */
   __Pyx_XDECREF(__pyx_r);
 
-  /* "querysource/types/validators.pyx":407
+  /* "querysource/types/validators.pyx":456
  *             datetime.time,
  *             datetime.timedelta,
  *             UUID             # <<<<<<<<<<<<<<
  *         ))
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_UUID); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 407, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_UUID); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 456, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
 
-  /* "querysource/types/validators.pyx":403
+  /* "querysource/types/validators.pyx":452
  *     def is_string(cls, _type):
  *         return isinstance(_type, (
  *             str,             # <<<<<<<<<<<<<<
@@ -16864,7 +18272,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_4is_string(C
     goto __pyx_L3_bool_binop_done;
   }
 
-  /* "querysource/types/validators.pyx":404
+  /* "querysource/types/validators.pyx":453
  *         return isinstance(_type, (
  *             str,
  *             datetime.datetime,             # <<<<<<<<<<<<<<
@@ -16878,7 +18286,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_4is_string(C
     goto __pyx_L3_bool_binop_done;
   }
 
-  /* "querysource/types/validators.pyx":405
+  /* "querysource/types/validators.pyx":454
  *             str,
  *             datetime.datetime,
  *             datetime.time,             # <<<<<<<<<<<<<<
@@ -16892,7 +18300,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_4is_string(C
     goto __pyx_L3_bool_binop_done;
   }
 
-  /* "querysource/types/validators.pyx":406
+  /* "querysource/types/validators.pyx":455
  *             datetime.datetime,
  *             datetime.time,
  *             datetime.timedelta,             # <<<<<<<<<<<<<<
@@ -16906,7 +18314,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_4is_string(C
     goto __pyx_L3_bool_binop_done;
   }
 
-  /* "querysource/types/validators.pyx":407
+  /* "querysource/types/validators.pyx":456
  *             datetime.time,
  *             datetime.timedelta,
  *             UUID             # <<<<<<<<<<<<<<
@@ -16918,20 +18326,20 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_4is_string(C
   __pyx_L3_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":402
+  /* "querysource/types/validators.pyx":451
  *     @classmethod
  *     def is_string(cls, _type):
  *         return isinstance(_type, (             # <<<<<<<<<<<<<<
  *             str,
  *             datetime.datetime,
  */
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 402, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 451, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":400
+  /* "querysource/types/validators.pyx":449
  *         return _type in (int, int64, float, Decimal, bytes, bool)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -16950,7 +18358,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_4is_string(C
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":410
+/* "querysource/types/validators.pyx":459
  *         ))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -17012,12 +18420,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 410, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 459, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "escape") < 0)) __PYX_ERR(0, 410, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "escape") < 0)) __PYX_ERR(0, 459, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -17028,7 +18436,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("escape", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 410, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("escape", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 459, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17070,7 +18478,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_6escape(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("escape", 1);
 
-  /* "querysource/types/validators.pyx":412
+  /* "querysource/types/validators.pyx":461
  *     @classmethod
  *     def escape(cls, _type):
  *         return _type.translate(             # <<<<<<<<<<<<<<
@@ -17078,39 +18486,39 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_6escape(CYTH
  *             "\0": "\\0",
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v__type, __pyx_n_s_translate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 412, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v__type, __pyx_n_s_translate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 461, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "querysource/types/validators.pyx":413
+  /* "querysource/types/validators.pyx":462
  *     def escape(cls, _type):
  *         return _type.translate(
  *             _type.maketrans({             # <<<<<<<<<<<<<<
  *             "\0": "\\0",
  *             "\r": "\\r",
  */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v__type, __pyx_n_s_maketrans); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 413, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v__type, __pyx_n_s_maketrans); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 462, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "querysource/types/validators.pyx":414
+  /* "querysource/types/validators.pyx":463
  *         return _type.translate(
  *             _type.maketrans({
  *             "\0": "\\0",             # <<<<<<<<<<<<<<
  *             "\r": "\\r",
  *             "\x08": "\\b",
  */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(11); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 414, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(11); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 463, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__18, __pyx_kp_u_0_2) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__19, __pyx_kp_u_r) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__20, __pyx_kp_u_b) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__21, __pyx_kp_u_t_2) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__22, __pyx_kp_u_z) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__23, __pyx_kp_u_n_2) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__19, __pyx_kp_u_r) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__11, __pyx_kp_u__6) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__8, __pyx_kp_u__6) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__24, __pyx_kp_u__25) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__26, __pyx_kp_u__27) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__19, __pyx_kp_u_0_2) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__20, __pyx_kp_u_r) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__21, __pyx_kp_u_b) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__22, __pyx_kp_u_t_2) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__23, __pyx_kp_u_z) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__24, __pyx_kp_u_n_2) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__20, __pyx_kp_u_r) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__12, __pyx_kp_u__7) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__9, __pyx_kp_u__7) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__25, __pyx_kp_u__26) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_kp_u__27, __pyx_kp_u__28) < 0) __PYX_ERR(0, 463, __pyx_L1_error)
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
   #if CYTHON_UNPACK_METHODS
@@ -17130,7 +18538,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_6escape(CYTH
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 413, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 462, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
@@ -17153,7 +18561,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_6escape(CYTH
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 412, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 461, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
@@ -17161,7 +18569,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_6escape(CYTH
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":410
+  /* "querysource/types/validators.pyx":459
  *         ))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -17185,7 +18593,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_6escape(CYTH
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":427
+/* "querysource/types/validators.pyx":476
  *         }))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -17247,12 +18655,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 427, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 476, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_date") < 0)) __PYX_ERR(0, 427, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_date") < 0)) __PYX_ERR(0, 476, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -17263,7 +18671,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_date", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 427, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_date", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 476, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17302,7 +18710,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_8is_date(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_date", 1);
 
-  /* "querysource/types/validators.pyx":429
+  /* "querysource/types/validators.pyx":478
  *     @classmethod
  *     def is_date(cls, _type):
  *         return _type in (datetime.date, datetime.datetime, datetime.time, datetime.timedelta)             # <<<<<<<<<<<<<<
@@ -17312,43 +18720,43 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_8is_date(CYT
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v__type);
   __pyx_t_1 = __pyx_v__type;
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)__pyx_ptype_7cpython_8datetime_date), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 429, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 429, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)__pyx_ptype_7cpython_8datetime_date), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 478, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (!__pyx_t_4) {
   } else {
     __pyx_t_2 = __pyx_t_4;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)__pyx_ptype_7cpython_8datetime_datetime), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 429, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 429, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)__pyx_ptype_7cpython_8datetime_datetime), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 478, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (!__pyx_t_4) {
   } else {
     __pyx_t_2 = __pyx_t_4;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)__pyx_ptype_7cpython_8datetime_time), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 429, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 429, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)__pyx_ptype_7cpython_8datetime_time), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 478, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (!__pyx_t_4) {
   } else {
     __pyx_t_2 = __pyx_t_4;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)__pyx_ptype_7cpython_8datetime_timedelta), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 429, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 429, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, ((PyObject *)__pyx_ptype_7cpython_8datetime_timedelta), Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 478, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_2 = __pyx_t_4;
   __pyx_L3_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 429, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":427
+  /* "querysource/types/validators.pyx":476
  *         }))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -17368,7 +18776,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_8is_date(CYT
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":431
+/* "querysource/types/validators.pyx":480
  *         return _type in (datetime.date, datetime.datetime, datetime.time, datetime.timedelta)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -17430,12 +18838,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 431, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 480, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_array") < 0)) __PYX_ERR(0, 431, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_array") < 0)) __PYX_ERR(0, 480, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -17446,7 +18854,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_array", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 431, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_array", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 480, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17485,7 +18893,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_10is_array(C
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_array", 1);
 
-  /* "querysource/types/validators.pyx":433
+  /* "querysource/types/validators.pyx":482
  *     @classmethod
  *     def is_array(cls, t):
  *         return isinstance(t,(list, dict, Sequence, ndarray))             # <<<<<<<<<<<<<<
@@ -17493,9 +18901,9 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_10is_array(C
  *     @classmethod
  */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Sequence); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 433, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_Sequence); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_ndarray); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 433, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_ndarray); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = PyList_Check(__pyx_v_t); 
   if (!__pyx_t_4) {
@@ -17520,13 +18928,13 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_10is_array(C
   __pyx_L3_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 433, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":431
+  /* "querysource/types/validators.pyx":480
  *         return _type in (datetime.date, datetime.datetime, datetime.time, datetime.timedelta)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -17546,7 +18954,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_10is_array(C
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":435
+/* "querysource/types/validators.pyx":484
  *         return isinstance(t,(list, dict, Sequence, ndarray))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -17608,12 +19016,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 484, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_bool") < 0)) __PYX_ERR(0, 435, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_bool") < 0)) __PYX_ERR(0, 484, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -17624,7 +19032,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_bool", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 435, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_bool", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 484, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17661,7 +19069,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_12is_bool(CY
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_bool", 1);
 
-  /* "querysource/types/validators.pyx":437
+  /* "querysource/types/validators.pyx":486
  *     @classmethod
  *     def is_bool(cls, _type):
  *         return isinstance(_type, bool)             # <<<<<<<<<<<<<<
@@ -17671,15 +19079,15 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_12is_bool(CY
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = ((PyObject*)&PyBool_Type);
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v__type, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 437, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v__type, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 486, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 437, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 486, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":435
+  /* "querysource/types/validators.pyx":484
  *         return isinstance(t,(list, dict, Sequence, ndarray))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -17698,7 +19106,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_12is_bool(CY
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":439
+/* "querysource/types/validators.pyx":488
  *         return isinstance(_type, bool)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -17760,12 +19168,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 439, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 488, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_typing") < 0)) __PYX_ERR(0, 439, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_typing") < 0)) __PYX_ERR(0, 488, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -17776,7 +19184,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_typing", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 439, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_typing", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 488, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17818,7 +19226,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_14is_typing(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_typing", 1);
 
-  /* "querysource/types/validators.pyx":441
+  /* "querysource/types/validators.pyx":490
  *     @classmethod
  *     def is_typing(cls, _type):
  *         try:             # <<<<<<<<<<<<<<
@@ -17834,7 +19242,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_14is_typing(
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/types/validators.pyx":442
+      /* "querysource/types/validators.pyx":491
  *     def is_typing(cls, _type):
  *         try:
  *             return isinstance(_type, typing._GenericAlias) or isinstance(_type, typing._SpecialForm)             # <<<<<<<<<<<<<<
@@ -17842,29 +19250,29 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_14is_typing(
  *             return False
  */
       __Pyx_XDECREF(__pyx_r);
-      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_typing); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 442, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_typing); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 491, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_GenericAlias); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 442, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_GenericAlias); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 491, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_7 = PyObject_IsInstance(__pyx_v__type, __pyx_t_6); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 442, __pyx_L3_error)
+      __pyx_t_7 = PyObject_IsInstance(__pyx_v__type, __pyx_t_6); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 491, __pyx_L3_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       if (!__pyx_t_7) {
       } else {
-        __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 442, __pyx_L3_error)
+        __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 491, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_t_4 = __pyx_t_6;
         __pyx_t_6 = 0;
         goto __pyx_L9_bool_binop_done;
       }
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_typing); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 442, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_typing); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 491, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_SpecialForm); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 442, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_SpecialForm); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 491, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_7 = PyObject_IsInstance(__pyx_v__type, __pyx_t_5); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 442, __pyx_L3_error)
+      __pyx_t_7 = PyObject_IsInstance(__pyx_v__type, __pyx_t_5); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 491, __pyx_L3_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 442, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 491, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_4 = __pyx_t_5;
       __pyx_t_5 = 0;
@@ -17873,7 +19281,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_14is_typing(
       __pyx_t_4 = 0;
       goto __pyx_L7_try_return;
 
-      /* "querysource/types/validators.pyx":441
+      /* "querysource/types/validators.pyx":490
  *     @classmethod
  *     def is_typing(cls, _type):
  *         try:             # <<<<<<<<<<<<<<
@@ -17886,7 +19294,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_14is_typing(
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "querysource/types/validators.pyx":443
+    /* "querysource/types/validators.pyx":492
  *         try:
  *             return isinstance(_type, typing._GenericAlias) or isinstance(_type, typing._SpecialForm)
  *         except:             # <<<<<<<<<<<<<<
@@ -17895,12 +19303,12 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_14is_typing(
  */
     /*except:*/ {
       __Pyx_AddTraceback("querysource.types.validators.Entity.is_typing", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 443, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 492, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "querysource/types/validators.pyx":444
+      /* "querysource/types/validators.pyx":493
  *             return isinstance(_type, typing._GenericAlias) or isinstance(_type, typing._SpecialForm)
  *         except:
  *             return False             # <<<<<<<<<<<<<<
@@ -17916,7 +19324,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_14is_typing(
       goto __pyx_L6_except_return;
     }
 
-    /* "querysource/types/validators.pyx":441
+    /* "querysource/types/validators.pyx":490
  *     @classmethod
  *     def is_typing(cls, _type):
  *         try:             # <<<<<<<<<<<<<<
@@ -17943,7 +19351,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_14is_typing(
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":439
+  /* "querysource/types/validators.pyx":488
  *         return isinstance(_type, bool)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -17964,7 +19372,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_14is_typing(
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":446
+/* "querysource/types/validators.pyx":495
  *             return False
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -18014,7 +19422,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_value,&__pyx_n_s_type,&__pyx_n_s_dbtype,0};
 
-    /* "querysource/types/validators.pyx":447
+    /* "querysource/types/validators.pyx":496
  * 
  *     @classmethod
  *     def toSQL(cls, value, _type, dbtype: str = None):             # <<<<<<<<<<<<<<
@@ -18041,7 +19449,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 446, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 495, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -18049,21 +19457,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 446, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 495, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("toSQL", 0, 2, 3, 1); __PYX_ERR(0, 446, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("toSQL", 0, 2, 3, 1); __PYX_ERR(0, 495, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_dbtype);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 446, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 495, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "toSQL") < 0)) __PYX_ERR(0, 446, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "toSQL") < 0)) __PYX_ERR(0, 495, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -18081,7 +19489,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("toSQL", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 446, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("toSQL", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 495, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18095,10 +19503,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_dbtype), (&PyUnicode_Type), 1, "dbtype", 1))) __PYX_ERR(0, 447, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_dbtype), (&PyUnicode_Type), 1, "dbtype", 1))) __PYX_ERR(0, 496, __pyx_L1_error)
   __pyx_r = __pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(((PyTypeObject*)__pyx_v_cls), __pyx_v_value, __pyx_v__type, __pyx_v_dbtype);
 
-  /* "querysource/types/validators.pyx":446
+  /* "querysource/types/validators.pyx":495
  *             return False
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -18123,8 +19531,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 
 static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTHON_UNUSED PyTypeObject *__pyx_v_cls, PyObject *__pyx_v_value, PyObject *__pyx_v__type, PyObject *__pyx_v_dbtype) {
   PyObject *__pyx_v_v = NULL;
-  PyObject *__pyx_7genexpr__pyx_v_k = NULL;
-  PyObject *__pyx_7genexpr__pyx_v_v = NULL;
+  PyObject *__pyx_8genexpr1__pyx_v_k = NULL;
+  PyObject *__pyx_8genexpr1__pyx_v_v = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -18145,14 +19553,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("toSQL", 1);
 
-  /* "querysource/types/validators.pyx":448
+  /* "querysource/types/validators.pyx":497
  *     @classmethod
  *     def toSQL(cls, value, _type, dbtype: str = None):
  *         v = f"{value!s}" if Entity.is_date(_type) else value             # <<<<<<<<<<<<<<
  *         if Entity.is_typing(_type):
  *             v = orjson.dumps(value).decode('utf-8') if value else None
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_date); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 448, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_date); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 497, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   __pyx_t_5 = 0;
@@ -18172,14 +19580,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v__type};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 448, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 497, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 448, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 497, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_6) {
-    __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 448, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 497, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_1 = __pyx_t_2;
     __pyx_t_2 = 0;
@@ -18190,14 +19598,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __pyx_v_v = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":449
+  /* "querysource/types/validators.pyx":498
  *     def toSQL(cls, value, _type, dbtype: str = None):
  *         v = f"{value!s}" if Entity.is_date(_type) else value
  *         if Entity.is_typing(_type):             # <<<<<<<<<<<<<<
  *             v = orjson.dumps(value).decode('utf-8') if value else None
  *             # v = f"{v!s}" if dbtype == 'jsonb' else v
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_typing); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 449, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_typing); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 498, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_5 = 0;
@@ -18217,26 +19625,26 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v__type};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 449, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 498, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 449, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 498, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_6) {
 
-    /* "querysource/types/validators.pyx":450
+    /* "querysource/types/validators.pyx":499
  *         v = f"{value!s}" if Entity.is_date(_type) else value
  *         if Entity.is_typing(_type):
  *             v = orjson.dumps(value).decode('utf-8') if value else None             # <<<<<<<<<<<<<<
  *             # v = f"{v!s}" if dbtype == 'jsonb' else v
  *             v = "NULL" if (v in ["None", "null"]) else v
  */
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 450, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 499, __pyx_L1_error)
     if (__pyx_t_6) {
-      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_orjson); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 450, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_orjson); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 499, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_dumps); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 450, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_dumps); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 499, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_4 = NULL;
@@ -18257,11 +19665,11 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
         PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_value};
         __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 450, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 499, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       }
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_decode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 450, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_decode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 499, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_3 = NULL;
@@ -18282,7 +19690,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
         PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_kp_u_utf_8};
         __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 450, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 499, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       }
@@ -18295,7 +19703,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
     __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/types/validators.pyx":452
+    /* "querysource/types/validators.pyx":501
  *             v = orjson.dumps(value).decode('utf-8') if value else None
  *             # v = f"{v!s}" if dbtype == 'jsonb' else v
  *             v = "NULL" if (v in ["None", "null"]) else v             # <<<<<<<<<<<<<<
@@ -18304,13 +19712,13 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
  */
     __Pyx_INCREF(__pyx_v_v);
     __pyx_t_2 = __pyx_v_v;
-    __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_kp_u_None, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 452, __pyx_L1_error)
+    __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_kp_u_None, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 501, __pyx_L1_error)
     if (!__pyx_t_8) {
     } else {
       __pyx_t_6 = __pyx_t_8;
       goto __pyx_L4_bool_binop_done;
     }
-    __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 452, __pyx_L1_error)
+    __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 501, __pyx_L1_error)
     __pyx_t_6 = __pyx_t_8;
     __pyx_L4_bool_binop_done:;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -18325,7 +19733,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
     __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/types/validators.pyx":453
+    /* "querysource/types/validators.pyx":502
  *             # v = f"{v!s}" if dbtype == 'jsonb' else v
  *             v = "NULL" if (v in ["None", "null"]) else v
  *             return v             # <<<<<<<<<<<<<<
@@ -18337,7 +19745,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
     __pyx_r = __pyx_v_v;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":449
+    /* "querysource/types/validators.pyx":498
  *     def toSQL(cls, value, _type, dbtype: str = None):
  *         v = f"{value!s}" if Entity.is_date(_type) else value
  *         if Entity.is_typing(_type):             # <<<<<<<<<<<<<<
@@ -18346,14 +19754,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
  */
   }
 
-  /* "querysource/types/validators.pyx":454
+  /* "querysource/types/validators.pyx":503
  *             v = "NULL" if (v in ["None", "null"]) else v
  *             return v
  *         v = f"{value!s}" if Entity.is_string(_type) and value is not None else v             # <<<<<<<<<<<<<<
  *         v = value if Entity.is_number(_type) else v
  *         v = str(value) if isinstance(value, UUID) else v
  */
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_string); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 454, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_string); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 503, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_3 = NULL;
   __pyx_t_5 = 0;
@@ -18373,11 +19781,11 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v__type};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 454, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 503, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 454, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 503, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_6) {
   } else {
@@ -18388,7 +19796,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __pyx_t_8 = __pyx_t_6;
   __pyx_L6_bool_binop_done:;
   if (__pyx_t_8) {
-    __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 454, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 503, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_1 = __pyx_t_2;
     __pyx_t_2 = 0;
@@ -18399,14 +19807,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":455
+  /* "querysource/types/validators.pyx":504
  *             return v
  *         v = f"{value!s}" if Entity.is_string(_type) and value is not None else v
  *         v = value if Entity.is_number(_type) else v             # <<<<<<<<<<<<<<
  *         v = str(value) if isinstance(value, UUID) else v
  *         # json conversion
  */
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_number); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 455, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_number); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 504, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_3 = NULL;
   __pyx_t_5 = 0;
@@ -18426,11 +19834,11 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v__type};
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 455, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 504, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   }
-  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 455, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 504, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_8) {
     __Pyx_INCREF(__pyx_v_value);
@@ -18442,19 +19850,19 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":456
+  /* "querysource/types/validators.pyx":505
  *         v = f"{value!s}" if Entity.is_string(_type) and value is not None else v
  *         v = value if Entity.is_number(_type) else v
  *         v = str(value) if isinstance(value, UUID) else v             # <<<<<<<<<<<<<<
  *         # json conversion
  *         v = orjson.dumps(value.encode('utf-8')) if _type in [dict, Dict] else v
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_UUID); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 456, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_UUID); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 505, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_8 = PyObject_IsInstance(__pyx_v_value, __pyx_t_2); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 456, __pyx_L1_error)
+  __pyx_t_8 = PyObject_IsInstance(__pyx_v_value, __pyx_t_2); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 505, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_8) {
-    __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 456, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 505, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_1 = __pyx_t_2;
     __pyx_t_2 = 0;
@@ -18465,7 +19873,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":458
+  /* "querysource/types/validators.pyx":507
  *         v = str(value) if isinstance(value, UUID) else v
  *         # json conversion
  *         v = orjson.dumps(value.encode('utf-8')) if _type in [dict, Dict] else v             # <<<<<<<<<<<<<<
@@ -18474,31 +19882,31 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
  */
   __Pyx_INCREF(__pyx_v__type);
   __pyx_t_2 = __pyx_v__type;
-  __pyx_t_7 = PyObject_RichCompare(__pyx_t_2, ((PyObject *)(&PyDict_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_7); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 458, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 458, __pyx_L1_error)
+  __pyx_t_7 = PyObject_RichCompare(__pyx_t_2, ((PyObject *)(&PyDict_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_7); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 507, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 507, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   if (!__pyx_t_6) {
   } else {
     __pyx_t_8 = __pyx_t_6;
     goto __pyx_L8_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_Dict); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 458, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_Dict); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 507, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_t_7, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 458, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_t_7, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 507, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 458, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 507, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_8 = __pyx_t_6;
   __pyx_L8_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_6 = __pyx_t_8;
   if (__pyx_t_6) {
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_orjson); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 458, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_orjson); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 507, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_dumps); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 458, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_dumps); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 507, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_encode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 458, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_encode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 507, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_9 = NULL;
     __pyx_t_5 = 0;
@@ -18518,7 +19926,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
       PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_kp_u_utf_8};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 458, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 507, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
@@ -18541,7 +19949,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 458, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 507, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     }
@@ -18554,14 +19962,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":459
+  /* "querysource/types/validators.pyx":508
  *         # json conversion
  *         v = orjson.dumps(value.encode('utf-8')) if _type in [dict, Dict] else v
  *         v = f"{value!s}" if dbtype == "array" and value is not None else v             # <<<<<<<<<<<<<<
  *         # formatting htstore column
  *         v = (
  */
-  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_v_dbtype, __pyx_n_u_array, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 459, __pyx_L1_error)
+  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_v_dbtype, __pyx_n_u_array, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 508, __pyx_L1_error)
   if (__pyx_t_8) {
   } else {
     __pyx_t_6 = __pyx_t_8;
@@ -18571,7 +19979,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __pyx_t_6 = __pyx_t_8;
   __pyx_L10_bool_binop_done:;
   if (__pyx_t_6) {
-    __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 459, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 508, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_1 = __pyx_t_2;
     __pyx_t_2 = 0;
@@ -18582,7 +19990,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":463
+  /* "querysource/types/validators.pyx":512
  *         v = (
  *             ",".join({"{}=>{}".format(k, v) for k, v in value.items()})
  *             if isinstance(value, dict) and dbtype == "hstore"             # <<<<<<<<<<<<<<
@@ -18595,12 +20003,12 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
     __pyx_t_6 = __pyx_t_8;
     goto __pyx_L12_bool_binop_done;
   }
-  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_v_dbtype, __pyx_n_u_hstore, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 463, __pyx_L1_error)
+  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_v_dbtype, __pyx_n_u_hstore, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 512, __pyx_L1_error)
   __pyx_t_6 = __pyx_t_8;
   __pyx_L12_bool_binop_done:;
   if (__pyx_t_6) {
 
-    /* "querysource/types/validators.pyx":462
+    /* "querysource/types/validators.pyx":511
  *         # formatting htstore column
  *         v = (
  *             ",".join({"{}=>{}".format(k, v) for k, v in value.items()})             # <<<<<<<<<<<<<<
@@ -18608,14 +20016,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
  *             else v
  */
     { /* enter inner scope */
-      __pyx_t_2 = PySet_New(NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 462, __pyx_L16_error)
+      __pyx_t_2 = PySet_New(NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 511, __pyx_L16_error)
       __Pyx_GOTREF(__pyx_t_2);
       __pyx_t_10 = 0;
       if (unlikely(__pyx_v_value == Py_None)) {
         PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-        __PYX_ERR(0, 462, __pyx_L16_error)
+        __PYX_ERR(0, 511, __pyx_L16_error)
       }
-      __pyx_t_3 = __Pyx_dict_iterator(__pyx_v_value, 0, __pyx_n_s_items, (&__pyx_t_11), (&__pyx_t_12)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 462, __pyx_L16_error)
+      __pyx_t_3 = __Pyx_dict_iterator(__pyx_v_value, 0, __pyx_n_s_items, (&__pyx_t_11), (&__pyx_t_12)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 511, __pyx_L16_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_XDECREF(__pyx_t_7);
       __pyx_t_7 = __pyx_t_3;
@@ -18623,14 +20031,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
       while (1) {
         __pyx_t_13 = __Pyx_dict_iter_next(__pyx_t_7, __pyx_t_11, &__pyx_t_10, &__pyx_t_3, &__pyx_t_4, NULL, __pyx_t_12);
         if (unlikely(__pyx_t_13 == 0)) break;
-        if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 462, __pyx_L16_error)
+        if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 511, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_GOTREF(__pyx_t_4);
-        __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_k, __pyx_t_3);
+        __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_k, __pyx_t_3);
         __pyx_t_3 = 0;
-        __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_v, __pyx_t_4);
+        __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_v, __pyx_t_4);
         __pyx_t_4 = 0;
-        __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__29, __pyx_n_s_format); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 462, __pyx_L16_error)
+        __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__29, __pyx_n_s_format); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 511, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_3);
         __pyx_t_9 = NULL;
         __pyx_t_5 = 0;
@@ -18647,34 +20055,34 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
         }
         #endif
         {
-          PyObject *__pyx_callargs[3] = {__pyx_t_9, __pyx_7genexpr__pyx_v_k, __pyx_7genexpr__pyx_v_v};
+          PyObject *__pyx_callargs[3] = {__pyx_t_9, __pyx_8genexpr1__pyx_v_k, __pyx_8genexpr1__pyx_v_v};
           __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 2+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 462, __pyx_L16_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 511, __pyx_L16_error)
           __Pyx_GOTREF(__pyx_t_4);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        if (unlikely(PySet_Add(__pyx_t_2, (PyObject*)__pyx_t_4))) __PYX_ERR(0, 462, __pyx_L16_error)
+        if (unlikely(PySet_Add(__pyx_t_2, (PyObject*)__pyx_t_4))) __PYX_ERR(0, 511, __pyx_L16_error)
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       }
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __Pyx_XDECREF(__pyx_7genexpr__pyx_v_k); __pyx_7genexpr__pyx_v_k = 0;
-      __Pyx_XDECREF(__pyx_7genexpr__pyx_v_v); __pyx_7genexpr__pyx_v_v = 0;
+      __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_k); __pyx_8genexpr1__pyx_v_k = 0;
+      __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_v); __pyx_8genexpr1__pyx_v_v = 0;
       goto __pyx_L19_exit_scope;
       __pyx_L16_error:;
-      __Pyx_XDECREF(__pyx_7genexpr__pyx_v_k); __pyx_7genexpr__pyx_v_k = 0;
-      __Pyx_XDECREF(__pyx_7genexpr__pyx_v_v); __pyx_7genexpr__pyx_v_v = 0;
+      __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_k); __pyx_8genexpr1__pyx_v_k = 0;
+      __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_v); __pyx_8genexpr1__pyx_v_v = 0;
       goto __pyx_L1_error;
       __pyx_L19_exit_scope:;
     } /* exit inner scope */
-    __pyx_t_7 = PyUnicode_Join(__pyx_kp_u__28, __pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 462, __pyx_L1_error)
+    __pyx_t_7 = PyUnicode_Join(__pyx_kp_u__6, __pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 511, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_1 = __pyx_t_7;
     __pyx_t_7 = 0;
   } else {
 
-    /* "querysource/types/validators.pyx":464
+    /* "querysource/types/validators.pyx":513
  *             ",".join({"{}=>{}".format(k, v) for k, v in value.items()})
  *             if isinstance(value, dict) and dbtype == "hstore"
  *             else v             # <<<<<<<<<<<<<<
@@ -18687,7 +20095,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":466
+  /* "querysource/types/validators.pyx":515
  *             else v
  *         )
  *         v = "NULL" if (value in ["None", "null"]) else v             # <<<<<<<<<<<<<<
@@ -18696,13 +20104,13 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
  */
   __Pyx_INCREF(__pyx_v_value);
   __pyx_t_7 = __pyx_v_value;
-  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_t_7, __pyx_kp_u_None, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 466, __pyx_L1_error)
+  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_t_7, __pyx_kp_u_None, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 515, __pyx_L1_error)
   if (!__pyx_t_8) {
   } else {
     __pyx_t_6 = __pyx_t_8;
     goto __pyx_L20_bool_binop_done;
   }
-  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_t_7, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 466, __pyx_L1_error)
+  __pyx_t_8 = (__Pyx_PyUnicode_Equals(__pyx_t_7, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 515, __pyx_L1_error)
   __pyx_t_6 = __pyx_t_8;
   __pyx_L20_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -18717,7 +20125,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":467
+  /* "querysource/types/validators.pyx":516
  *         )
  *         v = "NULL" if (value in ["None", "null"]) else v
  *         v = "NULL" if value is None else v             # <<<<<<<<<<<<<<
@@ -18735,7 +20143,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":468
+  /* "querysource/types/validators.pyx":517
  *         v = "NULL" if (value in ["None", "null"]) else v
  *         v = "NULL" if value is None else v
  *         return v             # <<<<<<<<<<<<<<
@@ -18747,7 +20155,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __pyx_r = __pyx_v_v;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":446
+  /* "querysource/types/validators.pyx":495
  *             return False
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -18767,14 +20175,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_16toSQL(CYTH
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_v);
-  __Pyx_XDECREF(__pyx_7genexpr__pyx_v_k);
-  __Pyx_XDECREF(__pyx_7genexpr__pyx_v_v);
+  __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_k);
+  __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_v);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":470
+/* "querysource/types/validators.pyx":519
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -18824,7 +20232,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_value,&__pyx_n_s_type,&__pyx_n_s_dbtype,0};
 
-    /* "querysource/types/validators.pyx":471
+    /* "querysource/types/validators.pyx":520
  * 
  *     @classmethod
  *     def escapeLiteral(cls, value, _type, dbtype: str = None):             # <<<<<<<<<<<<<<
@@ -18851,7 +20259,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 470, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 519, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -18859,21 +20267,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 470, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 519, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("escapeLiteral", 0, 2, 3, 1); __PYX_ERR(0, 470, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("escapeLiteral", 0, 2, 3, 1); __PYX_ERR(0, 519, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_dbtype);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 470, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 519, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "escapeLiteral") < 0)) __PYX_ERR(0, 470, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "escapeLiteral") < 0)) __PYX_ERR(0, 519, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -18891,7 +20299,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("escapeLiteral", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 470, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("escapeLiteral", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 519, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18905,10 +20313,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_dbtype), (&PyUnicode_Type), 1, "dbtype", 1))) __PYX_ERR(0, 471, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_dbtype), (&PyUnicode_Type), 1, "dbtype", 1))) __PYX_ERR(0, 520, __pyx_L1_error)
   __pyx_r = __pyx_pf_11querysource_5types_10validators_6Entity_18escapeLiteral(((PyTypeObject*)__pyx_v_cls), __pyx_v_value, __pyx_v__type, __pyx_v_dbtype);
 
-  /* "querysource/types/validators.pyx":470
+  /* "querysource/types/validators.pyx":519
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -18947,14 +20355,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("escapeLiteral", 1);
 
-  /* "querysource/types/validators.pyx":472
+  /* "querysource/types/validators.pyx":521
  *     @classmethod
  *     def escapeLiteral(cls, value, _type, dbtype: str = None):
  *         v = value if value != "None" or value is not None else ""             # <<<<<<<<<<<<<<
  *         v = f"{value!r}" if Entity.is_string(_type) else v
  *         v = value if Entity.is_number(_type) else f"{value!r}"
  */
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_NE)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 472, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_NE)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 521, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
@@ -18967,20 +20375,20 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
     __Pyx_INCREF(__pyx_v_value);
     __pyx_t_1 = __pyx_v_value;
   } else {
-    __Pyx_INCREF(__pyx_kp_u__6);
-    __pyx_t_1 = __pyx_kp_u__6;
+    __Pyx_INCREF(__pyx_kp_u__7);
+    __pyx_t_1 = __pyx_kp_u__7;
   }
   __pyx_v_v = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":473
+  /* "querysource/types/validators.pyx":522
  *     def escapeLiteral(cls, value, _type, dbtype: str = None):
  *         v = value if value != "None" or value is not None else ""
  *         v = f"{value!r}" if Entity.is_string(_type) else v             # <<<<<<<<<<<<<<
  *         v = value if Entity.is_number(_type) else f"{value!r}"
  *         v = f"array{value!s}" if dbtype == "array" else v
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_string); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 473, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_string); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 522, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -19000,14 +20408,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v__type};
     __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 473, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 522, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 473, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 522, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (__pyx_t_2) {
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 473, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 522, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_1 = __pyx_t_4;
     __pyx_t_4 = 0;
@@ -19018,14 +20426,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":474
+  /* "querysource/types/validators.pyx":523
  *         v = value if value != "None" or value is not None else ""
  *         v = f"{value!r}" if Entity.is_string(_type) else v
  *         v = value if Entity.is_number(_type) else f"{value!r}"             # <<<<<<<<<<<<<<
  *         v = f"array{value!s}" if dbtype == "array" else v
  *         v = f"{value!r}" if dbtype == "hstore" else v
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_number); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 474, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_number); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 523, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = NULL;
   __pyx_t_7 = 0;
@@ -19045,17 +20453,17 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v__type};
     __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 474, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 523, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 474, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 523, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (__pyx_t_2) {
     __Pyx_INCREF(__pyx_v_value);
     __pyx_t_1 = __pyx_v_value;
   } else {
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 474, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 523, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_1 = __pyx_t_4;
     __pyx_t_4 = 0;
@@ -19063,18 +20471,18 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":475
+  /* "querysource/types/validators.pyx":524
  *         v = f"{value!r}" if Entity.is_string(_type) else v
  *         v = value if Entity.is_number(_type) else f"{value!r}"
  *         v = f"array{value!s}" if dbtype == "array" else v             # <<<<<<<<<<<<<<
  *         v = f"{value!r}" if dbtype == "hstore" else v
  *         v = value if (value in ["None", "null", "NULL"]) else v
  */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_dbtype, __pyx_n_u_array, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 475, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_dbtype, __pyx_n_u_array, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 524, __pyx_L1_error)
   if (__pyx_t_2) {
-    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 475, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Unicode(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 524, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_n_u_array, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 475, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_n_u_array, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 524, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_1 = __pyx_t_5;
@@ -19086,16 +20494,16 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":476
+  /* "querysource/types/validators.pyx":525
  *         v = value if Entity.is_number(_type) else f"{value!r}"
  *         v = f"array{value!s}" if dbtype == "array" else v
  *         v = f"{value!r}" if dbtype == "hstore" else v             # <<<<<<<<<<<<<<
  *         v = value if (value in ["None", "null", "NULL"]) else v
  *         return v
  */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_dbtype, __pyx_n_u_hstore, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 476, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_dbtype, __pyx_n_u_hstore, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 525, __pyx_L1_error)
   if (__pyx_t_2) {
-    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 476, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_value), __pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 525, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_1 = __pyx_t_5;
     __pyx_t_5 = 0;
@@ -19106,7 +20514,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":477
+  /* "querysource/types/validators.pyx":526
  *         v = f"array{value!s}" if dbtype == "array" else v
  *         v = f"{value!r}" if dbtype == "hstore" else v
  *         v = value if (value in ["None", "null", "NULL"]) else v             # <<<<<<<<<<<<<<
@@ -19115,19 +20523,19 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
  */
   __Pyx_INCREF(__pyx_v_value);
   __pyx_t_5 = __pyx_v_value;
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_5, __pyx_kp_u_None, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 477, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_5, __pyx_kp_u_None, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 526, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_5, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 477, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_5, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 526, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_5, __pyx_n_u_NULL, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 477, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_5, __pyx_n_u_NULL, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 526, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_3;
   __pyx_L5_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -19142,7 +20550,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":478
+  /* "querysource/types/validators.pyx":527
  *         v = f"{value!r}" if dbtype == "hstore" else v
  *         v = value if (value in ["None", "null", "NULL"]) else v
  *         return v             # <<<<<<<<<<<<<<
@@ -19154,7 +20562,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
   __pyx_r = __pyx_v_v;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":470
+  /* "querysource/types/validators.pyx":519
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -19177,7 +20585,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_18escapeLite
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":480
+/* "querysource/types/validators.pyx":529
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -19239,12 +20647,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 480, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 529, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "escapeString") < 0)) __PYX_ERR(0, 480, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "escapeString") < 0)) __PYX_ERR(0, 529, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -19255,7 +20663,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("escapeString", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 480, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("escapeString", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 529, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19297,47 +20705,47 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_20escapeStri
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("escapeString", 1);
 
-  /* "querysource/types/validators.pyx":482
+  /* "querysource/types/validators.pyx":531
  *     @classmethod
  *     def escapeString(cls, value):
  *         v = value if value != "None" else ""             # <<<<<<<<<<<<<<
  *         v = str(v).replace("'", "''")
  *         v = "'{}'".format(v) if Entity.is_string(type(value)) else v
  */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 482, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 531, __pyx_L1_error)
   if (__pyx_t_2) {
     __Pyx_INCREF(__pyx_v_value);
     __pyx_t_1 = __pyx_v_value;
   } else {
-    __Pyx_INCREF(__pyx_kp_u__6);
-    __pyx_t_1 = __pyx_kp_u__6;
+    __Pyx_INCREF(__pyx_kp_u__7);
+    __pyx_t_1 = __pyx_kp_u__7;
   }
   __pyx_v_v = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":483
+  /* "querysource/types/validators.pyx":532
  *     def escapeString(cls, value):
  *         v = value if value != "None" else ""
  *         v = str(v).replace("'", "''")             # <<<<<<<<<<<<<<
  *         v = "'{}'".format(v) if Entity.is_string(type(value)) else v
  *         return v
  */
-  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_v); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 483, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_v); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyUnicode_Replace(((PyObject*)__pyx_t_1), __pyx_kp_u__8, __pyx_kp_u__9, -1L); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 483, __pyx_L1_error)
+  __pyx_t_3 = PyUnicode_Replace(((PyObject*)__pyx_t_1), __pyx_kp_u__9, __pyx_kp_u__10, -1L); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":484
+  /* "querysource/types/validators.pyx":533
  *         v = value if value != "None" else ""
  *         v = str(v).replace("'", "''")
  *         v = "'{}'".format(v) if Entity.is_string(type(value)) else v             # <<<<<<<<<<<<<<
  *         return v
  * 
  */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_string); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 484, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity), __pyx_n_s_is_string); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 533, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = NULL;
   __pyx_t_6 = 0;
@@ -19357,14 +20765,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_20escapeStri
     PyObject *__pyx_callargs[2] = {__pyx_t_5, ((PyObject *)Py_TYPE(__pyx_v_value))};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 484, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 533, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 484, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 533, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__10, __pyx_n_s_format); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 484, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__11, __pyx_n_s_format); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 533, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -19384,7 +20792,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_20escapeStri
       PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_v};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 484, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 533, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
@@ -19397,7 +20805,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_20escapeStri
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":485
+  /* "querysource/types/validators.pyx":534
  *         v = str(v).replace("'", "''")
  *         v = "'{}'".format(v) if Entity.is_string(type(value)) else v
  *         return v             # <<<<<<<<<<<<<<
@@ -19409,7 +20817,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_20escapeStri
   __pyx_r = __pyx_v_v;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":480
+  /* "querysource/types/validators.pyx":529
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -19432,7 +20840,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_20escapeStri
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":487
+/* "querysource/types/validators.pyx":536
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -19497,19 +20905,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 487, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 536, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_no_dblquoting);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 487, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 536, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "quoteString") < 0)) __PYX_ERR(0, 487, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "quoteString") < 0)) __PYX_ERR(0, 536, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -19522,10 +20930,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     }
     __pyx_v_value = values[0];
     if (values[1]) {
-      __pyx_v_no_dblquoting = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_no_dblquoting == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 488, __pyx_L3_error)
+      __pyx_v_no_dblquoting = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_no_dblquoting == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 537, __pyx_L3_error)
     } else {
 
-      /* "querysource/types/validators.pyx":488
+      /* "querysource/types/validators.pyx":537
  * 
  *     @classmethod
  *     def quoteString(cls, value, bool_t no_dblquoting=True):             # <<<<<<<<<<<<<<
@@ -19537,7 +20945,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("quoteString", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 487, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("quoteString", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 536, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19553,7 +20961,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_11querysource_5types_10validators_6Entity_22quoteString(((PyTypeObject*)__pyx_v_cls), __pyx_v_value, __pyx_v_no_dblquoting);
 
-  /* "querysource/types/validators.pyx":487
+  /* "querysource/types/validators.pyx":536
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -19591,43 +20999,43 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("quoteString", 1);
 
-  /* "querysource/types/validators.pyx":489
+  /* "querysource/types/validators.pyx":538
  *     @classmethod
  *     def quoteString(cls, value, bool_t no_dblquoting=True):
  *         v = value if value != 'None' else ""             # <<<<<<<<<<<<<<
  *         if value == 'null' or value == 'NULL':
  *             return v
  */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 489, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_NE)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 538, __pyx_L1_error)
   if (__pyx_t_2) {
     __Pyx_INCREF(__pyx_v_value);
     __pyx_t_1 = __pyx_v_value;
   } else {
-    __Pyx_INCREF(__pyx_kp_u__6);
-    __pyx_t_1 = __pyx_kp_u__6;
+    __Pyx_INCREF(__pyx_kp_u__7);
+    __pyx_t_1 = __pyx_kp_u__7;
   }
   __pyx_v_v = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":490
+  /* "querysource/types/validators.pyx":539
  *     def quoteString(cls, value, bool_t no_dblquoting=True):
  *         v = value if value != 'None' else ""
  *         if value == 'null' or value == 'NULL':             # <<<<<<<<<<<<<<
  *             return v
  *         if isinstance(v, bool):
  */
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 490, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 539, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_NULL, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 490, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_NULL, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 539, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_3;
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":491
+    /* "querysource/types/validators.pyx":540
  *         v = value if value != 'None' else ""
  *         if value == 'null' or value == 'NULL':
  *             return v             # <<<<<<<<<<<<<<
@@ -19639,7 +21047,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
     __pyx_r = __pyx_v_v;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":490
+    /* "querysource/types/validators.pyx":539
  *     def quoteString(cls, value, bool_t no_dblquoting=True):
  *         v = value if value != 'None' else ""
  *         if value == 'null' or value == 'NULL':             # <<<<<<<<<<<<<<
@@ -19648,7 +21056,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
  */
   }
 
-  /* "querysource/types/validators.pyx":492
+  /* "querysource/types/validators.pyx":541
  *         if value == 'null' or value == 'NULL':
  *             return v
  *         if isinstance(v, bool):             # <<<<<<<<<<<<<<
@@ -19657,11 +21065,11 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
  */
   __pyx_t_1 = ((PyObject*)&PyBool_Type);
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_v, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 492, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_v, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 541, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":493
+    /* "querysource/types/validators.pyx":542
  *             return v
  *         if isinstance(v, bool):
  *             return str(v)             # <<<<<<<<<<<<<<
@@ -19669,13 +21077,13 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
  *             # Handle double quotes
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_v); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 493, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_v); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 542, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":492
+    /* "querysource/types/validators.pyx":541
  *         if value == 'null' or value == 'NULL':
  *             return v
  *         if isinstance(v, bool):             # <<<<<<<<<<<<<<
@@ -19684,7 +21092,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
  */
   }
 
-  /* "querysource/types/validators.pyx":494
+  /* "querysource/types/validators.pyx":543
  *         if isinstance(v, bool):
  *             return str(v)
  *         if isinstance(v, str):             # <<<<<<<<<<<<<<
@@ -19694,14 +21102,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
   __pyx_t_2 = PyUnicode_Check(__pyx_v_v); 
   if (__pyx_t_2) {
 
-    /* "querysource/types/validators.pyx":496
+    /* "querysource/types/validators.pyx":545
  *         if isinstance(v, str):
  *             # Handle double quotes
  *             if v.startswith('"') and no_dblquoting:             # <<<<<<<<<<<<<<
  *                 v = v.replace('"', "'")
  * 
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_startswith); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 496, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_startswith); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 545, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -19718,14 +21126,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__11};
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__12};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 496, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 545, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 496, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 545, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_3) {
     } else {
@@ -19737,22 +21145,22 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
     __pyx_L9_bool_binop_done:;
     if (__pyx_t_2) {
 
-      /* "querysource/types/validators.pyx":497
+      /* "querysource/types/validators.pyx":546
  *             # Handle double quotes
  *             if v.startswith('"') and no_dblquoting:
  *                 v = v.replace('"', "'")             # <<<<<<<<<<<<<<
  * 
  *             # Check if the string starts or ends with a single quote
  */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_replace); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 497, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_replace); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 546, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__16, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 497, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__17, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 546, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "querysource/types/validators.pyx":496
+      /* "querysource/types/validators.pyx":545
  *         if isinstance(v, str):
  *             # Handle double quotes
  *             if v.startswith('"') and no_dblquoting:             # <<<<<<<<<<<<<<
@@ -19761,14 +21169,14 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
  */
     }
 
-    /* "querysource/types/validators.pyx":500
+    /* "querysource/types/validators.pyx":549
  * 
  *             # Check if the string starts or ends with a single quote
  *             start_quote = v.startswith("'")             # <<<<<<<<<<<<<<
  *             end_quote = v.endswith("'")
  * 
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_startswith); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 500, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_startswith); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 549, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -19785,24 +21193,24 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__8};
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__9};
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 500, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 549, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     }
     __pyx_v_start_quote = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "querysource/types/validators.pyx":501
+    /* "querysource/types/validators.pyx":550
  *             # Check if the string starts or ends with a single quote
  *             start_quote = v.startswith("'")
  *             end_quote = v.endswith("'")             # <<<<<<<<<<<<<<
  * 
  *             # Slice the string if it starts/ends with a quote
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_endswith); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 501, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_endswith); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 550, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -19819,48 +21227,48 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__8};
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_kp_u__9};
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 501, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 550, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     }
     __pyx_v_end_quote = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "querysource/types/validators.pyx":504
+    /* "querysource/types/validators.pyx":553
  * 
  *             # Slice the string if it starts/ends with a quote
  *             v = v[1:-1] if start_quote and end_quote else (v[1:] if start_quote else (v[:-1] if end_quote else v))             # <<<<<<<<<<<<<<
  * 
  *             # Escape single quotes
  */
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_start_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 504, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_start_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 553, __pyx_L1_error)
     if (__pyx_t_3) {
     } else {
       __pyx_t_2 = __pyx_t_3;
       goto __pyx_L11_bool_binop_done;
     }
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_end_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 504, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_end_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 553, __pyx_L1_error)
     __pyx_t_2 = __pyx_t_3;
     __pyx_L11_bool_binop_done:;
     if (__pyx_t_2) {
-      __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_v, 1, -1L, NULL, NULL, &__pyx_slice__12, 1, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 504, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_v, 1, -1L, NULL, NULL, &__pyx_slice__13, 1, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 553, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_4 = __pyx_t_1;
       __pyx_t_1 = 0;
     } else {
-      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_start_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 504, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_start_quote); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 553, __pyx_L1_error)
       if (__pyx_t_3) {
-        __pyx_t_5 = __Pyx_PyObject_GetSlice(__pyx_v_v, 1, 0, NULL, NULL, &__pyx_slice__13, 1, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 504, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_GetSlice(__pyx_v_v, 1, 0, NULL, NULL, &__pyx_slice__14, 1, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 553, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __pyx_t_1 = __pyx_t_5;
         __pyx_t_5 = 0;
       } else {
-        __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_end_quote); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 504, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_end_quote); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 553, __pyx_L1_error)
         if (__pyx_t_7) {
-          __pyx_t_8 = __Pyx_PyObject_GetSlice(__pyx_v_v, 0, -1L, NULL, NULL, &__pyx_slice__14, 0, 1, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 504, __pyx_L1_error)
+          __pyx_t_8 = __Pyx_PyObject_GetSlice(__pyx_v_v, 0, -1L, NULL, NULL, &__pyx_slice__15, 0, 1, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 553, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __pyx_t_5 = __pyx_t_8;
           __pyx_t_8 = 0;
@@ -19877,22 +21285,22 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
     __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "querysource/types/validators.pyx":507
+    /* "querysource/types/validators.pyx":556
  * 
  *             # Escape single quotes
  *             v = v.replace("'", "''")             # <<<<<<<<<<<<<<
  * 
  *             # # Add back the starting and/or ending quote if they were present
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_replace); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 507, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_v, __pyx_n_s_replace); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 556, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__15, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 507, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__16, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 556, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/types/validators.pyx":494
+    /* "querysource/types/validators.pyx":543
  *         if isinstance(v, bool):
  *             return str(v)
  *         if isinstance(v, str):             # <<<<<<<<<<<<<<
@@ -19901,18 +21309,18 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
  */
   }
 
-  /* "querysource/types/validators.pyx":515
+  /* "querysource/types/validators.pyx":564
  *             #     v += "'"
  * 
  *         v = "'{}'".format(v) if type(v) == str else v             # <<<<<<<<<<<<<<
  *         return v
  * 
  */
-  __pyx_t_4 = PyObject_RichCompare(((PyObject *)Py_TYPE(__pyx_v_v)), ((PyObject *)(&PyUnicode_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 515, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 515, __pyx_L1_error)
+  __pyx_t_4 = PyObject_RichCompare(((PyObject *)Py_TYPE(__pyx_v_v)), ((PyObject *)(&PyUnicode_Type)), Py_EQ); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 564, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 564, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (__pyx_t_2) {
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__10, __pyx_n_s_format); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 515, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_kp_u__11, __pyx_n_s_format); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 564, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_8 = NULL;
     __pyx_t_6 = 0;
@@ -19932,7 +21340,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
       PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_v_v};
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 515, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 564, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     }
@@ -19945,7 +21353,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
   __Pyx_DECREF_SET(__pyx_v_v, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/types/validators.pyx":516
+  /* "querysource/types/validators.pyx":565
  * 
  *         v = "'{}'".format(v) if type(v) == str else v
  *         return v             # <<<<<<<<<<<<<<
@@ -19957,7 +21365,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
   __pyx_r = __pyx_v_v;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":487
+  /* "querysource/types/validators.pyx":536
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -19982,7 +21390,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_22quoteStrin
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":518
+/* "querysource/types/validators.pyx":567
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -20044,12 +21452,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 518, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 567, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "dblQuoting") < 0)) __PYX_ERR(0, 518, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "dblQuoting") < 0)) __PYX_ERR(0, 567, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -20060,7 +21468,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("dblQuoting", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 518, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("dblQuoting", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 567, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -20099,7 +21507,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_24dblQuoting
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("dblQuoting", 1);
 
-  /* "querysource/types/validators.pyx":520
+  /* "querysource/types/validators.pyx":569
  *     @classmethod
  *     def dblQuoting(cls, value):
  *         return f'"{value}"'             # <<<<<<<<<<<<<<
@@ -20107,33 +21515,33 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_24dblQuoting
  * ### Validation of conditions:
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 520, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 569, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = 0;
   __pyx_t_3 = 127;
-  __Pyx_INCREF(__pyx_kp_u__11);
+  __Pyx_INCREF(__pyx_kp_u__12);
   __pyx_t_2 += 1;
-  __Pyx_GIVEREF(__pyx_kp_u__11);
-  PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u__11);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 520, __pyx_L1_error)
+  __Pyx_GIVEREF(__pyx_kp_u__12);
+  PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u__12);
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 569, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_4);
   __pyx_t_4 = 0;
-  __Pyx_INCREF(__pyx_kp_u__11);
+  __Pyx_INCREF(__pyx_kp_u__12);
   __pyx_t_2 += 1;
-  __Pyx_GIVEREF(__pyx_kp_u__11);
-  PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u__11);
-  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 520, __pyx_L1_error)
+  __Pyx_GIVEREF(__pyx_kp_u__12);
+  PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u__12);
+  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 569, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "querysource/types/validators.pyx":518
+  /* "querysource/types/validators.pyx":567
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
@@ -20550,7 +21958,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_28__setstate
   return __pyx_r;
 }
 
-/* "querysource/types/validators.pyx":523
+/* "querysource/types/validators.pyx":572
  * 
  * ### Validation of conditions:
  * cpdef object is_valid(object key, object value, str T = None, bint noquote = False):             # <<<<<<<<<<<<<<
@@ -20558,7 +21966,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_6Entity_28__setstate
  * 
  */
 
-static PyObject *__pyx_pw_11querysource_5types_10validators_47is_valid(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_55is_valid(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -20611,7 +22019,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
     }
   }
 
-  /* "querysource/types/validators.pyx":536
+  /* "querysource/types/validators.pyx":585
  *     """
  * 
  *     if T:             # <<<<<<<<<<<<<<
@@ -20621,7 +22029,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
   __pyx_t_1 = (__pyx_v_T != Py_None)&&(__Pyx_PyUnicode_IS_TRUE(__pyx_v_T) != 0);
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":537
+    /* "querysource/types/validators.pyx":586
  * 
  *     if T:
  *         try:             # <<<<<<<<<<<<<<
@@ -20637,17 +22045,17 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __Pyx_XGOTREF(__pyx_t_4);
       /*try:*/ {
 
-        /* "querysource/types/validators.pyx":538
+        /* "querysource/types/validators.pyx":587
  *     if T:
  *         try:
  *             if T == 'literal':             # <<<<<<<<<<<<<<
  *                 return escape_string(value) # exactly that we need
  *             else:
  */
-        __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_T, __pyx_n_u_literal, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 538, __pyx_L4_error)
+        __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_T, __pyx_n_u_literal, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 587, __pyx_L4_error)
         if (__pyx_t_1) {
 
-          /* "querysource/types/validators.pyx":539
+          /* "querysource/types/validators.pyx":588
  *         try:
  *             if T == 'literal':
  *                 return escape_string(value) # exactly that we need             # <<<<<<<<<<<<<<
@@ -20655,13 +22063,13 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  *                 validator, conv = type_validators[T]
  */
           __Pyx_XDECREF(__pyx_r);
-          __pyx_t_5 = __pyx_f_11querysource_5types_10validators_escape_string(__pyx_v_value, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 539, __pyx_L4_error)
+          __pyx_t_5 = __pyx_f_11querysource_5types_10validators_escape_string(__pyx_v_value, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 588, __pyx_L4_error)
           __Pyx_GOTREF(__pyx_t_5);
           __pyx_r = __pyx_t_5;
           __pyx_t_5 = 0;
           goto __pyx_L8_try_return;
 
-          /* "querysource/types/validators.pyx":538
+          /* "querysource/types/validators.pyx":587
  *     if T:
  *         try:
  *             if T == 'literal':             # <<<<<<<<<<<<<<
@@ -20670,7 +22078,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
         }
 
-        /* "querysource/types/validators.pyx":541
+        /* "querysource/types/validators.pyx":590
  *                 return escape_string(value) # exactly that we need
  *             else:
  *                 validator, conv = type_validators[T]             # <<<<<<<<<<<<<<
@@ -20680,9 +22088,9 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
         /*else*/ {
           if (unlikely(__pyx_v_11querysource_5types_10validators_type_validators == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-            __PYX_ERR(0, 541, __pyx_L4_error)
+            __PYX_ERR(0, 590, __pyx_L4_error)
           }
-          __pyx_t_5 = __Pyx_PyDict_GetItem(__pyx_v_11querysource_5types_10validators_type_validators, __pyx_v_T); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 541, __pyx_L4_error)
+          __pyx_t_5 = __Pyx_PyDict_GetItem(__pyx_v_11querysource_5types_10validators_type_validators, __pyx_v_T); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 590, __pyx_L4_error)
           __Pyx_GOTREF(__pyx_t_5);
           if ((likely(PyTuple_CheckExact(__pyx_t_5))) || (PyList_CheckExact(__pyx_t_5))) {
             PyObject* sequence = __pyx_t_5;
@@ -20690,7 +22098,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
             if (unlikely(size != 2)) {
               if (size > 2) __Pyx_RaiseTooManyValuesError(2);
               else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-              __PYX_ERR(0, 541, __pyx_L4_error)
+              __PYX_ERR(0, 590, __pyx_L4_error)
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
             if (likely(PyTuple_CheckExact(sequence))) {
@@ -20703,15 +22111,15 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
             __Pyx_INCREF(__pyx_t_6);
             __Pyx_INCREF(__pyx_t_7);
             #else
-            __pyx_t_6 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 541, __pyx_L4_error)
+            __pyx_t_6 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 590, __pyx_L4_error)
             __Pyx_GOTREF(__pyx_t_6);
-            __pyx_t_7 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 541, __pyx_L4_error)
+            __pyx_t_7 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 590, __pyx_L4_error)
             __Pyx_GOTREF(__pyx_t_7);
             #endif
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           } else {
             Py_ssize_t index = -1;
-            __pyx_t_8 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 541, __pyx_L4_error)
+            __pyx_t_8 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 590, __pyx_L4_error)
             __Pyx_GOTREF(__pyx_t_8);
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
             __pyx_t_9 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_8);
@@ -20719,7 +22127,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
             __Pyx_GOTREF(__pyx_t_6);
             index = 1; __pyx_t_7 = __pyx_t_9(__pyx_t_8); if (unlikely(!__pyx_t_7)) goto __pyx_L11_unpacking_failed;
             __Pyx_GOTREF(__pyx_t_7);
-            if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 2) < 0) __PYX_ERR(0, 541, __pyx_L4_error)
+            if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 2) < 0) __PYX_ERR(0, 590, __pyx_L4_error)
             __pyx_t_9 = NULL;
             __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
             goto __pyx_L12_unpacking_done;
@@ -20727,7 +22135,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
             __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
             __pyx_t_9 = NULL;
             if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-            __PYX_ERR(0, 541, __pyx_L4_error)
+            __PYX_ERR(0, 590, __pyx_L4_error)
             __pyx_L12_unpacking_done:;
           }
           __pyx_v_validator = __pyx_t_6;
@@ -20735,7 +22143,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
           __pyx_v_conv = __pyx_t_7;
           __pyx_t_7 = 0;
 
-          /* "querysource/types/validators.pyx":542
+          /* "querysource/types/validators.pyx":591
  *             else:
  *                 validator, conv = type_validators[T]
  *                 if validator(value):             # <<<<<<<<<<<<<<
@@ -20761,15 +22169,15 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
             PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_value};
             __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
             __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 542, __pyx_L4_error)
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 591, __pyx_L4_error)
             __Pyx_GOTREF(__pyx_t_5);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
           }
-          __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 542, __pyx_L4_error)
+          __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 591, __pyx_L4_error)
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           if (__pyx_t_1) {
 
-            /* "querysource/types/validators.pyx":543
+            /* "querysource/types/validators.pyx":592
  *                 validator, conv = type_validators[T]
  *                 if validator(value):
  *                     return conv(value)             # <<<<<<<<<<<<<<
@@ -20796,7 +22204,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
               PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_value};
               __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
               __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-              if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 543, __pyx_L4_error)
+              if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 592, __pyx_L4_error)
               __Pyx_GOTREF(__pyx_t_5);
               __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
             }
@@ -20804,7 +22212,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
             __pyx_t_5 = 0;
             goto __pyx_L8_try_return;
 
-            /* "querysource/types/validators.pyx":542
+            /* "querysource/types/validators.pyx":591
  *             else:
  *                 validator, conv = type_validators[T]
  *                 if validator(value):             # <<<<<<<<<<<<<<
@@ -20814,7 +22222,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
           }
         }
 
-        /* "querysource/types/validators.pyx":537
+        /* "querysource/types/validators.pyx":586
  * 
  *     if T:
  *         try:             # <<<<<<<<<<<<<<
@@ -20832,7 +22240,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "querysource/types/validators.pyx":544
+      /* "querysource/types/validators.pyx":593
  *                 if validator(value):
  *                     return conv(value)
  *         except KeyError:             # <<<<<<<<<<<<<<
@@ -20846,7 +22254,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       }
       goto __pyx_L6_except_error;
 
-      /* "querysource/types/validators.pyx":537
+      /* "querysource/types/validators.pyx":586
  * 
  *     if T:
  *         try:             # <<<<<<<<<<<<<<
@@ -20873,7 +22281,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __pyx_L9_try_end:;
     }
 
-    /* "querysource/types/validators.pyx":536
+    /* "querysource/types/validators.pyx":585
  *     """
  * 
  *     if T:             # <<<<<<<<<<<<<<
@@ -20882,39 +22290,39 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
   }
 
-  /* "querysource/types/validators.pyx":546
+  /* "querysource/types/validators.pyx":595
  *         except KeyError:
  *             pass
  *     if value == 'null' or value == 'NULL' or value == None or value == 'None':             # <<<<<<<<<<<<<<
  *         return 'null'
  *     elif is_boolean(value):
  */
-  __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 546, __pyx_L1_error)
+  __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_null, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 595, __pyx_L1_error)
   if (!__pyx_t_12) {
   } else {
     __pyx_t_1 = __pyx_t_12;
     goto __pyx_L15_bool_binop_done;
   }
-  __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_NULL, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 546, __pyx_L1_error)
+  __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_n_u_NULL, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 595, __pyx_L1_error)
   if (!__pyx_t_12) {
   } else {
     __pyx_t_1 = __pyx_t_12;
     goto __pyx_L15_bool_binop_done;
   }
-  __pyx_t_5 = PyObject_RichCompare(__pyx_v_value, Py_None, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 546, __pyx_L1_error)
-  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 546, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_v_value, Py_None, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 595, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 595, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (!__pyx_t_12) {
   } else {
     __pyx_t_1 = __pyx_t_12;
     goto __pyx_L15_bool_binop_done;
   }
-  __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 546, __pyx_L1_error)
+  __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_v_value, __pyx_kp_u_None, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 595, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_12;
   __pyx_L15_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":547
+    /* "querysource/types/validators.pyx":596
  *             pass
  *     if value == 'null' or value == 'NULL' or value == None or value == 'None':
  *         return 'null'             # <<<<<<<<<<<<<<
@@ -20926,7 +22334,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
     __pyx_r = __pyx_n_u_null;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":546
+    /* "querysource/types/validators.pyx":595
  *         except KeyError:
  *             pass
  *     if value == 'null' or value == 'NULL' or value == None or value == 'None':             # <<<<<<<<<<<<<<
@@ -20935,18 +22343,18 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
   }
 
-  /* "querysource/types/validators.pyx":548
+  /* "querysource/types/validators.pyx":597
  *     if value == 'null' or value == 'NULL' or value == None or value == 'None':
  *         return 'null'
  *     elif is_boolean(value):             # <<<<<<<<<<<<<<
  *         return value
  *     elif is_integer(value):
  */
-  __pyx_t_13 = __pyx_f_11querysource_5types_10validators_is_boolean(__pyx_v_value, 0); if (unlikely(__pyx_t_13 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 548, __pyx_L1_error)
+  __pyx_t_13 = __pyx_f_11querysource_5types_10validators_is_boolean(__pyx_v_value, 0); if (unlikely(__pyx_t_13 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 597, __pyx_L1_error)
   __pyx_t_1 = (__pyx_t_13 != 0);
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":549
+    /* "querysource/types/validators.pyx":598
  *         return 'null'
  *     elif is_boolean(value):
  *         return value             # <<<<<<<<<<<<<<
@@ -20958,7 +22366,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
     __pyx_r = __pyx_v_value;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":548
+    /* "querysource/types/validators.pyx":597
  *     if value == 'null' or value == 'NULL' or value == None or value == 'None':
  *         return 'null'
  *     elif is_boolean(value):             # <<<<<<<<<<<<<<
@@ -20967,18 +22375,18 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
   }
 
-  /* "querysource/types/validators.pyx":550
+  /* "querysource/types/validators.pyx":599
  *     elif is_boolean(value):
  *         return value
  *     elif is_integer(value):             # <<<<<<<<<<<<<<
  *         return value
  *     elif is_udf(str(value).upper()):
  */
-  __pyx_t_13 = __pyx_f_11querysource_5types_10validators_is_integer(__pyx_v_value, 0); if (unlikely(__pyx_t_13 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 550, __pyx_L1_error)
+  __pyx_t_13 = __pyx_f_11querysource_5types_10validators_is_integer(__pyx_v_value, 0); if (unlikely(__pyx_t_13 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 599, __pyx_L1_error)
   __pyx_t_1 = (__pyx_t_13 != 0);
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":551
+    /* "querysource/types/validators.pyx":600
  *         return value
  *     elif is_integer(value):
  *         return value             # <<<<<<<<<<<<<<
@@ -20990,7 +22398,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
     __pyx_r = __pyx_v_value;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":550
+    /* "querysource/types/validators.pyx":599
  *     elif is_boolean(value):
  *         return value
  *     elif is_integer(value):             # <<<<<<<<<<<<<<
@@ -20999,16 +22407,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
   }
 
-  /* "querysource/types/validators.pyx":552
+  /* "querysource/types/validators.pyx":601
  *     elif is_integer(value):
  *         return value
  *     elif is_udf(str(value).upper()):             # <<<<<<<<<<<<<<
  *         return quoteString(to_udf(value))
  *     elif is_pgconstant(str(value).upper()):
  */
-  __pyx_t_7 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 552, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 601, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_upper); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 552, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_upper); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 601, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_t_7 = NULL;
@@ -21029,16 +22437,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
     PyObject *__pyx_callargs[2] = {__pyx_t_7, NULL};
     __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_10, 0+__pyx_t_10);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 552, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 601, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   }
-  __pyx_t_13 = __pyx_f_11querysource_5types_10validators_is_udf(__pyx_t_5, 0); if (unlikely(__pyx_t_13 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 552, __pyx_L1_error)
+  __pyx_t_13 = __pyx_f_11querysource_5types_10validators_is_udf(__pyx_t_5, 0); if (unlikely(__pyx_t_13 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 601, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_1 = (__pyx_t_13 != 0);
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":553
+    /* "querysource/types/validators.pyx":602
  *         return value
  *     elif is_udf(str(value).upper()):
  *         return quoteString(to_udf(value))             # <<<<<<<<<<<<<<
@@ -21046,7 +22454,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  *         return value.upper()
  */
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_to_udf); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 553, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_to_udf); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 602, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = NULL;
     __pyx_t_10 = 0;
@@ -21066,18 +22474,18 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_value};
       __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 553, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 602, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     }
-    __pyx_t_6 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 553, __pyx_L1_error)
+    __pyx_t_6 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 602, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_r = __pyx_t_6;
     __pyx_t_6 = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":552
+    /* "querysource/types/validators.pyx":601
  *     elif is_integer(value):
  *         return value
  *     elif is_udf(str(value).upper()):             # <<<<<<<<<<<<<<
@@ -21086,16 +22494,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
   }
 
-  /* "querysource/types/validators.pyx":554
+  /* "querysource/types/validators.pyx":603
  *     elif is_udf(str(value).upper()):
  *         return quoteString(to_udf(value))
  *     elif is_pgconstant(str(value).upper()):             # <<<<<<<<<<<<<<
  *         return value.upper()
  *     elif is_pg_function(value):
  */
-  __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 554, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 603, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_upper); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 554, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_upper); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 603, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_5 = NULL;
@@ -21116,16 +22524,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
     PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
     __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_10, 0+__pyx_t_10);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 554, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 603, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   }
-  __pyx_t_13 = __pyx_f_11querysource_5types_10validators_is_pgconstant(__pyx_t_6, 0); if (unlikely(__pyx_t_13 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 554, __pyx_L1_error)
+  __pyx_t_13 = __pyx_f_11querysource_5types_10validators_is_pgconstant(__pyx_t_6, 0); if (unlikely(__pyx_t_13 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 603, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_t_1 = (__pyx_t_13 != 0);
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":555
+    /* "querysource/types/validators.pyx":604
  *         return quoteString(to_udf(value))
  *     elif is_pgconstant(str(value).upper()):
  *         return value.upper()             # <<<<<<<<<<<<<<
@@ -21133,7 +22541,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  *         return value # return exactly the value
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_upper); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 555, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_value, __pyx_n_s_upper); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 604, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_5 = NULL;
     __pyx_t_10 = 0;
@@ -21153,7 +22561,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
       __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_10, 0+__pyx_t_10);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 555, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 604, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     }
@@ -21161,7 +22569,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
     __pyx_t_6 = 0;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":554
+    /* "querysource/types/validators.pyx":603
  *     elif is_udf(str(value).upper()):
  *         return quoteString(to_udf(value))
  *     elif is_pgconstant(str(value).upper()):             # <<<<<<<<<<<<<<
@@ -21170,18 +22578,18 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
   }
 
-  /* "querysource/types/validators.pyx":556
+  /* "querysource/types/validators.pyx":605
  *     elif is_pgconstant(str(value).upper()):
  *         return value.upper()
  *     elif is_pg_function(value):             # <<<<<<<<<<<<<<
  *         return value # return exactly the value
  *     elif isinstance(value, list) or isinstance(value, dict):
  */
-  __pyx_t_13 = __pyx_f_11querysource_5types_10validators_is_pg_function(__pyx_v_value); if (unlikely(__pyx_t_13 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 556, __pyx_L1_error)
+  __pyx_t_13 = __pyx_f_11querysource_5types_10validators_is_pg_function(__pyx_v_value); if (unlikely(__pyx_t_13 == ((bool)-1) && PyErr_Occurred())) __PYX_ERR(0, 605, __pyx_L1_error)
   __pyx_t_1 = (__pyx_t_13 != 0);
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":557
+    /* "querysource/types/validators.pyx":606
  *         return value.upper()
  *     elif is_pg_function(value):
  *         return value # return exactly the value             # <<<<<<<<<<<<<<
@@ -21193,7 +22601,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
     __pyx_r = __pyx_v_value;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":556
+    /* "querysource/types/validators.pyx":605
  *     elif is_pgconstant(str(value).upper()):
  *         return value.upper()
  *     elif is_pg_function(value):             # <<<<<<<<<<<<<<
@@ -21202,7 +22610,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
   }
 
-  /* "querysource/types/validators.pyx":558
+  /* "querysource/types/validators.pyx":607
  *     elif is_pg_function(value):
  *         return value # return exactly the value
  *     elif isinstance(value, list) or isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -21220,7 +22628,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
   __pyx_L19_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "querysource/types/validators.pyx":559
+    /* "querysource/types/validators.pyx":608
  *         return value # return exactly the value
  *     elif isinstance(value, list) or isinstance(value, dict):
  *         return value             # <<<<<<<<<<<<<<
@@ -21232,7 +22640,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
     __pyx_r = __pyx_v_value;
     goto __pyx_L0;
 
-    /* "querysource/types/validators.pyx":558
+    /* "querysource/types/validators.pyx":607
  *     elif is_pg_function(value):
  *         return value # return exactly the value
  *     elif isinstance(value, list) or isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -21241,7 +22649,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
   }
 
-  /* "querysource/types/validators.pyx":561
+  /* "querysource/types/validators.pyx":610
  *         return value
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -21258,29 +22666,29 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __Pyx_XGOTREF(__pyx_t_2);
       /*try:*/ {
 
-        /* "querysource/types/validators.pyx":562
+        /* "querysource/types/validators.pyx":611
  *     else:
  *         try:
  *             val = get_config_var(value)             # <<<<<<<<<<<<<<
  *             if val:
  *                 if isinstance(val, str) or T == 'date':
  */
-        __pyx_t_6 = __pyx_f_11querysource_5types_10validators_get_config_var(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 562, __pyx_L21_error)
+        __pyx_t_6 = __pyx_f_11querysource_5types_10validators_get_config_var(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 611, __pyx_L21_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_v_val = __pyx_t_6;
         __pyx_t_6 = 0;
 
-        /* "querysource/types/validators.pyx":563
+        /* "querysource/types/validators.pyx":612
  *         try:
  *             val = get_config_var(value)
  *             if val:             # <<<<<<<<<<<<<<
  *                 if isinstance(val, str) or T == 'date':
  *                     return quoteString(val)
  */
-        __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_val); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 563, __pyx_L21_error)
+        __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_val); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 612, __pyx_L21_error)
         if (__pyx_t_1) {
 
-          /* "querysource/types/validators.pyx":564
+          /* "querysource/types/validators.pyx":613
  *             val = get_config_var(value)
  *             if val:
  *                 if isinstance(val, str) or T == 'date':             # <<<<<<<<<<<<<<
@@ -21293,12 +22701,12 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
             __pyx_t_1 = __pyx_t_12;
             goto __pyx_L29_bool_binop_done;
           }
-          __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_v_T, __pyx_n_u_date, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 564, __pyx_L21_error)
+          __pyx_t_12 = (__Pyx_PyUnicode_Equals(__pyx_v_T, __pyx_n_u_date, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 613, __pyx_L21_error)
           __pyx_t_1 = __pyx_t_12;
           __pyx_L29_bool_binop_done:;
           if (__pyx_t_1) {
 
-            /* "querysource/types/validators.pyx":565
+            /* "querysource/types/validators.pyx":614
  *             if val:
  *                 if isinstance(val, str) or T == 'date':
  *                     return quoteString(val)             # <<<<<<<<<<<<<<
@@ -21306,13 +22714,13 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  *                     return escape_string(val)
  */
             __Pyx_XDECREF(__pyx_r);
-            __pyx_t_6 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_v_val); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 565, __pyx_L21_error)
+            __pyx_t_6 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_v_val); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 614, __pyx_L21_error)
             __Pyx_GOTREF(__pyx_t_6);
             __pyx_r = __pyx_t_6;
             __pyx_t_6 = 0;
             goto __pyx_L25_try_return;
 
-            /* "querysource/types/validators.pyx":564
+            /* "querysource/types/validators.pyx":613
  *             val = get_config_var(value)
  *             if val:
  *                 if isinstance(val, str) or T == 'date':             # <<<<<<<<<<<<<<
@@ -21321,7 +22729,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
           }
 
-          /* "querysource/types/validators.pyx":567
+          /* "querysource/types/validators.pyx":616
  *                     return quoteString(val)
  *                 else:
  *                     return escape_string(val)             # <<<<<<<<<<<<<<
@@ -21330,14 +22738,14 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
           /*else*/ {
             __Pyx_XDECREF(__pyx_r);
-            __pyx_t_6 = __pyx_f_11querysource_5types_10validators_escape_string(__pyx_v_val, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 567, __pyx_L21_error)
+            __pyx_t_6 = __pyx_f_11querysource_5types_10validators_escape_string(__pyx_v_val, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 616, __pyx_L21_error)
             __Pyx_GOTREF(__pyx_t_6);
             __pyx_r = __pyx_t_6;
             __pyx_t_6 = 0;
             goto __pyx_L25_try_return;
           }
 
-          /* "querysource/types/validators.pyx":563
+          /* "querysource/types/validators.pyx":612
  *         try:
  *             val = get_config_var(value)
  *             if val:             # <<<<<<<<<<<<<<
@@ -21346,7 +22754,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
         }
 
-        /* "querysource/types/validators.pyx":561
+        /* "querysource/types/validators.pyx":610
  *         return value
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -21364,7 +22772,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "querysource/types/validators.pyx":568
+      /* "querysource/types/validators.pyx":617
  *                 else:
  *                     return escape_string(val)
  *         except Exception:             # <<<<<<<<<<<<<<
@@ -21378,7 +22786,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       }
       goto __pyx_L23_except_error;
 
-      /* "querysource/types/validators.pyx":561
+      /* "querysource/types/validators.pyx":610
  *         return value
  *     else:
  *         try:             # <<<<<<<<<<<<<<
@@ -21405,7 +22813,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __pyx_L26_try_end:;
     }
 
-    /* "querysource/types/validators.pyx":570
+    /* "querysource/types/validators.pyx":619
  *         except Exception:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -21421,14 +22829,14 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __Pyx_XGOTREF(__pyx_t_4);
       /*try:*/ {
 
-        /* "querysource/types/validators.pyx":571
+        /* "querysource/types/validators.pyx":620
  *             pass
  *         try:
  *             val = to_udf(value)             # <<<<<<<<<<<<<<
  *             if noquote:
  *                 return val
  */
-        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_to_udf); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 571, __pyx_L31_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_to_udf); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 620, __pyx_L31_error)
         __Pyx_GOTREF(__pyx_t_7);
         __pyx_t_5 = NULL;
         __pyx_t_10 = 0;
@@ -21448,14 +22856,14 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
           PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_value};
           __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 571, __pyx_L31_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 620, __pyx_L31_error)
           __Pyx_GOTREF(__pyx_t_6);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
         __Pyx_XDECREF_SET(__pyx_v_val, __pyx_t_6);
         __pyx_t_6 = 0;
 
-        /* "querysource/types/validators.pyx":572
+        /* "querysource/types/validators.pyx":621
  *         try:
  *             val = to_udf(value)
  *             if noquote:             # <<<<<<<<<<<<<<
@@ -21464,7 +22872,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
         if (__pyx_v_noquote) {
 
-          /* "querysource/types/validators.pyx":573
+          /* "querysource/types/validators.pyx":622
  *             val = to_udf(value)
  *             if noquote:
  *                 return val             # <<<<<<<<<<<<<<
@@ -21476,7 +22884,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
           __pyx_r = __pyx_v_val;
           goto __pyx_L35_try_return;
 
-          /* "querysource/types/validators.pyx":572
+          /* "querysource/types/validators.pyx":621
  *         try:
  *             val = to_udf(value)
  *             if noquote:             # <<<<<<<<<<<<<<
@@ -21485,7 +22893,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
         }
 
-        /* "querysource/types/validators.pyx":574
+        /* "querysource/types/validators.pyx":623
  *             if noquote:
  *                 return val
  *             return quoteString(val)             # <<<<<<<<<<<<<<
@@ -21493,13 +22901,13 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  *             pass
  */
         __Pyx_XDECREF(__pyx_r);
-        __pyx_t_6 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_v_val); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 574, __pyx_L31_error)
+        __pyx_t_6 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_v_val); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 623, __pyx_L31_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_r = __pyx_t_6;
         __pyx_t_6 = 0;
         goto __pyx_L35_try_return;
 
-        /* "querysource/types/validators.pyx":570
+        /* "querysource/types/validators.pyx":619
  *         except Exception:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -21513,7 +22921,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "querysource/types/validators.pyx":575
+      /* "querysource/types/validators.pyx":624
  *                 return val
  *             return quoteString(val)
  *         except KeyError:             # <<<<<<<<<<<<<<
@@ -21526,7 +22934,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
         goto __pyx_L32_exception_handled;
       }
 
-      /* "querysource/types/validators.pyx":577
+      /* "querysource/types/validators.pyx":626
  *         except KeyError:
  *             pass
  *         except Exception as ex:             # <<<<<<<<<<<<<<
@@ -21536,7 +22944,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __pyx_t_11 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
       if (__pyx_t_11) {
         __Pyx_AddTraceback("querysource.types.validators.is_valid", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_7, &__pyx_t_5) < 0) __PYX_ERR(0, 577, __pyx_L33_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_7, &__pyx_t_5) < 0) __PYX_ERR(0, 626, __pyx_L33_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_7);
         __Pyx_XGOTREF(__pyx_t_5);
@@ -21544,14 +22952,14 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
         __pyx_v_ex = __pyx_t_7;
         /*try:*/ {
 
-          /* "querysource/types/validators.pyx":578
+          /* "querysource/types/validators.pyx":627
  *             pass
  *         except Exception as ex:
  *             print(f'Valid Error on {key}:{value}, error: {ex}')             # <<<<<<<<<<<<<<
  *         if noquote:
  *             return value
  */
-          __pyx_t_8 = PyTuple_New(6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 578, __pyx_L43_error)
+          __pyx_t_8 = PyTuple_New(6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 627, __pyx_L43_error)
           __Pyx_GOTREF(__pyx_t_8);
           __pyx_t_14 = 0;
           __pyx_t_15 = 127;
@@ -21559,7 +22967,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
           __pyx_t_14 += 15;
           __Pyx_GIVEREF(__pyx_kp_u_Valid_Error_on);
           PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_kp_u_Valid_Error_on);
-          __pyx_t_16 = __Pyx_PyObject_FormatSimple(__pyx_v_key, __pyx_empty_unicode); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 578, __pyx_L43_error)
+          __pyx_t_16 = __Pyx_PyObject_FormatSimple(__pyx_v_key, __pyx_empty_unicode); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 627, __pyx_L43_error)
           __Pyx_GOTREF(__pyx_t_16);
           __pyx_t_15 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_16) > __pyx_t_15) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_16) : __pyx_t_15;
           __pyx_t_14 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_16);
@@ -21570,7 +22978,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
           __pyx_t_14 += 1;
           __Pyx_GIVEREF(__pyx_kp_u__30);
           PyTuple_SET_ITEM(__pyx_t_8, 2, __pyx_kp_u__30);
-          __pyx_t_16 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 578, __pyx_L43_error)
+          __pyx_t_16 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 627, __pyx_L43_error)
           __Pyx_GOTREF(__pyx_t_16);
           __pyx_t_15 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_16) > __pyx_t_15) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_16) : __pyx_t_15;
           __pyx_t_14 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_16);
@@ -21581,23 +22989,23 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
           __pyx_t_14 += 9;
           __Pyx_GIVEREF(__pyx_kp_u_error);
           PyTuple_SET_ITEM(__pyx_t_8, 4, __pyx_kp_u_error);
-          __pyx_t_16 = __Pyx_PyObject_FormatSimple(__pyx_v_ex, __pyx_empty_unicode); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 578, __pyx_L43_error)
+          __pyx_t_16 = __Pyx_PyObject_FormatSimple(__pyx_v_ex, __pyx_empty_unicode); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 627, __pyx_L43_error)
           __Pyx_GOTREF(__pyx_t_16);
           __pyx_t_15 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_16) > __pyx_t_15) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_16) : __pyx_t_15;
           __pyx_t_14 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_16);
           __Pyx_GIVEREF(__pyx_t_16);
           PyTuple_SET_ITEM(__pyx_t_8, 5, __pyx_t_16);
           __pyx_t_16 = 0;
-          __pyx_t_16 = __Pyx_PyUnicode_Join(__pyx_t_8, 6, __pyx_t_14, __pyx_t_15); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 578, __pyx_L43_error)
+          __pyx_t_16 = __Pyx_PyUnicode_Join(__pyx_t_8, 6, __pyx_t_14, __pyx_t_15); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 627, __pyx_L43_error)
           __Pyx_GOTREF(__pyx_t_16);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-          __pyx_t_8 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_16); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 578, __pyx_L43_error)
+          __pyx_t_8 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_16); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 627, __pyx_L43_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
 
-        /* "querysource/types/validators.pyx":577
+        /* "querysource/types/validators.pyx":626
  *         except KeyError:
  *             pass
  *         except Exception as ex:             # <<<<<<<<<<<<<<
@@ -21651,7 +23059,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       }
       goto __pyx_L33_except_error;
 
-      /* "querysource/types/validators.pyx":570
+      /* "querysource/types/validators.pyx":619
  *         except Exception:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -21677,7 +23085,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __Pyx_ExceptionReset(__pyx_t_2, __pyx_t_3, __pyx_t_4);
     }
 
-    /* "querysource/types/validators.pyx":579
+    /* "querysource/types/validators.pyx":628
  *         except Exception as ex:
  *             print(f'Valid Error on {key}:{value}, error: {ex}')
  *         if noquote:             # <<<<<<<<<<<<<<
@@ -21686,7 +23094,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
     if (__pyx_v_noquote) {
 
-      /* "querysource/types/validators.pyx":580
+      /* "querysource/types/validators.pyx":629
  *             print(f'Valid Error on {key}:{value}, error: {ex}')
  *         if noquote:
  *             return value             # <<<<<<<<<<<<<<
@@ -21697,7 +23105,7 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
       __pyx_r = __pyx_v_value;
       goto __pyx_L0;
 
-      /* "querysource/types/validators.pyx":579
+      /* "querysource/types/validators.pyx":628
  *         except Exception as ex:
  *             print(f'Valid Error on {key}:{value}, error: {ex}')
  *         if noquote:             # <<<<<<<<<<<<<<
@@ -21706,20 +23114,20 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
  */
     }
 
-    /* "querysource/types/validators.pyx":581
+    /* "querysource/types/validators.pyx":630
  *         if noquote:
  *             return value
  *         return quoteString(value)             # <<<<<<<<<<<<<<
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_5 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_v_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 581, __pyx_L1_error)
+    __pyx_t_5 = __pyx_f_11querysource_5types_10validators_quoteString(__pyx_v_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 630, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_r = __pyx_t_5;
     __pyx_t_5 = 0;
     goto __pyx_L0;
   }
 
-  /* "querysource/types/validators.pyx":523
+  /* "querysource/types/validators.pyx":572
  * 
  * ### Validation of conditions:
  * cpdef object is_valid(object key, object value, str T = None, bint noquote = False):             # <<<<<<<<<<<<<<
@@ -21747,16 +23155,16 @@ static PyObject *__pyx_f_11querysource_5types_10validators_is_valid(PyObject *__
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_47is_valid(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_55is_valid(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_46is_valid, "is_valid(key, value, unicode T=None, bool noquote=False)\nis_valid.\n\n    Check if a type is a valid Condition for a Query.\n\n    Args:\n        key (str): name of attribute Query.\n        value (Any): Value to be validated.\n\n    Returns:\n        bool: if current field is valid.\n    ");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_47is_valid = {"is_valid", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_47is_valid, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_46is_valid};
-static PyObject *__pyx_pw_11querysource_5types_10validators_47is_valid(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_54is_valid, "is_valid(key, value, unicode T=None, bool noquote=False)\nis_valid.\n\n    Check if a type is a valid Condition for a Query.\n\n    Args:\n        key (str): name of attribute Query.\n        value (Any): Value to be validated.\n\n    Returns:\n        bool: if current field is valid.\n    ");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_55is_valid = {"is_valid", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_55is_valid, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_54is_valid};
+static PyObject *__pyx_pw_11querysource_5types_10validators_55is_valid(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -21810,7 +23218,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 523, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 572, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -21818,28 +23226,28 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 523, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 572, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("is_valid", 0, 2, 4, 1); __PYX_ERR(0, 523, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("is_valid", 0, 2, 4, 1); __PYX_ERR(0, 572, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_T);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 523, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 572, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_noquote);
           if (value) { values[3] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 523, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 572, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_valid") < 0)) __PYX_ERR(0, 523, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "is_valid") < 0)) __PYX_ERR(0, 572, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -21857,14 +23265,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     __pyx_v_value = values[1];
     __pyx_v_T = ((PyObject*)values[2]);
     if (values[3]) {
-      __pyx_v_noquote = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_noquote == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 523, __pyx_L3_error)
+      __pyx_v_noquote = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_noquote == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 572, __pyx_L3_error)
     } else {
       __pyx_v_noquote = ((int)0);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_valid", 0, 2, 4, __pyx_nargs); __PYX_ERR(0, 523, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_valid", 0, 2, 4, __pyx_nargs); __PYX_ERR(0, 572, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -21878,8 +23286,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_T), (&PyUnicode_Type), 1, "T", 1))) __PYX_ERR(0, 523, __pyx_L1_error)
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_46is_valid(__pyx_self, __pyx_v_key, __pyx_v_value, __pyx_v_T, __pyx_v_noquote);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_T), (&PyUnicode_Type), 1, "T", 1))) __PYX_ERR(0, 572, __pyx_L1_error)
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_54is_valid(__pyx_self, __pyx_v_key, __pyx_v_value, __pyx_v_T, __pyx_v_noquote);
 
   /* function exit code */
   goto __pyx_L0;
@@ -21896,7 +23304,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_46is_valid(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_key, PyObject *__pyx_v_value, PyObject *__pyx_v_T, int __pyx_v_noquote) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_54is_valid(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_key, PyObject *__pyx_v_value, PyObject *__pyx_v_T, int __pyx_v_noquote) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -21909,7 +23317,7 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_46is_valid(CYTHON_UN
   __pyx_t_2.__pyx_n = 2;
   __pyx_t_2.T = __pyx_v_T;
   __pyx_t_2.noquote = __pyx_v_noquote;
-  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_valid(__pyx_v_key, __pyx_v_value, 0, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 523, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_5types_10validators_is_valid(__pyx_v_key, __pyx_v_value, 0, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 572, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -21933,16 +23341,16 @@ static PyObject *__pyx_pf_11querysource_5types_10validators_46is_valid(CYTHON_UN
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_5types_10validators_49__pyx_unpickle_Entity(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_11querysource_5types_10validators_57__pyx_unpickle_Entity(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_48__pyx_unpickle_Entity, "__pyx_unpickle_Entity(__pyx_type, long __pyx_checksum, __pyx_state)");
-static PyMethodDef __pyx_mdef_11querysource_5types_10validators_49__pyx_unpickle_Entity = {"__pyx_unpickle_Entity", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_49__pyx_unpickle_Entity, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_48__pyx_unpickle_Entity};
-static PyObject *__pyx_pw_11querysource_5types_10validators_49__pyx_unpickle_Entity(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_5types_10validators_56__pyx_unpickle_Entity, "__pyx_unpickle_Entity(__pyx_type, long __pyx_checksum, __pyx_state)");
+static PyMethodDef __pyx_mdef_11querysource_5types_10validators_57__pyx_unpickle_Entity = {"__pyx_unpickle_Entity", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_5types_10validators_57__pyx_unpickle_Entity, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_5types_10validators_56__pyx_unpickle_Entity};
+static PyObject *__pyx_pw_11querysource_5types_10validators_57__pyx_unpickle_Entity(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -22046,7 +23454,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_5types_10validators_48__pyx_unpickle_Entity(__pyx_self, __pyx_v___pyx_type, __pyx_v___pyx_checksum, __pyx_v___pyx_state);
+  __pyx_r = __pyx_pf_11querysource_5types_10validators_56__pyx_unpickle_Entity(__pyx_self, __pyx_v___pyx_type, __pyx_v___pyx_checksum, __pyx_v___pyx_state);
 
   /* function exit code */
   {
@@ -22059,7 +23467,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_5types_10validators_48__pyx_unpickle_Entity(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state) {
+static PyObject *__pyx_pf_11querysource_5types_10validators_56__pyx_unpickle_Entity(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state) {
   PyObject *__pyx_v___pyx_PickleError = 0;
   PyObject *__pyx_v___pyx_result = 0;
   PyObject *__pyx_r = NULL;
@@ -22961,7 +24369,9 @@ static int __pyx_import_star_set(PyObject *o, PyObject* py_name, char *name) {
     "__pyx_ctuple_int_struct",
     "__pyx_ctuple_long__and_long__and_long",
     "__pyx_ctuple_long__and_long__and_long_struct",
+    "__pyx_opt_args_11querysource_5types_10validators__env_list",
     "__pyx_opt_args_11querysource_5types_10validators_is_valid",
+    "__pyx_opt_args_11querysource_5types_10validators_resolve_udf_conditions",
     "__pyx_scope_struct____Pyx_CFunc_11querysource_5types_10validators_object__lParenobject__rParen_to_py_5value",
     "__pyx_scope_struct____Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value",
     "__pyx_scope_struct____Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value",
@@ -22979,22 +24389,28 @@ static int __pyx_import_star_set(PyObject *o, PyObject* py_name, char *name) {
   }
   if (0);
   else if (__Pyx_StrEq(name, "PG_CONSTANTS")) {
-    if (!(likely(PyList_CheckExact(o))||((o) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", o))) __PYX_ERR(0, 29, __pyx_L2_error);
+    if (!(likely(PyList_CheckExact(o))||((o) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", o))) __PYX_ERR(0, 41, __pyx_L2_error);
     Py_INCREF(o);
     Py_DECREF(__pyx_v_11querysource_5types_10validators_PG_CONSTANTS);
     __pyx_v_11querysource_5types_10validators_PG_CONSTANTS = ((PyObject*)o);
   }
   else if (__Pyx_StrEq(name, "PG_UDF")) {
-    if (!(likely(PyList_CheckExact(o))||((o) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", o))) __PYX_ERR(0, 33, __pyx_L2_error);
+    if (!(likely(PyList_CheckExact(o))||((o) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", o))) __PYX_ERR(0, 42, __pyx_L2_error);
     Py_INCREF(o);
     Py_DECREF(__pyx_v_11querysource_5types_10validators_PG_UDF);
     __pyx_v_11querysource_5types_10validators_PG_UDF = ((PyObject*)o);
   }
   else if (__Pyx_StrEq(name, "UDF_LIST")) {
-    if (!(likely(PyList_CheckExact(o))||((o) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", o))) __PYX_ERR(0, 28, __pyx_L2_error);
+    if (!(likely(PyList_CheckExact(o))||((o) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", o))) __PYX_ERR(0, 40, __pyx_L2_error);
     Py_INCREF(o);
     Py_DECREF(__pyx_v_11querysource_5types_10validators_UDF_LIST);
     __pyx_v_11querysource_5types_10validators_UDF_LIST = ((PyObject*)o);
+  }
+  else if (__Pyx_StrEq(name, "_KEYWORD_HINTS")) {
+    if (!(likely(PyTuple_CheckExact(o))||((o) == Py_None) || __Pyx_RaiseUnexpectedTypeError("tuple", o))) __PYX_ERR(0, 183, __pyx_L2_error);
+    Py_INCREF(o);
+    Py_DECREF(__pyx_v_11querysource_5types_10validators__KEYWORD_HINTS);
+    __pyx_v_11querysource_5types_10validators__KEYWORD_HINTS = ((PyObject*)o);
   }
   else if (__Pyx_StrEq(name, "eval_field")) {
     Py_INCREF(o);
@@ -23002,7 +24418,7 @@ static int __pyx_import_star_set(PyObject *o, PyObject* py_name, char *name) {
     __pyx_v_11querysource_5types_10validators_eval_field = o;
   }
   else if (__Pyx_StrEq(name, "type_validators")) {
-    if (!(likely(PyDict_CheckExact(o))||((o) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", o))) __PYX_ERR(0, 361, __pyx_L2_error);
+    if (!(likely(PyDict_CheckExact(o))||((o) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", o))) __PYX_ERR(0, 410, __pyx_L2_error);
     Py_INCREF(o);
     Py_DECREF(__pyx_v_11querysource_5types_10validators_type_validators);
     __pyx_v_11querysource_5types_10validators_type_validators = ((PyObject*)o);
@@ -23200,7 +24616,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_u_YESTERDAY, __pyx_k_YESTERDAY, sizeof(__pyx_k_YESTERDAY), 0, 1, 0, 1},
     {&__pyx_kp_u__10, __pyx_k__10, sizeof(__pyx_k__10), 0, 1, 0, 0},
     {&__pyx_kp_u__11, __pyx_k__11, sizeof(__pyx_k__11), 0, 1, 0, 0},
-    {&__pyx_kp_u__17, __pyx_k__17, sizeof(__pyx_k__17), 0, 1, 0, 0},
+    {&__pyx_kp_u__12, __pyx_k__12, sizeof(__pyx_k__12), 0, 1, 0, 0},
     {&__pyx_kp_u__18, __pyx_k__18, sizeof(__pyx_k__18), 0, 1, 0, 0},
     {&__pyx_kp_u__19, __pyx_k__19, sizeof(__pyx_k__19), 0, 1, 0, 0},
     {&__pyx_kp_u__20, __pyx_k__20, sizeof(__pyx_k__20), 0, 1, 0, 0},
@@ -23220,7 +24636,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_kp_u__7, __pyx_k__7, sizeof(__pyx_k__7), 0, 1, 0, 0},
     {&__pyx_kp_u__8, __pyx_k__8, sizeof(__pyx_k__8), 0, 1, 0, 0},
     {&__pyx_kp_u__9, __pyx_k__9, sizeof(__pyx_k__9), 0, 1, 0, 0},
-    {&__pyx_n_s__92, __pyx_k__92, sizeof(__pyx_k__92), 0, 0, 1, 1},
+    {&__pyx_n_s__98, __pyx_k__98, sizeof(__pyx_k__98), 0, 0, 1, 1},
     {&__pyx_n_u_array, __pyx_k_array, sizeof(__pyx_k_array), 0, 1, 0, 1},
     {&__pyx_n_s_asyncio, __pyx_k_asyncio, sizeof(__pyx_k_asyncio), 0, 0, 1, 1},
     {&__pyx_n_s_asyncio_coroutines, __pyx_k_asyncio_coroutines, sizeof(__pyx_k_asyncio_coroutines), 0, 0, 1, 1},
@@ -23235,6 +24651,8 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_collections_abc, __pyx_k_collections_abc, sizeof(__pyx_k_collections_abc), 0, 0, 1, 1},
     {&__pyx_n_u_columns, __pyx_k_columns, sizeof(__pyx_k_columns), 0, 1, 0, 1},
     {&__pyx_n_s_compile, __pyx_k_compile, sizeof(__pyx_k_compile), 0, 0, 1, 1},
+    {&__pyx_n_s_cond_definition, __pyx_k_cond_definition, sizeof(__pyx_k_cond_definition), 0, 0, 1, 1},
+    {&__pyx_n_s_conditions, __pyx_k_conditions, sizeof(__pyx_k_conditions), 0, 0, 1, 1},
     {&__pyx_n_s_config, __pyx_k_config, sizeof(__pyx_k_config), 0, 0, 1, 1},
     {&__pyx_n_s_dataclasses, __pyx_k_dataclasses, sizeof(__pyx_k_dataclasses), 0, 0, 1, 1},
     {&__pyx_n_s_date, __pyx_k_date, sizeof(__pyx_k_date), 0, 0, 1, 1},
@@ -23345,6 +24763,8 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_parse, __pyx_k_parse, sizeof(__pyx_k_parse), 0, 0, 1, 1},
     {&__pyx_n_s_parser, __pyx_k_parser, sizeof(__pyx_k_parser), 0, 0, 1, 1},
     {&__pyx_n_s_partial, __pyx_k_partial, sizeof(__pyx_k_partial), 0, 0, 1, 1},
+    {&__pyx_n_s_pg_constants, __pyx_k_pg_constants, sizeof(__pyx_k_pg_constants), 0, 0, 1, 1},
+    {&__pyx_n_s_pg_udfs, __pyx_k_pg_udfs, sizeof(__pyx_k_pg_udfs), 0, 0, 1, 1},
     {&__pyx_n_s_pickle, __pyx_k_pickle, sizeof(__pyx_k_pickle), 0, 0, 1, 1},
     {&__pyx_n_s_print, __pyx_k_print, sizeof(__pyx_k_print), 0, 0, 1, 1},
     {&__pyx_n_s_pyx_PickleError, __pyx_k_pyx_PickleError, sizeof(__pyx_k_pyx_PickleError), 0, 0, 1, 1},
@@ -23362,6 +24782,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_reduce_cython, __pyx_k_reduce_cython, sizeof(__pyx_k_reduce_cython), 0, 0, 1, 1},
     {&__pyx_n_s_reduce_ex, __pyx_k_reduce_ex, sizeof(__pyx_k_reduce_ex), 0, 0, 1, 1},
     {&__pyx_n_s_replace, __pyx_k_replace, sizeof(__pyx_k_replace), 0, 0, 1, 1},
+    {&__pyx_n_s_resolve_udf_conditions, __pyx_k_resolve_udf_conditions, sizeof(__pyx_k_resolve_udf_conditions), 0, 0, 1, 1},
     {&__pyx_n_s_self, __pyx_k_self, sizeof(__pyx_k_self), 0, 0, 1, 1},
     {&__pyx_n_s_setstate, __pyx_k_setstate, sizeof(__pyx_k_setstate), 0, 0, 1, 1},
     {&__pyx_n_s_setstate_cython, __pyx_k_setstate_cython, sizeof(__pyx_k_setstate_cython), 0, 0, 1, 1},
@@ -23372,6 +24793,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_str, __pyx_k_str, sizeof(__pyx_k_str), 0, 0, 1, 1},
     {&__pyx_n_u_string, __pyx_k_string, sizeof(__pyx_k_string), 0, 1, 0, 1},
     {&__pyx_kp_s_stringsource, __pyx_k_stringsource, sizeof(__pyx_k_stringsource), 0, 0, 1, 0},
+    {&__pyx_n_s_strip, __pyx_k_strip, sizeof(__pyx_k_strip), 0, 0, 1, 1},
     {&__pyx_n_s_strtobool, __pyx_k_strtobool, sizeof(__pyx_k_strtobool), 0, 0, 1, 1},
     {&__pyx_n_s_t, __pyx_k_t, sizeof(__pyx_k_t), 0, 0, 1, 1},
     {&__pyx_n_u_t, __pyx_k_t, sizeof(__pyx_k_t), 0, 1, 0, 1},
@@ -23386,6 +24808,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_type, __pyx_k_type, sizeof(__pyx_k_type), 0, 0, 1, 1},
     {&__pyx_n_s_typing, __pyx_k_typing, sizeof(__pyx_k_typing), 0, 0, 1, 1},
     {&__pyx_n_u_udf, __pyx_k_udf, sizeof(__pyx_k_udf), 0, 1, 0, 1},
+    {&__pyx_n_s_udf_keywords, __pyx_k_udf_keywords, sizeof(__pyx_k_udf_keywords), 0, 0, 1, 1},
     {&__pyx_n_s_update, __pyx_k_update, sizeof(__pyx_k_update), 0, 0, 1, 1},
     {&__pyx_n_s_upper, __pyx_k_upper, sizeof(__pyx_k_upper), 0, 0, 1, 1},
     {&__pyx_n_s_use_setstate, __pyx_k_use_setstate, sizeof(__pyx_k_use_setstate), 0, 0, 1, 1},
@@ -23408,12 +24831,12 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
 }
 /* #### Code section: cached_builtins ### */
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
-  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 51, __pyx_L1_error)
-  __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_n_s_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(0, 246, __pyx_L1_error)
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_n_s_object); if (!__pyx_builtin_object) __PYX_ERR(0, 311, __pyx_L1_error)
-  __pyx_builtin_AttributeError = __Pyx_GetBuiltinName(__pyx_n_s_AttributeError); if (!__pyx_builtin_AttributeError) __PYX_ERR(0, 347, __pyx_L1_error)
-  __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 544, __pyx_L1_error)
-  __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_n_s_print); if (!__pyx_builtin_print) __PYX_ERR(0, 578, __pyx_L1_error)
+  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_n_s_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(0, 295, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_n_s_object); if (!__pyx_builtin_object) __PYX_ERR(0, 360, __pyx_L1_error)
+  __pyx_builtin_AttributeError = __Pyx_GetBuiltinName(__pyx_n_s_AttributeError); if (!__pyx_builtin_AttributeError) __PYX_ERR(0, 396, __pyx_L1_error)
+  __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 593, __pyx_L1_error)
+  __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_n_s_print); if (!__pyx_builtin_print) __PYX_ERR(0, 627, __pyx_L1_error)
   __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_n_s_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(3, 308, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
@@ -23450,44 +24873,44 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__5);
   __Pyx_GIVEREF(__pyx_tuple__5);
 
-  /* "querysource/types/validators.pyx":120
+  /* "querysource/types/validators.pyx":129
  * 
  *         # Slice the string if it starts/ends with a quote
  *         inner = v[1:-1] if start_quote and end_quote else (v[1:] if start_quote else (v[:-1] if end_quote else v))             # <<<<<<<<<<<<<<
  *         # Escape single quotes
  *         inner = inner.replace("'", "''")
  */
-  __pyx_slice__12 = PySlice_New(__pyx_int_1, __pyx_int_neg_1, Py_None); if (unlikely(!__pyx_slice__12)) __PYX_ERR(0, 120, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_slice__12);
-  __Pyx_GIVEREF(__pyx_slice__12);
-  __pyx_slice__13 = PySlice_New(__pyx_int_1, Py_None, Py_None); if (unlikely(!__pyx_slice__13)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_slice__13 = PySlice_New(__pyx_int_1, __pyx_int_neg_1, Py_None); if (unlikely(!__pyx_slice__13)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_slice__13);
   __Pyx_GIVEREF(__pyx_slice__13);
-  __pyx_slice__14 = PySlice_New(Py_None, __pyx_int_neg_1, Py_None); if (unlikely(!__pyx_slice__14)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_slice__14 = PySlice_New(__pyx_int_1, Py_None, Py_None); if (unlikely(!__pyx_slice__14)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_slice__14);
   __Pyx_GIVEREF(__pyx_slice__14);
+  __pyx_slice__15 = PySlice_New(Py_None, __pyx_int_neg_1, Py_None); if (unlikely(!__pyx_slice__15)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_slice__15);
+  __Pyx_GIVEREF(__pyx_slice__15);
 
-  /* "querysource/types/validators.pyx":122
+  /* "querysource/types/validators.pyx":131
  *         inner = v[1:-1] if start_quote and end_quote else (v[1:] if start_quote else (v[:-1] if end_quote else v))
  *         # Escape single quotes
  *         inner = inner.replace("'", "''")             # <<<<<<<<<<<<<<
  * 
  *         if start_quote: # was already quoted
  */
-  __pyx_tuple__15 = PyTuple_Pack(2, __pyx_kp_u__8, __pyx_kp_u__9); if (unlikely(!__pyx_tuple__15)) __PYX_ERR(0, 122, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__15);
-  __Pyx_GIVEREF(__pyx_tuple__15);
+  __pyx_tuple__16 = PyTuple_Pack(2, __pyx_kp_u__9, __pyx_kp_u__10); if (unlikely(!__pyx_tuple__16)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__16);
+  __Pyx_GIVEREF(__pyx_tuple__16);
 
-  /* "querysource/types/validators.pyx":127
+  /* "querysource/types/validators.pyx":136
  *             return "'{}'".format(inner)
  *         elif v.startswith('"'): # is double quoted
  *             return v.replace('"', "'")             # <<<<<<<<<<<<<<
  *         else:
  *             return "'{}'".format(v)
  */
-  __pyx_tuple__16 = PyTuple_Pack(2, __pyx_kp_u__11, __pyx_kp_u__8); if (unlikely(!__pyx_tuple__16)) __PYX_ERR(0, 127, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__16);
-  __Pyx_GIVEREF(__pyx_tuple__16);
+  __pyx_tuple__17 = PyTuple_Pack(2, __pyx_kp_u__12, __pyx_kp_u__9); if (unlikely(!__pyx_tuple__17)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__17);
+  __Pyx_GIVEREF(__pyx_tuple__17);
 
   /* "(tree fragment)":4
  *     cdef object __pyx_PickleError
@@ -23500,386 +24923,436 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__31);
   __Pyx_GIVEREF(__pyx_tuple__31);
 
-  /* "querysource/types/validators.pyx":35
- * cdef list PG_UDF = os.environ.get('PG_UDF', ["now()"])
+  /* "querysource/types/validators.pyx":44
+ * cdef list PG_UDF = _env_list('PG_UDF', ["now()"], False)
  * 
  * cdef object eval_field = re.compile(r'^(?:(\@|!|#|~|\:|))(\w*)(?:(\||\&|\!|\~|\#)|)+$')             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_tuple__34 = PyTuple_Pack(1, __pyx_kp_u_w); if (unlikely(!__pyx_tuple__34)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __pyx_tuple__34 = PyTuple_Pack(1, __pyx_kp_u_w); if (unlikely(!__pyx_tuple__34)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__34);
   __Pyx_GIVEREF(__pyx_tuple__34);
 
-  /* "querysource/types/validators.pyx":38
+  /* "querysource/types/validators.pyx":47
  * 
  * 
  * cpdef object strtobool(str val):             # <<<<<<<<<<<<<<
  *     """Convert a string representation of truth to true (1) or false (0).
  * 
  */
-  __pyx_tuple__35 = PyTuple_Pack(1, __pyx_n_s_val); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_tuple__35 = PyTuple_Pack(1, __pyx_n_s_val); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(0, 47, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__35);
   __Pyx_GIVEREF(__pyx_tuple__35);
-  __pyx_codeobj__36 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__35, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_strtobool, 38, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__36)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_codeobj__36 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__35, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_strtobool, 47, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__36)) __PYX_ERR(0, 47, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":55
+  /* "querysource/types/validators.pyx":64
  *         )
  * 
  * cpdef list field_components(str field):             # <<<<<<<<<<<<<<
  *     try:
  *         return re.findall(eval_field, field)
  */
-  __pyx_tuple__37 = PyTuple_Pack(1, __pyx_n_s_field); if (unlikely(!__pyx_tuple__37)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_tuple__37 = PyTuple_Pack(1, __pyx_n_s_field); if (unlikely(!__pyx_tuple__37)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__37);
   __Pyx_GIVEREF(__pyx_tuple__37);
-  __pyx_codeobj__38 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__37, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_field_components, 55, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__38)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_codeobj__38 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__37, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_field_components, 64, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__38)) __PYX_ERR(0, 64, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":61
+  /* "querysource/types/validators.pyx":70
  *         return (None, field, None)
  * 
  * cpdef bool_t is_pandas_dataframe(obj):             # <<<<<<<<<<<<<<
  *     """
  *     Check if an object is a pandas DataFrame without importing pandas.
  */
-  __pyx_tuple__39 = PyTuple_Pack(1, __pyx_n_s_obj); if (unlikely(!__pyx_tuple__39)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_tuple__39 = PyTuple_Pack(1, __pyx_n_s_obj); if (unlikely(!__pyx_tuple__39)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__39);
   __Pyx_GIVEREF(__pyx_tuple__39);
-  __pyx_codeobj__40 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__39, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_pandas_dataframe, 61, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__40)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_codeobj__40 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__39, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_pandas_dataframe, 70, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__40)) __PYX_ERR(0, 70, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":73
+  /* "querysource/types/validators.pyx":82
  *     return hasattr(obj, "columns") and hasattr(obj, "index") and hasattr(obj, "loc") and hasattr(obj, "iloc")
  * 
  * cpdef bool_t is_empty(object value):             # <<<<<<<<<<<<<<
  *     cdef bool_t result = False
  *     if value is None:
  */
-  __pyx_codeobj__41 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_empty, 73, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__41)) __PYX_ERR(0, 73, __pyx_L1_error)
+  __pyx_codeobj__41 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_empty, 82, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__41)) __PYX_ERR(0, 82, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":87
+  /* "querysource/types/validators.pyx":96
  *     return result
  * 
  * cpdef is_camel_case(str value):             # <<<<<<<<<<<<<<
  *     if ' ' in value:
  *         return True
  */
-  __pyx_codeobj__42 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_camel_case, 87, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__42)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_codeobj__42 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_camel_case, 96, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__42)) __PYX_ERR(0, 96, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":133
+  /* "querysource/types/validators.pyx":142
  *         return v
  * 
  * cpdef bool_t is_callable(object value):             # <<<<<<<<<<<<<<
  *     """Return if value is a callable (function object).
  *     """
  */
-  __pyx_codeobj__43 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_callable, 133, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__43)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __pyx_codeobj__43 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_callable, 142, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__43)) __PYX_ERR(0, 142, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":141
+  /* "querysource/types/validators.pyx":150
  *     return callable(value) if not is_missing else False
  * 
  * cpdef bool_t is_async_callable(object obj):             # <<<<<<<<<<<<<<
  *     while isinstance(obj, partial):
  *         obj = obj.func
  */
-  __pyx_codeobj__44 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__39, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_async_callable, 141, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__44)) __PYX_ERR(0, 141, __pyx_L1_error)
+  __pyx_codeobj__44 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__39, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_async_callable, 150, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__44)) __PYX_ERR(0, 150, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":149
+  /* "querysource/types/validators.pyx":158
  * 
  * ## Functional validators (is_xxx functions)
  * cpdef bool_t is_udf(object value):             # <<<<<<<<<<<<<<
  *     return value in UDF_LIST
  * 
  */
-  __pyx_codeobj__45 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_udf, 149, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__45)) __PYX_ERR(0, 149, __pyx_L1_error)
+  __pyx_codeobj__45 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_udf, 158, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__45)) __PYX_ERR(0, 158, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":158
+  /* "querysource/types/validators.pyx":167
  *         return value in PG_UDF
  * 
  * cpdef bool_t is_pgconstant(object value):             # <<<<<<<<<<<<<<
  *     return value in PG_CONSTANTS
  * 
  */
-  __pyx_codeobj__46 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_pgconstant, 158, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__46)) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_codeobj__46 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_pgconstant, 167, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__46)) __PYX_ERR(0, 167, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":162
+  /* "querysource/types/validators.pyx":171
+ * 
+ * 
+ * cpdef list udf_keywords():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective relative-date keyword list (UDF_LIST)."""
+ *     return list(UDF_LIST)
+ */
+  __pyx_codeobj__47 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 0, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_udf_keywords, 171, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__47)) __PYX_ERR(0, 171, __pyx_L1_error)
+
+  /* "querysource/types/validators.pyx":175
+ *     return list(UDF_LIST)
+ * 
+ * cpdef list pg_constants():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective PostgreSQL constant list."""
+ *     return list(PG_CONSTANTS)
+ */
+  __pyx_codeobj__48 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 0, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_pg_constants, 175, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__48)) __PYX_ERR(0, 175, __pyx_L1_error)
+
+  /* "querysource/types/validators.pyx":179
+ *     return list(PG_CONSTANTS)
+ * 
+ * cpdef list pg_udfs():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective PostgreSQL function allowlist (PG_UDF)."""
+ *     return list(PG_UDF)
+ */
+  __pyx_codeobj__49 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 0, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_pg_udfs, 179, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__49)) __PYX_ERR(0, 179, __pyx_L1_error)
+
+  /* "querysource/types/validators.pyx":183
+ *     return list(PG_UDF)
+ * 
+ * cdef tuple _KEYWORD_HINTS = ('date', 'datetime', 'timestamp')             # <<<<<<<<<<<<<<
+ * 
+ * cpdef dict resolve_udf_conditions(dict conditions, dict cond_definition = None):
+ */
+  __pyx_tuple__50 = PyTuple_Pack(3, __pyx_n_u_date, __pyx_n_u_datetime, __pyx_n_u_timestamp); if (unlikely(!__pyx_tuple__50)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__50);
+  __Pyx_GIVEREF(__pyx_tuple__50);
+
+  /* "querysource/types/validators.pyx":185
+ * cdef tuple _KEYWORD_HINTS = ('date', 'datetime', 'timestamp')
+ * 
+ * cpdef dict resolve_udf_conditions(dict conditions, dict cond_definition = None):             # <<<<<<<<<<<<<<
+ *     """Return a new dict with relative-date keyword values resolved via to_udf.
+ * 
+ */
+  __pyx_tuple__51 = PyTuple_Pack(2, __pyx_n_s_conditions, __pyx_n_s_cond_definition); if (unlikely(!__pyx_tuple__51)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__51);
+  __Pyx_GIVEREF(__pyx_tuple__51);
+  __pyx_codeobj__52 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__51, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_resolve_udf_conditions, 185, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__52)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __pyx_tuple__53 = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_tuple__53)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__53);
+  __Pyx_GIVEREF(__pyx_tuple__53);
+
+  /* "querysource/types/validators.pyx":211
  * 
  * 
  * cpdef bool_t is_array(object value):             # <<<<<<<<<<<<<<
  *     return isinstance(value,(list, dict, Sequence, ndarray))
  * 
  */
-  __pyx_codeobj__47 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_array, 162, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__47)) __PYX_ERR(0, 162, __pyx_L1_error)
+  __pyx_codeobj__54 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_array, 211, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__54)) __PYX_ERR(0, 211, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":166
+  /* "querysource/types/validators.pyx":215
  * 
  * 
  * cpdef bool_t is_epoch(object value):             # <<<<<<<<<<<<<<
  *     try:
  *         # validate if unix epoch
  */
-  __pyx_codeobj__48 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_epoch, 166, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__48)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_codeobj__55 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_epoch, 215, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__55)) __PYX_ERR(0, 215, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":181
+  /* "querysource/types/validators.pyx":230
  *         return value
  * 
  * cpdef bool_t is_date(object value):             # <<<<<<<<<<<<<<
  *     response = False
  *     if isinstance(value, list): # between
  */
-  __pyx_codeobj__49 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_date, 181, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__49)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_codeobj__56 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_date, 230, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__56)) __PYX_ERR(0, 230, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":209
+  /* "querysource/types/validators.pyx":258
  * 
  * 
  * cpdef bool_t is_datetime(object value):             # <<<<<<<<<<<<<<
  *     if isinstance(value, (datetime.datetime, datetime.timedelta)):
  *         return True
  */
-  __pyx_codeobj__50 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_datetime, 209, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__50)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_codeobj__57 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_datetime, 258, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__57)) __PYX_ERR(0, 258, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":222
+  /* "querysource/types/validators.pyx":271
  * 
  * 
  * cpdef bool_t is_uuid(object value):             # <<<<<<<<<<<<<<
  *     """Returns if value is an UUID object.
  *     """
  */
-  __pyx_codeobj__51 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_uuid, 222, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__51)) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_codeobj__58 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_uuid, 271, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__58)) __PYX_ERR(0, 271, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":238
+  /* "querysource/types/validators.pyx":287
  *     return quoteString(str(value))
  * 
  * cpdef bool_t is_integer(value):             # <<<<<<<<<<<<<<
  *     if isinstance(value, (dict, list)):
  *         return False
  */
-  __pyx_codeobj__52 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_integer, 238, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__52)) __PYX_ERR(0, 238, __pyx_L1_error)
+  __pyx_codeobj__59 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_integer, 287, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__59)) __PYX_ERR(0, 287, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":249
+  /* "querysource/types/validators.pyx":298
  *             return False
  * 
  * cpdef bool_t is_float(object value):             # <<<<<<<<<<<<<<
  *     """is_float.
  * 
  */
-  __pyx_codeobj__53 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_float, 249, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__53)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_codeobj__60 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_float, 298, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__60)) __PYX_ERR(0, 298, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":265
+  /* "querysource/types/validators.pyx":314
  * 
  * 
  * cpdef bool_t is_decimal(object value):             # <<<<<<<<<<<<<<
  *     """is_decimal.
  * 
  */
-  __pyx_codeobj__54 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_decimal, 265, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__54)) __PYX_ERR(0, 265, __pyx_L1_error)
+  __pyx_codeobj__61 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_decimal, 314, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__61)) __PYX_ERR(0, 314, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":279
+  /* "querysource/types/validators.pyx":328
  * 
  * 
  * cpdef bool_t isnumber(object value):             # <<<<<<<<<<<<<<
  *     return is_decimal(value) or is_float(value) or is_integer(value)
  * 
  */
-  __pyx_codeobj__55 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_isnumber, 279, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__55)) __PYX_ERR(0, 279, __pyx_L1_error)
+  __pyx_codeobj__62 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_isnumber, 328, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__62)) __PYX_ERR(0, 328, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":285
+  /* "querysource/types/validators.pyx":334
  * 
  * 
  * cpdef bool_t is_dict(object value):             # <<<<<<<<<<<<<<
  *     if isinstance(value, dict):
  *         return True
  */
-  __pyx_codeobj__56 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_dict, 285, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__56)) __PYX_ERR(0, 285, __pyx_L1_error)
+  __pyx_codeobj__63 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_dict, 334, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__63)) __PYX_ERR(0, 334, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":291
+  /* "querysource/types/validators.pyx":340
  *         return False
  * 
  * cpdef bool_t is_boolean(object value):             # <<<<<<<<<<<<<<
  *     if isinstance(value, (dict, list)):
  *         return False # Unable to Test
  */
-  __pyx_codeobj__57 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_boolean, 291, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__57)) __PYX_ERR(0, 291, __pyx_L1_error)
+  __pyx_codeobj__64 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_boolean, 340, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__64)) __PYX_ERR(0, 340, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":310
+  /* "querysource/types/validators.pyx":359
  *             return 'FALSE'
  * 
  * cpdef bool_t is_object(object value):             # <<<<<<<<<<<<<<
  *     return isinstance(value, object)
  * 
  */
-  __pyx_codeobj__58 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_object, 310, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__58)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __pyx_codeobj__65 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_object, 359, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__65)) __PYX_ERR(0, 359, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":313
+  /* "querysource/types/validators.pyx":362
  *     return isinstance(value, object)
  * 
  * cpdef bool_t is_string(object value):             # <<<<<<<<<<<<<<
  *     if isinstance(value, int):
  *         return str(value)
  */
-  __pyx_codeobj__59 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_string, 313, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__59)) __PYX_ERR(0, 313, __pyx_L1_error)
+  __pyx_codeobj__66 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_string, 362, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__66)) __PYX_ERR(0, 362, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":331
+  /* "querysource/types/validators.pyx":380
  *     return quoteString(escape_string(value))
  * 
  * cpdef object escape_string(object value):             # <<<<<<<<<<<<<<
  *     try:
  *         return value.translate(
  */
-  __pyx_codeobj__60 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_escape_string, 331, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__60)) __PYX_ERR(0, 331, __pyx_L1_error)
+  __pyx_codeobj__67 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple_, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_escape_string, 380, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__67)) __PYX_ERR(0, 380, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":392
+  /* "querysource/types/validators.pyx":441
  *     """
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_integer(cls, _type):
  *         return _type in (int, int64)
  */
-  __pyx_tuple__61 = PyTuple_Pack(2, __pyx_n_s_cls, __pyx_n_s_type); if (unlikely(!__pyx_tuple__61)) __PYX_ERR(0, 392, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__61);
-  __Pyx_GIVEREF(__pyx_tuple__61);
-  __pyx_codeobj__62 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__61, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_integer, 392, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__62)) __PYX_ERR(0, 392, __pyx_L1_error)
+  __pyx_tuple__68 = PyTuple_Pack(2, __pyx_n_s_cls, __pyx_n_s_type); if (unlikely(!__pyx_tuple__68)) __PYX_ERR(0, 441, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__68);
+  __Pyx_GIVEREF(__pyx_tuple__68);
+  __pyx_codeobj__69 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__68, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_integer, 441, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__69)) __PYX_ERR(0, 441, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":396
+  /* "querysource/types/validators.pyx":445
  *         return _type in (int, int64)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_number(cls, _type):
  *         return _type in (int, int64, float, Decimal, bytes, bool)
  */
-  __pyx_codeobj__63 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__61, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_number, 396, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__63)) __PYX_ERR(0, 396, __pyx_L1_error)
+  __pyx_codeobj__70 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__68, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_number, 445, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__70)) __PYX_ERR(0, 445, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":400
+  /* "querysource/types/validators.pyx":449
  *         return _type in (int, int64, float, Decimal, bytes, bool)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_string(cls, _type):
  *         return isinstance(_type, (
  */
-  __pyx_codeobj__64 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__61, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_string, 400, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__64)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_codeobj__71 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__68, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_string, 449, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__71)) __PYX_ERR(0, 449, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":410
+  /* "querysource/types/validators.pyx":459
  *         ))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def escape(cls, _type):
  *         return _type.translate(
  */
-  __pyx_codeobj__65 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__61, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_escape, 410, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__65)) __PYX_ERR(0, 410, __pyx_L1_error)
+  __pyx_codeobj__72 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__68, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_escape, 459, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__72)) __PYX_ERR(0, 459, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":427
+  /* "querysource/types/validators.pyx":476
  *         }))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_date(cls, _type):
  *         return _type in (datetime.date, datetime.datetime, datetime.time, datetime.timedelta)
  */
-  __pyx_codeobj__66 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__61, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_date, 427, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__66)) __PYX_ERR(0, 427, __pyx_L1_error)
+  __pyx_codeobj__73 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__68, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_date, 476, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__73)) __PYX_ERR(0, 476, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":431
+  /* "querysource/types/validators.pyx":480
  *         return _type in (datetime.date, datetime.datetime, datetime.time, datetime.timedelta)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_array(cls, t):
  *         return isinstance(t,(list, dict, Sequence, ndarray))
  */
-  __pyx_tuple__67 = PyTuple_Pack(2, __pyx_n_s_cls, __pyx_n_s_t); if (unlikely(!__pyx_tuple__67)) __PYX_ERR(0, 431, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__67);
-  __Pyx_GIVEREF(__pyx_tuple__67);
-  __pyx_codeobj__68 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__67, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_array, 431, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__68)) __PYX_ERR(0, 431, __pyx_L1_error)
+  __pyx_tuple__74 = PyTuple_Pack(2, __pyx_n_s_cls, __pyx_n_s_t); if (unlikely(!__pyx_tuple__74)) __PYX_ERR(0, 480, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__74);
+  __Pyx_GIVEREF(__pyx_tuple__74);
+  __pyx_codeobj__75 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__74, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_array, 480, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__75)) __PYX_ERR(0, 480, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":435
+  /* "querysource/types/validators.pyx":484
  *         return isinstance(t,(list, dict, Sequence, ndarray))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_bool(cls, _type):
  *         return isinstance(_type, bool)
  */
-  __pyx_codeobj__69 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__61, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_bool, 435, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__69)) __PYX_ERR(0, 435, __pyx_L1_error)
+  __pyx_codeobj__76 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__68, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_bool, 484, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__76)) __PYX_ERR(0, 484, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":439
+  /* "querysource/types/validators.pyx":488
  *         return isinstance(_type, bool)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_typing(cls, _type):
  *         try:
  */
-  __pyx_codeobj__70 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__61, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_typing, 439, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__70)) __PYX_ERR(0, 439, __pyx_L1_error)
+  __pyx_codeobj__77 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__68, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_typing, 488, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__77)) __PYX_ERR(0, 488, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":446
+  /* "querysource/types/validators.pyx":495
  *             return False
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def toSQL(cls, value, _type, dbtype: str = None):
  *         v = f"{value!s}" if Entity.is_date(_type) else value
  */
-  __pyx_tuple__71 = PyTuple_Pack(7, __pyx_n_s_cls, __pyx_n_s_value, __pyx_n_s_type, __pyx_n_s_dbtype, __pyx_n_s_v, __pyx_n_s_k, __pyx_n_s_v); if (unlikely(!__pyx_tuple__71)) __PYX_ERR(0, 446, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__71);
-  __Pyx_GIVEREF(__pyx_tuple__71);
-  __pyx_codeobj__72 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__71, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_toSQL, 446, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__72)) __PYX_ERR(0, 446, __pyx_L1_error)
-  __pyx_tuple__73 = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_tuple__73)) __PYX_ERR(0, 446, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__73);
-  __Pyx_GIVEREF(__pyx_tuple__73);
+  __pyx_tuple__78 = PyTuple_Pack(7, __pyx_n_s_cls, __pyx_n_s_value, __pyx_n_s_type, __pyx_n_s_dbtype, __pyx_n_s_v, __pyx_n_s_k, __pyx_n_s_v); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(0, 495, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__78);
+  __Pyx_GIVEREF(__pyx_tuple__78);
+  __pyx_codeobj__79 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_toSQL, 495, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__79)) __PYX_ERR(0, 495, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":470
+  /* "querysource/types/validators.pyx":519
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def escapeLiteral(cls, value, _type, dbtype: str = None):
  *         v = value if value != "None" or value is not None else ""
  */
-  __pyx_tuple__74 = PyTuple_Pack(5, __pyx_n_s_cls, __pyx_n_s_value, __pyx_n_s_type, __pyx_n_s_dbtype, __pyx_n_s_v); if (unlikely(!__pyx_tuple__74)) __PYX_ERR(0, 470, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__74);
-  __Pyx_GIVEREF(__pyx_tuple__74);
-  __pyx_codeobj__75 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__74, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_escapeLiteral, 470, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__75)) __PYX_ERR(0, 470, __pyx_L1_error)
+  __pyx_tuple__80 = PyTuple_Pack(5, __pyx_n_s_cls, __pyx_n_s_value, __pyx_n_s_type, __pyx_n_s_dbtype, __pyx_n_s_v); if (unlikely(!__pyx_tuple__80)) __PYX_ERR(0, 519, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__80);
+  __Pyx_GIVEREF(__pyx_tuple__80);
+  __pyx_codeobj__81 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_escapeLiteral, 519, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__81)) __PYX_ERR(0, 519, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":480
+  /* "querysource/types/validators.pyx":529
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def escapeString(cls, value):
  *         v = value if value != "None" else ""
  */
-  __pyx_tuple__76 = PyTuple_Pack(3, __pyx_n_s_cls, __pyx_n_s_value, __pyx_n_s_v); if (unlikely(!__pyx_tuple__76)) __PYX_ERR(0, 480, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__76);
-  __Pyx_GIVEREF(__pyx_tuple__76);
-  __pyx_codeobj__77 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__76, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_escapeString, 480, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__77)) __PYX_ERR(0, 480, __pyx_L1_error)
+  __pyx_tuple__82 = PyTuple_Pack(3, __pyx_n_s_cls, __pyx_n_s_value, __pyx_n_s_v); if (unlikely(!__pyx_tuple__82)) __PYX_ERR(0, 529, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__82);
+  __Pyx_GIVEREF(__pyx_tuple__82);
+  __pyx_codeobj__83 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__82, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_escapeString, 529, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__83)) __PYX_ERR(0, 529, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":487
+  /* "querysource/types/validators.pyx":536
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def quoteString(cls, value, bool_t no_dblquoting=True):
  *         v = value if value != 'None' else ""
  */
-  __pyx_tuple__78 = PyTuple_Pack(6, __pyx_n_s_cls, __pyx_n_s_value, __pyx_n_s_no_dblquoting, __pyx_n_s_v, __pyx_n_s_start_quote, __pyx_n_s_end_quote); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(0, 487, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__78);
-  __Pyx_GIVEREF(__pyx_tuple__78);
-  __pyx_codeobj__79 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_quoteString, 487, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__79)) __PYX_ERR(0, 487, __pyx_L1_error)
-  __pyx_tuple__80 = PyTuple_Pack(1, Py_True); if (unlikely(!__pyx_tuple__80)) __PYX_ERR(0, 487, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__80);
-  __Pyx_GIVEREF(__pyx_tuple__80);
+  __pyx_tuple__84 = PyTuple_Pack(6, __pyx_n_s_cls, __pyx_n_s_value, __pyx_n_s_no_dblquoting, __pyx_n_s_v, __pyx_n_s_start_quote, __pyx_n_s_end_quote); if (unlikely(!__pyx_tuple__84)) __PYX_ERR(0, 536, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__84);
+  __Pyx_GIVEREF(__pyx_tuple__84);
+  __pyx_codeobj__85 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__84, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_quoteString, 536, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__85)) __PYX_ERR(0, 536, __pyx_L1_error)
+  __pyx_tuple__86 = PyTuple_Pack(1, Py_True); if (unlikely(!__pyx_tuple__86)) __PYX_ERR(0, 536, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__86);
+  __Pyx_GIVEREF(__pyx_tuple__86);
 
-  /* "querysource/types/validators.pyx":518
+  /* "querysource/types/validators.pyx":567
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def dblQuoting(cls, value):
  *         return f'"{value}"'
  */
-  __pyx_tuple__81 = PyTuple_Pack(2, __pyx_n_s_cls, __pyx_n_s_value); if (unlikely(!__pyx_tuple__81)) __PYX_ERR(0, 518, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__81);
-  __Pyx_GIVEREF(__pyx_tuple__81);
-  __pyx_codeobj__82 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__81, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_dblQuoting, 518, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__82)) __PYX_ERR(0, 518, __pyx_L1_error)
+  __pyx_tuple__87 = PyTuple_Pack(2, __pyx_n_s_cls, __pyx_n_s_value); if (unlikely(!__pyx_tuple__87)) __PYX_ERR(0, 567, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__87);
+  __Pyx_GIVEREF(__pyx_tuple__87);
+  __pyx_codeobj__88 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__87, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_dblQuoting, 567, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__88)) __PYX_ERR(0, 567, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_tuple__83 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_state, __pyx_n_s_dict_2, __pyx_n_s_use_setstate); if (unlikely(!__pyx_tuple__83)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__83);
-  __Pyx_GIVEREF(__pyx_tuple__83);
-  __pyx_codeobj__84 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__83, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__84)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_tuple__89 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_state, __pyx_n_s_dict_2, __pyx_n_s_use_setstate); if (unlikely(!__pyx_tuple__89)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__89);
+  __Pyx_GIVEREF(__pyx_tuple__89);
+  __pyx_codeobj__90 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__89, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__90)) __PYX_ERR(1, 1, __pyx_L1_error)
 
   /* "(tree fragment)":16
  *     else:
@@ -23887,35 +25360,35 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_Entity__set_state(self, __pyx_state)
  */
-  __pyx_tuple__85 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pyx_state); if (unlikely(!__pyx_tuple__85)) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__85);
-  __Pyx_GIVEREF(__pyx_tuple__85);
-  __pyx_codeobj__86 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__85, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__86)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __pyx_tuple__91 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pyx_state); if (unlikely(!__pyx_tuple__91)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__91);
+  __Pyx_GIVEREF(__pyx_tuple__91);
+  __pyx_codeobj__92 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__91, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 16, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__92)) __PYX_ERR(1, 16, __pyx_L1_error)
 
-  /* "querysource/types/validators.pyx":523
+  /* "querysource/types/validators.pyx":572
  * 
  * ### Validation of conditions:
  * cpdef object is_valid(object key, object value, str T = None, bint noquote = False):             # <<<<<<<<<<<<<<
  *     """is_valid.
  * 
  */
-  __pyx_tuple__87 = PyTuple_Pack(4, __pyx_n_s_key, __pyx_n_s_value, __pyx_n_s_T, __pyx_n_s_noquote); if (unlikely(!__pyx_tuple__87)) __PYX_ERR(0, 523, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__87);
-  __Pyx_GIVEREF(__pyx_tuple__87);
-  __pyx_codeobj__88 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__87, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_valid, 523, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__88)) __PYX_ERR(0, 523, __pyx_L1_error)
-  __pyx_tuple__89 = PyTuple_Pack(2, Py_None, Py_False); if (unlikely(!__pyx_tuple__89)) __PYX_ERR(0, 523, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__89);
-  __Pyx_GIVEREF(__pyx_tuple__89);
+  __pyx_tuple__93 = PyTuple_Pack(4, __pyx_n_s_key, __pyx_n_s_value, __pyx_n_s_T, __pyx_n_s_noquote); if (unlikely(!__pyx_tuple__93)) __PYX_ERR(0, 572, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__93);
+  __Pyx_GIVEREF(__pyx_tuple__93);
+  __pyx_codeobj__94 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__93, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_types_validators_pyx, __pyx_n_s_is_valid, 572, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__94)) __PYX_ERR(0, 572, __pyx_L1_error)
+  __pyx_tuple__95 = PyTuple_Pack(2, Py_None, Py_False); if (unlikely(!__pyx_tuple__95)) __PYX_ERR(0, 572, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__95);
+  __Pyx_GIVEREF(__pyx_tuple__95);
 
   /* "(tree fragment)":1
  * def __pyx_unpickle_Entity(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
  */
-  __pyx_tuple__90 = PyTuple_Pack(5, __pyx_n_s_pyx_type, __pyx_n_s_pyx_checksum, __pyx_n_s_pyx_state, __pyx_n_s_pyx_PickleError, __pyx_n_s_pyx_result); if (unlikely(!__pyx_tuple__90)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__90);
-  __Pyx_GIVEREF(__pyx_tuple__90);
-  __pyx_codeobj__91 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__90, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_Entity, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__91)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_tuple__96 = PyTuple_Pack(5, __pyx_n_s_pyx_type, __pyx_n_s_pyx_checksum, __pyx_n_s_pyx_state, __pyx_n_s_pyx_PickleError, __pyx_n_s_pyx_result); if (unlikely(!__pyx_tuple__96)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__96);
+  __Pyx_GIVEREF(__pyx_tuple__96);
+  __pyx_codeobj__97 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__96, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_pyx_unpickle_Entity, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__97)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -23925,6 +25398,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
 /* #### Code section: init_constants ### */
 
 static CYTHON_SMALL_CODE int __Pyx_InitConstants(void) {
+  __pyx_umethod_PyDict_Type_get.type = (PyObject*)&PyDict_Type;
+  __pyx_umethod_PyDict_Type_get.method_name = &__pyx_n_s_get;
+  __pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
+  __pyx_umethod_PyDict_Type_items.method_name = &__pyx_n_s_items;
   __pyx_umethod_PyUnicode_Type_lower.type = (PyObject*)&PyUnicode_Type;
   __pyx_umethod_PyUnicode_Type_lower.method_name = &__pyx_n_s_lower;
   if (__Pyx_CreateStringTabAndInitStrings() < 0) __PYX_ERR(0, 1, __pyx_L1_error);
@@ -23963,6 +25440,7 @@ static int __Pyx_modinit_global_init_code(void) {
   __pyx_v_11querysource_5types_10validators_PG_CONSTANTS = ((PyObject*)Py_None); Py_INCREF(Py_None);
   __pyx_v_11querysource_5types_10validators_PG_UDF = ((PyObject*)Py_None); Py_INCREF(Py_None);
   __pyx_v_11querysource_5types_10validators_eval_field = Py_None; Py_INCREF(Py_None);
+  __pyx_v_11querysource_5types_10validators__KEYWORD_HINTS = ((PyObject*)Py_None); Py_INCREF(Py_None);
   __pyx_v_11querysource_5types_10validators_type_validators = ((PyObject*)Py_None); Py_INCREF(Py_None);
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -23992,15 +25470,15 @@ static int __Pyx_modinit_type_init_code(void) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_5types_10validators_Entity = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_5types_10validators_Entity_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_5types_10validators_Entity)) __PYX_ERR(0, 387, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_5types_10validators_Entity_spec, __pyx_ptype_11querysource_5types_10validators_Entity) < 0) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_ptype_11querysource_5types_10validators_Entity = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_5types_10validators_Entity_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_5types_10validators_Entity)) __PYX_ERR(0, 436, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_5types_10validators_Entity_spec, __pyx_ptype_11querysource_5types_10validators_Entity) < 0) __PYX_ERR(0, 436, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_5types_10validators_Entity = &__pyx_type_11querysource_5types_10validators_Entity;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_5types_10validators_Entity) < 0) __PYX_ERR(0, 387, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_5types_10validators_Entity) < 0) __PYX_ERR(0, 436, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_5types_10validators_Entity->tp_print = 0;
@@ -24010,9 +25488,9 @@ static int __Pyx_modinit_type_init_code(void) {
     __pyx_ptype_11querysource_5types_10validators_Entity->tp_getattro = __Pyx_PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_Entity, (PyObject *) __pyx_ptype_11querysource_5types_10validators_Entity) < 0) __PYX_ERR(0, 387, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_Entity, (PyObject *) __pyx_ptype_11querysource_5types_10validators_Entity) < 0) __PYX_ERR(0, 436, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_11querysource_5types_10validators_Entity) < 0) __PYX_ERR(0, 387, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_11querysource_5types_10validators_Entity) < 0) __PYX_ERR(0, 436, __pyx_L1_error)
   #endif
   #if CYTHON_USE_TYPE_SPECS
   __pyx_ptype___pyx_scope_struct____Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_scope_struct____Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value_spec, NULL); if (unlikely(!__pyx_ptype___pyx_scope_struct____Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value)) __PYX_ERR(1, 66, __pyx_L1_error)
@@ -24302,8 +25780,9 @@ static CYTHON_SMALL_CODE int __pyx_pymod_exec_validators(PyObject *__pyx_pyinit_
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
-  PyObject *__pyx_t_4 = NULL;
+  struct __pyx_opt_args_11querysource_5types_10validators__env_list __pyx_t_4;
   PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -24717,8 +26196,8 @@ if (!__Pyx_RefNanny) {
  * 
  * 
  * cdef list udf = ["CURRENT_YEAR", "CURRENT_MONTH", "TODAY", "YESTERDAY", "LAST_YEAR", "FDOM", "LDOM"]             # <<<<<<<<<<<<<<
- * cdef list UDF_LIST = os.environ.get('UDF_LIST', udf)
- * cdef list PG_CONSTANTS = os.environ.get(
+ * 
+ * 
  */
   __pyx_t_2 = PyList_New(7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -24748,1126 +26227,1121 @@ if (!__Pyx_RefNanny) {
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":28
+  /* "querysource/types/validators.pyx":40
+ *     ]
  * 
- * cdef list udf = ["CURRENT_YEAR", "CURRENT_MONTH", "TODAY", "YESTERDAY", "LAST_YEAR", "FDOM", "LDOM"]
- * cdef list UDF_LIST = os.environ.get('UDF_LIST', udf)             # <<<<<<<<<<<<<<
- * cdef list PG_CONSTANTS = os.environ.get(
- *     'PG_CONSTANTS',
+ * cdef list UDF_LIST = _env_list('UDF_LIST', udf)             # <<<<<<<<<<<<<<
+ * cdef list PG_CONSTANTS = _env_list('PG_CONSTANTS', ["CURRENT_DATE", "CURRENT_TIMESTAMP"])
+ * cdef list PG_UDF = _env_list('PG_UDF', ["now()"], False)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_os); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 28, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_environ); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_t_2 = __pyx_v_11querysource_5types_10validators_udf;
+  __Pyx_INCREF(__pyx_t_2);
+  __pyx_t_3 = __pyx_f_11querysource_5types_10validators__env_list(__pyx_n_u_UDF_LIST, ((PyObject*)__pyx_t_2), NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_get); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 28, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 28, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_INCREF(__pyx_n_u_UDF_LIST);
-  __Pyx_GIVEREF(__pyx_n_u_UDF_LIST);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_n_u_UDF_LIST)) __PYX_ERR(0, 28, __pyx_L1_error);
-  __Pyx_INCREF(__pyx_v_11querysource_5types_10validators_udf);
-  __Pyx_GIVEREF(__pyx_v_11querysource_5types_10validators_udf);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_v_11querysource_5types_10validators_udf)) __PYX_ERR(0, 28, __pyx_L1_error);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 28, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_XGOTREF(__pyx_v_11querysource_5types_10validators_UDF_LIST);
-  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators_UDF_LIST, ((PyObject*)__pyx_t_4));
-  __Pyx_GIVEREF(__pyx_t_4);
-  __pyx_t_4 = 0;
+  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators_UDF_LIST, ((PyObject*)__pyx_t_3));
+  __Pyx_GIVEREF(__pyx_t_3);
+  __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":29
- * cdef list udf = ["CURRENT_YEAR", "CURRENT_MONTH", "TODAY", "YESTERDAY", "LAST_YEAR", "FDOM", "LDOM"]
- * cdef list UDF_LIST = os.environ.get('UDF_LIST', udf)
- * cdef list PG_CONSTANTS = os.environ.get(             # <<<<<<<<<<<<<<
- *     'PG_CONSTANTS',
- *      ["CURRENT_DATE", "CURRENT_TIMESTAMP"]
+  /* "querysource/types/validators.pyx":41
+ * 
+ * cdef list UDF_LIST = _env_list('UDF_LIST', udf)
+ * cdef list PG_CONSTANTS = _env_list('PG_CONSTANTS', ["CURRENT_DATE", "CURRENT_TIMESTAMP"])             # <<<<<<<<<<<<<<
+ * cdef list PG_UDF = _env_list('PG_UDF', ["now()"], False)
+ * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_os); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_environ); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-
-  /* "querysource/types/validators.pyx":31
- * cdef list PG_CONSTANTS = os.environ.get(
- *     'PG_CONSTANTS',
- *      ["CURRENT_DATE", "CURRENT_TIMESTAMP"]             # <<<<<<<<<<<<<<
- * )
- * cdef list PG_UDF = os.environ.get('PG_UDF', ["now()"])
- */
-  __pyx_t_3 = PyList_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 41, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_n_u_CURRENT_DATE);
   __Pyx_GIVEREF(__pyx_n_u_CURRENT_DATE);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_u_CURRENT_DATE)) __PYX_ERR(0, 31, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_n_u_CURRENT_DATE)) __PYX_ERR(0, 41, __pyx_L1_error);
   __Pyx_INCREF(__pyx_n_u_CURRENT_TIMESTAMP);
   __Pyx_GIVEREF(__pyx_n_u_CURRENT_TIMESTAMP);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 1, __pyx_n_u_CURRENT_TIMESTAMP)) __PYX_ERR(0, 31, __pyx_L1_error);
-
-  /* "querysource/types/validators.pyx":29
- * cdef list udf = ["CURRENT_YEAR", "CURRENT_MONTH", "TODAY", "YESTERDAY", "LAST_YEAR", "FDOM", "LDOM"]
- * cdef list UDF_LIST = os.environ.get('UDF_LIST', udf)
- * cdef list PG_CONSTANTS = os.environ.get(             # <<<<<<<<<<<<<<
- *     'PG_CONSTANTS',
- *      ["CURRENT_DATE", "CURRENT_TIMESTAMP"]
- */
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 1, __pyx_n_u_CURRENT_TIMESTAMP)) __PYX_ERR(0, 41, __pyx_L1_error);
+  __pyx_t_2 = __pyx_f_11querysource_5types_10validators__env_list(__pyx_n_u_PG_CONSTANTS, ((PyObject*)__pyx_t_3), NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 41, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_INCREF(__pyx_n_u_PG_CONSTANTS);
-  __Pyx_GIVEREF(__pyx_n_u_PG_CONSTANTS);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_n_u_PG_CONSTANTS)) __PYX_ERR(0, 29, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_3)) __PYX_ERR(0, 29, __pyx_L1_error);
-  __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_2, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (!(likely(PyList_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_3))) __PYX_ERR(0, 29, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_XGOTREF(__pyx_v_11querysource_5types_10validators_PG_CONSTANTS);
-  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators_PG_CONSTANTS, ((PyObject*)__pyx_t_3));
-  __Pyx_GIVEREF(__pyx_t_3);
-  __pyx_t_3 = 0;
+  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators_PG_CONSTANTS, ((PyObject*)__pyx_t_2));
+  __Pyx_GIVEREF(__pyx_t_2);
+  __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":33
- *      ["CURRENT_DATE", "CURRENT_TIMESTAMP"]
- * )
- * cdef list PG_UDF = os.environ.get('PG_UDF', ["now()"])             # <<<<<<<<<<<<<<
+  /* "querysource/types/validators.pyx":42
+ * cdef list UDF_LIST = _env_list('UDF_LIST', udf)
+ * cdef list PG_CONSTANTS = _env_list('PG_CONSTANTS', ["CURRENT_DATE", "CURRENT_TIMESTAMP"])
+ * cdef list PG_UDF = _env_list('PG_UDF', ["now()"], False)             # <<<<<<<<<<<<<<
  * 
  * cdef object eval_field = re.compile(r'^(?:(\@|!|#|~|\:|))(\w*)(?:(\||\&|\!|\~|\#)|)+$')
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_os); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 33, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_environ); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 33, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 33, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_kp_u_now);
   __Pyx_GIVEREF(__pyx_kp_u_now);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u_now)) __PYX_ERR(0, 33, __pyx_L1_error);
-  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 33, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_INCREF(__pyx_n_u_PG_UDF);
-  __Pyx_GIVEREF(__pyx_n_u_PG_UDF);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_n_u_PG_UDF)) __PYX_ERR(0, 33, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_2)) __PYX_ERR(0, 33, __pyx_L1_error);
-  __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_4, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 33, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (!(likely(PyList_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_2))) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_kp_u_now)) __PYX_ERR(0, 42, __pyx_L1_error);
+  __pyx_t_4.__pyx_n = 1;
+  __pyx_t_4.upper = 0;
+  __pyx_t_3 = __pyx_f_11querysource_5types_10validators__env_list(__pyx_n_u_PG_UDF, ((PyObject*)__pyx_t_2), &__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 42, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_XGOTREF(__pyx_v_11querysource_5types_10validators_PG_UDF);
-  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators_PG_UDF, ((PyObject*)__pyx_t_2));
-  __Pyx_GIVEREF(__pyx_t_2);
-  __pyx_t_2 = 0;
+  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators_PG_UDF, ((PyObject*)__pyx_t_3));
+  __Pyx_GIVEREF(__pyx_t_3);
+  __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":35
- * cdef list PG_UDF = os.environ.get('PG_UDF', ["now()"])
+  /* "querysource/types/validators.pyx":44
+ * cdef list PG_UDF = _env_list('PG_UDF', ["now()"], False)
  * 
  * cdef object eval_field = re.compile(r'^(?:(\@|!|#|~|\:|))(\w*)(?:(\||\&|\!|\~|\#)|)+$')             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_re); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_re); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_compile); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_compile); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 35, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_tuple__34, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__34, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 35, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_XGOTREF(__pyx_v_11querysource_5types_10validators_eval_field);
-  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators_eval_field, __pyx_t_2);
-  __Pyx_GIVEREF(__pyx_t_2);
-  __pyx_t_2 = 0;
+  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators_eval_field, __pyx_t_3);
+  __Pyx_GIVEREF(__pyx_t_3);
+  __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":38
+  /* "querysource/types/validators.pyx":47
  * 
  * 
  * cpdef object strtobool(str val):             # <<<<<<<<<<<<<<
  *     """Convert a string representation of truth to true (1) or false (0).
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_1strtobool, 0, __pyx_n_s_strtobool, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__36)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 38, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_strtobool, __pyx_t_2) < 0) __PYX_ERR(0, 38, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_1strtobool, 0, __pyx_n_s_strtobool, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__36)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_strtobool, __pyx_t_3) < 0) __PYX_ERR(0, 47, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":55
+  /* "querysource/types/validators.pyx":64
  *         )
  * 
  * cpdef list field_components(str field):             # <<<<<<<<<<<<<<
  *     try:
  *         return re.findall(eval_field, field)
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_3field_components, 0, __pyx_n_s_field_components, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__38)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_field_components, __pyx_t_2) < 0) __PYX_ERR(0, 55, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_3field_components, 0, __pyx_n_s_field_components, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__38)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_field_components, __pyx_t_3) < 0) __PYX_ERR(0, 64, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":61
+  /* "querysource/types/validators.pyx":70
  *         return (None, field, None)
  * 
  * cpdef bool_t is_pandas_dataframe(obj):             # <<<<<<<<<<<<<<
  *     """
  *     Check if an object is a pandas DataFrame without importing pandas.
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_5is_pandas_dataframe, 0, __pyx_n_s_is_pandas_dataframe, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__40)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 61, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_pandas_dataframe, __pyx_t_2) < 0) __PYX_ERR(0, 61, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_5is_pandas_dataframe, 0, __pyx_n_s_is_pandas_dataframe, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__40)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_pandas_dataframe, __pyx_t_3) < 0) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":73
+  /* "querysource/types/validators.pyx":82
  *     return hasattr(obj, "columns") and hasattr(obj, "index") and hasattr(obj, "loc") and hasattr(obj, "iloc")
  * 
  * cpdef bool_t is_empty(object value):             # <<<<<<<<<<<<<<
  *     cdef bool_t result = False
  *     if value is None:
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_7is_empty, 0, __pyx_n_s_is_empty, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__41)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 73, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_empty, __pyx_t_2) < 0) __PYX_ERR(0, 73, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_7is_empty, 0, __pyx_n_s_is_empty, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__41)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 82, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_empty, __pyx_t_3) < 0) __PYX_ERR(0, 82, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":87
+  /* "querysource/types/validators.pyx":96
  *     return result
  * 
  * cpdef is_camel_case(str value):             # <<<<<<<<<<<<<<
  *     if ' ' in value:
  *         return True
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_9is_camel_case, 0, __pyx_n_s_is_camel_case, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__42)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 87, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_camel_case, __pyx_t_2) < 0) __PYX_ERR(0, 87, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_9is_camel_case, 0, __pyx_n_s_is_camel_case, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__42)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_camel_case, __pyx_t_3) < 0) __PYX_ERR(0, 96, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":133
+  /* "querysource/types/validators.pyx":142
  *         return v
  * 
  * cpdef bool_t is_callable(object value):             # <<<<<<<<<<<<<<
  *     """Return if value is a callable (function object).
  *     """
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_11is_callable, 0, __pyx_n_s_is_callable, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__43)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_callable, __pyx_t_2) < 0) __PYX_ERR(0, 133, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_11is_callable, 0, __pyx_n_s_is_callable, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__43)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_callable, __pyx_t_3) < 0) __PYX_ERR(0, 142, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":141
+  /* "querysource/types/validators.pyx":150
  *     return callable(value) if not is_missing else False
  * 
  * cpdef bool_t is_async_callable(object obj):             # <<<<<<<<<<<<<<
  *     while isinstance(obj, partial):
  *         obj = obj.func
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_13is_async_callable, 0, __pyx_n_s_is_async_callable, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__44)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 141, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_async_callable, __pyx_t_2) < 0) __PYX_ERR(0, 141, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_13is_async_callable, 0, __pyx_n_s_is_async_callable, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__44)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_async_callable, __pyx_t_3) < 0) __PYX_ERR(0, 150, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":149
+  /* "querysource/types/validators.pyx":158
  * 
  * ## Functional validators (is_xxx functions)
  * cpdef bool_t is_udf(object value):             # <<<<<<<<<<<<<<
  *     return value in UDF_LIST
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_15is_udf, 0, __pyx_n_s_is_udf, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__45)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 149, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_udf, __pyx_t_2) < 0) __PYX_ERR(0, 149, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_15is_udf, 0, __pyx_n_s_is_udf, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__45)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 158, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_udf, __pyx_t_3) < 0) __PYX_ERR(0, 158, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":158
+  /* "querysource/types/validators.pyx":167
  *         return value in PG_UDF
  * 
  * cpdef bool_t is_pgconstant(object value):             # <<<<<<<<<<<<<<
  *     return value in PG_CONSTANTS
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_17is_pgconstant, 0, __pyx_n_s_is_pgconstant, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__46)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 158, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_pgconstant, __pyx_t_2) < 0) __PYX_ERR(0, 158, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_17is_pgconstant, 0, __pyx_n_s_is_pgconstant, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__46)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_pgconstant, __pyx_t_3) < 0) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":162
+  /* "querysource/types/validators.pyx":171
+ * 
+ * 
+ * cpdef list udf_keywords():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective relative-date keyword list (UDF_LIST)."""
+ *     return list(UDF_LIST)
+ */
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_19udf_keywords, 0, __pyx_n_s_udf_keywords, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__47)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 171, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_udf_keywords, __pyx_t_3) < 0) __PYX_ERR(0, 171, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "querysource/types/validators.pyx":175
+ *     return list(UDF_LIST)
+ * 
+ * cpdef list pg_constants():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective PostgreSQL constant list."""
+ *     return list(PG_CONSTANTS)
+ */
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_21pg_constants, 0, __pyx_n_s_pg_constants, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__48)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pg_constants, __pyx_t_3) < 0) __PYX_ERR(0, 175, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "querysource/types/validators.pyx":179
+ *     return list(PG_CONSTANTS)
+ * 
+ * cpdef list pg_udfs():             # <<<<<<<<<<<<<<
+ *     """Return a copy of the effective PostgreSQL function allowlist (PG_UDF)."""
+ *     return list(PG_UDF)
+ */
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_23pg_udfs, 0, __pyx_n_s_pg_udfs, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__49)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 179, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pg_udfs, __pyx_t_3) < 0) __PYX_ERR(0, 179, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "querysource/types/validators.pyx":183
+ *     return list(PG_UDF)
+ * 
+ * cdef tuple _KEYWORD_HINTS = ('date', 'datetime', 'timestamp')             # <<<<<<<<<<<<<<
+ * 
+ * cpdef dict resolve_udf_conditions(dict conditions, dict cond_definition = None):
+ */
+  __Pyx_INCREF(__pyx_tuple__50);
+  __Pyx_XGOTREF(__pyx_v_11querysource_5types_10validators__KEYWORD_HINTS);
+  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators__KEYWORD_HINTS, __pyx_tuple__50);
+  __Pyx_GIVEREF(__pyx_tuple__50);
+
+  /* "querysource/types/validators.pyx":185
+ * cdef tuple _KEYWORD_HINTS = ('date', 'datetime', 'timestamp')
+ * 
+ * cpdef dict resolve_udf_conditions(dict conditions, dict cond_definition = None):             # <<<<<<<<<<<<<<
+ *     """Return a new dict with relative-date keyword values resolved via to_udf.
+ * 
+ */
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_25resolve_udf_conditions, 0, __pyx_n_s_resolve_udf_conditions, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__52)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__53);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_resolve_udf_conditions, __pyx_t_3) < 0) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "querysource/types/validators.pyx":211
  * 
  * 
  * cpdef bool_t is_array(object value):             # <<<<<<<<<<<<<<
  *     return isinstance(value,(list, dict, Sequence, ndarray))
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_19is_array, 0, __pyx_n_s_is_array, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__47)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 162, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_array, __pyx_t_2) < 0) __PYX_ERR(0, 162, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_27is_array, 0, __pyx_n_s_is_array, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__54)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_array, __pyx_t_3) < 0) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":166
+  /* "querysource/types/validators.pyx":215
  * 
  * 
  * cpdef bool_t is_epoch(object value):             # <<<<<<<<<<<<<<
  *     try:
  *         # validate if unix epoch
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_21is_epoch, 0, __pyx_n_s_is_epoch, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__48)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 166, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_epoch, __pyx_t_2) < 0) __PYX_ERR(0, 166, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_29is_epoch, 0, __pyx_n_s_is_epoch, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__55)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_epoch, __pyx_t_3) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":181
+  /* "querysource/types/validators.pyx":230
  *         return value
  * 
  * cpdef bool_t is_date(object value):             # <<<<<<<<<<<<<<
  *     response = False
  *     if isinstance(value, list): # between
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_23is_date, 0, __pyx_n_s_is_date, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__49)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 181, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_date, __pyx_t_2) < 0) __PYX_ERR(0, 181, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_31is_date, 0, __pyx_n_s_is_date, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__56)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_date, __pyx_t_3) < 0) __PYX_ERR(0, 230, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":209
+  /* "querysource/types/validators.pyx":258
  * 
  * 
  * cpdef bool_t is_datetime(object value):             # <<<<<<<<<<<<<<
  *     if isinstance(value, (datetime.datetime, datetime.timedelta)):
  *         return True
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_25is_datetime, 0, __pyx_n_s_is_datetime, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__50)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_datetime, __pyx_t_2) < 0) __PYX_ERR(0, 209, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_33is_datetime, 0, __pyx_n_s_is_datetime, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__57)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 258, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_datetime, __pyx_t_3) < 0) __PYX_ERR(0, 258, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":222
+  /* "querysource/types/validators.pyx":271
  * 
  * 
  * cpdef bool_t is_uuid(object value):             # <<<<<<<<<<<<<<
  *     """Returns if value is an UUID object.
  *     """
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_27is_uuid, 0, __pyx_n_s_is_uuid, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__51)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_uuid, __pyx_t_2) < 0) __PYX_ERR(0, 222, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_35is_uuid, 0, __pyx_n_s_is_uuid, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__58)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 271, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_uuid, __pyx_t_3) < 0) __PYX_ERR(0, 271, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":238
+  /* "querysource/types/validators.pyx":287
  *     return quoteString(str(value))
  * 
  * cpdef bool_t is_integer(value):             # <<<<<<<<<<<<<<
  *     if isinstance(value, (dict, list)):
  *         return False
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_29is_integer, 0, __pyx_n_s_is_integer, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__52)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 238, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_integer, __pyx_t_2) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_37is_integer, 0, __pyx_n_s_is_integer, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__59)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_integer, __pyx_t_3) < 0) __PYX_ERR(0, 287, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":249
+  /* "querysource/types/validators.pyx":298
  *             return False
  * 
  * cpdef bool_t is_float(object value):             # <<<<<<<<<<<<<<
  *     """is_float.
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_31is_float, 0, __pyx_n_s_is_float, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__53)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 249, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_float, __pyx_t_2) < 0) __PYX_ERR(0, 249, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_39is_float, 0, __pyx_n_s_is_float, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__60)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 298, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_float, __pyx_t_3) < 0) __PYX_ERR(0, 298, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":265
+  /* "querysource/types/validators.pyx":314
  * 
  * 
  * cpdef bool_t is_decimal(object value):             # <<<<<<<<<<<<<<
  *     """is_decimal.
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_33is_decimal, 0, __pyx_n_s_is_decimal, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__54)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 265, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_decimal, __pyx_t_2) < 0) __PYX_ERR(0, 265, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_41is_decimal, 0, __pyx_n_s_is_decimal, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__61)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 314, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_decimal, __pyx_t_3) < 0) __PYX_ERR(0, 314, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":279
+  /* "querysource/types/validators.pyx":328
  * 
  * 
  * cpdef bool_t isnumber(object value):             # <<<<<<<<<<<<<<
  *     return is_decimal(value) or is_float(value) or is_integer(value)
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_35isnumber, 0, __pyx_n_s_isnumber, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__55)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 279, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_isnumber, __pyx_t_2) < 0) __PYX_ERR(0, 279, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_43isnumber, 0, __pyx_n_s_isnumber, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__62)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 328, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_isnumber, __pyx_t_3) < 0) __PYX_ERR(0, 328, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":282
+  /* "querysource/types/validators.pyx":331
  *     return is_decimal(value) or is_float(value) or is_integer(value)
  * 
  * is_number = isnumber             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_isnumber); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 282, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_number, __pyx_t_2) < 0) __PYX_ERR(0, 282, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_isnumber); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 331, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_number, __pyx_t_3) < 0) __PYX_ERR(0, 331, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":285
+  /* "querysource/types/validators.pyx":334
  * 
  * 
  * cpdef bool_t is_dict(object value):             # <<<<<<<<<<<<<<
  *     if isinstance(value, dict):
  *         return True
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_37is_dict, 0, __pyx_n_s_is_dict, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__56)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 285, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_dict, __pyx_t_2) < 0) __PYX_ERR(0, 285, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_45is_dict, 0, __pyx_n_s_is_dict, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__63)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 334, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_dict, __pyx_t_3) < 0) __PYX_ERR(0, 334, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":291
+  /* "querysource/types/validators.pyx":340
  *         return False
  * 
  * cpdef bool_t is_boolean(object value):             # <<<<<<<<<<<<<<
  *     if isinstance(value, (dict, list)):
  *         return False # Unable to Test
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_39is_boolean, 0, __pyx_n_s_is_boolean, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__57)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 291, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_boolean, __pyx_t_2) < 0) __PYX_ERR(0, 291, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_47is_boolean, 0, __pyx_n_s_is_boolean, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__64)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 340, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_boolean, __pyx_t_3) < 0) __PYX_ERR(0, 340, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":310
+  /* "querysource/types/validators.pyx":359
  *             return 'FALSE'
  * 
  * cpdef bool_t is_object(object value):             # <<<<<<<<<<<<<<
  *     return isinstance(value, object)
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_41is_object, 0, __pyx_n_s_is_object, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__58)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 310, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_object, __pyx_t_2) < 0) __PYX_ERR(0, 310, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_49is_object, 0, __pyx_n_s_is_object, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__65)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 359, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_object, __pyx_t_3) < 0) __PYX_ERR(0, 359, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":313
+  /* "querysource/types/validators.pyx":362
  *     return isinstance(value, object)
  * 
  * cpdef bool_t is_string(object value):             # <<<<<<<<<<<<<<
  *     if isinstance(value, int):
  *         return str(value)
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_43is_string, 0, __pyx_n_s_is_string, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__59)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 313, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_string, __pyx_t_2) < 0) __PYX_ERR(0, 313, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_51is_string, 0, __pyx_n_s_is_string, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__66)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_string, __pyx_t_3) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":331
+  /* "querysource/types/validators.pyx":380
  *     return quoteString(escape_string(value))
  * 
  * cpdef object escape_string(object value):             # <<<<<<<<<<<<<<
  *     try:
  *         return value.translate(
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_45escape_string, 0, __pyx_n_s_escape_string, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__60)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 331, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_escape_string, __pyx_t_2) < 0) __PYX_ERR(0, 331, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_53escape_string, 0, __pyx_n_s_escape_string, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__67)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 380, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_escape_string, __pyx_t_3) < 0) __PYX_ERR(0, 380, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":362
+  /* "querysource/types/validators.pyx":411
  * 
  * cdef dict type_validators = {
  *     "uuid": [ is_uuid, to_uuid ],             # <<<<<<<<<<<<<<
  *     "array": [ is_array, to_unquoted ],
  *     "json": [ is_array, to_unquoted ],
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(18); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_uuid); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_uuid); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(18); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 411, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_uuid); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_uuid); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 411, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 362, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_3)) __PYX_ERR(0, 362, __pyx_L1_error);
-  __pyx_t_4 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_uuid, __pyx_t_5) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = PyList_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_GIVEREF(__pyx_t_2);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_t_2)) __PYX_ERR(0, 411, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_t_5)) __PYX_ERR(0, 411, __pyx_L1_error);
+  __pyx_t_2 = 0;
+  __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_uuid, __pyx_t_6) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "querysource/types/validators.pyx":363
+  /* "querysource/types/validators.pyx":412
  * cdef dict type_validators = {
  *     "uuid": [ is_uuid, to_uuid ],
  *     "array": [ is_array, to_unquoted ],             # <<<<<<<<<<<<<<
  *     "json": [ is_array, to_unquoted ],
  *     # "object": is_object,
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_is_array); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_array); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 412, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 412, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 363, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyList_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 363, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 412, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_6);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_t_6)) __PYX_ERR(0, 412, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_5)) __PYX_ERR(0, 363, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 363, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_t_5)) __PYX_ERR(0, 412, __pyx_L1_error);
+  __pyx_t_6 = 0;
   __pyx_t_5 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_array, __pyx_t_4) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_array, __pyx_t_2) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":364
+  /* "querysource/types/validators.pyx":413
  *     "uuid": [ is_uuid, to_uuid ],
  *     "array": [ is_array, to_unquoted ],
  *     "json": [ is_array, to_unquoted ],             # <<<<<<<<<<<<<<
  *     # "object": is_object,
  *     "int": [is_integer, to_unquoted],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_array); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 364, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 364, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 364, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_array); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 413, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 413, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 364, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_3)) __PYX_ERR(0, 364, __pyx_L1_error);
-  __pyx_t_4 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_json, __pyx_t_5) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = PyList_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 413, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_GIVEREF(__pyx_t_2);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_t_2)) __PYX_ERR(0, 413, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_t_5)) __PYX_ERR(0, 413, __pyx_L1_error);
+  __pyx_t_2 = 0;
+  __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_json, __pyx_t_6) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "querysource/types/validators.pyx":366
+  /* "querysource/types/validators.pyx":415
  *     "json": [ is_array, to_unquoted ],
  *     # "object": is_object,
  *     "int": [is_integer, to_unquoted],             # <<<<<<<<<<<<<<
  *     "integer": [is_integer, to_unquoted],
  *     "float": [is_float, to_unquoted],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_is_integer); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 366, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_integer); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 415, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 415, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 366, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyList_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 366, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 415, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_6);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_t_6)) __PYX_ERR(0, 415, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_5)) __PYX_ERR(0, 366, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 366, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_t_5)) __PYX_ERR(0, 415, __pyx_L1_error);
+  __pyx_t_6 = 0;
   __pyx_t_5 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_int, __pyx_t_4) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_int, __pyx_t_2) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":367
+  /* "querysource/types/validators.pyx":416
  *     # "object": is_object,
  *     "int": [is_integer, to_unquoted],
  *     "integer": [is_integer, to_unquoted],             # <<<<<<<<<<<<<<
  *     "float": [is_float, to_unquoted],
  *     "numeric": [is_number, to_unquoted],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_integer); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 367, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 367, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 367, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_integer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 416, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 416, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 367, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_3)) __PYX_ERR(0, 367, __pyx_L1_error);
-  __pyx_t_4 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_integer, __pyx_t_5) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = PyList_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 416, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_GIVEREF(__pyx_t_2);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_t_2)) __PYX_ERR(0, 416, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_t_5)) __PYX_ERR(0, 416, __pyx_L1_error);
+  __pyx_t_2 = 0;
+  __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_integer, __pyx_t_6) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "querysource/types/validators.pyx":368
+  /* "querysource/types/validators.pyx":417
  *     "int": [is_integer, to_unquoted],
  *     "integer": [is_integer, to_unquoted],
  *     "float": [is_float, to_unquoted],             # <<<<<<<<<<<<<<
  *     "numeric": [is_number, to_unquoted],
  *     "epoch": [ is_epoch, to_epoch ],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_is_float); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 368, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_float); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 417, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 368, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyList_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 368, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_6);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_t_6)) __PYX_ERR(0, 417, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_5)) __PYX_ERR(0, 368, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 368, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_t_5)) __PYX_ERR(0, 417, __pyx_L1_error);
+  __pyx_t_6 = 0;
   __pyx_t_5 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_float, __pyx_t_4) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_float, __pyx_t_2) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":369
+  /* "querysource/types/validators.pyx":418
  *     "integer": [is_integer, to_unquoted],
  *     "float": [is_float, to_unquoted],
  *     "numeric": [is_number, to_unquoted],             # <<<<<<<<<<<<<<
  *     "epoch": [ is_epoch, to_epoch ],
  *     # "callable": is_callable,
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_number); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 369, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 369, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 369, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_number); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 418, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 418, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 369, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_3)) __PYX_ERR(0, 369, __pyx_L1_error);
-  __pyx_t_4 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_numeric, __pyx_t_5) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = PyList_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 418, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_GIVEREF(__pyx_t_2);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_t_2)) __PYX_ERR(0, 418, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_t_5)) __PYX_ERR(0, 418, __pyx_L1_error);
+  __pyx_t_2 = 0;
+  __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_numeric, __pyx_t_6) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "querysource/types/validators.pyx":370
+  /* "querysource/types/validators.pyx":419
  *     "float": [is_float, to_unquoted],
  *     "numeric": [is_number, to_unquoted],
  *     "epoch": [ is_epoch, to_epoch ],             # <<<<<<<<<<<<<<
  *     # "callable": is_callable,
  *     # "function": is_callable,
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_is_epoch); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 370, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_epoch); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 419, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = __Pyx_CFunc_11querysource_5types_10validators_object__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_epoch); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 419, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_CFunc_11querysource_5types_10validators_object__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_epoch); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 370, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyList_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 370, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 419, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_6);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_t_6)) __PYX_ERR(0, 419, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_5)) __PYX_ERR(0, 370, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 370, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_t_5)) __PYX_ERR(0, 419, __pyx_L1_error);
+  __pyx_t_6 = 0;
   __pyx_t_5 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_epoch, __pyx_t_4) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_epoch, __pyx_t_2) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":374
+  /* "querysource/types/validators.pyx":423
  *     # "function": is_callable,
  *     # "async_fn": is_async_callable,
  *     "datetime": [is_datetime, to_date],             # <<<<<<<<<<<<<<
  *     "date": [is_date, to_date],
  *     "timestamp": [is_datetime, to_date],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_datetime); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 374, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_date); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 374, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 374, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_datetime); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 423, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_date); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 423, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 374, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_3)) __PYX_ERR(0, 374, __pyx_L1_error);
-  __pyx_t_4 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_datetime, __pyx_t_5) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = PyList_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 423, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_GIVEREF(__pyx_t_2);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_t_2)) __PYX_ERR(0, 423, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_t_5)) __PYX_ERR(0, 423, __pyx_L1_error);
+  __pyx_t_2 = 0;
+  __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_datetime, __pyx_t_6) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "querysource/types/validators.pyx":375
+  /* "querysource/types/validators.pyx":424
  *     # "async_fn": is_async_callable,
  *     "datetime": [is_datetime, to_date],
  *     "date": [is_date, to_date],             # <<<<<<<<<<<<<<
  *     "timestamp": [is_datetime, to_date],
  *     "decimal": [is_decimal, to_unquoted],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_is_date); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 375, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_date); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 424, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_date); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 424, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_date); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 375, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyList_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 375, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 424, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_6);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_t_6)) __PYX_ERR(0, 424, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_5)) __PYX_ERR(0, 375, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 375, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_t_5)) __PYX_ERR(0, 424, __pyx_L1_error);
+  __pyx_t_6 = 0;
   __pyx_t_5 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_date, __pyx_t_4) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_date, __pyx_t_2) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":376
+  /* "querysource/types/validators.pyx":425
  *     "datetime": [is_datetime, to_date],
  *     "date": [is_date, to_date],
  *     "timestamp": [is_datetime, to_date],             # <<<<<<<<<<<<<<
  *     "decimal": [is_decimal, to_unquoted],
  *     "boolean": [is_boolean, to_boolean],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_datetime); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 376, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_date); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 376, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 376, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_datetime); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 425, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_date); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 376, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_3)) __PYX_ERR(0, 376, __pyx_L1_error);
-  __pyx_t_4 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_timestamp, __pyx_t_5) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = PyList_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 425, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_GIVEREF(__pyx_t_2);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_t_2)) __PYX_ERR(0, 425, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_t_5)) __PYX_ERR(0, 425, __pyx_L1_error);
+  __pyx_t_2 = 0;
+  __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_timestamp, __pyx_t_6) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "querysource/types/validators.pyx":377
+  /* "querysource/types/validators.pyx":426
  *     "date": [is_date, to_date],
  *     "timestamp": [is_datetime, to_date],
  *     "decimal": [is_decimal, to_unquoted],             # <<<<<<<<<<<<<<
  *     "boolean": [is_boolean, to_boolean],
  *     "udf": [is_udf, to_udf],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_is_decimal); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 377, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_decimal); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 426, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 426, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_CFunc_51fe67__11querysource_5types_10validators_int__lPareno__etc_to_py_5value(__pyx_f_11querysource_5types_10validators_to_unquoted); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 377, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyList_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 377, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 426, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_6);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_t_6)) __PYX_ERR(0, 426, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_5)) __PYX_ERR(0, 377, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 377, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_t_5)) __PYX_ERR(0, 426, __pyx_L1_error);
+  __pyx_t_6 = 0;
   __pyx_t_5 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_decimal, __pyx_t_4) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_decimal, __pyx_t_2) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":378
+  /* "querysource/types/validators.pyx":427
  *     "timestamp": [is_datetime, to_date],
  *     "decimal": [is_decimal, to_unquoted],
  *     "boolean": [is_boolean, to_boolean],             # <<<<<<<<<<<<<<
  *     "udf": [is_udf, to_udf],
  *     "field": [is_string, to_string],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_boolean); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 378, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_boolean); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 378, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 378, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_boolean); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 427, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_boolean); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 427, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 378, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_3)) __PYX_ERR(0, 378, __pyx_L1_error);
-  __pyx_t_4 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_boolean, __pyx_t_5) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = PyList_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 427, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_GIVEREF(__pyx_t_2);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_t_2)) __PYX_ERR(0, 427, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_t_5)) __PYX_ERR(0, 427, __pyx_L1_error);
+  __pyx_t_2 = 0;
+  __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_boolean, __pyx_t_6) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "querysource/types/validators.pyx":379
+  /* "querysource/types/validators.pyx":428
  *     "decimal": [is_decimal, to_unquoted],
  *     "boolean": [is_boolean, to_boolean],
  *     "udf": [is_udf, to_udf],             # <<<<<<<<<<<<<<
  *     "field": [is_string, to_string],
  *     "string": [is_string, to_string],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_is_udf); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 379, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_udf); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 428, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_to_udf); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 428, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_to_udf); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 379, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyList_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 379, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 428, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_6);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_t_6)) __PYX_ERR(0, 428, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_5)) __PYX_ERR(0, 379, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 379, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_t_5)) __PYX_ERR(0, 428, __pyx_L1_error);
+  __pyx_t_6 = 0;
   __pyx_t_5 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_udf, __pyx_t_4) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_udf, __pyx_t_2) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":380
+  /* "querysource/types/validators.pyx":429
  *     "boolean": [is_boolean, to_boolean],
  *     "udf": [is_udf, to_udf],
  *     "field": [is_string, to_string],             # <<<<<<<<<<<<<<
  *     "string": [is_string, to_string],
  *     "varchar": [is_string, to_string],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_string); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 380, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_string); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 380, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 380, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_string); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 429, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_string); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 429, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 380, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_3)) __PYX_ERR(0, 380, __pyx_L1_error);
-  __pyx_t_4 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_field, __pyx_t_5) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = PyList_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 429, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_GIVEREF(__pyx_t_2);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_t_2)) __PYX_ERR(0, 429, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_t_5)) __PYX_ERR(0, 429, __pyx_L1_error);
+  __pyx_t_2 = 0;
+  __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_field, __pyx_t_6) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "querysource/types/validators.pyx":381
+  /* "querysource/types/validators.pyx":430
  *     "udf": [is_udf, to_udf],
  *     "field": [is_string, to_string],
  *     "string": [is_string, to_string],             # <<<<<<<<<<<<<<
  *     "varchar": [is_string, to_string],
  *     "literal": [is_object, None],
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_is_string); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 381, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_string); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 430, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_string); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 430, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_string); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 381, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyList_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 381, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 430, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_6);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_t_6)) __PYX_ERR(0, 430, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_5)) __PYX_ERR(0, 381, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 381, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_t_5)) __PYX_ERR(0, 430, __pyx_L1_error);
+  __pyx_t_6 = 0;
   __pyx_t_5 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_string, __pyx_t_4) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_string, __pyx_t_2) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "querysource/types/validators.pyx":382
+  /* "querysource/types/validators.pyx":431
  *     "field": [is_string, to_string],
  *     "string": [is_string, to_string],
  *     "varchar": [is_string, to_string],             # <<<<<<<<<<<<<<
  *     "literal": [is_object, None],
  * }
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_string); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 382, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_string); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 382, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 382, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_string); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 431, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_CFunc_11querysource_5types_10validators_unicode__lParenobject__rParen_to_py_5value(__pyx_f_11querysource_5types_10validators_to_string); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 431, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 382, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_3)) __PYX_ERR(0, 382, __pyx_L1_error);
-  __pyx_t_4 = 0;
-  __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_varchar, __pyx_t_5) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = PyList_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 431, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_GIVEREF(__pyx_t_2);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_t_2)) __PYX_ERR(0, 431, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_t_5)) __PYX_ERR(0, 431, __pyx_L1_error);
+  __pyx_t_2 = 0;
+  __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_varchar, __pyx_t_6) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "querysource/types/validators.pyx":383
+  /* "querysource/types/validators.pyx":432
  *     "string": [is_string, to_string],
  *     "varchar": [is_string, to_string],
  *     "literal": [is_object, None],             # <<<<<<<<<<<<<<
  * }
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_is_object); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 383, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_object); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 432, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 432, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = PyList_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 383, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_t_5)) __PYX_ERR(0, 383, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_6);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_6)) __PYX_ERR(0, 432, __pyx_L1_error);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 1, Py_None)) __PYX_ERR(0, 383, __pyx_L1_error);
-  __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_u_literal, __pyx_t_3) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, Py_None)) __PYX_ERR(0, 432, __pyx_L1_error);
+  __pyx_t_6 = 0;
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_u_literal, __pyx_t_5) < 0) __PYX_ERR(0, 411, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_XGOTREF(__pyx_v_11querysource_5types_10validators_type_validators);
-  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators_type_validators, ((PyObject*)__pyx_t_2));
-  __Pyx_GIVEREF(__pyx_t_2);
-  __pyx_t_2 = 0;
+  __Pyx_DECREF_SET(__pyx_v_11querysource_5types_10validators_type_validators, ((PyObject*)__pyx_t_3));
+  __Pyx_GIVEREF(__pyx_t_3);
+  __pyx_t_3 = 0;
 
-  /* "querysource/types/validators.pyx":392
+  /* "querysource/types/validators.pyx":441
  *     """
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_integer(cls, _type):
  *         return _type in (int, int64)
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_1is_integer, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_integer, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__62)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 392, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_integer, __pyx_t_2) < 0) __PYX_ERR(0, 392, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_integer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 392, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 392, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_1is_integer, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_integer, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__69)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 441, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_integer, __pyx_t_3) < 0) __PYX_ERR(0, 392, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_integer, __pyx_t_3) < 0) __PYX_ERR(0, 441, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_integer); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 441, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_5 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 441, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_integer, __pyx_t_5) < 0) __PYX_ERR(0, 441, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":396
+  /* "querysource/types/validators.pyx":445
  *         return _type in (int, int64)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_number(cls, _type):
  *         return _type in (int, int64, float, Decimal, bytes, bool)
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_3is_number, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_number, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__63)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 396, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_number, __pyx_t_3) < 0) __PYX_ERR(0, 396, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_3is_number, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_number, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__70)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 445, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_number, __pyx_t_5) < 0) __PYX_ERR(0, 445, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_number); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 396, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_number); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 445, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 445, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 396, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_number, __pyx_t_3) < 0) __PYX_ERR(0, 445, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_number, __pyx_t_2) < 0) __PYX_ERR(0, 396, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":400
+  /* "querysource/types/validators.pyx":449
  *         return _type in (int, int64, float, Decimal, bytes, bool)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_string(cls, _type):
  *         return isinstance(_type, (
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_5is_string, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_string, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__64)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 400, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_string, __pyx_t_2) < 0) __PYX_ERR(0, 400, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_string); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 400, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_5is_string, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_string, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__71)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 449, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_string, __pyx_t_3) < 0) __PYX_ERR(0, 400, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_string, __pyx_t_3) < 0) __PYX_ERR(0, 449, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_string); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 449, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_5 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 449, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_string, __pyx_t_5) < 0) __PYX_ERR(0, 449, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":410
+  /* "querysource/types/validators.pyx":459
  *         ))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def escape(cls, _type):
  *         return _type.translate(
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_7escape, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_escape, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__65)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 410, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escape, __pyx_t_3) < 0) __PYX_ERR(0, 410, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_7escape, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_escape, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__72)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 459, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escape, __pyx_t_5) < 0) __PYX_ERR(0, 459, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escape); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 410, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escape); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 459, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 459, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 410, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escape, __pyx_t_3) < 0) __PYX_ERR(0, 459, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escape, __pyx_t_2) < 0) __PYX_ERR(0, 410, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":427
+  /* "querysource/types/validators.pyx":476
  *         }))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_date(cls, _type):
  *         return _type in (datetime.date, datetime.datetime, datetime.time, datetime.timedelta)
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_9is_date, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_date, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__66)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 427, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_date, __pyx_t_2) < 0) __PYX_ERR(0, 427, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_date); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 427, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 427, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_9is_date, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_date, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__73)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 476, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_date, __pyx_t_3) < 0) __PYX_ERR(0, 427, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_date, __pyx_t_3) < 0) __PYX_ERR(0, 476, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_date); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 476, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_5 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 476, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_date, __pyx_t_5) < 0) __PYX_ERR(0, 476, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":431
+  /* "querysource/types/validators.pyx":480
  *         return _type in (datetime.date, datetime.datetime, datetime.time, datetime.timedelta)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_array(cls, t):
  *         return isinstance(t,(list, dict, Sequence, ndarray))
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_11is_array, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_array, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__68)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 431, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_array, __pyx_t_3) < 0) __PYX_ERR(0, 431, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_11is_array, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_array, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__75)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 480, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_array, __pyx_t_5) < 0) __PYX_ERR(0, 480, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_array); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 431, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_array); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 480, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 480, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 431, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_array, __pyx_t_3) < 0) __PYX_ERR(0, 480, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_array, __pyx_t_2) < 0) __PYX_ERR(0, 431, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":435
+  /* "querysource/types/validators.pyx":484
  *         return isinstance(t,(list, dict, Sequence, ndarray))
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_bool(cls, _type):
  *         return isinstance(_type, bool)
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_13is_bool, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_bool, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__69)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 435, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_bool, __pyx_t_2) < 0) __PYX_ERR(0, 435, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_bool); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 435, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 435, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_13is_bool, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_bool, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__76)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 484, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_bool, __pyx_t_3) < 0) __PYX_ERR(0, 435, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_bool, __pyx_t_3) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_bool); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 484, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_5 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 484, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_bool, __pyx_t_5) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":439
+  /* "querysource/types/validators.pyx":488
  *         return isinstance(_type, bool)
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def is_typing(cls, _type):
  *         try:
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_15is_typing, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_typing, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__70)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 439, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_typing, __pyx_t_3) < 0) __PYX_ERR(0, 439, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_15is_typing, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_is_typing, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__77)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 488, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_typing, __pyx_t_5) < 0) __PYX_ERR(0, 488, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_typing); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 439, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_typing); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 488, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 488, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 439, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_typing, __pyx_t_3) < 0) __PYX_ERR(0, 488, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_is_typing, __pyx_t_2) < 0) __PYX_ERR(0, 439, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":446
+  /* "querysource/types/validators.pyx":495
  *             return False
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def toSQL(cls, value, _type, dbtype: str = None):
  *         v = f"{value!s}" if Entity.is_date(_type) else value
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 446, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dbtype, __pyx_n_s_str) < 0) __PYX_ERR(0, 446, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_17toSQL, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_toSQL, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__72)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 495, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__73);
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_toSQL, __pyx_t_3) < 0) __PYX_ERR(0, 446, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_dbtype, __pyx_n_s_str) < 0) __PYX_ERR(0, 495, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_17toSQL, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_toSQL, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__79)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 495, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_tuple__53);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_toSQL, __pyx_t_5) < 0) __PYX_ERR(0, 495, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_toSQL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_toSQL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 495, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 495, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 446, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_toSQL, __pyx_t_3) < 0) __PYX_ERR(0, 495, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_toSQL, __pyx_t_2) < 0) __PYX_ERR(0, 446, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":470
+  /* "querysource/types/validators.pyx":519
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def escapeLiteral(cls, value, _type, dbtype: str = None):
  *         v = value if value != "None" or value is not None else ""
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 470, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dbtype, __pyx_n_s_str) < 0) __PYX_ERR(0, 470, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_19escapeLiteral, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_escapeLiteral, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__75)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 519, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__73);
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeLiteral, __pyx_t_3) < 0) __PYX_ERR(0, 470, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_dbtype, __pyx_n_s_str) < 0) __PYX_ERR(0, 519, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_19escapeLiteral, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_escapeLiteral, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 519, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_tuple__53);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeLiteral, __pyx_t_5) < 0) __PYX_ERR(0, 519, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeLiteral); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeLiteral); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 519, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 519, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 470, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeLiteral, __pyx_t_3) < 0) __PYX_ERR(0, 519, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeLiteral, __pyx_t_2) < 0) __PYX_ERR(0, 470, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":480
+  /* "querysource/types/validators.pyx":529
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def escapeString(cls, value):
  *         v = value if value != "None" else ""
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_21escapeString, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_escapeString, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__77)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 480, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeString, __pyx_t_2) < 0) __PYX_ERR(0, 480, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeString); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 480, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 480, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_21escapeString, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_escapeString, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 529, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeString, __pyx_t_3) < 0) __PYX_ERR(0, 480, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeString, __pyx_t_3) < 0) __PYX_ERR(0, 529, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeString); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 529, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_5 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 529, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_escapeString, __pyx_t_5) < 0) __PYX_ERR(0, 529, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":487
+  /* "querysource/types/validators.pyx":536
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def quoteString(cls, value, bool_t no_dblquoting=True):
  *         v = value if value != 'None' else ""
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_23quoteString, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_quoteString, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__79)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 487, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__80);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_quoteString, __pyx_t_3) < 0) __PYX_ERR(0, 487, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_23quoteString, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_quoteString, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__85)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 536, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_tuple__86);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_quoteString, __pyx_t_5) < 0) __PYX_ERR(0, 536, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 487, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_quoteString); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 536, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 536, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 487, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_quoteString, __pyx_t_3) < 0) __PYX_ERR(0, 536, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_quoteString, __pyx_t_2) < 0) __PYX_ERR(0, 487, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":518
+  /* "querysource/types/validators.pyx":567
  *         return v
  * 
  *     @classmethod             # <<<<<<<<<<<<<<
  *     def dblQuoting(cls, value):
  *         return f'"{value}"'
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_25dblQuoting, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_dblQuoting, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__82)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 518, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_dblQuoting, __pyx_t_2) < 0) __PYX_ERR(0, 518, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_dblQuoting); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 518, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Method_ClassMethod(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 518, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_25dblQuoting, __Pyx_CYFUNCTION_CLASSMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity_dblQuoting, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__88)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_dblQuoting, __pyx_t_3) < 0) __PYX_ERR(0, 518, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_dblQuoting, __pyx_t_3) < 0) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_dblQuoting); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 567, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_5 = __Pyx_Method_ClassMethod(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 567, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_dblQuoting, __pyx_t_5) < 0) __PYX_ERR(0, 567, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
   /* "(tree fragment)":1
@@ -25875,10 +27349,10 @@ if (!__Pyx_RefNanny) {
  *     cdef tuple state
  *     cdef object _dict
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_27__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity___reduce_cython, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__84)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_27__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity___reduce_cython, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__90)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_reduce_cython, __pyx_t_5) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
   /* "(tree fragment)":16
@@ -25887,44 +27361,44 @@ if (!__Pyx_RefNanny) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_Entity__set_state(self, __pyx_state)
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_29__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity___setstate_cython, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__86)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_6Entity_29__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_Entity___setstate_cython, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__92)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_5types_10validators_Entity, __pyx_n_s_setstate_cython, __pyx_t_5) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   PyType_Modified(__pyx_ptype_11querysource_5types_10validators_Entity);
 
-  /* "querysource/types/validators.pyx":523
+  /* "querysource/types/validators.pyx":572
  * 
  * ### Validation of conditions:
  * cpdef object is_valid(object key, object value, str T = None, bint noquote = False):             # <<<<<<<<<<<<<<
  *     """is_valid.
  * 
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_47is_valid, 0, __pyx_n_s_is_valid, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__88)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 523, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__89);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_valid, __pyx_t_3) < 0) __PYX_ERR(0, 523, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_55is_valid, 0, __pyx_n_s_is_valid, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__94)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 572, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_tuple__95);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_valid, __pyx_t_5) < 0) __PYX_ERR(0, 572, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "(tree fragment)":1
  * def __pyx_unpickle_Entity(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_49__pyx_unpickle_Entity, 0, __pyx_n_s_pyx_unpickle_Entity, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__91)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_Entity, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_5types_10validators_57__pyx_unpickle_Entity, 0, __pyx_n_s_pyx_unpickle_Entity, NULL, __pyx_n_s_querysource_types_validators, __pyx_d, ((PyObject *)__pyx_codeobj__97)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_pyx_unpickle_Entity, __pyx_t_5) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "querysource/types/validators.pyx":1
  * # cython: language_level=3, embedsignature=True, boundscheck=False, wraparound=True, initializedcheck=False             # <<<<<<<<<<<<<<
  * # Copyright (C) 2018-present Jesus Lara
  * #
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test, __pyx_t_3) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_test, __pyx_t_5) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /*--- Wrapped vars code ---*/
 
@@ -25932,8 +27406,8 @@ if (!__Pyx_RefNanny) {
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
   if (__pyx_m) {
     if (__pyx_d && stringtab_initialized) {
       __Pyx_AddTraceback("init querysource.types.validators", __pyx_clineno, __pyx_lineno, __pyx_filename);
@@ -28036,103 +29510,73 @@ bad:
 }
 #endif
 
-/* UnpackUnboundCMethod */
-static PyObject *__Pyx_SelflessCall(PyObject *method, PyObject *args, PyObject *kwargs) {
-    PyObject *result;
-    PyObject *selfless_args = PyTuple_GetSlice(args, 1, PyTuple_Size(args));
-    if (unlikely(!selfless_args)) return NULL;
-    result = PyObject_Call(method, selfless_args, kwargs);
-    Py_DECREF(selfless_args);
-    return result;
+/* PyDictVersioning */
+#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj) {
+    PyObject *dict = Py_TYPE(obj)->tp_dict;
+    return likely(dict) ? __PYX_GET_DICT_VERSION(dict) : 0;
 }
-static PyMethodDef __Pyx_UnboundCMethod_Def = {
-     "CythonUnboundCMethod",
-     __PYX_REINTERPRET_FUNCION(PyCFunction, __Pyx_SelflessCall),
-     METH_VARARGS | METH_KEYWORDS,
-     NULL
-};
-static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {
-    PyObject *method;
-    method = __Pyx_PyObject_GetAttrStr(target->type, *target->method_name);
-    if (unlikely(!method))
-        return -1;
-    target->method = method;
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj) {
+    PyObject **dictptr = NULL;
+    Py_ssize_t offset = Py_TYPE(obj)->tp_dictoffset;
+    if (offset) {
 #if CYTHON_COMPILING_IN_CPYTHON
-    #if PY_MAJOR_VERSION >= 3
-    if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))
-    #else
-    if (likely(!__Pyx_CyOrPyCFunction_Check(method)))
-    #endif
-    {
-        PyMethodDescrObject *descr = (PyMethodDescrObject*) method;
-        target->func = descr->d_method->ml_meth;
-        target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);
-    } else
-#endif
-#if CYTHON_COMPILING_IN_PYPY
+        dictptr = (likely(offset > 0)) ? (PyObject **) ((char *)obj + offset) : _PyObject_GetDictPtr(obj);
 #else
-    if (PyCFunction_Check(method))
+        dictptr = _PyObject_GetDictPtr(obj);
 #endif
-    {
-        PyObject *self;
-        int self_found;
-#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY
-        self = PyObject_GetAttrString(method, "__self__");
-        if (!self) {
-            PyErr_Clear();
-        }
-#else
-        self = PyCFunction_GET_SELF(method);
-#endif
-        self_found = (self && self != Py_None);
-#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY
-        Py_XDECREF(self);
-#endif
-        if (self_found) {
-            PyObject *unbound_method = PyCFunction_New(&__Pyx_UnboundCMethod_Def, method);
-            if (unlikely(!unbound_method)) return -1;
-            Py_DECREF(method);
-            target->method = unbound_method;
-        }
     }
-    return 0;
+    return (dictptr && *dictptr) ? __PYX_GET_DICT_VERSION(*dictptr) : 0;
 }
-
-/* CallUnboundCMethod0 */
-static PyObject* __Pyx__CallUnboundCMethod0(__Pyx_CachedCFunction* cfunc, PyObject* self) {
-    PyObject *args, *result = NULL;
-    if (unlikely(!cfunc->method) && unlikely(__Pyx_TryUnpackUnboundCMethod(cfunc) < 0)) return NULL;
-#if CYTHON_ASSUME_SAFE_MACROS
-    args = PyTuple_New(1);
-    if (unlikely(!args)) goto bad;
-    Py_INCREF(self);
-    PyTuple_SET_ITEM(args, 0, self);
-#else
-    args = PyTuple_Pack(1, self);
-    if (unlikely(!args)) goto bad;
+static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version) {
+    PyObject *dict = Py_TYPE(obj)->tp_dict;
+    if (unlikely(!dict) || unlikely(tp_dict_version != __PYX_GET_DICT_VERSION(dict)))
+        return 0;
+    return obj_dict_version == __Pyx_get_object_dict_version(obj);
+}
 #endif
-    result = __Pyx_PyObject_Call(cfunc->method, args, NULL);
-    Py_DECREF(args);
-bad:
-    return result;
-}
 
-/* RaiseUnexpectedTypeError */
-static int
-__Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
+/* GetModuleGlobalName */
+#if CYTHON_USE_DICT_VERSIONS
+static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value)
+#else
+static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
+#endif
 {
-    __Pyx_TypeName obj_type_name = __Pyx_PyType_GetName(Py_TYPE(obj));
-    PyErr_Format(PyExc_TypeError, "Expected %s, got " __Pyx_FMT_TYPENAME,
-                 expected, obj_type_name);
-    __Pyx_DECREF_TypeName(obj_type_name);
-    return 0;
-}
-
-/* PyUnicode_Unicode */
-static CYTHON_INLINE PyObject* __Pyx_PyUnicode_Unicode(PyObject *obj) {
-    if (unlikely(obj == Py_None))
-        obj = __pyx_kp_u_None;
-    return __Pyx_NewRef(obj);
+    PyObject *result;
+#if !CYTHON_AVOID_BORROWED_REFS
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030500A1 && PY_VERSION_HEX < 0x030d0000
+    result = _PyDict_GetItem_KnownHash(__pyx_d, name, ((PyASCIIObject *) name)->hash);
+    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
+    if (likely(result)) {
+        return __Pyx_NewRef(result);
+    } else if (unlikely(PyErr_Occurred())) {
+        return NULL;
+    }
+#elif CYTHON_COMPILING_IN_LIMITED_API
+    if (unlikely(!__pyx_m)) {
+        return NULL;
+    }
+    result = PyObject_GetAttr(__pyx_m, name);
+    if (likely(result)) {
+        return result;
+    }
+#else
+    result = PyDict_GetItem(__pyx_d, name);
+    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
+    if (likely(result)) {
+        return __Pyx_NewRef(result);
+    }
+#endif
+#else
+    result = PyObject_GetItem(__pyx_d, name);
+    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
+    if (likely(result)) {
+        return __Pyx_NewRef(result);
+    }
+    PyErr_Clear();
+#endif
+    return __Pyx_GetBuiltinName(name);
 }
 
 /* PyFunctionFastCall */
@@ -28361,6 +29805,105 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObj
     #endif
 }
 
+/* UnpackUnboundCMethod */
+static PyObject *__Pyx_SelflessCall(PyObject *method, PyObject *args, PyObject *kwargs) {
+    PyObject *result;
+    PyObject *selfless_args = PyTuple_GetSlice(args, 1, PyTuple_Size(args));
+    if (unlikely(!selfless_args)) return NULL;
+    result = PyObject_Call(method, selfless_args, kwargs);
+    Py_DECREF(selfless_args);
+    return result;
+}
+static PyMethodDef __Pyx_UnboundCMethod_Def = {
+     "CythonUnboundCMethod",
+     __PYX_REINTERPRET_FUNCION(PyCFunction, __Pyx_SelflessCall),
+     METH_VARARGS | METH_KEYWORDS,
+     NULL
+};
+static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {
+    PyObject *method;
+    method = __Pyx_PyObject_GetAttrStr(target->type, *target->method_name);
+    if (unlikely(!method))
+        return -1;
+    target->method = method;
+#if CYTHON_COMPILING_IN_CPYTHON
+    #if PY_MAJOR_VERSION >= 3
+    if (likely(__Pyx_TypeCheck(method, &PyMethodDescr_Type)))
+    #else
+    if (likely(!__Pyx_CyOrPyCFunction_Check(method)))
+    #endif
+    {
+        PyMethodDescrObject *descr = (PyMethodDescrObject*) method;
+        target->func = descr->d_method->ml_meth;
+        target->flag = descr->d_method->ml_flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST | METH_STACKLESS);
+    } else
+#endif
+#if CYTHON_COMPILING_IN_PYPY
+#else
+    if (PyCFunction_Check(method))
+#endif
+    {
+        PyObject *self;
+        int self_found;
+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY
+        self = PyObject_GetAttrString(method, "__self__");
+        if (!self) {
+            PyErr_Clear();
+        }
+#else
+        self = PyCFunction_GET_SELF(method);
+#endif
+        self_found = (self && self != Py_None);
+#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_COMPILING_IN_PYPY
+        Py_XDECREF(self);
+#endif
+        if (self_found) {
+            PyObject *unbound_method = PyCFunction_New(&__Pyx_UnboundCMethod_Def, method);
+            if (unlikely(!unbound_method)) return -1;
+            Py_DECREF(method);
+            target->method = unbound_method;
+        }
+    }
+    return 0;
+}
+
+/* CallUnboundCMethod0 */
+static PyObject* __Pyx__CallUnboundCMethod0(__Pyx_CachedCFunction* cfunc, PyObject* self) {
+    PyObject *args, *result = NULL;
+    if (unlikely(!cfunc->method) && unlikely(__Pyx_TryUnpackUnboundCMethod(cfunc) < 0)) return NULL;
+#if CYTHON_ASSUME_SAFE_MACROS
+    args = PyTuple_New(1);
+    if (unlikely(!args)) goto bad;
+    Py_INCREF(self);
+    PyTuple_SET_ITEM(args, 0, self);
+#else
+    args = PyTuple_Pack(1, self);
+    if (unlikely(!args)) goto bad;
+#endif
+    result = __Pyx_PyObject_Call(cfunc->method, args, NULL);
+    Py_DECREF(args);
+bad:
+    return result;
+}
+
+/* RaiseUnexpectedTypeError */
+static int
+__Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
+{
+    __Pyx_TypeName obj_type_name = __Pyx_PyType_GetName(Py_TYPE(obj));
+    PyErr_Format(PyExc_TypeError, "Expected %s, got " __Pyx_FMT_TYPENAME,
+                 expected, obj_type_name);
+    __Pyx_DECREF_TypeName(obj_type_name);
+    return 0;
+}
+
+/* PyUnicode_Unicode */
+static CYTHON_INLINE PyObject* __Pyx_PyUnicode_Unicode(PyObject *obj) {
+    if (unlikely(obj == Py_None))
+        obj = __pyx_kp_u_None;
+    return __Pyx_NewRef(obj);
+}
+
 /* PyObjectCallOneArg */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg) {
     PyObject *args[2] = {NULL, arg};
@@ -28392,75 +29935,6 @@ static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *nam
     __Pyx_DECREF_TypeName(type_name);
     __Pyx_DECREF_TypeName(obj_type_name);
     return 0;
-}
-
-/* PyDictVersioning */
-#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj) {
-    PyObject *dict = Py_TYPE(obj)->tp_dict;
-    return likely(dict) ? __PYX_GET_DICT_VERSION(dict) : 0;
-}
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj) {
-    PyObject **dictptr = NULL;
-    Py_ssize_t offset = Py_TYPE(obj)->tp_dictoffset;
-    if (offset) {
-#if CYTHON_COMPILING_IN_CPYTHON
-        dictptr = (likely(offset > 0)) ? (PyObject **) ((char *)obj + offset) : _PyObject_GetDictPtr(obj);
-#else
-        dictptr = _PyObject_GetDictPtr(obj);
-#endif
-    }
-    return (dictptr && *dictptr) ? __PYX_GET_DICT_VERSION(*dictptr) : 0;
-}
-static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version) {
-    PyObject *dict = Py_TYPE(obj)->tp_dict;
-    if (unlikely(!dict) || unlikely(tp_dict_version != __PYX_GET_DICT_VERSION(dict)))
-        return 0;
-    return obj_dict_version == __Pyx_get_object_dict_version(obj);
-}
-#endif
-
-/* GetModuleGlobalName */
-#if CYTHON_USE_DICT_VERSIONS
-static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value)
-#else
-static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
-#endif
-{
-    PyObject *result;
-#if !CYTHON_AVOID_BORROWED_REFS
-#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030500A1 && PY_VERSION_HEX < 0x030d0000
-    result = _PyDict_GetItem_KnownHash(__pyx_d, name, ((PyASCIIObject *) name)->hash);
-    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
-    if (likely(result)) {
-        return __Pyx_NewRef(result);
-    } else if (unlikely(PyErr_Occurred())) {
-        return NULL;
-    }
-#elif CYTHON_COMPILING_IN_LIMITED_API
-    if (unlikely(!__pyx_m)) {
-        return NULL;
-    }
-    result = PyObject_GetAttr(__pyx_m, name);
-    if (likely(result)) {
-        return result;
-    }
-#else
-    result = PyDict_GetItem(__pyx_d, name);
-    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
-    if (likely(result)) {
-        return __Pyx_NewRef(result);
-    }
-#endif
-#else
-    result = PyObject_GetItem(__pyx_d, name);
-    __PYX_UPDATE_DICT_CACHE(__pyx_d, result, *dict_cached_value, *dict_version)
-    if (likely(result)) {
-        return __Pyx_NewRef(result);
-    }
-    PyErr_Clear();
-#endif
-    return __Pyx_GetBuiltinName(name);
 }
 
 /* GetTopmostException */
@@ -28903,6 +30377,190 @@ bad:
     return NULL;
 }
 
+/* py_dict_items */
+static CYTHON_INLINE PyObject* __Pyx_PyDict_Items(PyObject* d) {
+    if (PY_MAJOR_VERSION >= 3)
+        return __Pyx_CallUnboundCMethod0(&__pyx_umethod_PyDict_Type_items, d);
+    else
+        return PyDict_Items(d);
+}
+
+/* RaiseTooManyValuesToUnpack */
+static CYTHON_INLINE void __Pyx_RaiseTooManyValuesError(Py_ssize_t expected) {
+    PyErr_Format(PyExc_ValueError,
+                 "too many values to unpack (expected %" CYTHON_FORMAT_SSIZE_T "d)", expected);
+}
+
+/* RaiseNeedMoreValuesToUnpack */
+static CYTHON_INLINE void __Pyx_RaiseNeedMoreValuesError(Py_ssize_t index) {
+    PyErr_Format(PyExc_ValueError,
+                 "need more than %" CYTHON_FORMAT_SSIZE_T "d value%.1s to unpack",
+                 index, (index == 1) ? "" : "s");
+}
+
+/* IterFinish */
+static CYTHON_INLINE int __Pyx_IterFinish(void) {
+    PyObject* exc_type;
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    exc_type = __Pyx_PyErr_CurrentExceptionType();
+    if (unlikely(exc_type)) {
+        if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)))
+            return -1;
+        __Pyx_PyErr_Clear();
+        return 0;
+    }
+    return 0;
+}
+
+/* UnpackItemEndCheck */
+static int __Pyx_IternextUnpackEndCheck(PyObject *retval, Py_ssize_t expected) {
+    if (unlikely(retval)) {
+        Py_DECREF(retval);
+        __Pyx_RaiseTooManyValuesError(expected);
+        return -1;
+    }
+    return __Pyx_IterFinish();
+}
+
+/* CallUnboundCMethod1 */
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg) {
+    if (likely(cfunc->func)) {
+        int flag = cfunc->flag;
+        if (flag == METH_O) {
+            return (*(cfunc->func))(self, arg);
+        } else if ((PY_VERSION_HEX >= 0x030600B1) && flag == METH_FASTCALL) {
+            #if PY_VERSION_HEX >= 0x030700A0
+                return (*(__Pyx_PyCFunctionFast)(void*)(PyCFunction)cfunc->func)(self, &arg, 1);
+            #else
+                return (*(__Pyx_PyCFunctionFastWithKeywords)(void*)(PyCFunction)cfunc->func)(self, &arg, 1, NULL);
+            #endif
+        } else if ((PY_VERSION_HEX >= 0x030700A0) && flag == (METH_FASTCALL | METH_KEYWORDS)) {
+            return (*(__Pyx_PyCFunctionFastWithKeywords)(void*)(PyCFunction)cfunc->func)(self, &arg, 1, NULL);
+        }
+    }
+    return __Pyx__CallUnboundCMethod1(cfunc, self, arg);
+}
+#endif
+static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg){
+    PyObject *args, *result = NULL;
+    if (unlikely(!cfunc->func && !cfunc->method) && unlikely(__Pyx_TryUnpackUnboundCMethod(cfunc) < 0)) return NULL;
+#if CYTHON_COMPILING_IN_CPYTHON
+    if (cfunc->func && (cfunc->flag & METH_VARARGS)) {
+        args = PyTuple_New(1);
+        if (unlikely(!args)) goto bad;
+        Py_INCREF(arg);
+        PyTuple_SET_ITEM(args, 0, arg);
+        if (cfunc->flag & METH_KEYWORDS)
+            result = (*(PyCFunctionWithKeywords)(void*)(PyCFunction)cfunc->func)(self, args, NULL);
+        else
+            result = (*cfunc->func)(self, args);
+    } else {
+        args = PyTuple_New(2);
+        if (unlikely(!args)) goto bad;
+        Py_INCREF(self);
+        PyTuple_SET_ITEM(args, 0, self);
+        Py_INCREF(arg);
+        PyTuple_SET_ITEM(args, 1, arg);
+        result = __Pyx_PyObject_Call(cfunc->method, args, NULL);
+    }
+#else
+    args = PyTuple_Pack(2, self, arg);
+    if (unlikely(!args)) goto bad;
+    result = __Pyx_PyObject_Call(cfunc->method, args, NULL);
+#endif
+bad:
+    Py_XDECREF(args);
+    return result;
+}
+
+/* CallUnboundCMethod2 */
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030600B1
+static CYTHON_INLINE PyObject *__Pyx_CallUnboundCMethod2(__Pyx_CachedCFunction *cfunc, PyObject *self, PyObject *arg1, PyObject *arg2) {
+    if (likely(cfunc->func)) {
+        PyObject *args[2] = {arg1, arg2};
+        if (cfunc->flag == METH_FASTCALL) {
+            #if PY_VERSION_HEX >= 0x030700A0
+            return (*(__Pyx_PyCFunctionFast)(void*)(PyCFunction)cfunc->func)(self, args, 2);
+            #else
+            return (*(__Pyx_PyCFunctionFastWithKeywords)(void*)(PyCFunction)cfunc->func)(self, args, 2, NULL);
+            #endif
+        }
+        #if PY_VERSION_HEX >= 0x030700A0
+        if (cfunc->flag == (METH_FASTCALL | METH_KEYWORDS))
+            return (*(__Pyx_PyCFunctionFastWithKeywords)(void*)(PyCFunction)cfunc->func)(self, args, 2, NULL);
+        #endif
+    }
+    return __Pyx__CallUnboundCMethod2(cfunc, self, arg1, arg2);
+}
+#endif
+static PyObject* __Pyx__CallUnboundCMethod2(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg1, PyObject* arg2){
+    PyObject *args, *result = NULL;
+    if (unlikely(!cfunc->func && !cfunc->method) && unlikely(__Pyx_TryUnpackUnboundCMethod(cfunc) < 0)) return NULL;
+#if CYTHON_COMPILING_IN_CPYTHON
+    if (cfunc->func && (cfunc->flag & METH_VARARGS)) {
+        args = PyTuple_New(2);
+        if (unlikely(!args)) goto bad;
+        Py_INCREF(arg1);
+        PyTuple_SET_ITEM(args, 0, arg1);
+        Py_INCREF(arg2);
+        PyTuple_SET_ITEM(args, 1, arg2);
+        if (cfunc->flag & METH_KEYWORDS)
+            result = (*(PyCFunctionWithKeywords)(void*)(PyCFunction)cfunc->func)(self, args, NULL);
+        else
+            result = (*cfunc->func)(self, args);
+    } else {
+        args = PyTuple_New(3);
+        if (unlikely(!args)) goto bad;
+        Py_INCREF(self);
+        PyTuple_SET_ITEM(args, 0, self);
+        Py_INCREF(arg1);
+        PyTuple_SET_ITEM(args, 1, arg1);
+        Py_INCREF(arg2);
+        PyTuple_SET_ITEM(args, 2, arg2);
+        result = __Pyx_PyObject_Call(cfunc->method, args, NULL);
+    }
+#else
+    args = PyTuple_Pack(3, self, arg1, arg2);
+    if (unlikely(!args)) goto bad;
+    result = __Pyx_PyObject_Call(cfunc->method, args, NULL);
+#endif
+bad:
+    Py_XDECREF(args);
+    return result;
+}
+
+/* dict_getitem_default */
+static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObject* default_value) {
+    PyObject* value;
+#if PY_MAJOR_VERSION >= 3 && (!CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07020000)
+    value = PyDict_GetItemWithError(d, key);
+    if (unlikely(!value)) {
+        if (unlikely(PyErr_Occurred()))
+            return NULL;
+        value = default_value;
+    }
+    Py_INCREF(value);
+    if ((1));
+#else
+    if (PyString_CheckExact(key) || PyUnicode_CheckExact(key) || PyInt_CheckExact(key)) {
+        value = PyDict_GetItem(d, key);
+        if (unlikely(!value)) {
+            value = default_value;
+        }
+        Py_INCREF(value);
+    }
+#endif
+    else {
+        if (default_value == Py_None)
+            value = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyDict_Type_get, d, key);
+        else
+            value = __Pyx_CallUnboundCMethod2(&__pyx_umethod_PyDict_Type_get, d, key, default_value);
+    }
+    return value;
+}
+
 /* PyIntBinop */
 #if !CYTHON_COMPILING_IN_PYPY
 static PyObject* __Pyx_PyInt_MultiplyObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
@@ -29336,21 +30994,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatAndDecref(PyObject* s, PyObj
     return result;
 }
 
-/* IterFinish */
-static CYTHON_INLINE int __Pyx_IterFinish(void) {
-    PyObject* exc_type;
-    __Pyx_PyThreadState_declare
-    __Pyx_PyThreadState_assign
-    exc_type = __Pyx_PyErr_CurrentExceptionType();
-    if (unlikely(exc_type)) {
-        if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)))
-            return -1;
-        __Pyx_PyErr_Clear();
-        return 0;
-    }
-    return 0;
-}
-
 /* PyObjectCallNoArg */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_CallNoArg(PyObject *func) {
     PyObject *arg[2] = {NULL, NULL};
@@ -29472,29 +31115,6 @@ static PyObject* __Pyx_PyObject_CallMethod0(PyObject* obj, PyObject* method_name
     Py_DECREF(method);
 bad:
     return result;
-}
-
-/* RaiseNeedMoreValuesToUnpack */
-static CYTHON_INLINE void __Pyx_RaiseNeedMoreValuesError(Py_ssize_t index) {
-    PyErr_Format(PyExc_ValueError,
-                 "need more than %" CYTHON_FORMAT_SSIZE_T "d value%.1s to unpack",
-                 index, (index == 1) ? "" : "s");
-}
-
-/* RaiseTooManyValuesToUnpack */
-static CYTHON_INLINE void __Pyx_RaiseTooManyValuesError(Py_ssize_t expected) {
-    PyErr_Format(PyExc_ValueError,
-                 "too many values to unpack (expected %" CYTHON_FORMAT_SSIZE_T "d)", expected);
-}
-
-/* UnpackItemEndCheck */
-static int __Pyx_IternextUnpackEndCheck(PyObject *retval, Py_ssize_t expected) {
-    if (unlikely(retval)) {
-        Py_DECREF(retval);
-        __Pyx_RaiseTooManyValuesError(expected);
-        return -1;
-    }
-    return __Pyx_IterFinish();
 }
 
 /* RaiseNoneIterError */
@@ -31810,7 +33430,7 @@ __Pyx_PyType_GetName(PyTypeObject* tp)
     if (unlikely(name == NULL) || unlikely(!PyUnicode_Check(name))) {
         PyErr_Clear();
         Py_XDECREF(name);
-        name = __Pyx_NewRef(__pyx_n_s__92);
+        name = __Pyx_NewRef(__pyx_n_s__98);
     }
     return name;
 }

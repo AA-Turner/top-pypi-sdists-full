@@ -481,6 +481,16 @@ def get_internal_run_tracker() -> Any:
     return _registry.get(_INTERNAL_RUN_TRACKER_KEY)
 
 
+# Optional host-owned bound-execution presence wrapper.  It receives a
+# NOT-YET-STARTED thunk and the current AppContext; unconfigured package hosts
+# retain the exact historical execution path.
+_PRESENCE_INVOCATION_HOOK_KEY = "presence_invocation_hook"
+
+
+def get_presence_invocation_hook() -> Any:
+    return _registry.get(_PRESENCE_INVOCATION_HOOK_KEY)
+
+
 # ---------------------------------------------------------------------------
 # Pronunciation-locator resolver (ElevenLabs native-dictionary seam)
 # ---------------------------------------------------------------------------

@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agentic_devtools.cli.ci.resolution.models import ResolutionVerdict
+from agentic_devtools.cli.ci.resolution.github_adapter import GitHubThreadComment
+from agentic_devtools.cli.ci.resolution.models import ResolutionBasis, ResolutionVerdict
 from agentic_devtools.cli.ci.resolution.tiers.sdk_evaluation import SdkEvaluationTier
 
 
@@ -31,11 +32,13 @@ class _MockThread:
 class _MockContext:
     diff_text: str = "diff content"
     head_commit_oid: str = "head123"
+    post_review_copilot_comments: tuple = ()
+    post_review_session_summaries: tuple = ()
 
 
 def test_happy_path_resolve() -> None:
     def sdk_caller(prompt: str) -> str:
-        return "VERDICT: RESOLVE\nEXPLANATION: The code change addresses the comment."
+        return "VERDICT: RESOLVE\nBASIS: code_change\nEXPLANATION: The code change addresses the comment."
 
     tier = SdkEvaluationTier(sdk_caller=sdk_caller)
     thread = _MockThread(comments=[_MockComment()])
@@ -63,7 +66,7 @@ def test_retry_on_malformed() -> None:
         call_count += 1
         if call_count == 1:
             return "I think yes"
-        return "VERDICT: RESOLVE\nEXPLANATION: addressed"
+        return "VERDICT: RESOLVE\nBASIS: code_change\nEXPLANATION: addressed"
 
     tier = SdkEvaluationTier(sdk_caller=sdk_caller)
     thread = _MockThread(comments=[_MockComment()])
@@ -96,14 +99,124 @@ def test_fallback_on_double_malformed() -> None:
         return "gibberish"
 
     def fallback_caller(prompt: str) -> str:
-        return "VERDICT: UNRESOLVE\nEXPLANATION: fallback says no"
+        return "VERDICT: UNRESOLVE\nBASIS: explicit_rejection\nEXPLANATION: fallback says no"
 
     tier = SdkEvaluationTier(sdk_caller=sdk_caller, fallback_caller=fallback_caller)
     thread = _MockThread(comments=[_MockComment()])
-    result = tier.evaluate(thread, _MockContext())
+    result = tier.evaluate(
+        thread,
+        _MockContext(
+            post_review_copilot_comments=(
+                GitHubThreadComment(
+                    body="The reviewer rejected this concern.",
+                    created_at="2026-01-02T00:00:00Z",
+                    author_login="copilot-swe-agent[bot]",
+                ),
+            )
+        ),
+    )
+    assert result is not None
+    assert result.verdict == ResolutionVerdict.RESOLVE
+    assert "fallback" in result.tier_name
+    assert result.resolution_basis == ResolutionBasis.EXPLICIT_REJECTION
+
+
+@pytest.mark.parametrize("basis", [ResolutionBasis.EXPLICIT_REJECTION, ResolutionBasis.OUT_OF_SCOPE])
+def test_fallback_terminal_basis_has_high_confidence(basis: ResolutionBasis) -> None:
+    def sdk_caller(prompt: str) -> str:
+        return "gibberish"
+
+    def fallback_caller(prompt: str) -> str:
+        return f"VERDICT: RESOLVE\nBASIS: {basis.value}\nEXPLANATION: terminal"
+
+    result = SdkEvaluationTier(sdk_caller=sdk_caller, fallback_caller=fallback_caller).evaluate(
+        _MockThread(comments=[_MockComment()]),
+        _MockContext(
+            post_review_copilot_comments=(
+                GitHubThreadComment(
+                    body="The reviewer rejected this concern.",
+                    created_at="2026-01-02T00:00:00Z",
+                    author_login="copilot-swe-agent[bot]",
+                ),
+            )
+        ),
+    )
+
+    assert result is not None
+    assert result.confidence == "high"
+    assert result.resolution_basis == basis
+
+
+@pytest.mark.parametrize("basis", [ResolutionBasis.EXPLICIT_REJECTION, ResolutionBasis.OUT_OF_SCOPE])
+def test_terminal_basis_without_post_review_evidence_stays_unresolved(basis: ResolutionBasis) -> None:
+    def sdk_caller(prompt: str) -> str:
+        return f"VERDICT: RESOLVE\nBASIS: {basis.value}\nEXPLANATION: terminal"
+
+    result = SdkEvaluationTier(sdk_caller=sdk_caller).evaluate(
+        _MockThread(comments=[_MockComment()]),
+        _MockContext(),
+    )
+
     assert result is not None
     assert result.verdict == ResolutionVerdict.UNRESOLVE
-    assert "fallback" in result.tier_name
+    assert result.confidence == "medium"
+    assert result.resolution_basis == basis
+
+
+def test_fallback_prompt_includes_evidence_and_basis_contract() -> None:
+    captured: list[str] = []
+
+    def sdk_caller(prompt: str) -> str:
+        return "gibberish"
+
+    def fallback_caller(prompt: str) -> str:
+        captured.append(prompt)
+        return "VERDICT: RESOLVE\nBASIS: code_change\nEXPLANATION: fallback resolved"
+
+    context = _MockContext(
+        post_review_copilot_comments=(
+            GitHubThreadComment(
+                body="The reviewer rejected this concern.",
+                created_at="2026-01-02T00:00:00Z",
+                author_login="copilot-swe-agent[bot]",
+            ),
+        )
+    )
+    result = SdkEvaluationTier(sdk_caller=sdk_caller, fallback_caller=fallback_caller).evaluate(
+        _MockThread(comments=[_MockComment()]), context
+    )
+
+    assert result is not None
+    assert result.resolution_basis == ResolutionBasis.CODE_CHANGE
+    assert "## Post-Review Copilot Evidence" in captured[0]
+    assert "BASIS: code_change | explicit_rejection | out_of_scope | unresolve" in captured[0]
+
+
+def test_retry_explicit_rejection_has_high_confidence() -> None:
+    calls = 0
+
+    def sdk_caller(prompt: str) -> str:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return "gibberish"
+        return "VERDICT: RESOLVE\nBASIS: explicit_rejection\nEXPLANATION: rejected"
+
+    result = SdkEvaluationTier(sdk_caller=sdk_caller).evaluate(
+        _MockThread(comments=[_MockComment()]),
+        _MockContext(
+            post_review_copilot_comments=(
+                GitHubThreadComment(
+                    body="The reviewer rejected this concern.",
+                    created_at="2026-01-02T00:00:00Z",
+                    author_login="copilot-swe-agent[bot]",
+                ),
+            )
+        ),
+    )
+
+    assert result is not None
+    assert result.confidence == "high"
 
 
 def test_returns_none_when_no_sdk_caller() -> None:
@@ -128,7 +241,7 @@ def test_sdk_exception_triggers_fallback() -> None:
         raise RuntimeError("SDK timeout")
 
     def fallback_caller(prompt: str) -> str:
-        return "VERDICT: RESOLVE\nEXPLANATION: fallback resolved"
+        return "VERDICT: RESOLVE\nBASIS: code_change\nEXPLANATION: fallback resolved"
 
     tier = SdkEvaluationTier(sdk_caller=sdk_caller, fallback_caller=fallback_caller)
     thread = _MockThread(comments=[_MockComment()])
@@ -148,7 +261,7 @@ def test_sdk_retry_exception_triggers_fallback() -> None:
         raise RuntimeError("retry timeout")
 
     def fallback_caller(prompt: str) -> str:
-        return "VERDICT: RESOLVE\nEXPLANATION: fallback resolved after retry failure"
+        return "VERDICT: RESOLVE\nBASIS: code_change\nEXPLANATION: fallback resolved after retry failure"
 
     tier = SdkEvaluationTier(sdk_caller=sdk_caller, fallback_caller=fallback_caller)
     thread = _MockThread(comments=[_MockComment()])
@@ -193,7 +306,7 @@ def test_timeout_budget_forwarded_to_timeout_aware_callers() -> None:
 
     def fallback_caller(prompt: str, timeout_seconds: float = 0.0) -> str:
         seen_timeouts.append(timeout_seconds)
-        return "VERDICT: RESOLVE\nEXPLANATION: fallback resolved"
+        return "VERDICT: RESOLVE\nBASIS: code_change\nEXPLANATION: fallback resolved"
 
     tier = SdkEvaluationTier(sdk_caller=sdk_caller, fallback_caller=fallback_caller)
     tier.set_timeout_seconds(7.8)

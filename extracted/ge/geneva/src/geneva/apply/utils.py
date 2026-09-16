@@ -913,6 +913,8 @@ def resolve_backfill_where(
             # and process all rows (less efficient but correct).
             pass
         else:
-            where = default_where or f"{col_name} IS NULL"
+            from geneva.apply.blob_range import default_resume_predicate
+
+            where = default_where or default_resume_predicate(col_name, col_field)
 
     return where

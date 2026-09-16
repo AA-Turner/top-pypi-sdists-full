@@ -5,7 +5,7 @@ import subprocess
 import time
 import warnings
 from collections.abc import AsyncIterator, Awaitable, Callable, Generator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from types import TracebackType
 from typing import Any, Literal, TextIO, overload
@@ -39,11 +39,15 @@ from vercel.sandbox._internal.filesystem_handle_core import (
 )
 from vercel.sandbox._internal.models import (
     _OMITTED,
+    NO_PRIVATE_PARAMETERS,
     CompletedProcess,
     DirectoryEntry,
     DurationInput,
+    FailoverRegionsInput,
     NetworkPolicy,
+    PrivateSandboxParameters,
     ProcessLog,
+    ProcessSignal,
     SandboxQuery,
     SandboxResources,
     SandboxSource,
@@ -54,6 +58,7 @@ from vercel.sandbox._internal.models import (
     SnapshotRetentionUpdate,
     _parse_snapshot_expiration,
     _WriteFile,
+    normalize_failover_regions,
 )
 from vercel.sandbox._internal.pagination import (
     QuerySandboxesPage,
@@ -180,12 +185,17 @@ class Process(_ProcessHandleState):
         await self.wait()
         return stdout, stderr
 
-    async def send_signal(self, signal: int | str | signal_module.Signals) -> None:
+    async def send_signal(self, signal: int | str | signal_module.Signals | ProcessSignal) -> None:
         """Send a signal to the running process.
 
         Args:
-            signal: Numeric signal, ``Signals`` member, or name such as
+            signal: Numeric signal, ``ProcessSignal`` member, or name such as
                 ``"TERM"`` or ``"SIGTERM"``.
+
+        Note:
+            Passing ``signal.Signals`` directly is deprecated. Use
+            ``ProcessSignal`` so signal availability does not depend on the
+            SDK host platform.
         """
         payload = await self._service.send_process_signal(
             session_id=self._session_id,
@@ -196,11 +206,11 @@ class Process(_ProcessHandleState):
 
     async def terminate(self) -> None:
         """Request graceful process termination with ``SIGTERM``."""
-        await self.send_signal(signal_module.SIGTERM)
+        await self.send_signal(ProcessSignal.SIGTERM)
 
     async def kill(self) -> None:
         """Terminate the process immediately with ``SIGKILL``."""
-        await self.send_signal(signal_module.SIGKILL)
+        await self.send_signal(ProcessSignal.SIGKILL)
 
 
 class Snapshot(SnapshotHandleBase):
@@ -1286,6 +1296,8 @@ class Sandbox(SandboxHandleBase[SandboxRuntimeSession]):
         snapshot_expiration: SnapshotExpirationInput = None,
         snapshot_retention: SnapshotRetentionUpdate = _OMITTED,
         current_snapshot_id: str | None = None,
+        region: str | None = None,
+        failover_regions: FailoverRegionsInput = None,
     ) -> Self:
         """Update mutable sandbox configuration.
 
@@ -1312,6 +1324,8 @@ class Sandbox(SandboxHandleBase[SandboxRuntimeSession]):
             snapshot_expiration=_parse_snapshot_expiration(snapshot_expiration),
             snapshot_retention=snapshot_retention,
             current_snapshot_id=current_snapshot_id,
+            region=region,
+            failover_regions=normalize_failover_regions(failover_regions),
         )
         self._apply_payload(payload)
         return self
@@ -1419,6 +1433,11 @@ class _CreateSandboxParams:
     tags: Mapping[str, str] | None = None
     snapshot_expiration: SnapshotExpiration | None = None
     snapshot_retention: SnapshotRetention | None = None
+    region: str | None = None
+    failover_regions: tuple[str, ...] | None = None
+    private_parameters: PrivateSandboxParameters = field(
+        default_factory=lambda: NO_PRIVATE_PARAMETERS
+    )
 
 
 class CreateSandboxOperation:
@@ -1465,6 +1484,9 @@ class CreateSandboxOperation:
             tags=self._params.tags,
             snapshot_expiration=self._params.snapshot_expiration,
             snapshot_retention=self._params.snapshot_retention,
+            region=self._params.region,
+            failover_regions=self._params.failover_regions,
+            private_parameters=self._params.private_parameters,
         )
 
     def __await__(self) -> Generator[Any, None, Sandbox]:
@@ -1497,10 +1519,112 @@ class CreateSandboxOperation:
 
 
 @dataclass(frozen=True, slots=True)
+class _ForkSandboxParams:
+    source_sandbox: str
+    project_id: str | None = None
+    name: str | None = None
+    ports: list[int] | None = None
+    execution_time_limit: timedelta | None = None
+    resources: SandboxResources | None = None
+    image: str | None = None
+    persistent: bool | None = None
+    network_policy: NetworkPolicy | None = None
+    env: Mapping[str, str] | None = None
+    tags: Mapping[str, str] | None = None
+    snapshot_expiration: SnapshotExpiration | None = None
+    snapshot_retention: SnapshotRetention | None = None
+    region: str | None = None
+    failover_regions: tuple[str, ...] | None = None
+    private_parameters: PrivateSandboxParameters = field(
+        default_factory=lambda: NO_PRIVATE_PARAMETERS
+    )
+
+
+class ForkSandboxOperation:
+    """Manage one asynchronous sandbox fork request.
+
+    Await the operation to fork a sandbox that remains alive, or use it as an
+    async context manager to stop the fork and optionally destroy it on exit.
+    An operation can be consumed only once.
+    """
+
+    def __init__(
+        self,
+        *,
+        service: SandboxService,
+        params: _ForkSandboxParams,
+        destroy: bool,
+    ) -> None:
+        self._service = service
+        self._params = params
+        self._destroy = destroy
+        self._consumed = False
+        self._handle: Sandbox | None = None
+
+    def _mark_consumed(self) -> None:
+        if self._consumed:
+            raise RuntimeError("sandbox.fork_sandbox(...) operations can only be used once")
+        self._consumed = True
+
+    async def _run_once(self) -> Sandbox:
+        self._mark_consumed()
+        return await _fork_sandbox(
+            self._service,
+            source_sandbox=self._params.source_sandbox,
+            project_id=self._params.project_id,
+            name=self._params.name,
+            ports=self._params.ports,
+            execution_time_limit=self._params.execution_time_limit,
+            resources=self._params.resources,
+            image=self._params.image,
+            persistent=self._params.persistent,
+            network_policy=self._params.network_policy,
+            env=self._params.env,
+            tags=self._params.tags,
+            snapshot_expiration=self._params.snapshot_expiration,
+            snapshot_retention=self._params.snapshot_retention,
+            region=self._params.region,
+            failover_regions=self._params.failover_regions,
+            private_parameters=self._params.private_parameters,
+        )
+
+    def __await__(self) -> Generator[Any, None, Sandbox]:
+        return self._run_once().__await__()
+
+    async def __aenter__(self) -> Sandbox:
+        handle = await self._run_once()
+        self._handle = handle
+        return handle
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        if self._handle is None:
+            return None
+        await _cleanup_managed_sandbox(self._handle, destroy=self._destroy)
+        return None
+
+    def __del__(self) -> None:
+        if self._consumed:
+            return
+        warnings.warn(
+            "sandbox.fork_sandbox(...) operation was never awaited or entered",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class _ResumeSandboxParams:
     name: str
     project_id: str | None = None
     include_system_routes: bool | None = None
+    private_parameters: PrivateSandboxParameters = field(
+        default_factory=lambda: NO_PRIVATE_PARAMETERS
+    )
 
 
 class ResumeSandboxOperation:
@@ -1530,6 +1654,7 @@ class ResumeSandboxOperation:
             name=self._params.name,
             project_id=self._params.project_id,
             include_system_routes=self._params.include_system_routes,
+            private_parameters=self._params.private_parameters,
         )
 
     def __await__(self) -> Generator[Any, None, Sandbox]:
@@ -1591,6 +1716,13 @@ async def _create_sandbox(service: SandboxService, **kwargs: Any) -> Sandbox:
         raise _terminal_error(error, Sandbox(payload=error.sandbox, service=service)) from error
 
 
+async def _fork_sandbox(service: SandboxService, **kwargs: Any) -> Sandbox:
+    try:
+        return Sandbox(payload=await service.fork_sandbox(**kwargs), service=service)
+    except _SandboxTerminalState as error:
+        raise _terminal_error(error, Sandbox(payload=error.sandbox, service=service)) from error
+
+
 def create_sandbox_operation(
     service: SandboxService,
     *,
@@ -1607,7 +1739,10 @@ def create_sandbox_operation(
     tags: Mapping[str, str] | None = None,
     snapshot_expiration: SnapshotExpirationInput = None,
     snapshot_retention: SnapshotRetention | None = None,
+    region: str | None = None,
+    failover_regions: FailoverRegionsInput = None,
     destroy: bool = True,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
 ) -> CreateSandboxOperation:
     return CreateSandboxOperation(
         service=service,
@@ -1625,6 +1760,54 @@ def create_sandbox_operation(
             tags=tags,
             snapshot_expiration=_parse_snapshot_expiration(snapshot_expiration),
             snapshot_retention=snapshot_retention,
+            region=region,
+            failover_regions=normalize_failover_regions(failover_regions),
+            private_parameters=private_parameters,
+        ),
+        destroy=destroy,
+    )
+
+
+def fork_sandbox_operation(
+    service: SandboxService,
+    *,
+    source_sandbox: str,
+    project_id: str | None = None,
+    name: str | None = None,
+    ports: list[int] | None = None,
+    execution_time_limit: DurationInput = None,
+    resources: SandboxResources | None = None,
+    image: str | None = None,
+    persistent: bool | None = None,
+    network_policy: NetworkPolicy | None = None,
+    env: Mapping[str, str] | None = None,
+    tags: Mapping[str, str] | None = None,
+    snapshot_expiration: SnapshotExpirationInput = None,
+    snapshot_retention: SnapshotRetention | None = None,
+    region: str | None = None,
+    failover_regions: FailoverRegionsInput = None,
+    destroy: bool = True,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
+) -> ForkSandboxOperation:
+    return ForkSandboxOperation(
+        service=service,
+        params=_ForkSandboxParams(
+            source_sandbox=source_sandbox,
+            project_id=project_id,
+            name=name,
+            ports=ports,
+            execution_time_limit=parse_duration_seconds(execution_time_limit),
+            resources=resources,
+            image=image,
+            persistent=persistent,
+            network_policy=network_policy,
+            env=env,
+            tags=tags,
+            snapshot_expiration=_parse_snapshot_expiration(snapshot_expiration),
+            snapshot_retention=snapshot_retention,
+            region=region,
+            failover_regions=normalize_failover_regions(failover_regions),
+            private_parameters=private_parameters,
         ),
         destroy=destroy,
     )
@@ -1637,6 +1820,7 @@ async def get_sandbox(
     project_id: str | None = None,
     resume: bool = False,
     include_system_routes: bool | None = None,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
 ) -> Sandbox:
     return Sandbox(
         payload=await service.get_sandbox(
@@ -1644,6 +1828,7 @@ async def get_sandbox(
             project_id=project_id,
             resume=resume,
             include_system_routes=include_system_routes,
+            private_parameters=private_parameters,
         ),
         service=service,
         include_system_routes=include_system_routes,
@@ -1668,6 +1853,9 @@ async def get_or_create_sandbox(
     tags: Mapping[str, str] | None = None,
     snapshot_expiration: SnapshotExpirationInput = None,
     snapshot_retention: SnapshotRetention | None = None,
+    region: str | None = None,
+    failover_regions: FailoverRegionsInput = None,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
 ) -> tuple[Sandbox, bool]:
     try:
         state, created = await service.get_or_create_sandbox(
@@ -1686,6 +1874,9 @@ async def get_or_create_sandbox(
             tags=tags,
             snapshot_expiration=_parse_snapshot_expiration(snapshot_expiration),
             snapshot_retention=snapshot_retention,
+            region=region,
+            failover_regions=normalize_failover_regions(failover_regions),
+            private_parameters=private_parameters,
         )
         return (
             Sandbox(
@@ -1712,12 +1903,14 @@ async def resume_sandbox(
     name: str,
     project_id: str | None = None,
     include_system_routes: bool | None = None,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
 ) -> Sandbox:
     return Sandbox(
         payload=await service.resume_sandbox(
             name=name,
             project_id=project_id,
             include_system_routes=include_system_routes,
+            private_parameters=private_parameters,
         ),
         service=service,
         include_system_routes=include_system_routes,
@@ -1730,6 +1923,7 @@ def resume_sandbox_operation(
     name: str,
     project_id: str | None = None,
     include_system_routes: bool | None = None,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
 ) -> ResumeSandboxOperation:
     return ResumeSandboxOperation(
         service=service,
@@ -1737,6 +1931,7 @@ def resume_sandbox_operation(
             name=name,
             project_id=project_id,
             include_system_routes=include_system_routes,
+            private_parameters=private_parameters,
         ),
     )
 

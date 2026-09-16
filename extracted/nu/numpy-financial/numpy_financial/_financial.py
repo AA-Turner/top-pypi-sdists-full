@@ -1,4 +1,4 @@
-"""Some simple financial calculations
+"""Some simple financial calculations.
 
 patterned after spreadsheet computations.
 
@@ -10,25 +10,111 @@ or arrays (or other sequences).
 Functions support the :class:`decimal.Decimal` type unless
 otherwise stated.
 """
-from __future__ import division, absolute_import, print_function
 
+from collections.abc import Iterable, Mapping, Sequence
 from decimal import Decimal
+from typing import Any, Callable, Final, Literal, Protocol, TypeAlias, TypeVar, overload
 
 import numpy as np
+import numpy.typing as npt
+from numpy._typing import _NestedSequence  # pyright: ignore[reportPrivateImportUsage]
 
+from numpy_financial import _cfinancial
 
 __all__ = ['fv', 'pmt', 'nper', 'ipmt', 'ppmt', 'pv', 'rate',
-           'irr', 'npv', 'mirr']
+           'irr', 'npv', 'mirr',
+           'NoRealSolutionError', 'IterationsExceededError']
 
-_when_to_num = {'end': 0, 'begin': 1,
-                'e': 0, 'b': 1,
-                0: 0, 1: 1,
-                'beginning': 1,
-                'start': 1,
-                'finish': 0}
+_ArrayT = TypeVar("_ArrayT", bound=npt.NDArray[Any])
+_ScalarT = TypeVar("_ScalarT", bound=np.generic)
+_ScalarT_co = TypeVar("_ScalarT_co", bound=np.generic, covariant=True)
+
+# accepts arrays and scalars
+class _CanArray(Protocol[_ScalarT_co]):
+    def __array__(self, /) -> npt.NDArray[_ScalarT_co]: ...
+
+# accepts arrays, rejects scalars
+class _CanArrayAndLen(_CanArray[_ScalarT_co], Protocol[_ScalarT_co]):
+    def __len__(self, /) -> int: ...
+
+# casts *as* float64
+_AsFloat: TypeAlias = float | np.float64
+_AsFloat1D: TypeAlias = _CanArrayAndLen[np.float64] | Sequence[_AsFloat]
+_AsFloatND: TypeAlias = _CanArrayAndLen[np.float64] | _NestedSequence[_AsFloat]
+
+_AsDecimal: TypeAlias = Decimal | int
+
+# *co*ercible to float64 (assuming NEP 50 promotion rules and `same_kind` casting)
+_co_float64: TypeAlias = (
+    np.float64
+    | np.float32
+    | np.float16
+    | np.integer[Any]
+    | np.bool_
+)
+_CoFloat: TypeAlias = float | _co_float64
+_CoFloat1D: TypeAlias = _CanArrayAndLen[_co_float64] | Sequence[_CoFloat]
+_CoFloatND: TypeAlias = _CanArrayAndLen[_co_float64] | _NestedSequence[_CoFloat]
+# concise aliases for `_CoFloat | _CoFloat1D` and `_CoFloat | _CoFloatND`
+_CoFloatOr1D: TypeAlias = float | _CanArray[_co_float64] | Sequence[_CoFloat]
+_CoFloatOrND: TypeAlias = float | _CanArray[_co_float64] | _NestedSequence[_CoFloat]
+
+# coercible to (presumed to be) number-like dtypes
+_co_numeric: TypeAlias = np.floating[Any] | np.integer[Any] | np.bool_ | np.object_
+_CoNumeric: TypeAlias = float | Decimal | _co_numeric
+_CoNumeric1D: TypeAlias = _CanArrayAndLen[_co_numeric] | Sequence[_CoNumeric]
+_CoNumericND: TypeAlias = _CanArrayAndLen[_co_numeric] | _NestedSequence[_CoNumeric]
+_CoNumericOrND: TypeAlias = (
+    float | Decimal | _CanArray[_co_numeric] | _NestedSequence[_CoNumeric]
+)
+
+_ArrayLike: TypeAlias = npt.ArrayLike | _NestedSequence[Decimal] | Decimal
+
+_WhenOut: TypeAlias = Literal[0, 1]
+_When: TypeAlias = str | int | npt.NDArray[Any] | Iterable[str | int]
+
+#
+
+_when_to_num: Final[Mapping[_When, _WhenOut]] = {
+    'end': 0,
+    "begin": 1,
+    "e": 0,
+    "b": 1,
+    0: 0,
+    1: 1,
+    "beginning": 1,
+    "start": 1,
+    "finish": 0,
+}
 
 
-def _convert_when(when):
+class NoRealSolutionError(Exception):
+    """No real solution to the problem."""
+
+
+class IterationsExceededError(Exception):
+    """Maximum number of iterations reached."""
+
+
+def _get_output_array_shape(*arrays: npt.NDArray[Any]) -> tuple[int, ...]:
+    return tuple(array.shape[0] for array in arrays)
+
+
+def _ufunc_like(array: np.generic | npt.NDArray[Any]) -> Any:
+    try:
+        # If size of array is one, return scalar
+        return array.item()
+    except ValueError:
+        # Otherwise, return entire array
+        return array.squeeze()
+
+@overload
+def _convert_when(when: _ArrayT) -> _ArrayT: ...
+@overload
+def _convert_when(when: str | int) -> _WhenOut: ...  # type: ignore[overload-overlap]
+@overload
+def _convert_when(when: Iterable[str | int]) -> list[_WhenOut]: ...
+def _convert_when(when: Any) -> Any:
     # Test to see if when has already been converted to ndarray
     # This will happen if one function calls another, for example ppmt
     if isinstance(when, np.ndarray):
@@ -38,10 +124,40 @@ def _convert_when(when):
     except (KeyError, TypeError):
         return [_when_to_num[x] for x in when]
 
-
-def fv(rate, nper, pmt, pv, when='end'):
-    """
-    Compute the future value.
+@overload
+def fv(
+    rate: _AsFloat,
+    nper: _CoFloat,
+    pmt: _CoFloat,
+    pv: _CoFloat,
+    when: _When = 'end',
+) -> float: ...
+@overload
+def fv(
+    rate: Decimal,
+    nper: _AsDecimal,
+    pmt: _AsDecimal,
+    pv: _AsDecimal,
+    when: _When = 'end',
+) -> Decimal: ...
+@overload
+def fv(
+    rate: _AsFloat1D,
+    nper: _CoFloatOr1D,
+    pmt: _CoFloatOr1D,
+    pv: _CoFloatOr1D,
+    when: _When = 'end',
+) -> npt.NDArray[np.float64]: ...
+@overload
+def fv(
+    rate: _ArrayLike,
+    nper: _ArrayLike,
+    pmt: _ArrayLike,
+    pv: _ArrayLike,
+    when: _When = 'end',
+) -> Any: ...
+def fv(rate, nper, pmt, pv, when: _When = 'end'):
+    """Compute the future value.
 
     Given:
      * a present value, `pv`
@@ -109,7 +225,7 @@ def fv(rate, nper, pmt, pv, when='end'):
     5% (annually) compounded monthly?
 
     >>> npf.fv(0.05/12, 10*12, -100, -100)
-    15692.928894335748
+    15692.92889433575
 
     By convention, the negative sign represents cash flow out (i.e. money not
     available today).  Thus, saving $100 a month at 5% annual interest leads
@@ -120,20 +236,66 @@ def fv(rate, nper, pmt, pv, when='end'):
 
     >>> a = np.array((0.05, 0.06, 0.07))/12
     >>> npf.fv(a, 10*12, -100, -100)
-    array([ 15692.92889434,  16569.87435405,  17509.44688102]) # may vary
+    array([15692.92889434, 16569.87435405, 17509.44688102])
 
     """
     when = _convert_when(when)
-    (rate, nper, pmt, pv, when) = map(np.asarray, [rate, nper, pmt, pv, when])
-    temp = (1+rate)**nper
-    fact = np.where(rate == 0, nper,
-                    (1 + rate*when)*(temp - 1)/rate)
-    return -(pv*temp + pmt*fact)
+    rate, nper, pmt, pv, when = np.broadcast_arrays(rate, nper, pmt, pv, when)
 
+    fv_array = np.empty_like(rate)
+    zero = rate == 0
+    nonzero = ~zero
 
-def pmt(rate, nper, pv, fv=0, when='end'):
-    """
-    Compute the payment against loan principal plus interest.
+    fv_array[zero] = -(pv[zero] + pmt[zero] * nper[zero])
+
+    rate_nonzero = rate[nonzero]
+    temp = (1 + rate_nonzero) ** nper[nonzero]
+    fv_array[nonzero] = (
+            - pv[nonzero] * temp
+            - pmt[nonzero] * (1 + rate_nonzero * when[nonzero]) / rate_nonzero
+            * (temp - 1)
+    )  # fmt: skip
+
+    if np.ndim(fv_array) == 0:
+        # Follow the ufunc convention of returning scalars for scalar
+        # and 0d array inputs.
+        return fv_array.item(0)
+    return fv_array
+
+@overload
+def pmt(
+    rate: _AsFloat,
+    nper: _CoFloat,
+    pv: _CoFloat,
+    fv: _CoFloat = 0,
+    when: _When = 'end',
+) -> float: ...
+@overload
+def pmt(
+    rate: Decimal,
+    nper: _AsDecimal,
+    pv: _AsDecimal,
+    fv: _AsDecimal = 0,
+    when: _When = 'end',
+) -> Decimal: ...
+@overload
+def pmt(
+    rate: _AsFloatND,
+    nper: _CoFloatOrND,
+    pv: _CoFloatOrND,
+    fv: _CoFloatOrND = 0,
+    when: _When = 'end',
+) -> npt.NDArray[np.float64]: ...
+@overload
+def pmt(
+    rate: _ArrayLike,
+    nper: _ArrayLike,
+    pv: _ArrayLike,
+    fv: _ArrayLike = 0,
+    when: _When = 'end',
+) -> Any: ...
+def pmt(rate, nper, pv, fv: Any = 0, when: _When = 'end'):
+    """Compute the payment against loan principal plus interest.
 
     Given:
      * a present value, `pv` (e.g., an amount borrowed)
@@ -209,7 +371,7 @@ def pmt(rate, nper, pv, fv=0, when='end'):
     years at an annual interest rate of 7.5%?
 
     >>> npf.pmt(0.075/12, 12*15, 200000)
-    -1854.0247200054619
+    np.float64(-1854.0247200054619)
 
     In order to pay-off (i.e., have a future-value of 0) the $200,000 obtained
     today, a monthly payment of $1,854.02 would be required.  Note that this
@@ -218,17 +380,39 @@ def pmt(rate, nper, pv, fv=0, when='end'):
     """
     when = _convert_when(when)
     (rate, nper, pv, fv, when) = map(np.array, [rate, nper, pv, fv, when])
-    temp = (1 + rate)**nper
+    temp = (1 + rate) ** nper
     mask = (rate == 0)
     masked_rate = np.where(mask, 1, rate)
     fact = np.where(mask != 0, nper,
-                    (1 + masked_rate*when)*(temp - 1)/masked_rate)
-    return -(fv + pv*temp) / fact
+                    (1 + masked_rate * when) * (temp - 1) / masked_rate)
+    return -(fv + pv * temp) / fact
 
-
-def nper(rate, pmt, pv, fv=0, when='end'):
-    """
-    Compute the number of periodic payments.
+@overload
+def nper(
+    rate: _CoNumeric,
+    pmt: _CoNumeric,
+    pv: _CoNumeric,
+    fv: _CoNumeric = 0,
+    when: _When = 'end',
+) -> float: ...
+@overload
+def nper(
+    rate: _CoNumericND,
+    pmt: _CoNumericOrND,
+    pv: _CoNumericOrND,
+    fv: _CoNumericOrND = 0,
+    when: _When = 'end',
+) -> npt.NDArray[np.float64]: ...
+@overload
+def nper(
+    rate: _ArrayLike,
+    pmt: _ArrayLike,
+    pv: _ArrayLike,
+    fv: _ArrayLike = 0,
+    when: _When = 'end',
+) -> Any: ...
+def nper(rate, pmt, pv, fv: Any = 0, when: _When = 'end'):
+    """Compute the number of periodic payments.
 
     :class:`decimal.Decimal` type is not supported.
 
@@ -271,36 +455,79 @@ def nper(rate, pmt, pv, fv=0, when='end'):
     The same analysis could be done with several different interest rates
     and/or payments and/or total amounts to produce an entire table.
 
-    >>> npf.nper(*(np.ogrid[0.07/12: 0.08/12: 0.01/12,
-    ...                     -150   : -99    : 50    ,
-    ...                     8000   : 9001   : 1000]))
-    array([[[ 64.07334877,  74.06368256],
-            [108.07548412, 127.99022654]],
-           [[ 66.12443902,  76.87897353],
-            [114.70165583, 137.90124779]]])
-
+    >>> rates = [0.05, 0.06, 0.07]
+    >>> payments = [100, 200, 300]
+    >>> amounts = [7_000, 8_000, 9_000]
+    >>> npf.nper(rates, payments, amounts).round(3)
+    array([[[-30.827, -32.987, -34.94 ],
+            [-20.734, -22.517, -24.158],
+            [-15.847, -17.366, -18.78 ]],
+    <BLANKLINE>
+           [[-28.294, -30.168, -31.857],
+            [-19.417, -21.002, -22.453],
+            [-15.025, -16.398, -17.67 ]],
+    <BLANKLINE>
+           [[-26.234, -27.891, -29.381],
+            [-18.303, -19.731, -21.034],
+            [-14.311, -15.566, -16.722]]])
     """
     when = _convert_when(when)
-    (rate, pmt, pv, fv, when) = map(np.asarray, [rate, pmt, pv, fv, when])
+    rates = np.atleast_1d(rate).astype(np.float64)
+    pmts = np.atleast_1d(pmt).astype(np.float64)
+    pvs = np.atleast_1d(pv).astype(np.float64)
+    fvs = np.atleast_1d(fv).astype(np.float64)
+    whens = np.atleast_1d(when).astype(np.float64)
 
-    use_zero_rate = False
-    with np.errstate(divide="raise"):
-        try:
-            z = pmt*(1+rate*when)/rate
-        except FloatingPointError:
-            use_zero_rate = True
-
-    if use_zero_rate:
-        return (-fv + pv) / pmt
-    else:
-        A = -(fv + pv)/(pmt+0)
-        B = np.log((-fv+z) / (pv+z))/np.log(1+rate)
-        return np.where(rate == 0, A, B)
+    out_shape = _get_output_array_shape(rates, pmts, pvs, fvs, whens)
+    out = np.empty(out_shape)
+    _cfinancial.nper(rates, pmts, pvs, fvs, whens, out)
+    return _ufunc_like(out)
 
 
-def ipmt(rate, per, nper, pv, fv=0, when='end'):
-    """
-    Compute the interest portion of a payment.
+def _value_like(arr: npt.NDArray[Any], value: Decimal | float) -> Any:
+    entry = arr.item(0)
+    if isinstance(entry, Decimal):
+        return Decimal(value)
+    return np.array(value, dtype=arr.dtype).item(0)
+
+@overload
+def ipmt(
+    rate: _AsFloat,
+    per: _CoFloat,
+    nper: _CoFloat,
+    pv: _CoFloat,
+    fv: _CoFloat = 0,
+    when: _When = 'end',
+) -> float: ...
+@overload
+def ipmt(
+    rate: Decimal,
+    per: _AsDecimal,
+    nper: _AsDecimal,
+    pv: _AsDecimal,
+    fv: _AsDecimal = 0,
+    when: _When = 'end',
+) -> Decimal: ...
+@overload
+def ipmt(
+    rate: _AsFloat1D,
+    per: _CoFloatOr1D,
+    nper: _CoFloatOr1D,
+    pv: _CoFloatOr1D,
+    fv: _CoFloatOr1D = 0,
+    when: _When = 'end',
+) -> npt.NDArray[np.float64]: ...
+@overload
+def ipmt(
+    rate: _ArrayLike,
+    per: _ArrayLike,
+    nper: _ArrayLike,
+    pv: _ArrayLike,
+    fv: _ArrayLike = 0,
+    when: _When = 'end',
+) -> Any: ...
+def ipmt(rate, per, nper, pv, fv: Any = 0, when: _When = 'end') -> Any:
+    """Compute the interest portion of a payment.
 
     Parameters
     ----------
@@ -381,24 +608,71 @@ def ipmt(rate, per, nper, pv, fv=0, when='end'):
 
     >>> interestpd = np.sum(ipmt)
     >>> np.round(interestpd, 2)
-    -112.98
+    np.float64(-112.98)
 
     """
     when = _convert_when(when)
     rate, per, nper, pv, fv, when = np.broadcast_arrays(rate, per, nper,
                                                         pv, fv, when)
+
     total_pmt = pmt(rate, nper, pv, fv, when)
-    ipmt = _rbl(rate, per, total_pmt, pv, when)*rate
-    try:
-        ipmt = np.where(when == 1, ipmt/(1 + rate), ipmt)
-        ipmt = np.where(np.logical_and(when == 1, per == 1), 0, ipmt)
-    except IndexError:
-        pass
-    return ipmt
+    ipmt_array = np.array(_rbl(rate, per, total_pmt, pv, when) * rate)
+
+    # Payments start at the first period, so payments before that
+    # don't make any sense.
+    ipmt_array[per < 1] = _value_like(ipmt_array, np.nan)
+    # If payments occur at the beginning of a period and this is the
+    # first period, then no interest has accrued.
+    per1_and_begin = (when == 1) & (per == 1)
+    ipmt_array[per1_and_begin] = _value_like(ipmt_array, 0)
+    # If paying at the beginning we need to discount by one period.
+    per_gt_1_and_begin = (when == 1) & (per > 1)
+    ipmt_array[per_gt_1_and_begin] = (
+            ipmt_array[per_gt_1_and_begin] / (1 + rate[per_gt_1_and_begin])
+    )
+
+    if np.ndim(ipmt_array) == 0:
+        # Follow the ufunc convention of returning scalars for scalar
+        # and 0d array inputs.
+        return ipmt_array.item(0)
+    return ipmt_array
 
 
-def _rbl(rate, per, pmt, pv, when):
-    """
+@overload
+def _rbl(
+    rate: _AsFloat,
+    per: _CoFloat,
+    pmt: _CoFloat,
+    pv: _CoFloat,
+    when: _When,
+) -> float: ...
+@overload
+def _rbl(
+    rate: Decimal,
+    per: _AsDecimal,
+    pmt: _AsDecimal,
+    pv: _AsDecimal,
+    when: _When,
+) -> Decimal: ...
+@overload
+def _rbl(
+    rate: _AsFloat1D,
+    per: _CoFloatOr1D,
+    pmt: _CoFloatOr1D,
+    pv: _CoFloatOr1D,
+    when: _When,
+) -> npt.NDArray[np.float64]: ...
+@overload
+def _rbl(
+    rate: _ArrayLike,
+    per: _ArrayLike,
+    pmt: _ArrayLike,
+    pv: _ArrayLike,
+    when: _When,
+) -> Any: ...
+def _rbl(rate, per, pmt, pv, when: _When):
+    """Remaining balance on loan.
+
     This function is here to simply have a different name for the 'fv'
     function to not interfere with the 'fv' keyword argument within the 'ipmt'
     function.  It is the 'remaining balance on loan' which might be useful as
@@ -407,9 +681,44 @@ def _rbl(rate, per, pmt, pv, when):
     return fv(rate, (per - 1), pmt, pv, when)
 
 
-def ppmt(rate, per, nper, pv, fv=0, when='end'):
-    """
-    Compute the payment against loan principal.
+@overload
+def ppmt(
+    rate: _AsFloat,
+    per: _CoFloat,
+    nper: _CoFloat,
+    pv: _CoFloat,
+    fv: _CoFloat = 0,
+    when: _When = 'end',
+) -> float: ...
+@overload
+def ppmt(
+    rate: Decimal,
+    per: _AsDecimal,
+    nper: _AsDecimal,
+    pv: _AsDecimal,
+    fv: _AsDecimal = 0,
+    when: _When = 'end',
+) -> Decimal: ...
+@overload
+def ppmt(
+    rate: _AsFloat1D,
+    per: _CoFloatOr1D,
+    nper: _CoFloatOr1D,
+    pv: _CoFloatOr1D,
+    fv: _CoFloatOr1D = 0,
+    when: _When = 'end',
+) -> npt.NDArray[np.float64]: ...
+@overload
+def ppmt(
+    rate: _ArrayLike,
+    per: _ArrayLike,
+    nper: _ArrayLike,
+    pv: _ArrayLike,
+    fv: _ArrayLike = 0,
+    when: _When = 'end',
+) -> Any: ...
+def ppmt(rate, per, nper, pv, fv: Any = 0, when: _When = 'end'):
+    """Compute the payment against loan principal.
 
     Parameters
     ----------
@@ -436,9 +745,40 @@ def ppmt(rate, per, nper, pv, fv=0, when='end'):
     return total - ipmt(rate, per, nper, pv, fv, when)
 
 
-def pv(rate, nper, pmt, fv=0, when='end'):
-    """
-    Compute the present value.
+@overload
+def pv(
+    rate: _AsFloat,
+    nper: _CoFloat,
+    pmt: _CoFloat,
+    fv: _CoFloat = 0,
+    when: _When = 'end',
+) -> np.float64: ...
+@overload
+def pv(
+    rate: Decimal,
+    nper: _AsDecimal,
+    pmt: _AsDecimal,
+    fv: _AsDecimal = 0,
+    when: _When = 'end',
+) -> Decimal: ...
+@overload
+def pv(
+    rate: _AsFloatND,
+    nper: _CoFloatOrND,
+    pmt: _CoFloatOrND,
+    fv: _CoFloatOrND = 0,
+    when: _When = 'end',
+) -> npt.NDArray[np.float64]: ...
+@overload
+def pv(
+    rate: _ArrayLike,
+    nper: _ArrayLike,
+    pmt: _ArrayLike,
+    fv: _ArrayLike = 0,
+    when: _When = 'end',
+) -> Any: ...
+def pv(rate, nper, pmt, fv: Any = 0, when: _When = 'end'):
+    """Compute the present value.
 
     Given:
      * a future value, `fv`
@@ -506,7 +846,7 @@ def pv(rate, nper, pmt, fv=0, when='end'):
     interest rate is 5% (annually) compounded monthly.
 
     >>> npf.pv(0.05/12, 10*12, -100, 15692.93)
-    -100.00067131625819
+    np.float64(-100.00067131625819)
 
     By convention, the negative sign represents cash flow out
     (i.e., money not available today).  Thus, to end up with
@@ -518,7 +858,7 @@ def pv(rate, nper, pmt, fv=0, when='end'):
 
     >>> a = np.array((0.05, 0.04, 0.03))/12
     >>> npf.pv(a, 10*12, -100, 15692.93)
-    array([ -100.00067132,  -649.26771385, -1273.78633713]) # may vary
+    array([ -100.00067132,  -649.26771385, -1273.78633713])
 
     So, to end up with the same $15692.93 under the same $100 per month
     "savings plan," for annual interest rates of 4% and 3%, one would
@@ -526,10 +866,11 @@ def pv(rate, nper, pmt, fv=0, when='end'):
 
     """
     when = _convert_when(when)
-    (rate, nper, pmt, fv, when) = map(np.asarray, [rate, nper, pmt, fv, when])
-    temp = (1+rate)**nper
-    fact = np.where(rate == 0, nper, (1+rate*when)*(temp-1)/rate)
-    return -(fv + pmt*fact)/temp
+    rate, nper, pmt, fv, when = map(np.asarray, [rate, nper, pmt, fv, when])
+    temp = (1 + rate) ** nper
+    fact = np.where(rate == 0, nper, (1 + rate * when) * (temp - 1) / rate)
+    return -(fv + pmt * fact) / temp
+
 
 # Computed with Sage
 #  (y + (r + 1)^n*x + p*((r + 1)^n - 1)*(r*w + 1)/r)/(n*(r + 1)^(n - 1)*x -
@@ -537,16 +878,16 @@ def pv(rate, nper, pmt, fv=0, when='end'):
 #  p*((r + 1)^n - 1)*w/r)
 
 
-def _g_div_gp(r, n, p, x, y, w):
+def _g_div_gp(r, n, p, x, y, w) -> Any:
     # Evaluate g(r_n)/g'(r_n), where g =
     # fv + pv*(1+rate)**nper + pmt*(1+rate*when)/rate * ((1+rate)**nper - 1)
-    t1 = (r+1)**n
-    t2 = (r+1)**(n-1)
-    g = y + t1*x + p*(t1 - 1) * (r*w + 1) / r
-    gp = (n*t2*x
-          - p*(t1 - 1) * (r*w + 1) / (r**2)
-          + n*p*t2 * (r*w + 1) / r
-          + p*(t1 - 1) * w/r)
+    t1 = (r + 1) ** n
+    t2 = (r + 1) ** (n - 1)
+    g = y + t1 * x + p * (t1 - 1) * (r * w + 1) / r
+    gp = (n * t2 * x
+          - p * (t1 - 1) * (r * w + 1) / (r ** 2)
+          + n * p * t2 * (r * w + 1) / r
+          + p * (t1 - 1) * w / r)
     return g / gp
 
 
@@ -557,9 +898,19 @@ def _g_div_gp(r, n, p, x, y, w):
 #     where
 #  g(r) is the formula
 #  g'(r) is the derivative with respect to r.
-def rate(nper, pmt, pv, fv, when='end', guess=None, tol=None, maxiter=100):
-    """
-    Compute the rate of interest per period.
+def rate(
+    nper,
+    pmt,
+    pv,
+    fv,
+    when: _When = 'end',
+    guess: float | Decimal | None = None,
+    tol: float | Decimal | None = None,
+    maxiter: int = 100,
+    *,
+    raise_exceptions: bool = False,
+) -> Any:
+    """Compute the rate of interest per period.
 
     Parameters
     ----------
@@ -579,6 +930,11 @@ def rate(nper, pmt, pv, fv, when='end', guess=None, tol=None, maxiter=100):
         Required tolerance for the solution, default 1e-6
     maxiter : int, optional
         Maximum iterations in finding the solution
+    raise_exceptions: bool, optional
+        Flag to raise an exception when at least one of the rates
+        cannot be computed due to having reached the maximum number of
+        iterations (IterationsExceededException). Set to False as default,
+        thus returning NaNs for those rates.
 
     Notes
     -----
@@ -611,27 +967,82 @@ def rate(nper, pmt, pv, fv, when='end', guess=None, tol=None, maxiter=100):
     if tol is None:
         tol = default_type('1e-6')
 
-    (nper, pmt, pv, fv, when) = map(np.asarray, [nper, pmt, pv, fv, when])
+    nper, pmt, pv, fv, when = map(np.asarray, [nper, pmt, pv, fv, when])
 
-    rn = guess
+    rn: Any = guess
     iterator = 0
-    close = False
-    while (iterator < maxiter) and not close:
+    close: Any = False
+    while (iterator < maxiter) and not np.all(close):
         rnp1 = rn - _g_div_gp(rn, nper, pmt, pv, fv, when)
-        diff = abs(rnp1-rn)
-        close = np.all(diff < tol)
+        diff = abs(rnp1 - rn)
+        close = diff < tol
         iterator += 1
         rn = rnp1
-    if not close:
-        # Return nan's in array of the same shape as rn
-        return np.nan + rn
-    else:
-        return rn
+
+    if not np.all(close):
+        if np.isscalar(rn):
+            if raise_exceptions:
+                raise IterationsExceededError('Maximum number of iterations exceeded.')
+            return default_type(np.nan)
+        else:
+            # Return nan's in array of the same shape as rn
+            # where the solution is not close to tol.
+            if raise_exceptions:
+                raise IterationsExceededError(f'Maximum iterations exceeded in '
+                                              f'{len(close) - close.sum()} rate(s).')
+            rn[~close] = np.nan
+    return rn
 
 
-def irr(values):
-    """
-    Return the Internal Rate of Return (IRR).
+def _irr_default_selection(eirr: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """ default selection logic for IRR function when there are > 1 real solutions """
+     # check sign of all IRR solutions
+    same_sign = np.all(eirr > 0) if eirr[0] > 0 else np.all(eirr < 0)
+
+    # if the signs of IRR solutions are not the same, first filter potential IRR
+    # by comparing the total positive and negative cash flows.
+    if not same_sign:
+        pos = sum(eirr[eirr > 0])
+        neg = sum(eirr[eirr < 0])
+        if pos >= neg:
+            eirr = eirr[eirr >= 0]
+        else:
+            eirr = eirr[eirr < 0]
+
+    # pick the smallest one in magnitude and return
+    abs_eirr = np.abs(eirr)
+    return eirr[np.argmin(abs_eirr)]
+
+
+_SelectionFunc: TypeAlias = Callable[
+    [npt.NDArray[np.float64]],
+    npt.NDArray[np.float64],
+]
+
+
+@overload
+def irr(
+    values: Sequence[_CoFloat],
+    *,
+    raise_exceptions: bool = False,
+    selection_logic: _SelectionFunc = ...,
+) -> float: ...
+@overload
+def irr(
+    values: Sequence[Sequence[_CoFloat]],
+    *,
+    raise_exceptions: bool = False,
+    selection_logic: _SelectionFunc = ...,
+) -> npt.NDArray[np.float64]: ...
+@overload
+def irr(
+    values: _ArrayLike,
+    *,
+    raise_exceptions: bool = False,
+    selection_logic: _SelectionFunc = ...,
+) -> Any: ...
+def irr(values, *, raise_exceptions=False, selection_logic=_irr_default_selection):
+    r"""Return the Internal Rate of Return (IRR).
 
     This is the "average" periodically compounded rate of return
     that gives a net present value of 0.0; for a more complete explanation,
@@ -646,6 +1057,18 @@ def irr(values):
         are negative and net "withdrawals" are positive.  Thus, for
         example, at least the first element of `values`, which represents
         the initial investment, will typically be negative.
+    raise_exceptions: bool, optional
+        Flag to raise an exception when the irr cannot be computed due to
+        either having all cashflows of the same sign (NoRealSolutionException) or
+        having reached the maximum number of iterations (IterationsExceededException).
+        Set to False as default, thus returning NaNs in the two previous
+        cases.
+    selection_logic: function, optional
+        Function for selection logic when more than 1 real solutions is found.
+        User may insert their own customised function for selection
+        of IRR values.The function should accept a one-dimensional array
+        of numbers and return a number.
+
 
     Returns
     -------
@@ -655,7 +1078,7 @@ def irr(values):
     Notes
     -----
     The IRR is perhaps best understood through an example (illustrated
-    using np.irr in the Examples section below).  Suppose one invests 100
+    using np.irr in the Examples section below). Suppose one invests 100
     units and then makes the following withdrawals at regular (fixed)
     intervals: 39, 59, 55, 20.  Assuming the ending value is 0, one's 100
     unit investment yields 173 units; however, due to the combination of
@@ -690,34 +1113,77 @@ def irr(values):
     0.06206
     >>> round(npf.irr([-5, 10.5, 1, -8, 1]), 5)
     0.0886
+    >>> npf.irr([[-100, 0, 0, 74], [-100, 100, 0, 7]]).round(5)
+    array([-0.0955 ,  0.06206])
 
     """
-    # `np.roots` call is why this function does not support Decimal type.
+    values = np.atleast_2d(values)
+    if values.ndim != 2:
+        raise ValueError("Cashflows must be a 2D array")
+
+    irr_results = np.empty(values.shape[0])
+    for i, row in enumerate(values):
+        # If all values are of the same sign, no solution exists
+        # We don't perform any further calculations and exit early
+        same_sign = np.all(row > 0) if row[0] > 0 else np.all(row < 0)
+        if same_sign:
+            if raise_exceptions:
+                raise NoRealSolutionError('No real solution exists for IRR since all '
+                                          'cashflows are of the same sign.')
+            irr_results[i] = np.nan
+
+    # We aim to solve eirr such that NPV is exactly zero. This can be framed as
+    # simply finding the closest root of a polynomial to a given initial guess
+    # as follows:
+    #           V0           V1           V2           V3
+    # NPV = ---------- + ---------- + ---------- + ---------- + ... = 0
+    #       (1+eirr)^0   (1+eirr)^1   (1+eirr)^2   (1+eirr)^3
     #
-    # Ultimately Decimal support needs to be added to np.roots, which has
-    # greater implications on the entire linear algebra module and how it does
-    # eigenvalue computations.
-    res = np.roots(values[::-1])
-    mask = (res.imag == 0) & (res.real > 0)
-    if not mask.any():
-        return np.nan
-    res = res[mask].real
-    # NPV(rate) = 0 can have more than one solution so we return
-    # only the solution closest to zero.
-    rate = 1/res - 1
-    rate = rate.item(np.argmin(np.abs(rate)))
-    return rate
+    # by letting g = (1+eirr), we substitute to get
+    #
+    # NPV = V0 * 1/g^0   + V1 * 1/g^1   +  V2 * 1/x^2  +  V3 * 1/g^3  + ... = 0
+    #
+    # Multiplying by g^N this becomes
+    #
+    # V0 * g^N   + V1 * g^{N-1}   +  V2 * g^{N-2}  +  V3 * g^{N-3}  + ... = 0
+    #
+    # which we solve using Newton-Raphson and then reverse out the solution
+    # as eirr = g - 1 (if we are close enough to a solution)
+        else:
+            g = np.roots(row)
+            eirr = np.real(g[np.isreal(g)]) - 1
+
+            # Realistic IRR
+            eirr = eirr[eirr >= -1]
+
+            # If no real solution
+            if len(eirr) == 0:
+                if raise_exceptions:
+                    raise NoRealSolutionError("No real solution is found for IRR.")
+                irr_results[i] = np.nan
+            # If only one real solution
+            elif len(eirr) == 1:
+                irr_results[i] = eirr[0]
+            else:
+                irr_results[i] = selection_logic(eirr)
+
+    return _ufunc_like(irr_results)
 
 
+@overload
+def npv(rate: _CoNumeric, values: _CoNumericND) -> float: ...
+@overload
+def npv(rate: _CoNumeric1D, values: _CoNumericND) -> npt.NDArray[np.float64]: ...
+@overload
+def npv(rate: _ArrayLike, values: _ArrayLike) -> Any: ...
 def npv(rate, values):
-    """
-    Returns the NPV (Net Present Value) of a cash flow series.
+    r"""Return the NPV (Net Present Value) of a cash flow series.
 
     Parameters
     ----------
-    rate : scalar
+    rate : scalar or array_like shape(K, )
         The discount rate.
-    values : array_like, shape(M, )
+    values : array_like, shape(M, ) or shape(M, N)
         The values of the time series of cash flows.  The (fixed) time
         interval between cash flow "events" must be the same as that for
         which `rate` is given (i.e., if `rate` is per year, then precisely
@@ -728,9 +1194,10 @@ def npv(rate, values):
 
     Returns
     -------
-    out : float
+    out : float or array shape(K, M)
         The NPV of the input cash flow series `values` at the discount
-        `rate`.
+        `rate`. `out` follows the ufunc convention of returning scalars
+        instead of single element arrays.
 
     Warnings
     --------
@@ -763,8 +1230,8 @@ def npv(rate, values):
     net present value:
 
     >>> rate, cashflows = 0.08, [-40_000, 5_000, 8_000, 12_000, 30_000]
-    >>> npf.npv(rate, cashflows).round(5)
-    3065.22267
+    >>> np.round(npf.npv(rate, cashflows), 5)
+    np.float64(3065.22267)
 
     It may be preferable to split the projected cashflow into an initial
     investment and expected future cashflows. In this case, the value of
@@ -774,47 +1241,175 @@ def npv(rate, values):
     >>> initial_cashflow = cashflows[0]
     >>> cashflows[0] = 0
     >>> np.round(npf.npv(rate, cashflows) + initial_cashflow, 5)
-    3065.22267
+    np.float64(3065.22267)
 
+    The NPV calculation may be applied to several ``rates`` and ``cashflows``
+    simulatneously. This produces an array of shape ``(len(rates), len(cashflows))``.
+
+    >>> rates = [0.00, 0.05, 0.10]
+    >>> cashflows = [[-4_000, 500, 800], [-5_000, 600, 900]]
+    >>> npf.npv(rates, cashflows).round(2)
+    array([[-2700.  , -3500.  ],
+           [-2798.19, -3612.24],
+           [-2884.3 , -3710.74]])
     """
-    values = np.asarray(values)
-    return (values / (1+rate)**np.arange(0, len(values))).sum(axis=0)
+    values_inner = np.atleast_2d(values).astype(np.float64)
+    rate_inner = np.atleast_1d(rate).astype(np.float64)
+
+    if rate_inner.ndim != 1:
+        msg = "invalid shape for rates. Rate must be either a scalar or 1d array"
+        raise ValueError(msg)
+
+    if values_inner.ndim != 2:
+        msg = "invalid shape for values. Values must be either a 1d or 2d array"
+        raise ValueError(msg)
+
+    output_shape = _get_output_array_shape(rate_inner, values_inner)
+    out = np.empty(output_shape)
+    _cfinancial.npv(rate_inner, values_inner, out)
+    return _ufunc_like(out)
 
 
-def mirr(values, finance_rate, reinvest_rate):
-    """
-    Modified internal rate of return.
+@overload
+def mirr(
+    values: _CoNumericND,
+    finance_rate: _CoNumeric,
+    reinvest_rate: _CoNumeric,
+    *,
+    raise_exceptions: bool = False,
+) -> float: ...
+@overload
+def mirr(
+    values: _CoNumericND,
+    finance_rate: _CoNumeric1D,
+    reinvest_rate: _CoNumeric1D,
+    *,
+    raise_exceptions: bool = False,
+) -> npt.NDArray[np.float64]: ...
+@overload
+def mirr(
+    values: _ArrayLike,
+    finance_rate: _ArrayLike,
+    reinvest_rate: _ArrayLike,
+    *,
+    raise_exceptions: bool = False,
+) -> Any: ...
+def mirr(values, finance_rate, reinvest_rate, *, raise_exceptions: bool = False):
+    r"""
+    Return the Modified Internal Rate of Return (MIRR).
+
+    MIRR is a financial metric that takes into account both the cost of
+    the investment and the return on reinvested cash flows. It is useful
+    for evaluating the profitability of an investment with multiple cash
+    inflows and outflows.
 
     Parameters
     ----------
-    values : array_like
-        Cash flows (must contain at least one positive and one negative
-        value) or nan is returned.  The first value is considered a sunk
-        cost at time zero.
-    finance_rate : scalar
-        Interest rate paid on the cash flows
-    reinvest_rate : scalar
-        Interest rate received on the cash flows upon reinvestment
+    values : array_like, 1D or 2D
+        Cash flows, where the first value is considered a sunk cost at time zero.
+        It must contain at least one positive and one negative value.
+    finance_rate : scalar or 1D array
+        Interest rate paid on the cash flows.
+    reinvest_rate : scalar or D array
+        Interest rate received on the cash flows upon reinvestment.
+    raise_exceptions: bool, optional
+        Flag to raise an exception when the MIRR cannot be computed due to
+        having all cash flows of the same sign (NoRealSolutionException).
+        Set to False as default,thus returning NaNs in the previous case.
 
     Returns
     -------
-    out : float
+    out : float or 2D array
         Modified internal rate of return
 
+    Notes
+    -----
+    The MIRR formula is as follows:
+
+    .. math::
+
+        MIRR =
+        \\left( \\frac{{FV_{positive}}}{{PV_{negative}}} \\right)^{\\frac{{1}}{{n-1}}}
+        * (1+r) - 1
+
+    where:
+        - \(FV_{positive}\) is the future value of positive cash flows,
+        - \(PV_{negative}\) is the present value of negative cash flows,
+        - \(n\) is the number of periods.
+        - \(r\) is the reinvestment rate.
+
+    Examples
+    --------
+    >>> import numpy_financial as npf
+
+    Consider a project with an initial investment of -$100
+    and projected cash flows of $50, -$60, and $70 at the end of each period.
+    The project has a finance rate of 10% and a reinvestment rate of 12%.
+
+    >>> npf.mirr([-100, 50, -60, 70], 0.10, 0.12)
+    -0.03909366594356467
+
+    It is also possible to supply multiple cashflows or pairs of
+    finance and reinvstment rates, note that in this case the number of elements
+    in each of the rates arrays must match.
+
+    >>> values = [
+    ...             [-4500, -800, 800, 800, 600],
+    ...             [-120000, 39000, 30000, 21000, 37000],
+    ...             [100, 200, -50, 300, -200],
+    ...         ]
+    >>> finance_rate = [0.05, 0.08, 0.10]
+    >>> reinvestment_rate = [0.08, 0.10, 0.12]
+    >>> npf.mirr(values, finance_rate, reinvestment_rate)
+    array([[-0.1784449 , -0.17328716, -0.1684366 ],
+           [ 0.04627293,  0.05437856,  0.06252201],
+           [ 0.35712458,  0.40628857,  0.44435295]])
+
+    Now, let's consider the scenario where all cash flows are negative.
+
+    >>> npf.mirr([-100, -50, -60, -70], 0.10, 0.12)
+    nan
+
+    Finally, let's explore the situation where all cash flows are positive,
+    and the `raise_exceptions` parameter is set to True.
+
+    >>> npf.mirr([
+    ...    100, 50, 60, 70],
+    ...    0.10, 0.12,
+    ...    raise_exceptions=True
+    ... ) #doctest: +NORMALIZE_WHITESPACE
+    Traceback (most recent call last):
+        ...
+    numpy_financial._financial.NoRealSolutionError:
+    No real solution exists for MIRR since  all cashflows are of the same sign.
     """
-    values = np.asarray(values)
-    n = values.size
+    values_inner = np.atleast_2d(values).astype(np.float64)
+    finance_rate_inner = np.atleast_1d(finance_rate).astype(np.float64)
+    reinvest_rate_inner = np.atleast_1d(reinvest_rate).astype(np.float64)
+    n = values_inner.shape[1]
 
-    # Without this explicit cast the 1/(n - 1) computation below
-    # becomes a float, which causes TypeError when using Decimal
-    # values.
-    if isinstance(finance_rate, Decimal):
-        n = Decimal(n)
-
-    pos = values > 0
-    neg = values < 0
-    if not (pos.any() and neg.any()):
+    if finance_rate_inner.size != reinvest_rate_inner.size:
+        if raise_exceptions:
+            raise ValueError("finance_rate and reinvest_rate must have the same size")
         return np.nan
-    numer = np.abs(npv(reinvest_rate, values*pos))
-    denom = np.abs(npv(finance_rate, values*neg))
-    return (numer/denom)**(1/(n - 1))*(1 + reinvest_rate) - 1
+
+    out_shape = _get_output_array_shape(values_inner, finance_rate_inner)
+    out = np.empty(out_shape)
+
+    for i, v in enumerate(values_inner):
+        for j, (rr, fr) in enumerate(
+            zip(reinvest_rate_inner, finance_rate_inner, strict=True)
+        ):
+            pos = v > 0
+            neg = v < 0
+
+            if not (pos.any() and neg.any()):
+                if raise_exceptions:
+                    raise NoRealSolutionError("No real solution exists for MIRR since"
+                                              " all cashflows are of the same sign.")
+                out[i, j] = np.nan
+            else:
+                numer = np.abs(npv(rr, v * pos))
+                denom = np.abs(npv(fr, v * neg))
+                out[i, j] = (numer / denom) ** (1 / (n - 1)) * (1 + rr) - 1
+    return _ufunc_like(out)

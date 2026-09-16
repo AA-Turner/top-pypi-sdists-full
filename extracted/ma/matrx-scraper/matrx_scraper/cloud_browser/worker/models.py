@@ -27,6 +27,15 @@ PAGE_INVENTORY_CAP = 50
 REPLAY_CACHE_SIZE = 64
 EVENT_BUFFER_CAP = 256
 
+# Bootstrap has two bounded, serial slow paths: restoring a checkpoint and
+# launching Chromium.  Restore covers download, decrypt/verify, profile install,
+# and marker write as one wall-clock operation; the manager imports these
+# protocol budgets to keep its end-to-end HTTP deadline larger than the worker
+# can legitimately take.
+CHECKPOINT_RESTORE_TOTAL_TIMEOUT_SECONDS = 120.0
+BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS = 45.0
+BOOTSTRAP_PARTIAL_LAUNCH_CLEANUP_TIMEOUT_SECONDS = 5.0
+
 # ── Controller & handoff enums (S2 §10.1, §12.3) ──
 ControllerStateName = Literal[
     "provisioning",

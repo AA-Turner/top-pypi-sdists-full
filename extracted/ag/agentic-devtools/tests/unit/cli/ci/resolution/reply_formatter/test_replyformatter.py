@@ -1,6 +1,6 @@
 """Tests for ReplyFormatter."""
 
-from agentic_devtools.cli.ci.resolution.models import ResolutionVerdict, TierResult
+from agentic_devtools.cli.ci.resolution.models import ResolutionBasis, ResolutionVerdict, TierResult
 from agentic_devtools.cli.ci.resolution.reply_formatter import ReplyFormatter
 
 
@@ -16,9 +16,10 @@ class TestReplyFormatter:
             explanation="Thread is outdated.",
         )
         reply = formatter.format_resolution_reply(result)
-        assert "<!-- agdt:resolution-tier:outdated -->" in reply.html_marker
+        assert reply.html_marker == "<!-- agdt:resolution-tier:outdated -->"
         assert "Thread resolved" in reply.human_text
         assert "[high]" in reply.human_text
+        assert "**Basis**: unspecified" in reply.human_text
         assert reply.model_id is None
 
     def test_format_tentative_reply(self) -> None:
@@ -61,11 +62,26 @@ class TestReplyFormatter:
             explanation="No relevant changes found.",
         )
         reply = formatter.format_resolution_reply(result)
-        assert "<!-- agdt:resolution-tier:diff_heuristic -->" in reply.html_marker
+        assert reply.html_marker == "<!-- agdt:resolution-tier:diff_heuristic -->"
         assert "Thread left open" in reply.human_text
         assert "❌" in reply.human_text
         assert "[high]" in reply.human_text
         assert reply.model_id is None
+
+    def test_format_reply_includes_resolution_basis(self) -> None:
+        formatter = ReplyFormatter()
+        result = TierResult(
+            verdict=ResolutionVerdict.RESOLVE,
+            confidence="high",
+            tier_name="sdk_evaluation",
+            explanation="The reviewer explicitly rejected the concern.",
+            resolution_basis=ResolutionBasis.EXPLICIT_REJECTION,
+        )
+        reply = formatter.format_resolution_reply(result)
+        assert "<!-- agdt:resolution-tier:sdk_evaluation -->" in reply.html_marker
+        assert "<!-- agdt:resolution-basis:explicit_rejection -->" in reply.html_marker
+        assert "**Basis**: explicit_rejection" in reply.human_text
+        assert reply.resolution_basis == ResolutionBasis.EXPLICIT_REJECTION
 
     def test_build_full_reply(self) -> None:
         formatter = ReplyFormatter()
@@ -111,3 +127,20 @@ class TestReplyFormatter:
         assert "SDK fallback produced an ambiguous result." in reply
         assert "**Model**: claude-sonnet-4.6" in reply
         assert "re-evaluated" in reply
+
+    def test_format_unconfirmed_commit_change_reply_includes_resolution_basis(self) -> None:
+        formatter = ReplyFormatter()
+        result = TierResult(
+            verdict=ResolutionVerdict.RESOLVE,
+            confidence="low",
+            tier_name="sdk_evaluation_fallback",
+            explanation="The reviewer rejected the concern.",
+            resolution_basis=ResolutionBasis.EXPLICIT_REJECTION,
+        )
+
+        reply = formatter.format_unconfirmed_commit_change_reply(result)
+
+        assert "<!-- agdt:resolution-tier:unconfirmed-commit-change -->" in reply
+        assert "<!-- agdt:resolution-basis:explicit_rejection -->" in reply
+        assert "basis=explicit_rejection" not in reply
+        assert "**Basis**: explicit_rejection" in reply

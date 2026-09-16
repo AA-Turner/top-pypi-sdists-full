@@ -561,6 +561,52 @@ class TestInjectSkillsWithSummary:
         assert "`managed-skill/SKILL.md`" in manifest
         assert "`user-skill/SKILL.md`" not in manifest
 
+    def test_shared_resource_collision_aborts_before_injecting_dependent_skills(self, tmp_path) -> None:
+        """A consumer fingerprint helper collision prevents bundled skill injection."""
+        source = tmp_path / "source_skills"
+        self._write_skill(source, "managed-skill")
+        (source / "fingerprint.py").write_text("bundled", encoding="utf-8")
+
+        target = tmp_path / ".agents" / "skills"
+        target.mkdir(parents=True)
+        (target / "fingerprint.py").write_text("consumer-authored", encoding="utf-8")
+
+        with patch("agentic_devtools.skill_injector._get_source_dir") as mock_src:
+            mock_src.side_effect = self._skills_selector(source)
+            with pytest.warns(RuntimeWarning, match="shared resource"):
+                success, summary = _inject_skills_with_summary(tmp_path)
+
+        assert success is False
+        assert summary.injected == 1
+        skills_plan = next(plan for plan in summary.plans if plan.kind == "skills")
+        assert "managed-skill/SKILL.md" in skills_plan.added
+        assert "fingerprint.py" in skills_plan.overwritten
+        assert (target / "fingerprint.py").read_text(encoding="utf-8") == "consumer-authored"
+        assert not (target / "managed-skill").exists()
+        assert not (target / "agdt.README.md").exists()
+
+    def test_shared_resource_collision_dry_run_prints_plans_without_mutation(self, tmp_path, capsys) -> None:
+        """Dry-run reports all planned skill changes when a shared resource collides."""
+        source = tmp_path / "source_skills"
+        self._write_skill(source, "managed-skill")
+        (source / "fingerprint.py").write_text("bundled", encoding="utf-8")
+
+        target = tmp_path / ".agents" / "skills"
+        target.mkdir(parents=True)
+        (target / "fingerprint.py").write_text("consumer-authored", encoding="utf-8")
+
+        with patch("agentic_devtools.skill_injector._get_source_dir") as mock_src:
+            mock_src.side_effect = self._skills_selector(source)
+            with pytest.warns(RuntimeWarning, match="shared resource"):
+                success, summary = _inject_skills_with_summary(tmp_path, dry_run=True)
+
+        assert success is False
+        assert any(plan.kind == "skills" for plan in summary.plans)
+        assert "Manifest diff — skills:" in capsys.readouterr().out
+        assert (target / "fingerprint.py").read_text(encoding="utf-8") == "consumer-authored"
+        assert not (target / "managed-skill").exists()
+        assert not (target / "agdt.README.md").exists()
+
     def test_existing_unmanaged_skill_directory_blocks_new_skill_files(self, tmp_path) -> None:
         """An unmanaged pre-existing skill directory blocks bundled writes for that skill."""
         source = tmp_path / "source_skills"

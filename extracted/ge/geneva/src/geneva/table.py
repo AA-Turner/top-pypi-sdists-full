@@ -6,6 +6,7 @@ import hashlib
 import itertools
 import json
 import logging
+import math
 import os
 import platform
 import threading
@@ -125,6 +126,15 @@ _LANCE_BLOB_DESCRIPTOR_TYPE = pa.struct(
         pa.field("size", pa.uint64()),
     ]
 )
+_LANCE_BLOB_V2_DESCRIPTOR_TYPE = pa.struct(
+    [
+        pa.field("kind", pa.uint8()),
+        pa.field("position", pa.uint64()),
+        pa.field("size", pa.uint64()),
+        pa.field("blob_id", pa.uint32()),
+        pa.field("blob_uri", pa.utf8()),
+    ]
+)
 
 # Metadata key for tracking the last successfully refreshed source version
 MATVIEW_LAST_REFRESHED_VERSION = "geneva::mv::last_refreshed_version"
@@ -169,6 +179,24 @@ class _UnpackBackfillContext:
     @property
     def default_where(self) -> str:
         return " OR ".join(f"{col} IS NULL" for col in self.columns)
+
+
+@attrs.define(frozen=True)
+class _UnpackedUDFOutputPlan:
+    field: UnpackedUDFField
+    metadata: dict[str, str]
+
+
+@attrs.define(frozen=True)
+class _UnpackedUDFPlan:
+    udf: UDF
+    group_id: str
+    fields_payload: tuple[dict[str, str], ...]
+    outputs: tuple[_UnpackedUDFOutputPlan, ...]
+
+    @property
+    def output_columns(self) -> list[str]:
+        return [output.field.output_column for output in self.outputs]
 
 
 def _is_intentional_full_reprocess_where(where: str | None) -> bool:
@@ -226,6 +254,40 @@ def _unpack_group_id(udf: UDF, output_columns: list[str]) -> str:
     return hasher.hexdigest()[:16]
 
 
+def _build_unpacked_udf_plan(unpacked: UnpackedUDF) -> _UnpackedUDFPlan:
+    """Derive the ordered output and group metadata shared by all transports."""
+    udf = unpacked.udf
+    output_columns = [field.output_column for field in unpacked.fields]
+    group_id = _unpack_group_id(udf, output_columns)
+    fields_payload = tuple(
+        {"field": field.struct_field_name, "column": field.output_column}
+        for field in unpacked.fields
+    )
+    fields_json = json.dumps(fields_payload)
+    outputs = tuple(
+        _UnpackedUDFOutputPlan(
+            field=field,
+            metadata=(
+                udf.field_metadata
+                | _metadata_to_str_dict(field.field.metadata)
+                | {
+                    _UNPACK_META_FLAG: "true",
+                    _UNPACK_META_GROUP: group_id,
+                    _UNPACK_META_FIELD: field.struct_field_name,
+                    _UNPACK_META_FIELDS: fields_json,
+                }
+            ),
+        )
+        for field in unpacked.fields
+    )
+    return _UnpackedUDFPlan(
+        udf=udf,
+        group_id=group_id,
+        fields_payload=fields_payload,
+        outputs=outputs,
+    )
+
+
 def _normalize_backfill_columns(columns: "str | list[str]") -> str:
     """Normalize the ``columns`` argument accepted by ``backfill()`` and
     ``backfill_async()``.
@@ -255,6 +317,94 @@ def _normalize_backfill_columns(columns: "str | list[str]") -> str:
             "column name string."
         )
     raise TypeError(f"columns must be str or list[str], got {type(columns).__name__}")
+
+
+def _finite_resource_count(name: str, value: float | int) -> float:
+    """Coerce a CPU/GPU count to a finite float; reject bools and non-numbers."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise TypeError(f"{name} must be a number, got {type(value).__name__}")
+    value = float(value)
+    if not math.isfinite(value):
+        raise ValueError(f"{name} must be a finite number, got {value}")
+    return value
+
+
+def _normalize_backfill_resources(
+    num_cpus: float | int | None,
+    num_gpus: float | int | None,
+    memory: int | None,
+) -> tuple[float | None, float | None, int | None]:
+    """Validate the per-actor resource overrides accepted by ``backfill()``.
+
+    ``num_cpus`` must be above zero because the applier reserves one CPU for
+    a zero count; ``num_gpus`` and ``memory`` (bytes) may be zero.
+    """
+    if num_cpus is not None:
+        num_cpus = _finite_resource_count("num_cpus", num_cpus)
+        if num_cpus <= 0:
+            raise ValueError(
+                "num_cpus must be greater than 0; use a fraction such as 0.25 "
+                "for a small reservation"
+            )
+    if num_gpus is not None:
+        num_gpus = _finite_resource_count("num_gpus", num_gpus)
+        if num_gpus < 0:
+            raise ValueError("num_gpus must be non-negative")
+    if memory is not None:
+        if isinstance(memory, bool) or not isinstance(memory, int):
+            raise TypeError(f"memory must be an int, got {type(memory).__name__}")
+        if memory < 0:
+            raise ValueError("memory must be non-negative")
+    return num_cpus, num_gpus, memory
+
+
+def _backfill_resource_metadata(
+    udf: "UDF | None",
+    *,
+    num_cpus: float | None,
+    num_gpus: float | None,
+    memory: int | None,
+    default_memory_bytes: int,
+    cpu_thread_count: int,
+    intra_applier_concurrency: int,
+    include_multipliers: bool = True,
+) -> dict[str, Any]:
+    """Describe the per-actor reservation for the job record.
+
+    ``expected_actor_reservation`` is resolved on the client, whose
+    ``JobConfig`` can differ from the driver's. Sparse actors have no
+    multipliers, so those are omitted.
+    """
+    metadata: dict[str, Any] = {
+        "resource_overrides": {
+            "num_cpus": num_cpus,
+            "num_gpus": num_gpus,
+            "memory": memory,
+        },
+    }
+    if udf is None:
+        return metadata
+    base_cpus = udf.num_cpus if num_cpus is None else num_cpus
+    base_gpus = udf.num_gpus if num_gpus is None else num_gpus
+    declared_memory = udf.memory if memory is None else memory
+    base_memory = default_memory_bytes if declared_memory is None else declared_memory
+    metadata["resolved_base_resources"] = {
+        "num_cpus": base_cpus,
+        "num_gpus": base_gpus,
+        "memory": base_memory,
+    }
+    if include_multipliers:
+        metadata["reservation_multipliers"] = {
+            "cpu_thread_count": cpu_thread_count,
+            "intra_applier_concurrency": intra_applier_concurrency,
+        }
+    # Mirrors setup_actor.
+    metadata["expected_actor_reservation"] = {
+        "num_cpus": (base_cpus or 1.0) * cpu_thread_count,
+        "num_gpus": base_gpus or 0.0,
+        "memory": base_memory * intra_applier_concurrency,
+    }
+    return metadata
 
 
 def _get_last_refreshed_version(table: "Table") -> int | None:
@@ -449,8 +599,12 @@ def _selected_field(schema: pa.Schema, column: str) -> pa.Field:
     if internal_type is not None and column not in schema.names:
         return pa.field(column, internal_type)
     field = _physical_field(schema, column)
+    from geneva.apply.blob_range import is_blob_field, is_blob_v2_field
+
+    if is_blob_v2_field(field):
+        return field.with_type(_LANCE_BLOB_V2_DESCRIPTOR_TYPE)
     metadata = field.metadata or {}
-    if _LANCE_BLOB_ENCODING_META_KEY in metadata:
+    if is_blob_field(field) or _LANCE_BLOB_ENCODING_META_KEY in metadata:
         return field.with_type(_LANCE_BLOB_DESCRIPTOR_TYPE)
     return field
 
@@ -1998,7 +2152,17 @@ class Table(LanceTable):
             )
 
         self._ltbl.checkout_latest()
-        self._ltbl.add_columns(pa.field(col_name, udf.data_type))
+        use_blob_v2 = self._uses_blob_v2_storage()
+        output_field = pa.field(
+            col_name,
+            udf.data_type,
+            metadata=udf.field_metadata or None,
+        )
+        from geneva.apply.blob_range import rewrite_blob_fields_for_storage
+
+        self._ltbl.add_columns(
+            rewrite_blob_fields_for_storage(output_field, use_blob_v2=use_blob_v2)
+        )
         self._configure_computed_column(col_name, udf, input_columns)
 
     def _add_unpacked_virtual_columns(
@@ -2012,12 +2176,8 @@ class Table(LanceTable):
             raise ValueError(
                 "Columns[T] multi-column add_columns does not accept extra arguments"
             )
-        if self._conn.use_remote_dispatch():
-            raise NotImplementedError(
-                "RemoteTable.add_columns() does not yet support Columns[T] "
-                "multi-column UDFs."
-            )
-        if not isinstance(self._ltbl, LanceLocalTable):
+        use_remote_dispatch = self._conn.use_remote_dispatch()
+        if not use_remote_dispatch and not isinstance(self._ltbl, LanceLocalTable):
             raise TypeError(
                 "adding udf column is currently only supported for local tables"
             )
@@ -2028,7 +2188,8 @@ class Table(LanceTable):
         input_cols = input_columns if input_columns is not None else udf.input_columns
         canonical_input_cols = canonical_field_paths(self._ltbl.schema, input_cols)
         cols_to_check = input_cols or []
-        output_columns = [field.output_column for field in unpacked.fields]
+        plan = _build_unpacked_udf_plan(unpacked)
+        output_columns = plan.output_columns
         circular = sorted(set(output_columns) & set(cols_to_check))
         if udf.arg_type != UDFArgType.RECORD_BATCH and circular:
             raise ValueError(
@@ -2044,23 +2205,26 @@ class Table(LanceTable):
                 f"{collisions}"
             )
 
+        if use_remote_dispatch:
+            self._add_unpacked_virtual_columns_remote(
+                plan,
+                canonical_input_cols or [],
+            )
+            return
+
         udf_spec = self._conn._packager.marshal(udf, table_ref=self.get_reference())
         checksum = hashlib.sha256(udf_spec.udf_payload).hexdigest()
         udf_location = f"_udfs/{checksum}"
         self._upload_udf(udf_spec.udf_payload, udf_location)
 
-        group_id = _unpack_group_id(udf, output_columns)
-        fields_payload = [
-            {"field": field.struct_field_name, "column": field.output_column}
-            for field in unpacked.fields
-        ]
+        from geneva.apply.blob_range import rewrite_blob_fields_for_storage
+
+        use_blob_v2 = self._uses_blob_v2_storage()
         schema_fields: list[pa.Field] = []
-        for unpacked_field in unpacked.fields:
+        for output in plan.outputs:
+            unpacked_field = output.field
             child_field = unpacked_field.field
-            base_field_metadata = udf.field_metadata | _metadata_to_str_dict(
-                child_field.metadata
-            )
-            field_metadata = base_field_metadata | {
+            field_metadata = output.metadata | {
                 "virtual_column": "true",
                 "virtual_column.udf_backend": udf_spec.backend,
                 "virtual_column.udf_name": udf_spec.name,
@@ -2072,10 +2236,6 @@ class Table(LanceTable):
                 "virtual_column.auto_backfill": (
                     "true" if udf.auto_backfill else "false"
                 ),
-                _UNPACK_META_FLAG: "true",
-                _UNPACK_META_GROUP: group_id,
-                _UNPACK_META_FIELD: unpacked_field.struct_field_name,
-                _UNPACK_META_FIELDS: json.dumps(fields_payload),
             }
             if udf.manifest is not None:
                 field_metadata["virtual_column.manifest"] = udf.manifest.to_json()
@@ -2083,11 +2243,14 @@ class Table(LanceTable):
                     udf.manifest.compute_checksum()
                 )
             schema_fields.append(
-                pa.field(
-                    unpacked_field.output_column,
-                    child_field.type,
-                    nullable=child_field.nullable,
-                    metadata=field_metadata,
+                rewrite_blob_fields_for_storage(
+                    pa.field(
+                        unpacked_field.output_column,
+                        child_field.type,
+                        nullable=child_field.nullable,
+                        metadata=field_metadata,
+                    ),
+                    use_blob_v2=use_blob_v2,
                 )
             )
 
@@ -2375,23 +2538,12 @@ class Table(LanceTable):
                 and src_version != base_version
             ):
                 raise RuntimeError(
-                    f"Cannot refresh materialized view to version {src_version} "
-                    "because the source table does not have stable row IDs "
-                    f"enabled.\n\n"
-                    f"This materialized view was created from source version "
-                    f"{base_version}. "
-                    "Without stable row IDs, incremental refresh is only supported "
-                    "when refreshing to the SAME version it was created from.\n\n"
-                    "This limitation exists because compaction operations may have "
-                    "changed the physical row IDs between versions, which would "
-                    "break the materialized view's ability to track source rows.\n\n"
-                    "To enable refresh across all versions, recreate the source "
-                    "table with stable row IDs:\n"
-                    "  db.create_table(\n"
-                    "      name='table_name',\n"
-                    "      data=data,\n"
-                    "      storage_options={'new_table_enable_stable_row_ids': True}\n"
-                    "  )"
+                    f"Cannot refresh this materialized view to source version "
+                    f"{src_version}: it is pinned to source version "
+                    f"{base_version}.\n\n"
+                    f"Use refresh(src_version={base_version}). Note that the "
+                    "view will not pick up rows written to the source after "
+                    f"version {base_version}."
                 )
 
             # Note: backwards refresh (point-in-time refresh to older versions) is now
@@ -3519,6 +3671,9 @@ class Table(LanceTable):
         where: str | None = None,
         concurrency: int = 8,
         intra_applier_concurrency: int = 1,
+        num_cpus: float | None = None,
+        num_gpus: float | None = None,
+        memory: int | None = None,
         _admission_check: bool | None = None,
         _admission_strict: bool | None = None,
         min_checkpoint_size: int | None = None,
@@ -3558,6 +3713,28 @@ class Table(LanceTable):
             (default = 1) This controls the number of threads used to execute tasks
             within a process. Multiplying this times `concurrency` roughly corresponds
             to the number of cpu's being used.
+        num_cpus: float | None
+            Per-job override for ``@udf(num_cpus=...)``: CPUs each applier
+            actor reserves, before the ``intra_applier_concurrency`` or GPU
+            pipelining multiplier. Must be greater than 0; fractions are
+            fine. Admission control prices the same figure.
+        num_gpus: float | None
+            Per-job override for ``@udf(num_gpus=...)``: GPUs each applier
+            actor reserves. Fractions are fine; ``0`` places actors without a
+            GPU request. Reservations do not change what the UDF does, so
+            lowering a GPU UDF to ``0`` logs a warning.
+        memory: int | None
+            Per-job override for ``@udf(memory=...)``: bytes each applier
+            actor reserves, before the ``intra_applier_concurrency``
+            multiplier. Like a UDF declaration it replaces the default floor;
+            ``0`` asks for unreserved scheduling.
+
+            Overrides apply to this job only and never change checkpoint
+            identity. With ``update_mode="sparse_rows"`` each sparse actor
+            reserves the same per-actor figures without the
+            ``intra_applier_concurrency`` or pipelining multipliers and takes
+            no default memory floor. Not supported on remote ``db://``
+            connections, which raise.
         _admission_check: bool | None
             Whether to run admission control to validate cluster resources before
             starting the job. If None, uses GENEVA_ADMISSION__CHECK env var
@@ -3602,6 +3779,12 @@ class Table(LanceTable):
             ``min(table.count_rows() // num_workers // 2,
             max_fragment_size)`` when omitted, where ``max_fragment_size`` is
             the largest fragment in the pinned read snapshot.
+        use_cpu_only_pool: bool
+            (default = False) If True, pin applier actors to CPU-only nodes
+            via the ``cpu-only`` custom resource. Ignored (with a warning)
+            when the UDF declares ``num_gpus > 0``, since CPU-only nodes
+            carry no GPUs. Raises when no live node advertises the
+            resource.
         num_frags: int | None
             (default = None) The number of table fragments to process.  If None,
             process all fragments.
@@ -3623,12 +3806,21 @@ class Table(LanceTable):
         """
         col_name = _normalize_backfill_columns(columns)
         col_name = self._canonical_backfill_output_column(col_name)
+        num_cpus, num_gpus, memory = _normalize_backfill_resources(
+            num_cpus, num_gpus, memory
+        )
         self._validate_update_mode(
             kwargs.get("update_mode"),
             num_frags=kwargs.get("num_frags"),
             skip_frags=kwargs.get("skip_frags", 0),
             read_version=kwargs.get("read_version"),
         )
+        has_resource_override = any(v is not None for v in (num_cpus, num_gpus, memory))
+        if num_gpus is not None and num_gpus > 0 and kwargs.get("use_cpu_only_pool"):
+            raise ValueError(
+                "num_gpus > 0 conflicts with use_cpu_only_pool=True: CPU-only "
+                "nodes carry no GPUs. Drop one of the two."
+            )
 
         # V2 remote path: route through namespace API
         if self._conn.use_remote_dispatch():
@@ -3640,6 +3832,12 @@ class Table(LanceTable):
             if _admission_check is not None or _admission_strict is not None:
                 raise NotImplementedError(
                     "Admission control is not yet supported for remote connections."
+                )
+            if has_resource_override:
+                raise NotImplementedError(
+                    "backfill_async(num_cpus=..., num_gpus=..., memory=...) is "
+                    "not yet supported for remote connections. Set the resources "
+                    "on the UDF and call alter_columns() instead."
                 )
             return self._backfill_async_v2(
                 col_name,
@@ -3680,10 +3878,12 @@ class Table(LanceTable):
                 col_name, udf=udf, where=where, read_version=read_version
             )
         )
+        from geneva.apply.blob_range import default_resume_predicate
+
         expected_default_where = (
             unpack_context.default_where
             if unpack_context is not None
-            else f"{col_name} IS NULL"
+            else default_resume_predicate(col_name, self._ltbl.schema.field(col_name))
         )
         default_where_generated = (
             original_where is None and resolved_where == expected_default_where
@@ -3713,10 +3913,30 @@ class Table(LanceTable):
         # Always call validate_admission when there's a UDF - it handles check=None
         # by reading from config (GENEVA_ADMISSION__CHECK env var, default True)
         from geneva.jobs.config import JobConfig
-        from geneva.runners.ray.admission import validate_admission
+        from geneva.runners.ray.admission import (
+            actor_cpu_thread_count,
+            validate_admission,
+        )
         from geneva.runners.ray.memory_budget import resolve_default_actor_memory
 
+        _resource_metadata = _backfill_resource_metadata(
+            None,
+            num_cpus=num_cpus,
+            num_gpus=num_gpus,
+            memory=memory,
+            default_memory_bytes=0,
+            cpu_thread_count=1,
+            intra_applier_concurrency=intra_applier_concurrency,
+        )
         if current_udf is not None:
+            if num_gpus == 0 and (current_udf.num_gpus or 0) > 0:
+                _LOG.warning(
+                    "backfill(num_gpus=0) drops the GPU reservation UDF '%s' "
+                    "declares (num_gpus=%s). Applier actors are placed without "
+                    "a GPU request; the UDF's processing logic is unchanged.",
+                    current_udf.name,
+                    current_udf.num_gpus,
+                )
             # Mirror setup_actor's CPU reservation so admission catches
             # the documented pipelining-readers footgun (reserved
             # 1+pipelining_num_readers CPUs but admission saw 1) before
@@ -3728,27 +3948,50 @@ class Table(LanceTable):
             # runtime-env override can separate, so resolving it twice can
             # name two numbers.
             #
-            # Zero for a sparse update. That mode routes to its own pipeline,
-            # whose actor requests no Ray resources at all, so pricing the
-            # floor here would warn about memory the job never asks for.
-            _default_memory_bytes = (
-                0
-                if kwargs.get("update_mode") is not None
-                else resolve_default_actor_memory()
+            # Sparse actors take no floor, run one range per process (no
+            # multipliers) and use no FragmentWriter actors.
+            _is_sparse = kwargs.get("update_mode") is not None
+            _default_memory_bytes = 0 if _is_sparse else resolve_default_actor_memory()
+            _cpu_thread_count = (
+                1
+                if _is_sparse
+                else actor_cpu_thread_count(
+                    enable_gpu_pipelining=_job_cfg.enable_gpu_pipelining,
+                    pipelining_num_readers=_job_cfg.pipelining_num_readers,
+                    has_preprocess=current_udf.has_preprocess(),
+                    intra_applier_concurrency=intra_applier_concurrency,
+                )
             )
+            _actor_concurrency = 1 if _is_sparse else intra_applier_concurrency
             validate_admission(
                 current_udf,
                 concurrency=concurrency,
-                intra_applier_concurrency=intra_applier_concurrency,
-                enable_gpu_pipelining=_job_cfg.enable_gpu_pipelining,
+                intra_applier_concurrency=_actor_concurrency,
+                enable_gpu_pipelining=(
+                    False if _is_sparse else _job_cfg.enable_gpu_pipelining
+                ),
                 pipelining_num_readers=_job_cfg.pipelining_num_readers,
                 check=_admission_check,
                 strict=_admission_strict,
                 default_memory_bytes=_default_memory_bytes,
+                num_cpus_override=num_cpus,
+                num_gpus_override=num_gpus,
+                memory_override=memory,
+                fragment_writers=not _is_sparse,
             )
             # ``_`` prefix keeps it off the remote (db://) path, like the
             # other internal planner options -- see geneva.utils.remote_options.
             kwargs["_default_actor_memory_bytes"] = _default_memory_bytes
+            _resource_metadata = _backfill_resource_metadata(
+                current_udf,
+                num_cpus=num_cpus,
+                num_gpus=num_gpus,
+                memory=memory,
+                default_memory_bytes=_default_memory_bytes,
+                cpu_thread_count=_cpu_thread_count,
+                intra_applier_concurrency=_actor_concurrency,
+                include_multipliers=not _is_sparse,
+            )
 
         # Mint the job_id up front so the root span carries the real id.
         if job_id is None:
@@ -3791,6 +4034,10 @@ class Table(LanceTable):
                     ),
                     concurrency=concurrency,
                     intra_applier_concurrency=intra_applier_concurrency,
+                    num_cpus=num_cpus,
+                    num_gpus=num_gpus,
+                    memory=memory,
+                    resource_metadata=_resource_metadata,
                     enable_job_tracker_saves=_enable_job_tracker_saves,
                     job_tracker_min_update_interval_secs=(
                         job_tracker_min_update_interval_secs
@@ -3825,6 +4072,9 @@ class Table(LanceTable):
         where: str | None = None,
         concurrency: int = 8,
         intra_applier_concurrency: int = 1,
+        num_cpus: float | None = None,
+        num_gpus: float | None = None,
+        memory: int | None = None,
         _admission_check: bool | None = None,
         _admission_strict: bool | None = None,
         refresh_status_secs: float = 2.0,
@@ -3865,6 +4115,28 @@ class Table(LanceTable):
             (default = 1) This controls the number of threads used to execute tasks
             within a process. Multiplying this times `concurrency` roughly corresponds
             to the number of cpu's being used.
+        num_cpus: float | None
+            Per-job override for ``@udf(num_cpus=...)``: CPUs each applier
+            actor reserves, before the ``intra_applier_concurrency`` or GPU
+            pipelining multiplier. Must be greater than 0; fractions are
+            fine. Admission control prices the same figure.
+        num_gpus: float | None
+            Per-job override for ``@udf(num_gpus=...)``: GPUs each applier
+            actor reserves. Fractions are fine; ``0`` places actors without a
+            GPU request. Reservations do not change what the UDF does, so
+            lowering a GPU UDF to ``0`` logs a warning.
+        memory: int | None
+            Per-job override for ``@udf(memory=...)``: bytes each applier
+            actor reserves, before the ``intra_applier_concurrency``
+            multiplier. Like a UDF declaration it replaces the default floor;
+            ``0`` asks for unreserved scheduling.
+
+            Overrides apply to this job only and never change checkpoint
+            identity. With ``update_mode="sparse_rows"`` each sparse actor
+            reserves the same per-actor figures without the
+            ``intra_applier_concurrency`` or pipelining multipliers and takes
+            no default memory floor. Not supported on remote ``db://``
+            connections, which raise.
         _admission_check: bool | None
             Whether to run admission control to validate cluster resources before
             starting the job. If None, uses GENEVA_ADMISSION__CHECK env var
@@ -3910,6 +4182,12 @@ class Table(LanceTable):
             ``min(table.count_rows() // num_workers // 2,
             max_fragment_size)`` when omitted, where ``max_fragment_size`` is
             the largest fragment in the pinned read snapshot.
+        use_cpu_only_pool: bool
+            (default = False) If True, pin applier actors to CPU-only nodes
+            via the ``cpu-only`` custom resource. Ignored (with a warning)
+            when the UDF declares ``num_gpus > 0``, since CPU-only nodes
+            carry no GPUs. Raises when no live node advertises the
+            resource.
         num_frags: int | None
             (default = None) The number of table fragments to process.  If None,
             process all fragments.
@@ -3930,9 +4208,41 @@ class Table(LanceTable):
             global config is used.
         timeout: timedelta | float | None
             Maximum wall-clock time to wait for the backfill job to complete.
+
+        Examples
+        --------
+        ``concurrency`` is how many applier actors run; ``num_cpus``,
+        ``num_gpus`` and ``memory`` are what each one reserves, and default
+        to the UDF's ``@udf(...)`` declaration. To run one registered UDF
+        with two resource shapes, split the rows with ``where`` and pass the
+        reservation per call. An explicit ``where`` replaces the default
+        ``<column> IS NULL`` filter, so include it yourself. Values here are
+        illustrative, not tuning advice::
+
+            eligible = "probe.status = 'ok' AND shots IS NULL"
+            short = "probe.container.duration_us < 120000000"
+            tbl.backfill("shots", where=f"{eligible} AND {short}",
+                         concurrency=64, num_gpus=0.25, memory=12 * 2**30)
+            tbl.backfill("shots",
+                         where=f"{eligible} AND (NOT ({short}) "
+                               "OR probe.container.duration_us IS NULL)",
+                         concurrency=16, num_gpus=1, memory=48 * 2**30)
+
+        Both passes run the same registered UDF, and the second could be a
+        sparse update (``update_mode="sparse_rows"``) with its own
+        reservation. For an ordinary pass, changing only resource
+        reservations preserves checkpoint identity, so rerunning it with a
+        different reservation resumes it; each filtered pass has its own
+        checkpoints because the ``where`` predicate is part of the identity.
+        A sparse pass does not use those checkpoints: a rerun scans the rows
+        that currently match, so the ``IS NULL`` condition is what skips rows
+        already populated, and any uncommitted work simply runs again.
         """
         col_name = _normalize_backfill_columns(columns)
         col_name = self._canonical_backfill_output_column(col_name)
+        num_cpus, num_gpus, memory = _normalize_backfill_resources(
+            num_cpus, num_gpus, memory
+        )
         unpack_context = self._get_unpack_backfill_context(col_name)
 
         # update_mode is validated in backfill_async (the shared sync entry).
@@ -3998,6 +4308,9 @@ class Table(LanceTable):
                     where=where,
                     concurrency=concurrency,
                     intra_applier_concurrency=intra_applier_concurrency,
+                    num_cpus=num_cpus,
+                    num_gpus=num_gpus,
+                    memory=memory,
                     _admission_check=_admission_check,
                     _admission_strict=_admission_strict,
                     _enable_job_tracker_saves=_enable_job_tracker_saves,
@@ -4509,6 +4822,24 @@ class Table(LanceTable):
 
         return [entry["column"] for entry in json.loads(raw_fields.decode("utf-8"))]
 
+    def _validate_alter_columns_unpack_groups(
+        self, alterations: tuple[dict[str, Any], ...]
+    ) -> None:
+        """Reject sibling-group mutations before selecting a table transport."""
+        for alter in alterations:
+            if "path" not in alter:
+                raise ValueError("path is required to alter computed column's udf")
+
+            col_name = alter["path"]
+            group_columns = self._unpack_group_columns_for_column(col_name)
+            if group_columns is not None:
+                raise ValueError(
+                    f"Column {col_name!r} is part of a multi-column UDF group. "
+                    "alter_columns() is not supported for individual sibling "
+                    "columns; drop all sibling columns and add the replacement "
+                    f"columns again. Sibling columns: {group_columns}."
+                )
+
     def plan_backfill(
         self,
         col_name: str,
@@ -4641,24 +4972,15 @@ class Table(LanceTable):
                 { "path": "col2", "udf": col2_udf})
 
         """
+        self._validate_alter_columns_unpack_groups(alterations)
+
         # Remote (db://) path: route through namespace API.
         if self._conn.use_remote_dispatch():
             return self._alter_columns_remote(*alterations)
 
         basic_column_alterations = []
         for alter in alterations:
-            if "path" not in alter:
-                raise ValueError("path is required to alter computed column's udf")
-
             col_name = alter["path"]
-            group_columns = self._unpack_group_columns_for_column(col_name)
-            if group_columns is not None:
-                raise ValueError(
-                    f"Column {col_name!r} is part of a multi-column UDF group. "
-                    "alter_columns() is not supported for individual sibling "
-                    "columns; drop all sibling columns and add the replacement "
-                    f"columns again. Sibling columns: {group_columns}."
-                )
 
             # Reject ambiguous input early: when both the deprecated alias
             # and the new key are present, native and remote paths used to
@@ -4737,6 +5059,16 @@ class Table(LanceTable):
         finally:
             os.unlink(tmp_path)
 
+    def _uses_blob_v2_storage(self) -> bool:
+        from geneva.apply.blob_checkpoint import (
+            storage_version_supports_blob_v2_checkpoints,
+        )
+        from geneva.query import open_read_dataset
+
+        return storage_version_supports_blob_v2_checkpoints(
+            open_read_dataset(self).data_storage_version
+        )
+
     def _configure_computed_column(
         self,
         col_name: str,
@@ -4804,6 +5136,26 @@ class Table(LanceTable):
             field_metadata["virtual_column.manifest_checksum"] = (
                 udf.manifest.compute_checksum()
             )
+
+        existing_field = self._ltbl.schema.field(col_name)
+        existing_meta = _metadata_to_str_dict(existing_field.metadata)
+        preserved = {
+            key: value
+            for key, value in existing_meta.items()
+            if key.startswith("ARROW:extension:")
+        }
+        field_metadata = preserved | field_metadata
+        if self._uses_blob_v2_storage():
+            from geneva.apply.blob_range import (
+                is_blob_field,
+                without_legacy_blob_metadata,
+            )
+
+            if is_blob_field(existing_field) or is_blob_field(
+                pa.field(col_name, udf.data_type, metadata=udf.field_metadata or None)
+            ):
+                field_metadata = without_legacy_blob_metadata(field_metadata)
+                field_metadata["ARROW:extension:name"] = "lance.blob.v2"
 
         # Add the column metadata:
         get_field_metadata_writer().update(
@@ -5446,11 +5798,13 @@ class Table(LanceTable):
         )
         response = ns.alter_table_backfill_columns(request)
 
-        output_columns = [output_column]
-        input_columns = self._virtual_column_input_paths(output_columns[0])
+        output_columns = self._unpack_group_columns_for_column(output_column) or [
+            output_column
+        ]
+        input_columns = self._virtual_column_input_paths(output_column)
         self._conn._history.launch(
             self._name,
-            output_columns[0],
+            output_column,
             job_id=response.job_id,
             input_columns=input_columns,
             output_columns=output_columns,
@@ -5459,7 +5813,7 @@ class Table(LanceTable):
         remote_job = RemoteJob(
             job_id=response.job_id,
             table_name=self._name,
-            column_name=output_columns[0],
+            column_name=output_column,
             job_type="backfill",
             conn=self._conn,
         )
@@ -5587,7 +5941,6 @@ class Table(LanceTable):
         transforms: dict[str, "str | UDF | tuple[UDF, list[str]]"],
     ) -> None:
         """Add columns via the namespace API (remote ``db://`` path)."""
-        from lance_namespace import AlterTableAddColumnsRequest
         from lance_namespace_urllib3_client.models.add_columns_entry import (
             AddColumnsEntry,
         )
@@ -5597,7 +5950,6 @@ class Table(LanceTable):
 
         from geneva.virtual_column import build_virtual_column_entry
 
-        ns = self._conn.namespace_client()
         new_columns: list[AddColumnsEntry] = []
         for col_name, spec in transforms.items():
             if isinstance(spec, str):
@@ -5610,9 +5962,11 @@ class Table(LanceTable):
                     input_cols = udf.input_columns or []
                 input_cols = canonical_field_paths(self.schema, input_cols) or []
                 if udf.is_multi_output:
-                    raise NotImplementedError(
-                        "RemoteTable.add_columns() does not yet support Columns[T] "
-                        "multi-column UDFs."
+                    raise ValueError(
+                        "Columns[T] UDFs must be added directly with "
+                        "table.add_columns(udf). Adding a Columns[T] UDF as a "
+                        "single struct column will be supported by a future "
+                        "as_struct() API."
                     )
                 entry_dict = build_virtual_column_entry(
                     col_name,
@@ -5624,6 +5978,64 @@ class Table(LanceTable):
                 vc = AddVirtualColumnEntry.model_validate(entry_dict)
                 new_columns.append(AddColumnsEntry(name=col_name, virtual_column=vc))
 
+        self._send_add_columns_remote(new_columns)
+
+    def _add_unpacked_virtual_columns_remote(
+        self,
+        plan: _UnpackedUDFPlan,
+        input_cols: list[str],
+    ) -> None:
+        """Add sibling outputs from one ``Columns[T]`` UDF atomically."""
+        from lance_namespace_urllib3_client.models.add_columns_entry import (
+            AddColumnsEntry,
+        )
+        from lance_namespace_urllib3_client.models.add_virtual_column_entry import (
+            AddVirtualColumnEntry,
+        )
+
+        from geneva.virtual_column import (
+            _arrow_type_to_json,
+            build_virtual_column_entry,
+        )
+
+        outputs = []
+        for output in plan.outputs:
+            unpacked_field = output.field
+            child_field = unpacked_field.field
+            outputs.append(
+                {
+                    "column": unpacked_field.output_column,
+                    "struct_field": unpacked_field.struct_field_name,
+                    "data_type": _arrow_type_to_json(child_field.type),
+                    "nullable": child_field.nullable,
+                    "metadata": output.metadata,
+                }
+            )
+
+        representative_column = plan.output_columns[0]
+        entry_dict = build_virtual_column_entry(
+            representative_column,
+            plan.udf,
+            input_cols,
+            self._conn._packager,
+            table_ref=self.get_reference(),
+            outputs=outputs,
+        )
+        virtual_column = AddVirtualColumnEntry.model_validate(entry_dict)
+        self._send_add_columns_remote(
+            [
+                AddColumnsEntry(
+                    name=representative_column,
+                    virtual_column=virtual_column,
+                )
+            ]
+        )
+
+    def _send_add_columns_remote(self, new_columns: list[Any]) -> None:
+        """Send a namespace add-columns request with stale-cache retries."""
+        from lance_namespace import AlterTableAddColumnsRequest
+
+        ns = self._conn.namespace_client()
         request = AlterTableAddColumnsRequest(
             id=self._table_id,
             new_columns=new_columns,

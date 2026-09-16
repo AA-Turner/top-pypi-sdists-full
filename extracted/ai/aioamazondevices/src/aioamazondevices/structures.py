@@ -31,6 +31,7 @@ class AmazonDeviceSensor:
     error_type: str | None
     error_msg: str | None
     scale: str | None
+    time_of_sample: datetime | None = None
 
 
 @dataclass
@@ -191,6 +192,9 @@ class AmazonVocalRecord:
     intent: str
     title: str
     sub_title: str
+    # Speaker recognised by an Alexa voice profile, when Amazon provides one
+    person_first_name: str | None = None
+    person_type: str | None = None
 
 
 class AmazonListType(StrEnum):

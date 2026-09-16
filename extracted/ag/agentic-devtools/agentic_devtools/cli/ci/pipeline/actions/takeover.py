@@ -56,6 +56,9 @@ class TakeOverAutomationCommitAction:
     because HEAD changed; the redispatched loop evaluates the fresh human HEAD.
     """
 
+    may_invalidate_snapshot = True
+    preserves_diff_fingerprint = True
+
     @property
     def name(self) -> str:
         return "takeover"
@@ -118,6 +121,8 @@ class TakeOverAutomationCommitAction:
                     "Force-push-with-lease failed during takeover"
                     " — remote rejected update (concurrent update and/or insufficient permissions)"
                 ),
+                definitive_no_mutation=True,
+                preserves_diff_fingerprint=True,
             )
         except Exception as exc:
             if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
@@ -143,6 +148,7 @@ class TakeOverAutomationCommitAction:
             decision=ActionDecision.EXECUTE,
             details="Reclaimed takeover-eligible HEAD under human identity; checks will run on the re-pushed commit",
             invalidates_snapshot=True,
+            preserves_diff_fingerprint=True,
         )
 
 

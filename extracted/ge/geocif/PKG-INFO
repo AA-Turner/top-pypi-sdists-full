@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1025
+Version: 0.4.1029
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -87,6 +87,8 @@ Requires-Dist: pygmo>=2.19; extra == "aquacrop-calibration"
 Requires-Dist: SALib>=1.5; extra == "aquacrop-calibration"
 Provides-Extra: spatial
 Requires-Dist: pysal>=2.6; extra == "spatial"
+Provides-Extra: causilo
+Requires-Dist: causilo>=1.0.1; extra == "causilo"
 Provides-Extra: gee
 Requires-Dist: earthengine-api>=1.0; extra == "gee"
 Requires-Dist: geemap>=0.30; extra == "gee"

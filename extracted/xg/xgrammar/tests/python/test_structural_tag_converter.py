@@ -4,7 +4,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pytest
-from transformers import AutoTokenizer
+from tokenizer_utils import load_tokenizer
 
 import xgrammar as xgr
 from xgrammar.structural_tag import JSONSchemaFormat, SequenceFormat, StructuralTag, TagFormat
@@ -13,9 +13,7 @@ from xgrammar.testing import _is_grammar_accept_string
 
 class Profiler:
     def __init__(self, tokenizer_id: str):
-        tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_id, use_fast=True, trust_remote_code=True
-        )
+        tokenizer = load_tokenizer(tokenizer_id, use_fast=True, trust_remote_code=True)
         self.tokenizer_info = xgr.TokenizerInfo.from_huggingface(tokenizer)
         self.compiler = xgr.GrammarCompiler(
             self.tokenizer_info, max_threads=16, cache_enabled=False
@@ -1106,6 +1104,31 @@ def test_json_schema_style_kimi_k3_xml_const_enum_and_nullable_values():
     assert not _is_grammar_accept_string(
         grammar, string_target.replace('key="version" type="number"', 'key="version" type="string"')
     )
+
+
+def test_json_schema_style_minimax_m3_xml_fixed_nested_values():
+    namespace = "]<]minimax[>["
+
+    def element(name: str, value: str) -> str:
+        return f"{namespace}<{name}>{value}{namespace}</{name}>"
+
+    structural_tag = StructuralTag(
+        format=JSONSchemaFormat(
+            json_schema={
+                "type": "object",
+                "properties": {
+                    "city": {"type": "string"},
+                    "days": {"type": "array", "items": {"type": "integer"}},
+                },
+                "required": ["city", "days"],
+                "additionalProperties": False,
+            },
+            style="minimax_m3_xml",
+        )
+    )
+    valid = element("city", "Paris") + element("days", element("item", "1") + element("item", "2"))
+    check_stag_with_instance(structural_tag, valid, True)
+    check_stag_with_instance(structural_tag, valid.replace("</days>", "</wrong>"), False)
 
 
 ebnf_grammar_stag_grammar = [
@@ -3263,7 +3286,7 @@ json_format_error_test_data = [
     ),
     (
         '{"type": "structural_tag", "format": {"type": "json_schema", "json_schema": {"type": "string"}, "style": "not_string"}}',
-        'style must be "json", "qwen_xml", "minimax_xml", "deepseek_xml", "glm_xml", "cohere_xml", or "kimi_k3_xml"',
+        'style must be "json", "qwen_xml", "minimax_xml", "minimax_m3_xml", "deepseek_xml", "glm_xml", "cohere_xml", "kimi_k3_xml", or "deepseek_v4_1_xml"',
     ),
     # RepeatFormat Errors - illegal min/max
     (

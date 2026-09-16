@@ -10,9 +10,15 @@ import logging
 from functools import lru_cache
 from typing import Any, Dict, Optional
 
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from vnstock.core.utils.logger import get_logger
+from vnstock.core.utils.retry import should_retry
 
 logger = get_logger(__name__)
 
@@ -200,7 +206,7 @@ class StockComponents(BaseComponent):
 
 
 class Quote(BaseComponent):
-    """Historical and real-time price data."""
+    """Historical and in-session price data (source-delayed)."""
 
     SUPPORTED_SOURCES = ["KBS", "VCI", "MSN", "FMP"]
 
@@ -224,6 +230,8 @@ class Quote(BaseComponent):
     @retry(
         stop=stop_after_attempt(Config.DEFAULT_RETRIES),
         wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception(should_retry),
+        reraise=True,
     )
     def history(self, symbol: Optional[str] = None, **kwargs):
         """Fetch historical price data."""
@@ -239,6 +247,8 @@ class Quote(BaseComponent):
     @retry(
         stop=stop_after_attempt(Config.DEFAULT_RETRIES),
         wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception(should_retry),
+        reraise=True,
     )
     def intraday(self, symbol: Optional[str] = None, **kwargs):
         """Fetch intraday trading data."""
@@ -248,6 +258,8 @@ class Quote(BaseComponent):
     @retry(
         stop=stop_after_attempt(Config.DEFAULT_RETRIES),
         wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception(should_retry),
+        reraise=True,
     )
     def price_depth(self, symbol: Optional[str] = None, **kwargs):
         """Fetch order book depth data."""
@@ -316,7 +328,7 @@ class Listing(BaseComponent):
 
 
 class Trading(BaseComponent):
-    """Real-time trading data and market board information."""
+    """In-session trading data and market board information (source-delayed)."""
 
     SUPPORTED_SOURCES = ["KBS", "VCI"]
 
@@ -339,6 +351,8 @@ class Trading(BaseComponent):
     @retry(
         stop=stop_after_attempt(Config.DEFAULT_RETRIES),
         wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception(should_retry),
+        reraise=True,
     )
     def price_board(self, symbols_list: list, **kwargs):
         """Fetch price board for multiple symbols."""
@@ -531,7 +545,7 @@ class Fund(BaseComponent):
 
         Args:
             source: Data source (FMARKET)
-            random_agent: Use random user agent for requests
+            random_agent: Deprecated and ignored. Đã lỗi thời, không còn tác dụng.
         """
         self.random_agent = random_agent
         super().__init__(symbol=None, source=source)

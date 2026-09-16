@@ -9,8 +9,7 @@ from PIL import Image
 from asyncdb import AsyncDB
 from querysource.conf import default_dsn
 import re
-from parrot.clients.google import GoogleGenAIClient
-from parrot.models.google import GoogleModel
+from parrot.clients.google import GoogleGenAIClient, GoogleModel
 from parrot_pipelines.models import PlanogramConfig, EndcapGeometry
 from ..interfaces.flow import FlowComponent
 from ..interfaces.pipelines.parrot import AIPipeline

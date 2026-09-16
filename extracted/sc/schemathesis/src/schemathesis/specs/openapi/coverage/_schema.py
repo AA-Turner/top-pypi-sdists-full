@@ -76,7 +76,7 @@ from schemathesis.generation.jsonschema import build
 from schemathesis.generation.jsonschema.strategy import json_identity
 from schemathesis.generation.meta import CoverageScenario
 from schemathesis.openapi.generation.filters import is_invalid_path_parameter
-from schemathesis.specs.openapi.converter import apply_rewritten_pattern
+from schemathesis.specs.openapi.converter import DECLARED_MAXIMUM_KEY, DECLARED_MINIMUM_KEY, apply_rewritten_pattern
 from schemathesis.specs.openapi.coverage._wire import (
     HEADER_ALLOWED_CHARS,
     WireSemantics,
@@ -237,6 +237,9 @@ def json_recursive_strategy(strategy: st.SearchStrategy) -> st.SearchStrategy:
 ANNOTATION_KEYWORDS = frozenset(("description", "example", "examples", "title", "deprecated", "externalDocs", "xml"))
 NEGATIVE_MODE_MAX_LENGTH_WITH_PATTERN = 100
 NEGATIVE_MODE_MAX_ITEMS = 15
+# How many levels of one object graph may merge the same base before the walk stops unfolding it.
+# Keeps a base reused all the way down a deep document from turning every level into its own sweep.
+SHARED_BASE_REUSE_LIMIT = 3
 # Longest array still drawn element by element; a pattern-matched element spends budget per
 # character, so past this the draw stops being affordable.
 MAX_DRAWN_ARRAY_ITEMS = 64
@@ -448,6 +451,7 @@ class CoverageContext:
         "update_pattern",
         "_resolver",
         "_root_token_cell",
+        "_leaf_reference_cache",
         "session",
         "wire",
         "allow_extra_parameters",
@@ -470,6 +474,7 @@ class CoverageContext:
         _resolver: Resolver | None = None,
         _path_str_cache_cell: list[str | None] | None = None,
         _root_token_cell: list[object] | None = None,
+        _leaf_reference_cache: dict[str, bool] | None = None,
         allow_extra_parameters: bool = True,
         expanding: dict[str, int] | None = None,
         generating: dict[str, int] | None = None,
@@ -493,6 +498,8 @@ class CoverageContext:
         self._resolver = _resolver
         # Shared like the path cell: every context over this document answers with the same token.
         self._root_token_cell: list[object] = _root_token_cell if _root_token_cell is not None else [None]
+        # Also shared: which references name a schema that points nowhere, answered once per document.
+        self._leaf_reference_cache: dict[str, bool] = _leaf_reference_cache if _leaf_reference_cache is not None else {}
         self.allow_extra_parameters = allow_extra_parameters
         self.wire = WireSemantics(location=location, media_type=media_type, is_required=is_required)
         self.session = session if session is not None else DEFAULT_GENERATION_SESSION
@@ -548,14 +555,30 @@ class CoverageContext:
 
         A cycle has no end, so the walk needs one. Going around it twice leaves the position that
         points back carrying the schema it names, which is what a negative case there has to break.
-        That second pass is where this walk ends: pointers below it stay closed, because letting each
-        one open again multiplies the walks through a graph of cycles instead of adding to them.
+        That second pass is where each cycle ends, and only one pointer may be on it at a time:
+        letting a second one double as well multiplies the walks through a graph of cycles instead
+        of adding to them. A pointer that is not open takes no part in that product, so a base
+        shared between nesting levels does not close the pointers beneath it.
+
+        A base that names no reference of its own never comes back around, so the levels of one
+        graph that reuse it keep what sits below them covered, up to a fixed number of levels.
         """
         counters = self.expanding if counters is None else counters
         depth = counters.get(reference, 0)
-        if depth >= 2:
-            return True
-        return any(other >= 2 for other in counters.values())
+        if depth < 1 or not any(other >= 2 for other in counters.values()):
+            return False
+        return depth >= SHARED_BASE_REUSE_LIMIT or not self._points_nowhere(reference)
+
+    def _points_nowhere(self, reference: str) -> bool:
+        """Whether what this reference names carries no reference of its own."""
+        cached = self._leaf_reference_cache.get(reference)
+        if cached is None:
+            try:
+                cached = not _reads_references(self.resolve_ref(reference))
+            except RefResolutionError:
+                cached = False
+            self._leaf_reference_cache[reference] = cached
+        return cached
 
     @contextmanager
     def at(self, key: str | int) -> Generator[None, None, None]:
@@ -589,6 +612,7 @@ class CoverageContext:
             _resolver=self._resolver,
             _path_str_cache_cell=self._path_str_cache_cell,
             _root_token_cell=self._root_token_cell,
+            _leaf_reference_cache=self._leaf_reference_cache,
             allow_extra_parameters=self.allow_extra_parameters,
             expanding=self.expanding,
             generating=self.generating,
@@ -609,6 +633,7 @@ class CoverageContext:
             _resolver=self._resolver,
             _path_str_cache_cell=self._path_str_cache_cell,
             _root_token_cell=self._root_token_cell,
+            _leaf_reference_cache=self._leaf_reference_cache,
             allow_extra_parameters=self.allow_extra_parameters,
             expanding=self.expanding,
             generating=self.generating,
@@ -924,12 +949,20 @@ class CoverageContext:
                 )
                 if strategy is None:
                     raise Unsatisfiable from None
-                value = cached_draw(self.session, strategy)
-                if length_is_pinned and validated is not None:
-                    validator = _get_format_validator(self.session, validated, self.validator_cls)
-                    if not validator.is_valid(value):
-                        raise Unsatisfiable
-                return value
+                try:
+                    value = cached_draw(self.session, strategy)
+                except Unsatisfiable:
+                    # Regex matches the format rejects starve the filter even where a conforming one
+                    # exists; building from the format instead reaches it, so this is not the answer yet.
+                    if validated is None or length_is_pinned:
+                        raise
+                    value = NOT_SET
+                if value is not NOT_SET:
+                    if length_is_pinned and validated is not None:
+                        validator = _get_format_validator(self.session, validated, self.validator_cls)
+                        if not validator.is_valid(value):
+                            raise Unsatisfiable
+                    return value
             if (
                 isinstance(min_properties, int)
                 and min_properties > MAX_DRAWN_OBJECT_PROPERTIES
@@ -1287,8 +1320,12 @@ _TIGHTEST_LOWER = frozenset({"minLength", "minItems", "minProperties", "minimum"
 _TIGHTEST_UPPER = frozenset({"maxLength", "maxItems", "maxProperties", "maximum", "exclusiveMaximum"})
 
 
-def _merge_all_of(schema: JsonSchemaObject) -> JsonSchemaObject | None:
-    """`allOf` folded into the schema around it, or `None` when a branch cannot be folded."""
+def _merge_all_of(schema: JsonSchemaObject, *, judge_inherited_names: bool = False) -> JsonSchemaObject | None:
+    """`allOf` folded into the schema around it, or `None` when a branch cannot be folded.
+
+    With `judge_inherited_names`, a branch judging every name it does not declare keeps that
+    judgement on the names its siblings declare instead of stopping the fold.
+    """
     branches = schema.get("allOf")
     if not isinstance(branches, list):
         return None
@@ -1297,7 +1334,7 @@ def _merge_all_of(schema: JsonSchemaObject) -> JsonSchemaObject | None:
     folded_branches = [outer]
     for branch in branches:
         if isinstance(branch, dict) and "allOf" in branch:
-            folded = _merge_all_of(branch)
+            folded = _merge_all_of(branch, judge_inherited_names=judge_inherited_names)
             if folded is None:
                 return None
             branch = folded
@@ -1320,13 +1357,9 @@ def _merge_all_of(schema: JsonSchemaObject) -> JsonSchemaObject | None:
     if merged.get("not") == {}:
         # A branch rejects every value, so the keywords folded in around it cannot make one fit.
         return {"not": {}}
-    required = merged.get("required")
-    if isinstance(required, list) and isinstance(merged.get("properties"), dict):
+    if _requires_an_impossible_name(merged):
         # Requiring a name whose merged schema admits nothing leaves no object to satisfy the fold.
-        for name in required:
-            sub = merged["properties"].get(name)
-            if sub is False or sub == {"not": {}}:
-                return {"not": {}}
+        return {"not": {}}
     if "$ref" in merged and any(key != "$ref" and key not in _ANNOTATION_KEYWORDS for key in merged):
         # A reference that stays unresolved overrides everything folded in beside it, so those
         # constraints would silently vanish from the value.
@@ -1336,14 +1369,34 @@ def _merge_all_of(schema: JsonSchemaObject) -> JsonSchemaObject | None:
         extra = branch.get("additionalProperties")
         # A branch judging every name it does not declare still judges the names its siblings
         # declare; folding the property sets together would let those escape it.
-        if isinstance(extra, dict) and extra and merged_names - set(branch.get("properties", {})):
-            return None
+        if isinstance(extra, dict) and extra and (inherited := merged_names - set(branch.get("properties", {}))):
+            if not judge_inherited_names or branch.get("patternProperties"):
+                return None
+            properties = dict(merged["properties"])
+            for name in sorted(inherited):
+                judged = _merge_all_of({"allOf": [properties[name], extra]}, judge_inherited_names=True)
+                if judged is None:
+                    return None
+                properties[name] = judged
+            merged["properties"] = properties
+            merged_names = set(properties)
+            if _requires_an_impossible_name(merged):
+                return {"not": {}}
     if not _restrict_closed_properties(merged, folded_branches):
         # A branch forbidding extras leaves no room for a name another branch requires.
         return {"not": {}}
     # Keyword order drives the order coverage walks constraints in; keep it independent of
     # which branch each one came from.
     return dict(sorted(merged.items()))
+
+
+def _requires_an_impossible_name(merged: dict[str, Any]) -> bool:
+    """Whether the fold requires a name whose merged schema admits no value."""
+    required = merged.get("required")
+    properties = merged.get("properties")
+    if not isinstance(required, list) or not isinstance(properties, dict):
+        return False
+    return any(properties.get(name) is False or properties.get(name) == {"not": {}} for name in required)
 
 
 def _restrict_closed_properties(merged: dict[str, Any], branches: list[JsonSchemaObject]) -> bool:
@@ -1669,8 +1722,11 @@ def _positive_for_leaves(
         with ExitStack() as stack:
             for reference in leaf.references:
                 stack.enter_context(ctx.expand(reference))
-            if leaf.schema is not None:
-                values = cover_schema_iter(ctx, leaf.schema)
+            flat = (
+                leaf.schema if leaf.schema is not None else _merge_all_of(leaf.conjunction, judge_inherited_names=True)
+            )
+            if flat is not None and flat != {"not": {}}:
+                values = cover_schema_iter(ctx, flat)
             else:
                 # No single flat spelling (two `pattern`s, two `format`s): one conforming value rather than none.
                 values = _drawn_positive(ctx, leaf.conjunction)
@@ -1777,10 +1833,10 @@ def _cover_positive_for_type(
         const = schema.get("const", NOT_SET)
         if enum is not NOT_SET:
             for value in enum:
-                if _is_valid_with_formats(value, schema, ctx) and _is_representable(value, ctx):
+                if _is_valid_with_formats(value, schema, ctx) and _is_representable(value, ctx, declared=True):
                     yield PositiveValue(value, scenario=CoverageScenario.ENUM_VALUE, description="Enum value")
         elif const is not NOT_SET:
-            if _is_valid_with_formats(const, schema, ctx) and _is_representable(const, ctx):
+            if _is_valid_with_formats(const, schema, ctx) and _is_representable(const, ctx, declared=True):
                 yield PositiveValue(const, scenario=CoverageScenario.CONST_VALUE, description="Const value")
         elif ty is not None or _implies_object_type(schema) or _implies_array_type(schema):
             yield from _positive_for_describing_keywords(ctx, schema, ty, template)
@@ -1916,6 +1972,8 @@ def _negative_format_for_declared_types(
 def _negative_maximum(
     ctx: CoverageContext, schema: dict, value: Any, seen: HashSet
 ) -> Generator[GeneratedValue, None, None]:
+    # A bound the schema declares beyond the width of its integer format is still the bound to step past.
+    value = schema.get(DECLARED_MAXIMUM_KEY, value)
     # Legacy draft-4 `exclusiveMaximum: true` makes `maximum` itself the excluded boundary.
     next = value if schema.get("exclusiveMaximum") is True else _just_past(schema, value, going_up=True)
     if next is not None and seen.insert(next):
@@ -1930,6 +1988,8 @@ def _negative_maximum(
 def _negative_minimum(
     ctx: CoverageContext, schema: dict, value: Any, seen: HashSet
 ) -> Generator[GeneratedValue, None, None]:
+    # A bound the schema declares beyond the width of its integer format is still the bound to step past.
+    value = schema.get(DECLARED_MINIMUM_KEY, value)
     # Legacy draft-4 `exclusiveMinimum: true` makes `minimum` itself the excluded boundary.
     next = value if schema.get("exclusiveMinimum") is True else _just_past(schema, value, going_up=False)
     if next is not None and seen.insert(next):
@@ -2521,13 +2581,13 @@ def _positive_for_describing_keywords(
             yield from _drop_invalid_for_location(_positive_array(ctx, schema, cast(list, template)), ctx)
 
 
-def _is_representable(value: Any, ctx: CoverageContext) -> bool:
+def _is_representable(value: Any, ctx: CoverageContext, *, declared: bool = False) -> bool:
     """Whether the location can carry this value, e.g. without blanking a path segment."""
     if isinstance(value, dict):
         # `representable` judges a dict by its `repr`, which is not what a path
         # parameter sends; only an empty object is unrepresentable there.
         return not (ctx.location == ParameterLocation.PATH and not value)
-    return ctx.wire.representable(value)
+    return ctx.wire.representable(value, declared=declared)
 
 
 def _drop_invalid_for_location(

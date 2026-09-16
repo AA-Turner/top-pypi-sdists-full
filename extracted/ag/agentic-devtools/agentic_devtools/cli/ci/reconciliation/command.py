@@ -41,6 +41,7 @@ from agentic_devtools.orchestration.safety.operation_log import OperationLog, Op
 
 logger = logging.getLogger(__name__)
 _MAX_METRIC_EVENTS = 4096
+_ALLOWED_WORKFLOW_IDS = ("ai-pr-loop.yml",)
 
 
 def _positive_int(value: str) -> int:
@@ -68,9 +69,16 @@ def reconcile_command(argv: list[str] | None = None) -> int:
         description="Dispatch one durable reconciliation work item.",
     )
     parser.add_argument(
+        "--mode",
+        choices=["dispatch", "inspect-inventory", "inspect-ledger", "inspect-runs", "restart-recovery-epoch"],
+        default="dispatch",
+        help="Command mode: dispatch due work (default), inspect durable state, or restart recovery epoch.",
+    )
+    parser.add_argument(
         "--workflow-id",
         required=True,
-        help="Workflow file name or ID to reconcile (retained for CLI compatibility).",
+        choices=_ALLOWED_WORKFLOW_IDS,
+        help="Workflow file to reconcile.",
     )
     parser.add_argument(
         "--provider",
@@ -117,6 +125,32 @@ def reconcile_command(argv: list[str] | None = None) -> int:
         help="Trusted pull request head SHA paired with --trusted-pr-number.",
     )
     parser.add_argument(
+        "--record-id",
+        default="",
+        help="Optional record identifier filter for inspection modes.",
+    )
+    parser.add_argument(
+        "--actor",
+        default="",
+        help="Required for --mode restart-recovery-epoch: operator identity.",
+    )
+    parser.add_argument(
+        "--reason",
+        default="",
+        help="Required for --mode restart-recovery-epoch: audit reason.",
+    )
+    parser.add_argument(
+        "--prior-epoch",
+        type=int,
+        default=None,
+        help="Required for --mode restart-recovery-epoch: expected current recovery epoch.",
+    )
+    parser.add_argument(
+        "--no-late-write-confirmed",
+        action="store_true",
+        help="Required for --mode restart-recovery-epoch: confirms no late writes can commit.",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -153,10 +187,20 @@ def reconcile_command(argv: list[str] | None = None) -> int:
         logger.error("The 'ado' provider does not support durable queue persistence; only 'github' is supported.")
         return 1
 
+    repo_input = args.repo or os.environ.get("GITHUB_REPOSITORY", "")
+    repo = resolve_github_repo(repo_input) if repo_input else ""
+
+    if args.mode != "dispatch":
+        try:
+            queue_store = QueueStore(repo=repo)
+            queue_store.ensure_state_ref()
+            queue_state = queue_store.load()
+        except QueueStoreError as exc:
+            logger.error("Reconciliation failed: %s", exc)
+            return 1
+        return _handle_trusted_state_mode(args, queue_store, queue_state)
+
     try:
-        repo = args.repo
-        if args.repo:
-            repo = resolve_github_repo(args.repo)
         provider = _create_provider(args.provider, repo)
         if active_cooldown(
             provider,
@@ -298,10 +342,14 @@ def reconcile_command(argv: list[str] | None = None) -> int:
             dispatch_result = replace(dispatch_result, state=metric_state)
         if dispatch_result.lease is not None:  # pragma: no cover - provider-backed dispatch path
             try:
+                head_sha = provider.get_pr_metadata(dispatch_result.lease.pr_number).head_sha
+                if not isinstance(head_sha, str) or not head_sha.strip():
+                    raise RuntimeError(f"PR #{dispatch_result.lease.pr_number} has no head SHA")
                 provider.dispatch_workflow(
                     args.workflow_id,
                     {
                         "pr_number": str(dispatch_result.lease.pr_number),
+                        "head_sha": head_sha,
                         "operation_id": dispatch_result.operation_id,
                     },
                 )
@@ -698,3 +746,193 @@ def _release_dispatch_lease(state: QueueState, lease) -> QueueState:  # pragma: 
             ),
         },
     )
+
+
+def _handle_trusted_state_mode(args: argparse.Namespace, queue_store: QueueStore, queue_state: QueueState) -> int:
+    if args.mode == "inspect-inventory":
+        payload = _build_inventory_inspection(queue_state, record_id=args.record_id)
+        _emit_mode_payload(args, payload)
+        return 0
+    if args.mode == "inspect-ledger":
+        payload = _build_ledger_inspection(queue_state, record_id=args.record_id)
+        _emit_mode_payload(args, payload)
+        return 0
+    if args.mode == "inspect-runs":
+        payload = _build_run_inspection(queue_state, record_id=args.record_id)
+        _emit_mode_payload(args, payload)
+        return 0
+    if args.mode == "restart-recovery-epoch":
+        return _restart_recovery_epoch_mode(args, queue_store, queue_state)
+    logger.error("Unknown reconciliation mode: %s", args.mode)
+    return 1
+
+
+def _emit_mode_payload(args: argparse.Namespace, payload: dict[str, object]) -> None:
+    if args.json_output:
+        print(json.dumps(payload, indent=2))
+        return
+    print(json.dumps(payload, indent=2))
+
+
+def _build_inventory_inspection(state: QueueState, *, record_id: str = "") -> dict[str, object]:
+    records: list[dict[str, object]] = []
+    now = datetime.now(UTC)
+    for pr_number in sorted(state.items):
+        item = state.items[pr_number]
+        item_record_id = f"{item.repo}#{item.pr_number}"
+        if record_id and item_record_id != record_id:
+            continue
+        freshness = "unknown"
+        if item.last_observed_at is not None:
+            age_seconds = (now - item.last_observed_at).total_seconds()
+            freshness = "stale" if age_seconds > config.TRUSTED_OBSERVATION_FRESHNESS_MINUTES * 60 else "fresh"
+        records.append(
+            {
+                "record_id": item_record_id,
+                "pr_number": item.pr_number,
+                "repo": item.repo,
+                "status": item.status.value,
+                "scope_classification": "active" if item.eligibility == "eligible" else "non_actionable_ineligible",
+                "eligibility": item.eligibility,
+                "observation_freshness_state": freshness,
+                "retry_reason": "none" if item.retry_count == 0 else "retry_attempted",
+                "recovery_state": "active" if state.recovery_epoch == 0 else "epoch_restartable",
+                "recovery_epoch": state.recovery_epoch,
+                "recovery_attempt_count": item.retry_count,
+                "exhaustion_metadata": (
+                    "exhausted" if item.retry_count >= config.MAX_RETRY_ATTEMPTS else "not_exhausted"
+                ),
+                "finality_metadata": "terminal" if item.status == WorkItemStatus.COMPLETED else "non_terminal",
+                "next_due_at_utc_z": _format_datetime(item.due_at),
+                "last_observed_at_utc_z": _format_datetime(item.last_observed_at),
+                "observation_watermark": item.observation_watermark,
+            }
+        )
+    return {"mode": "inspect-inventory", "recovery_epoch": state.recovery_epoch, "records": records}
+
+
+def _build_ledger_inspection(state: QueueState, *, record_id: str = "") -> dict[str, object]:
+    ledgers: list[dict[str, object]] = []
+    for pr_number in sorted(state.items):
+        item = state.items[pr_number]
+        item_record_id = f"{item.repo}#{item.pr_number}"
+        if record_id and item_record_id != record_id:
+            continue
+        ledgers.append(
+            {
+                "record_id": item_record_id,
+                "current_work_state": item.status.value,
+                "unfinished_decision_context": item.pending_change_id,
+                "action_eligibility": item.eligibility,
+                "history": {
+                    "retry_count": item.retry_count,
+                    "has_claim": bool(item.claim_id),
+                    "has_lease": bool(item.lease_id),
+                    "operation_status": item.operation_status.value,
+                },
+                "supersession": {
+                    "pending_change_id": item.pending_change_id,
+                    "claimed_at_utc_z": _format_datetime(item.claimed_at),
+                    "lease_expires_at_utc_z": _format_datetime(item.lease_expires_at),
+                },
+                "invalidations": [
+                    record.message
+                    for record in state.records
+                    if str(item.pr_number) in record.message and "invalidat" in record.message.lower()
+                ],
+            }
+        )
+    return {"mode": "inspect-ledger", "recovery_epoch": state.recovery_epoch, "ledgers": ledgers}
+
+
+def _build_run_inspection(state: QueueState, *, record_id: str = "") -> dict[str, object]:
+    runs = [
+        {
+            "record_id": record.record_id,
+            "run_id": record.run_id,
+            "provider_status": record.provider_status,
+            "message": record.message,
+            "started_at_utc_z": _format_datetime(record.started_at),
+            "completed_at_utc_z": _format_datetime(record.completed_at),
+            "cursor_progress": record.cursor_progress,
+            "unknown_outcomes": list(record.unknown_outcomes),
+            "run_duration_seconds": record.run_duration_seconds,
+        }
+        for record in state.records
+        if not record_id or record.record_id == record_id
+    ]
+    return {"mode": "inspect-runs", "recovery_epoch": state.recovery_epoch, "runs": runs}
+
+
+def _restart_recovery_epoch_mode(args: argparse.Namespace, queue_store: QueueStore, state: QueueState) -> int:
+    if not args.actor.strip():
+        logger.error("restart-recovery-epoch requires --actor")
+        return 1
+    authenticated_actor = os.environ.get("GITHUB_ACTOR", "").strip()
+    if not authenticated_actor:
+        logger.error("restart-recovery-epoch requires an authenticated GITHUB_ACTOR")
+        return 1
+    if args.actor.strip() != authenticated_actor:
+        logger.error("restart-recovery-epoch actor does not match authenticated GITHUB_ACTOR")
+        return 1
+    if not args.reason.strip():
+        logger.error("restart-recovery-epoch requires --reason")
+        return 1
+    if args.prior_epoch is None:
+        logger.error("restart-recovery-epoch requires --prior-epoch")
+        return 1
+    if not args.no_late_write_confirmed:
+        logger.error("restart-recovery-epoch requires --no-late-write-confirmed")
+        return 1
+    if args.prior_epoch != state.recovery_epoch:
+        logger.error("prior epoch mismatch: expected %s, got %s", state.recovery_epoch, args.prior_epoch)
+        return 1
+    active_items = [
+        item.pr_number
+        for item in state.items.values()
+        if item.status in {WorkItemStatus.CLAIMED, WorkItemStatus.LEASED}
+    ]
+    if active_items:
+        logger.error("cannot restart recovery epoch while active work exists: %s", active_items)
+        return 1
+    now = datetime.now(UTC)
+    updated = replace(
+        state,
+        recovery_epoch=state.recovery_epoch + 1,
+        records=[
+            *state.records,
+            ReconciliationRecord(
+                record_id=str(uuid4()),
+                repo=state.repo,
+                run_id="manual-recovery-epoch-restart",
+                started_at=now,
+                completed_at=now,
+                provider_status="manual_recovery_epoch_restart",
+                message=(
+                    f"recovery epoch restarted by {args.actor}; reason={args.reason}; "
+                    f"prior_epoch={args.prior_epoch}; no_late_write=true"
+                ),
+                unknown_outcomes=(),
+            ),
+        ],
+    )
+    try:
+        saved = queue_store.save(updated, expected_revision=state.revision)
+    except QueueStoreError as exc:
+        logger.error("Reconciliation failed: %s", exc)
+        return 1
+    payload = {
+        "mode": "restart-recovery-epoch",
+        "previous_recovery_epoch": state.recovery_epoch,
+        "recovery_epoch": saved.recovery_epoch,
+        "actor": args.actor,
+        "reason": args.reason,
+    }
+    _emit_mode_payload(args, payload)
+    return 0
+
+
+def _format_datetime(value: datetime | None) -> str:
+    if value is None:
+        return ""
+    return value.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")

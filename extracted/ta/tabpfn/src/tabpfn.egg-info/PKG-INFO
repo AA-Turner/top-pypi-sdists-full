@@ -1,209 +1,9 @@
 Metadata-Version: 2.4
 Name: tabpfn
-Version: 8.5.0
+Version: 9.0.0
 Summary: TabPFN: Foundation model for tabular data
 Author-email: Prior Labs <opensource@priorlabs.ai>
-License: 
-                  Prior Labs License (Apache 2.0 with ADDITIONAL PROVISION)
-                                   Version 1.2, Dec 2025
-        
-           This license is a derivative of the Apache 2.0 license
-           (http://www.apache.org/licenses/) with a single modification:
-           The added Paragraph 10 introduces an enhanced attribution requirement
-           inspired by the Llama 3 license.
-        
-           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-        
-           1. Definitions.
-        
-              "License" shall mean the terms and conditions for use, reproduction,
-              and distribution as defined by Sections 1 through 9 of this document.
-        
-              "Licensor" shall mean the copyright owner or entity authorized by
-              the copyright owner that is granting the License.
-        
-              "Legal Entity" shall mean the union of the acting entity and all
-              other entities that control, are controlled by, or are under common
-              control with that entity. For the purposes of this definition,
-              "control" means (i) the power, direct or indirect, to cause the
-              direction or management of such entity, whether by contract or
-              otherwise, or (ii) ownership of fifty percent (50%) or more of the
-              outstanding shares, or (iii) beneficial ownership of such entity.
-        
-              "You" (or "Your") shall mean an individual or Legal Entity
-              exercising permissions granted by this License.
-        
-              "Source" form shall mean the preferred form for making modifications,
-              including but not limited to software source code, documentation
-              source, and configuration files.
-        
-              "Object" form shall mean any form resulting from mechanical
-              transformation or translation of a Source form, including but
-              not limited to compiled object code, generated documentation,
-              and conversions to other media types.
-        
-              "Work" shall mean the work of authorship, whether in Source or
-              Object form, made available under the License, as indicated by a
-              copyright notice that is included in or attached to the work
-              (an example is provided in the Appendix below).
-        
-              "Derivative Works" shall mean any work, whether in Source or Object
-              form, that is based on (or derived from) the Work and for which the
-              editorial revisions, annotations, elaborations, or other modifications
-              represent, as a whole, an original work of authorship. For the purposes
-              of this License, Derivative Works shall not include works that remain
-              separable from, or merely link (or bind by name) to the interfaces of,
-              the Work and Derivative Works thereof.
-        
-              "Contribution" shall mean any work of authorship, including
-              the original version of the Work and any modifications or additions
-              to that Work or Derivative Works thereof, that is intentionally
-              submitted to Licensor for inclusion in the Work by the copyright owner
-              or by an individual or Legal Entity authorized to submit on behalf of
-              the copyright owner. For the purposes of this definition, "submitted"
-              means any form of electronic, verbal, or written communication sent
-              to the Licensor or its representatives, including but not limited to
-              communication on electronic mailing lists, source code control systems,
-              and issue tracking systems that are managed by, or on behalf of, the
-              Licensor for the purpose of discussing and improving the Work, but
-              excluding communication that is conspicuously marked or otherwise
-              designated in writing by the copyright owner as "Not a Contribution."
-        
-              "Contributor" shall mean Licensor and any individual or Legal Entity
-              on behalf of whom a Contribution has been received by Licensor and
-              subsequently incorporated within the Work.
-        
-           2. Grant of Copyright License. Subject to the terms and conditions of
-              this License, each Contributor hereby grants to You a perpetual,
-              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-              copyright license to reproduce, prepare Derivative Works of,
-              publicly display, publicly perform, sublicense, and distribute the
-              Work and such Derivative Works in Source or Object form.
-        
-           3. Grant of Patent License. Subject to the terms and conditions of
-              this License, each Contributor hereby grants to You a perpetual,
-              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-              (except as stated in this section) patent license to make, have made,
-              use, offer to sell, sell, import, and otherwise transfer the Work,
-              where such license applies only to those patent claims licensable
-              by such Contributor that are necessarily infringed by their
-              Contribution(s) alone or by combination of their Contribution(s)
-              with the Work to which such Contribution(s) was submitted. If You
-              institute patent litigation against any entity (including a
-              cross-claim or counterclaim in a lawsuit) alleging that the Work
-              or a Contribution incorporated within the Work constitutes direct
-              or contributory patent infringement, then any patent licenses
-              granted to You under this License for that Work shall terminate
-              as of the date such litigation is filed.
-        
-           4. Redistribution. You may reproduce and distribute copies of the
-              Work or Derivative Works thereof in any medium, with or without
-              modifications, and in Source or Object form, provided that You
-              meet the following conditions:
-        
-              (a) You must give any other recipients of the Work or
-                  Derivative Works a copy of this License; and
-        
-              (b) You must cause any modified files to carry prominent notices
-                  stating that You changed the files; and
-        
-              (c) You must retain, in the Source form of any Derivative Works
-                  that You distribute, all copyright, patent, trademark, and
-                  attribution notices from the Source form of the Work,
-                  excluding those notices that do not pertain to any part of
-                  the Derivative Works; and
-        
-              (d) If the Work includes a "NOTICE" text file as part of its
-                  distribution, then any Derivative Works that You distribute must
-                  include a readable copy of the attribution notices contained
-                  within such NOTICE file, excluding those notices that do not
-                  pertain to any part of the Derivative Works, in at least one
-                  of the following places: within a NOTICE text file distributed
-                  as part of the Derivative Works; within the Source form or
-                  documentation, if provided along with the Derivative Works; or,
-                  within a display generated by the Derivative Works, if and
-                  wherever such third-party notices normally appear. The contents
-                  of the NOTICE file are for informational purposes only and
-                  do not modify the License. You may add Your own attribution
-                  notices within Derivative Works that You distribute, alongside
-                  or as an addendum to the NOTICE text from the Work, provided
-                  that such additional attribution notices cannot be construed
-                  as modifying the License.
-        
-              You may add Your own copyright statement to Your modifications and
-              may provide additional or different license terms and conditions
-              for use, reproduction, or distribution of Your modifications, or
-              for any such Derivative Works as a whole, provided Your use,
-              reproduction, and distribution of the Work otherwise complies with
-              the conditions stated in this License.
-        
-           5. Submission of Contributions. Unless You explicitly state otherwise,
-              any Contribution intentionally submitted for inclusion in the Work
-              by You to the Licensor shall be under the terms and conditions of
-              this License, without any additional terms or conditions.
-              Notwithstanding the above, nothing herein shall supersede or modify
-              the terms of any separate license agreement you may have executed
-              with Licensor regarding such Contributions.
-        
-           6. Trademarks. This License does not grant permission to use the trade
-              names, trademarks, service marks, or product names of the Licensor,
-              except as required for reasonable and customary use in describing the
-              origin of the Work and reproducing the content of the NOTICE file.
-        
-           7. Disclaimer of Warranty. Unless required by applicable law or
-              agreed to in writing, Licensor provides the Work (and each
-              Contributor provides its Contributions) on an "AS IS" BASIS,
-              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-              implied, including, without limitation, any warranties or conditions
-              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-              PARTICULAR PURPOSE. You are solely responsible for determining the
-              appropriateness of using or redistributing the Work and assume any
-              risks associated with Your exercise of permissions under this License.
-        
-           8. Limitation of Liability. In no event and under no legal theory,
-              whether in tort (including negligence), contract, or otherwise,
-              unless required by applicable law (such as deliberate and grossly
-              negligent acts) or agreed to in writing, shall any Contributor be
-              liable to You for damages, including any direct, indirect, special,
-              incidental, or consequential damages of any character arising as a
-              result of this License or out of the use or inability to use the
-              Work (including but not limited to damages for loss of goodwill,
-              work stoppage, computer failure or malfunction, or any and all
-              other commercial damages or losses), even if such Contributor
-              has been advised of the possibility of such damages.
-        
-           9. Accepting Warranty or Additional Liability. While redistributing
-              the Work or Derivative Works thereof, You may choose to offer,
-              and charge a fee for, acceptance of support, warranty, indemnity,
-              or other liability obligations and/or rights consistent with this
-              License. However, in accepting such obligations, You may act only
-              on Your own behalf and on Your sole responsibility, not on behalf
-              of any other Contributor, and only if You agree to indemnify,
-              defend, and hold each Contributor harmless for any liability
-              incurred by, or claims asserted against, such Contributor by reason
-              of your accepting any such warranty or additional liability.
-        
-           ---------------------- ADDITIONAL PROVISION --------------------------
-        
-            10. Additional attribution.
-            If You distribute or make available the Work or any Derivative
-            Work thereof relating to any part of the source or model weights,
-            or a product or service (including another AI model) that contains
-            any source or model weights, You shall (A) provide a copy of this
-            License with any such materials; and (B) prominently display
-            “Built with PriorLabs-TabPFN” on each related website, user interface, blogpost,
-            about page, or product documentation. If You use the source or model
-            weights or model outputs to create, train, fine tune, distil, or
-            otherwise improve an AI model, which is distributed or made available,
-            you shall also include “TabPFN” at the beginning of any such AI model name.
-            To clarify, internal benchmarking and testing without external
-            communication shall not qualify as distribution or making available
-            pursuant to this Section 10 and no attribution under this Section 10
-            shall be required.
-        
-        
-           END OF TERMS AND CONDITIONS
-        
+License-Expression: Apache-2.0
 Project-URL: documentation, https://priorlabs.ai/docs
 Project-URL: source, https://github.com/priorlabs/tabpfn
 Classifier: Intended Audience :: Science/Research
@@ -223,6 +23,8 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+License-File: NOTICE
+License-File: THIRD-PARTY-NOTICES.md
 Requires-Dist: torch>=2.5
 Requires-Dist: safetensors>=0.4.0
 Requires-Dist: numpy>=1.21.6
@@ -238,11 +40,11 @@ Requires-Dist: joblib>=1.2.0
 Requires-Dist: tqdm>=4.66.0
 Requires-Dist: filelock>=3.11.0
 Requires-Dist: lightgbm>=4.4
+Requires-Dist: skrub<0.11,>=0.7
+Requires-Dist: matplotlib>=3.6.1
 Requires-Dist: mlx>=0.29.3; sys_platform == "darwin" and platform_machine == "arm64"
 Provides-Extra: wandb
 Requires-Dist: wandb>=0.25.1; extra == "wandb"
-Provides-Extra: viz
-Requires-Dist: matplotlib>=3.5; extra == "viz"
 Dynamic: license-file
 
 # TabPFN
@@ -271,27 +73,27 @@ Dynamic: license-file
 ```bash
 pip install tabpfn
 ```
-
-TabPFN supports Python 3.10+. `pip install tabpfn` installs a compatible
-PyTorch build automatically. If you want a smaller CPU-only install, need a
-PyTorch build for a specific accelerator or CUDA version, or want platform
-notes for Windows and WSL, choose the matching command from the
-[PyTorch installation selector](https://pytorch.org/get-started/locally/) before
-installing TabPFN.
-
-Note: For best performance on Apple Silicon/MPS, consider installing a PyTorch
-version after the nightly "2.13.0.dev20260510". This enables flash attention
-without relying on MLX (the latter requires a GPU-CPU-GPU roundtrip).
-
-
-### Basic Usage
+TabPFN supports Python 3.10+.
 
 > ⚡ **GPU Recommended**:
 > For optimal performance, use a GPU (even older ones with ~8GB VRAM work well; 16GB needed for some large datasets).
-> On CPU, only moderate datasets are feasible (the default TabPFN-3 allows up to 5000 samples; older versions up to 1000).
+> On CPU, only moderate datasets are feasible (TabPFN-3 and TabPFN-3.5 allow up to 5000 samples; older versions up to 1000).
 > No GPU? Use our free hosted inference via [TabPFN Client](https://github.com/PriorLabs/tabpfn-client).
 
-To use our default TabPFN-3 model:
+**On macOS:** GPU support is automatically included for Apple Silicon Macs. For best performance, ensure you are using PyTorch 2.13 or newer (see [#949](https://github.com/PriorLabs/TabPFN/pull/949)).
+
+**On Linux:** Nvidia GPU support is automatically included. For AMD GPUs, first [install PyTorch with ROCm](https://pytorch.org/get-started/locally/), then install TabPFN. For example,
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/rocm7.2
+pip install tabpfn
+```
+For a CPU-only install, first [install CPU-only PyTorch](https://pytorch.org/get-started/locally/), then install TabPFN. This saves disk space if you do not have a GPU.
+
+**On Windows:** For Nvidia GPUs, [install PyTorch with CUDA](https://pytorch.org/get-started/locally/), then install TabPFN. For AMD GPUs, [install PyTorch with ROCm](https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/windows/install-pytorch.html), then install TabPFN.
+
+
+### Basic Usage
+To use our default TabPFN-3.5 model:
 
 ```python
 from tabpfn import TabPFNClassifier, TabPFNRegressor
@@ -305,15 +107,23 @@ reg.fit(X_train, y_train)  # downloads checkpoint on first use
 predictions = reg.predict(X_test)
 ```
 
-To use other model versions (e.g. the previous default, TabPFN-2.6):
+
+To use the smaller, faster TabPFN-3.5-Fast you can use `ModelVersion.V3_5_FAST` or "v3.5-fast".
 
 ```python
-from tabpfn import TabPFNClassifier, TabPFNRegressor
 from tabpfn.constants import ModelVersion
 
-classifier = TabPFNClassifier.create_default_for_version(ModelVersion.V2_6)
-regressor = TabPFNRegressor.create_default_for_version(ModelVersion.V2_6)
+classifier = TabPFNClassifier.create_default_for_version(ModelVersion.V3_5_FAST)
+regressor = TabPFNRegressor.create_default_for_version(ModelVersion.V3_5_FAST)
 ```
+
+To use other model versions (e.g. the previous default, TabPFN-3):
+
+```python
+classifier = TabPFNClassifier.create_default_for_version(ModelVersion.V3)
+regressor = TabPFNRegressor.create_default_for_version(ModelVersion.V3)
+```
+
 
 For complete examples, see the [tabpfn_for_binary_classification.py](https://github.com/PriorLabs/TabPFN/tree/main/examples/tabpfn_for_binary_classification.py), [tabpfn_for_multiclass_classification.py](https://github.com/PriorLabs/TabPFN/tree/main/examples/tabpfn_for_multiclass_classification.py), and [tabpfn_for_regression.py](https://github.com/PriorLabs/TabPFN/tree/main/examples/tabpfn_for_regression.py) files.
 
@@ -345,9 +155,13 @@ Choose the right TabPFN implementation for your needs:
 
 ## License
 
-The TabPFN-2.5, TabPFN-2.6, and TabPFN-3 model weights are released under non-commercial licenses (TabPFN-3 [license](https://huggingface.co/Prior-Labs/tabpfn_3/blob/main/LICENSE); see the [Models page](https://docs.priorlabs.ai/models#tabpfn-model-license) for prior releases). TabPFN-3 is used by default.
+The code in this repository is licensed under the [Apache License 2.0](LICENSE). Third-party code is subject to its own licenses and attribution requirements; see [Third-Party Notices](THIRD-PARTY-NOTICES.md).
 
-The code and TabPFN-2 model weights are licensed under Prior Labs License (Apache 2.0 with additional attribution requirement): [here](LICENSE). To use the v2 model weights, instantiate your model as follows:
+Model weights are licensed separately.
+
+The TabPFN-2.5, TabPFN-2.6, TabPFN-3 and TabPFN-3.5 model weights are released under non-commercial licenses (TabPFN-3.5 [license](https://huggingface.co/Prior-Labs/tabpfn_3_5/blob/main/LICENSE), TabPFN-3 [license](https://huggingface.co/Prior-Labs/tabpfn_3/blob/main/LICENSE); see the [Models page](https://docs.priorlabs.ai/models#tabpfn-model-license) for prior releases). TabPFN-3.5 is used by default.
+
+The TabPFN-2 model weights are licensed under the Prior Labs License (Apache 2.0 with an additional attribution requirement): [classifier license](https://huggingface.co/Prior-Labs/TabPFN-v2-clf/blob/main/LICENSE.txt), [regressor license](https://huggingface.co/Prior-Labs/TabPFN-v2-reg/blob/main/LICENSE.txt). To use the v2 model weights, instantiate your model as follows:
 
 ```python
 from tabpfn import TabPFNRegressor
@@ -450,7 +264,7 @@ You can read our paper explaining TabPFNv2 [here](https://doi.org/10.1038/s41586
 - **Use batch prediction mode**: Each `predict` call recomputes the training set. Calling `predict` on 100 samples separately is almost 100 times slower and more expensive than a single call. If the test set is very large, split it into chunks of 1000 samples each.
 - **Avoid data preprocessing**: Do not apply data scaling or one-hot encoding when feeding data to the model.
 - **Use a GPU**: TabPFN is slow to execute on a CPU. Ensure a GPU is available for better performance.
-- **Mind the dataset size**: TabPFN works best on datasets within its recommended size limits. The current default (**TabPFN-3**) supports up to **1,000,000 × 200**, **100,000 × 2,000**, or **1,000 × 20,000** (rows × features) — larger feature counts trade off against row capacity. See the [Models page](https://docs.priorlabs.ai/models) for the limits of other checkpoints.
+- **Mind the dataset size**: TabPFN works best on datasets within its recommended size limits. **TabPFN-3.5** and **TabPFN-3.5-Fast** accept up to **1,000,000 rows** and **20,000 features**. See the [Models page](https://docs.priorlabs.ai/models) for the limits of other checkpoints.
 
 ## ❓ FAQ
 
@@ -459,7 +273,7 @@ You can read our paper explaining TabPFNv2 [here](https://doi.org/10.1038/s41586
 <details>
 <summary><b>Q: What dataset sizes work best with TabPFN?</b></summary>
 
-Recommended row and feature limits vary by checkpoint — see the [Models page](https://docs.priorlabs.ai/models) for the per-release limits. As a quick reference, the current default (**TabPFN-3**) supports up to **1,000,000 × 200**, **100,000 × 2,000**, or **1,000 × 20,000** (rows × features); larger feature counts trade off against row capacity. The previous default (**TabPFN-2.6**) is recommended for up to **100,000 rows** and **2,000 features**. If your dataset exceeds the recommended limits for your checkpoint, you can subsample, set `ignore_pretraining_limits=True` to push past the size guardrail, or upgrade to a release with a higher limit.
+Recommended row and feature limits vary by checkpoint — see the [Models page](https://docs.priorlabs.ai/models) for the per-release limits. As a quick reference, the current default (**TabPFN-3.5**, and **TabPFN-3.5-Fast**) accepts up to **1,000,000 rows** and **20,000 features**. If your dataset exceeds the recommended limits for your checkpoint, you can subsample, set `ignore_pretraining_limits=True` to push past the size guardrail, or upgrade to a release with a higher limit.
 
 </details>
 
@@ -473,7 +287,7 @@ TabPFN requires **Python 3.10+** due to newer language features. Compatible vers
 ### **Installation & Setup**
 
 <details>
-<summary><b>Q: How do I get access to TabPFN-2.5 / TabPFN-2.6 / TabPFN-3?</b></summary>
+<summary><b>Q: How do I get access to TabPFN-2.5 / TabPFN-2.6 / TabPFN-3 / TabPFN-3.5?</b></summary>
 
 On first use, TabPFN will automatically open a browser window where you can log in via [PriorLabs](https://ux.priorlabs.ai) and accept the license terms. Your authentication token is cached locally so you only need to do this once.
 
@@ -502,8 +316,8 @@ This script will download the main classifier and regressor models, as well as a
 **Manual Download**
 
 1. Download the model files manually from HuggingFace:
-   - Classifier: [tabpfn-v3-classifier-v3_default.ckpt](https://huggingface.co/Prior-Labs/tabpfn_3/blob/main/tabpfn-v3-classifier-v3_default.ckpt)
-   - Regressor: [tabpfn-v3-regressor-v3_default.ckpt](https://huggingface.co/Prior-Labs/tabpfn_3/blob/main/tabpfn-v3-regressor-v3_default.ckpt)
+   - TabPFN-3.5 (one file serves both classifier and regressor): [tabpfn-v3.5-20260909.safetensors](https://huggingface.co/Prior-Labs/tabpfn_3_5/blob/main/tabpfn-v3.5-20260909.safetensors)
+   - TabPFN-3.5-Fast: [tabpfn-v3.5-fast-20260909.safetensors](https://huggingface.co/Prior-Labs/tabpfn_3_5/blob/main/tabpfn-v3.5-fast-20260909.safetensors)
 
 2. Place the file in one of these locations:
    - Specify directly: `TabPFNClassifier(model_path="/path/to/model.ckpt")`
@@ -535,7 +349,7 @@ TabPFN uses Pydantic settings for configuration, supporting environment variable
 
 **Model Configuration:**
 - `TABPFN_MODEL_CACHE_DIR`: Custom directory for caching downloaded TabPFN models (default: platform-specific user cache directory)
-- `TABPFN_ALLOW_CPU_LARGE_DATASET`: Allow running TabPFN on CPU above the per-model sample limit (5000 for the default TabPFN-3, 1000 for older versions). Set to `true` to override the CPU limitation. Note: large datasets can still be slow on CPU!
+- `TABPFN_ALLOW_CPU_LARGE_DATASET`: Allow running TabPFN on CPU above the per-model sample limit (5000 for TabPFN-3 and TabPFN-3.5, 1000 for older versions). Set to `true` to override the CPU limitation. Note: large datasets can still be slow on CPU!
 - `TABPFN_MPS_MEMORY_FRACTION`: Fraction of recommended max MPS memory to allow on Apple Silicon (default: `0.7`). Used to prevent macOS system crashes; set before importing TabPFN. Values above `1.0` are not recommended.
 - `TABPFN_MAX_BATCHED_TEST_ROWS`: Maximum number of test rows fed through the model in a single forward pass during cached (`fit_mode="fit_with_cache"`) inference (default: `32768`). Larger test sets are split into independent chunks of at most this size and concatenated, bounding peak memory. Test rows are conditionally independent given the KV cache, so chunking is mathematically equivalent — results may still differ slightly due to floating-point non-associativity (see [#800](https://github.com/PriorLabs/TabPFN/issues/800#issuecomment-4903444425)). Performance should be close to optimal at the default of `32768`: the hardware is already saturated at that chunk size and, since the computations are independent, larger chunks bring no speedup. Set to `0` to disable chunking.
 
@@ -573,8 +387,9 @@ reg = TabPFNRegressor(device="cuda")
 reg.fit(X_train, y_train)
 save_fitted_tabpfn_model(reg, "my_reg.tabpfn_fit")
 
-# Later or on a CPU-only machine
-reg_cpu = load_fitted_tabpfn_model("my_reg.tabpfn_fit", device="cpu")
+# Later, or in another process. Defaults to device="auto", as the
+# constructors do; pass device= to pin it (e.g. device="cpu").
+reg_loaded = load_fitted_tabpfn_model("my_reg.tabpfn_fit")
 ```
 
 To store just the foundation model weights (without a fitted estimator) use
@@ -609,7 +424,7 @@ Not effective:
 <details>
 <summary><b>Q: What are the different checkpoints on <a href="https://huggingface.co/Prior-Labs">Hugging Face</a>?</b></summary>
 
-Each TabPFN release publishes a default classification and regression checkpoint. Some releases also publish a handful of experimental variants — these aren't guaranteed to exist for every release. We recommend starting with the defaults; the variants are experimental and worse on average. When present, they can be used as part of an ensembling or hyperparameter optimization system, or tried out manually. Their name suffixes refer to what we expect them to be good at.
+Each TabPFN release publishes a default checkpoint: one classification and one regression checkpoint up to TabPFN-3, and from TabPFN-3.5 on a single multitask checkpoint that serves both. Some releases also publish a handful of experimental variants — these aren't guaranteed to exist for every release. We recommend starting with the defaults; the variants are experimental and worse on average. When present, they can be used as part of an ensembling or hyperparameter optimization system, or tried out manually. Their name suffixes refer to what we expect them to be good at.
 
 </details>
 

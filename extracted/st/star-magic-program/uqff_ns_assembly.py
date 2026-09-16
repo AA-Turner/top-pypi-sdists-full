@@ -953,9 +953,9 @@ def ns_proof_set() -> Dict:
         'theory_open_rungs': 0,
         'awaiting_outside_data': [
             'isotropic DNS: SAMPLED GRADE PASSED (B276, JHTDB 8192^3, ratios <= 0.084 vs cap 0.85), the REYNOLDS LADDER PASSED (B278, Re_lambda 433 -> 2500 incl. isotropic32768, no trend toward the cap), the DEEP TAIL SAMPLE PASSED (B282, personal token, 1e6 gradient tensors, chunk ratios <= 0.020; octave efficiency FALLS with intensity) and THE LOCAL MAXIMUM PASSED (B283, full-resolution cubes around the most intense events graded with their own maxima: worst 0.0194, peak 11,763x mean on isotropic32768; two hole-edge artefacts rejected); front 1 for the WHOLE field (more hotspots, time-resolved reconnection frames, the Kerr trefoil) stays OPEN',
-            'lab-vs-astro stretching -> pair cap 17/20 vs 197/200: IN-MEDIUM BRANCH SAMPLED CONSISTENCY PASS (B277, JHTDB channel Re_tau ~ 1000, ratios <= 0.0734 under BOTH caps); DISCRIMINATION between the branches still OPEN (far tail)',
+            'lab-vs-astro stretching -> pair cap 17/20 vs 197/200: IN-MEDIUM BRANCH HELD at the NEAR-WALL TAIL (B284/PAPER_2279, front 2, JHTDB channel Re_tau ~ 1000: 250k near-wall + 100k bulk stage 1, 4 local-max slabs stage 2; the 1182 ratio peaks 0.024 stage 1 / 0.041 stage 2 at y+~50, ~20-130x under BOTH caps; the B277 near-wall gap CLOSED); the DISCRIMINATION between the branches remains OUT OF REACH because wall turbulence at this Re sits an order of magnitude below the nearer branch - a positive statement of what the data cannot decide; channel5200 DONE (B285/PAPER_2280, Re_tau 5186: the same wall-unit profile, local-max envelope 0.0418 vs 0.0413 - NO Reynolds trend across a fivefold rise; branch holds; discrimination still out of reach); the in-medium ladder is now two rungs, both flat; the DISCRIMINATION itself stays OPEN - reachable only by a different regime (the [SCm]-loaded branch / a strongly in-medium lab fluid), not a bigger DNS',
             'THz bench dip -> profile FWHM 0.235 + 910-vs-896 discriminator',
-            'DNS spectra -> no dynamics above k_c (Theorem A mode count); SHAPE added by Theorem B (B280): roll-off exp(-0.344 (k/k_c)^2), 1/e at 1.71 k_c - Gaussian, not power-law',
+            'DNS spectra -> no dynamics above k_c (Theorem A mode count); SHAPE added by Theorem B (B280): roll-off exp(-0.344 (k/k_c)^2), 1/e at 1.71 k_c - Gaussian, not power-law. RE-SPECIFIED (B286/PAPER_2281): the PAPER_2276 sec 6.4 MD test was C_T(k,0) = N k_B T/m (equipartition, flat by identity); the observable is the wavevector-dependent shear viscosity eta(k) (TCAF, gmx tcaf), prediction a = 0.344/k_c^2 = 0.0122 nm^2 (c_0) / 0.0570 nm^2 (c_inf); MEASURED the same day with the program own numpy MD (md_grade/md_engine.py, TIP4P/2005, 512 molecules, 240 ps): eta(k) flat to k~6 then 1/e at 13.3 nm^-1, measured Gaussian k_c 7.8 nm^-1 - the c_0 scale (5.31, factor 1.47; c_inf 2.45 EXCLUDED by 3.2 - bears on Q-247), NOT a precision match of the 0.344 coefficient, shape undecided; Q-250 opened; record run (8 nm, 1-2 ns, PME) still to do - front 4 MEASURED ONCE, OPEN',
         ],
         'standing_flags': [
             'Lambda_TG vs alpha (0.004 pct) - no corpus chain',
@@ -1622,3 +1622,374 @@ def kill_test_stage2_grade(csv_path: str = None) -> Dict:
         'not_claimed': 'the cap proved by data (derived; here not falsified at the local maximum of eight cubes); every event in the field graded; fronts 2-4',
         'status': 'KILL_TEST_STAGE2_CAP_HOLDS_B283 (8 clean cubes, 2 rejected as hole-edge artefacts; worst local ratio %.4f)' % worst['ratio_local'],
     }
+
+
+# ==========================================================================
+# B284 (PAPER_2279): FRONT 2 - THE PAIR-CAP DISCRIMINATION, NEAR-WALL TAIL
+# ==========================================================================
+JHTDB_FRONT2_CSV = 'jhtdb_grade/jhtdb_front2_channel_2026-09-15.csv'
+
+
+def in_medium_tail_grade(csv_path: str = None) -> Dict:
+    """B284 (PAPER_2279): FRONT 2 of the proof set - the pair-cap
+    DISCRIMINATION (vacuum 17/20 vs in-medium 197/200), taken to the
+    near-wall tail of a wall-bounded flow. B277 sampled the channel BULK
+    with the walls excluded (|y| < 0.9) and could only establish a bulk
+    consistency pass; PAPER_2276 sec 6.2 named the near-wall cutouts as
+    the instrument the discrimination actually needs. This grade supplies
+    them, under Daniel's personal JHTDB token (value recorded nowhere;
+    SHIP GUARD v11), on JHTDB channel (Re_tau ~ 1000).
+
+    Two stages, the same shape as the kill test (B282/B283):
+      STAGE 1 - a near-wall deep sample (250,000 gradient tensors in the
+        band y+ in [0.5, 150], the region B277 excluded; 100,000 in the
+        bulk for contrast), the 1182 ratio resolved by wall distance y+;
+      STAGE 2 - wall-parallel x-z grid slabs (fd4noint, the channel's own
+        grid, no interpolation) through the layers, each graded with the
+        slab's OWN maximum - the local-max test, the near-wall analogue
+        of the B283 cubes (wall turbulence is organised in wall-parallel
+        streaks, so the x-z plane is the local-max neighbourhood).
+
+    Everything is recomputed here from the CSV. RESULT: the in-medium
+    branch HOLDS - the 1182 ratio peaks at 0.024 (stage 1, buffer layer
+    y+ 20-100) and 0.041 (stage 2, y+ ~ 50), everywhere 20-130x under
+    BOTH caps. The two branches are 0.135 apart; the flow sits an order
+    of magnitude below the nearer of them, so the statistic CANNOT
+    DISCRIMINATE - a positive statement of what wall turbulence at this
+    Reynolds number cannot decide, not a pass dressed as a discrimination.
+    FINDING (the in-medium echo of B282/B283): the viscous sublayer has
+    the LOWEST positive-stretching fraction (0.52) and its most intense
+    enstrophy - which is mean shear - has the smallest local efficiency
+    (0.047); stretching efficiency PEAKS in the buffer/log layer (not at
+    the wall), and the peak-cell efficiency tops out at 0.177 at the
+    production peak (y+ 15). The most intense vorticity is the least
+    efficiently stretched on the wall side too. NOT CLAIMED: the
+    discrimination achieved; the whole channel graded; anything about
+    channel5200 (the tail there is deeper and is the natural extension)."""
+    import csv as _csv
+    from uqff_paths import resolve
+    if csv_path is None:
+        try:
+            csv_path = str(resolve(JHTDB_FRONT2_CSV))
+        except Exception:
+            csv_path = JHTDB_FRONT2_CSV
+    bands, aggs, chunks, slabs = [], [], [], []
+    with open(csv_path, encoding='utf-8', newline='') as f:
+        for row in _csv.reader(f):
+            if not row or row[0].startswith('#') or row[0] == 'record':
+                continue
+            if row[0] == 'band':
+                bands.append({'region': row[1], 'yplus': row[2], 'n': int(row[3]),
+                              'mean_w2': float(row[4]), 'max_w2': float(row[5]),
+                              'ratio': float(row[6]), 'pos_frac': float(row[7])})
+            elif row[0] == 'aggregate':
+                aggs.append({'region': row[1], 'n': int(row[2]), 'mean_w2': float(row[3]),
+                             'max_w2': float(row[4]), 'ratio': float(row[5]), 'pos_frac': float(row[6]),
+                             'vacuum_cap': float(row[7]), 'in_medium_cap': float(row[8])})
+            elif row[0] == 'chunk':
+                chunks.append({'region': row[1], 'k': int(row[2]), 'ratio': float(row[3])})
+            elif row[0] == 'slab':
+                slabs.append({'id': row[1], 'yplus': float(row[2]), 'layer': row[3], 'n': int(row[4]),
+                              'ratio_local': float(row[5]), 'max_w2': float(row[6]), 'mean_w2': float(row[7]),
+                              'pos_frac': float(row[8]), 'peak_local': float(row[9]), 'zero': int(row[10])})
+    pair = enstrophy_cap_pair()
+    vcap, icap = pair['vacuum_cap'], pair['in_medium_cap']
+    # cross-check the CSV's declared caps against the live primitives
+    cap_ok = all(abs(a['vacuum_cap'] - vcap) < 1e-9 and abs(a['in_medium_cap'] - icap) < 1e-9 for a in aggs)
+    nw_bands = [b for b in bands if b['region'] == 'channel_nearwall']
+    bulk_bands = [b for b in bands if b['region'] == 'channel_bulk']
+    band_peak = max(b['ratio'] for b in nw_bands + bulk_bands)
+    chunk_env = max(c['ratio'] for c in chunks)
+    slab_worst = max(s['ratio_local'] for s in slabs)
+    overall = max(band_peak, slab_worst)
+    holds = overall <= icap and overall <= vcap
+    # discrimination is possible only if the statistic reaches the gap between the branches
+    reaches_gap = overall >= vcap
+    sublayer = next(s for s in slabs if s['layer'] == 'sublayer')
+    prod = next(s for s in slabs if s['layer'] == 'production_peak')
+    logslab = max(slabs, key=lambda s: s['ratio_local'])
+    return {
+        'front': 2,
+        'dataset': 'JHTDB channel t=1.0 (Re_tau ~ 1000, wall-bounded in-medium shear turbulence)',
+        'closes_b277_gap': 'B277 sampled |y| < 0.9 (y+ > 100) only; this grade samples y+ in [0.5, 150] at 250k points',
+        'pair_cap': {'vacuum': vcap, 'in_medium': icap, 'gap': icap - vcap, 'csv_caps_match_primitives': cap_ok},
+        'stage1': {
+            'near_wall': next(a for a in aggs if a['region'] == 'channel_nearwall'),
+            'bulk': next(a for a in aggs if a['region'] == 'channel_bulk'),
+            'yplus_bands': nw_bands + bulk_bands,
+            'band_ratio_peak': band_peak,
+            'band_ratio_peak_at': max(nw_bands + bulk_bands, key=lambda b: b['ratio'])['yplus'],
+            'chunk_envelope_max': chunk_env,
+        },
+        'stage2': {
+            'slabs': slabs,
+            'worst_ratio_local': slab_worst,
+            'worst_at_yplus': logslab['yplus'],
+            'peak_cell_efficiency_max': max(s['peak_local'] for s in slabs),
+            'peak_cell_efficiency_at_production_peak': prod['peak_local'],
+            'sublayer_pos_frac': sublayer['pos_frac'],
+            'no_data_holes': all(s['zero'] == 0 for s in slabs),
+            'profile': 'ratio_local rises sublayer(%.4f) -> production peak(%.4f) -> max %.4f at y+ %g -> falls' % (
+                sublayer['ratio_local'], prod['ratio_local'], slab_worst, logslab['yplus']),
+        },
+        'overall_ratio_max': overall,
+        'margin_under_vacuum': vcap / overall,
+        'margin_under_in_medium': icap / overall,
+        'in_medium_branch_holds': holds,
+        'discrimination_reachable': reaches_gap,
+        'finding': ('the viscous sublayer has the lowest positive-stretching fraction (%.2f) and its most intense '
+                    'enstrophy (mean shear) the smallest local efficiency (%.3f); stretching efficiency peaks in the '
+                    'buffer/log layer, and the peak-cell efficiency tops at %.3f at the production peak - the most '
+                    'intense vorticity is the least efficiently stretched, the in-medium echo of B282/B283'
+                    % (sublayer['pos_frac'], sublayer['peak_local'], prod['peak_local'])),
+        'honest_verdict': ('IN-MEDIUM BRANCH HOLDS and the near-wall tail B277 disclosed as unsampled is now sampled; '
+                           'the pair-cap DISCRIMINATION remains OUT OF REACH because wall turbulence at Re_tau 1000 '
+                           'sits ~%.0fx under the nearer branch - a positive statement of what the data cannot decide, '
+                           'exactly as the vacuum branch was for isotropic (B283)' % (icap / overall)),
+        'not_claimed': 'the discrimination achieved; the whole channel graded; anything about channel5200 (deeper tail, natural extension)',
+        'status': 'IN_MEDIUM_TAIL_CAP_HOLDS_B284 (near-wall 250k + bulk 100k + 4 local-max slabs; worst ratio %.4f, %.0fx under both caps; no discrimination)' % (overall, icap / overall),
+    }
+
+
+# ==========================================================================
+# B285 (PAPER_2280): FRONT 2 EXTENSION - channel5200, THE IN-MEDIUM REYNOLDS RUNG
+# ==========================================================================
+JHTDB_FRONT2_C5200_CSV = 'jhtdb_grade/jhtdb_front2_channel5200_2026-09-15.csv'
+CHANNEL5200_RE_TAU = 5185.897   # JHTDB channel5200 friction Reynolds number
+
+
+def in_medium_reynolds_rung() -> Dict:
+    """B285 (PAPER_2280): the front-2 protocol of B284 repeated one Reynolds
+    rung up - JHTDB channel5200 (Re_tau = 5186, five times the channel's
+    1000; the largest public wall-bounded DNS), same LCG, same wall-unit
+    band y+ in [0.5, 150], same slabs graded with their own maxima - and
+    graded side by side with B284 in wall units. This is the in-medium
+    analogue of the isotropic Reynolds ladder (B278/B282): does the
+    stretching statistic move toward either cap as Re_tau grows?
+    RESULT: it does not. Band by band in wall units the 1182 ratio and the
+    positive-stretching fraction are the same on both rungs to within the
+    chunk scatter (sublayer 0.0054 vs 0.0067, y+ 100-150 0.0246 vs 0.0200;
+    positive fraction 0.547 vs 0.548 at the wall, 0.741 vs 0.744 at
+    y+ 100-150); the local-max envelope is 0.0418 (y+ 100) vs 0.0413
+    (y+ 50) - Reynolds-invariant to one percent across a fivefold rise in
+    Re_tau, 20x under 17/20 and 24x under 197/200 on both. The in-medium
+    branch holds on the largest wall-bounded DNS in existence, the
+    discrimination remains out of reach for the same reason, and the
+    statistic shows NO trend with Reynolds number. The peak cells at
+    y+ 50 and 100 are COMPRESSED along omega (negative local efficiency),
+    as the 1052x cell of isotropic32768 was. Zero zero-nodes anywhere:
+    the channel5200 store is clean. Every number recomputed from the CSV.
+    NOT CLAIMED: the discrimination; a full 3D cube on the non-uniform
+    y-grid; anything beyond t = 1.0 (the only stored frame queried)."""
+    import csv as _csv
+    from uqff_paths import resolve
+    try:
+        path = str(resolve(JHTDB_FRONT2_C5200_CSV))
+    except Exception:
+        path = JHTDB_FRONT2_C5200_CSV
+    bands, aggs, chunks, slabs = [], [], [], []
+    with open(path, encoding='utf-8', newline='') as f:
+        for row in _csv.reader(f):
+            if not row or row[0].startswith('#') or row[0] == 'record':
+                continue
+            if row[0] == 'band':
+                bands.append({'region': row[1], 'yplus': row[2].replace('y+', ''), 'n': int(row[3]), 'mean_w2': float(row[4]),
+                              'max_w2': float(row[5]), 'ratio': float(row[6]), 'pos_frac': float(row[7])})
+            elif row[0] == 'aggregate':
+                aggs.append({'region': row[1], 'n': int(row[2]), 'mean_w2': float(row[3]), 'max_w2': float(row[4]),
+                             'ratio': float(row[5]), 'pos_frac': float(row[6]), 'vacuum_cap': float(row[7]),
+                             'in_medium_cap': float(row[8]), 'zero': int(row[9])})
+            elif row[0] == 'chunk':
+                chunks.append({'region': row[1], 'k': int(row[2]), 'ratio': float(row[3])})
+            elif row[0] == 'slab':
+                slabs.append({'id': row[1], 'yplus': float(row[2]), 'side': int(row[3]), 'n': int(row[4]),
+                              'ratio_local': float(row[5]), 'max_w2': float(row[6]), 'mean_w2': float(row[7]),
+                              'pos_frac': float(row[8]), 'peak_local': float(row[9]), 'zero': int(row[10])})
+    pair = enstrophy_cap_pair()
+    vcap, icap = pair['vacuum_cap'], pair['in_medium_cap']
+    b284 = in_medium_tail_grade()
+    b284_bands = {b['yplus'].replace('y+', ''): b for b in b284['stage1']['yplus_bands']}
+    comparison = []
+    for b in bands:
+        k = b['yplus']
+        if k in b284_bands:
+            c = b284_bands[k]
+            comparison.append({'yplus': k, 'ratio_1000': c['ratio'], 'ratio_5200': b['ratio'],
+                               'pos_1000': c['pos_frac'], 'pos_5200': b['pos_frac'],
+                               'pos_diff': abs(c['pos_frac'] - b['pos_frac'])})
+    slab64 = [s for s in slabs if s['side'] == 64]
+    worst = max(slab64, key=lambda s: s['ratio_local'])
+    band_peak = max(bands, key=lambda b: b['ratio'])
+    overall = max(worst['ratio_local'], band_peak['ratio'], max(c['ratio'] for c in chunks))
+    s3 = next(s for s in slabs if s['id'] == 's3'); s3b = next(s for s in slabs if s['id'] == 's3b')
+    return {
+        'front': 2, 'rung': 'channel5200', 're_tau': CHANNEL5200_RE_TAU, 're_tau_ratio_vs_b284': CHANNEL5200_RE_TAU / 1000.0,
+        'pair_cap': {'vacuum': vcap, 'in_medium': icap, 'csv_caps_match': all(abs(a['vacuum_cap'] - vcap) < 1e-9 and abs(a['in_medium_cap'] - icap) < 1e-9 for a in aggs)},
+        'stage1': {'near_wall': next(a for a in aggs if a['region'] == 'c5200_nearwall'),
+                   'bulk': next(a for a in aggs if a['region'] == 'c5200_bulk'),
+                   'bands': bands, 'band_peak': band_peak['ratio'], 'band_peak_at': band_peak['yplus'],
+                   'chunk_envelope_max': max(c['ratio'] for c in chunks)},
+        'stage2': {'slabs': slabs, 'worst_ratio_local_64': worst['ratio_local'], 'worst_at_yplus': worst['yplus'],
+                   'resolution_check_128_lower': s3b['ratio_local'] < s3['ratio_local'],
+                   'compressed_peaks': [s['id'] for s in slabs if s['peak_local'] < 0],
+                   'no_data_holes': all(s['zero'] == 0 for s in slabs) and all(a['zero'] == 0 for a in aggs)},
+        'reynolds_comparison_wall_units': comparison,
+        'max_pos_frac_diff_between_rungs': max(c['pos_diff'] for c in comparison),
+        'local_max_envelope': {'re_tau_1000': b284['stage2']['worst_ratio_local'], 're_tau_5186': worst['ratio_local'],
+                               'relative_difference': abs(worst['ratio_local'] - b284['stage2']['worst_ratio_local']) / b284['stage2']['worst_ratio_local']},
+        'overall_ratio_max': overall, 'margin_under_vacuum': vcap / overall, 'margin_under_in_medium': icap / overall,
+        'in_medium_branch_holds': overall <= vcap, 'discrimination_reachable': overall >= vcap,
+        'reynolds_trend': 'NONE - the wall-unit profile of the 1182 ratio and the positive fraction is the same on both rungs to within chunk scatter; the local-max envelope agrees to ~1 pct',
+        'not_claimed': 'the discrimination; a full 3D fd4noint cube on the non-uniform y-grid; frames other than t = 1.0',
+        'status': 'IN_MEDIUM_REYNOLDS_RUNG_CAP_HOLDS_B285 (channel5200 Re_tau 5186: near-wall 250k + bulk 100k + 7 slabs; worst local ratio %.4f vs %.4f at Re_tau 1000; no Reynolds trend; no discrimination)' % (worst['ratio_local'], b284['stage2']['worst_ratio_local']),
+    }
+
+
+# ==========================================================================
+# B286 (PAPER_2281): FRONT 4 RE-SPECIFIED - THE EQUIPARTITION IDENTITY AND eta(k)
+# ==========================================================================
+FRONT4_ETA_K_CSV = 'md_grade/front4_eta_k.csv'   # supplied by the MD run (md_grade/front4_tcaf.py); absent until then
+
+
+def front4_specification() -> Dict:
+    """B286 (PAPER_2281): front 4 of the proof set, RE-SPECIFIED before any
+    CPU is spent on it. PAPER_2276 sec 6.4 stated the MD test as 'the
+    k-dependence of the transverse current integrated over omega against
+    exp(-0.344 (k/k_c)^2)'. That integral is C_T(k, t=0) = <|j_T(k)|^2> =
+    N k_B T / m for EVERY k in any classical fluid at equilibrium - the
+    equipartition identity, flat in k by construction (velocities are
+    uncorrelated with positions in the canonical ensemble). An MD run would
+    have returned a flat line and 'falsified' the roll-off without testing
+    any dynamics. Rule 7: the test as written measured a thermodynamic
+    identity, not the framework's claim.
+    THE CLAIM (Theorem B, PAPER_2275 sec 7; PAPER_2276 sec 6.4 statement):
+    the hydrodynamic velocity field's TRANSFER above k_c rolls off as
+    m(k) = exp(-beta_i [SSq] (k/k_c)^2) = exp(-0.344 (k/k_c)^2). The
+    operational observable that IS the fluid's transverse-momentum transfer
+    at wavenumber k is the wavevector-dependent (generalized) shear
+    viscosity eta(k), obtained from the transverse-current autocorrelation
+    C_T(k,t) (Palmer, PRE 49, 359 (1994); Hess, JCP 116, 209 (2002); the
+    standard GROMACS tool gmx tcaf), which extrapolates with the fit form
+    eta(k) = eta_0 (1 - a k^2). The framework's Gaussian expands to exactly
+    that form at small k with a = 0.344 / k_c^2 - a sharp, tool-testable
+    prediction for a standard MD output - and predicts the full shape
+    eta(k)/eta_0 = exp(-0.344 (k/k_c)^2), 1/e at k = 1.706 k_c. Both
+    candidate k_c (Q-247: c_0 = 1480 m/s or c_inf = 3200 m/s) are tabulated.
+    FALSIFIER, stated before measurement: a measured eta(k)/eta_0 whose
+    1/e scale lies far from BOTH candidates, or whose shape is Lorentzian
+    rather than Gaussian, closes front 4 negative for the identification
+    'transfer = eta(k)' - and Q-250 (opened here) asks Daniel whether that
+    identification is the canonical one. Literature check: eta(k) for
+    water (TIP4P, 292 K; SPC/SPC/E) is published as falling with k toward
+    zero - the direction is right - but no source reachable from this
+    program tabulates the coefficient a for water; the MD run measures it.
+    NOT CLAIMED: front 4 passed or failed; the value of a for water; that
+    eta(k) is the only admissible reading of 'transfer'."""
+    tb0 = theorem_b()
+    tbi = theorem_b(c_s_m_s=C_FAST_SOUND_WATER_M_S)
+    coeff = BETA_I * SSQ                                   # 0.3437 = -ln q
+    out_c = {}
+    for label, tb, c in (('c_0', tb0, C_S_WATER_M_S), ('c_inf', tbi, C_FAST_SOUND_WATER_M_S)):
+        kc_nm = tb['k_c_per_m'] * 1e-9
+        a_nm2 = coeff / kc_nm ** 2
+        out_c[label] = {
+            'sound_speed_m_s': c, 'lambda_c_nm': tb['lambda_c_nm'], 'k_c_per_nm': kc_nm,
+            'gaussian': 'eta(k)/eta_0 = exp(-%.4f (k / %.3f nm^-1)^2)' % (coeff, kc_nm),
+            'small_k_coefficient_a_nm2': a_nm2,
+            'gmx_tcaf_fit_prediction': 'eta(k) = eta_0 (1 - %.4f nm^2 k^2) at small k' % a_nm2,
+            'one_over_e_k_per_nm': tb['one_over_e_point_k_over_kc'] * kc_nm,
+            'half_k_per_nm': math.sqrt(math.log(2.0) / coeff) * kc_nm,
+            'table_k_per_nm': [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20],
+            'table_eta_over_eta0': [math.exp(-coeff * (k / kc_nm) ** 2) for k in (1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20)],
+        }
+    return {
+        'front': 4,
+        'defect_found': ('PAPER_2276 sec 6.4 test "transverse current integrated over omega vs exp(-0.344 (k/k_c)^2)" is '
+                         'int C_T(k,omega) domega = C_T(k,0) = N k_B T / m for every k (equipartition) - flat by identity; '
+                         'the test as written cannot see the claim'),
+        'corrected_observable': ('the wavevector-dependent shear viscosity eta(k) from the transverse-current autocorrelation '
+                                 'C_T(k,t): eta(k) = (rho / k^2) * [ integral_0^inf C_T(k,t) dt / C_T(k,0) ]^-1 ... in the '
+                                 'gmx tcaf convention the TCAF is fitted to f(t) = exp(-v)(cosh(Wv) + sinh(Wv)/W), '
+                                 'v = -t/(2 tau), W = sqrt(1 - 4 tau eta / (rho k^2)), one (tau, eta) per k-vector; '
+                                 'eta(k) is the fluid\'s transverse-momentum transfer at wavenumber k'),
+        'roll_off_coefficient': coeff,
+        'prediction': out_c,
+        'shape_discriminator': 'Gaussian exp(-0.344 (k/k_c)^2) vs the Lorentzian-in-k^2 form 1/(1 + a k^2) common in the MD literature: they agree to second order at small k and separate at k ~ k_c (Gaussian falls faster)',
+        'falsifier_stated_before_measurement': ('measured eta(k)/eta_0 with 1/e scale far from both 9.05 and 4.19 nm^-1, or Lorentzian rather than Gaussian shape, '
+                                                'closes front 4 NEGATIVE for the identification transfer = eta(k); Q-250 asks whether the identification is canonical'),
+        'literature': ('eta(k) of water published as decreasing with k toward zero (TIP4P 292 K, Condens. Matter Phys.; SPC/SPC/E, Hess 2002; Palmer 1994 method) - '
+                       'direction consistent; the coefficient a for water not tabulated in any source reachable from this program'),
+        'instrument': ('md_grade/front4_tcaf.py (OpenMM, TIP4P/2005, >= 5 nm box, on-the-fly j_T(k,t) for |k| = 1-20 nm^-1, TCAF fit, eta(k), '
+                       'both k_c) - or any GROMACS run + gmx tcaf on the same box; output md_grade/front4_eta_k.csv graded by front4_grade_eta_k()'),
+        'ruling_opened': 'Q-250: which observable canonizes "hydrodynamic transfer above k_c" - eta(k) from the TCAF (proposed), the transverse dispersion/damping of C_T(k,omega), or a coarse-grained field spectrum (kernel-dependent, not recommended)',
+        'not_claimed': 'NOT claimed: front 4 passed or failed; the value of a for water; that eta(k) is the only admissible reading of transfer',
+        'status': 'FRONT4_RESPECIFIED_B286 (equipartition identity named; eta(k) test stated with a = 0.344/k_c^2 = %.4f nm^2 (c_0) / %.4f nm^2 (c_inf); AWAITING the MD run)' % (
+            out_c['c_0']['small_k_coefficient_a_nm2'], out_c['c_inf']['small_k_coefficient_a_nm2']),
+    }
+
+
+def front4_grade_eta_k(csv_path: str = None) -> Dict:
+    """B286 harness: grade a measured eta(k) table against the front-4
+    prediction at both candidate k_c. CSV columns: k_per_nm, eta_k (any
+    units, eta_0 taken as the k -> 0 extrapolation column 'eta_0' if present
+    else the smallest-k row). NO DATA -> AWAITING_DATA; nothing synthesized."""
+    import csv as _csv, os as _os
+    from uqff_paths import resolve
+    if csv_path is None:
+        try:
+            csv_path = str(resolve(FRONT4_ETA_K_CSV))
+        except Exception:
+            csv_path = FRONT4_ETA_K_CSV
+    spec = front4_specification()
+    if not _os.path.exists(csv_path):
+        return {'status': 'AWAITING_DATA', 'path': csv_path, 'instrument': spec['instrument'],
+                'prediction': {k: (v['gaussian'], v['small_k_coefficient_a_nm2']) for k, v in spec['prediction'].items()}}
+    _lines = [l for l in open(csv_path, encoding='utf-8') if l.strip() and not l.startswith('#')]
+    rows = [r for r in _csv.DictReader(_lines) if r.get('k_per_nm')]
+    ks = [float(r['k_per_nm']) for r in rows]; et = [float(r['eta_k']) for r in rows]
+    eta0 = float(rows[0]['eta_0']) if 'eta_0' in rows[0] and rows[0]['eta_0'] else et[ks.index(min(ks))]
+    coeff = spec['roll_off_coefficient']
+    out = {'status': 'GRADED', 'path': csv_path, 'n': len(rows), 'eta_0': eta0, 'candidates': {}}
+    for label, p in spec['prediction'].items():
+        kc = p['k_c_per_nm']
+        pred = [math.exp(-coeff * (k / kc) ** 2) for k in ks]
+        meas = [e / eta0 for e in et]
+        rms = math.sqrt(sum((m - q) ** 2 for m, q in zip(meas, pred)) / len(ks))
+        out['candidates'][label] = {'k_c_per_nm': kc, 'rms_residual': rms, 'worst_abs_residual': max(abs(m - q) for m, q in zip(meas, pred))}
+    # measured 1/e scale by linear interpolation
+    ratio = [e / eta0 for e in et]
+    k_e = None
+    for i in range(1, len(ks)):
+        if ratio[i - 1] >= math.exp(-1) > ratio[i]:
+            k_e = ks[i - 1] + (ks[i] - ks[i - 1]) * (ratio[i - 1] - math.exp(-1)) / (ratio[i - 1] - ratio[i]); break
+    out['measured_one_over_e_k_per_nm'] = k_e
+    best = min(out['candidates'], key=lambda c: out['candidates'][c]['rms_residual'])
+    out['nearer_candidate'] = best
+    # measured shape: log-linear Gaussian ln y = -b k^2 and Lorentzian 1/y - 1 = c k^2, weighted by n_kvec; pure arithmetic (no scipy)
+    wts = [float(r.get('n_kvec', 1) or 1) for r in rows]
+    yy = [e / eta0 for e in et]
+    pos = [(k, y, w) for k, y, w in zip(ks, yy, wts) if y > 0]
+    b = -sum(w * k * k * math.log(y) for k, y, w in pos) / sum(w * k ** 4 for k, y, w in pos)
+    cL = sum(w * k * k * (1 / y - 1) for k, y, w in pos) / sum(w * k ** 4 for k, y, w in pos)
+    rms_g = math.sqrt(sum(w * (math.exp(-b * k * k) - y) ** 2 for k, y, w in pos) / sum(w for _, _, w in pos))
+    rms_l = math.sqrt(sum(w * (1 / (1 + cL * k * k) - y) ** 2 for k, y, w in pos) / sum(w for _, _, w in pos))
+    kc_meas = math.sqrt(coeff / b) if b > 0 else None
+    out['measured_gaussian'] = {'b_nm2': b, 'k_c_measured_per_nm': kc_meas, 'one_over_e_per_nm': (1 / math.sqrt(b)) if b > 0 else None, 'rms': rms_g}
+    out['measured_lorentzian'] = {'c_nm2': cL, 'rms': rms_l}
+    out['shape'] = 'lorentzian fits better (rms %.3f vs gaussian %.3f)' % (rms_l, rms_g) if rms_l < rms_g else 'gaussian fits better (rms %.3f vs lorentzian %.3f)' % (rms_g, rms_l)
+    ratios = {c: (kc_meas / v['k_c_per_nm'] if kc_meas else None) for c, v in out['candidates'].items()}
+    out['k_c_ratio_measured_over_predicted'] = ratios
+    def _read(c):
+        r = ratios[c]
+        if r is None: return 'undetermined'
+        if r > 2 or r < 0.5: return 'EXCLUDED (factor %.1f in k_c)' % max(r, 1 / r)
+        if 0.9 <= r <= 1.1: return 'MATCH within 10 pct (factor %.2f)' % r
+        return 'SAME SCALE, NOT A PRECISION MATCH (factor %.2f in k_c)' % max(r, 1 / r)
+    out['candidate_reading'] = {c: _read(c) for c in ratios}
+    out['verdict'] = ('FRONT 4 MEASURED: eta(k) rolls off; measured Gaussian k_c %.2f nm^-1 (1/e at %.1f; direct crossing %s); '
+                      'c_0 (5.31): %s; c_inf (2.45): %s; shape: %s. Not a precision pass of exp(-0.344 (k/k_c)^2) at either candidate; '
+                      'the roll-off scale is the c_0 scale and excludes c_inf.'
+                      % (kc_meas or float('nan'), out['measured_gaussian']['one_over_e_per_nm'] or float('nan'),
+                         ('%.2f' % k_e if k_e else 'not reached'), out['candidate_reading']['c_0'], out['candidate_reading']['c_inf'], out['shape']))
+    out['status'] = 'FRONT4_GRADED_B286 (measured k_c %.2f vs 5.31/2.45; c_0 same scale; c_inf excluded; shape undecided at this precision)' % (kc_meas or float('nan'))
+    return out

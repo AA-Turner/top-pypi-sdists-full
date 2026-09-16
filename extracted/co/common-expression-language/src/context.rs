@@ -1,9 +1,11 @@
 use ::cel::objects::TryIntoValue;
-use ::cel::Value;
+use ::cel::{Context as CelContext, Value};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use pyo3::IntoPyObjectExt;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex, PoisonError};
 
 #[pyo3::pyclass]
 /// Manages the evaluation environment for CEL expressions.
@@ -27,25 +29,82 @@ use std::collections::HashMap;
 /// - Optimize performance for applications with frequent CEL evaluations
 ///
 /// Attributes:
-///     variables (dict): A dictionary mapping variable names (str) to their
-///         values (automatically converted to appropriate CEL types).
-///     functions (dict): A dictionary mapping function names (str) to their
-///         corresponding Python callable objects.
+///     variables (dict): A read-only snapshot mapping variable names (str) to
+///         their values, converted back from CEL types to Python (so a tuple
+///         added as a variable reads back as a list). Modify the context with
+///         ``add_variable()`` or ``update()``, not by mutating this dict.
+///     functions (dict): A read-only snapshot mapping function names (str) to
+///         the registered Python callables. Modify the context with
+///         ``add_function()`` or ``update()``.
 ///
 /// Thread Safety:
 ///     Context objects are not thread-safe. Create separate Context instances
 ///     for concurrent use or implement your own synchronization.
 ///
 /// Performance Tips:
-///     - Reuse Context objects for multiple evaluations when possible
+///     - Reuse Context objects for multiple evaluations when possible: the
+///       CEL-side environment (converted variables and wrapped functions) is
+///       built on first use and reused until the context is modified
 ///     - Pre-populate Context with all needed variables and functions
-///     - Avoid frequent add_variable/add_function calls in hot code paths
+///     - Avoid frequent add_variable/add_function calls in hot code paths, as
+///       each one discards the cached environment
 pub struct Context {
     pub variables: HashMap<String, Value>,
     pub functions: HashMap<String, Py<PyAny>>,
     /// Optional Python callable for lazy variable resolution. Invoked with a
     /// variable name; returns the value (or None to fall through to `variables`).
     pub resolver: Option<Py<PyAny>>,
+    /// The cel environment built from `variables` and `functions`, created on
+    /// first use and shared by every evaluation until a mutator clears it.
+    ///
+    /// Building it boxes each variable and wraps each Python callable in a
+    /// closure. That used to happen on every `evaluate()`/`execute()` call and
+    /// dominated the cost of evaluating against a context with many functions
+    /// (the CLI registers the whole extended stdlib). The resolver is
+    /// deliberately not part of it: it is bound per call in a child scope, so
+    /// setting one does not invalidate the cache.
+    cel: Mutex<Option<Arc<CelContext<'static>>>>,
+}
+
+impl Context {
+    /// Materialises a fresh cel environment from the registered variables and
+    /// functions. Used for the cache and, on every call, for dict contexts.
+    pub(crate) fn build_cel_context(&self, py: Python<'_>) -> CelContext<'static> {
+        let mut environment = crate::new_environment();
+        for (name, value) in &self.variables {
+            environment.add_variable_from_value(name.clone(), value.clone());
+        }
+        for (name, function) in &self.functions {
+            crate::register_python_function(&mut environment, name, function.clone_ref(py));
+        }
+        environment
+    }
+
+    /// Returns the cached cel environment, building it on first use.
+    ///
+    /// The `Arc` lets a caller keep evaluating against a consistent snapshot
+    /// even if a Python callback mutates this `Context` mid-evaluation; the
+    /// mutation simply takes effect from the next evaluation.
+    pub(crate) fn cel_context(&self, py: Python<'_>) -> Arc<CelContext<'static>> {
+        let mut cached = self.cel.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(existing) = cached.as_ref() {
+            return Arc::clone(existing);
+        }
+        let built = Arc::new(self.build_cel_context(py));
+        *cached = Some(Arc::clone(&built));
+        built
+    }
+
+    /// Drops the cached environment so the next evaluation rebuilds it.
+    ///
+    /// Every mutator calls this *before* touching `variables` or `functions`.
+    /// A mutator can fail part-way (`update()` rejects a later key after
+    /// inserting earlier ones), and invalidating up front means the cache can
+    /// never describe state the maps no longer hold. Nothing can repopulate it
+    /// while the mutator runs, because the mutator holds `&mut self`.
+    fn invalidate(&mut self) {
+        *self.cel.get_mut().unwrap_or_else(PoisonError::into_inner) = None;
+    }
 }
 
 #[pyo3::pymethods]
@@ -126,6 +185,7 @@ impl Context {
             variables: HashMap::new(),
             functions: HashMap::new(),
             resolver: None,
+            cel: Mutex::new(None),
         };
 
         if let Some(variables) = variables {
@@ -204,7 +264,38 @@ impl Context {
     ///     >>> context.add_function("regex_match", re.match)
     ///     >>> # Note: This would need proper error handling in practice
     fn add_function(&mut self, name: String, function: Py<PyAny>) {
+        self.invalidate();
         self.functions.insert(name, function);
+    }
+
+    /// The registered variables, converted back to Python values.
+    ///
+    /// Returns a new dict on every access; mutating it does not affect the
+    /// context. Values go through the same conversion as evaluation results,
+    /// so CEL-only distinctions are lost (a `uint` reads back as `int`).
+    #[getter]
+    fn variables<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        for (name, value) in &self.variables {
+            dict.set_item(
+                name,
+                crate::RustyCelType(value.clone()).into_bound_py_any(py)?,
+            )?;
+        }
+        Ok(dict)
+    }
+
+    /// The registered functions, by name.
+    ///
+    /// Returns a new dict on every access; mutating it does not affect the
+    /// context.
+    #[getter]
+    fn functions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        for (name, function) in &self.functions {
+            dict.set_item(name, function.bind(py))?;
+        }
+        Ok(dict)
     }
 
     /// Registers a Python callable for lazy variable resolution.
@@ -299,8 +390,8 @@ impl Context {
     ///
     ///     Adding datetime objects:
     ///
-    ///     >>> from datetime import datetime, timedelta
-    ///     >>> context.add_variable("now", datetime.now())
+    ///     >>> from datetime import datetime, timedelta, timezone
+    ///     >>> context.add_variable("now", datetime.now(timezone.utc))
     ///     >>> context.add_variable("one_hour", timedelta(hours=1))
     ///
     ///     Overwriting existing variables:
@@ -312,6 +403,7 @@ impl Context {
     ///     >>> evaluate("counter", context)
     ///     2
     pub fn add_variable(&mut self, name: String, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.invalidate();
         let value = crate::RustyPyType(value).try_into_value().map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!(
                 "Failed to convert variable '{name}': {e}"
@@ -408,6 +500,9 @@ impl Context {
     ///     >>> evaluate('join(["user", name, string(age)])', context)
     ///     'user-Bob-30'
     pub fn update(&mut self, variables: &Bound<'_, PyDict>) -> PyResult<()> {
+        // Before the loop, not after: a bad key or value part-way through
+        // returns early with the earlier entries already applied.
+        self.invalidate();
         for (key, value) in variables {
             // Attempt to extract the key as a String
             let key = key

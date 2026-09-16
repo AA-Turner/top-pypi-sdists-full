@@ -31,14 +31,17 @@ from omnigent.errors import ErrorCode, OmnigentError
 from omnigent.harness_aliases import canonicalize_harness
 from omnigent.host.frames import (
     HARNESS_NOT_CONFIGURED_ERROR_CODE,
+    WORKSPACE_MISSING_ERROR_CODE,
     HostCreateDirFrame,
     HostDetectCredentialsFrame,
     HostInstallHarnessFrame,
     HostLaunchRunnerFrame,
     HostListDirFrame,
     HostStoreSecretFrame,
+    classify_launch_refusal,
     encode_host_frame,
     optional_str_bool_map,
+    workspace_missing_message,
 )
 from omnigent.onboarding.harness_install import (
     ui_credential_configurable_harnesses,
@@ -447,10 +450,17 @@ class StoreHarnessCredentialRequest(BaseModel):
 
 
 class HostModelOptionsResponse(BaseModel):
-    """Pre-launch model choices resolved by a host harness."""
+    """Pre-launch model choices resolved by a host harness.
+
+    ``error`` carries the host's reason for an empty catalog — a probe that
+    failed on the host is not a transport failure, so the request still
+    succeeds and the picker can say WHY it is empty instead of a generic
+    "Models unavailable".
+    """
 
     models: list[dict[str, Any]]
     routable_models: list[str]
+    error: str | None = None
 
 
 class LaunchRunnerRequest(BaseModel):
@@ -624,6 +634,7 @@ def create_hosts_router(
                     # emitted as-is so a client can tell "unknown" from "not
                     # gateway-backed".
                     "gateway_inference": host_registry.gateway_inference(host.host_id),
+                    "interactive_shells": host_registry.interactive_shells(host.host_id),
                 }
             )
         return {"hosts": result}
@@ -666,6 +677,7 @@ def create_hosts_router(
             # Same semantics as list_hosts: reported on connect and held in
             # memory, so ``None`` is "no report on this replica yet".
             "gateway_inference": host_registry.gateway_inference(host.host_id),
+            "interactive_shells": host_registry.interactive_shells(host.host_id),
             "runners": [],
         }
 
@@ -703,6 +715,7 @@ def create_hosts_router(
             )
         models = result.get("models")
         routable = result.get("routable_models")
+        error = result.get("error")
         return HostModelOptionsResponse(
             models=(
                 [model for model in models if isinstance(model, dict)]
@@ -714,6 +727,7 @@ def create_hosts_router(
             routable_models=(
                 [m for m in routable if isinstance(m, str)] if isinstance(routable, list) else []
             ),
+            error=error if isinstance(error, str) and error else None,
         )
 
     @router.post("/hosts/{host_id}/runners")
@@ -980,7 +994,12 @@ def create_hosts_router(
 
         if result.get("status") == "failed":
             await _rollback_failed_launch()
-            if result.get("error_code") == HARNESS_NOT_CONFIGURED_ERROR_CODE:
+            refusal_code = classify_launch_refusal(
+                result.get("error_code"),
+                result.get("error"),
+                workspace,
+            )
+            if refusal_code == HARNESS_NOT_CONFIGURED_ERROR_CODE:
                 # Categorical refusal: the harness isn't configured on
                 # the host, so a retry can't succeed without user action
                 # (`omnigent setup` on the host machine). Surface the
@@ -988,6 +1007,13 @@ def create_hosts_router(
                 raise OmnigentError(
                     f"host failed to launch runner: {result.get('error')}",
                     code=ErrorCode.HARNESS_NOT_CONFIGURED,
+                )
+            if refusal_code == WORKSPACE_MISSING_ERROR_CODE:
+                # Rebuild the message from the authorized, canonical
+                # workspace rather than reflecting arbitrary host output.
+                raise OmnigentError(
+                    f"host failed to launch runner: {workspace_missing_message(workspace)}",
+                    code=ErrorCode.WORKSPACE_MISSING,
                 )
             raise HTTPException(
                 status_code=502,

@@ -1,12 +1,22 @@
+import warnings
 from collections import defaultdict
+from collections.abc import Mapping
 from copy import deepcopy
 from io import StringIO
 from pathlib import PosixPath
 
 import pytest
+import sphinx
 from docutils import nodes
 from sphinx.ext.autodoc import ALL
 from sphinx.util import logging
+
+try:
+    from sphinx.ext.autodoc._directive_options import _AutoDocumenterOptions
+    from sphinx.ext.autodoc._sentinels import EMPTY
+except ImportError:
+    _AutoDocumenterOptions = None  # Sphinx < 9
+    EMPTY = None
 
 from numpydoc.numpydoc import (
     _clean_text_signature,
@@ -80,6 +90,61 @@ A top section before
     )
     assert "rpartition" in [x.strip() for x in lines]
     assert "upper" not in [x.strip() for x in lines]
+
+
+@pytest.mark.skipif(
+    sphinx.version_info < (9, 0),
+    reason="_AutoDocumenterOptions not available",
+)
+@pytest.mark.parametrize(
+    ("kwargs", "has_rpartition", "has_upper"),
+    [
+        ({"exclude_members": {"upper"}}, True, False),
+        ({"exclude_members": EMPTY}, False, False),
+        ({}, True, True),
+    ],
+)
+def test_mangle_docstrings_exclude_members_sphinx9(kwargs, has_rpartition, has_upper):
+    """Non-regression test for #671: Sphinx 9.x _AutoDocumenterOptions with
+    underscored exclude_members key and EMPTY sentinel."""
+    s = """
+A top section before
+
+.. autoclass:: str
+    """
+
+    lines = s.split("\n")
+    options = _AutoDocumenterOptions(**kwargs)
+    mangle_docstrings(MockApp(), "class", "str", str, options, lines)
+    lines = [x.strip() for x in lines]
+    assert ("rpartition" in lines) is has_rpartition
+    assert ("upper" in lines) is has_upper
+
+
+def test_mangle_docstrings_does_not_use_deprecated_options_mapping():
+    class DeprecatedMappingOptions(Mapping):
+        def __init__(self):
+            self.exclude_members = {"upper"}
+
+        def __getitem__(self, key):
+            warnings.warn("mapping interface used", DeprecationWarning, stacklevel=2)
+            return vars(self)[key]
+
+        def __iter__(self):
+            warnings.warn("mapping interface used", DeprecationWarning, stacklevel=2)
+            return iter(vars(self))
+
+        def __len__(self):
+            return len(vars(self))
+
+    lines = [".. autoclass:: str"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        mangle_docstrings(
+            MockApp(), "class", "str", str, DeprecatedMappingOptions(), lines
+        )
+
+    assert "upper" not in [line.strip() for line in lines]
 
 
 def test_mangle_docstrings_inherited_class_members():

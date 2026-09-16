@@ -30,6 +30,7 @@ from taktile_auth.schemas.session import (
     parse_session_prefix,
 )
 from taktile_auth.schemas.token import Actor, RequestableActor, TaktileIdToken
+from taktile_auth.session_type import SessionType, session_type_from_jti
 
 __all__ = [
     "NULL_RESOURCE_ARG",
@@ -45,9 +46,11 @@ __all__ = [
     "RecursionMode",
     "RequestableActor",
     "SessionState",
+    "SessionType",
     "SharedCounter",
     "TaktileAuthException",
     "TaktileIdToken",
     "parse_session_prefix",
     "recursion_counter_key",
+    "session_type_from_jti",
 ]

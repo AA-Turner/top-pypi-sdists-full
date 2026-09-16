@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aeidon
-Version: 2.0
+Version: 2.0.1
 Summary: Reading, writing and manipulating text-based subtitle files
 Project-URL: Homepage, https://github.com/otsaloma/gaupol
 Author-email: Osmo Salomaa <otsaloma@iki.fi>

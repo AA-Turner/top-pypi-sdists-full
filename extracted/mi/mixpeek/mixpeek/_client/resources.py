@@ -2,10 +2,85 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from mixpeek._client.client import Mixpeek
+
+
+# File-backed bucket schema types. A property of one of these types holds an
+# object's blob; this mirrors the file types in the server's BucketSchemaFieldType.
+_BLOB_TYPES = frozenset({"text", "image", "audio", "video", "pdf", "excel"})
+
+# Used only when blob_property= is given without blob_type=, so an upload that
+# names its property can skip reading the bucket.
+_EXTENSION_TYPES = {
+    "mp4": "video", "mov": "video", "avi": "video", "mkv": "video", "webm": "video",
+    "jpg": "image", "jpeg": "image", "png": "image", "gif": "image", "webp": "image",
+    "mp3": "audio", "wav": "audio", "flac": "audio", "m4a": "audio",
+    "pdf": "pdf",
+    "txt": "text", "md": "text", "csv": "text",
+    "xlsx": "excel", "xls": "excel",
+}
+
+
+def _type_from_extension(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    name = value.split("?", 1)[0].split("#", 1)[0].rsplit("/", 1)[-1]
+    if "." not in name:
+        return None
+    return _EXTENSION_TYPES.get(name.rsplit(".", 1)[-1].lower())
+
+
+def _blob_entry(
+    get_bucket: Callable[[str], Any],
+    bucket_id: str,
+    value: Any,
+    *,
+    blob_property: str | None = None,
+    blob_type: str | None = None,
+) -> dict[str, Any]:
+    """Build one ``blobs`` entry for POST /buckets/{bucket_id}/objects.
+
+    The API needs the entry's ``property`` and ``type``, and both come from the
+    bucket's schema. With ``blob_property`` and a known type (``blob_type``, or a
+    file extension on ``value``) no request is made. Otherwise the bucket is read
+    once. Without ``blob_property`` its single file property is used, and a
+    schema with several file properties, or none, raises ``ValueError`` naming
+    what it has.
+    """
+    if blob_property is not None:
+        known_type = blob_type or _type_from_extension(value)
+        if known_type is not None:
+            return {"property": blob_property, "type": known_type, "data": value}
+    bucket = get_bucket(bucket_id) or {}
+    properties = (bucket.get("bucket_schema") or {}).get("properties") or {}
+    file_props = {
+        name: spec.get("type")
+        for name, spec in properties.items()
+        if isinstance(spec, dict) and spec.get("type") in _BLOB_TYPES
+    }
+    if blob_property is not None:
+        if blob_property not in file_props:
+            raise ValueError(
+                f"Bucket {bucket_id} has no file property named {blob_property!r}; "
+                f"its file properties are: {', '.join(sorted(file_props)) or 'none'}."
+            )
+        return {"property": blob_property, "type": file_props[blob_property], "data": value}
+    if len(file_props) == 1:
+        ((name, prop_type),) = file_props.items()
+        return {"property": name, "type": prop_type, "data": value}
+    if not file_props:
+        raise ValueError(
+            f"Bucket {bucket_id} declares no file property in its bucket_schema, so "
+            "the upload cannot tell which property holds the blob. Add one (for "
+            'example {"video": {"type": "video"}}) or pass blobs=[...] yourself.'
+        )
+    raise ValueError(
+        f"Bucket {bucket_id} has several file properties "
+        f"({', '.join(sorted(file_props))}); pass blob_property= to choose one."
+    )
 
 
 class _Resource:
@@ -222,13 +297,30 @@ class Buckets(_Resource):
         url: str | None = None,
         data: Any | None = None,
         metadata: dict[str, Any] | None = None,
+        blob_property: str | None = None,
+        blob_type: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        """Create an object in a bucket.
+
+        ``url=`` (or ``data=``) becomes one ``blobs`` entry whose property and type
+        come from the bucket schema: the bucket's only file property is used, or
+        pass ``blob_property=`` (and optionally ``blob_type=``) to choose. Pass
+        ``blobs=[...]`` to send entries exactly as written.
+        """
         body: dict[str, Any] = {**kwargs}
-        if url is not None:
-            body["blob"] = {"url": url}
-        elif data is not None:
-            body["blob"] = {"data": data}
+        value = url if url is not None else data
+        if value is not None and "blobs" not in body:
+            ns_override = body.get("namespace_id") or body.get("namespace")
+            body["blobs"] = [
+                _blob_entry(
+                    lambda bid: self._request("GET", f"/buckets/{bid}", namespace=ns_override),
+                    bucket_id,
+                    value,
+                    blob_property=blob_property,
+                    blob_type=blob_type,
+                )
+            ]
         if metadata is not None:
             body["metadata"] = metadata
         return self._request("POST", f"/buckets/{bucket_id}/objects", body=body)

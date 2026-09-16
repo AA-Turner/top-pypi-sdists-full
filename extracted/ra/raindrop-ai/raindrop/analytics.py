@@ -37,6 +37,16 @@ from raindrop.model_usage import normalize_model_usage_span
 from raindrop.redact import perform_pii_redaction
 from raindrop._state import ClientState, ModuleBackedState, RaindropState
 from raindrop import _tracing as _rd_tracing
+from raindrop.app_git import (
+    AppGitSnapshot,
+    AppGitOptions,
+    CANONICAL_PROPERTIES as APP_GIT_PROPERTIES,
+    EMPTY_SNAPSHOT,
+    INFERRED_CONTEXT_KEY,
+    discover_local_git,
+    effective_app_git,
+    prepare_app_git,
+)
 import weakref
 import urllib.parse
 
@@ -210,6 +220,11 @@ shutdown_event = threading.Event()
 max_ingest_size_bytes = 1 * 1024 * 1024  # 1 MB
 _direct_tool_upload_size = 50
 _direct_tool_spans_buffer: list[dict[str, Any]] = []
+_app_git_snapshot: AppGitSnapshot = EMPTY_SNAPSHOT
+_app_git_generation = 0
+_partial_app_git_snapshots: dict[str, Any] = {}
+_partial_app_git_inference_disabled = False
+_partial_app_git_lock = threading.Lock()
 
 # The globals above are the storage of the DEFAULT client — the one behind
 # the module-level API (init / track_ai / begin / ...). Pipeline functions
@@ -223,6 +238,96 @@ _default_state = ModuleBackedState()
 
 def _resolve_state(state: Optional[RaindropState]) -> RaindropState:
     return _default_state if state is None else state
+
+
+def _app_git_operation_snapshot(
+    state: Optional[RaindropState] = None,
+) -> AppGitSnapshot:
+    """Copy the currently available per-client metadata without waiting."""
+
+    try:
+        snapshot = _resolve_state(state)._app_git_snapshot
+        return snapshot if isinstance(snapshot, AppGitSnapshot) else EMPTY_SNAPSHOT
+    except Exception:
+        return EMPTY_SNAPSHOT
+
+
+def _enrich_app_git_properties(
+    properties: Optional[Dict[str, Any]],
+    snapshot: AppGitSnapshot,
+) -> Dict[str, Any]:
+    result = dict(properties) if properties is not None else {}
+    try:
+        effective = effective_app_git(snapshot, properties)
+    except Exception:
+        return result
+    for key, value in effective.properties.items():
+        result.setdefault(key, value)
+    return result
+
+
+def _app_git_context_properties(
+    snapshot: AppGitSnapshot, properties: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    try:
+        return effective_app_git(snapshot, properties).context_attributes()
+    except Exception:
+        return {}
+
+
+def _stamp_app_git(span: Any, properties: Dict[str, Any]) -> None:
+    for key, value in properties.items():
+        if isinstance(value, (str, bool, int, float)):
+            span.set_attribute(key, value)
+    _rd_tracing.remember_span_app_git(span, properties)
+
+
+def _app_git_span_scope_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
+    scoped = dict(properties)
+    for key in APP_GIT_PROPERTIES:
+        scoped.setdefault(key, None)
+    return scoped
+
+
+def _configure_app_git(
+    st: RaindropState, app_git: bool | AppGitOptions
+) -> None:
+    """Install an immediate snapshot and launch optional daemon discovery."""
+
+    st._app_git_generation += 1
+    generation = st._app_git_generation
+    try:
+        initial, plan, warnings = prepare_app_git(app_git)
+    except Exception as exc:
+        st._app_git_snapshot = EMPTY_SNAPSHOT
+        logger.debug("[raindrop] app_git configuration ignored error: %s", exc)
+        return
+
+    st._app_git_snapshot = initial
+    for warning in warnings:
+        logger.warning("[raindrop] %s", warning)
+    if plan is None:
+        return
+
+    def _discover() -> None:
+        try:
+            discovered = discover_local_git(plan)
+            if discovered is not None and st._app_git_generation == generation:
+                # Whole-dict replacement makes readers see either snapshot,
+                # never a SHA temporarily mixed with another source's fields.
+                st._app_git_snapshot = discovered
+        except Exception:
+            return
+
+    try:
+        worker = threading.Thread(
+            target=_discover,
+            name="raindrop-app-git",
+            daemon=True,
+        )
+        worker.start()
+    except Exception as exc:
+        logger.debug("[raindrop] app_git background discovery unavailable: %s", exc)
 
 _partial_buffers: dict[str, PartialTrackAIEvent] = {}
 _partial_timers: dict[str, Timer] = {}
@@ -630,7 +735,8 @@ def _build_direct_tool_span(
     output_value: str | None,
     error_message: str | None,
     association_properties: Dict[str, Any],
-    extra_attributes: Optional[Dict[str, str]] = None,
+    extra_attributes: Optional[Dict[str, Any]] = None,
+    app_git_properties: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     trace_id_b64, parent_span_id_b64 = _get_active_trace_context_b64()
     if trace_id_b64 is None:
@@ -662,8 +768,19 @@ def _build_direct_tool_span(
     # Raw (unprefixed) attributes from the execution context — today the
     # detached hand-off reverse reference, which ingest reads by its exact key
     # and would not recognize under the association-properties prefix.
-    for key, value in (extra_attributes or {}).items():
-        attr = _otlp_attr_string(key, value)
+    raw_attributes = dict(app_git_properties or {})
+    raw_attributes.update(extra_attributes or {})
+    for key, value in raw_attributes.items():
+        if key == INFERRED_CONTEXT_KEY:
+            continue
+        if isinstance(value, bool):
+            attr = _otlp_attr_bool(key, value)
+        elif isinstance(value, int):
+            attr = _otlp_attr_int(key, value)
+        elif isinstance(value, float):
+            attr = _otlp_attr_double(key, value)
+        else:
+            attr = _otlp_attr_string(key, value)
         if attr is not None:
             attributes.append(attr)
 
@@ -988,6 +1105,7 @@ def track(
     """
     try:
         st = _resolve_state(state)
+        app_git = _app_git_operation_snapshot(st)
         if not _check_write_key(state=st):
             return None
 
@@ -997,7 +1115,7 @@ def track(
             user_id=user_id,
             event=event,
             timestamp=timestamp or _get_timestamp(),
-            properties=properties or {},
+            properties=_enrich_app_git_properties(properties, app_git),
             attachments=attachments,
         )
         payload.properties["$context"] = _get_context()
@@ -1055,6 +1173,7 @@ def track_ai(
     state: Optional[RaindropState] = None,
 ) -> str:
     st = _resolve_state(state)
+    app_git = _app_git_operation_snapshot(st)
     if not _check_write_key(state=st):
         return
 
@@ -1066,7 +1185,7 @@ def track_ai(
             user_id=user_id,
             event=event,
             timestamp=timestamp or _get_timestamp(),
-            properties=properties or {},
+            properties=_enrich_app_git_properties(properties, app_git),
             ai_data=dict(  # Pydantic will coerce to AIData
                 model=model,
                 input=_cap_text(input, state=st) if input is not None else None,
@@ -1544,6 +1663,7 @@ def begin(
     the event to ship.
     """
     st = _resolve_state(state)
+    operation_app_git = _app_git_operation_snapshot(st)
     if not isinstance(user_id, str) or not user_id.strip():
         # The API rejects events without a user_id; return a disabled
         # Interaction whose mutators/finish/span/tool calls all no-op so
@@ -1573,8 +1693,9 @@ def begin(
             model=model, input=capped_input, convo_id=convo_id
         )
 
-    # Combine properties with initial_fields, giving precedence to initial_fields if keys clash
-    final_properties = (properties or {}).copy()
+    # Freeze even an empty metadata snapshot now. Later partials reuse it and
+    # never begin reporting a revision discovered after this operation began.
+    final_properties = _enrich_app_git_properties(properties, operation_app_git)
 
     current_trace_id = _safe_current_trace_id()
     if current_trace_id is not None:
@@ -1620,22 +1741,46 @@ def begin(
             event=event,
             convo_id=convo_id,
             state=st,
+            app_git_properties=_app_git_context_properties(
+                operation_app_git, properties
+            ),
+            app_git_snapshot=operation_app_git,
+            app_git_overrides={
+                key: properties[key]
+                for key in APP_GIT_PROPERTIES
+                if properties is not None and key in properties
+            },
         )
         bound_ctx = _rd_tracing.bind_current(
-            st.project_id, st.auth_hint, owner=interaction
+            st.project_id,
+            st.auth_hint,
+            owner=interaction,
+            attributes=interaction._app_git_properties,
+            client_identity=id(st),
         )
         interaction._bound_ctx = bound_ctx
         st.INTERACTION_EVENT_ID_REGISTRY[eid] = interaction
         if current_trace_id is not None and current_trace_id != 0:
             st.INTERACTION_TRACE_ID_REGISTRY[current_trace_id] = interaction
 
-        _track_ai_partial(partial_event, state=st)
+        _track_ai_partial(
+            partial_event,
+            state=st,
+            app_git_snapshot=operation_app_git,
+            app_git_overrides={
+                key: properties[key]
+                for key in APP_GIT_PROPERTIES
+                if properties is not None and key in properties
+            },
+        )
     except Exception:
         # Crash protection (AGENTS.md): telemetry setup must never take the
         # host app down. Degrade like the invalid-user_id path — clean up
         # the binding and hand back a disabled no-op Interaction so caller
         # code (mutators/finish/spans) keeps running.
         _rd_tracing.unbind_current(bound_ctx)
+        if "interaction" in locals():
+            _rd_tracing.unbind_span_attributes(interaction._app_git_frame)
         logger.error(
             "[raindrop] begin() failed; returning disabled interaction.",
             exc_info=True,
@@ -1651,6 +1796,8 @@ def begin(
     except BaseException:
         # KeyboardInterrupt/SystemExit: clean up but never swallow.
         _rd_tracing.unbind_current(bound_ctx)
+        if "interaction" in locals():
+            _rd_tracing.unbind_span_attributes(interaction._app_git_frame)
         raise
     return interaction
 
@@ -1697,6 +1844,7 @@ def init(
     local_workshop_url: Any = UNSET,
     max_text_field_chars: int | None = None,
     project_id: str | None = None,
+    app_git: bool | AppGitOptions = True,
     **traceloop_kwargs: Any,
 ) -> None:
     """Initialize Raindrop with Traceloop integration.
@@ -1731,6 +1879,11 @@ def init(
             are logged as a warning and ignored (no exception, no header).
             Omitting it is fully backward compatible: no header is sent and
             the server falls back to the default project.
+        app_git: Application Git metadata. ``True`` (default) performs one
+            bounded background lookup; ``False`` disables enrichment. A
+            mapping may provide explicit ``commit_sha``, ``commit_dirty``, or
+            ``branch`` and control ``source_directory``, ``detect_branch``,
+            and ``auto_detect``. Automatic branch discovery is opt-in.
         **traceloop_kwargs: Extra kwargs forwarded to Traceloop.init().
             Can include ``instruments`` or ``block_instruments`` for
             fine-grained control over which libraries are instrumented.
@@ -1746,6 +1899,7 @@ def init(
         local_workshop_url=local_workshop_url,
         max_text_field_chars=max_text_field_chars,
         project_id=project_id,
+        app_git=app_git,
         # The module-level client keeps its historical re-init semantics:
         # every init() call re-runs Traceloop.init (a de-facto no-op after
         # the first thanks to TracerWrapper's singleton), so repeated
@@ -1767,6 +1921,7 @@ def _configure(
     local_workshop_url: Any,
     max_text_field_chars: int | None,
     project_id: str | None,
+    app_git: bool | AppGitOptions = True,
     _always_init_traceloop: bool = False,
     **traceloop_kwargs: Any,
 ) -> None:
@@ -1790,6 +1945,17 @@ def _configure(
     resolved_local = resolve_local_workshop_url(local_workshop_url)
 
     st.write_key = api_key or None
+
+    # A no-destination client cannot emit telemetry, so optional Git discovery
+    # would only spend customer resources. Passing False also clears a prior
+    # module-level snapshot when init() is reconfigured into no-op mode.
+    _configure_app_git(st, app_git if st.write_key or resolved_local else False)
+    if st is _default_state:
+        _rd_tracing.set_default_span_attributes_resolver(
+            lambda contextual: _app_git_context_properties(
+                _app_git_operation_snapshot(st), contextual
+            )
+        )
 
     # Every configured credential registers — tracing-enabled or not. Global
     # auto-instrumentation traces a non-tracing client's code paths all the
@@ -2102,6 +2268,16 @@ def set_span_properties(
         return
 
     Traceloop.set_association_properties(properties)
+    try:
+        span = get_current_span()
+        for key in APP_GIT_PROPERTIES:
+            if key in properties and isinstance(
+                properties[key], (str, bool, int, float)
+            ):
+                span.set_attribute(key, properties[key])
+        _rd_tracing.update_span_app_git_overrides(span, properties)
+    except Exception:
+        pass
 
 
 class TraceEntitySpan:
@@ -2137,6 +2313,13 @@ class TraceEntitySpan:
     def set_properties(self, props: Dict[str, Any]) -> None:
         if _resolve_state(self._state)._tracing_enabled and props:
             Traceloop.set_association_properties(props)
+            if self._span:
+                for key in APP_GIT_PROPERTIES:
+                    if key in props and isinstance(
+                        props[key], (str, bool, int, float)
+                    ):
+                        self._span.set_attribute(key, props[key])
+                _rd_tracing.update_span_app_git_overrides(self._span, props)
 
 
 class ManualSpan:
@@ -2218,6 +2401,11 @@ class ManualSpan:
                     self._span.set_attribute(
                         f"traceloop.association.properties.{key}", value
                     )
+                    if key in APP_GIT_PROPERTIES and isinstance(
+                        value, (str, bool, int, float)
+                    ):
+                        self._span.set_attribute(key, value)
+            _rd_tracing.update_span_app_git_overrides(self._span, props)
 
     def end(self, error: Exception | None = None) -> None:
         if self._ended or not self._span:
@@ -2243,12 +2431,19 @@ class _EntitySpanContext:
         self._state = state
         self._span = None
         self._ctx_token = None
+        self._app_git_frame = None
         self._span_cm = None
         self._helper = TraceEntitySpan(None, state=state)
+        self._app_git_properties: Dict[str, Any] = {}
 
     # internal start/finish
     def _start(self) -> None:
         st = _resolve_state(self._state)
+        self._app_git_properties = _app_git_context_properties(
+            _app_git_operation_snapshot(st),
+            _rd_tracing.current_span_attributes(id(st)),
+        )
+        scoped_app_git = _app_git_span_scope_properties(self._app_git_properties)
         if not st._tracing_enabled or not TracerWrapper.verify_initialized():
             return
         tlp_kind = (
@@ -2257,25 +2452,52 @@ class _EntitySpanContext:
             else TraceloopSpanKindValues.TOOL
         )
         span_name = f"{self._name}.{tlp_kind.value}"
-        with get_tracer() as tracer:
-            self._span_cm = tracer.start_as_current_span(span_name)
-            span = self._span_cm.__enter__()
+        # Keep this entity's routing and frozen Git snapshot current for the
+        # whole context lifetime, not just while creating its parent span.
+        # Raw OTel/auto-instrumented children must belong to the entity's
+        # client even when it is nested under another client's as_current().
+        span_entered = False
+        try:
+            self._ctx_token = _rd_tracing.bind_current(
+                st.project_id,
+                st.auth_hint,
+                client_identity=id(st),
+            )
+            self._app_git_frame = _rd_tracing.bind_span_attributes(
+                scoped_app_git,
+                client_identity=id(st),
+            )
+            with get_tracer() as tracer:
+                self._span_cm = tracer.start_as_current_span(span_name)
+                span = self._span_cm.__enter__()
+                span_entered = True
 
-        if tlp_kind in [TraceloopSpanKindValues.TASK, TraceloopSpanKindValues.TOOL]:
-            entity_path = get_chained_entity_path(self._name)
-            set_entity_path(entity_path)
+            if tlp_kind in [TraceloopSpanKindValues.TASK, TraceloopSpanKindValues.TOOL]:
+                entity_path = get_chained_entity_path(self._name)
+                set_entity_path(entity_path)
 
-        span.set_attribute(SpanAttributes.TRACELOOP_SPAN_KIND, tlp_kind.value)
-        span.set_attribute(SpanAttributes.TRACELOOP_ENTITY_NAME, self._name)
-        if self._version is not None:
-            span.set_attribute(SpanAttributes.TRACELOOP_ENTITY_VERSION, self._version)
+            span.set_attribute(SpanAttributes.TRACELOOP_SPAN_KIND, tlp_kind.value)
+            span.set_attribute(SpanAttributes.TRACELOOP_ENTITY_NAME, self._name)
+            if self._version is not None:
+                span.set_attribute(SpanAttributes.TRACELOOP_ENTITY_VERSION, self._version)
 
-        # Pin the owning client's routing identity, like start_span/track_tool:
-        # an instance's task/tool span must route to that instance's project
-        # even without an ambient begin()/as_current() binding. The context
-        # processor still covers spans from the default (project-less) client.
-        _rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
-        _rd_tracing.stamp_context_attributes(span)
+            # Pin the owning client's routing identity, like start_span/track_tool:
+            # an instance's task/tool span must route to that instance's project
+            # even without an ambient begin()/as_current() binding. The context
+            # processor still covers spans from the default (project-less) client.
+            _rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
+            _rd_tracing.stamp_context_attributes(span)
+            _stamp_app_git(span, self._app_git_properties)
+        except BaseException:
+            try:
+                if span_entered and self._span_cm is not None:
+                    self._span_cm.__exit__(*sys.exc_info())
+            finally:
+                _rd_tracing.unbind_span_attributes(self._app_git_frame)
+                self._app_git_frame = None
+                _rd_tracing.unbind_current(self._ctx_token)
+                self._ctx_token = None
+            raise
 
         self._span = span
         self._helper = TraceEntitySpan(span, state=self._state)
@@ -2289,8 +2511,14 @@ class _EntitySpanContext:
                 self._span.record_exception(exc)
             return False
         finally:
-            if self._span_cm is not None:
-                self._span_cm.__exit__(exc_type, exc, tb)
+            try:
+                if self._span_cm is not None:
+                    self._span_cm.__exit__(exc_type, exc, tb)
+            finally:
+                _rd_tracing.unbind_span_attributes(self._app_git_frame)
+                self._app_git_frame = None
+                _rd_tracing.unbind_current(self._ctx_token)
+                self._ctx_token = None
 
     # sync
     def __enter__(self) -> TraceEntitySpan:
@@ -2321,6 +2549,21 @@ def tool_span(
     return _EntitySpanContext("tool", name, version, state=state)
 
 
+@contextmanager
+def client_context(state: Optional[RaindropState] = None) -> Iterator[None]:
+    """Bind one client's routing and frozen Git metadata for auto spans."""
+
+    st = _resolve_state(state)
+    snapshot = _app_git_operation_snapshot(st)
+    with _rd_tracing.as_current(
+        st.project_id,
+        st.auth_hint,
+        attributes=_app_git_context_properties(snapshot),
+        client_identity=id(st),
+    ):
+        yield
+
+
 def start_span(
     kind: Literal["task", "tool"],
     name: str,
@@ -2330,6 +2573,7 @@ def start_span(
     event: str | None = None,
     convo_id: str | None = None,
     state: Optional[RaindropState] = None,
+    app_git_properties: Optional[Dict[str, Any]] = None,
 ) -> ManualSpan:
     """
     Create a manual span that must be explicitly ended with .end().
@@ -2350,6 +2594,17 @@ def start_span(
         ManualSpan instance (safe to use even if tracing is disabled)
     """
     st = _resolve_state(state)
+    current_app_git = {
+        key: value
+        for key, value in _rd_tracing.current_span_attributes(id(st)).items()
+        if key in APP_GIT_PROPERTIES
+    }
+    if app_git_properties is not None:
+        current_app_git.update(app_git_properties)
+    operation_app_git = _app_git_context_properties(
+        _app_git_operation_snapshot(st), current_app_git
+    )
+    scoped_app_git = _app_git_span_scope_properties(operation_app_git)
     if not st._tracing_enabled or not TracerWrapper.verify_initialized():
         return ManualSpan(None, kind, name, event_id, state=st)
 
@@ -2358,33 +2613,58 @@ def start_span(
     )
     span_name = f"{name}.{tlp_kind.value}"
 
-    with get_tracer() as tracer:
-        span = tracer.start_span(span_name)
+    with _rd_tracing.span_attributes(scoped_app_git, client_identity=id(st)):
+        with get_tracer() as tracer:
+            span = tracer.start_span(span_name)
 
-    span.set_attribute(SpanAttributes.TRACELOOP_SPAN_KIND, tlp_kind.value)
-    span.set_attribute(SpanAttributes.TRACELOOP_ENTITY_NAME, name)
-    if version is not None:
-        span.set_attribute(SpanAttributes.TRACELOOP_ENTITY_VERSION, version)
+        span.set_attribute(SpanAttributes.TRACELOOP_SPAN_KIND, tlp_kind.value)
+        span.set_attribute(SpanAttributes.TRACELOOP_ENTITY_NAME, name)
+        if version is not None:
+            span.set_attribute(SpanAttributes.TRACELOOP_ENTITY_VERSION, version)
 
-    # Set association properties directly on the span (not on current context)
-    association_props = {
-        "event_id": event_id,
-        "user_id": user_id,
-        "event": event,
-        "convo_id": convo_id,
-    }
-    for key, value in association_props.items():
-        if value is not None:
-            span.set_attribute(f"traceloop.association.properties.{key}", value)
+        # Set association properties directly on the span (not on current context)
+        association_props = {
+            "event_id": event_id,
+            "user_id": user_id,
+            "event": event,
+            "convo_id": convo_id,
+        }
+        for key, value in association_props.items():
+            if value is not None:
+                span.set_attribute(f"traceloop.association.properties.{key}", value)
 
-    # Pin the owning client's routing identity on the span itself: a manual
-    # span may be created/ended from a different task/thread than the one
-    # that bound the context, so the on-start context stamp alone isn't
-    # sufficient.
-    _rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
-    _rd_tracing.stamp_context_attributes(span)
+        # Pin the owning client's routing identity on the span itself: a manual
+        # span may be created/ended from a different task/thread than the one
+        # that bound the context, so the on-start context stamp alone isn't
+        # sufficient.
+        _rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
+        _rd_tracing.stamp_context_attributes(span)
+        _stamp_app_git(span, operation_app_git)
 
     return ManualSpan(span, kind, name, event_id, state=st)
+
+
+def _fallback_interaction_app_git(
+    st: RaindropState, event_id: str | None
+) -> tuple[AppGitSnapshot, Dict[str, Any], Dict[str, Any]]:
+    try:
+        if event_id is not None:
+            with st._partial_app_git_lock:
+                context = st._partial_app_git_snapshots.get(event_id)
+                if context is not None:
+                    snapshot = context.get("snapshot", EMPTY_SNAPSHOT)
+                    if not isinstance(snapshot, AppGitSnapshot):
+                        snapshot = EMPTY_SNAPSHOT
+                    overrides = dict(context.get("overrides") or {})
+                    return (
+                        snapshot,
+                        overrides,
+                        _app_git_context_properties(snapshot, overrides),
+                    )
+    except Exception:
+        pass
+    snapshot = _app_git_operation_snapshot(st)
+    return snapshot, {}, _app_git_context_properties(snapshot)
 
 
 def resume_interaction(event_id: str | None = None, state: Optional[RaindropState] = None) -> Interaction:
@@ -2394,7 +2674,15 @@ def resume_interaction(event_id: str | None = None, state: Optional[RaindropStat
     if event_id is not None:
         if (interaction := st.INTERACTION_EVENT_ID_REGISTRY.get(event_id)) is not None:
             return interaction
-        return Interaction(event_id, state=st)
+        snapshot, overrides, properties = _fallback_interaction_app_git(st, event_id)
+        interaction = Interaction(
+            event_id,
+            state=st,
+            app_git_properties=properties,
+            app_git_snapshot=snapshot,
+            app_git_overrides=overrides,
+        )
+        return interaction
 
     if (trace_id := _safe_current_trace_id()) is not None:
         if (interaction := st.INTERACTION_TRACE_ID_REGISTRY.get(trace_id)) is not None:
@@ -2403,10 +2691,25 @@ def resume_interaction(event_id: str | None = None, state: Optional[RaindropStat
     # Fallback: create a fresh Interaction when no identifiers are available
     # TODO: Return No-Op interaction if event_id is None
     logger.debug("No interaction found, creating a new one")
-    return Interaction(state=st)
+    snapshot, overrides, properties = _fallback_interaction_app_git(st, None)
+    interaction = Interaction(
+        state=st,
+        app_git_properties=properties,
+        app_git_snapshot=snapshot,
+        app_git_overrides=overrides,
+    )
+    return interaction
 
 
-def _track_ai_partial(event: PartialTrackAIEvent, state: Optional[RaindropState] = None) -> None:
+_UNSET_APP_GIT = object()
+
+
+def _track_ai_partial(
+    event: PartialTrackAIEvent,
+    state: Optional[RaindropState] = None,
+    app_git_snapshot: Any = _UNSET_APP_GIT,
+    app_git_overrides: Any = _UNSET_APP_GIT,
+) -> None:
     """
     Merge the incoming patch into an in-memory doc and flush to backend:
       • on `.finish()`  (is_pending == False)
@@ -2415,13 +2718,62 @@ def _track_ai_partial(event: PartialTrackAIEvent, state: Optional[RaindropState]
     st = _resolve_state(state)
     eid = event.event_id
 
+    with st._partial_app_git_lock:
+        new_git_context = eid not in st._partial_app_git_snapshots
+        if new_git_context:
+            cache_context = not st._partial_app_git_inference_disabled
+            if (
+                cache_context
+                and len(st._partial_app_git_snapshots) >= st.max_queue_size
+            ):
+                # Never evict an active operation: doing so could re-resolve it to
+                # another revision after a timer flush. Saturation is exceptional;
+                # fail closed for every new uncached id on this client instead.
+                st._partial_app_git_inference_disabled = True
+                cache_context = False
+            snapshot = EMPTY_SNAPSHOT if not cache_context else (
+                _app_git_operation_snapshot(st)
+                if app_git_snapshot is _UNSET_APP_GIT
+                else app_git_snapshot
+            )
+            new_context = {
+                "snapshot": snapshot,
+                "overrides": (
+                    {}
+                    if app_git_overrides is _UNSET_APP_GIT
+                    else dict(app_git_overrides)
+                ),
+            }
+            if cache_context:
+                st._partial_app_git_snapshots[eid] = new_context
+            git_context = new_context
+        else:
+            git_context = st._partial_app_git_snapshots[eid]
+
     # 1. merge
     existing = st._partial_buffers.get(eid, PartialTrackAIEvent(event_id=eid))
+    if new_git_context and eid not in st._partial_app_git_snapshots:
+        # Saturated operations deliberately have no registry entry. Carry
+        # their already-materialized caller values forward from the buffer,
+        # while keeping the empty snapshot so defaults can never reappear.
+        existing_properties = existing.properties or {}
+        for key in APP_GIT_PROPERTIES:
+            if key in existing_properties:
+                git_context["overrides"].setdefault(
+                    key, existing_properties[key]
+                )
     existing.is_pending = (
         existing.is_pending if existing.is_pending is not None else True
     )
     merged_dict = existing.model_dump(exclude_none=True)
     incoming = event.model_dump(exclude_none=True)
+    incoming_properties = incoming.get("properties")
+    if isinstance(incoming_properties, dict) and not (
+        new_git_context and app_git_overrides is not _UNSET_APP_GIT
+    ):
+        for key in APP_GIT_PROPERTIES:
+            if key in incoming_properties:
+                git_context["overrides"][key] = incoming_properties[key]
 
     # deep merge ai_data / properties
     def _deep(d: dict, u: dict) -> dict:
@@ -2434,6 +2786,20 @@ def _track_ai_partial(event: PartialTrackAIEvent, state: Optional[RaindropState]
         return d
 
     merged = _deep(merged_dict, incoming)
+    try:
+        effective = effective_app_git(
+            git_context["snapshot"], git_context["overrides"]
+        )
+        merged_properties = dict(merged.get("properties") or {})
+        for key in APP_GIT_PROPERTIES:
+            merged_properties.pop(key, None)
+        merged_properties.update(effective.properties)
+        if merged_properties:
+            merged["properties"] = merged_properties
+        else:
+            merged.pop("properties", None)
+    except Exception:
+        pass
     merged_obj = PartialTrackAIEvent(**merged)
 
     st._partial_buffers[eid] = merged_obj
@@ -2538,6 +2904,9 @@ def _flush_partial_event(event_id: str, state: Optional[RaindropState] = None) -
     evt = st._partial_buffers.pop(event_id, None)
     if not evt:
         return
+    if evt.is_pending is False:
+        with st._partial_app_git_lock:
+            st._partial_app_git_snapshots.pop(event_id, None)
 
     if _should_drop_empty_ai_event(evt):
         logger.warning(

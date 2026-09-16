@@ -56,6 +56,13 @@ class AIMatrixRequest:
     debug: bool | None = False
 
     request_id: str | None = None
+    # One provider/tool loop is one executor request.  ``request_id`` is the
+    # user-action/root tree identity and is intentionally inherited by child
+    # work, so it cannot distinguish separate one-shot internal calls (for
+    # example a Bench's judge, extractor and panel) made under that action.
+    # The cache guard needs the narrower identity to compare only actual
+    # rounds of this request.
+    cache_loop_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     created_by: str | None = None  # API key ID or session ID
     organization_id: str | None = None

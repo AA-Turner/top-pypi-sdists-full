@@ -1,0 +1,35 @@
+# To use:
+#   $ conda env create -f environment.yml  # `mamba` works too for this command
+#   $ conda activate npf-dev
+#
+name: npf-dev
+channels:
+  - conda-forge
+dependencies:
+  # Runtime dependencies
+  - python
+  - numpy>=2.0.0
+  # Build
+  - cython>=3.0.9
+  - compilers
+  - meson
+  - meson-python
+  - ninja
+  - spin
+  - pkg-config
+  # Tests
+  - pytest
+  - pytest-xdist
+  - hypothesis
+  # Docs
+  - myst-parser
+  - numpydoc
+  - pydata-sphinx-theme>=0.15.0
+  # Lint
+  - ruff>=0.11.5
+  - mypy
+  - pyright
+  # Benchmarks
+  - asv>=0.6.0
+  # Misc tools
+  - ipython

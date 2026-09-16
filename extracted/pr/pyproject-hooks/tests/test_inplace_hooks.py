@@ -1,7 +1,9 @@
 from inspect import cleandoc
+from os import pathsep
 from os.path import abspath, dirname
 from os.path import join as pjoin
 from pathlib import Path
+from shutil import copytree
 
 import pytest
 from testpath import modified_env
@@ -60,6 +62,14 @@ def test_intree_backend(example):
     assert res == ["intree_backend_called"]
 
 
+def test_intree_backend_path_containing_path_separator(tmp_path):
+    source_dir = tmp_path / f"project{pathsep}{pathsep}source"
+    copytree(Path(SAMPLES_DIR, "pkg_intree"), source_dir)
+    hooks = BuildBackendHookCaller(source_dir, "intree_backend", ["backend"])
+
+    assert hooks.get_requires_for_build_sdist({}) == ["intree_backend_called"]
+
+
 @pytest.mark.parametrize("backend", ("buildsys", "nested.buildsys"))
 def test_intree_backend_not_in_path(backend):
     hooks = get_hooks("pkg_intree", backend=backend)
@@ -98,6 +108,13 @@ def test_intree_backend_importlib_metadata_interoperation():
         "hello",
         "world",
     ]
+
+
+def test_distribution_mismatch():
+    pytest.importorskip("importlib.metadata")
+
+    hooks = get_hooks("distribution_mismatch")
+    assert hooks.get_requires_for_build_sdist({}) != ["0.0.1"]
 
 
 def install_finder_with_sitecustomize(directory, mapping):

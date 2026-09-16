@@ -6,6 +6,7 @@ mod base14;
 mod clip_boundaries;
 mod content_decode;
 pub(crate) mod content_stream;
+pub(crate) mod display_frame;
 mod fonts;
 pub(crate) mod geometry;
 mod layout;
@@ -15,6 +16,7 @@ mod reading_order;
 mod scripts;
 mod text_paint;
 pub(crate) mod underline;
+pub(crate) mod word_gaps;
 mod xobjects;
 
 use crate::text_utils::{is_cjk_char, is_rtl_text};
@@ -27,6 +29,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use content_stream::extract_page_text_items;
+pub(crate) use display_frame::DisplayPage;
+pub use display_frame::PositionFrame;
 use links::{extract_form_fields, extract_page_links};
 pub(crate) use page_box::{visible_page_box, PageBox};
 
@@ -155,7 +159,28 @@ pub fn extract_text_with_positions_mem_pages(
     buffer: &[u8],
     page_filter: Option<&HashSet<u32>>,
 ) -> Result<Vec<TextItem>, PdfError> {
-    let (items, _rects, _lines) = extract_text_with_positions_mem_and_rects(buffer, page_filter)?;
+    extract_text_with_positions_mem_in_frame(buffer, page_filter, PositionFrame::Sheet)
+}
+
+/// Extract text with positions from a memory buffer in the given coordinate
+/// frame, limited to specific pages.
+///
+/// [`PositionFrame::Sheet`] is the frame of [`extract_text_with_positions`]:
+/// the visible page box as laid out in the content stream, `/Rotate` not
+/// applied, with predominantly rotated pages turned so their text reads
+/// left-to-right. [`PositionFrame::Display`] reports every item — text and
+/// image placeholders, links and form fields alike — in the rendered page's
+/// frame instead: the visible box turned clockwise by the page's inheritable
+/// `/Rotate`, lower-left origin, `y` up, with the turn of a rotated page
+/// undone first. Baseline angles (`TextItem::rotation`) are expressed in the
+/// same frame, so text that renders horizontally reads as `0`.
+pub fn extract_text_with_positions_mem_in_frame(
+    buffer: &[u8],
+    page_filter: Option<&HashSet<u32>>,
+    frame: PositionFrame,
+) -> Result<Vec<TextItem>, PdfError> {
+    let (items, _page_rotations) =
+        extract_text_with_positions_and_rotations_mem_in_frame(buffer, page_filter, frame)?;
     Ok(items)
 }
 
@@ -171,25 +196,30 @@ pub fn extract_text_with_positions_mem_pages(
 pub fn extract_text_with_positions_and_rotations_mem(
     buffer: &[u8],
 ) -> Result<(Vec<TextItem>, HashMap<u32, geometry::PageRotation>), PdfError> {
-    crate::validate_pdf_bytes(buffer)?;
-    let (doc, _) = crate::load_document_from_mem(buffer)?;
-    let font_cmaps = FontCMaps::from_doc(&doc);
-    let ((items, _rects, _lines), _thresholds, _gid_pages, page_rotations) =
-        extract_positioned_text_from_doc_in_page_box(&doc, &font_cmaps, None)?;
-    Ok((items, page_rotations))
+    extract_text_with_positions_and_rotations_mem_in_frame(buffer, None, PositionFrame::Sheet)
 }
 
-/// Extract text with positions and rectangles from memory buffer.
-pub(crate) fn extract_text_with_positions_mem_and_rects(
+/// [`extract_text_with_positions_and_rotations_mem`] limited to specific
+/// pages and reporting items in the given coordinate frame (see
+/// [`extract_text_with_positions_mem_in_frame`]).
+///
+/// The returned map names the pages whose text was predominantly rotated
+/// whatever the frame: in the display frame their turn has already been
+/// undone, so the map is informational there.
+pub fn extract_text_with_positions_and_rotations_mem_in_frame(
     buffer: &[u8],
     page_filter: Option<&HashSet<u32>>,
-) -> Result<PageExtraction, PdfError> {
+    frame: PositionFrame,
+) -> Result<(Vec<TextItem>, HashMap<u32, geometry::PageRotation>), PdfError> {
     crate::validate_pdf_bytes(buffer)?;
     let (doc, _) = crate::load_document_from_mem(buffer)?;
     let font_cmaps = FontCMaps::from_doc(&doc);
-    let (extraction, _thresholds, _gid_pages, _page_rotations) =
+    let ((mut items, _rects, _lines), _thresholds, _gid_pages, page_rotations) =
         extract_positioned_text_from_doc_in_page_box(&doc, &font_cmaps, page_filter)?;
-    Ok(extraction)
+    if frame == PositionFrame::Display {
+        display_frame::document_items_to_display_frame(&doc, &mut items, &page_rotations);
+    }
+    Ok((items, page_rotations))
 }
 
 /// One page's geometry in the visible-page-box frame, from
@@ -1010,7 +1040,7 @@ fn should_preserve_overlapping_stream_order(group: &[&TextItem]) -> bool {
 /// Han/Kana scripts write without inter-word spaces. Hangul (Korean) DOES
 /// space between words and deliberately stays out of this set — a Korean
 /// tracked run keeps normal word-boundary handling.
-fn is_spaceless_cjk(c: char) -> bool {
+pub(crate) fn is_spaceless_cjk(c: char) -> bool {
     matches!(c,
         '\u{3000}'..='\u{303F}'   // CJK Symbols and Punctuation
         | '\u{3040}'..='\u{309F}' // Hiragana
@@ -1412,6 +1442,7 @@ fn merge_text_items_with_clips(
                 if !small_caps_join
                     && (needs_bullet_space || (gap > effective_threshold && !numeric_boundary))
                     && !explicit_bold_space
+                    && !text.ends_with(char::is_whitespace)
                 {
                     text.push(' ');
                 }
@@ -1613,6 +1644,19 @@ mod tests {
             mcid: None,
             baseline_shift: 0.0,
         }
+    }
+
+    #[test]
+    fn explicit_trailing_space_is_not_doubled_across_a_word_gap() {
+        // "for " already carries its space run; the 4pt gap (0.33 em) that
+        // run left clears the word threshold but must not add a second one.
+        let items = vec![
+            make_merge_item("for ", 100.0, 21.6),
+            make_merge_item("the", 125.6, 21.6),
+        ];
+        let merged = merge_text_items(items);
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].text, "for the");
     }
 
     fn with_mcid(mut item: TextItem) -> TextItem {

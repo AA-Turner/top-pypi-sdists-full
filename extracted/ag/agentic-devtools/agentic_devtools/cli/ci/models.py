@@ -270,6 +270,19 @@ class IssueCommentInfo:
     created_at: str = ""
 
 
+@dataclass(frozen=True)
+class CopilotSessionSummary:
+    """A completed Copilot cloud-agent session summary."""
+
+    task_id: str
+    session_id: str
+    pr_number: int
+    started_at: str
+    completed_at: str | None = None
+    status: str = "completed"
+    finishing_text: str = ""
+
+
 # Copilot session event type strings from the GitHub Issues Events API
 COPILOT_SESSION_EVENT_FINISHED = "copilot_work_finished"
 COPILOT_SESSION_EVENT_FINISHED_FAILURE = "copilot_work_finished_failure"

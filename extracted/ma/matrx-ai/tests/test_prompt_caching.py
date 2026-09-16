@@ -438,6 +438,61 @@ def test_guard_does_not_compare_sibling_agent_loops_in_one_request(monkeypatch):
     assert screams.red_texts() == []
 
 
+def test_guard_does_not_compare_independent_calls_that_share_a_root_context(monkeypatch):
+    """A Bench issues many one-turn calls under one request/conversation.
+
+    Their system prompts deliberately differ (judge, extractor, panel), so
+    only an executor-local loop identity can make the cache guard compare
+    provider rounds rather than unrelated calls.
+    """
+    screams = _fresh_guard(monkeypatch)
+    common = dict(
+        provider="anthropic",
+        model="claude-opus-5",
+        conversation_id="bench-conversation",
+        request_id="bench-root-request",
+        tool_names=(),
+        raw_usage={"input_tokens": 5000, "cache_creation_input_tokens": 5000},
+    )
+
+    cache_guard.observe_cache_usage(
+        loop_id="bench-judge-call",
+        system_text="JUDGE SYSTEM " * 200,
+        **common,
+    )
+    cache_guard.observe_cache_usage(
+        loop_id="bench-extractor-call",
+        system_text="EXTRACT SYSTEM " * 200,
+        **common,
+    )
+
+    assert screams.red_texts() == []
+
+
+def test_guard_still_compares_rounds_in_one_executor_loop(monkeypatch):
+    screams = _fresh_guard(monkeypatch)
+    common = dict(
+        provider="anthropic",
+        model="claude-opus-5",
+        conversation_id="conversation",
+        request_id="root-request",
+        loop_id="one-executor-request",
+        tool_names=(),
+    )
+    cache_guard.observe_cache_usage(
+        system_text="FIRST SYSTEM " * 200,
+        raw_usage={"input_tokens": 20, "cache_creation_input_tokens": 5000},
+        **common,
+    )
+    cache_guard.observe_cache_usage(
+        system_text="SECOND SYSTEM " * 200,
+        raw_usage={"input_tokens": 5000},
+        **common,
+    )
+
+    assert "SYSTEM PROMPT MUTATED BETWEEN ROUNDS" in " ".join(screams.red_texts())
+
+
 @pytest.mark.asyncio
 async def test_system_drift_creates_structured_error_without_prompt_text(monkeypatch):
     captured = []

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: peft
-Version: 0.20.0
+Version: 0.21.0
 Summary: Parameter-Efficient Fine-Tuning (PEFT)
 Home-page: https://github.com/huggingface/peft
 Author: The HuggingFace team
@@ -35,7 +35,8 @@ Requires-Dist: huggingface_hub>=0.25.0
 Provides-Extra: quality
 Requires-Dist: black; extra == "quality"
 Requires-Dist: hf-doc-builder; extra == "quality"
-Requires-Dist: ruff~=0.15.12; extra == "quality"
+Requires-Dist: ruff==0.16.4; extra == "quality"
+Requires-Dist: griffe; extra == "quality"
 Provides-Extra: docs-specific
 Requires-Dist: black; extra == "docs-specific"
 Requires-Dist: requests; extra == "docs-specific"
@@ -43,14 +44,16 @@ Requires-Dist: hf-doc-builder; extra == "docs-specific"
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
-Requires-Dist: ruff~=0.15.12; extra == "dev"
+Requires-Dist: ruff==0.16.4; extra == "dev"
+Requires-Dist: griffe; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: requests; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
 Provides-Extra: test
 Requires-Dist: black; extra == "test"
 Requires-Dist: hf-doc-builder; extra == "test"
-Requires-Dist: ruff~=0.15.12; extra == "test"
+Requires-Dist: ruff==0.16.4; extra == "test"
+Requires-Dist: griffe; extra == "test"
 Requires-Dist: black; extra == "test"
 Requires-Dist: requests; extra == "test"
 Requires-Dist: hf-doc-builder; extra == "test"
@@ -65,6 +68,18 @@ Requires-Dist: scikit-learn; extra == "test"
 Requires-Dist: protobuf; extra == "test"
 Requires-Dist: sentencepiece; extra == "test"
 Requires-Dist: torchvision; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <!---
 Copyright 2023 The HuggingFace Team. All rights reserved.

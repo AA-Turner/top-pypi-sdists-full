@@ -741,3 +741,111 @@ class ConnectorRolloutFinalizeResult(BaseModel):
         if self.success:
             return f"OK {self.message}"
         return f"FAILED {self.message}"
+
+
+class LDFlagVariationInfo(BaseModel):
+    """A single LaunchDarkly flag variation with its organization targets."""
+
+    index: int = Field(description="The variation index on the flag")
+    variation_id: str = Field(description="The LaunchDarkly variation UUID")
+    name: str | None = Field(
+        default=None,
+        description="The variation display name (may be absent)",
+    )
+    value: object = Field(
+        default=None,
+        description="The variation value (bool, string, or number)",
+    )
+    organization_targets: list[str] = Field(
+        default_factory=list,
+        description="Organization IDs individually targeted to this variation.",
+    )
+
+
+class LDFeatureFlagInfo(BaseModel):
+    """A LaunchDarkly feature flag and its production organization targets."""
+
+    flag_key: str = Field(description="The LaunchDarkly flag key")
+    flag_name: str | None = Field(
+        default=None,
+        description="The flag display name",
+    )
+    kind: str | None = Field(
+        default=None,
+        description="The flag kind (`boolean` or `multivariate`)",
+    )
+    tags: list[str] = Field(
+        default_factory=list,
+        description="Tags on the flag",
+    )
+    ops_mcp_addressable: bool = Field(
+        description="`True` iff the flag carries the `ops-mcp` tag and can be modified by `update_launchdarkly_feature_flag_targeting`.",
+    )
+    on: bool = Field(
+        description="Whether the flag is on in the production environment",
+    )
+    variations: list[LDFlagVariationInfo] = Field(
+        default_factory=list,
+        description="Flag variations with their per-variation organization targets.",
+    )
+
+
+class LDFeatureFlagList(BaseModel):
+    """List of LaunchDarkly feature flags and their organization targets."""
+
+    flags: list[LDFeatureFlagInfo] = Field(
+        default_factory=list,
+        description="Flags in the `default` project matching the request filters.",
+    )
+    total_returned: int = Field(
+        description="Number of flags returned after filtering and truncation.",
+    )
+    truncated: bool = Field(
+        description="Whether the result was truncated to the requested `limit`.",
+    )
+
+
+class LDFlagOrgTargetUpdateResult(BaseModel):
+    """Result of adding or removing an organization target on a flag."""
+
+    success: bool = Field(description="Whether the operation succeeded")
+    message: str = Field(description="Human-readable message describing the result")
+    flag_key: str = Field(description="The LaunchDarkly flag key")
+    organization_id: str = Field(description="The organization UUID")
+    organization_name: str | None = Field(
+        default=None,
+        description="The display name of the organization",
+    )
+    email: str | None = Field(
+        default=None,
+        description="Organization contact email (may be absent)",
+    )
+    action: Literal["add", "remove"] = Field(
+        description="The target operation that was requested",
+    )
+    variation_name: str | None = Field(
+        default=None,
+        description="The name of the variation the target was applied to",
+    )
+    previous_targets: list[str] = Field(
+        default_factory=list,
+        description="Organization targets on the variation before the update.",
+    )
+    new_targets: list[str] = Field(
+        default_factory=list,
+        description="Organization targets on the variation after the update.",
+    )
+    customer_tier: str | None = Field(
+        default=None,
+        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2, UNKNOWN)",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised by this operation.",
+    )
+
+    def __str__(self) -> str:
+        """Return a string representation of the operation result."""
+        if self.success:
+            return f"OK {self.message}"
+        return f"FAILED {self.message}"

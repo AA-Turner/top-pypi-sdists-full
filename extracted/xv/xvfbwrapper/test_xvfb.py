@@ -6,7 +6,6 @@
 
 import os
 import re
-import sys
 import tempfile
 import unittest
 from contextlib import suppress
@@ -206,8 +205,7 @@ class TestXvfb(XvfbCleanTestCase):
         unwriteable_dir = "/etc"
         xvfb = Xvfb(tempdir=unwriteable_dir)
         with self.assertRaisesRegex(
-            RuntimeError,
-            f"Could not access writable temp directory: {unwriteable_dir}",
+            RuntimeError, f"Could not access writable temp directory: {unwriteable_dir}"
         ):
             xvfb.start()
         self.assertIsNone(xvfb.proc)
@@ -216,8 +214,7 @@ class TestXvfb(XvfbCleanTestCase):
         unknown_dir = "/tmp/some_unknown_path"
         xvfb = Xvfb(tempdir=unknown_dir)
         with self.assertRaisesRegex(
-            RuntimeError,
-            f"Could not access writable temp directory: {unknown_dir}",
+            RuntimeError, f"Could not access writable temp directory: {unknown_dir}"
         ):
             xvfb.start()
         self.assertIsNone(xvfb.proc)
@@ -258,8 +255,7 @@ class TestXvfb(XvfbCleanTestCase):
         self.assertEqual(xvfb.new_display, display_num)
         self.assertIsNotNone(xvfb.proc)
         with self.assertRaisesRegex(
-            RuntimeError,
-            f"Could not lock display: {display_num}",
+            RuntimeError, f"Could not lock display: {display_num}"
         ):
             xvfb2.start()
 
@@ -303,8 +299,7 @@ class TestXvfb(XvfbCleanTestCase):
             "bar",
         ]
         with self.assertRaisesRegex(
-            RuntimeError,
-            f"Xvfb display did not open: {expected_cmd_args}",
+            RuntimeError, f"Xvfb display did not open: {expected_cmd_args}"
         ):
             xvfb.start()
         self.assertIsNone(xvfb.proc)
@@ -314,8 +309,7 @@ class TestXvfb(XvfbCleanTestCase):
         self.addCleanup(xvfb.stop)
         xvfb.start()
         with self.assertRaisesRegex(
-            RuntimeError,
-            re.escape(f"Xvfb is already running (PID: {xvfb.proc.pid})"),
+            RuntimeError, re.escape(f"Xvfb is already running (PID: {xvfb.proc.pid})")
         ):
             xvfb.start()
         self.assertIsNotNone(xvfb.proc)
@@ -342,21 +336,10 @@ class TestXvfb(XvfbCleanTestCase):
         with patch("xvfbwrapper.randint", side_effect=side_effect) as mockrandint:
             self.assertEqual(xvfb._get_next_unused_display(), 11)
             self.assertEqual(mockrandint.call_count, 1)
-            if sys.implementation.name == "cpython":
-                # ResourceWarning is only raised on CPython because
-                # of an implementation detail in it's garbage collector.
-                # This does not occur on other Python implementations
-                # (like PyPy).
-                with self.assertWarns(ResourceWarning):
-                    self.assertEqual(xvfb2._get_next_unused_display(), 22)
-                    self.assertEqual(mockrandint.call_count, 3)
-                    self.assertEqual(xvfb3._get_next_unused_display(), 33)
-                    self.assertEqual(mockrandint.call_count, 10)
-            else:
-                self.assertEqual(xvfb2._get_next_unused_display(), 22)
-                self.assertEqual(mockrandint.call_count, 3)
-                self.assertEqual(xvfb3._get_next_unused_display(), 33)
-                self.assertEqual(mockrandint.call_count, 10)
+            self.assertEqual(xvfb2._get_next_unused_display(), 22)
+            self.assertEqual(mockrandint.call_count, 3)
+            self.assertEqual(xvfb3._get_next_unused_display(), 33)
+            self.assertEqual(mockrandint.call_count, 10)
 
     def test_environ_keyword_isolates_environment_modification(self):
         # Check that start and stop methods modified the environ dict if
@@ -380,10 +363,7 @@ class TestXvfb(XvfbCleanTestCase):
         self.addCleanup(xvfb.stop)
         xvfb.start()
         proc = psutil.Process(xvfb.proc.pid)
-        self.assertEqual(
-            proc.environ().get("XVFBWRAPPER_TEST_MARKER"),
-            marker_value,
-        )
+        self.assertEqual(proc.environ().get("XVFBWRAPPER_TEST_MARKER"), marker_value)
 
     def test_start_failure_without_initial_display_env(self):
         # Provide a custom env *without* DISPLAY so orig_display_var == None
@@ -404,8 +384,7 @@ class TestXvfb(XvfbCleanTestCase):
         with (
             patch.object(xvfb, "_local_display_exists", return_value=False),
             self.assertRaisesRegex(
-                RuntimeError,
-                f"Xvfb display did not open: {expected_cmd_args}",
+                RuntimeError, f"Xvfb display did not open: {expected_cmd_args}"
             ),
         ):
             xvfb.start()

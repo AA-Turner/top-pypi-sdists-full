@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastcore
-Version: 2.2.27
+Version: 2.2.28
 Summary: Python supercharged for fastai development
 Author-email: Jeremy Howard and Sylvain Gugger <infos@fast.ai>
 License: Apache-2.0
@@ -87,6 +87,8 @@ To install fastcore run: `conda install fastcore -c fastai` (if you use Anaconda
 - `fastcore.xml`: HTML with [`ft`](https://fastcore.fast.ai/xml.html#ft), and case-preserving, namespace-aware XML with [`E`](https://fastcore.fast.ai/xml.html#e) factories
 
 To get started, we recommend you read through [the fastcore tour](https://fastcore.fast.ai/tour.html).
+
+[`globtastic`](https://fastcore.fast.ai/xtras.html#globtastic) supports filename filters (`file_glob`, `file_re`) and full-path filters (`path_glob`, `path_re`). Glob filters use `fnmatch`: `*` matches directory separators and `**` has no special meaning.
 
 ## Contributing
 

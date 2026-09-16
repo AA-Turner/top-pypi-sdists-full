@@ -32,6 +32,9 @@ from airbyte_ops_mcp.airbyte_repo.list_connectors import (
 
 PYPROJECT_FILE_NAME = "pyproject.toml"
 AIRBYTE_GITHUB_REPO = "airbytehq/airbyte"
+_PREVIEW_VERSION_PATTERN = re.compile(
+    r"^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-preview\.[0-9a-f]{7}$"
+)
 
 
 class BumpType(StrEnum):
@@ -234,7 +237,8 @@ def calculate_new_version(
               Raises InvalidVersionError if not currently an RC.
             All bump types other than 'rc' and 'promote' raise InvalidVersionError
             if the current version is already an RC.
-        new_version: Explicit new version (overrides bump_type)
+        new_version: Explicit new version (overrides bump_type). Must be valid
+            semver or a pre-release tag of the form X.Y.Z-preview.<7-hex-sha>.
 
     Returns:
         New version string
@@ -244,8 +248,10 @@ def calculate_new_version(
         ValueError: If neither bump_type nor new_version is provided
     """
     if new_version is not None:
-        # Validate the explicit version
-        if not semver.Version.is_valid(new_version):
+        if not (
+            semver.Version.is_valid(new_version)
+            or _PREVIEW_VERSION_PATTERN.fullmatch(new_version)
+        ):
             raise InvalidVersionError(f"Invalid version format: {new_version}")
         return new_version
 
@@ -744,6 +750,16 @@ def bump_connector_version(
     calculated_version = calculate_new_version(
         current_version, bump_type_enum, new_version
     )
+
+    if (
+        changelog_message
+        and not no_changelog
+        and not semver.Version.is_valid(calculated_version)
+    ):
+        raise InvalidVersionError(
+            f"Changelog updates are not supported for non-semver pre-release "
+            f"version {calculated_version}; pass --no-changelog."
+        )
 
     files_modified: list[str] = []
     metadata_file = connector_path / METADATA_FILE_NAME

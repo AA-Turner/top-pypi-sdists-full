@@ -4,8 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 from abc import ABC, abstractmethod
 import pandas as pd
 from navconfig.logging import logging
-from parrot.clients.google import GoogleGenAIClient
-from parrot.models.google import GoogleModel
+from parrot.clients.google import GoogleGenAIClient, GoogleModel
 from ...exceptions import (
     ComponentError,
     ConfigError

@@ -25,7 +25,6 @@ import numpy as np
 import blosc2
 from blosc2 import SpecialValue, blosc2_ext
 from blosc2.core import (
-    fsspec_cache_path,
     fsspec_open,
     is_fsspec_url,
     localize_fsspec_url,
@@ -339,6 +338,7 @@ class SChunk(blosc2_ext.SChunk):
         [0, 1, 2]
         >>> np.frombuffer(schunk_mmap.decompress_chunk(1), dtype=np.int64).tolist()
         [0, 2, 4]
+        >>> del schunk_mmap
         >>> shutil.rmtree(tmpdirname)
         """
         # How many chunks were replaced by a special one, which is how a reader
@@ -630,20 +630,20 @@ class SChunk(blosc2_ext.SChunk):
         Examples
         --------
         >>> schunk = blosc2.SChunk(data=b"a large, repeated string" * 1000)
-        >>> schunk.info
+        >>> schunk.info  # doctest: +ELLIPSIS
         type      : SChunk
         chunksize : 24000
         blocksize : 0
         typesize  : 1
         nbytes    : 24000 (23.44 KiB)
-        cbytes    : 82 (82 B)
-        cratio    : 292.68x
+        cbytes    : ...
+        cratio    : ...
         cparams   : CParams(codec=<Codec.ZSTD: 5>, codec_meta=0, clevel=5, use_dict=False, typesize=1,
-                  : nthreads=8, blocksize=0, splitmode=<SplitMode.AUTO_SPLIT: 3>,
+                  : nthreads=..., blocksize=0, splitmode=<SplitMode.AUTO_SPLIT: 3>,
                   : filters=[<Filter.NOFILTER: 0>, <Filter.NOFILTER: 0>, <Filter.NOFILTER: 0>,
                   : <Filter.NOFILTER: 0>, <Filter.NOFILTER: 0>, <Filter.SHUFFLE: 1>], filters_meta=[0,
                   : 0, 0, 0, 0, 0], tuner=<Tuner.STUNE: 0>)
-        dparams   : DParams(nthreads=8)
+        dparams   : DParams(nthreads=...)
         <BLANKLINE>
         """
         return InfoReporter(self)
@@ -730,25 +730,13 @@ class SChunk(blosc2_ext.SChunk):
         --------
         >>> import blosc2
         >>> import numpy as np
-        >>> import time
-        >>> nitems = 100_000_000
+        >>> nitems = 1000
         >>> dtype = np.dtype(np.float64)
-        >>> # Measure the time to create SChunk from a NumPy array
-        >>> t0 = time.time()
-        >>> data = np.full(nitems, np.pi, dtype)
         >>> cparams = blosc2.CParams(typesize=dtype.itemsize)
-        >>> schunk = blosc2.SChunk(data=data, cparams=cparams)
-        >>> t = (time.time() - t0) * 1000.
-        >>> f"Time creating a schunk with a numpy array: {t:10.3f} ms"
-        Time creating a schunk with a numpy array:    710.273 ms
-        >>> # Measure the time to create SChunk using fill_special
-        >>> t0 = time.time()
-        >>> cparams = blosc2.CParams(typesize=dtype.itemsize)
-        >>> schunk = blosc2.SChunk(cparams=cparams)
+        >>> schunk = blosc2.SChunk(chunksize=nitems * dtype.itemsize, cparams=cparams)
         >>> schunk.fill_special(nitems, blosc2.SpecialValue.VALUE, np.pi)
-        >>> t = (time.time() - t0) * 1000.
-        >>> f"Time passing directly the value to `fill_special`: {t:10.3f} ms"
-        Time passing directly the value to `fill_special`:      2.109 ms
+        1
+        >>> np.testing.assert_array_equal(np.frombuffer(schunk[:], dtype=dtype), np.full(nitems, np.pi))
         """
         if not isinstance(special_value, SpecialValue) or special_value == SpecialValue.NOT_SPECIAL:
             raise TypeError("special_value must be a SpecialValue instance other than NOT_SPECIAL")
@@ -917,8 +905,9 @@ class SChunk(blosc2_ext.SChunk):
         >>> # Check the type and length of the compressed chunk
         >>> type(chunk)
         <class 'bytes'>
-        >>> len(chunk)
-        10552
+        >>> len(chunk) < data.nbytes
+        True
+        >>> np.testing.assert_array_equal(np.frombuffer(blosc2.decompress2(chunk), dtype=data.dtype), data)
         """
         return super().get_chunk(nchunk)
 
@@ -958,6 +947,7 @@ class SChunk(blosc2_ext.SChunk):
         3
         >>>  # Delete the second chunk (index 1)
         >>> schunk.delete_chunk(1)
+        2
         >>>  # Check the number of chunks after deletion
         >>> schunk.nchunks
         2
@@ -997,6 +987,7 @@ class SChunk(blosc2_ext.SChunk):
         >>> chunk = schunk.get_chunk(0)
         >>> # Insert a chunk in the second position (index 1)"
         >>> schunk.insert_chunk(1, chunk)
+        3
         >>> # Verify the total number of chunks after insertion
         >>> schunk.nchunks
         3
@@ -1038,6 +1029,7 @@ class SChunk(blosc2_ext.SChunk):
         >>> new_data = np.arange(200 * 1000, dtype=np.int32)
         >>> # Insert the new data at position 1, compressing it
         >>> schunk.insert_data(1, new_data, copy=True)
+        3
         >>> # Verify the total number of chunks after insertion
         >>> schunk.nchunks
         3
@@ -1095,14 +1087,14 @@ class SChunk(blosc2_ext.SChunk):
         >>> data = np.arange(nchunks * chunk_size // 4, dtype=np.int32)
         >>> cparams = blosc2.CParams(typesize=4)
         >>> schunk = blosc2.SChunk(chunksize=chunk_size, data=data, cparams=cparams)
-        >>> f"Initial number of chunks: {schunk.nchunks}"
+        >>> print(f"Initial number of chunks: {schunk.nchunks}")
         Initial number of chunks: 5
         >>> c_index = 1
         >>> new_data = np.full(chunk_size // 4, fill_value=c_index, dtype=np.int32).tobytes()
         >>> compressed_data = blosc2.compress2(new_data, typesize=4)
         >>> # Update the 2nd chunk (index 1) with new data
         >>> nchunks = schunk.update_chunk(c_index, compressed_data)
-        >>> f"Number of chunks after update: {nchunks}"
+        >>> print(f"Number of chunks after update: {nchunks}")
         Number of chunks after update: 5
         """
         blosc2_ext.check_access_mode(self.urlpath, self.mode)
@@ -1168,12 +1160,12 @@ class SChunk(blosc2_ext.SChunk):
         >>> data = np.arange(nchunks * chunk_size // 4, dtype=np.int32)
         >>> cparams = blosc2.CParams(typesize=4)
         >>> schunk = blosc2.SChunk(chunksize=chunk_size, data=data, cparams=cparams)
-        >>> f"Initial number of chunks: {schunk.nchunks}"
+        >>> print(f"Initial number of chunks: {schunk.nchunks}")
         Initial number of chunks: 4
         >>> c_index = 1 # Update the 2nd chunk (index 1)
         >>> new_data = np.full(chunk_size // 4, fill_value=c_index, dtype=np.int32).tobytes()
         >>> nchunks = schunk.update_data(c_index, new_data, copy=True)
-        >>> f"Number of chunks after update: {schunk.nchunks}"
+        >>> print(f"Number of chunks after update: {schunk.nchunks}")
         Number of chunks after update: 4
         """
         blosc2_ext.check_access_mode(self.urlpath, self.mode)
@@ -1235,7 +1227,7 @@ class SChunk(blosc2_ext.SChunk):
         >>> result = schunk.get_slice(start=start_index, stop=stop_index, out=out_buffer)
         >>> # Convert bytearray to NumPy array for easier inspection
         >>> slice_array = np.frombuffer(out_buffer, dtype=np.int32)
-        >>> f"Slice data: {slice_array[:10]} ..."  # Print the first 10 elements
+        >>> print(f"Slice data: {slice_array[:10]} ...")  # Print the first 10 elements
         Slice data: [200000 200001 200002 200003 200004 200005 200006 200007 200008 200009] ...
         """
         return super().get_slice(start, stop, out)
@@ -1285,7 +1277,7 @@ class SChunk(blosc2_ext.SChunk):
         >>> schunk = blosc2.SChunk(chunksize=chunk_size, data=data, cparams=cparams)
         >>> # Use __getitem__ to retrieve the same slice of data from the SChunk
         >>> res = schunk[150:155]
-        >>> f"Slice data: {np.frombuffer(res, dtype=np.int32)}"
+        >>> print(f"Slice data: {np.frombuffer(res, dtype=np.int32)}")
         Slice data: [150 151 152 153 154]
         """
         if isinstance(item, int):
@@ -1345,9 +1337,9 @@ class SChunk(blosc2_ext.SChunk):
         >>> schunk[start_:stop] = new_values
         >>> # Retrieve the updated slice using the slicing syntax
         >>> retrieved_slice = np.frombuffer(schunk[start_:stop], dtype=np.int32)
-        >>> f"First 10 values of the updated slice: {retrieved_slice[:10]}"
-        >>> f"Last 10 values of the updated slice: {retrieved_slice[-10:]}"
+        >>> print(f"First 10 values of the updated slice: {retrieved_slice[:10]}")
         First 10 values of the updated slice: [2000 2002 2004 2006 2008 2010 2012 2014 2016 2018]
+        >>> print(f"Last 10 values of the updated slice: {retrieved_slice[-10:]}")
         Last 10 values of the updated slice: [3980 3982 3984 3986 3988 3990 3992 3994 3996 3998]
         """
         if key.step is not None and key.step != 1:
@@ -1378,18 +1370,19 @@ class SChunk(blosc2_ext.SChunk):
         >>> schunk = blosc2.SChunk(data=data, cparams=cparams)
         >>> # Serialize the SChunk instance to a bytes object
         >>> serialized_schunk = schunk.to_cframe()
-        >>> f"Serialized SChunk length: {len(serialized_schunk)} bytes"
-        Serialized SChunk length: 14129 bytes
+        >>> len(serialized_schunk) < data.nbytes
+        True
         >>> # Create a new SChunk from the serialized data
         >>> deserialized_schunk = blosc2.schunk_from_cframe(serialized_schunk)
+        >>> np.testing.assert_array_equal(np.frombuffer(deserialized_schunk[:], dtype=data.dtype), data)
         >>> start = 500
         >>> stop = 505
         >>> sl_bytes = deserialized_schunk[start:stop]
         >>> sl = np.frombuffer(sl_bytes, dtype=np.int32)
         >>> res = data[start:stop]
-        >>> f"Original slice: {res}"
+        >>> print(f"Original slice: {res}")
         Original slice: [500 501 502 503 504]
-        >>> f"Deserialized slice: {sl}"
+        >>> print(f"Deserialized slice: {sl}")
         Deserialized slice: [500 501 502 503 504]
         """
         return super().to_cframe()
@@ -1418,8 +1411,8 @@ class SChunk(blosc2_ext.SChunk):
         >>> schunk = blosc2.SChunk(data=data, cparams=cparams)
         >>> # Iterate over chunks using the iterchunks method
         >>> for chunk in schunk.iterchunks(dtype=np.int32):
-        >>>     f"Chunk shape: {chunk.shape} "
-        >>>     f"First 5 elements of chunk: {chunk[:5]}"
+        ...     print(f"Chunk shape: {chunk.shape}")
+        ...     print(f"First 5 elements of chunk: {chunk[:5]}")
         Chunk shape: (400000,)
         First 5 elements of chunk: [0 1 2 3 4]
         """
@@ -1468,13 +1461,13 @@ class SChunk(blosc2_ext.SChunk):
         >>> cparams = blosc2.CParams(typesize=4)
         >>> schunk = blosc2.SChunk(data=data, cparams=cparams)
         >>> # Iterate over chunks and print detailed information
-        >>> for chunk_info in schunk.iterchunks_info():
-        >>>     f"Chunk index: {chunk_info.nchunk}"
-        >>>     f"Compression ratio: {chunk_info.cratio:.2f}"
-        >>>     f"Special value: {chunk_info.special.name}"
-        >>>     f"Repeated value: {chunk_info.repeated_value[:10] if chunk_info.repeated_value else None}"
+        >>> for chunk_info in schunk.iterchunks_info():  # doctest: +ELLIPSIS
+        ...     print(f"Chunk index: {chunk_info.nchunk}")
+        ...     print(f"Compression ratio: {chunk_info.cratio:.2f}")
+        ...     print(f"Special value: {chunk_info.special.name}")
+        ...     print(f"Repeated value: {chunk_info.repeated_value[:10] if chunk_info.repeated_value else None}")
         Chunk index: 0
-        Compression ratio: 223.56
+        Compression ratio: ...
         Special value: NOT_SPECIAL
         Repeated value: None
         """
@@ -1580,16 +1573,16 @@ class SChunk(blosc2_ext.SChunk):
         >>> schunk = blosc2.SChunk(data=data, cparams=cparams, dparams=dparams)
         >>> # Define the postfilter function
         >>> @schunk.postfilter(dtype)
-        >>> def postfilter(input, output, offset):
-        >>>     output[:] = input + offset + np.arange(input.size)
+        ... def postfilter(input, output, offset):
+        ...     output[:] = input + offset + np.arange(input.size)
         >>> out = np.empty(data.size, dtype=dtype)
         >>> schunk.get_slice(out=out)
-        >>> f"Data slice with postfilter applied (first 8 elements): {out[:8]}"
+        >>> print(f"Data slice with postfilter applied (first 8 elements): {out[:8]}")
         Data slice with postfilter applied (first 8 elements): [ 0  2  4  6  8 10 12 14]
         >>> schunk.remove_postfilter('postfilter')
         >>> retrieved_data = np.empty(data.size, dtype=dtype)
         >>> schunk.get_slice(out=retrieved_data)
-        >>> f"Original data (first 8 elements): {data[:8]}"
+        >>> print(f"Original data (first 8 elements): {retrieved_data[:8]}")
         Original data (first 8 elements): [0 1 2 3 4 5 6 7]
         """
         return super().remove_postfilter(func_name)
@@ -1761,19 +1754,19 @@ class SChunk(blosc2_ext.SChunk):
         >>> schunk = blosc2.SChunk(cparams=cparams)
         >>> # Define the prefilter function
         >>> @schunk.prefilter(dtype, output_dtype)
-        >>> def prefilter(input, output, offset):
-        >>>     output[:] = input - np.pi
+        ... def prefilter(input, output, offset):
+        ...     output[:] = input - np.pi
         >>> schunk[:1000] = data
         >>> # Retrieve and convert compressed data with the prefilter to a NumPy array.
         >>> compressed_array_with_filter = np.frombuffer(schunk.get_slice(), dtype=output_dtype)
-        >>> f"Compressed data with prefilter applied (first 8 elements): {compressed_array_with_filter[:8]}"
+        >>> print(f"Compressed data with prefilter applied (first 8 elements): {compressed_array_with_filter[:8]}")
         Compressed data with prefilter applied (first 8 elements): [-3.1415927  -2.1415927  -1.1415926  -0.14159265  0.8584073   1.8584074
-         2.8584073   3.8584073 ]
+          2.8584073   3.8584073 ]
         >>> schunk.remove_prefilter('prefilter')
         >>> schunk[:1000] = data
         >>> compressed_array_without_filter = np.frombuffer(schunk.get_slice(), dtype=dtype)
-        >>> f"Compressed data without prefilter (first 8 elements): {compressed_array_without_filter[:8]}"
-        Compressed data without prefilter (first 8 elements): [0. 1. 2. 3. 4. 5. 6. 7.]
+        >>> print(f"Compressed data without prefilter (first 8 elements): {compressed_array_without_filter[:8]}")
+        Compressed data without prefilter (first 8 elements): [0 1 2 3 4 5 6 7]
         """
         return super().remove_prefilter(func_name)
 
@@ -2078,7 +2071,7 @@ def _remote_array_options(
     dataset=None,
     refs=None,
 ):
-    """Return explicit RemoteArray options, or None for the legacy lazy Proxy path."""
+    """Return the explicit RemoteArray options, or None when remote access was not requested."""
     policy_present = "cache_policy" in kwargs
     limit_present = "max_cache_bytes" in kwargs
     if not lazy and not policy_present and not limit_present:
@@ -2110,73 +2103,6 @@ def _remote_array_options(
     if refs is not None:
         options["refs"] = refs
     return options
-
-
-def _lazy_fsspec_proxy(
-    urlpath: str,
-    cache_dir: str | pathlib.Path | None,
-    cache_path: str | pathlib.Path | None,
-    max_concurrency: int | None = None,
-    storage_options: dict | None = None,
-):
-    """Wrap a remote frame in a Proxy that fetches chunks on demand.
-
-    Without a cache location the fetched chunks live in memory and die with the
-    proxy. Otherwise they go to `cache_path`, or to a derived name under
-    `cache_dir`, so a later run starts from what this one pulled.
-    """
-    # None leaves the default where it belongs, on the source itself
-    kwargs = {} if max_concurrency is None else {"max_concurrency": max_concurrency}
-    if storage_options is not None:
-        kwargs["storage_options"] = storage_options
-    src = blosc2.FsspecNDSource(urlpath, **kwargs)
-    return _lazy_remote_array(src, urlpath, cache_dir, cache_path)
-
-
-def _lazy_remote_array(
-    src,
-    identity: str,
-    cache_dir: str | pathlib.Path | None,
-    cache_path: str | pathlib.Path | None,
-    *,
-    source_fresh: bool = False,
-    max_cache_bytes: int | None = None,
-):
-    """Wrap a remote source in a memory or persistent cache."""
-    if cache_dir is None and cache_path is None:
-        return blosc2.Proxy(
-            src,
-            _refresh_source=not source_fresh,
-            _max_cache_bytes=max_cache_bytes,
-        )
-
-    if cache_path is not None:
-        path = os.fspath(cache_path)
-        if os.path.isdir(path):
-            raise ValueError("cache_path must name a file, not a directory")
-    else:
-        path = fsspec_cache_path(identity, cache_dir, ".b2nd")
-    stamp = getattr(src, "stamp", None)
-    cache_status = "created"
-    if os.path.exists(path):
-        if _cache_stamp(path) != stamp:
-            # The remote frame was replaced, which makes every cached chunk -- and
-            # every offset they were fetched by -- meaningless
-            blosc2.remove_urlpath(path)
-            cache_status = "invalidated/rebuilt"
-        else:
-            cache_status = "reused"
-    # Proxy stamps the cache with src.stamp itself, and refuses one built against
-    # other bytes; removing it above is what turns that refusal into a refetch
-    proxy = blosc2.Proxy(
-        src,
-        urlpath=path,
-        mode="a",
-        _refresh_source=not source_fresh,
-        _max_cache_bytes=max_cache_bytes,
-    )
-    proxy._cache_status = cache_status
-    return proxy
 
 
 def _validate_c2_urlpath_options(kwargs: dict):
@@ -2217,7 +2143,8 @@ def _open_c2_urlpath(urlpath: blosc2.URLPath, mode: str, offset: int, kwargs: di
     immutable_present = "assume_immutable" in kwargs
     assume_immutable = kwargs.pop("assume_immutable", True)
     _validate_c2_urlpath_options(kwargs)
-    lazy = kwargs.pop("lazy", False)
+    lazy = kwargs.pop("lazy", None)
+    lazy = _resolve_lazy(lazy, None, None, "")
     remote_array_options = _remote_array_options(
         kwargs, cache_dir, cache_path, max_concurrency, lazy=lazy, assume_immutable=assume_immutable
     )
@@ -2230,36 +2157,12 @@ def _open_c2_urlpath(urlpath: blosc2.URLPath, mode: str, offset: int, kwargs: di
             urlpath, immutable_present, remote_array_options, cache_dir, cache_path, max_concurrency
         )
 
-    if remote_array_options is not None:
-        return blosc2.RemoteArray(urlpath, **remote_array_options)
-
-    src = blosc2.C2Array(urlpath.path, urlbase=urlpath.urlbase, auth_token=urlpath.auth_token)
-    if max_concurrency is not None:
-        src.max_concurrency = max_concurrency
-    identity = f"caterva2:{blosc2.c2array._server_url(src.urlbase, src.path)}"
-    # C2Array's constructor has just read api/info.  That response supplies both
-    # the geometry and the stamp against which the cache is checked, so asking
-    # for it again in Proxy.__init__ only adds a second serial round trip.
-    return _lazy_remote_array(src, identity, cache_dir, cache_path, source_fresh=True)
-
-
-def _cache_stamp(path: str):
-    """The remote stamp a cached proxy container was built against, if any.
-
-    None for a cache that cannot be read at all, which an interrupted run can
-    leave behind: the caller throws those away just like a stale one.
-    """
-    _set_default_dparams(kwargs := {})
-    try:
-        cache = blosc2_ext.open(path, "r", 0, **kwargs)
-    except RuntimeError:
-        return None
-    return getattr(cache, "schunk", cache).vlmeta.get("proxy-stamp")
+    return blosc2.RemoteArray(urlpath, **remote_array_options)
 
 
 def _validate_fsspec_lazy_options(urlpath: str, source_format, dataset, lazy: bool):
     if dataset is not None and not lazy:
-        raise ValueError("dataset requires lazy=True")
+        raise NotImplementedError("dataset access currently requires lazy=True")
     _validate_fsspec_source_format(source_format, lazy)
     if dataset is not None and source_format not in {None, "hdf5", "zarr", "b2z"}:
         raise ValueError("dataset is only supported for HDF5 and Zarr sources or B2Z archives")
@@ -2294,15 +2197,33 @@ def _open_localized_fsspec(localized, mode, offset, kwargs, source_format, datas
     return open(localized, mode, offset, **kwargs)
 
 
+def _infer_lazy(lazy: bool, dataset, source_format, urlpath: str) -> bool:
+    """Return True when the request inherently requires lazy mode."""
+    if lazy:
+        return True
+    if dataset is not None or source_format in {"blosc2", "hdf5", "zarr"}:
+        return True
+    parsed = urlsplit(urlpath)
+    url_path_str = f"{parsed.netloc}/{parsed.path}" if parsed.netloc else parsed.path
+    return any(part.lower().endswith((".b2nd", ".h5", ".hdf5")) for part in url_path_str.split("/"))
+
+
+def _resolve_lazy(lazy, dataset, source_format, urlpath):
+    if lazy is not None and not isinstance(lazy, bool):
+        raise TypeError("lazy must be None or a bool")
+    if lazy is False and (dataset is not None or source_format in {"hdf5", "zarr"}):
+        raise NotImplementedError("dataset access currently requires lazy=True")
+    return _infer_lazy(False, dataset, source_format, urlpath) if lazy is None else lazy
+
+
 def _open_fsspec_url(urlpath: str, mode: str, offset: int, kwargs: dict):
     """Open a container living behind an fsspec URL.
 
-    Without `cache_dir`, the whole object is fetched in one go and rebuilt in
-    memory, which is the right thing for a one-shot read of a small container but
-    only works for single-file ones.  With `cache_dir`, the container is
-    materialized under that directory and opened as an ordinary local path, so
-    every format, `mmap_mode` and `offset` work.  With `lazy`, nothing is fetched
-    up front and each slice pulls just the chunks it needs.
+    Without lazy access, the whole object is fetched in one go and rebuilt in
+    memory.  Combining `lazy=False` with `cache_dir` instead materializes it as
+    an ordinary local path, so every format, `mmap_mode` and `offset` work.  With
+    lazy access, nothing is fetched up front and each slice pulls just the chunks
+    it needs, retaining them under `cache_dir` when supplied.
     """
     if mode != "r":
         raise NotImplementedError(f"fsspec URLs can only be opened with mode='r', not {mode!r}")
@@ -2315,13 +2236,20 @@ def _open_fsspec_url(urlpath: str, mode: str, offset: int, kwargs: dict):
     max_concurrency = kwargs.pop("max_concurrency", None)
     immutable_present = "assume_immutable" in kwargs
     assume_immutable = kwargs.pop("assume_immutable", True)
-    lazy = kwargs.pop("lazy", False)
+    lazy = kwargs.pop("lazy", None)
 
     urlpath, parsed_dataset, detected_format = parse_container_url(urlpath, dataset)
     if dataset is None:
         dataset = parsed_dataset
     if source_format is None:
         source_format = detected_format
+
+    # Local-file options require a complete local copy; cache placement alone
+    # does not choose between lazy access and eager localization.
+    if lazy is None and (offset != 0 or kwargs.get("mmap_mode") is not None):
+        lazy = False
+    # Auto-infer lazy=True only when the caller left the choice unspecified.
+    lazy = _resolve_lazy(lazy, dataset, source_format, urlpath)
 
     _validate_fsspec_lazy_options(urlpath, source_format, dataset, lazy)
     remote_array_options = _remote_array_options(
@@ -2342,11 +2270,7 @@ def _open_fsspec_url(urlpath: str, mode: str, offset: int, kwargs: dict):
         requested = [k for k, v in kwargs.items() if v is not None]
         if requested:
             raise NotImplementedError(f"{', '.join(requested)} is not supported with lazy=True")
-        if remote_array_options is not None:
-            return blosc2.RemoteArray(urlpath, **remote_array_options)
-        return _lazy_fsspec_proxy(
-            urlpath, cache_dir, cache_path, max_concurrency, storage_options=storage_options
-        )
+        return blosc2.RemoteArray(urlpath, **remote_array_options)
 
     _validate_non_lazy_fsspec_options(immutable_present, remote_array_options, cache_path, max_concurrency)
 
@@ -2495,8 +2419,17 @@ def open(
     offset: int, optional
         An offset in the file where super-chunk or array data is located
         (e.g. in a file containing several such objects).
+        A nonzero offset in a local file opens the embedded Blosc2 frame
+        directly, bypassing filename-based container format detection.
     kwargs: dict, optional
-        lazy: bool, optional
+        lazy: bool or None, optional
+            ``None`` (the default) automatically selects the access mode. ``True``
+            returns a lazy :ref:`RemoteArray`; ``False`` requests eager access.
+            Known remote `.b2nd` arrays default to lazy access, including when
+            ``cache_dir=`` is supplied. Pass ``lazy=False`` to download the whole
+            container under ``cache_dir`` instead. ``mmap_mode=`` or a nonzero
+            ``offset=`` forces the eager path. Dataset paths currently require
+            ``lazy=True`` and reject explicit ``False``.
             For an fsspec URL or a Caterva2 :ref:`URLPath`, return a :ref:`RemoteArray` over
             the remote dataset and read the byte ranges a slice touches. Neither form opens
             a whole remote store hierarchy. A slice landing in a small part of a large
@@ -2572,7 +2505,8 @@ def open(
             Format of a lazy remote source. A ``.zarr`` URL path component selects
             Zarr automatically; a ``.h5`` or ``.hdf5`` path selects HDF5 automatically;
             a ``.b2z`` path selects B2Z automatically. An explicit value supports
-            suffix-free array paths.
+            suffix-free array paths. Zarr and HDF5 sources automatically enable
+            ``lazy=True``.
         assume_immutable: bool, optional
             With ``lazy=True``, skip remote identity checks before reads. Defaults
             to ``True``; set to ``False`` when the remote object may be replaced.
@@ -2670,11 +2604,21 @@ def open(
     if isinstance(urlpath, blosc2.URLPath):
         return _open_c2_urlpath(urlpath, mode, offset, kwargs)
 
+    if offset != 0 and not is_fsspec_url(urlpath):
+        local_path = normalize_urlpath(os.fspath(urlpath))
+        if os.path.isfile(local_path):
+            if dataset is not None or refs is not None:
+                raise ValueError("dataset and refs cannot be combined with an embedded frame offset")
+            _set_default_dparams(kwargs)
+            return process_opened_object(blosc2_ext.open(local_path, mode, offset, **kwargs))
+
     urlpath = _normalize_open_target(urlpath, kwargs, dataset, refs)
 
     if is_fsspec_url(urlpath) or _is_container_open_request(urlpath, kwargs):
         return _open_fsspec_url(urlpath, mode, offset, kwargs)
 
+    # The native local opener does not consume the public lazy option.
+    kwargs.pop("lazy", None)
     if "storage_options" in kwargs and kwargs["storage_options"] is not None:
         raise ValueError("storage_options is only supported for fsspec URLs")
     kwargs.pop("storage_options", None)

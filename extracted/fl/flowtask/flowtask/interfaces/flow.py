@@ -76,6 +76,7 @@ class FlowComponent(
         self._taskstore: Any = kwargs.get('taskstorage', None)
         if not self._taskstore:
             self._taskstore = TASK_STORAGES['default']
+        self._storage_name: str = kwargs.get('storage_name', 'default')
         self._started: bool = False  # Avoid multiple start methods.
         # Config Environment
         self._environment = kwargs.pop('ENV', config)
@@ -207,7 +208,7 @@ class FlowComponent(
         # SkipError:
         if self.skipError == "skip":
             self.skipError = SkipErrors.SKIP
-        elif self.skipError == "log":
+        elif self.skipError in ("log", "log_only"):
             self.skipError = SkipErrors.LOG
         else:
             self.skipError = SkipErrors.ENFORCE

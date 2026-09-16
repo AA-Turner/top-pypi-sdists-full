@@ -53,13 +53,16 @@ class DaxClient(object):
     CACHE_SIZE = 1000
     KEY_CACHE_TTL_MILLIS = 60000
 
-    def __init__(self, tube_pool):
+    def __init__(self, tube_pool, on_operation_success=None, on_operation_failure=None):
         self._tube_pool = tube_pool
 
         # Caches are per-node for simplicity
         self._key_cache = RefreshingCache(DaxClient.CACHE_SIZE, self._defineKeySchema, DaxClient.KEY_CACHE_TTL_MILLIS)
         self._attr_list_cache = SimpleCache(DaxClient.CACHE_SIZE, self._defineAttributeList)
         self._attr_list_id_cache = SimpleCache(DaxClient.CACHE_SIZE, self._defineAttributeListId)
+
+        self.on_operation_success = on_operation_success or (lambda: None)
+        self.on_operation_failure = on_operation_failure or (lambda: None)
 
     def close(self):
         if self._tube_pool:

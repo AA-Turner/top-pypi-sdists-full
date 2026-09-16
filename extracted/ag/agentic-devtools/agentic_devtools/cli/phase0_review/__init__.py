@@ -21,12 +21,18 @@ from agentic_devtools.cli.phase0_review.helpers import (
     structural_compare,
 )
 from agentic_devtools.cli.phase0_review.report import Finding, render_report
+from agentic_devtools.cli.phase0_review.template_compliance import (
+    check_issue_template,
+    check_issue_template_cli,
+)
 
 __all__ = [
     "ContractResult",
     "Finding",
     "StructuralResult",
     "compare_content",
+    "check_issue_template",
+    "check_issue_template_cli",
     "frontmatter_validate",
     "inject_phase0_checklist",
     "load_contract",

@@ -232,6 +232,11 @@ class CntlrWinMain(Cntlr.Cntlr):
         self.validateXmlOim.trace_add("write", self.setValidateXmlOim)
         validateMenu.add_checkbutton(label=_("OIM validate xBRL-XML documents"), underline=0, variable=self.validateXmlOim, onvalue=True, offvalue=False)
 
+        self.modelManager.validateTableConstraintsSkipLoading = self.config.setdefault("validateTableConstraintsSkipLoading", False)
+        self.validateTableConstraintsSkipLoading = BooleanVar(value=self.modelManager.validateTableConstraintsSkipLoading)
+        self.validateTableConstraintsSkipLoading.trace_add("write", self.setValidateTableConstraintsSkipLoading)
+        validateMenu.add_checkbutton(label=_("xBRL-CSV: Table Constraints only (no load)"), underline=0, variable=self.validateTableConstraintsSkipLoading, onvalue=True, offvalue=False)
+
         self.modelManager.validateAllFilesAsReportPackages = self.config.setdefault("validateAllFilesAsReportPackages", False)
         self.validateAllFilesAsReportPackages = BooleanVar(value=self.modelManager.validateAllFilesAsReportPackages)
         self.validateAllFilesAsReportPackages.trace_add("write", self.setValidateAllFilesAsReportPackages)
@@ -1049,6 +1054,8 @@ class CntlrWinMain(Cntlr.Cntlr):
                 currentAction = "view of RSS feed"
                 ViewWinRssFeed.viewRssFeed(modelXbrl, self.tabWinTopRt)
                 topView = modelXbrl.views[-1]
+            elif modelXbrl.tableConstraintsSkipLoading:
+                currentAction = "table constraints without loading, no views"
             else:
                 if modelXbrl.hasTableIndexing:
                     currentAction = "table index view"
@@ -1212,6 +1219,33 @@ class CntlrWinMain(Cntlr.Cntlr):
             tkinter.messagebox.showwarning(
                 _("arelle - Warning"),
                 _("Validation - disclosure system checks requested but no disclosure system is selected, please select one by validation - select disclosure system."),
+                parent=self.parent,
+            )
+            return
+        # RSS Watch reloads and mutates a loaded RSS feed's ModelXbrl on its own background thread
+        # (see WatchRss.watchCycle); running Validate on the same feed concurrently corrupts both,
+        # since they share and separately reset the same ModelXbrl state (modelObjects, contexts,
+        # rssItems, etc.). Only worth refusing when the watch has a validate/alert/plugin action
+        # checked - that's when watchCycle spends real time loading and processing each item and
+        # the race window is significant; with nothing checked it just refreshes the feed listing.
+        # Also skip watches that already have a stop requested: stop() only sets a flag, so a
+        # watch sleeping between polls (up to 10 minutes) still reports its thread as alive even
+        # though it won't touch the model again - checking stopRequested lets Validate proceed
+        # right after Stop is clicked instead of waiting out the rest of that sleep.
+        from arelle.WatchRss import hasWatchAction
+        watchingModelXbrl = next(
+            (modelXbrl for modelXbrl in self.modelManager.loadedModelXbrls
+             if (watchRss := getattr(modelXbrl, "watchRss", None)) is not None
+             and watchRss.thread is not None and watchRss.thread.is_alive()
+             and not watchRss.stopRequested
+             and hasWatchAction(self, self.modelManager.rssWatchOptions)),
+            None)
+        if watchingModelXbrl is not None:
+            basename = watchingModelXbrl.modelDocument.basename if watchingModelXbrl.modelDocument is not None else None
+            tkinter.messagebox.showwarning(
+                _("arelle - Warning"),
+                _("RSS Watch is currently running on {0}. Stop RSS Watch before running Validate; "
+                  "running both at once on the same feed corrupts results.").format(basename),
                 parent=self.parent,
             )
             return
@@ -1505,6 +1539,8 @@ class CntlrWinMain(Cntlr.Cntlr):
                 valName = ModelDocument.Type.typeName[valType]
             if valType == ModelDocument.Type.VERSIONINGREPORT:
                 v = _("Validate versioning report")
+            elif self.modelManager.modelXbrl.tableConstraintsSkipLoading:
+                v = _("Validate table constraints")
             else:
                 c = "\n" + CalcsMode.label(self.modelManager.validateCalcs)  # type: ignore[operator]
                 if self.modelManager.validateUtr:
@@ -1544,6 +1580,11 @@ class CntlrWinMain(Cntlr.Cntlr):
         self.config["validateXmlOim"] = self.modelManager.validateXmlOim
         self.saveConfig()
         self.setValidateTooltipText()
+
+    def setValidateTableConstraintsSkipLoading(self, *args: Any) -> None:
+        self.modelManager.validateTableConstraintsSkipLoading = self.validateTableConstraintsSkipLoading.get()
+        self.config["validateTableConstraintsSkipLoading"] = self.modelManager.validateTableConstraintsSkipLoading
+        self.saveConfig()
 
     def setValidateAllFilesAsReportPackages(self, *args: Any) -> None:
         self.modelManager.validateAllFilesAsReportPackages = self.validateAllFilesAsReportPackages.get()

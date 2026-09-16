@@ -1,0 +1,1 @@
+import{Mi as e,ha as t,li as n,pi as r,va as i}from"./lucide-Trkvyrqi.js";import{At as a}from"./index-CTADNN1b.js";var o=r({__name:`Skeleton`,props:{class:{type:[Boolean,null,String,Object,Array]}},setup(r){let o=r;return(r,s)=>(e(),n(`div`,{"data-slot":`skeleton`,class:i(t(a)(`animate-pulse rounded-md bg-accent`,o.class))},null,2))}});export{o as t};

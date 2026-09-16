@@ -50,6 +50,8 @@ def run_changed_tests(
 
 def _find_test_path(source_file: str, workspace: Path) -> str | None:
     """Find the test path for a source file (1:1:1 or legacy layout)."""
+    if source_file == "agentic_devtools/_bundled_skills/skills/fingerprint.py":
+        return str(workspace / "tests" / "scripts" / "fingerprint")
     relative = source_file.removeprefix("agentic_devtools/")
     relative_dir = relative.removesuffix(".py")
     unit_test_dir = workspace / "tests" / "unit" / relative_dir

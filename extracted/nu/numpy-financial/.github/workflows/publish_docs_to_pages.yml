@@ -1,0 +1,55 @@
+name: Publish docs to gh-pages
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.repository_owner == 'numpy'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        # The deploy step below checks out gh-pages and pushes to it.
+        fetch-depth: 0
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.13'
+    - name: Install numpy-financial and the documentation dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install .[doc]
+    - name: Build documentation with Sphinx
+      run: |
+        cd doc
+        make html
+        mv build/html /tmp
+        cd ..
+    - name: Deploy to gh-pages branch
+      run: |
+        git config user.name "${GITHUB_ACTOR}"
+        git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+        echo "Checking out gh-pages branch"
+        git fetch origin gh-pages
+        git checkout gh-pages
+        echo "Removing old dev documentation"
+        git clean -xdf .
+        cd dev
+        git rm -r '*'
+        cd ..
+        echo "Committing emptied dev directory"
+        git commit -m "Remove old dev documentation"
+        mkdir -p dev
+        cd dev
+        echo "Copying /tmp/html here"
+        cp -v -r /tmp/html/* .
+        echo "Adding new dev documentation"
+        git add -A .
+        git commit -m "Add new dev documentation"
+        echo "Pushing new documentation to origin"
+        git push -v origin gh-pages

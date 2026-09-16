@@ -12,10 +12,9 @@ on:
       - pyproject.toml
 
 env:
-  # Keep Phalanx aligned with the lance-namespace wire contract used by Geneva.
-  PHALANX_IMAGE: 948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:phalanx_release-2026-07-02.a8a6480a12.x64
-  LANCE_AGENT_IMAGE: 948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:lance_agent_release-2026-06-26.03d8aca0cf.x64
-  GENEVA_DRIVER_IMAGE: 948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:geneva_driver_release-2026-06-19.340acc6932.arm64
+  # Keep the enterprise execution stack aligned with Geneva's wire contract.
+  PHALANX_IMAGE: 948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:phalanx_release-2026-08-28.3659eef13b.x64
+  LANCE_AGENT_IMAGE: 948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:lance_agent_release-2026-08-28.3659eef13b.x64
 
 jobs:
   integ-test-gcp:
@@ -283,6 +282,7 @@ jobs:
         run: |
          make test-phalanx SLUG=$SLUG BUCKET_PATH="$BUCKET_PATH"
       - name: Capture service logs
+        if: always()
         run: |
           ARTIFACT_DIR=/tmp/enterprise-services-logs
           mkdir -p "$ARTIFACT_DIR"
@@ -302,12 +302,14 @@ jobs:
             fi
           done
       - name: Upload logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phalanx-enterprise-logs
           path: /tmp/enterprise-services-logs
           retention-days: 7
       - name: Stop enterprise services
+        if: always()
         run: |
           docker compose -f .github/compose/docker-compose-integ.yml down || true
       - name: Refresh AWS Credentials for Cleanup

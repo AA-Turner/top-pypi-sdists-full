@@ -1,15 +1,15 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: vercel-sandbox
-Version: 0.4.0
+Version: 0.5.2
 Summary: Python SDK for Vercel Sandbox
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: anyio<5,>=4.0.0
-Requires-Dist: httpx<1,>=0.27.0
+Requires-Dist: httpx2>=2
 Requires-Dist: pydantic<3,>=2.7.0
-Requires-Dist: vercel-internal-core<0.2.0,>=0.1.2
-Requires-Dist: vercel-oidc>=0.8.0
+Requires-Dist: vercel-internal-core<0.3.0,>=0.2.0
+Requires-Dist: vercel-oidc>=0.9.0
 Description-Content-Type: text/markdown
 
 # Vercel Sandbox Python SDK
@@ -85,6 +85,48 @@ Installing this package also provides the `vercel-sandbox` and `sandbox`
 console commands. Both are aliases that delegate all arguments to `npx sandbox`;
 they require Node.js with npm and `npx` installed. Node.js is not required when
 using the Python API directly.
+
+## Creating, forking, and restoring
+
+Create a sandbox from a runtime, Git repository, tarball, or snapshot with
+`create_sandbox(...)`. A snapshot source restores that snapshot's filesystem
+into a new sandbox:
+
+```python
+from vercel import sandbox
+from vercel.sandbox import SnapshotSource
+
+restored = await sandbox.create_sandbox(
+    name="restored-workspace",
+    source=SnapshotSource(snapshot_id="snap_123"),
+)
+```
+
+Use `fork_sandbox(...)` when the source is an existing named sandbox. The
+server restores the fork from the source's current snapshot, or from its
+runtime or image when no snapshot exists. It also copies the source's ports,
+execution time limit, resources, image, persistence, network policy,
+environment variables, tags, snapshot expiration, and snapshot retention.
+Only pass values that should override the inherited configuration:
+
+```python
+forked = await sandbox.fork_sandbox(
+    source_sandbox="production-agent",
+    name="debug-agent",
+    resources=sandbox.SandboxResources(vcpus=4, memory=8192),
+    tags={"purpose": "debug"},
+)
+```
+
+Both creation and fork operations can be used as async context managers for
+automatic stop and destroy. The synchronous mirror uses the same arguments:
+
+```python
+from vercel.sandbox import sync as sandbox
+
+with sandbox.fork_sandbox(source_sandbox="production-agent") as forked:
+    result = forked.run_process("python", ["script.py"], capture_output=True)
+```
 
 ## Session lifecycles
 

@@ -59,6 +59,7 @@ from __future__ import annotations
 import contextlib
 import random
 import re
+import warnings
 from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -470,7 +471,7 @@ def _g02(tmp: Path) -> None:
         # Creating an MV over a source without stable row IDs must warn that
         # refresh is pinned to the creation version.
         warns = (
-            pytest.warns(UserWarning, match="without stable row IDs")
+            pytest.warns(UserWarning, match="pinned to source version")
             if not stable
             else contextlib.nullcontext()
         )
@@ -489,6 +490,31 @@ def _g02(tmp: Path) -> None:
         assert md.get(MATVIEW_META_VERSION) == expected, (
             f"source stable={stable} produced MV version "
             f"{md.get(MATVIEW_META_VERSION)!r}, expected {expected!r}"
+        )
+
+
+@checks("SRID-G17")
+def _g17(tmp: Path) -> None:
+    """A view mirrors its source: no stable row IDs in, none out (GEN-952)."""
+    db = connect(tmp)
+    for name, stable in [("mirror_on", True), ("mirror_off", False)]:
+        opts = {"new_table_enable_stable_row_ids": "true"} if stable else {}
+        tbl = db.create_table(name, make_rows(0, 10), storage_options=opts)
+        assert dataset_uses_stable_row_ids(tbl.to_lance()) is stable, (
+            f"source {name} was not created with stable_row_ids={stable}"
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            view = (
+                tbl.search(None)
+                .select(["key"])
+                .create_materialized_view(db, f"mv_{name}")
+            )
+        assert dataset_uses_stable_row_ids(view.to_lance()) is stable, (
+            f"source has stable_row_ids={stable} but its materialized view was "
+            f"created with stable_row_ids={not stable}; a view must mirror its "
+            "source so Geneva never introduces a stable-row-ID table into a "
+            "deployment that has none (GEN-952)"
         )
 
 
@@ -1245,7 +1271,7 @@ def test_status_totals_are_what_the_write_ups_claim() -> None:
     silently leaving the prose saying something else is not.
     """
     counts = Counter(inv["status"] for inv in SPEC["invariants"])
-    expected = {"holds": 24, "by-design": 4, "broken": 3}
+    expected = {"holds": 25, "by-design": 4, "broken": 3}
     assert dict(counts) == expected, (
         f"invariant status totals are now {dict(counts)}, not {expected}. If that "
         "is intended, update this test, the PR body's 'Results' section and the "

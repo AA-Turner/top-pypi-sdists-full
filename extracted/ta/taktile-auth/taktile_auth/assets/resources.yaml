@@ -252,6 +252,18 @@ workspace_management:
   ws_id: wildcard
   env: wildcard
   type: wildcard
+# (entity / event / feature sensitive field)
+workspace_sensitive_field:
+  org_id: wildcard
+  ws_id: wildcard
+  env: wildcard
+  type: wildcard
+# (entity / event / feature rows).
+workspace_record:
+  org_id: wildcard
+  ws_id: wildcard
+  env: wildcard
+  type: wildcard
 workspace_feature_query:
   org_id: wildcard
   ws_id: wildcard
@@ -283,6 +295,10 @@ workspace_wizard:
   org_id: wildcard
   ws_id: wildcard
   env: wildcard
+workspace_sdk_bundle:
+  # read: can fetch SDK bundle configurations, i.e. the /init call the web SDK makes
+  org_id: wildcard
+  ws_id: wildcard
 workspace_case_analytics:
   # read: can read workspace case analytics
   org_id: wildcard

@@ -187,10 +187,11 @@ def mangle_docstrings(app: SphinxApp, what, name, obj, options, lines):
     }
     # TODO: Find a cleaner way to take care of this change away from dict
     # https://github.com/sphinx-doc/sphinx/issues/13942
-    try:
-        cfg.update(options or {})
-    except TypeError:
-        cfg.update(options.__dict__ or {})
+    if options is not None:
+        if isinstance(options, dict):
+            cfg.update(options)
+        else:
+            cfg.update(vars(options))
     u_NL = "\n"
     if what == "module":
         # Strip top title

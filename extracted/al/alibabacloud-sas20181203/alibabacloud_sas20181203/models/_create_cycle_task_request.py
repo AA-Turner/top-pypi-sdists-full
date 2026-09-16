@@ -8,6 +8,7 @@ class CreateCycleTaskRequest(DaraModel):
     def __init__(
         self,
         client_token: str = None,
+        dry_run: bool = None,
         enable: int = None,
         first_date_str: int = None,
         interval_period: int = None,
@@ -19,15 +20,17 @@ class CreateCycleTaskRequest(DaraModel):
         task_name: str = None,
         task_type: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
+        # Specifies whether to perform only a dry run, without performing the actual request. Valid values: true: performs only a dry run without performing the actual operation. false: performs the actual request. Default value: false.
+        self.dry_run = dry_run
         # Specifies whether to enable the task. Valid values:
-        # - **1**: enabled.
-        # - **0**: disabled.
+        # - **1**: Enable.
+        # - **0**: Disable.
         # 
         # This parameter is required.
         self.enable = enable
-        # The first execution time.
+        # The time of the first execution.
         # 
         # This parameter is required.
         self.first_date_str = first_date_str
@@ -36,34 +39,33 @@ class CreateCycleTaskRequest(DaraModel):
         # This parameter is required.
         self.interval_period = interval_period
         # The extended information field.
+        # 
+        # > Note: This parameter is required. If you do not specify this parameter, the API returns an error. The value is a JSON-formatted string that must contain at least the targetInfo array.
         self.param = param
-        # The unit of the scan interval. Valid values:
+        # The unit of the scan period. Valid values:
         # - **day**: day.
         # - **hour**: hour.
         # 
         # This parameter is required.
         self.period_unit = period_unit
-        # The source from which the task is added.
+        # The source from which the task is created.
         self.source = source
-        # The task end time, in hours.
+        # The end time of the task, in hours.
         # 
         # This parameter is required.
         self.target_end_time = target_end_time
-        # The task start time, in hours.
+        # The start time of the task, in hours.
         # 
         # This parameter is required.
         self.target_start_time = target_start_time
-        # The task name. Valid values:
-        # - **VIRUS_VUL_SCHEDULE_SCAN**: virus scan.
-        # - **IMAGE_SCAN**: image scan.
-        # - **EMG_VUL_SCHEDULE_SCAN**: emergency vulnerability scanning.
+        # The task name. This is a custom string used to identify the periodic scan task.
         # 
         # This parameter is required.
         self.task_name = task_name
         # The task type. Valid values:
         # - **VIRUS_VUL_SCHEDULE_SCAN**: virus scan.
         # - **IMAGE_SCAN**: image scan.
-        # - **EMG_VUL_SCHEDULE_SCAN**: emergency vulnerability scanning.
+        # - **EMG_VUL_SCHEDULE_SCAN**: emergency vulnerability scan.
         # 
         # This parameter is required.
         self.task_type = task_type
@@ -78,6 +80,9 @@ class CreateCycleTaskRequest(DaraModel):
             result = _map
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
+
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
 
         if self.enable is not None:
             result['Enable'] = self.enable
@@ -115,6 +120,9 @@ class CreateCycleTaskRequest(DaraModel):
         m = m or dict()
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
 
         if m.get('Enable') is not None:
             self.enable = m.get('Enable')

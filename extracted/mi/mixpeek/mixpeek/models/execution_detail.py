@@ -51,7 +51,9 @@ class ExecutionDetail(BaseModel):
     current_stage: Optional[StrictStr] = Field(default=None, description="Stage currently running when execution in-flight")
     stages_completed: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of stages finished so far")
     total_stages: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Total stages configured")
-    __properties: ClassVar[List[str]] = ["retriever_id", "execution_id", "status", "documents", "results", "pagination", "stage_statistics", "facets", "budget", "cached_at", "warnings", "interpretation", "error", "optimization_applied", "optimization_summary", "learned_fusion_context", "created_at", "completed_at", "current_stage", "stages_completed", "total_stages"]
+    documents_retained: Optional[StrictBool] = Field(default=False, description="Whether the documents this run returned are stored with it. FALSE means `documents` is empty because nothing was persisted, NOT because the query matched nothing: stored executions live in ClickHouse, which keeps the statistics and not the result rows. Read `total_returned` below for what the run actually returned. This exists because an empty `documents` on a completed run is otherwise indistinguishable from a real empty result, and the same reasoning is already written down one field over, where `documents` says the ABSENCE of `results` must not be read as zero results.")
+    total_returned: Optional[StrictInt] = Field(default=None, description="Documents this run returned to the caller, as recorded when it ran. Present on a stored read even when `documents` is empty and `documents_retained` is false, which is what lets a caller tell 'returned 3, not retained' from 'matched nothing'. None when the stored record does not carry it.")
+    __properties: ClassVar[List[str]] = ["retriever_id", "execution_id", "status", "documents", "results", "pagination", "stage_statistics", "facets", "budget", "cached_at", "warnings", "interpretation", "error", "optimization_applied", "optimization_summary", "learned_fusion_context", "created_at", "completed_at", "current_stage", "stages_completed", "total_stages", "documents_retained", "total_returned"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -127,7 +129,9 @@ class ExecutionDetail(BaseModel):
             "completed_at": obj.get("completed_at"),
             "current_stage": obj.get("current_stage"),
             "stages_completed": obj.get("stages_completed") if obj.get("stages_completed") is not None else 0,
-            "total_stages": obj.get("total_stages") if obj.get("total_stages") is not None else 0
+            "total_stages": obj.get("total_stages") if obj.get("total_stages") is not None else 0,
+            "documents_retained": obj.get("documents_retained") if obj.get("documents_retained") is not None else False,
+            "total_returned": obj.get("total_returned")
         })
         return _obj
 

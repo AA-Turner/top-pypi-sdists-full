@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 from arelle.Cntlr import Cntlr
-from arelle.ModelValue import QName, qname
+from arelle.ModelValue import QName
 from arelle.ValidateXbrl import ValidateXbrl
 from arelle.utils.validate.ValidationPlugin import ValidationPlugin
 
@@ -18,7 +18,7 @@ TC_NAMESPACE = "http://xbrl.ird.gov.hk/taxonomy/2026-04-01/ird_tc"
 
 
 def tcQn(local: str) -> QName:
-    return qname(f"{{{TC_NAMESPACE}}}{local}")
+    return QName.fromParts(local, TC_NAMESPACE)
 
 
 class ValidationPluginExtension(ValidationPlugin):
@@ -228,6 +228,7 @@ class ValidationPluginExtension(ValidationPlugin):
             bir51ExclusiveQns=bir51Exclusive,
 
             # identifiers & basis period
+            companyNameQn=tcQn("CompanyName"),
             basisPeriodStartDateQn=tcQn("BasisPeriodStartDate"),
             basisPeriodEndDateQn=tcQn("BasisPeriodEndDate"),
 

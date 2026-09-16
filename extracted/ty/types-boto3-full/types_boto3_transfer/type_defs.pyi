@@ -51,6 +51,7 @@ from .literals import (
     PreserveFilenameTypeType,
     ProfileTypeType,
     ProtocolType,
+    ProxyModeType,
     SecurityPolicyProtocolType,
     SecurityPolicyResourceTypeType,
     SetStatOptionType,
@@ -240,6 +241,7 @@ __all__ = (
     "ProtocolDetailsOutputTypeDef",
     "ProtocolDetailsTypeDef",
     "ProtocolDetailsUnionTypeDef",
+    "ProxyConfigTypeDef",
     "ResponseMetadataTypeDef",
     "S3FileLocationTypeDef",
     "S3InputFileLocationTypeDef",
@@ -531,12 +533,6 @@ class EndpointDetailsOutputTypeDef(TypedDict):
     VpcId: NotRequired[str]
     SecurityGroupIds: NotRequired[list[str]]
 
-class ProtocolDetailsOutputTypeDef(TypedDict):
-    PassiveIp: NotRequired[str]
-    TlsSessionResumptionMode: NotRequired[TlsSessionResumptionModeType]
-    SetStatOption: NotRequired[SetStatOptionType]
-    As2Transports: NotRequired[list[Literal["HTTP"]]]
-
 class SshPublicKeyTypeDef(TypedDict):
     DateImported: datetime
     SshPublicKeyBody: str
@@ -744,11 +740,8 @@ class PosixProfileTypeDef(TypedDict):
     Gid: int
     SecondaryGids: NotRequired[Sequence[int]]
 
-class ProtocolDetailsTypeDef(TypedDict):
-    PassiveIp: NotRequired[str]
-    TlsSessionResumptionMode: NotRequired[TlsSessionResumptionModeType]
-    SetStatOption: NotRequired[SetStatOptionType]
-    As2Transports: NotRequired[Sequence[Literal["HTTP"]]]
+class ProxyConfigTypeDef(TypedDict):
+    SftpMode: NotRequired[ProxyModeType]
 
 class S3TagTypeDef(TypedDict):
     Key: str
@@ -1295,7 +1288,20 @@ class ListWorkflowsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 PosixProfileUnionTypeDef = Union[PosixProfileTypeDef, PosixProfileOutputTypeDef]
-ProtocolDetailsUnionTypeDef = Union[ProtocolDetailsTypeDef, ProtocolDetailsOutputTypeDef]
+
+class ProtocolDetailsOutputTypeDef(TypedDict):
+    PassiveIp: NotRequired[str]
+    TlsSessionResumptionMode: NotRequired[TlsSessionResumptionModeType]
+    SetStatOption: NotRequired[SetStatOptionType]
+    As2Transports: NotRequired[list[Literal["HTTP"]]]
+    ProxyConfig: NotRequired[ProxyConfigTypeDef]
+
+class ProtocolDetailsTypeDef(TypedDict):
+    PassiveIp: NotRequired[str]
+    TlsSessionResumptionMode: NotRequired[TlsSessionResumptionModeType]
+    SetStatOption: NotRequired[SetStatOptionType]
+    As2Transports: NotRequired[Sequence[Literal["HTTP"]]]
+    ProxyConfig: NotRequired[ProxyConfigTypeDef]
 
 class TagStepDetailsOutputTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -1461,6 +1467,7 @@ class UpdateUserRequestTypeDef(TypedDict):
     PosixProfile: NotRequired[PosixProfileUnionTypeDef]
     Role: NotRequired[str]
 
+ProtocolDetailsUnionTypeDef = Union[ProtocolDetailsTypeDef, ProtocolDetailsOutputTypeDef]
 TagStepDetailsUnionTypeDef = Union[TagStepDetailsTypeDef, TagStepDetailsOutputTypeDef]
 
 class ListedExecutionTypeDef(TypedDict):

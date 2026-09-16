@@ -218,6 +218,10 @@ class GroupComponent(FlowComponent):
         params["argparser"] = self._argparser
         # the current in-memory connector
         params["memory"] = self._memory
+        # propagate task storage so grouped components resolve program files
+        # (maps, models, sql...) from the same storage as the task
+        params["taskstorage"] = self._taskstore
+        params["storage_name"] = self._storage_name
         target = step.component
         job = None
         try:

@@ -206,7 +206,7 @@ class NumpyDocString(Mapping):
 
             section += self._doc.read_to_next_empty_line()
 
-        return section
+        return dedent_lines(section)
 
     def _read_sections(self):
         while not self._doc.eof():
@@ -222,12 +222,18 @@ class NumpyDocString(Mapping):
 
     def _parse_param_list(self, content, single_element_is_type=False):
         content = dedent_lines(content)
+
         r = Reader(content)
         params = []
         while not r.eof():
             header = r.read().strip()
             if " : " in header:
-                arg_name, arg_type = header.split(" : ", maxsplit=1)
+                arg_name, arg_type_w_whitespace = header.split(" : ", maxsplit=1)
+
+                # Strip extra spaces from backslash-continued parameter type
+                # lines. Continuation lines are indented, although we don't know by how
+                # much. So, we compact any run of 2+ whitespace.
+                arg_type = re.sub(r"\s{2,}", " ", arg_type_w_whitespace)
             else:
                 # NOTE: param line with single element should never have a
                 # a " :" before the description line, so this should probably
@@ -570,6 +576,8 @@ class NumpyDocString(Mapping):
 
 def dedent_lines(lines):
     """Deindent a list of lines maximally"""
+    if not lines:
+        return lines
     return textwrap.dedent("\n".join(lines)).split("\n")
 
 
@@ -628,8 +636,17 @@ class ClassDoc(NumpyDocString):
 
         if "sphinx" in sys.modules:
             from sphinx.ext.autodoc import ALL
+
+            try:
+                from sphinx.ext.autodoc._sentinels import EMPTY
+            except ImportError:
+                try:
+                    from sphinx.ext.autodoc import EMPTY
+                except ImportError:
+                    EMPTY = object()
         else:
             ALL = object()
+            EMPTY = object()
 
         if config is None:
             config = {}
@@ -649,7 +666,11 @@ class ClassDoc(NumpyDocString):
         _members = config.get("members", [])
         if _members is ALL:
             _members = None
-        _exclude = config.get("exclude-members", [])
+        _exclude = config.get("exclude_members")
+        if _exclude is None:
+            _exclude = config.get("exclude-members", [])
+        if _exclude is EMPTY:
+            _exclude = ALL
 
         if config.get("show_class_members", True) and _exclude is not ALL:
 

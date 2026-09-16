@@ -21,7 +21,7 @@ from typing_extensions import Self
 
 class TemplateMode(str, Enum):
     """
-    Mode of template instantiation.  scaffold: Create from pre-built preset     - Creates: namespace + bucket + collection + retriever     - Endpoint: POST /templates/scaffolds/{id}/instantiate     - All resources empty, ready for data  config: Copy resource configuration only     - Creates: empty resource with same settings     - Endpoint: POST /templates/{resource}/{id}/instantiate     - No data copied  clone: Copy resource with all data     - Creates: full copy including vectors/embeddings     - Endpoint: POST /namespaces/{id}/clone     - For config-only, use templates instead
+    Mode of template instantiation.  scaffold: Create from pre-built preset     - Creates: namespace + bucket + collection + retriever     - Endpoint: POST /templates/scaffolds/{id}/instantiate     - All resources empty, ready for data  config: Copy resource configuration only     - Creates: empty resource with same settings     - Endpoint: POST /templates/{resource}/{id}/instantiate     - No data copied  clone: Copy resource with all data     - Creates: full copy including vectors/embeddings     - Endpoint: POST /namespaces/{id}/clone     - For config-only, use templates instead  manifest: A whole pipeline as a Mixpeek manifest     - Creates: every resource the manifest declares (connections, buckets,       syncs, collections, retrievers, alerts, triggers)     - Endpoint: POST /manifest/apply with configuration[\"manifest\"]     - For templates that need more than extractors and indexes
     """
 
     """
@@ -30,6 +30,7 @@ class TemplateMode(str, Enum):
     SCAFFOLD = 'scaffold'
     CONFIG = 'config'
     CLONE = 'clone'
+    MANIFEST = 'manifest'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

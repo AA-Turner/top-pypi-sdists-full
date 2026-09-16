@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: viser
-Version: 1.1.0
+Version: 1.1.1
 Summary: 3D visualization + Python
 Project-URL: GitHub, https://github.com/viser-project/viser
 License: MIT
@@ -22,7 +22,7 @@ Requires-Dist: numpy<3.0.0,>=1.0.0
 Requires-Dist: requests<3.0.0,>=2.0.0
 Requires-Dist: rich<15.0.0,>=13.3.3
 Requires-Dist: tqdm<5.0.0,>=4.0.0
-Requires-Dist: trimesh<5.0.0,>=3.21.7
+Requires-Dist: trimesh<6.0.0,>=3.21.7
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: websockets<17.0.0,>=13.1
 Requires-Dist: zstandard<1.0.0,>=0.20.0
@@ -136,7 +136,6 @@ The web client is implemented using [React](https://react.dev/), with:
 - [Vite](https://vitejs.dev/) / [Rollup](https://rollupjs.org/) for bundling
 - [three.js](https://threejs.org/) via [react-three-fiber](https://github.com/pmndrs/react-three-fiber) and [drei](https://github.com/pmndrs/drei)
 - [Mantine](https://mantine.dev/) for UI components
-- [zustand](https://github.com/pmndrs/zustand) for state management
 - [vanilla-extract](https://vanilla-extract.style/) for stylesheets
 
 Thanks to the authors of these projects for open-sourcing their work!

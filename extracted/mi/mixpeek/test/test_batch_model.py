@@ -213,7 +213,17 @@ class TestBatchModel(unittest.TestCase):
                                 node_id = '', 
                                 pod_name = '', )
                             ], 
-                        audit = { }, 
+                        audit = mixpeek.models.tier_audit_info.TierAuditInfo(
+                            tier_num = 56, 
+                            submitted = 56, 
+                            processed = 56, 
+                            failed = 56, 
+                            skipped = 56, 
+                            lost = 56, 
+                            balanced = True, 
+                            notes = [
+                                ''
+                                ], ), 
                         audit_override_reason = '', )
                     ],
                 current_tier = 0.0,

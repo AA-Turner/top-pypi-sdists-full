@@ -1,11 +1,11 @@
 """Company module for KB Securities (KBS) data source."""
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import pandas as pd
 from vnai import optimize_execution
 
-from vnstock.core.utils.client import ProxyConfig, send_request
+from vnstock.core.utils.client import send_request
 from vnstock.core.utils.logger import get_logger
 from vnstock.core.utils.parser import camel_to_snake, get_asset_type
 from vnstock.core.utils.transform import clean_html_dict
@@ -28,37 +28,29 @@ logger = get_logger(__name__)
 
 class Company:
     """
-    Lớp truy cập thông tin công ty từ KB Securities (KBS).
+    Access company information published by KB Securities (KBS).
 
-    Tính năng:
-    - Fetch dữ liệu công ty từ API (một lần)
-    - Cache dữ liệu để tránh gọi lại
-    - Xử lý và trả về từng nhóm dữ liệu theo method được gọi
-    - Tương tự cấu trúc của VCI Company
+    The source returns every section in one payload, so this class fetches it once,
+    caches it, and shapes the slice each method needs from that cache. Same structure
+    as the VCI Company class.
     """  # noqa: W293
 
     def __init__(
         self,
         symbol: str = None,
         random_agent: Optional[bool] = False,
-        proxy_config: Optional[ProxyConfig] = None,
         show_log: Optional[bool] = False,
-        proxy_mode: Optional[str] = None,
-        proxy_list: Optional[List[str]] = None,
     ):
         """
-        Khởi tạo Company client cho KBS.
+        Initialise the KBS Company client.
 
         Args:
-            symbol: Mã chứng khoán (VD: 'ACB', 'VNM').
-            random_agent: Sử dụng user agent ngẫu nhiên. Mặc định False.
-            proxy_config: Cấu hình proxy. Mặc định None.
-            show_log: Hiển thị log debug. Mặc định False.
-            proxy_mode: Chế độ proxy (try, rotate, random, single). Mặc định None.
-            proxy_list: Danh sách proxy URLs. Mặc định None.
+            symbol: Ticker symbol, e.g. 'ACB' or 'VNM'.
+            random_agent: Deprecated and ignored. Defaults to False.
+            show_log: Show debug logs. Defaults to False.
 
         Raises:
-            ValueError: Nếu mã không phải là cổ phiếu.
+            ValueError: If the symbol is not a stock.
         """
         self.symbol = symbol.upper() if symbol else ""
         self.asset_type = get_asset_type(self.symbol) if symbol else "stock"
@@ -73,21 +65,6 @@ class Company:
         )
         self.show_log = show_log
 
-        # Handle proxy configuration
-        if proxy_config is None:
-            # Create ProxyConfig from individual arguments
-            p_mode = proxy_mode if proxy_mode else "try"
-            # If user provides list, set request_mode to PROXY
-            req_mode = "direct"
-            if proxy_list and len(proxy_list) > 0:
-                req_mode = "proxy"
-
-            self.proxy_config = ProxyConfig(
-                proxy_mode=p_mode, proxy_list=proxy_list, request_mode=req_mode
-            )
-        else:
-            self.proxy_config = proxy_config
-
         if not show_log:
             logger.setLevel("CRITICAL")
 
@@ -97,10 +74,10 @@ class Company:
 
     def _load_cache(self, show_log: Optional[bool] = False) -> Dict:
         """
-        Fetch và cache dữ liệu công ty từ API (một lần).
+        Fetch the company payload once and cache it.
 
         Returns:
-            Dictionary chứa tất cả dữ liệu công ty.
+            Dictionary holding every company section.
         """  # noqa: W293
         if self._cache_loaded and self._raw_data is not None:
             return self._raw_data
@@ -114,9 +91,6 @@ class Company:
             method="GET",
             params=params,
             show_log=show_log or self.show_log,
-            proxy_list=self.proxy_config.proxy_list,
-            proxy_mode=self.proxy_config.proxy_mode,
-            request_mode=self.proxy_config.request_mode,
         )
 
         self._raw_data = json_data
@@ -125,25 +99,25 @@ class Company:
 
     def _fetch_profile(self, show_log: Optional[bool] = False) -> Dict:
         """
-        Lấy thông tin profile công ty từ cache hoặc API.
+        Read the company profile from the cache, fetching it if needed.
 
         Args:
-            show_log: Hiển thị log debug.
+            show_log: Show debug logs.
 
         Returns:
-            Dictionary chứa thông tin profile công ty.
+            Dictionary holding the company profile.
         """
         return self._load_cache(show_log=show_log)
 
     def _process_profile_data(self, raw_data: Dict) -> pd.DataFrame:
         """
-        Xử lý dữ liệu profile thô từ API.
+        Shape the raw profile payload.
 
         Args:
-            raw_data: Dữ liệu thô từ API
+            raw_data: Raw payload from the API
 
         Returns:
-            DataFrame chứa thông tin profile chuẩn hoá
+            DataFrame with the standardised profile
         """  # noqa: W293
         if not raw_data:
             return pd.DataFrame()
@@ -187,13 +161,13 @@ class Company:
 
     def _process_subsidiaries(self, raw_data: Dict) -> pd.DataFrame:
         """
-        Xử lý dữ liệu công ty con từ API.
+        Shape the raw subsidiaries payload.
 
         Args:
-            raw_data: Dữ liệu thô từ API
+            raw_data: Raw payload from the API
 
         Returns:
-            DataFrame chứa thông tin công ty con
+            DataFrame of subsidiaries
         """  # noqa: W293
         if "Subsidiaries" not in raw_data or not raw_data["Subsidiaries"]:
             return pd.DataFrame()
@@ -217,13 +191,13 @@ class Company:
 
     def _process_leaders(self, raw_data: Dict) -> pd.DataFrame:
         """
-        Xử lý dữ liệu ban lãnh đạo từ API.
+        Shape the raw management payload.
 
         Args:
-            raw_data: Dữ liệu thô từ API
+            raw_data: Raw payload from the API
 
         Returns:
-            DataFrame chứa thông tin ban lãnh đạo
+            DataFrame of company officers
         """  # noqa: W293
         if "Leaders" not in raw_data or not raw_data["Leaders"]:
             return pd.DataFrame()
@@ -242,13 +216,13 @@ class Company:
 
     def _process_ownership(self, raw_data: Dict) -> pd.DataFrame:
         """
-        Xử lý dữ liệu cơ cấu cổ đông từ API.
+        Shape the raw ownership payload.
 
         Args:
-            raw_data: Dữ liệu thô từ API
+            raw_data: Raw payload from the API
 
         Returns:
-            DataFrame chứa thông tin cơ cấu cổ đông
+            DataFrame of the ownership breakdown
         """  # noqa: W293
         if "Ownership" not in raw_data or not raw_data["Ownership"]:
             return pd.DataFrame()
@@ -272,13 +246,13 @@ class Company:
 
     def _process_shareholders(self, raw_data: Dict) -> pd.DataFrame:
         """
-        Xử lý dữ liệu cổ đông lớn từ API.
+        Shape the raw major-shareholder payload.
 
         Args:
-            raw_data: Dữ liệu thô từ API
+            raw_data: Raw payload from the API
 
         Returns:
-            DataFrame chứa thông tin cổ đông lớn
+            DataFrame of major shareholders
         """  # noqa: W293
         if "Shareholders" not in raw_data or not raw_data["Shareholders"]:
             return pd.DataFrame()
@@ -302,13 +276,13 @@ class Company:
 
     def _process_charter_capital(self, raw_data: Dict) -> pd.DataFrame:
         """
-        Xử lý dữ liệu lịch sử vốn điều lệ từ API.
+        Shape the raw charter-capital history payload.
 
         Args:
-            raw_data: Dữ liệu thô từ API
+            raw_data: Raw payload from the API
 
         Returns:
-            DataFrame chứa lịch sử vốn điều lệ
+            DataFrame of charter capital over time
         """  # noqa: W293
         if "CharterCapital" not in raw_data or not raw_data["CharterCapital"]:
             return pd.DataFrame()
@@ -332,13 +306,13 @@ class Company:
 
     def _process_labor_structure(self, raw_data: Dict) -> pd.DataFrame:
         """
-        Xử lý dữ liệu cơ cấu lao động từ API.
+        Shape the raw workforce payload.
 
         Args:
-            raw_data: Dữ liệu thô từ API
+            raw_data: Raw payload from the API
 
         Returns:
-            DataFrame chứa cơ cấu lao động
+            DataFrame of the workforce breakdown
         """  # noqa: W293
         if "LaborStructure" not in raw_data or not raw_data["LaborStructure"]:
             return pd.DataFrame()
@@ -358,13 +332,13 @@ class Company:
     @optimize_execution("KBS")
     def overview(self, show_log: Optional[bool] = False) -> pd.DataFrame:
         """
-        Truy xuất thông tin tổng quan của công ty.
+        Retrieve the company overview.
 
         Args:
-            show_log: Hiển thị log debug.
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa thông tin tổng quan công ty.
+            DataFrame with the company overview.
 
         Examples:
             >>> company = Company('ACB')
@@ -388,13 +362,13 @@ class Company:
     @optimize_execution("KBS")
     def officers(self, show_log: Optional[bool] = False) -> pd.DataFrame:
         """
-        Truy xuất thông tin lãnh đạo công ty (officers).
+        Retrieve the company officers.
 
         Args:
-            show_log: Hiển thị log debug.
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa thông tin lãnh đạo.
+            DataFrame of company officers.
 
         Examples:
             >>> company = Company('ACB')
@@ -419,13 +393,13 @@ class Company:
     @optimize_execution("KBS")
     def shareholders(self, show_log: Optional[bool] = False) -> pd.DataFrame:
         """
-        Truy xuất thông tin cổ đông của công ty.
+        Retrieve the company shareholders.
 
         Args:
-            show_log: Hiển thị log debug.
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa thông tin cổ đông.
+            DataFrame of shareholders.
 
         Examples:
             >>> company = Company('ACB')
@@ -448,13 +422,13 @@ class Company:
     @optimize_execution("KBS")
     def ownership(self, show_log: Optional[bool] = False) -> pd.DataFrame:
         """
-        Truy xuất cơ cấu cổ đông của công ty.
+        Retrieve the ownership breakdown.
 
         Args:
-            show_log: Hiển thị log debug.
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa cơ cấu cổ đông.
+            DataFrame of the ownership breakdown.
 
         Examples:
             >>> company = Company('ACB')
@@ -477,16 +451,16 @@ class Company:
     @optimize_execution("KBS")
     def subsidiaries(self, show_log: Optional[bool] = False) -> pd.DataFrame:
         """
-        Truy xuất thông tin công ty con và công ty liên kết của công ty.
+        Retrieve subsidiaries and affiliates.
 
-        Bao gồm cả công ty con (ownership > 50%) và công ty liên kết (ownership ≤ 50%),
-        với cột 'type' để phân biệt.
+        Covers both subsidiaries (ownership above 50%) and affiliates (50% or less);
+        the 'type' column tells them apart.
 
         Args:
-            show_log: Hiển thị log debug.
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa thông tin công ty con và công ty liên kết.
+            DataFrame of subsidiaries and affiliates.
 
         Examples:
             >>> company = Company('ACB')
@@ -517,16 +491,15 @@ class Company:
     @optimize_execution("KBS")
     def affiliate(self, show_log: Optional[bool] = False) -> pd.DataFrame:
         """
-        Truy xuất thông tin công ty liên kết của công ty (ownership ≤ 50%).
+        Retrieve affiliates, meaning holdings of 50% or less.
 
-        Công ty liên kết được định nghĩa là các công ty có tỷ lệ sở hữu tối đa 50%.
-        Dữ liệu được lọc từ danh sách công ty con.
+        Filtered out of the subsidiaries list.
 
         Args:
-            show_log: Hiển thị log debug.
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa thông tin công ty liên kết.
+            DataFrame of affiliates.
         """  # noqa: W293
         profile_data = self._fetch_profile(show_log=show_log)
 
@@ -552,13 +525,13 @@ class Company:
     @optimize_execution("KBS")
     def capital_history(self, show_log: Optional[bool] = False) -> pd.DataFrame:
         """
-        Truy xuất lịch sử vốn điều lệ của công ty.
+        Retrieve the charter capital history.
 
         Args:
-            show_log: Hiển thị log debug.
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa lịch sử vốn điều lệ.
+            DataFrame of charter capital over time.
 
         Examples:
             >>> company = Company('ACB')
@@ -587,22 +560,22 @@ class Company:
         show_log: Optional[bool] = False,
     ) -> pd.DataFrame:
         """
-        Truy xuất danh sách sự kiện của công ty.
+        Retrieve the company events.
 
         Args:
-            event_type: Loại sự kiện (1-5). None để lấy tất cả.
-                        1: Đại hội cổ đông, 2: Trả cổ tức, 3: Phát hành,
-                        4: Giao dịch cổ đông nội bộ, 5: Sự kiện khác.
-            page: Số trang. Mặc định 1.
-            page_size: Số lượng bản ghi mỗi trang. Mặc định 10.
-            show_log: Hiển thị log debug.
+            event_type: Event type, 1 to 5. None returns every type.
+                        1 shareholder meeting, 2 dividend payment, 3 share issuance,
+                        4 insider trading, 5 other.
+            page: Page number. Defaults to 1.
+            page_size: Records per page. Defaults to 10.
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa danh sách sự kiện.
+            DataFrame of events.
 
         Examples:
             >>> company = Company('ACB')
-            >>> df = company.events(event_type=2)  # Sự kiện trả cổ tức
+            >>> df = company.events(event_type=2)  # dividend payments
         """  # noqa: W291
         url = f"{_STOCK_INFO_URL}/event/{self.symbol}"
 
@@ -626,9 +599,6 @@ class Company:
             method="GET",
             params=params,
             show_log=show_log or self.show_log,
-            proxy_list=self.proxy_config.proxy_list,
-            proxy_mode=self.proxy_config.proxy_mode,
-            request_mode=self.proxy_config.request_mode,
         )
 
         if not json_data:
@@ -663,15 +633,15 @@ class Company:
         show_log: Optional[bool] = False,
     ) -> pd.DataFrame:
         """
-        Truy xuất tin tức liên quan đến công ty.
+        Retrieve news about the company.
 
         Args:
-            page: Số trang. Mặc định 1.
-            page_size: Số lượng bản ghi mỗi trang. Mặc định 10.
-            show_log: Hiển thị log debug.
+            page: Page number. Defaults to 1.
+            page_size: Records per page. Defaults to 10.
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa danh sách tin tức.
+            DataFrame of news items.
 
         Examples:
             >>> company = Company('ACB')
@@ -691,9 +661,6 @@ class Company:
             method="GET",
             params=params,
             show_log=show_log or self.show_log,
-            proxy_list=self.proxy_config.proxy_list,
-            proxy_mode=self.proxy_config.proxy_mode,
-            request_mode=self.proxy_config.request_mode,
         )
 
         if not json_data:
@@ -726,15 +693,15 @@ class Company:
         show_log: Optional[bool] = False,
     ) -> pd.DataFrame:
         """
-        Truy xuất thông tin giao dịch nội bộ.
+        Retrieve insider trading records.
 
         Args:
-            page: Số trang. Mặc định 1.
-            page_size: Số lượng bản ghi mỗi trang. Mặc định 10.
-            show_log: Hiển thị log debug.
+            page: Page number. Defaults to 1.
+            page_size: Records per page. Defaults to 10.
+            show_log: Show debug logs.
 
         Returns:
-            DataFrame chứa thông tin giao dịch nội bộ.
+            DataFrame of insider trades.
 
         Examples:
             >>> company = Company('ACB')
@@ -754,9 +721,6 @@ class Company:
             method="GET",
             params=params,
             show_log=show_log or self.show_log,
-            proxy_list=self.proxy_config.proxy_list,
-            proxy_mode=self.proxy_config.proxy_mode,
-            request_mode=self.proxy_config.request_mode,
         )
 
         if not json_data:

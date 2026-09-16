@@ -335,6 +335,153 @@ def test_unpacked_udf_task_writes_sibling_columns() -> None:
     assert output["right"].to_pylist() == [12, 22]
 
 
+class _Detection(NamedTuple):
+    height: int
+    label: str
+    asset: bytes
+
+
+_DETECTION_TYPE = pa.struct(
+    [
+        pa.field("height", pa.int64()),
+        pa.field("label", pa.string()),
+        pa.field("asset", pa.large_binary()),
+    ]
+)
+
+
+def _detection_task() -> BackfillUDFTask:
+    """A Columns[T] task whose UDF returns None for ``a == 20``."""
+
+    @udf(data_type=_DETECTION_TYPE)
+    def detect(a: int) -> Columns[_Detection]:
+        if a == 20:
+            return None
+        return _Detection(a + 1, f"row-{a}", f"blob-{a}".encode())
+
+    return BackfillUDFTask(
+        {"height": detect},
+        unpack_fields=UnpackedUDF(detect).fields,
+        checkpoint_column="height",
+    )
+
+
+def test_unpacked_udf_none_result_nulls_every_sibling() -> None:
+    """GEN-948: returning None must leave every sibling NULL, not zero-valued.
+
+    ``StructArray.field()`` drops the parent validity bitmap, so a null struct
+    row used to surface as ``0`` / ``''`` / ``b''`` in each output column.
+    """
+    task = _detection_task()
+    batch = pa.record_batch(
+        [
+            pa.array([10, 20, 30], type=pa.int64()),
+            pa.array([0, 1, 2], type=pa.uint64()),
+        ],
+        names=["a", "_rowaddr"],
+    )
+
+    output = task.apply(batch)
+
+    assert output["height"].to_pylist() == [11, None, 31]
+    assert output["label"].to_pylist() == ["row-10", None, "row-30"]
+    assert output["asset"].to_pylist() == [b"blob-10", None, b"blob-30"]
+    # A zero-length binary value is not a null; assert the bitmap explicitly.
+    assert output["asset"].null_count == 1
+    assert output["height"].null_count == 1
+    assert output["label"].null_count == 1
+
+
+def test_unpacked_record_batch_udf_null_struct_element_nulls_siblings() -> None:
+    """GEN-948 on the RecordBatch multi-output path."""
+    struct_type = pa.struct(
+        [pa.field("x", pa.int64()), pa.field("y", pa.large_binary())]
+    )
+
+    @udf(data_type=struct_type)
+    def multi(batch: pa.RecordBatch) -> pa.Array:
+        return pa.array(
+            [
+                None if v == 20 else {"x": v + 1, "y": f"blob-{v}".encode()}
+                for v in batch["a"].to_pylist()
+            ],
+            type=struct_type,
+        )
+
+    task = BackfillUDFTask(
+        {"x": multi},
+        unpack_fields=UnpackedUDF(multi).fields,
+        checkpoint_column="x",
+    )
+    batch = pa.record_batch(
+        [
+            pa.array([10, 20, 30], type=pa.int64()),
+            pa.array([0, 1, 2], type=pa.uint64()),
+        ],
+        names=["a", "_rowaddr"],
+    )
+
+    output = task.apply(batch)
+
+    assert output["x"].to_pylist() == [11, None, 31]
+    assert output["y"].to_pylist() == [b"blob-10", None, b"blob-30"]
+    assert output["y"].null_count == 1
+
+
+def test_unpacked_udf_unselected_rows_stay_null_on_first_backfill() -> None:
+    """A filtered first backfill must leave unmatched siblings NULL.
+
+    With no carry-forward column present, unselected rows yield None from the
+    UDF; those rows have to stay NULL so a later backfill still picks them up.
+    """
+    task = _detection_task()
+    batch = pa.record_batch(
+        [
+            pa.array([10, 30], type=pa.int64()),
+            pa.array([0, 1], type=pa.uint64()),
+            pa.array([True, False], type=pa.bool_()),
+        ],
+        names=["a", "_rowaddr", BACKFILL_SELECTED],
+    )
+
+    output = task.apply(batch)
+
+    assert output["height"].to_pylist() == [11, None]
+    assert output["label"].to_pylist() == ["row-10", None]
+    assert output["asset"].to_pylist() == [b"blob-10", None]
+    assert output["asset"].null_count == 1
+
+
+def test_unpacked_udf_carry_forward_merge_handles_none() -> None:
+    """The carry-forward merge distinguishes the two ways a sibling goes NULL.
+
+    Row 1 is selected and the UDF returns None: the old value must be
+    overwritten with NULL, so the row stays eligible for a later backfill.
+    Row 2 is unselected: its old value must survive untouched.
+    """
+    task = _detection_task()
+    batch = pa.record_batch(
+        [
+            pa.array([10, 20, 30], type=pa.int64()),
+            pa.array([0, 1, 2], type=pa.uint64()),
+            pa.array([True, True, False], type=pa.bool_()),
+            pa.array([-1, -2, -3], type=pa.int64()),
+            pa.array(["old-1", "old-2", "old-3"], type=pa.string()),
+            pa.array(
+                [b"old-blob-1", b"old-blob-2", b"old-blob-3"], type=pa.large_binary()
+            ),
+        ],
+        names=["a", "_rowaddr", BACKFILL_SELECTED, "height", "label", "asset"],
+    )
+
+    output = task.apply(batch)
+
+    assert output["height"].to_pylist() == [11, None, -3]
+    assert output["label"].to_pylist() == ["row-10", None, "old-3"]
+    assert output["asset"].to_pylist() == [b"blob-10", None, b"old-blob-3"]
+    assert output["asset"].null_count == 1
+
+
 def test_carry_forward_reads_blob_old_values() -> None:
     """A filtered re-backfill of a blob output column carries each unmatched
     row's old value forward. Lance reads a blob column back as lazy ``BlobFile``

@@ -119,10 +119,9 @@ def _field_or_children_have_blob_marker(field: pa.Field) -> bool:
 def _is_binary_blob_field(field: pa.Field) -> bool:
     if _is_blob_v2_extension_type(field.type):
         return True
-    metadata = field.metadata or {}
-    return metadata.get(_BLOB_V2_METADATA_KEY) == _BLOB_V2_METADATA_VALUE and (
-        pa.types.is_binary(field.type) or pa.types.is_large_binary(field.type)
-    )
+    if not (pa.types.is_binary(field.type) or pa.types.is_large_binary(field.type)):
+        return False
+    return is_blob_field(field)
 
 
 def _is_blob_v2_extension_type(dtype: pa.DataType) -> bool:

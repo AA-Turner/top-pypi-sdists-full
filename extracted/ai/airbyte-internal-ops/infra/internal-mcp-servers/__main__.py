@@ -124,6 +124,14 @@ Shared container so the Ops Webapp can adopt it too; consumed as env
 SLACK_BOT_TOKEN_HITL_SECRET_ID = "slack-bot-token-hitl"
 """Shared Slack bot token created by the `agent-message-bus` bootstrap."""
 
+LAUNCHDARKLY_API_TOKEN_SECRET_ID = "internal-ops-launchdarkly-api-token"
+"""LaunchDarkly API token for the flag organization-targeting tools.
+
+Consumed as env `LAUNCHDARKLY_API_TOKEN`. Should be a LaunchDarkly service
+token with an inline policy granting `viewProject` on `proj/default` and
+`updateTargets` on `proj/default:env/production:flag/*;ops-mcp`. Created
+during bootstrap; see `BOOTSTRAP.md`."""
+
 ZENDESK_API_TOKEN_SECRET_ID = "internal-ops-zendesk-api-token"
 """Zendesk Support API token used by the Ops MCP `get_zendesk_ticket` tool.
 
@@ -146,6 +154,7 @@ OPS_MCP_BACKEND_SECRET_IDS = [
     MOTHERDUCK_ADMIN_TOKEN_SECRET_ID,
     SLACK_BOT_TOKEN_HITL_SECRET_ID,
     ZENDESK_API_TOKEN_SECRET_ID,
+    LAUNCHDARKLY_API_TOKEN_SECRET_ID,
 ]
 
 OPS_MCP_CONTAINER_IMAGE = (
@@ -966,6 +975,7 @@ def main() -> None:
         _env("ZENDESK_SUBDOMAIN", ZENDESK_SUBDOMAIN),
         _env("ZENDESK_EMAIL", ZENDESK_EMAIL),
         _secret_env("ZENDESK_API_TOKEN", ZENDESK_API_TOKEN_SECRET_ID),
+        _secret_env("LAUNCHDARKLY_API_TOKEN", LAUNCHDARKLY_API_TOKEN_SECRET_ID),
         # Opt in to the HTTP Basic client-credentials transport so a headless
         # agent can present its long-lived Airbyte Cloud `client_id`/`client_secret`
         # directly (`Authorization: Basic base64(client_id:client_secret)`); the

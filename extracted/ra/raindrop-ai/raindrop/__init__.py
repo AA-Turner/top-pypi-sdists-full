@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from raindrop.client import Raindrop
+    from raindrop.app_git import AppGitOptions
     from raindrop.handoff import TraceContext
     from raindrop.interaction import Interaction
     from raindrop.models import Attachment
@@ -33,6 +34,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 __all__ = [
     "Raindrop",
+    "AppGitOptions",
     "Interaction",
     "Attachment",
     # Detached async sub-agents (see raindrop.handoff for the contract).
@@ -43,6 +45,10 @@ __all__ = [
 
 
 def __getattr__(name: str) -> Any:
+    if name == "AppGitOptions":
+        from raindrop.app_git import AppGitOptions
+
+        return AppGitOptions
     if name == "Raindrop":
         from raindrop.client import Raindrop
 

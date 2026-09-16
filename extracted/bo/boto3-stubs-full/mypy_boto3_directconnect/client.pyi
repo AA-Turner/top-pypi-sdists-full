@@ -40,6 +40,8 @@ from .type_defs import (
     AllocatePublicVirtualInterfaceRequestTypeDef,
     AllocateTransitVirtualInterfaceRequestTypeDef,
     AllocateTransitVirtualInterfaceResultTypeDef,
+    AssociateConnectionsToResiliencyGroupRequestTypeDef,
+    AssociateConnectionsToResiliencyGroupResultTypeDef,
     AssociateConnectionWithLagRequestTypeDef,
     AssociateHostedConnectionRequestTypeDef,
     AssociateMacSecKeyRequestTypeDef,
@@ -70,6 +72,8 @@ from .type_defs import (
     CreateLagRequestTypeDef,
     CreatePrivateVirtualInterfaceRequestTypeDef,
     CreatePublicVirtualInterfaceRequestTypeDef,
+    CreateResiliencyGroupRequestTypeDef,
+    CreateResiliencyGroupResultTypeDef,
     CreateTransitVirtualInterfaceRequestTypeDef,
     CreateTransitVirtualInterfaceResultTypeDef,
     DeleteBGPPeerRequestTypeDef,
@@ -84,6 +88,8 @@ from .type_defs import (
     DeleteInterconnectRequestTypeDef,
     DeleteInterconnectResponseTypeDef,
     DeleteLagRequestTypeDef,
+    DeleteResiliencyGroupRequestTypeDef,
+    DeleteResiliencyGroupResultTypeDef,
     DeleteVirtualInterfaceRequestTypeDef,
     DeleteVirtualInterfaceResponseTypeDef,
     DescribeConnectionLoaRequestTypeDef,
@@ -111,12 +117,20 @@ from .type_defs import (
     DescribeTagsResponseTypeDef,
     DescribeVirtualInterfacesRequestTypeDef,
     DisassociateConnectionFromLagRequestTypeDef,
+    DisassociateConnectionsFromResiliencyGroupRequestTypeDef,
+    DisassociateConnectionsFromResiliencyGroupResultTypeDef,
     DisassociateMacSecKeyRequestTypeDef,
     DisassociateMacSecKeyResponseTypeDef,
+    GetResiliencyGroupRequestTypeDef,
+    GetResiliencyGroupResultTypeDef,
     InterconnectResponseTypeDef,
     InterconnectsTypeDef,
     LagResponseTypeDef,
     LagsTypeDef,
+    ListResiliencyGroupAssociationsRequestTypeDef,
+    ListResiliencyGroupAssociationsResultTypeDef,
+    ListResiliencyGroupsRequestTypeDef,
+    ListResiliencyGroupsResultTypeDef,
     ListVirtualInterfaceRoutesRequestTypeDef,
     ListVirtualInterfaceRoutesResponseTypeDef,
     ListVirtualInterfaceTestHistoryRequestTypeDef,
@@ -130,11 +144,15 @@ from .type_defs import (
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateConnectionRequestTypeDef,
+    UpdateConnectionsBillingModeRequestTypeDef,
+    UpdateConnectionsBillingModeResponseTypeDef,
     UpdateDirectConnectGatewayAssociationRequestTypeDef,
     UpdateDirectConnectGatewayAssociationResultTypeDef,
     UpdateDirectConnectGatewayRequestTypeDef,
     UpdateDirectConnectGatewayResponseTypeDef,
     UpdateLagRequestTypeDef,
+    UpdateResiliencyGroupRequestTypeDef,
+    UpdateResiliencyGroupResultTypeDef,
     UpdateVirtualInterfaceAttributesRequestTypeDef,
     VirtualGatewaysTypeDef,
     VirtualInterfaceResponseTypeDef,
@@ -264,6 +282,16 @@ class DirectConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/associate_connection_with_lag.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#associate_connection_with_lag)
+        """
+
+    def associate_connections_to_resiliency_group(
+        self, **kwargs: Unpack[AssociateConnectionsToResiliencyGroupRequestTypeDef]
+    ) -> AssociateConnectionsToResiliencyGroupResultTypeDef:
+        """
+        Associates one or more connections with the specified resiliency group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/associate_connections_to_resiliency_group.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#associate_connections_to_resiliency_group)
         """
 
     def associate_hosted_connection(
@@ -448,6 +476,16 @@ class DirectConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#create_public_virtual_interface)
         """
 
+    def create_resiliency_group(
+        self, **kwargs: Unpack[CreateResiliencyGroupRequestTypeDef]
+    ) -> CreateResiliencyGroupResultTypeDef:
+        """
+        Creates a resiliency group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/create_resiliency_group.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#create_resiliency_group)
+        """
+
     def create_transit_virtual_interface(
         self, **kwargs: Unpack[CreateTransitVirtualInterfaceRequestTypeDef]
     ) -> CreateTransitVirtualInterfaceResultTypeDef:
@@ -527,6 +565,16 @@ class DirectConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/delete_lag.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#delete_lag)
+        """
+
+    def delete_resiliency_group(
+        self, **kwargs: Unpack[DeleteResiliencyGroupRequestTypeDef]
+    ) -> DeleteResiliencyGroupResultTypeDef:
+        """
+        Deletes the specified resiliency group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/delete_resiliency_group.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#delete_resiliency_group)
         """
 
     def delete_virtual_interface(
@@ -727,6 +775,16 @@ class DirectConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#disassociate_connection_from_lag)
         """
 
+    def disassociate_connections_from_resiliency_group(
+        self, **kwargs: Unpack[DisassociateConnectionsFromResiliencyGroupRequestTypeDef]
+    ) -> DisassociateConnectionsFromResiliencyGroupResultTypeDef:
+        """
+        Disassociates one or more connections from the specified resiliency group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/disassociate_connections_from_resiliency_group.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#disassociate_connections_from_resiliency_group)
+        """
+
     def disassociate_mac_sec_key(
         self, **kwargs: Unpack[DisassociateMacSecKeyRequestTypeDef]
     ) -> DisassociateMacSecKeyResponseTypeDef:
@@ -736,6 +794,37 @@ class DirectConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/disassociate_mac_sec_key.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#disassociate_mac_sec_key)
+        """
+
+    def get_resiliency_group(
+        self, **kwargs: Unpack[GetResiliencyGroupRequestTypeDef]
+    ) -> GetResiliencyGroupResultTypeDef:
+        """
+        Gets information about the specified resiliency group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/get_resiliency_group.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#get_resiliency_group)
+        """
+
+    def list_resiliency_group_associations(
+        self, **kwargs: Unpack[ListResiliencyGroupAssociationsRequestTypeDef]
+    ) -> ListResiliencyGroupAssociationsResultTypeDef:
+        """
+        Lists the connection associations for the specified resiliency group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/list_resiliency_group_associations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#list_resiliency_group_associations)
+        """
+
+    def list_resiliency_groups(
+        self, **kwargs: Unpack[ListResiliencyGroupsRequestTypeDef]
+    ) -> ListResiliencyGroupsResultTypeDef:
+        """
+        Lists the resiliency groups owned by your Amazon Web Services account in the
+        current Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/list_resiliency_groups.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#list_resiliency_groups)
         """
 
     def list_virtual_interface_routes(
@@ -806,6 +895,16 @@ class DirectConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#update_connection)
         """
 
+    def update_connections_billing_mode(
+        self, **kwargs: Unpack[UpdateConnectionsBillingModeRequestTypeDef]
+    ) -> UpdateConnectionsBillingModeResponseTypeDef:
+        """
+        Updates the billing mode for the specified Direct Connect connections.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/update_connections_billing_mode.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#update_connections_billing_mode)
+        """
+
     def update_direct_connect_gateway(
         self, **kwargs: Unpack[UpdateDirectConnectGatewayRequestTypeDef]
     ) -> UpdateDirectConnectGatewayResponseTypeDef:
@@ -832,6 +931,16 @@ class DirectConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/update_lag.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#update_lag)
+        """
+
+    def update_resiliency_group(
+        self, **kwargs: Unpack[UpdateResiliencyGroupRequestTypeDef]
+    ) -> UpdateResiliencyGroupResultTypeDef:
+        """
+        Updates the name of the specified resiliency group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/update_resiliency_group.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#update_resiliency_group)
         """
 
     def update_virtual_interface_attributes(

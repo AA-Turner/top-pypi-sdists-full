@@ -14,15 +14,19 @@ class ListHubIntegrationsResponse200Item:
     Attributes:
         name (str):
         picks (Union[Unset, int]): how often the integration has been picked, absent on a hub that does not count picks
+        display_name (Union[Unset, None, str]): the label the hub curates for the integration, null or absent where it
+            names none
     """
 
     name: str
     picks: Union[Unset, int] = UNSET
+    display_name: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         name = self.name
         picks = self.picks
+        display_name = self.display_name
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -33,6 +37,8 @@ class ListHubIntegrationsResponse200Item:
         )
         if picks is not UNSET:
             field_dict["picks"] = picks
+        if display_name is not UNSET:
+            field_dict["display_name"] = display_name
 
         return field_dict
 
@@ -43,9 +49,12 @@ class ListHubIntegrationsResponse200Item:
 
         picks = d.pop("picks", UNSET)
 
+        display_name = d.pop("display_name", UNSET)
+
         list_hub_integrations_response_200_item = cls(
             name=name,
             picks=picks,
+            display_name=display_name,
         )
 
         list_hub_integrations_response_200_item.additional_properties = d

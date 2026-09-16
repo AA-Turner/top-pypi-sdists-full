@@ -1,0 +1,69 @@
+name: Test package
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.13", "3.14"]
+        installer: ["conda"]
+
+        include:
+          - os: "ubuntu-latest"
+            python-version: "3.15"
+            installer: "python"
+          - os: "windows-latest"
+            python-version: "3.15"
+            installer: "python"
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Conda Python ${{ matrix.python-version }}
+      uses: conda-incubator/setup-miniconda@v3
+      if: matrix.installer == 'conda'
+      with:
+        environment-file: environment.yml
+        channels: conda-forge
+        channel-priority: strict
+        activate-environment: npf-dev
+        python-version: ${{ matrix.python-version }}
+        miniforge-version: latest
+    - name: Conda metadata
+      if: matrix.installer == 'conda'
+      run: |
+        conda info
+        conda list
+
+    - name: Set up Python.org Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v7
+      if: matrix.installer == 'python'
+      with:
+        python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+        cache: pip
+    - name: Install dependencies
+      if: matrix.installer == 'python'
+      run: |
+        # Unfortunately, no pip install --only-build-deps command yet,
+        # so we have to jump through some hoops.
+        pip install $(python -c 'import tomllib; print(" ".join(tomllib.load(open("pyproject.toml", "rb"))["build-system"]["requires"]))')
+
+        pip install --only-deps .[dev,test]
+        pip list
+
+    - name: Lint
+      run: |
+        spin lint
+    - name: Build project
+      run: |
+        spin build -v
+    - name: Test with pytest
+      run: |
+        spin test -- --doctest-modules

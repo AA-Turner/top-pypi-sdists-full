@@ -5,15 +5,17 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from agentic_devtools.cli.ci.reconciliation import config
 from agentic_devtools.cli.ci.reconciliation.models import (
+    CandidateInventoryRecord,
     OperationStatus,
     QuarantineRecord,
     QueueState,
     ReconciliationRecord,
+    RecoveryDisposition,
     RecoveryEpoch,
     WorkItemStatus,
 )
@@ -267,4 +269,78 @@ def _terminal_alert(state: QueueState, reason: str, evidence: str) -> QueueState
         replace(state, quarantines=[*state.quarantines, quarantine]),
         "alertable",
         f"{reason}: {evidence}",
+    )
+
+
+def schedule_retained_record_recheck(
+    record: CandidateInventoryRecord,
+    *,
+    now_utc: datetime,
+    interval_minutes: int = 30,
+    max_attempts: int | None = None,
+) -> CandidateInventoryRecord:
+    """Advance retained-record recovery metadata and compute its next due time."""
+    if now_utc.tzinfo is None:
+        raise ValueError("now_utc must be timezone-aware")
+    attempts_limit = config.MAX_RECOVERY_ATTEMPTS if max_attempts is None else max_attempts
+    if attempts_limit <= 0:
+        raise ValueError("max_attempts must be > 0")
+    attempts = record.recovery_attempt_count + 1
+    exhausted = attempts >= attempts_limit
+    due_at = now_utc if exhausted else now_utc + timedelta(minutes=interval_minutes)
+    return CandidateInventoryRecord(
+        record_id=record.record_id,
+        repo=record.repo,
+        pr_number=record.pr_number,
+        target_branch=record.target_branch,
+        lifecycle_state=record.lifecycle_state,
+        scope_classification=record.scope_classification,
+        eligibility_state=record.eligibility_state,
+        observation_outcome=record.observation_outcome,
+        observed_at_utc_z=record.observed_at_utc_z,
+        observed_monotonic_seconds=record.observed_monotonic_seconds,
+        next_due_at_utc_z=due_at.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        recovery_epoch=record.recovery_epoch,
+        recovery_attempt_count=attempts,
+        recovery_disposition=RecoveryDisposition.EXHAUSTED if exhausted else RecoveryDisposition.DUE,
+        exhaustion_metadata=(
+            f"attempts={attempts};limit={attempts_limit}" if exhausted else record.exhaustion_metadata
+        ),
+        finality_metadata=record.finality_metadata,
+    )
+
+
+def restart_recovery_epoch(
+    record: CandidateInventoryRecord,
+    *,
+    actor: str,
+    reason: str,
+    no_late_write_confirmed: bool,
+) -> CandidateInventoryRecord:
+    """Start a later recovery epoch after authenticated operator confirmation."""
+    if not actor.strip():
+        raise ValueError("actor must not be empty")
+    if not reason.strip():
+        raise ValueError("reason must not be empty")
+    if not no_late_write_confirmed:
+        raise ValueError("no_late_write_confirmed must be true")
+    return CandidateInventoryRecord(
+        record_id=record.record_id,
+        repo=record.repo,
+        pr_number=record.pr_number,
+        target_branch=record.target_branch,
+        lifecycle_state=record.lifecycle_state,
+        scope_classification=record.scope_classification,
+        eligibility_state=record.eligibility_state,
+        observation_outcome=record.observation_outcome,
+        observed_at_utc_z=record.observed_at_utc_z,
+        observed_monotonic_seconds=record.observed_monotonic_seconds,
+        next_due_at_utc_z=record.next_due_at_utc_z,
+        recovery_epoch=record.recovery_epoch + 1,
+        recovery_attempt_count=0,
+        recovery_disposition=RecoveryDisposition.DUE,
+        exhaustion_metadata="",
+        finality_metadata=(
+            f"restarted_by={actor};reason={reason};prior_epoch={record.recovery_epoch};no_late_write=true"
+        ),
     )

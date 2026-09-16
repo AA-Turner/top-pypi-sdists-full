@@ -66,6 +66,7 @@ __all__ = (
     "PreserveFilenameTypeType",
     "ProfileTypeType",
     "ProtocolType",
+    "ProxyModeType",
     "RegionName",
     "ResourceServiceName",
     "SecurityPolicyProtocolType",
@@ -141,6 +142,7 @@ PreserveContentTypeType = Literal["DISABLED", "ENABLED"]
 PreserveFilenameTypeType = Literal["DISABLED", "ENABLED"]
 ProfileTypeType = Literal["LOCAL", "PARTNER"]
 ProtocolType = Literal["AS2", "FTP", "FTPS", "SFTP"]
+ProxyModeType = Literal["NONE", "PROXY_PROTOCOL_V2_ENFORCED"]
 SecurityPolicyProtocolType = Literal["FTPS", "SFTP"]
 SecurityPolicyResourceTypeType = Literal["CONNECTOR", "SERVER"]
 ServerOfflineWaiterName = Literal["server_offline"]

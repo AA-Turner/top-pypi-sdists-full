@@ -239,6 +239,79 @@ class TestMergeAction:
         result = action.evaluate(snapshot, derived)
         assert result.preconditions.get("thread_state_known") is True
 
+    def test_skip_when_loop_state_incomplete(self) -> None:
+        snapshot = _ready_snapshot()
+        derived = DerivedState(snapshot)
+        derived.set("loop_controller", MagicMock())
+        action = MergeAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert "Incomplete governed loop state" in result.details
+
+    def test_skip_when_loop_gate_ineligible(self) -> None:
+        snapshot = _ready_snapshot()
+        derived = DerivedState(snapshot)
+        controller = MagicMock()
+        decision = MagicMock(eligible=False, reason="hold active")
+        controller.merge_eligible.return_value = decision
+        derived.set("loop_controller", controller)
+        derived.set("loop_state", MagicMock())
+        derived.set("loop_observation", MagicMock())
+        action = MergeAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert "Loop gate: hold active" in result.details
+
+    def test_execute_when_loop_gate_eligible(self) -> None:
+        snapshot = _ready_snapshot()
+        derived = DerivedState(snapshot)
+        controller = MagicMock()
+        decision = MagicMock(eligible=True, reason="eligible")
+        controller.merge_eligible.return_value = decision
+        derived.set("loop_controller", controller)
+        derived.set("loop_state", MagicMock())
+        derived.set("loop_observation", MagicMock())
+        action = MergeAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.EXECUTE
+        assert result.preconditions.get("loop_eligible") is True
+
+    def test_skip_when_approver_is_author(self) -> None:
+        snapshot = _ready_snapshot(
+            approver_login="author-user",
+            author_login="author-user",
+        )
+        derived = DerivedState(snapshot)
+        action = MergeAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert "Approver is the PR author" in result.details
+
+    def test_skip_when_required_codeowner_missing(self) -> None:
+        snapshot = _ready_snapshot(
+            required_codeowners=["alice"],
+            codeowner_logins=[],
+        )
+        derived = DerivedState(snapshot)
+        action = MergeAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert "Required CODEOWNER approval missing" in result.details
+
+    def test_execute_when_required_codeowner_approved(self) -> None:
+        snapshot = _ready_snapshot(
+            author_login="author-user",
+            approver_login="approver-user",
+            required_codeowners=["alice"],
+            codeowner_logins=["alice"],
+        )
+        derived = DerivedState(snapshot)
+        action = MergeAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.EXECUTE
+        assert result.preconditions.get("codeowner_approval") is True
+        assert result.preconditions.get("approver_is_not_author") is True
+
     def test_skip_when_only_copilot_approved(self) -> None:
         """Copilot's approval alone must not satisfy the approver-PAT merge gate."""
         snapshot = PRStateSnapshot(

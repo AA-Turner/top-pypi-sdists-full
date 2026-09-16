@@ -229,11 +229,17 @@ def _render_state_snapshot(snapshot: PRStateSnapshot, derived_unresolved_threads
     return "\n".join(lines)
 
 
-def collapse_prior_summaries(provider: CIPlatformProvider, pr_number: int) -> int:
+def collapse_prior_summaries(
+    provider: CIPlatformProvider,
+    pr_number: int,
+    *,
+    keep_active_id: int | None = None,
+) -> int:
     """Find and collapse prior summary comments.
 
     Finds comments with the active sentinel and replaces it with the
-    collapsed sentinel. The internal structure remains identical.
+    collapsed sentinel. If ``keep_active_id`` is supplied, that comment
+    is preserved as active.
 
     Returns:
         Number of comments collapsed.
@@ -245,6 +251,8 @@ def collapse_prior_summaries(provider: CIPlatformProvider, pr_number: int) -> in
         actor = os.environ.get("GITHUB_ACTOR", "").strip().lower()
         comments = list_issue_comments(pr_number)
         for comment in comments:
+            if keep_active_id is not None and comment.id == keep_active_id:
+                continue
             body = comment.body or ""
             if SUMMARY_SENTINEL not in body or SUMMARY_COLLAPSED_SENTINEL in body:
                 continue
@@ -286,6 +294,8 @@ def collapse_prior_summaries(provider: CIPlatformProvider, pr_number: int) -> in
             break
 
         comment_id, body = found
+        if keep_active_id is not None and comment_id == keep_active_id:
+            break
 
         # Safeguard: only collapse comments whose body starts with the sentinel and
         # contains the expected pipeline header, to avoid editing unrelated user
@@ -313,18 +323,95 @@ def collapse_prior_summaries(provider: CIPlatformProvider, pr_number: int) -> in
     return collapsed_count
 
 
+def _find_active_summary_comment(
+    provider: CIPlatformProvider,
+    pr_number: int,
+) -> tuple[int, str] | None:
+    """Find an existing active summary comment for the given PR."""
+    list_issue_comments = getattr(provider, "list_issue_comments", None)
+    if callable(list_issue_comments):
+        try:
+            actor = os.environ.get("GITHUB_ACTOR", "").strip().lower()
+            comments = list_issue_comments(pr_number)
+            if isinstance(comments, list):
+                for comment in comments:
+                    body = comment.body or ""
+                    if (
+                        SUMMARY_COLLAPSED_SENTINEL in body
+                        or not body.startswith(SUMMARY_SENTINEL)
+                        or "AI PR Loop Run" not in body
+                    ):
+                        continue
+                    author = comment.author or ""
+                    if not _is_editable_summary_comment_author(author=author, actor=actor):
+                        continue
+                    return (comment.id, body)
+        except Exception as exc:
+            if isinstance(exc, ProviderRateLimitError):
+                raise
+            logger.warning("PR #%d: Failed to list issue comments: %s", pr_number, exc)
+        return None
+
+    # Fallback to find_comment
+    try:
+        for marker in SUMMARY_FALLBACK_MARKERS:
+            found = provider.find_comment(pr_number, marker)
+            if found is not None:
+                comment_id, body = found
+                if body.startswith(SUMMARY_SENTINEL) and "AI PR Loop Run" in body:
+                    return (comment_id, body)
+    except Exception as exc:
+        if isinstance(exc, ProviderRateLimitError):
+            raise
+        logger.warning("PR #%d: Failed to find summary comment: %s", pr_number, exc)
+    return None
+
+
+def _normalize_summary_for_comparison(body: str) -> str:
+    """Normalize a summary comment body by standardizing the header line.
+
+    Used to detect identical no-op passes where updating the comment in place
+    would produce no semantic change to the actions table or state snapshot.
+    """
+    lines: list[str] = []
+    for line in body.splitlines():
+        if line.startswith("#### 🤖 AI PR Loop Run") or line.startswith("**🤖 AI PR Loop Run**"):
+            lines.append("#### 🤖 AI PR Loop Run")
+        else:
+            lines.append(line)
+    return "\n".join(lines).strip()
+
+
+def _is_identical_noop_pass(summary: PipelineRunSummary, existing_body: str, new_body: str) -> bool:
+    """Return True if this run made no progress and matches the existing summary."""
+    if any(r.decision in (ActionDecision.EXECUTE, ActionDecision.FAILED) for r in summary.results):
+        return False
+    return _normalize_summary_for_comparison(existing_body) == _normalize_summary_for_comparison(new_body)
+
+
 def post_summary_comment(
     provider: CIPlatformProvider,
     pr_number: int,
     summary: PipelineRunSummary,
 ) -> bool:
-    """Post a summary comment and collapse prior summaries.
+    """Post or update a pipeline summary comment.
+
+    Strictly updates the existing summary comment in place (``provider.update_comment``).
+    Only posts a new comment if none exists.
+    Suppresses updates on identical no-op passes.
+    Collapses surplus duplicate summary comments if multiple active summaries exist.
 
     Returns True on success, False on failure (non-fatal).
     """
-    # Collapse prior summaries first
+    comment_body = render_summary_comment(summary)
+
+    # Locate existing active summary comment
+    existing_comment = _find_active_summary_comment(provider, pr_number)
+    existing_id = existing_comment[0] if existing_comment else None
+
+    # Collapse any surplus prior summaries, keeping existing_id active
     try:
-        collapsed = collapse_prior_summaries(provider, pr_number)
+        collapsed = collapse_prior_summaries(provider, pr_number, keep_active_id=existing_id)
         if collapsed:
             logger.info("PR #%d: Collapsed %d prior summary comment(s)", pr_number, collapsed)
     except Exception as exc:
@@ -332,9 +419,23 @@ def post_summary_comment(
             raise
         logger.warning("PR #%d: Failed to collapse prior summaries: %s", pr_number, exc)
 
-    # Render and post new comment
-    comment_body = render_summary_comment(summary)
+    if existing_comment is not None:
+        comment_id, existing_body = existing_comment
+        if _is_identical_noop_pass(summary, existing_body, comment_body):
+            logger.info("PR #%d: Suppressing summary comment update on identical no-op pass", pr_number)
+            return True
 
+        try:
+            provider.update_comment(comment_id, comment_body)
+            logger.info("PR #%d: Updated pipeline summary comment %d in place", pr_number, comment_id)
+            return True
+        except Exception as exc:
+            if isinstance(exc, ProviderRateLimitError):
+                raise
+            logger.warning("PR #%d: Failed to update summary comment %d: %s", pr_number, comment_id, exc)
+            return False
+
+    # No existing active summary comment — post a new one
     try:
         provider.post_comment(pr_number, comment_body)
         logger.info("PR #%d: Posted pipeline summary comment", pr_number)

@@ -21,6 +21,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
+from mixpeek.models.submission_params import SubmissionParams
 from mixpeek.models.task_progress import TaskProgress
 from typing import Optional, Set
 from typing_extensions import Self
@@ -42,7 +43,8 @@ class TierDiagnostic(BaseModel):
     error_type: Optional[StrictStr] = Field(default=None, description="Error type if failed")
     requires_gpu: Optional[StrictBool] = Field(default=None, description="Whether this tier's Ray job targets a GPU worker group. GPU jobs may wait minutes for a scale-from-zero node to come up plus image pull, so this widens the cold-start window before a no-progress tier is flagged stuck.")
     ray_job_status: Optional[StrictStr] = Field(default=None, description="Last observed Ray job status (RUNNING, PENDING, SUCCEEDED, FAILED). PENDING means the job is queued waiting for a worker — i.e. the cluster may be provisioning rather than the job being stuck.")
-    __properties: ClassVar[List[str]] = ["tier_num", "task_id", "status", "started_at", "completed_at", "duration_seconds", "progress", "ray_job_id", "ray_dashboard_url", "error", "error_type", "requires_gpu", "ray_job_status"]
+    submission_params: Optional[SubmissionParams] = Field(default=None, description="What the tier was submitted to the engine with: deployment mode, GPU and memory request, image, extractor name and version, priority. Present on tiers submitted through the engine and absent on fast-path tiers. A tier that never went through the engine has none.")
+    __properties: ClassVar[List[str]] = ["tier_num", "task_id", "status", "started_at", "completed_at", "duration_seconds", "progress", "ray_job_id", "ray_dashboard_url", "error", "error_type", "requires_gpu", "ray_job_status", "submission_params"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,6 +88,9 @@ class TierDiagnostic(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of progress
         if self.progress:
             _dict['progress'] = self.progress.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of submission_params
+        if self.submission_params:
+            _dict['submission_params'] = self.submission_params.to_dict()
         return _dict
 
     @classmethod
@@ -110,7 +115,8 @@ class TierDiagnostic(BaseModel):
             "error": obj.get("error"),
             "error_type": obj.get("error_type"),
             "requires_gpu": obj.get("requires_gpu"),
-            "ray_job_status": obj.get("ray_job_status")
+            "ray_job_status": obj.get("ray_job_status"),
+            "submission_params": SubmissionParams.from_dict(obj["submission_params"]) if obj.get("submission_params") is not None else None
         })
         return _obj
 

@@ -6,7 +6,7 @@ use owo_colors::OwoColorize;
 use tracing::{debug, warn};
 
 use uv_cache::Cache;
-use uv_client::{BaseClientBuilder, FlatIndexClient, RegistryClientBuilder};
+use uv_client::{BaseClientBuilder, RegistryClientBuilder};
 use uv_configuration::{
     BuildIsolation, BuildOptions, Concurrency, Constraints, DryRun, ExtrasSpecification,
     HashCheckingMode, IndexStrategy, NoSources, Reinstall, Upgrade,
@@ -150,8 +150,9 @@ pub(crate) async fn pip_sync(
     }
 
     // Read build constraints.
-    let build_constraints =
-        operations::read_constraints(build_constraints, &client_builder).await?;
+    let build_constraints = Constraints::from_specifications(
+        operations::read_constraints(build_constraints, &client_builder).await?,
+    );
 
     // Validate that the requirements are non-empty.
     if !allow_empty_requirements {
@@ -327,13 +328,7 @@ pub(crate) async fn pip_sync(
     let build_options = build_options.combine(no_binary, no_build);
 
     // Resolve the flat indexes from `--find-links`.
-    let flat_index = {
-        let client = FlatIndexClient::new(client.cached_client(), client.connectivity(), &cache);
-        let entries = client
-            .fetch_all(index_locations.flat_indexes().map(Index::url))
-            .await?;
-        FlatIndex::from_entries(entries)
-    };
+    let flat_index = FlatIndex::load(&client, &cache, &index_locations).await?;
 
     // Determine whether to enable build isolation.
     let types_build_isolation = match build_isolation {
@@ -350,7 +345,7 @@ pub(crate) async fn pip_sync(
         HashStrategy::from_requirements(
             std::iter::empty(),
             build_constraints
-                .iter()
+                .specifications()
                 .map(|entry| (&entry.requirement, entry.hashes.as_slice())),
             Some(&marker_env),
             HashCheckingMode::Verify,
@@ -358,11 +353,6 @@ pub(crate) async fn pip_sync(
     } else {
         HashStrategy::default()
     };
-    let build_constraints = Constraints::from_requirements(
-        build_constraints
-            .iter()
-            .map(|constraint| constraint.requirement.clone()),
-    );
 
     // Initialize any shared state.
     let state = SharedState::default();

@@ -13,6 +13,7 @@ class AddAssetSelectionCriteriaRequest(DaraModel):
         client_token: str = None,
         criteria: str = None,
         criteria_operation: str = None,
+        dry_run: bool = None,
         selection_key: str = None,
         target_operation_list: List[main_models.AddAssetSelectionCriteriaRequestTargetOperationList] = None,
     ):
@@ -26,6 +27,8 @@ class AddAssetSelectionCriteriaRequest(DaraModel):
         # - **add**: adds assets.
         # - **del**: deletes assets.
         self.criteria_operation = criteria_operation
+        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        self.dry_run = dry_run
         # The unique identifier of the asset selection.
         # 
         # This parameter is required.
@@ -53,6 +56,9 @@ class AddAssetSelectionCriteriaRequest(DaraModel):
         if self.criteria_operation is not None:
             result['CriteriaOperation'] = self.criteria_operation
 
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
+
         if self.selection_key is not None:
             result['SelectionKey'] = self.selection_key
 
@@ -73,6 +79,9 @@ class AddAssetSelectionCriteriaRequest(DaraModel):
 
         if m.get('CriteriaOperation') is not None:
             self.criteria_operation = m.get('CriteriaOperation')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
 
         if m.get('SelectionKey') is not None:
             self.selection_key = m.get('SelectionKey')

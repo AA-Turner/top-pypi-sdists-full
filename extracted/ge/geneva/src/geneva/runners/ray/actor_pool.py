@@ -26,7 +26,7 @@ from ray.util.state import get_actor, list_actors
 if TYPE_CHECKING:
     from ray.util.state.common import PredicateType, SupportedFilterType
 
-from geneva.errors import FatalWorkerError
+from geneva.errors import FatalWorkerError, FatalWorkerHardwareError
 from geneva.runners.ray.jobtracker import (
     job_tracker_options,
     job_tracker_throttle_kwargs,
@@ -320,9 +320,14 @@ class ActorPool:
         job_tracker: ObjectRef | ActorHandle | Any | None = None,
         worker_metric: str = "workers",
         resubmit_on_actor_failure: bool = True,
+        actor_num_gpus: float | None = None,
     ) -> None:
         # factory to create actors
         self._actor_factory = actors_factory
+
+        self._actor_num_gpus = actor_num_gpus
+        self._parked_actors: list[Any] = []
+        self.last_hardware_fault: Exception | None = None
 
         # number of actors # added
         self._num_actors = num_actors
@@ -382,6 +387,10 @@ class ActorPool:
 
         for _ in range(num_actors):
             self._queue_actor_startup()
+
+    def _holds_whole_gpu(self) -> bool:
+        """Whether parking an actor keeps its GPU out of Ray's scheduling pool."""
+        return self._actor_num_gpus is not None and self._actor_num_gpus >= 1
 
     def _queue_actor_startup(self) -> None:
         new_actor = self._actor_factory()
@@ -890,8 +899,19 @@ class ActorPool:
             # Both memory-monitor OOM and typed child-worker failures require
             # caller-managed recovery with the original task context.
             _LOG.exception("Worker task requires caller-managed recovery")
-            with contextlib.suppress(Exception):
-                ray.kill(a)
+            hardware_fault = isinstance(e, FatalWorkerHardwareError)
+            if hardware_fault:
+                self.last_hardware_fault = e
+            if hardware_fault and self._holds_whole_gpu():
+                _LOG.warning(
+                    "Parking actor %s after a GPU hardware fault; its GPU stays "
+                    "allocated and out of rotation for this job",
+                    a,
+                )
+                self._parked_actors.append(a)
+            else:
+                with contextlib.suppress(Exception):
+                    ray.kill(a)
             self._queue_actor_startup()
             raise ActorPoolTaskError(task=task, cause=e) from e
         except _ACTOR_LOSS_ERRORS as e:
@@ -1186,6 +1206,7 @@ class ActorPool:
             *self._idle_actors,
             *(actor for _, actor in self._future_to_actor.values()),
             *self._ready_fut_to_actor.values(),
+            *self._parked_actors,
         ]
         # An actor should only occupy one pool state, but deduplicate by Ray actor
         # ID (or object identity for test doubles) in case transitions overlap.
@@ -1207,6 +1228,7 @@ class ActorPool:
             )
 
         self._idle_actors.clear()
+        self._parked_actors.clear()
         self._ready_fut_to_actor.clear()
         self._future_to_actor.clear()
         self._index_to_future.clear()

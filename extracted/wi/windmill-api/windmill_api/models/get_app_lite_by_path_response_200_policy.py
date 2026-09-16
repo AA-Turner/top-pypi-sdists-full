@@ -54,7 +54,8 @@ class GetAppLiteByPathResponse200Policy:
             token is advertised or minted for it and this list stays inert. On a sandboxed app a non-empty list lets viewers
             mint (after consenting) a short-lived token carrying their own identity restricted to these scopes, handed to
             the app bundle so `windmill-client` calls run as the viewer. Must be a subset of the server's curated allowlist
-            (jobs:run, jobs:read, users:read, resources:read, variables:read).
+            (jobs:run, jobs:read, users:read, resources:read, variables:read, flow_conversations:read,
+            flow_conversations:write).
     """
 
     triggerables: Union[Unset, "GetAppLiteByPathResponse200PolicyTriggerables"] = UNSET

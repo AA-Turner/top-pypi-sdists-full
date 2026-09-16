@@ -27,6 +27,7 @@ from mixpeek.models.extractor_job_info import ExtractorJobInfo
 from mixpeek.models.infrastructure_detail import InfrastructureDetail
 from mixpeek.models.submission_params import SubmissionParams
 from mixpeek.models.task_status_enum import TaskStatusEnum
+from mixpeek.models.tier_audit_info import TierAuditInfo
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -66,7 +67,7 @@ class TierTaskInfo(BaseModel):
     ray_job_logs_captured_at: Optional[datetime] = Field(default=None, description="OPTIONAL. Timestamp when ray_job_logs were captured.")
     submission_params: Optional[SubmissionParams] = Field(default=None, description="OPTIONAL. Parameters used for the first Ray/GKE job submission in this tier. For per-extractor params, see extractor_jobs[].submission_params.")
     infrastructure_events: Optional[List[InfrastructureDetail]] = Field(default=None, description="Infrastructure-level events correlated with this tier's execution (OOM, preemption, etc.).")
-    audit: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Tier completion invariant audit, persisted by the complete_tier callback. Shape: {tier_num, submitted, processed, failed, skipped, lost, balanced, notes}. Phase 1 of INGESTION_RELIABILITY_PLAN.md. ``lost > 0`` means objects were submitted but absent from both processed_objects and failed_documents — investigate via the /audit endpoint.")
+    audit: Optional[TierAuditInfo] = Field(default=None, description="OPTIONAL. Tier completion invariant audit, persisted by the complete_tier callback. Phase 1 of INGESTION_RELIABILITY_PLAN.md. ``lost > 0`` means objects were submitted but absent from both processed_objects and failed_documents — investigate via the /audit endpoint.")
     audit_override_reason: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Set when the audit overrode the orchestrator-supplied tier status (e.g. promoted COMPLETED → COMPLETED_WITH_ERRORS because of lost objects).")
     __properties: ClassVar[List[str]] = ["tier_num", "task_id", "status", "collection_ids", "extractor_jobs", "source_type", "source_collection_ids", "parent_task_id", "started_at", "completed_at", "duration_ms", "errors", "error_summary", "performance", "ray_job_id", "ray_job_started_at", "ray_job_completed_at", "requires_gpu", "worker_groups", "celery_task_id", "source_documents_fetched", "documents_after_source_filter", "documents_missing_input_fields", "documents_submitted_to_engine", "documents_written", "documents_before_processing", "last_activity_at", "ray_job_status", "ray_job_logs", "ray_job_logs_captured_at", "submission_params", "infrastructure_events", "audit", "audit_override_reason"]
 
@@ -133,6 +134,9 @@ class TierTaskInfo(BaseModel):
                 if _item_infrastructure_events:
                     _items.append(_item_infrastructure_events.to_dict())
             _dict['infrastructure_events'] = _items
+        # override the default output from pydantic by calling `to_dict()` of audit
+        if self.audit:
+            _dict['audit'] = self.audit.to_dict()
         return _dict
 
     @classmethod
@@ -177,7 +181,7 @@ class TierTaskInfo(BaseModel):
             "ray_job_logs_captured_at": obj.get("ray_job_logs_captured_at"),
             "submission_params": SubmissionParams.from_dict(obj["submission_params"]) if obj.get("submission_params") is not None else None,
             "infrastructure_events": [InfrastructureDetail.from_dict(_item) for _item in obj["infrastructure_events"]] if obj.get("infrastructure_events") is not None else None,
-            "audit": obj.get("audit"),
+            "audit": TierAuditInfo.from_dict(obj["audit"]) if obj.get("audit") is not None else None,
             "audit_override_reason": obj.get("audit_override_reason")
         })
         return _obj

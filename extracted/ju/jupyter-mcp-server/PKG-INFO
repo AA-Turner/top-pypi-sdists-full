@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jupyter_mcp_server
-Version: 2.1.15
+Version: 2.1.16
 Project-URL: Home, https://github.com/datalayer/jupyter-mcp-server
 Author-email: Datalayer <info@datalayer.io>
 License: BSD 3-Clause License
@@ -40,7 +40,7 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
-Requires-Dist: code-sandboxes>=1.1.2
+Requires-Dist: code-sandboxes>=1.9.0
 Requires-Dist: datalayer-reactor
 Requires-Dist: fastapi
 Requires-Dist: jupyter-collaboration>=5

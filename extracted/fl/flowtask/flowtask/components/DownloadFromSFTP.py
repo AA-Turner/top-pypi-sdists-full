@@ -7,7 +7,6 @@ from ..exceptions import FileError, ComponentError, FileNotFound
 from ..interfaces.download_from import DownloadFromBase
 from ..interfaces.SSHClient import SSHClient
 
-
 class DownloadFromSFTP(SSHClient, DownloadFromBase):
     """
     DownloadFromSFTP.
@@ -15,6 +14,9 @@ class DownloadFromSFTP(SSHClient, DownloadFromBase):
     **Overview**
 
         Download a file or directory from an SFTP server using the functionality from DownloadFrom.
+        When no `file`, `source` or `filename` is defined, the remote path(s) to download are read from
+        the previous component (`self.input`): a single path (e.g. each item of an iterating `FileList`,
+        also inside a `Group`) or a list of paths (e.g. `FileList` with `iterate: false`).
 
     **Properties** (inherited from DownloadFromBase and SSHClient)
 
@@ -79,6 +81,26 @@ class DownloadFromSFTP(SSHClient, DownloadFromBase):
           - yesterday
           - mask: '%Y-%m-%d'
         ```
+
+        ```yaml
+          - FileList:
+              sftp_config:
+                host: 10.0.22.233
+                username: jlara
+                client_keys: ~/.ssh/jesuslara.pem
+                directory: /nfs/symbits/epson/files/sales
+              pattern: 'SELLTHRU_TROC_*.TXT'
+              iterate: true
+              to_group: download_sales
+          - DownloadFromSFTP:
+              Group: download_sales
+              host: 10.0.22.233
+              credentials:
+                username: jlara
+                client_keys: ~/.ssh/jesuslara.pem
+                known_hosts: null
+              directory: /home/ubuntu/symbits/epson/files/sales/
+        ```
     """
     _version = "1.0.0"
 
@@ -107,8 +129,38 @@ class DownloadFromSFTP(SSHClient, DownloadFromBase):
         self.whole_dir: bool = False
         super().__init__(loop=loop, job=job, stat=stat, **kwargs)
 
+    def _files_from_input(self) -> list[str]:
+        """Remote paths received from the previous component (`self.input`).
+
+        Accepts a single path (e.g. the current item of a `FileList`
+        iteration) or a list of paths (e.g. `FileList` with `iterate: false`).
+
+        Returns:
+            The remote paths as strings, empty when the input carries no paths.
+        """
+        if not self.previous:
+            return []
+        data = self.input
+        if isinstance(data, (str, PurePath)):
+            data = [data]
+        if not isinstance(data, (list, tuple)):
+            return []
+        if not all(isinstance(item, (str, PurePath)) for item in data):
+            return []
+        return [str(item) for item in data]
+
     async def start(self, **kwargs):
         await super(DownloadFromSFTP, self).start(**kwargs)
+        if not self._srcfiles and not self.filename:
+            # no source of its own: download what the previous component sent
+            self._srcfiles = self._files_from_input()
+            if not self._srcfiles:
+                raise ComponentError(
+                    "DownloadFromSFTP: no file to download, define file/source/filename "
+                    "or chain it after a component that outputs remote paths (e.g. FileList)"
+                )
+            if len(self._srcfiles) == 1:
+                self.filename = self._srcfiles[0]
         if hasattr(self, "source"):
             self.whole_dir = (
                 self.source["whole_dir"] if "whole_dir" in self.source else False
@@ -129,10 +181,13 @@ class DownloadFromSFTP(SSHClient, DownloadFromBase):
             self.rename = Path("{}/{}".format(self.directory, self.rename))
         if self.rename is not None:
             self.local_name = self.rename
-        else:
+        elif self.filename:
             self.local_name = Path(
                 "{}/{}".format(self.directory, PurePath(self.filename).name)
             )
+        else:
+            # several files from the input: there is no single local name
+            self.local_name = Path(self.directory)
         return True
 
     def download_progress(self, srcpath, dstpath, bytes_copied, total_bytes):

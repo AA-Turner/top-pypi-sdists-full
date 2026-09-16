@@ -5,6 +5,8 @@ stage = "dev"
 region = "us-east-1"
 use_db_header = true
 manifest_enabled = true
+# The Geneva integration suite declares and backfills UDF columns.
+derived_compute_enabled = true
 
 # geneva should still work when phalanx is configured with weak read consistency
 weak_read_consistency_interval_seconds=30

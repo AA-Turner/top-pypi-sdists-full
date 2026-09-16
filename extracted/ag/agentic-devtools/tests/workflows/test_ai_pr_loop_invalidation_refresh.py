@@ -168,13 +168,18 @@ def _install_provider_seams(stack: ExitStack, github: _FakeGitHub) -> MagicMock:
     _patch("count_commits_behind", return_value=0)
     _patch("list_pr_issue_events", return_value=[])
     _patch("list_issue_comments", return_value=[])
+    # This fixture uses the live file-list seam; do not invoke the provider's
+    # exact-HEAD inventory implementation.
+    stack.enter_context(patch.object(GitHubActionsProvider, "compute_diff_files", None))
+    _patch("get_ref_sha", return_value="base-sha")
+    _patch("get_pr_token_login", return_value="trusted-bot")
+    _patch("compute_diff_hash", return_value="patch-id:preserved")
 
     # --- finalize_post_repair seams (the method body itself stays real) --
     _patch("_build_verification_context_diff", return_value="diff content")
     _patch("_list_addressed_reply_parent_comment_ids", return_value=set())
     _patch("_list_abandoned_reply_parent_comment_ids", return_value=set())
     _patch("_list_unresolve_reply_parent_comment_ids", return_value=set())
-    _patch("_list_unconfirmed_resolved_comment_ids", return_value=set())
     _patch("_reply_to_review_comment", return_value=None)
     _patch(
         "_verify_comments_via_tiered_engine",
@@ -182,14 +187,24 @@ def _install_provider_seams(stack: ExitStack, github: _FakeGitHub) -> MagicMock:
     )
 
     # --- Side effects ----------------------------------------------------
+    _patch("post_comment_as_pr_token", return_value=1)
     _patch("squash_post_repair", side_effect=github.squash)
     request_reviewer = _patch("request_reviewer", return_value=None)
 
     # Real GraphQL thread query, faked transport: this is what fills the cache.
+    def _fake_gh_api(endpoint: str, *_args: Any, **_kwargs: Any) -> str:
+        if endpoint == "graphql":
+            return github.thread_signals_payload()
+        if endpoint.endswith(f"/issues/{PR_NUMBER}/comments"):
+            return "[]"
+        if endpoint.endswith("/git/ref/heads/main"):
+            return json.dumps({"object": {"sha": "base-sha"}})
+        raise AssertionError(f"Unexpected _gh_api endpoint in invalidation-refresh test: {endpoint}")
+
     stack.enter_context(
         patch(
             "agentic_devtools.cli.ci.github_provider._gh_api",
-            side_effect=lambda *_a, **_kw: github.thread_signals_payload(),
+            side_effect=_fake_gh_api,
         )
     )
     stack.enter_context(

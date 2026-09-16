@@ -329,6 +329,22 @@ def validate_json_block(content: str, block_type: str) -> dict[str, Any]:
             ),
         }
 
+    # Registered user-authored kinds are verified by the canonical envelope
+    # assembler after parsing. They deliberately have no entry in the legacy
+    # JSON_BLOCK_PATTERNS table, so treating that absence as a validation failure
+    # downgraded even complete bodies before the schema boundary could either
+    # stamp a verified envelope or capture a contract rejection.
+    if block_type == KIND_BLOCK_TYPE:
+        try:
+            parsed = json.loads(trimmed)
+        except (json.JSONDecodeError, ValueError):
+            return {"is_complete": False, "should_show": False}
+        return {
+            "is_complete": isinstance(parsed, dict),
+            "should_show": isinstance(parsed, dict),
+            "metadata": {"isComplete": isinstance(parsed, dict)},
+        }
+
     if _contains_placeholder_text(trimmed):
         return {"is_complete": False, "should_show": False}
 
@@ -1025,6 +1041,10 @@ def _json_backtick_inside_string(
 # deliverable blocks remain eligible for embedded-kind recovery.
 _ROOT_KIND_BLOCK_TYPES = frozenset(
     {
+        # A registered self-described kind owns its whole JSON container. If it
+        # falls into embedded-kind recovery, that recovery re-wraps it as code
+        # and bypasses the canonical envelope validation/capture boundary.
+        KIND_BLOCK_TYPE,
         *JSON_BLOCK_PATTERNS.keys(),
         "transcript",
         "tasks",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: apache-tvm-ffi
-Version: 0.1.13.post3
+Version: 0.1.14
 Summary: tvm ffi
 Keywords: machine learning,inference
 Author: TVM FFI team
@@ -13,7 +13,7 @@ Classifier: Intended Audience :: Science/Research
 Project-URL: Homepage, https://github.com/apache/tvm-ffi
 Project-URL: GitHub, https://github.com/apache/tvm-ffi
 Requires-Python: >=3.9
-Requires-Dist: typing-extensions>=4.5
+Requires-Dist: typing-extensions>=4.13
 Provides-Extra: cpp
 Requires-Dist: ninja; extra == "cpp"
 Description-Content-Type: text/markdown

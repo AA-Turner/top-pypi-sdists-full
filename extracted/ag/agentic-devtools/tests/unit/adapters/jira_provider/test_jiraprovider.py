@@ -11,6 +11,7 @@ import pytest
 
 from agentic_devtools.adapters.exceptions import AdapterValidationError
 from agentic_devtools.adapters.issue_provider import (
+    DefinitiveCreationFailure,
     HierarchyValidationProvider,
     IssueProvider,
     ProviderIssueResult,
@@ -184,13 +185,18 @@ class TestJiraProviderNormalizeIssueType:
 
     def test_invalid_type_raises_valueerror(self):
         provider = JiraProvider(project_key="PROJ", base_url="https://jira.example.com", session=_make_mock_session())
-        with pytest.raises(ValueError, match="Unsupported issue type"):
+        with pytest.raises(DefinitiveCreationFailure, match="Unsupported issue type"):
             provider._normalize_issue_type("story")
 
     def test_invalid_type_error_includes_sorted_valid_types(self):
         provider = JiraProvider(project_key="PROJ", base_url="https://jira.example.com", session=_make_mock_session())
-        with pytest.raises(ValueError, match=r"\['bug', 'epic', 'feature', 'subtask', 'task'\]"):
+        with pytest.raises(DefinitiveCreationFailure, match=r"\['bug', 'epic', 'feature', 'subtask', 'task'\]"):
             provider._normalize_issue_type("invalid")
+
+    def test_empty_type_raises_definitive_creation_failure(self):
+        provider = JiraProvider(project_key="PROJ", base_url="https://jira.example.com", session=_make_mock_session())
+        with pytest.raises(DefinitiveCreationFailure, match="non-empty string"):
+            provider._normalize_issue_type("")
 
 
 # ======================================================================
@@ -221,7 +227,7 @@ class TestJiraProviderCreateIssue:
     def test_create_issue_dry_run_invalid_type_raises(self):
         session = _make_mock_session()
         provider = JiraProvider(project_key="PROJ", base_url="https://jira.example.com", session=session)
-        with pytest.raises(ValueError, match="Unsupported issue type"):
+        with pytest.raises(DefinitiveCreationFailure, match="Unsupported issue type"):
             provider.create_issue("Title", "Body", "invalid-type", dry_run=True)
         session.request.assert_not_called()
 

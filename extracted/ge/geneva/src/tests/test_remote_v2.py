@@ -679,25 +679,245 @@ class TestV2Routing:
         req = ns.alter_table_add_columns.call_args[0][0]
         assert req.new_columns[0].virtual_column.input_columns == ["MetaData.UserId"]
 
-    def test_add_columns_unpacked_udf_not_supported(self, table) -> None:
-        """Remote multi-output UDF support is tracked separately in GEN-468."""
+    def test_add_columns_unpacked_udf_serializes_grouped_outputs(self, table) -> None:
+        """A Columns[T] UDF is one virtual-column request with sibling outputs."""
+        import json
         from typing import NamedTuple
 
+        import cloudpickle
+        import pyarrow as pa
+
         from geneva import Columns, udf
+        from geneva.packager import DockerUDFSpecV1, UDFSpec
 
         class Dimensions(NamedTuple):
             height: int
             width: int
 
-        @udf
+        @udf(field_metadata={"shared": "value"})
         def dimensions(a: int) -> Columns[Dimensions]:
             return Dimensions(a + 1, a + 2)
 
-        with pytest.raises(NotImplementedError, match="does not yet support"):
-            table.add_columns(dimensions)
+        dimensions.data_type = pa.struct(
+            [
+                pa.field(
+                    "height",
+                    pa.int32(),
+                    nullable=False,
+                    metadata={"unit": "cm"},
+                ),
+                pa.field(
+                    "width",
+                    pa.float64(),
+                    nullable=True,
+                    metadata={"unit": "mm"},
+                ),
+            ]
+        )
+        table._conn._packager = MagicMock()
+        table._conn._packager.marshal.return_value = UDFSpec(
+            name="dimensions",
+            backend="DockerUDFSpecV1",
+            udf_payload=DockerUDFSpecV1(
+                image="test-image",
+                tag="latest",
+                workspace_checksum=None,
+                udf_pickle=cloudpickle.dumps(dimensions),
+            ).to_bytes(),
+        )
 
         ns = table._conn.namespace_client()
+        table.add_columns(dimensions)
+
+        ns.alter_table_add_columns.assert_called_once()
+        table._conn._packager.marshal.assert_called_once()
+        request = ns.alter_table_add_columns.call_args.args[0]
+        assert len(request.new_columns) == 1
+        column = request.new_columns[0]
+        assert column.name == "height"
+        virtual_column = column.virtual_column
+        assert virtual_column.input_columns == ["a"]
+        assert virtual_column.field_metadata == {"shared": "value"}
+        assert len(virtual_column.outputs) == 2
+
+        height, width = virtual_column.outputs
+        assert (height.column, height.struct_field) == ("height", "height")
+        assert height.data_type == {"type": "int32"}
+        assert height.nullable is False
+        assert height.metadata["unit"] == "cm"
+        assert (width.column, width.struct_field) == ("width", "width")
+        assert width.data_type == {"type": "double"}
+        assert width.nullable is True
+        assert width.metadata["unit"] == "mm"
+
+        expected_fields = [
+            {"field": "height", "column": "height"},
+            {"field": "width", "column": "width"},
+        ]
+        for output, field_name in ((height, "height"), (width, "width")):
+            assert output.metadata["shared"] == "value"
+            assert output.metadata["virtual_column.unpack"] == "true"
+            assert output.metadata["virtual_column.unpack_field"] == field_name
+            assert json.loads(output.metadata["virtual_column.unpack_fields"]) == (
+                expected_fields
+            )
+        assert (
+            height.metadata["virtual_column.unpack_group"]
+            == width.metadata["virtual_column.unpack_group"]
+        )
+
+        ns.reset_mock()
+        with pytest.raises(ValueError, match="must be added directly"):
+            table.add_columns({"height": dimensions})
         ns.alter_table_add_columns.assert_not_called()
+
+    def test_add_columns_unpacked_udf_preserves_nested_blob_metadata(
+        self, table
+    ) -> None:
+        """Nested Arrow field metadata survives the namespace JSON payload."""
+        from typing import NamedTuple
+
+        import cloudpickle
+        import pyarrow as pa
+
+        from geneva import Columns, udf
+        from geneva.packager import DockerUDFSpecV1, UDFSpec
+
+        class Asset(NamedTuple):
+            mime_type: str
+            payload: bytes
+
+        class Enrichment(NamedTuple):
+            label: str
+            asset: Asset
+
+        asset_type = pa.struct(
+            [
+                pa.field("mime_type", pa.string()),
+                pa.field(
+                    "payload",
+                    pa.large_binary(),
+                    metadata={b"lance-encoding:blob": b"true"},
+                ),
+            ]
+        )
+        output_type = pa.struct(
+            [
+                pa.field("label", pa.string()),
+                pa.field("asset", asset_type),
+            ]
+        )
+
+        @udf(data_type=output_type)
+        def enrich(a: int) -> Columns[Enrichment]:
+            return Enrichment(str(a), Asset("text/plain", str(a).encode()))
+
+        table._conn._packager = MagicMock()
+        table._conn._packager.marshal.return_value = UDFSpec(
+            name="enrich",
+            backend="DockerUDFSpecV1",
+            udf_payload=DockerUDFSpecV1(
+                image="test-image",
+                tag="latest",
+                workspace_checksum=None,
+                udf_pickle=cloudpickle.dumps(enrich),
+            ).to_bytes(),
+        )
+
+        ns = table._conn.namespace_client()
+        table.add_columns(enrich)
+
+        request = ns.alter_table_add_columns.call_args.args[0]
+        asset = request.new_columns[0].virtual_column.outputs[1]
+        assert asset.data_type == {
+            "type": "struct",
+            "fields": [
+                {
+                    "name": "mime_type",
+                    "type": {"type": "string"},
+                    "nullable": True,
+                },
+                {
+                    "name": "payload",
+                    "type": {"type": "large_binary"},
+                    "nullable": True,
+                    "metadata": {"lance-encoding:blob": "true"},
+                },
+            ],
+        }
+
+    def test_backfill_async_records_full_unpack_group(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        import json
+
+        import pyarrow as pa
+
+        from geneva import connect
+
+        fields = [
+            {"field": "height", "column": "height"},
+            {"field": "width", "column": "width"},
+        ]
+        shared_metadata = {
+            "virtual_column": "true",
+            "virtual_column.udf_inputs": json.dumps(["a"]),
+            "virtual_column.unpack": "true",
+            "virtual_column.unpack_group": "dimensions-group",
+            "virtual_column.unpack_fields": json.dumps(fields),
+        }
+        schema = pa.schema(
+            [
+                pa.field("a", pa.int64()),
+                pa.field(
+                    "height",
+                    pa.int64(),
+                    metadata=shared_metadata
+                    | {"virtual_column.unpack_field": "height"},
+                ),
+                pa.field(
+                    "width",
+                    pa.int64(),
+                    metadata=shared_metadata | {"virtual_column.unpack_field": "width"},
+                ),
+            ]
+        )
+        db = connect(str(tmp_path))
+        table = db.create_table(
+            "grouped",
+            pa.table(
+                {"a": [1], "height": [2], "width": [3]},
+                schema=schema,
+            ),
+        )
+        table_uri = table.uri
+        monkeypatch.setattr(type(table._conn), "is_remote_uri", lambda self: True)
+        table._conn._ns_client_mock = MagicMock()
+        table._conn._ns_client_mock.describe_table.return_value.location = table_uri
+        table._conn._ns_client_mock.alter_table_backfill_columns.return_value = (
+            MagicMock(job_id="group-job")
+        )
+        monkeypatch.setattr(
+            type(table._conn),
+            "namespace_client",
+            lambda self: self._ns_client_mock,
+        )
+        table._conn._history = MagicMock()
+
+        job = table.backfill_async("width")
+
+        request = (
+            table._conn._ns_client_mock.alter_table_backfill_columns.call_args.args[0]
+        )
+        assert request.column == "width"
+        assert job.column_names == ["height", "width"]
+        table._conn._history.launch.assert_called_once_with(
+            "grouped",
+            "width",
+            job_id="group-job",
+            input_columns=["a"],
+            output_columns=["height", "width"],
+        )
 
     @pytest.mark.skip(
         reason="manifest/auto_backfill fields not yet in AddVirtualColumnEntry schema"
@@ -780,6 +1000,37 @@ class TestV2Routing:
         assert alt.virtual_column.input_columns == ["a"]
         table_ref = table._conn._packager.marshal.call_args.kwargs["table_ref"]
         assert table_ref.table_id == table._table_id
+
+    def test_alter_columns_rejects_unpacked_sibling_before_remote_dispatch(
+        self, table
+    ) -> None:
+        """Remote routing cannot mutate one member of an unpack group."""
+        import json
+
+        import pyarrow as pa
+
+        fields = [
+            {"field": "height", "column": "height"},
+            {"field": "width", "column": "width"},
+        ]
+        metadata = {
+            "virtual_column.unpack": "true",
+            "virtual_column.unpack_group": "dimensions-group",
+            "virtual_column.unpack_fields": json.dumps(fields),
+        }
+        table._ltbl = MagicMock()
+        table._ltbl.schema = pa.schema(
+            [
+                pa.field("height", pa.int64(), metadata=metadata),
+                pa.field("width", pa.int64(), metadata=metadata),
+            ]
+        )
+        ns = table._conn.namespace_client()
+
+        with pytest.raises(ValueError, match="multi-column UDF group"):
+            table.alter_columns({"path": "height", "rename": "renamed_height"})
+
+        ns.alter_table_alter_columns.assert_not_called()
 
     def test_alter_columns_requires_path(self, table) -> None:
         with pytest.raises(ValueError, match="path is required"):

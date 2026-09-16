@@ -153,6 +153,10 @@ class TestCIPlatformProvider:
         assert isinstance(result, list)
         assert all(isinstance(r, ReviewInfo) for r in result)
 
+    def test_list_pr_session_summaries_returns_empty_by_default(self) -> None:
+        """Base providers have no optional Copilot session enrichment."""
+        assert _ConcreteProvider().list_pr_session_summaries(1) == []
+
     def test_post_comment_returns_int(self) -> None:
         provider = _ConcreteProvider()
         result = provider.post_comment(1, "hello")
@@ -249,6 +253,11 @@ class TestCIPlatformProvider:
                 head_branch="feat",
             )
 
+    def test_delete_comment_default_raises_not_implemented(self) -> None:
+        provider = _ConcreteProvider()
+        with pytest.raises(NotImplementedError, match="does not implement delete_comment"):
+            provider.delete_comment(1)
+
     def test_get_pr_diff_default_raises_not_implemented(self) -> None:
         provider = _ConcreteProvider()
         with pytest.raises(NotImplementedError, match="does not implement get_pr_diff"):
@@ -258,6 +267,16 @@ class TestCIPlatformProvider:
         """Base class get_ref_sha degrades to an empty string."""
         provider = _ConcreteProvider()
         assert provider.get_ref_sha("main") == ""
+
+    def test_compute_diff_hash_default_returns_none(self) -> None:
+        """Base class diff fingerprint capability is optional."""
+        provider = _ConcreteProvider()
+        assert provider.compute_diff_hash(base_branch="main", sha="head") is None
+
+    def test_compute_diff_files_default_returns_none(self) -> None:
+        """Base class diff file inventory capability is optional."""
+        provider = _ConcreteProvider()
+        assert provider.compute_diff_files(base_branch="main", sha="head") is None
 
     def test_get_commit_range_diff_default_raises_not_implemented(self) -> None:
         provider = _ConcreteProvider()

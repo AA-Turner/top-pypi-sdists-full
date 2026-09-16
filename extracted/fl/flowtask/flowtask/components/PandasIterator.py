@@ -7,8 +7,12 @@ import pandas
 import numpy as np
 from navconfig.logging import logging
 from asyncdb.exceptions import NoDataFound, ProviderError
-from ..exceptions import ComponentError, NotSupported, DataNotFound
+from ..exceptions import ComponentError, NotSupported, DataNotFound, FileNotFound
 from .IteratorBase import IteratorBase, ThreadJob
+from ..interfaces.skip_policy import (
+    ConsecutiveFailureTracker,
+    SKIPPED_ITERATION,
+)
 
 
 class PandasIterator(IteratorBase):
@@ -141,12 +145,14 @@ class PandasIterator(IteratorBase):
         step, target, params = self.get_step()
         step_name = step.name
         i = 0
+        tracker = ConsecutiveFailureTracker(self.max_consecutive_failures)
         if self._parallelize is True:
             # parallelized execution
             threads = []
             # Limit the number of concurrent threads to 10
             semaphore = Semaphore(self._num_threads)
             for _, row in self._iterator:
+                i += 1
                 job = self.createJob(target, params, row)
                 if job:
                     thread = ThreadJob(job, step_name, semaphore)
@@ -157,8 +163,26 @@ class PandasIterator(IteratorBase):
                 thread.join()
 
                 # check if thread raised any exceptions
-                if thread.exc:
+                if thread.exc is not None:
+                    if isinstance(thread.exc, (NoDataFound, DataNotFound, FileNotFound)):
+                        # D3: continue INCONDICIONAL, y NO cuenta para el
+                        # umbral — paridad con el camino secuencial.
+                        self._logger.debug(
+                            f"Data not Found for {step_name}, got: {thread.exc}"
+                        )
+                        continue
                     raise thread.exc
+                # check if iteration was skipped
+                if thread.result is SKIPPED_ITERATION:
+                    should_abort = tracker.record_skip(ComponentError("Skipped iteration"))
+                    if should_abort:
+                        tracker.publish(self)
+                        raise ComponentError(
+                            f"PandasIterator: Aborted due to {tracker.consecutive} consecutive failures. Last error: {tracker.last_error}"
+                        ) from tracker.last_error
+                else:
+                    self._result = thread.result
+                    tracker.record_success()
         else:
             for _, row in self._iterator:
                 i += 1
@@ -167,26 +191,34 @@ class PandasIterator(IteratorBase):
                 job = self.createJob(target, params, row)
                 if job:
                     try:
-                        self._result = await self.async_job(job, step_name)
-                    except (NoDataFound, DataNotFound) as err:
-                        # its a data component a no data was found
+                        result = await self.async_job(job, step_name)
+                    except (NoDataFound, DataNotFound, FileNotFound) as err:
+                        # D3: continue INCONDICIONAL, y NO cuenta para el umbral.
                         self._logger.notice(
                             f"Data not Found for Task {step_name}, got: {err}"
                         )
                         continue
-                    except (ProviderError, ComponentError) as err:
-                        raise ComponentError(
-                            f"Error on {step_name}, error: {err}"
-                        ) from err
-                    except NotSupported as err:
-                        raise NotSupported(f"Not Supported: {err}") from err
+                    except (ProviderError, ComponentError, NotSupported):
+                        # async_job ya consulto skipError: si llega aqui era ENFORCE.
+                        raise
                     except Exception as err:
                         raise ComponentError(
                             f"Component Error {step_name}, error: {err}"
                         ) from err
-                    finally:
-                        await self.close(job)
+                    
+                    if result is SKIPPED_ITERATION:
+                        should_abort = tracker.record_skip(ComponentError(f"Skipped iteration at row {i}"))
+                        if should_abort:
+                            tracker.publish(self)
+                            raise ComponentError(
+                                f"PandasIterator: Aborted due to {tracker.consecutive} consecutive failures at row {i}. Last error: {tracker.last_error}"
+                            ) from tracker.last_error
+                    else:
+                        # Only update self._result if it's not a skipped iteration
+                        self._result = result
+                        tracker.record_success()
         self._logger.debug(f"Iterations: {i}")
         self.add_metric("ITERATIONS", i)
+        tracker.publish(self)
         # returning last value generated by iteration
         return self._result

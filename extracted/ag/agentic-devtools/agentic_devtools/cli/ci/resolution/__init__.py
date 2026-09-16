@@ -3,9 +3,10 @@
 Public API exports for the resolution engine, protocols, and models.
 """
 
+from agentic_devtools.cli.ci.models import CopilotSessionSummary
 from agentic_devtools.cli.ci.resolution.engine import TieredResolutionEngine
 from agentic_devtools.cli.ci.resolution.github_adapter import GitHubReviewThread, GitHubThreadAdapter
-from agentic_devtools.cli.ci.resolution.models import ResolutionVerdict, TierResult
+from agentic_devtools.cli.ci.resolution.models import ResolutionBasis, ResolutionVerdict, TierResult
 from agentic_devtools.cli.ci.resolution.protocols import EvaluationTier, ReviewThread
 
 __all__ = [
@@ -13,7 +14,9 @@ __all__ = [
     "GitHubReviewThread",
     "GitHubThreadAdapter",
     "ResolutionVerdict",
+    "ResolutionBasis",
     "ReviewThread",
     "TierResult",
     "TieredResolutionEngine",
+    "CopilotSessionSummary",
 ]

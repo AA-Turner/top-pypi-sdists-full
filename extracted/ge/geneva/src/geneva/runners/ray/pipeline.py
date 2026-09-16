@@ -8,6 +8,7 @@ import logging
 import os
 import random
 import re
+import socket
 import threading
 import time
 import uuid
@@ -56,6 +57,7 @@ from geneva.apply.error_handling import (
     SkipBudgetTracker,
     get_error_handling_config,
     get_max_attempts,
+    has_hardware_fault,
     make_skip_budget_tracker,
 )
 from geneva.apply.multiprocess import MultiProcessBatchApplier
@@ -115,6 +117,7 @@ from geneva.errors import (
     FatalWorkerCrashError,
     FatalWorkerError,
     FatalWorkerExitError,
+    FatalWorkerHardwareError,
     FatalWorkerOOMError,
     FatalWorkerTransientError,
     MergeFallbackTargetError,
@@ -241,7 +244,7 @@ from geneva.utils.parse_rust_debug import (
     extract_field_ids,
     extract_field_ids_and_column_indices,
 )
-from geneva.utils.ray import CPU_ONLY_NODE, head_pin_options
+from geneva.utils.ray import CPU_ONLY_NODE, cpu_only_pool_resources, head_pin_options
 from geneva.utils.schema import canonical_field_paths, resolve_arrow_field_path
 
 _LOG = logging.getLogger(__name__)
@@ -796,6 +799,7 @@ def _normalize_fatal_worker_error(
                 FatalWorkerOOMError,
                 FatalWorkerCrashError,
                 FatalWorkerTransientError,
+                FatalWorkerHardwareError,
                 FatalWorkerExitError,
                 ShortFragmentWriteError,
                 MergeFallbackTargetError,
@@ -886,6 +890,16 @@ def _default_worker_loss_policy(
         return None
     if isinstance(exc, FatalWorkerCrashError):
         return resolve_on_error([Skip(FatalWorkerCrashError)])
+    if isinstance(exc, FatalWorkerHardwareError):
+        # No Skip: a fault that persists across workers fails the job.
+        return resolve_on_error(
+            [
+                Retry(
+                    FatalWorkerHardwareError,
+                    max_attempts=DEFAULT_FATAL_WORKER_MAX_ATTEMPTS,
+                )
+            ]
+        )
     return resolve_on_error(
         [
             Retry(FatalWorkerError, max_attempts=DEFAULT_FATAL_WORKER_MAX_ATTEMPTS),
@@ -1074,6 +1088,8 @@ class ApplierActor:  # pyright: ignore[reportRedeclaration]
             raise  # Let threshold errors propagate with their type intact.
         except Exception as exc:
             span_exc = exc
+            if has_hardware_fault(exc):
+                exc = _attribute_hardware_fault(exc)
             raise _picklable_remote_error(exc) from None
         finally:
             telemetry.end_job_span(span, span_token, span_exc)
@@ -1261,7 +1277,10 @@ def _run_pipeline(
     Run the column adding pipeline.
 
     Args:
-    * use_cpu_only_pool: If True will force schedule cpu-only actors on cpu-only nodes.
+    * use_cpu_only_pool: If True will force schedule cpu-only actors on
+      cpu-only nodes via the 'cpu-only' custom resource. Ignored (with a
+      warning) when the UDF declares num_gpus > 0, since CPU-only nodes
+      carry no GPUs. Raises when no live node advertises the resource.
 
     """
     job_id = job_id or uuid.uuid4().hex
@@ -1698,9 +1717,21 @@ class ColumnAddPipelineJob:
         num_gpus = self.map_task.num_gpus()
         if num_gpus and num_gpus > 0:
             args["num_gpus"] = num_gpus
+            if self.use_cpu_only_pool:
+                _LOG.warning(
+                    "use_cpu_only_pool=True is ignored for UDF '%s': it "
+                    "declares num_gpus=%s, and CPU-only nodes carry no "
+                    "GPUs, so the applier is placed by its GPU request "
+                    "instead. Drop num_gpus from the UDF to keep the "
+                    "CPU-only placement.",
+                    self._udf_label(),
+                    num_gpus,
+                )
         elif self.use_cpu_only_pool:
             _LOG.info("Using CPU only pool for applier, setting %s to 1", CPU_ONLY_NODE)
-            args["resources"] = {CPU_ONLY_NODE: 1}  # type: ignore[assignment]
+            # Preflight: an unadvertised resource would leave the actor
+            # pending forever, so cpu_only_pool_resources fails fast.
+            args["resources"] = cpu_only_pool_resources()  # type: ignore[assignment]
         # An actor with no ``memory`` is not scheduled conservatively -- Ray
         # leaves it out of memory accounting entirely and packs by CPU alone,
         # so a backfill UDF that declares nothing gets the configured floor
@@ -1874,6 +1905,7 @@ class ColumnAddPipelineJob:
             job_tracker=self.job_tracker,
             worker_metric="workers",
             resubmit_on_actor_failure=False,
+            actor_num_gpus=self.map_task.num_gpus(),
         )
         return pool
 
@@ -3028,7 +3060,7 @@ class ColumnAddPipelineJob:
                             f"{PIPELINE_STALL_TIMEOUT_S}s (cluster status age "
                             f"{self._cluster_status_age_str()}). "
                             f"Worker pod status:\n{diag}"
-                        ) from None
+                        ) from pool.last_hardware_fault
                     if self._metric_buffer is not None:
                         self._metric_buffer.flush()
                     continue
@@ -3305,6 +3337,12 @@ class FragmentWriterSession:
     def _start_writer(self) -> None:
         if self.started:
             return
+        if not ray.is_initialized():
+            raise RuntimeError(
+                "Cannot start a FragmentWriterSession before Ray is initialized. "
+                "Use conn.local_ray_context() for local execution or enter a "
+                "Geneva cluster context first."
+            )
         # Create queue with num_cpus=0 so it doesn't consume scheduling resources
         self.queue = ray.util.queue.Queue(actor_options={"num_cpus": 0})
         rc = PipelineResourceConfig.get()
@@ -8387,15 +8425,12 @@ def run_ray_copy_table(
             and src_version != base_version
         ):
             raise ValueError(
-                f"Cannot refresh chunker materialized view to source version "
-                f"{src_version} because the source table does not have stable "
-                "row IDs enabled.\n\n"
-                f"This chunker materialized view was created from source "
-                f"version {base_version}. Without stable row IDs, refresh is "
-                "only supported when refreshing to the same source version it "
-                "was created from.\n\n"
-                "To refresh across source versions, recreate the source table "
-                "with stable row IDs enabled."
+                f"Cannot refresh this chunker materialized view to source "
+                f"version {src_version}: it is pinned to source version "
+                f"{base_version}.\n\n"
+                f"Use refresh(src_version={base_version}). Note that the view "
+                "will not pick up rows written to the source after version "
+                f"{base_version}."
             )
 
     # Check for point-in-time refresh (rollback to older version)
@@ -8956,6 +8991,10 @@ def dispatch_run_ray_add_column(
     default_where_generated: bool = False,
     unpack_fields: tuple[UnpackedUDFField, ...] | None = None,
     checkpoint_column: str | None = None,
+    num_cpus: float | None = None,
+    num_gpus: float | None = None,
+    memory: int | None = None,
+    resource_metadata: dict[str, Any] | None = None,
     enable_job_tracker_saves: bool = True,
     job_tracker_min_update_interval_secs: float | None = None,
     job_id: str | None = None,
@@ -8967,6 +9006,8 @@ def dispatch_run_ray_add_column(
 
     If ``job_id`` is provided, reuse it for the job record and tracker
     instead of generating a new one.
+
+    ``resource_metadata`` goes on the job record only, never to the driver.
     """
     if "task_size" in kwargs and task_size is None:
         task_size = kwargs.pop("task_size")
@@ -9040,6 +9081,7 @@ def dispatch_run_ray_add_column(
         cluster_name=cluster_name,
         input_columns=input_columns,
         output_columns=output_columns,
+        **(resource_metadata or {}),
         **kwargs,
     )
     # Job record now exists (PENDING); mark the bring-up/provisioning phase.
@@ -9101,6 +9143,9 @@ def dispatch_run_ray_add_column(
             default_where_generated=default_where_generated,  # type: ignore[call-arg]
             unpack_fields=unpack_fields,  # type: ignore[call-arg]
             checkpoint_column=checkpoint_column,  # type: ignore[call-arg]
+            num_cpus=num_cpus,  # type: ignore[call-arg]
+            num_gpus=num_gpus,  # type: ignore[call-arg]
+            memory=memory,  # type: ignore[call-arg]
             parent_carrier=parent_carrier,  # type: ignore[call-arg]
             **kwargs,
         ),
@@ -9585,6 +9630,9 @@ def run_ray_add_column_remote(
     default_where_generated: bool = False,
     unpack_fields: tuple[UnpackedUDFField, ...] | None = None,
     checkpoint_column: str | None = None,
+    num_cpus: float | None = None,
+    num_gpus: float | None = None,
+    memory: int | None = None,
     job_tracker: ActorHandle | None = None,
     parent_carrier: dict | None = None,
     **kwargs,
@@ -9685,6 +9733,11 @@ def run_ray_add_column_remote(
                 commit_granularity=commit_granularity,
                 job_tracker=job_tracker,
                 job_id=job_id or "local",
+                is_generated_resume_filter=default_where_generated,
+                num_cpus=num_cpus,
+                num_gpus=num_gpus,
+                memory=memory,
+                use_cpu_only_pool=bool(kwargs.get("use_cpu_only_pool", False)),
             )
             if job_id:
                 hist.set_completed(job_id)
@@ -9724,6 +9777,9 @@ def run_ray_add_column_remote(
             default_where_generated=default_where_generated,
             unpack_fields=unpack_fields,
             checkpoint_column=checkpoint_column,
+            num_cpus=num_cpus,
+            num_gpus=num_gpus,
+            memory=memory,
             job_tracker=job_tracker,
             **kwargs,
         )
@@ -9800,6 +9856,25 @@ def _require_pipelining_for_preprocess(udf: UDF, enable_gpu_pipelining: bool) ->
             f"pipelining via JobConfig (enable_gpu_pipelining=True) or "
             f"the env var JOB__ENABLE_GPU_PIPELINING=true."
         )
+
+
+def _attribute_hardware_fault(exc: Exception) -> FatalWorkerHardwareError:
+    """Name the worker (node, host, GPUs) that reported a GPU hardware fault."""
+    node_id = host = gpus = "unknown"
+    with contextlib.suppress(Exception):
+        node_id = ray.get_runtime_context().get_node_id()
+    with contextlib.suppress(Exception):
+        host = socket.gethostname()
+    with contextlib.suppress(Exception):
+        gpus = ",".join(str(gpu) for gpu in ray.get_gpu_ids()) or "none"
+    message = (
+        str(exc)
+        if isinstance(exc, FatalWorkerHardwareError)
+        else _exception_chain_message(exc)
+    )
+    return FatalWorkerHardwareError(
+        f"{message} [node={node_id} host={host} gpu={gpus}]"
+    )
 
 
 def _picklable_remote_error(exc: Exception) -> Exception:
@@ -9995,6 +10070,9 @@ def run_ray_add_column(
     default_where_generated: bool = False,
     unpack_fields: tuple[UnpackedUDFField, ...] | None = None,
     checkpoint_column: str | None = None,
+    num_cpus: float | None = None,
+    num_gpus: float | None = None,
+    memory: int | None = None,
     job_tracker=None,
     **kwargs,
 ) -> None:
@@ -10183,7 +10261,7 @@ def run_ray_add_column(
     if any(t.has_preprocess() for t in transforms.values()):
         cols = _filter_to_source_columns(cols, table._ltbl.schema)
 
-    # Respect backfill's batch_size override by passing it into the task.
+    # backfill() overrides ride the task; setup_actor reads them from there.
     map_task = BackfillUDFTask(
         udfs=transforms,
         where=where,
@@ -10194,6 +10272,10 @@ def run_ray_add_column(
         unpack_fields=unpack_fields,
         checkpoint_column=checkpoint_column,
         defer_carry_forward=defer_carry_forward,
+        use_blob_v2=table._uses_blob_v2_storage(),
+        override_num_cpus=num_cpus,
+        override_num_gpus=num_gpus,
+        override_memory=memory,
     )
 
     telemetry.set_span_attrs(

@@ -237,7 +237,7 @@ class OpenWithBase(FlowComponent):
                 raise ValueError(f"Column Info: Flavor not supported yet: {flavor}")
             if result:
                 return {item["column_name"]: item["data_type"] for item in result}
-        model = await open_model(table, schema)
+        model = await open_model(table, schema, path=self._taskstore.get_path())
         if model:
             fields = model["fields"]
             return {field: fields[field]["data_type"] for field in fields}
@@ -257,7 +257,6 @@ class OpenWithBase(FlowComponent):
             self.filename = self.input
             self._filenames.append(self.input)
         elif isinstance(self.input, list):
-            self._data = []
             for filename in self.input:
                 # check if is a MailMessage Object
                 if isinstance(filename, MailMessage):
@@ -269,14 +268,19 @@ class OpenWithBase(FlowComponent):
                     self.filename = filename
                     self._filenames.append(filename)
                 elif isinstance(filename, str):
+                    # e.g. the local paths returned by DownloadFrom* components
                     fname = self.mask_replacement(filename)
-                    if "*" in fname:
-                        listing = list(self.directory.glob(fname))
-                        for fname in listing:
-                            logging.debug(f"Filename > {fname}")
-                    self._filenames.append(fname)
-                    self._filenames.append(PosixPath(fname))
+                    if "*" in fname and self.directory:
+                        for match in Path(self.directory).glob(fname):
+                            logging.debug(f"Filename > {match}")
+                            self._filenames.append(match)
+                    else:
+                        self._filenames.append(PosixPath(fname))
                 elif isinstance(filename, (bytes, bytearray)):
+                    # only raw content is data: file paths must keep _data unset,
+                    # otherwise colinfo() builds DataFrame-style arguments.
+                    if self._data is None:
+                        self._data = []
                     self._data.append(filename)
                 else:
                     raise ValueError(
@@ -418,12 +422,12 @@ class OpenWithBase(FlowComponent):
                 )
             except KeyError:
                 mapping = self.map["map"]
-                model = await open_model(mapping, schema)
+                model = await open_model(mapping, schema, path=self._taskstore.get_path())
                 fields = model["fields"]
                 colinfo = {field: fields[field]["data_type"] for field in fields}
                 if not colinfo:
                     # last effort:
-                    colinfo = await open_map(mapping, schema)
+                    colinfo = await open_map(mapping, schema, path=self._taskstore.get_path())
             if colinfo is not None:
                 try:
                     ignore = self.map["ignore"]

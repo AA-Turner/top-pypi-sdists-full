@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.ai_agent_input_transforms_enabled_tools import AiAgentInputTransformsEnabledTools
     from ..models.ai_agent_input_transforms_max_completion_tokens import AiAgentInputTransformsMaxCompletionTokens
     from ..models.ai_agent_input_transforms_max_iterations import AiAgentInputTransformsMaxIterations
     from ..models.ai_agent_input_transforms_memory_type_0 import AiAgentInputTransformsMemoryType0
@@ -57,6 +58,15 @@ class AiAgentInputTransforms:
             PDFs) for the AI agent.
             Format: Array<{ bucket: string, key: string }> - S3 object references
             Example: [{ bucket: 'my-bucket', key: 'documents/report.pdf' }]
+        enabled_tools (Union[Unset, AiAgentInputTransformsEnabledTools]): Array of strings naming which of the tools
+            configured in `tools` the agent may call
+            this run. Leaving it unset carries every one of them; an empty array carries none.
+            A tool is named as the model is shown it. An entry the model is shown nothing of is
+            named by what identifies it instead: an MCP server by its resource path, carrying
+            every tool it exposes (which of them stays that entry's include_tools/exclude_tools),
+            and a websearch entry by the reserved name '__wm_web_search', whatever summary it carries
+            (no tool may take that name).
+            Example: ['get_user', 'u/admin/github_mcp', '__wm_web_search']
         max_completion_tokens (Union[Unset, AiAgentInputTransformsMaxCompletionTokens]): Integer. Maximum number of
             tokens the AI will generate in its response.
             Range: 1 to 4,294,967,295. Typical values: 256-4096 for most use cases.
@@ -89,6 +99,7 @@ class AiAgentInputTransforms:
     ] = UNSET
     output_schema: Union[Unset, "AiAgentInputTransformsOutputSchema"] = UNSET
     user_attachments: Union[Unset, "AiAgentInputTransformsUserAttachments"] = UNSET
+    enabled_tools: Union[Unset, "AiAgentInputTransformsEnabledTools"] = UNSET
     max_completion_tokens: Union[Unset, "AiAgentInputTransformsMaxCompletionTokens"] = UNSET
     temperature: Union[Unset, "AiAgentInputTransformsTemperature"] = UNSET
     max_iterations: Union[Unset, "AiAgentInputTransformsMaxIterations"] = UNSET
@@ -160,6 +171,10 @@ class AiAgentInputTransforms:
         if not isinstance(self.user_attachments, Unset):
             user_attachments = self.user_attachments.to_dict()
 
+        enabled_tools: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.enabled_tools, Unset):
+            enabled_tools = self.enabled_tools.to_dict()
+
         max_completion_tokens: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.max_completion_tokens, Unset):
             max_completion_tokens = self.max_completion_tokens.to_dict()
@@ -193,6 +208,8 @@ class AiAgentInputTransforms:
             field_dict["output_schema"] = output_schema
         if user_attachments is not UNSET:
             field_dict["user_attachments"] = user_attachments
+        if enabled_tools is not UNSET:
+            field_dict["enabled_tools"] = enabled_tools
         if max_completion_tokens is not UNSET:
             field_dict["max_completion_tokens"] = max_completion_tokens
         if temperature is not UNSET:
@@ -204,6 +221,7 @@ class AiAgentInputTransforms:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.ai_agent_input_transforms_enabled_tools import AiAgentInputTransformsEnabledTools
         from ..models.ai_agent_input_transforms_max_completion_tokens import AiAgentInputTransformsMaxCompletionTokens
         from ..models.ai_agent_input_transforms_max_iterations import AiAgentInputTransformsMaxIterations
         from ..models.ai_agent_input_transforms_memory_type_0 import AiAgentInputTransformsMemoryType0
@@ -356,6 +374,13 @@ class AiAgentInputTransforms:
         else:
             user_attachments = AiAgentInputTransformsUserAttachments.from_dict(_user_attachments)
 
+        _enabled_tools = d.pop("enabled_tools", UNSET)
+        enabled_tools: Union[Unset, AiAgentInputTransformsEnabledTools]
+        if isinstance(_enabled_tools, Unset):
+            enabled_tools = UNSET
+        else:
+            enabled_tools = AiAgentInputTransformsEnabledTools.from_dict(_enabled_tools)
+
         _max_completion_tokens = d.pop("max_completion_tokens", UNSET)
         max_completion_tokens: Union[Unset, AiAgentInputTransformsMaxCompletionTokens]
         if isinstance(_max_completion_tokens, Unset):
@@ -386,6 +411,7 @@ class AiAgentInputTransforms:
             memory=memory,
             output_schema=output_schema,
             user_attachments=user_attachments,
+            enabled_tools=enabled_tools,
             max_completion_tokens=max_completion_tokens,
             temperature=temperature,
             max_iterations=max_iterations,

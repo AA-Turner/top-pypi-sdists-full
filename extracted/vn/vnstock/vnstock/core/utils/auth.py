@@ -14,13 +14,13 @@ logger = logging.getLogger(__name__)
 
 def register_user(api_key: Optional[str] = None) -> bool:
     """
-    Đăng ký người dùng với tham số API key tùy chọn.
+    Register a user, optionally with an API key supplied up front.
     User registration with optional API key parameter.
 
-    Hướng dẫn người dùng qua quá trình đăng ký để thiết lập API key của họ.
+    Walks the user through registration to set up their API key.
     Guides user through the registration process to set up their API key.
 
-    Nếu api_key được cung cấp, sử dụng trực tiếp. Nếu không, hiển thị lời nhắc tương tác.
+    When api_key is given it is used directly; otherwise an interactive prompt is shown.
     If api_key is provided, uses it directly. Otherwise, shows interactive prompt.
 
     Args:
@@ -48,7 +48,7 @@ def register_user(api_key: Optional[str] = None) -> bool:
 
 def _register_api_key_directly(api_key: str) -> bool:
     """
-    Đăng ký API key trực tiếp mà không cần lời nhắc tương tác.
+    Register an API key directly, without the interactive prompt.
     Register API key directly without interactive prompts.
 
     Args:
@@ -136,7 +136,7 @@ def _register_interactive() -> bool:
   • Cộng đồng (Community): 60 requests/phút - đăng ký miễn phí (60 requests/min - free registration)
   • Tài trợ (Sponsor): 180-600 requests/phút (180-600 requests/min)
 
-📌 Đăng nhập Google để tạo tài khoản và lấy API key miễn phí tại: https://vnstocks.com/login (Login with Google to create an account and get a free API key at: https://vnstocks.com/login)
+📌 Đăng nhập bằng tài khoản Google để tạo tài khoản và lấy API key tại: https://vnstocks.com/login (Login with Google to create an account and get an API key at: https://vnstocks.com/login)
 """)
 
     # Get API key from user directly (no Enter step)

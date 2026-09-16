@@ -85,6 +85,54 @@ class TestParseEvent:
             provider.parse_event({}, "deployment")
         assert "unsupported event type" in exc_info.value.reason
 
+    def test_pull_request_review_comment(self) -> None:
+        provider = GitHubActionsProvider(repo="owner/repo")
+        payload = {
+            "action": "created",
+            "pull_request": {"number": 42, "head": {"ref": "feat", "sha": "abc"}, "base": {"ref": "main"}},
+            "comment": {"user": {"login": "rev"}},
+            "repository": {"full_name": "owner/repo"},
+        }
+        result = provider.parse_event(payload, "pull_request_review_comment")
+        assert result.pr_number == 42
+        assert result.head_sha == "abc"
+        assert result.sender_login == "rev"
+
+    def test_check_run_completion(self) -> None:
+        provider = GitHubActionsProvider(repo="owner/repo")
+        payload = {
+            "action": "completed",
+            "check_run": {"pull_requests": [{"number": 42}], "head_sha": "abc"},
+            "repository": {"full_name": "owner/repo"},
+            "sender": {"login": "bot"},
+        }
+        result = provider.parse_event(payload, "check_run")
+        assert result.pr_number == 42
+        assert result.head_sha == "abc"
+        assert result.sender_login == "bot"
+
+    def test_agent_task_completion(self) -> None:
+        provider = GitHubActionsProvider(repo="owner/repo")
+        payload = {
+            "action": "completed",
+            "task": {"pull_requests": [{"number": 42}], "head_sha": "abc"},
+            "repository": {"full_name": "owner/repo"},
+            "sender": {"login": "bot"},
+        }
+        result = provider.parse_event(payload, "agent_task")
+        assert result.pr_number == 42
+        assert result.head_sha == "abc"
+
+    def test_malformed_pull_request_review_comment(self) -> None:
+        provider = GitHubActionsProvider(repo="owner/repo")
+        with pytest.raises(MalformedEventError, match="missing pull_request or comment"):
+            provider.parse_event({"action": "created"}, "pull_request_review_comment")
+
+    def test_malformed_check_run_completion(self) -> None:
+        provider = GitHubActionsProvider(repo="owner/repo")
+        with pytest.raises(MalformedEventError, match="missing check_run payload"):
+            provider.parse_event({"action": "completed", "check_run": "not-a-dict"}, "check_run")
+
     def test_mismatched_event_name(self) -> None:
         """Using issues payload with pull_request event_name raises error."""
         provider = GitHubActionsProvider(repo="owner/repo")

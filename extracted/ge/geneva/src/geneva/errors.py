@@ -24,6 +24,11 @@ class FatalWorkerExitError(FatalWorkerError):
     """Fatal worker termination with unknown or generic worker-exit cause."""
 
 
+class FatalWorkerHardwareError(FatalWorkerError):
+    """The worker's GPU is unusable. Raise from a UDF (e.g. a ``setup()`` device
+    check); the task is retried on another worker and this worker is retired."""
+
+
 class ShortFragmentWriteError(FatalWorkerError):
     """A fragment data file was written with fewer rows than it should hold.
 
@@ -137,6 +142,7 @@ __all__ = [
     "FatalWorkerCrashError",
     "FatalWorkerError",
     "FatalWorkerExitError",
+    "FatalWorkerHardwareError",
     "FatalWorkerOOMError",
     "FatalWorkerTransientError",
     "MergeFallbackTargetError",

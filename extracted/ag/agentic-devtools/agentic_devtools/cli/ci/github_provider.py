@@ -13,13 +13,15 @@ import json
 import logging
 import os
 import re
-from collections.abc import Iterable, Sequence
+import subprocess
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 from math import isfinite
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
 
+from agentic_devtools.ai_providers.agent_tasks_payload import AGENT_TASKS_ENDPOINT_TEMPLATE
 from agentic_devtools.cli.ci.agent_assignment import AgentAssignmentResult, assign_issue_to_agent
 from agentic_devtools.cli.ci.credential_roles import (
     AGDT_PR_APPROVER_PAT,
@@ -38,6 +40,7 @@ from agentic_devtools.cli.ci.models import (
     COPILOT_SESSION_EVENT_STARTED,
     CheckRunStatus,
     CommentResolution,
+    CopilotSessionSummary,
     EventPayload,
     FailedCheckContext,
     FinalizationResult,
@@ -52,16 +55,23 @@ from agentic_devtools.cli.ci.models import (
     ReviewInfo,
     SquashResult,
     VerificationVerdict,
+    is_copilot_login,
 )
 from agentic_devtools.cli.ci.provider import CIPlatformProvider
 from agentic_devtools.cli.ci.reconciliation import config
+from agentic_devtools.cli.ci.reconciliation.models import ObservationOutcome
 from agentic_devtools.cli.ci.resolution.engine import TieredResolutionEngine
 from agentic_devtools.cli.ci.resolution.github_adapter import (
     GitHubResolutionContext,
     GitHubReviewThread,
     GitHubThreadComment,
 )
-from agentic_devtools.cli.ci.resolution.models import ResolutionVerdict, ThreadResolutionState, TierResult
+from agentic_devtools.cli.ci.resolution.models import (
+    ResolutionBasis,
+    ResolutionVerdict,
+    ThreadResolutionState,
+    TierResult,
+)
 from agentic_devtools.cli.ci.resolution.protocols import EvaluationTier, ResolutionContext, ReviewThread
 from agentic_devtools.cli.ci.resolution.reply_formatter import ReplyFormatter
 from agentic_devtools.cli.ci.resolution.state_persistence import (
@@ -83,6 +93,277 @@ from agentic_devtools.config import load_platform_config
 from agentic_devtools.state import get_state_dir
 
 logger = logging.getLogger(__name__)
+_TASK_FINAL_RESPONSE_MARKER = re.compile(r"[^\r\n]* End subagent:[^\n]*\n")
+
+_TRANSIENT_RECONCILIATION_STATUS_CODES = {429, 502, 503}
+
+
+def is_trusted_inaccessible_evidence(evidence: Mapping[str, object] | None) -> bool:
+    """Return whether evidence qualifies as trusted per-record inaccessible evidence."""
+    if evidence is None:
+        return False
+    reason = evidence.get("reason")
+    source = evidence.get("source")
+    return isinstance(reason, str) and bool(reason.strip()) and isinstance(source, str) and bool(source.strip())
+
+
+def classify_reconciliation_outcome(
+    *,
+    record_found: bool,
+    partial_evidence: bool = False,
+    terminal_state: bool = False,
+    inaccessible_evidence: Mapping[str, object] | None = None,
+    provider_status_code: int | None = None,
+    authorization_outage: bool = False,
+) -> ObservationOutcome:
+    """Classify GitHub trusted observation outcomes for scheduled reconciliation."""
+    if terminal_state and record_found:
+        return ObservationOutcome.TRUSTED_TERMINAL
+    if is_trusted_inaccessible_evidence(inaccessible_evidence):
+        return ObservationOutcome.TRUSTED_INACCESSIBLE
+    if authorization_outage:
+        return ObservationOutcome.AUTHORIZATION_OUTAGE
+    if provider_status_code in _TRANSIENT_RECONCILIATION_STATUS_CODES:
+        if provider_status_code == 429:
+            return ObservationOutcome.RATE_LIMIT
+        return ObservationOutcome.TRANSIENT_FAILURE
+    if provider_status_code is not None and provider_status_code >= 500:
+        return ObservationOutcome.PROVIDER_FAILURE
+    if not record_found or partial_evidence:
+        return ObservationOutcome.PARTIAL_EVIDENCE
+    return ObservationOutcome.TRUSTED_OBSERVATION
+
+
+def _filter_post_review_copilot_comments(
+    comments: list[IssueCommentInfo],
+    originating_review_timestamp: str,
+) -> tuple[IssueCommentInfo, ...]:
+    """Return Copilot PR comments strictly after the originating review."""
+    if not originating_review_timestamp:
+        return ()
+    try:
+        review_time = datetime.fromisoformat(originating_review_timestamp.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return ()
+    if review_time.tzinfo is None:
+        review_time = review_time.replace(tzinfo=UTC)
+
+    filtered: list[tuple[datetime, IssueCommentInfo]] = []
+    for comment in comments:
+        if not is_copilot_login(comment.author):
+            continue
+        try:
+            comment_time = datetime.fromisoformat(comment.created_at.replace("Z", "+00:00"))
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if comment_time.tzinfo is None:
+            comment_time = comment_time.replace(tzinfo=UTC)
+        if comment_time > review_time:
+            filtered.append((comment_time, comment))
+    filtered.sort(key=lambda item: item[0])
+    return tuple(comment for _, comment in filtered)
+
+
+def _filter_post_review_session_summaries(
+    summaries: Sequence[CopilotSessionSummary],
+    review_submitted_at: str | None,
+    max_summaries: int = 3,
+    max_chars: int = 4000,
+) -> tuple[CopilotSessionSummary, ...]:
+    """Return unique, post-review session summaries within deterministic budgets."""
+    if not review_submitted_at or max_summaries <= 0 or max_chars <= 0:
+        return ()
+    try:
+        review_time = datetime.fromisoformat(review_submitted_at.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return ()
+    if review_time.tzinfo is None:
+        review_time = review_time.replace(tzinfo=UTC)
+    candidates: list[tuple[datetime, CopilotSessionSummary]] = []
+    for summary in summaries:
+        if not summary.finishing_text:
+            continue
+        try:
+            started_at = datetime.fromisoformat(summary.started_at.replace("Z", "+00:00"))
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=UTC)
+        if started_at <= review_time:
+            continue
+        key = summary.session_id or summary.task_id
+        if not key:
+            continue
+        candidates.append((started_at, summary))
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    retained: list[tuple[datetime, CopilotSessionSummary]] = []
+    total_chars = 0
+    seen: set[str] = set()
+    for started_at, summary in candidates:
+        key = summary.session_id or summary.task_id
+        if key in seen:
+            continue
+        seen.add(key)
+        entry_chars = len(summary.finishing_text)
+        separator_chars = len("\n---\n") if retained else 0
+        if total_chars + separator_chars + entry_chars > max_chars:
+            continue
+        retained.append((started_at, summary))
+        total_chars += separator_chars + entry_chars
+        if len(retained) == max_summaries:
+            break
+    retained.sort(key=lambda item: item[0])
+    return tuple(summary for _, summary in retained)
+
+
+def _task_value(task: dict[str, Any], *keys: str) -> object:
+    for key in keys:
+        if key in task:
+            return task[key]
+    metadata = task.get("metadata")
+    if isinstance(metadata, dict):
+        for key in keys:
+            if key in metadata:
+                return metadata[key]
+    return None
+
+
+def _task_pr_number(task: dict[str, Any]) -> int | None:
+    value = _task_value(task, "pr_number", "pull_request_number", "pullRequestNumber")
+    pull_request = task.get("pull_request") or task.get("pullRequest")
+    if value is None and isinstance(pull_request, dict):
+        value = pull_request.get("number")
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    artifacts = task.get("artifacts")
+    if not isinstance(artifacts, list):
+        return None
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        artifact_type = artifact.get("type")
+        artifact_data = artifact.get("data")
+        if artifact_type == "pull" and isinstance(artifact_data, dict):
+            for key in ("id", "number", "target_id"):
+                artifact_value = artifact_data.get(key)
+                if isinstance(artifact_value, int) and not isinstance(artifact_value, bool):
+                    return artifact_value
+                if isinstance(artifact_value, str) and artifact_value.isdigit():
+                    return int(artifact_value)
+        for key in ("url", "target_id", "targetId"):
+            artifact_value = artifact.get(key)
+            if not isinstance(artifact_value, str):
+                continue
+            match = re.search(r"/pull/(\d+)(?:/|$)", artifact_value)
+            if match:
+                return int(match.group(1))
+            if artifact_type == "pull" and artifact_value.isdigit():
+                return int(artifact_value)
+    return None
+
+
+def _task_finishing_text(
+    session: dict[str, Any],
+    task_id: str | None = None,
+    session_id: str | None = None,
+    repo: str | None = None,
+) -> str:
+    for key in ("summary", "finishing_text", "finishingText", "output", "result"):
+        value = session.get(key)
+        if isinstance(value, str) and value:
+            return value
+    task = session.get("task")
+    if isinstance(task, dict):
+        for key in ("summary", "output"):
+            value = task.get(key)
+            if isinstance(value, str) and value:
+                return value
+    lookup_id = session_id or task_id
+    if not lookup_id:
+        return ""
+    try:
+        command = ["gh", "agent-task", "view", lookup_id, "--log"]
+        if repo:
+            command.extend(["--repo", repo])
+        sanitized_env = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in {"COPILOT_GITHUB_TOKEN", "SPECKIT_PR_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"}
+        }
+        result = run_safe(
+            command,
+            capture_output=True,
+            text=True,
+            shell=False,
+            timeout=60,
+            env=sanitized_env,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    stdout = result.stdout if isinstance(result.stdout, str) else ""
+    stderr = result.stderr if isinstance(result.stderr, str) else ""
+    output = stdout.strip()
+    if result.returncode != 0:
+        output = "\n".join(part for part in (output, stderr.strip()) if part)
+    if not output:
+        return ""
+    try:
+        payload = json.loads(output)
+    except json.JSONDecodeError:
+        matches = list(_TASK_FINAL_RESPONSE_MARKER.finditer(output))
+        if not matches:
+            return ""
+        return output[matches[-1].end() :].strip()
+    if isinstance(payload, dict):
+        for key in ("summary", "output", "result"):
+            value = payload.get(key)
+            if isinstance(value, str) and value:
+                return value
+    return ""
+
+
+def _session_summaries_from_task(
+    task: dict[str, Any],
+    pr_number: int,
+    repo: str | None = None,
+) -> list[CopilotSessionSummary]:
+    task_id_value = _task_value(task, "task_id", "taskId", "id")
+    task_id = task_id_value if isinstance(task_id_value, str) else ""
+    if not task_id:
+        return []
+    sessions = task.get("sessions")
+    if not isinstance(sessions, list):
+        sessions = [task]
+    summaries: list[CopilotSessionSummary] = []
+    for session in sessions:
+        if not isinstance(session, dict):
+            continue
+        status_value = _task_value(session, "state", "status")
+        status = status_value if isinstance(status_value, str) else ""
+        if status.lower() != "completed":
+            continue
+        session_id_value = _task_value(session, "session_id", "sessionId", "id")
+        started_at_value = _task_value(session, "started_at", "startedAt", "created_at", "createdAt")
+        if not isinstance(session_id_value, str) or not isinstance(started_at_value, str):
+            continue
+        completed_at_value = _task_value(session, "completed_at", "completedAt")
+        summaries.append(
+            CopilotSessionSummary(
+                task_id=task_id,
+                session_id=session_id_value,
+                pr_number=pr_number,
+                started_at=started_at_value,
+                completed_at=completed_at_value if isinstance(completed_at_value, str) else None,
+                status=status,
+                finishing_text=_task_finishing_text(
+                    {**task, **session},
+                    task_id,
+                    session_id_value,
+                    repo,
+                ),
+            )
+        )
+    return summaries
 
 
 def _decode_observation_watermark(value: str) -> tuple[int, int, str]:
@@ -107,15 +388,15 @@ def _decode_observation_watermark(value: str) -> tuple[int, int, str]:
 
 _NOT_FOUND_RE = re.compile(r"\b(?:HTTP )?404\b|\bnot found\b", re.IGNORECASE)
 _COOLDOWN_COMPONENT_RE = re.compile(r"[A-Za-z0-9_.-]{1,128}")
+_HUNK_HEADER_RE = re.compile(r"^@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? \+\d+(?:,\d+)? @@")
 
 if TYPE_CHECKING:
     from agentic_devtools.cli.audit.models import ClaimResult, ClosedPRInfo
-    from agentic_devtools.cli.ci.reconciliation.models import WorkflowRun
+    from agentic_devtools.cli.ci.reconciliation.models import ObservationOutcome, WorkflowRun
     from agentic_devtools.cli.ci.scheduler import DispatchEvent, EligiblePR
 
 _resolve_review_threads_module = importlib.import_module("agentic_devtools.cli.github.resolve_review_threads")
 _resolve_review_threads = _resolve_review_threads_module.resolve_review_threads
-_unresolve_review_threads = _resolve_review_threads_module.unresolve_review_threads
 
 _ADDRESSED_REPLY_BODY = "Addressed on the updated PR branch."
 _LEGACY_ADDRESSED_REPLY_PREFIXES = ("addressed by fix commit",)
@@ -240,9 +521,8 @@ _SDK_BREAKING_CHANGE_FOOTER_RE = re.compile(r"^BREAKING CHANGE:\s+\S.*$", flags=
 def _comment_is_suppressed(comment: dict[str, Any]) -> bool:
     """Return True when API payload indicates the review comment is minimized/suppressed.
 
-    The minimized keys are defensive only. All three call sites
+    The minimized keys are defensive only. Both call sites
     (:meth:`GitHubActionsProvider.list_review_comments`,
-    :meth:`GitHubActionsProvider._fetch_review_comment_by_id`,
     :meth:`GitHubActionsProvider.list_all_review_comments`) pass REST
     ``/pulls/...`` review-comment payloads, and those endpoints never return
     ``is_suppressed`` / ``is_minimized`` / ``minimized`` / ``minimized_reason``:
@@ -2148,6 +2428,7 @@ class GitHubActionsProvider(CIPlatformProvider):
         self._repo = repo
         self._thread_signals_cache: dict[int, dict[int, tuple[bool, bool, bool | None, str, str | None]]] = {}
         self._thread_identity_cache: dict[int, dict[str, tuple[bool, tuple[int, ...]]]] = {}
+        self._pr_session_summaries_cache: dict[int, list[CopilotSessionSummary]] = {}
         self._approver_login_cache: str | None = None
         self._pr_token_login_cache: str | None = None
 
@@ -2199,6 +2480,10 @@ class GitHubActionsProvider(CIPlatformProvider):
                 return self._parse_pull_request_event(raw_payload)
             if event_name == "pull_request_review":
                 return self._parse_pull_request_review_event(raw_payload, event_name)
+            if event_name == "pull_request_review_comment":
+                return self._parse_pull_request_review_comment_event(raw_payload, event_name)
+            if event_name in ("check_run", "agent_task"):
+                return self._parse_completion_event(raw_payload, event_name)
             if event_name == "issue_comment":
                 return self._parse_issue_comment_event(raw_payload, event_name)
             if event_name == "issues":
@@ -2252,6 +2537,37 @@ class GitHubActionsProvider(CIPlatformProvider):
             head_sha=pr["head"]["sha"],
             base_branch=pr["base"]["ref"],
             action=raw.get("action", ""),
+            repository_full_name=raw.get("repository", {}).get("full_name", ""),
+            sender_login=raw.get("sender", {}).get("login", ""),
+        )
+
+    def _parse_pull_request_review_comment_event(self, raw: dict, event_name: str) -> EventPayload:
+        """Parse a review-comment event, retaining only provider hints."""
+        pr = raw.get("pull_request")
+        comment = raw.get("comment") or {}
+        if not isinstance(pr, dict) or not isinstance(comment, dict):
+            raise MalformedEventError(event_name, "missing pull_request or comment")
+        return EventPayload(
+            pr_number=pr["number"],
+            head_branch=pr.get("head", {}).get("ref", ""),
+            head_sha=pr.get("head", {}).get("sha", ""),
+            base_branch=pr.get("base", {}).get("ref", ""),
+            action=raw.get("action", ""),
+            repository_full_name=raw.get("repository", {}).get("full_name", ""),
+            sender_login=comment.get("user", {}).get("login", ""),
+        )
+
+    def _parse_completion_event(self, raw: dict, event_name: str) -> EventPayload:
+        """Parse check/task completion hints without trusting their conclusion."""
+        source = raw.get(event_name) or raw.get("task") or {}
+        if not isinstance(source, dict):
+            raise MalformedEventError(event_name, f"missing {event_name} payload")
+        prs = source.get("pull_requests") or []
+        pr_number = prs[0].get("number", 0) if prs and isinstance(prs[0], dict) else 0
+        return EventPayload(
+            pr_number=pr_number,
+            head_sha=source.get("head_sha", ""),
+            action=raw.get("action", "completed"),
             repository_full_name=raw.get("repository", {}).get("full_name", ""),
             sender_login=raw.get("sender", {}).get("login", ""),
         )
@@ -2595,6 +2911,14 @@ class GitHubActionsProvider(CIPlatformProvider):
             self._repo_api(f"/issues/comments/{comment_id}"),
             method="PATCH",
             body={"body": body},
+        )
+
+    @retry_with_backoff()
+    def delete_comment(self, comment_id: int) -> None:
+        """Delete an existing issue comment."""
+        _gh_api(
+            self._repo_api(f"/issues/comments/{comment_id}"),
+            method="DELETE",
         )
 
     @retry_with_backoff()
@@ -3511,6 +3835,56 @@ class GitHubActionsProvider(CIPlatformProvider):
         return events
 
     @retry_with_backoff()
+    def _fetch_agent_tasks(self, repo: str, token: str) -> str:
+        return _gh_api(
+            AGENT_TASKS_ENDPOINT_TEMPLATE.replace("{owner}/{repo}", repo),
+            paginate=True,
+            token=token,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2026-03-10",
+            },
+        )
+
+    @retry_with_backoff()
+    def _fetch_agent_task_detail(self, repo: str, task_id_value: str, token: str) -> str:
+        return _gh_api(
+            f"{AGENT_TASKS_ENDPOINT_TEMPLATE.replace('{owner}/{repo}', repo)}/{quote(task_id_value, safe='')}",
+            token=token,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2026-03-10",
+            },
+        )
+
+    def list_pr_session_summaries(self, pr_number: int) -> list[CopilotSessionSummary]:
+        """List completed Copilot cloud-agent session summaries for a pull request."""
+        if pr_number in self._pr_session_summaries_cache:
+            return self._pr_session_summaries_cache[pr_number]
+        repo = self._repo or os.environ.get("GITHUB_REPOSITORY", "")
+        token = os.environ.get(COPILOT_GITHUB_TOKEN, "").strip() or require_default_repo_workflow_token(
+            "list Copilot cloud-agent tasks"
+        )
+        response = self._fetch_agent_tasks(repo, token)
+        raw_tasks = _parse_paginated_json(response)
+        tasks = raw_tasks.get("tasks", []) if isinstance(raw_tasks, dict) else raw_tasks
+        if not isinstance(tasks, list):
+            tasks = []
+        summaries: list[CopilotSessionSummary] = []
+        for task in tasks:
+            if not isinstance(task, dict) or _task_pr_number(task) != pr_number:
+                continue
+            task_id_value = _task_value(task, "task_id", "taskId", "id")
+            if not isinstance(task_id_value, str) or not task_id_value:
+                continue
+            detail_response = self._fetch_agent_task_detail(repo, task_id_value, token)
+            detail = _parse_paginated_json(detail_response)
+            if isinstance(detail, dict):
+                summaries.extend(_session_summaries_from_task(detail, pr_number, repo))
+        self._pr_session_summaries_cache[pr_number] = summaries
+        return summaries
+
+    @retry_with_backoff()
     def get_pr_diff(self, pr_number: int) -> str:
         """Get the unified diff for a pull request via ``gh pr diff``."""
         result = run_safe(
@@ -3662,41 +4036,6 @@ class GitHubActionsProvider(CIPlatformProvider):
             and _RESOLUTION_THREAD_LEFT_OPEN_TEXT in str(comment.get("body", "")).strip().lower()
         }
 
-    @retry_with_backoff()
-    def _list_unconfirmed_resolved_comment_ids(self, pr_number: int) -> set[int]:
-        """Return parent comment IDs that have an unconfirmed-commit-change marker reply.
-
-        These threads were resolved by default because HEAD changed but the SDK
-        could not confirm resolution. They are eligible for re-evaluation on
-        subsequent loop iterations.
-        """
-        response = _gh_api(
-            self._repo_api(f"/pulls/{pr_number}/comments"),
-            paginate=True,
-        )
-        comments = _parse_paginated_json(response)
-        # Only treat a thread as unconfirmed when the *latest* reply on that parent contains the marker.
-        # Determine "latest" by created_at to avoid relying on API ordering.
-        latest_reply_by_parent: dict[int, dict] = {}
-        for comment in comments:
-            parent_id = comment.get("in_reply_to_id")
-            if parent_id is None:
-                continue
-            try:
-                pid = int(parent_id)
-            except (TypeError, ValueError):
-                continue
-            created_at = str(comment.get("created_at", ""))
-            prev = latest_reply_by_parent.get(pid)
-            prev_created_at = str(prev.get("created_at", "")) if prev is not None else ""
-            if prev is None or prev_created_at <= created_at:
-                latest_reply_by_parent[pid] = comment
-        return {
-            parent_id
-            for parent_id, comment in latest_reply_by_parent.items()
-            if _RESOLUTION_UNCONFIRMED_MARKER in str(comment.get("body", ""))
-        }
-
     def _has_existing_addressed_reply(
         self,
         pr_number: int,
@@ -3710,38 +4049,6 @@ class GitHubActionsProvider(CIPlatformProvider):
             else self._list_addressed_reply_parent_comment_ids(pr_number)
         )
         return comment_id in parent_comment_ids
-
-    def _fetch_review_comment_by_id(self, pr_number: int, comment_id: int) -> ReviewCommentInfo | None:
-        """Fetch a single review comment by its ID for re-evaluation purposes."""
-        try:
-            response = _gh_api(
-                self._repo_api(f"/pulls/comments/{comment_id}"),
-            )
-            c = json.loads(response)
-            return ReviewCommentInfo(
-                id=int(c["id"]),
-                path=c.get("path", ""),
-                body=c.get("body", ""),
-                html_url=c.get("html_url", ""),
-                is_suppressed=_comment_is_suppressed(c),
-                start_line=c.get("start_line") if c.get("start_line") is not None else c.get("line"),
-                end_line=c.get("line"),
-                line=c.get("line"),
-                position=c.get("position"),
-                diff_hunk=c.get("diff_hunk", ""),
-                commit_id=c.get("commit_id") or "",
-                original_commit_id=c.get("original_commit_id") or "",
-            )
-        except Exception as exc:
-            if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
-                raise
-            logger.warning(
-                "Failed to fetch review comment %d for PR #%d: %s",
-                comment_id,
-                pr_number,
-                exc,
-            )
-            return None
 
     def _resolution_state_dir(self) -> Path:
         """Return the state directory for tentative thread lifecycle tracking."""
@@ -4440,8 +4747,8 @@ class GitHubActionsProvider(CIPlatformProvider):
             raise RuntimeError(f"PR #{pr_number}: compare API failed: {message}")
         return int(result.stdout.strip() or "0")
 
-    def compute_diff_hash(self, *, base_branch: str, sha: str) -> str | None:
-        """Compute a rebase-invariant fingerprint of ``git diff origin/{base_branch}...{sha}``.
+    def compute_diff_hash(self, *, base_branch: str, sha: str, base_sha: str = "") -> str | None:
+        """Compute a rebase-invariant fingerprint of the PR diff against the base.
 
         Used by :func:`evaluate_copilot_gate_verdict` to verify that the PR diff
         has not changed since a prior-commit Copilot review (content-hash freshness).
@@ -4467,9 +4774,18 @@ class GitHubActionsProvider(CIPlatformProvider):
         whitespace within the patch and therefore collides on whitespace-only
         edits, which are real changes.
 
-        The low-context diff still distinguishes binary content changes (the
-        ``Binary files …`` line is preserved), rename targets, mode changes,
-        deletes vs creates, and whitespace-only edits.
+        For text-only diffs, ``patch-id`` is augmented with a location
+        fingerprint. One surrounding line on each side is included for every
+        hunk; repeated old-side hunk sequences use stable surrounding-anchor
+        content rather than their candidate ordinal. This distinguishes
+        repeated-context substitutions (including hunks with interleaved
+        context between removed lines) without depending on absolute line
+        numbers. If an occurrence cannot be uniquely identified from its
+        surrounding anchors, location fingerprinting fails closed and triggers
+        a preservation block. For diffs that include binary
+        hunks (``Binary files … differ``), a supplemental SHA-256 over
+        ``git diff --raw --no-abbrev`` is appended so payload changes at the
+        same path cannot collide on the textual binary marker alone.
 
         When the diff is empty, ``patch-id`` emits nothing; a namespaced
         ``sha256:<digest>`` of the empty diff text is returned so that a pure
@@ -4477,19 +4793,28 @@ class GitHubActionsProvider(CIPlatformProvider):
         the freshness gate to request a new review.
 
         Returns:
-            A namespaced fingerprint of the diff (``patch-id:<id>`` or
-            ``sha256:<digest>``), or ``None`` if the SHA is not reachable locally
-            and a targeted fetch also fails.
+            A namespaced fingerprint beginning with ``patch-id:<id>`` and optionally
+            including ``|loc-sha256:<digest>`` when text-hunk locations are available
+            and ``|raw-sha256:<digest>`` when binary hunks are present, or
+            ``sha256:<digest>`` for an empty diff,
+            or ``None`` if the SHA is not reachable locally and a targeted fetch
+            also fails, location fingerprinting exceeds its work budget, an
+            occurrence cannot be identified from stable anchors, or binary
+            metadata cannot be parsed or matched safely.
 
         Raises:
             RuntimeError: When fetching ``origin/{base_branch}`` fails, when
-                ``git diff origin/{base_branch}...{sha}`` fails, or when
-                ``git patch-id --verbatim`` fails.
+                ``git diff origin/{base_branch}...{sha}`` fails, when
+                ``git patch-id --verbatim`` fails, or when the supplemental
+                binary metadata or ``git diff --raw --no-abbrev -z
+                origin/{base_branch}...{sha}`` fails for a binary diff.
         """
-        try:
-            self._run_git(["fetch", "origin", base_branch])
-        except Exception as exc:
-            raise RuntimeError(f"compute_diff_hash: failed to fetch base branch {base_branch}: {exc}") from exc
+        base_ref = base_sha or f"origin/{base_branch}"
+        if not base_sha:
+            try:
+                self._run_git(["fetch", "origin", base_branch])
+            except Exception as exc:
+                raise RuntimeError(f"compute_diff_hash: failed to fetch base branch {base_branch}: {exc}") from exc
 
         # Ensure the target SHA is available locally.
         try:
@@ -4502,7 +4827,7 @@ class GitHubActionsProvider(CIPlatformProvider):
                 return None  # SHA unavailable; treat as unknown diff
 
         try:
-            diff = self._run_git(["diff", "-U1", f"origin/{base_branch}...{sha}"])
+            diff = self._run_git(["diff", "-U1", f"{base_ref}...{sha}"])
         except Exception as exc:
             raise RuntimeError(f"compute_diff_hash: git diff origin/{base_branch}...{sha} failed: {exc}") from exc
 
@@ -4511,14 +4836,359 @@ class GitHubActionsProvider(CIPlatformProvider):
         except Exception as exc:
             raise RuntimeError(f"compute_diff_hash: git patch-id --verbatim failed: {exc}") from exc
 
+        class _LocationFingerprintBudgetExceeded(Exception):
+            """Raised when ambiguous location fingerprinting exceeds its work budget."""
+
+        class _LocationFingerprintUnavailable(Exception):
+            """Raised when a text location fingerprint cannot be computed safely."""
+
+        def _build_ambiguous_text_location_digest() -> str | None:
+            """Return a stable digest for ambiguous repeated text hunks in ``diff``."""
+
+            work_budget = 100_000
+            work_used = 0
+
+            def _parse_diff_path_marker(marker: str, *, prefix: str) -> str | None:
+                if marker.startswith('"'):
+                    if len(marker) < 2 or not marker.endswith('"'):
+                        return None
+                    encoded_path = bytearray()
+                    raw = marker[1:-1]
+                    index = 0
+                    while index < len(raw):
+                        char = raw[index]
+                        if char != "\\":
+                            encoded_path.extend(char.encode("utf-8"))
+                            index += 1
+                            continue
+                        index += 1
+                        if index >= len(raw):
+                            return None
+                        escaped = raw[index]
+                        simple_escape = {
+                            '"': b'"',
+                            "\\": b"\\",
+                            "a": b"\a",
+                            "b": b"\b",
+                            "f": b"\f",
+                            "n": b"\n",
+                            "r": b"\r",
+                            "t": b"\t",
+                            "v": b"\v",
+                        }.get(escaped)
+                        if simple_escape is not None:
+                            encoded_path.extend(simple_escape)
+                            index += 1
+                            continue
+                        octal = raw[index : index + 3]
+                        if len(octal) == 3 and all(digit in "01234567" for digit in octal):
+                            encoded_path.append(int(octal, 8))
+                            index += 3
+                            continue
+                        return None
+                    parsed_marker = encoded_path.decode("utf-8", errors="surrogateescape")
+                else:
+                    parsed_marker = marker[:-1] if marker.endswith("\t") else marker
+                if parsed_marker == "/dev/null":
+                    return None
+                path_prefix = f"{prefix}/"
+                return parsed_marker[len(path_prefix) :] if parsed_marker.startswith(path_prefix) else None
+
+            def _find_candidate_positions(
+                file_lines: list[str],
+                *,
+                old_hunk_lines: list[str],
+                has_removed_lines: bool,
+                context_before: str | None,
+                context_after: str | None,
+            ) -> list[int]:
+                nonlocal work_used
+
+                def _compare(left: str, right: str) -> bool:
+                    nonlocal work_used
+                    work_used += 1
+                    if work_used > work_budget:
+                        raise _LocationFingerprintBudgetExceeded
+                    return left == right
+
+                if has_removed_lines:
+                    max_start = len(file_lines) - len(old_hunk_lines) + 1
+                    if max_start < 0:
+                        return []
+                    starts: list[int] = []
+                    for old_hunk_start in range(max_start):
+                        if not all(
+                            _compare(file_lines[old_hunk_start + offset], line)
+                            for offset, line in enumerate(old_hunk_lines)
+                        ):
+                            continue
+                        starts.append(old_hunk_start)
+                    return starts
+                starts = []
+                for insert_pos in range(len(file_lines) + 1):
+                    if context_before is not None and (
+                        insert_pos == 0 or not _compare(file_lines[insert_pos - 1], context_before)
+                    ):
+                        continue
+                    if context_after is not None and (
+                        insert_pos >= len(file_lines) or not _compare(file_lines[insert_pos], context_after)
+                    ):
+                        continue
+                    starts.append(insert_pos)
+                return starts
+
+            def _build_candidate_anchor_signature(
+                file_lines: list[str],
+                *,
+                candidate_positions: list[int],
+                selected_position: int,
+                span_length: int,
+                target_path: str,
+            ) -> str:
+                nonlocal work_used
+                work_used += len(candidate_positions) * len(file_lines)
+                if work_used > work_budget:
+                    raise _LocationFingerprintBudgetExceeded
+
+                def _anchor(position: int) -> tuple[str, str]:
+                    before = file_lines[position - 1] if position else "<start>"
+                    after_position = position + span_length
+                    after = file_lines[after_position] if after_position < len(file_lines) else "<end>"
+                    return before, after
+
+                selected_anchor = _anchor(selected_position)
+                if any(
+                    _anchor(position) == selected_anchor
+                    for position in candidate_positions
+                    if position != selected_position
+                ):
+                    raise _LocationFingerprintUnavailable
+                return "\0".join(
+                    [
+                        target_path,
+                        str(span_length),
+                        "anchor-before",
+                        selected_anchor[0],
+                        "anchor-after",
+                        selected_anchor[1],
+                    ]
+                )
+
+            file_cache: dict[str, list[str]] = {}
+            signatures: list[str] = []
+            merge_base = ""
+            try:
+                merge_base = self._run_git(["merge-base", sha, base_ref]).strip()
+            except Exception:
+                raise _LocationFingerprintUnavailable from None
+            old_path: str | None = None
+            new_path: str | None = None
+            old_path_is_dev_null = False
+            new_path_is_dev_null = False
+            lines = diff.splitlines()
+            index = 0
+            while index < len(lines):
+                line = lines[index]
+                if line.startswith("diff --git "):
+                    old_path = None
+                    new_path = None
+                    old_path_is_dev_null = False
+                    new_path_is_dev_null = False
+                    index += 1
+                    continue
+                if line.startswith("--- "):
+                    old_path_is_dev_null = line[4:] == "/dev/null"
+                    old_path = _parse_diff_path_marker(line[4:], prefix="a")
+                    index += 1
+                    continue
+                if line.startswith("+++ "):
+                    new_path_is_dev_null = line[4:] == "/dev/null"
+                    new_path = _parse_diff_path_marker(line[4:], prefix="b")
+                    index += 1
+                    continue
+                header_match = _HUNK_HEADER_RE.match(line)
+                if header_match is None:
+                    index += 1
+                    continue
+                old_start = int(header_match.group("old_start"))
+                leading_context_lines = 0
+                context_before: str | None = None
+                context_after: str | None = None
+                old_hunk_lines: list[str] = []
+                has_removed_lines = False
+                saw_change = False
+                index += 1
+                while index < len(lines):
+                    hunk_line = lines[index]
+                    if hunk_line.startswith("diff --git ") or _HUNK_HEADER_RE.match(hunk_line):
+                        break
+                    if hunk_line.startswith("\\ No newline at end of file"):
+                        index += 1
+                        continue
+                    if not hunk_line:
+                        index += 1
+                        continue
+                    prefix = hunk_line[0]
+                    content = hunk_line[1:]
+                    if prefix == " ":
+                        if not saw_change:
+                            context_before = content
+                            leading_context_lines += 1
+                        elif context_after is None:
+                            context_after = content
+                        if saw_change:
+                            old_hunk_lines.append(content)
+                    elif prefix == "-":
+                        saw_change = True
+                        has_removed_lines = True
+                        old_hunk_lines.append(content)
+                    elif prefix == "+":
+                        saw_change = True
+                    index += 1
+
+                target_path = old_path or new_path
+                if target_path is None:
+                    raise _LocationFingerprintUnavailable
+                if old_path is None or new_path is None:
+                    if old_path_is_dev_null or new_path_is_dev_null:
+                        continue
+                    raise _LocationFingerprintUnavailable
+                if target_path not in file_cache:
+                    try:
+                        file_cache[target_path] = self._run_git(["show", f"{merge_base}:{target_path}"]).splitlines()
+                    except Exception:
+                        raise _LocationFingerprintUnavailable from None
+                file_lines = file_cache[target_path]
+                candidate_positions = _find_candidate_positions(
+                    file_lines,
+                    old_hunk_lines=old_hunk_lines,
+                    has_removed_lines=has_removed_lines,
+                    context_before=context_before,
+                    context_after=context_after,
+                )
+                if not candidate_positions:
+                    raise _LocationFingerprintUnavailable
+                expected_position = max(old_start - 1 + leading_context_lines, 0)
+                nearest_position = min(candidate_positions, key=lambda pos: abs(pos - expected_position))
+                if len(candidate_positions) == 1:
+                    continue
+                signature = _build_candidate_anchor_signature(
+                    file_lines,
+                    candidate_positions=candidate_positions,
+                    selected_position=nearest_position,
+                    span_length=len(old_hunk_lines),
+                    target_path=target_path,
+                )
+                signatures.append(signature)
+
+            if not signatures:
+                return None
+            return hashlib.sha256("\n".join(signatures).encode("utf-8", errors="surrogateescape")).hexdigest()
+
         # Output is "<patch-id> <commit-id>"; the commit id is all zeroes for stdin input.
         patch_id = patch_id_output.split(" ", 1)[0].strip()
+        has_binary_marker = any(line.startswith("Binary files ") for line in diff.splitlines())
         if not patch_id:
             # Empty diff — return a stable namespaced fingerprint so a pure rebase
             # of a net-empty PR compares equal on both sides rather than triggering
             # a fresh-review request.
             return f"sha256:{hashlib.sha256(diff.encode()).hexdigest()}"
-        return f"patch-id:{patch_id}"
+        fingerprint = f"patch-id:{patch_id}"
+        try:
+            location_digest = _build_ambiguous_text_location_digest()
+        except (_LocationFingerprintBudgetExceeded, _LocationFingerprintUnavailable):
+            return None
+        if location_digest is not None:
+            fingerprint = f"{fingerprint}|loc-sha256:{location_digest}"
+        if not has_binary_marker:
+            return fingerprint
+        try:
+            numstat = self._run_git(["diff", "--numstat", "-z", f"{base_ref}...{sha}"])
+        except Exception as exc:
+            raise RuntimeError(f"compute_diff_hash: git diff --numstat {base_ref}...{sha} failed: {exc}") from exc
+        binary_paths: set[str] = set()
+        numstat_records = numstat.split("\0")
+        index = 0
+        while index < len(numstat_records):
+            record = numstat_records[index]
+            index += 1
+            if not record:
+                continue
+            fields = record.split("\t", 2)
+            if len(fields) != 3:
+                return None
+            added, deleted, path = fields
+            is_binary = (added, deleted) in {("-", "-"), ("0", "0")}
+            if path:
+                if is_binary:
+                    binary_paths.add(path)
+                continue
+            if index >= len(numstat_records) or not numstat_records[index]:
+                return None
+            paths = [numstat_records[index]]
+            index += 1
+            if index < len(numstat_records) and numstat_records[index] and "\t" not in numstat_records[index]:
+                paths.append(numstat_records[index])
+                index += 1
+            if is_binary:
+                binary_paths.update(paths)
+        if not binary_paths:
+            return None
+        try:
+            raw_diff = self._run_git(["diff", "--raw", "--no-abbrev", "-z", f"{base_ref}...{sha}"])
+        except Exception as exc:
+            raise RuntimeError(f"compute_diff_hash: git diff --raw -z {base_ref}...{sha} failed: {exc}") from exc
+        raw_records = raw_diff.split("\0")
+        binary_records: list[str] = []
+        matched_paths: set[str] = set()
+        index = 0
+        while index < len(raw_records):
+            header = raw_records[index]
+            index += 1
+            if not header:
+                continue
+            if not header.startswith(":"):
+                return None
+            status = header.split()[-1]
+            path_count = 2 if status.startswith(("C", "R")) else 1
+            paths = raw_records[index : index + path_count]
+            if len(paths) != path_count or any(not path for path in paths):
+                return None
+            index += path_count
+            matched = set(paths) & binary_paths
+            if matched:
+                binary_records.extend([header, *paths])
+                matched_paths.update(matched)
+        if matched_paths != binary_paths:
+            return None
+        binary_raw = "\0".join(binary_records) + ("\0" if binary_records else "")
+        raw_digest = hashlib.sha256(binary_raw.encode("utf-8", errors="surrogateescape")).hexdigest()
+        return f"{fingerprint}|raw-sha256:{raw_digest}"
+
+    def compute_diff_files(self, *, base_branch: str, sha: str, base_sha: str = "") -> list[str] | None:
+        """List changed files for the PR diff against the base."""
+        try:
+            self._run_git(["fetch", "origin", base_sha or base_branch])
+        except Exception as exc:
+            raise RuntimeError(f"compute_diff_files: failed to fetch base branch {base_branch}: {exc}") from exc
+
+        try:
+            self._run_git(["cat-file", "-e", f"{sha}^{{commit}}"])
+        except Exception:
+            try:
+                self._run_git(["fetch", "--no-tags", "origin", sha])
+            except Exception:
+                return None
+
+        try:
+            base_ref = base_sha or f"origin/{base_branch}"
+            raw = self._run_git(["diff", "--name-only", "-z", f"{base_ref}...{sha}"])
+        except Exception as exc:
+            raise RuntimeError(
+                f"compute_diff_files: git diff --name-only origin/{base_branch}...{sha} failed: {exc}"
+            ) from exc
+
+        return [path for path in raw.split("\0") if path]
 
     def rebase_onto_base(
         self,
@@ -4733,8 +5403,6 @@ class GitHubActionsProvider(CIPlatformProvider):
         diff_context = self._build_verification_context_diff(review.commit_sha, head_sha)
 
         resolved_ids: list[int] = []
-        has_unconfirmed_resolution = False
-        unconfirmed_unresolve_ids: list[int] = []
         resolutions: list[CommentResolution] = []
         errors: list[str] = []
 
@@ -4808,48 +5476,6 @@ class GitHubActionsProvider(CIPlatformProvider):
             comment_context = self._build_comment_verification_context(comment, diff_context)
             comments_for_sdk.append((comment, comment_context))
 
-        # Include previously unconfirmed-resolved threads for re-evaluation
-        existing_comment_ids = {comment.id for comment, _ in comments_for_sdk}
-        reevaluated_unconfirmed_comment_ids: set[int] = set()
-        unconfirmed_reevaluation_complete = True
-        try:
-            unconfirmed_ids = self._list_unconfirmed_resolved_comment_ids(pr_number)
-        except Exception as exc:
-            if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
-                raise
-            logger.warning(
-                "Failed to fetch unconfirmed resolved comment IDs for PR #%d: %s",
-                pr_number,
-                exc,
-            )
-            unconfirmed_ids = set()
-            unconfirmed_reevaluation_complete = False
-        for unconfirmed_id in unconfirmed_ids:
-            if unconfirmed_id in existing_comment_ids:
-                # Already in-scope for SDK verification, but still needs special handling
-                # (confirmation replies / unresolve) as an unconfirmed-resolved thread.
-                reevaluated_unconfirmed_comment_ids.add(unconfirmed_id)
-                continue
-            unconfirmed_comment = self._fetch_review_comment_by_id(pr_number, unconfirmed_id)
-            if unconfirmed_comment is None:
-                logger.warning(
-                    "Failed to fetch unconfirmed resolved review comment %d on PR #%d; "
-                    "keeping review non-terminal for re-evaluation safety",
-                    unconfirmed_id,
-                    pr_number,
-                )
-                unconfirmed_reevaluation_complete = False
-                continue
-            if unconfirmed_comment.is_suppressed:
-                # Unreachable in practice for the same reason as the suppressed branch
-                # above: _fetch_review_comment_by_id reads a REST payload, which never
-                # carries the minimized keys _comment_is_suppressed looks for.
-                unconfirmed_reevaluation_complete = False
-                continue
-            comment_context = self._build_comment_verification_context(unconfirmed_comment, diff_context)
-            comments_for_sdk.append((unconfirmed_comment, comment_context))
-            reevaluated_unconfirmed_comment_ids.add(unconfirmed_comment.id)
-
         state_dir: Path | None = None
         reply_formatter = ReplyFormatter()
         if comments_for_sdk:
@@ -4896,6 +5522,10 @@ class GitHubActionsProvider(CIPlatformProvider):
             # on the PR (catches both @copilot dispatch and "Fix with Copilot" button flows).
             swe_session_started_after_review = False
             swe_agent_commented_on_pr = False
+            post_review_copilot_comments: tuple[IssueCommentInfo, ...] = ()
+            post_review_session_summaries: tuple[CopilotSessionSummary, ...] = ()
+            issue_events: list = []
+            issue_comments: list[IssueCommentInfo] = []
             try:
                 from datetime import datetime
 
@@ -4909,16 +5539,50 @@ class GitHubActionsProvider(CIPlatformProvider):
                     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
                 issue_events = self.list_pr_issue_events(pr_number)
+            except Exception as exc:
+                if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
+                    raise
+                logger.warning(
+                    "Failed to fetch issue events for PR #%d: %s",
+                    pr_number,
+                    exc,
+                )
+            try:
                 issue_comments = self.list_issue_comments(pr_number)
+                post_review_copilot_comments = _filter_post_review_copilot_comments(
+                    issue_comments,
+                    review.submitted_at,
+                )
+            except Exception as exc:
+                if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
+                    raise
+                logger.warning(
+                    "Failed to fetch issue comments for PR #%d: %s",
+                    pr_number,
+                    exc,
+                )
+            try:
+                post_review_session_summaries = _filter_post_review_session_summaries(
+                    self.list_pr_session_summaries(pr_number),
+                    review.submitted_at,
+                )
+            except Exception as exc:
+                if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
+                    raise
+                logger.warning(
+                    "Failed to fetch Copilot session summaries for PR #%d: %s",
+                    pr_number,
+                    exc,
+                )
+            try:
                 started_events = [e for e in issue_events if e.event == COPILOT_SESSION_EVENT_STARTED]
-
                 review_submitted_at = _parse_ts(review.submitted_at) if review.submitted_at else None
                 if review_submitted_at is not None:
                     swe_session_started_after_review = any(
                         (event_ts := _parse_ts(e.created_at)) is not None and event_ts > review_submitted_at
                         for e in started_events
                     )
-                    swe_agent_commented_on_pr = any(
+                    swe_agent_commented_on_pr = any(  # pragma: no cover
                         c.author in COPILOT_COMMENT_LOGINS
                         and (comment_ts := _parse_ts(c.created_at)) is not None
                         and comment_ts > review_submitted_at
@@ -4930,8 +5594,6 @@ class GitHubActionsProvider(CIPlatformProvider):
                     swe_session_started_after_review = False
                     swe_agent_commented_on_pr = any(c.author in COPILOT_COMMENT_LOGINS for c in issue_comments)
             except Exception as exc:
-                if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
-                    raise
                 logger.warning(
                     "Failed to compute SWE agent context flags for PR #%d: %s",
                     pr_number,
@@ -4949,6 +5611,8 @@ class GitHubActionsProvider(CIPlatformProvider):
                 tier_results_out=tier_results_by_comment_id,
                 swe_session_started_after_review=swe_session_started_after_review,
                 swe_agent_commented_on_pr=swe_agent_commented_on_pr,
+                post_review_copilot_comments=post_review_copilot_comments,
+                post_review_session_summaries=post_review_session_summaries,
             )
             for comment, _context in comments_for_sdk:
                 verdict = sdk_verdicts.get(comment.id, VerificationVerdict.COMMENT_UNRESOLVE)
@@ -4994,8 +5658,8 @@ class GitHubActionsProvider(CIPlatformProvider):
                         if state is not None and state.verdict == ResolutionVerdict.ABANDONED:
                             # Thread was previously abandoned; do not re-enter the lifecycle.
                             # Retry posting the abandoned reply if it was not posted previously.
-                            if comment.id not in abandoned_reply_parent_comment_ids:
-                                self._reply_to_review_comment(
+                            if comment.id not in abandoned_reply_parent_comment_ids:  # pragma: no cover
+                                self._reply_to_review_comment(  # pragma: no cover
                                     pr_number,
                                     comment.id,
                                     body=reply_formatter.format_abandoned_reply(),
@@ -5037,28 +5701,31 @@ class GitHubActionsProvider(CIPlatformProvider):
                     else:
                         clear_resolution_state(thread_id, state_dir)
                 if verdict == VerificationVerdict.COMMENT_RESOLVE:
-                    if tier_result is not None and "fallback" in (tier_result.tier_name or ""):
-                        has_unconfirmed_resolution = True
+                    high_confidence_terminal = (
+                        tier_result is not None
+                        and tier_result.confidence == "high"
+                        and tier_result.resolution_basis
+                        in {ResolutionBasis.EXPLICIT_REJECTION, ResolutionBasis.OUT_OF_SCOPE}
+                    )
                     resolved_ids.append(comment.id)
                     has_existing_addressed_reply = self._has_existing_addressed_reply(
                         pr_number, comment.id, addressed_reply_parent_comment_ids
                     )
-                    post_confirmation_reply = (
-                        comment.id in reevaluated_unconfirmed_comment_ids
-                        and tier_result is not None
-                        and "fallback" not in (tier_result.tier_name or "")
-                    )
-                    if post_confirmation_reply or not has_existing_addressed_reply:
+                    if not has_existing_addressed_reply:
                         # Resolution reply format selection:
                         # ┌─ "fallback" in tier_name → format_unconfirmed_commit_change_reply()
-                        # ├─ post_confirmation_reply (re-eval) → build_full_reply()
                         # ├─ tier_result available (normal) → build_full_reply()
                         # └─ tier_result is None → static fallback text
                         # All cases append HEAD commit link when head_sha is available.
-                        if tier_result is not None and "fallback" in (tier_result.tier_name or ""):
+                        if (
+                            tier_result is not None
+                            and "fallback" in (tier_result.tier_name or "")
+                            and not high_confidence_terminal
+                        ):
                             reply_body = reply_formatter.format_unconfirmed_commit_change_reply(
                                 tier_result,
                                 model_id=self._model_id_for_tier_result(tier_result),
+                                resolution_basis=tier_result.resolution_basis,
                             )
                         elif tier_result is not None:
                             reply_body = reply_formatter.build_full_reply(
@@ -5085,26 +5752,7 @@ class GitHubActionsProvider(CIPlatformProvider):
                                 model_id=self._model_id_for_tier_result(tier_result),
                             ),
                         )
-                    if (
-                        verdict == VerificationVerdict.COMMENT_UNRESOLVE
-                        and comment.id in reevaluated_unconfirmed_comment_ids
-                    ):
-                        unconfirmed_unresolve_ids.append(comment.id)
                     resolutions.append(CommentResolution(comment_id=comment.id, verdict=verdict))
-
-        # Unresolve threads that were previously resolved with the unconfirmed marker
-        # but are now vetoed by the SDK on re-evaluation
-        if unconfirmed_unresolve_ids:
-            unresolve_result = _unresolve_review_threads(
-                pr_number,
-                repo,
-                comment_ids=sorted(unconfirmed_unresolve_ids),
-            )
-            if not bool(unresolve_result.get("verified", False)):
-                errors.append("thread_unresolve_unverified")
-            threads_failed = int(unresolve_result.get("threadsFailed", 0) or 0)
-            if threads_failed > 0:
-                errors.append(f"thread_unresolve_failed:{threads_failed}")
 
         # Resolve threads only for comments that were verified as addressed
         if resolved_ids:
@@ -5145,7 +5793,7 @@ class GitHubActionsProvider(CIPlatformProvider):
             if threads_failed > 0:
                 errors.append(f"thread_resolution_failed:{threads_failed}")
 
-        # Invalidate the thread-signals cache AFTER the resolve/unresolve mutations.
+        # Invalidate the thread-signals cache AFTER the resolve mutations.
         # The pop at the top of this method only clears state captured before this
         # run; the pre-filter read above refills the cache with pre-resolution
         # state. Without this second pop, a later read on the same provider
@@ -5186,12 +5834,7 @@ class GitHubActionsProvider(CIPlatformProvider):
             resolutions=tuple(resolutions),
             errors=tuple(errors),
         )
-        if (
-            result.unresolved_count == 0
-            and not result.errors
-            and not has_unconfirmed_resolution
-            and unconfirmed_reevaluation_complete
-        ):
+        if result.unresolved_count == 0 and not result.errors:
             finalization_state_store.mark_terminal(key=review_key, reason=result.reason)
         logger.info(
             "Finalization complete for PR #%d review %d: %d resolved, %d unresolved, %d suppressed",
@@ -5290,6 +5933,8 @@ class GitHubActionsProvider(CIPlatformProvider):
         tier_results_out: dict[int, TierResult] | None = None,
         swe_session_started_after_review: bool = False,
         swe_agent_commented_on_pr: bool = False,
+        post_review_copilot_comments: tuple[IssueCommentInfo, ...] = (),
+        post_review_session_summaries: tuple[CopilotSessionSummary, ...] = (),
     ) -> dict[int, VerificationVerdict]:
         """Verify comments through the tiered resolution engine."""
 
@@ -5368,6 +6013,16 @@ class GitHubActionsProvider(CIPlatformProvider):
                 head_commit_oid=head_sha,
                 swe_session_started_after_review=swe_session_started_after_review,
                 swe_agent_commented_on_pr=swe_agent_commented_on_pr,
+                post_review_copilot_comments=tuple(
+                    GitHubThreadComment(
+                        body=comment.body,
+                        created_at=comment.created_at,
+                        author_login=comment.author,
+                        database_id=comment.id,
+                    )
+                    for comment in post_review_copilot_comments
+                ),
+                post_review_session_summaries=post_review_session_summaries,
             )
             result = engine.evaluate_thread(cast(ReviewThread, thread), cast(ResolutionContext, context))
             if tier_results_out is not None:

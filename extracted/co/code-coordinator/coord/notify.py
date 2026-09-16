@@ -152,7 +152,8 @@ class StalledDetection:
     issue_number: int
     reason: str  # "review_request_changes_no_fix" | "review_done_no_verdict" |
     # "done_no_review" | "approved_not_queued" | "merge_conflict_unresolved"
-    # (#1478, #1582) | "review_failed_no_verdict" (#1584)
+    # (#1478, #1582) | "review_failed_no_verdict" (#1584) |
+    # "merge_gate_checks_stale" (#3349)
     detail: str
 
 
@@ -611,7 +612,7 @@ def detect_stalled_pipeline(
     """Scan the board for *done* work chains stuck on an unmet precondition
     that a fresh review/fix transition would already have resolved (#1441).
 
-    Five candidate stall states, checked per pipeline "head" (the most
+    Seven candidate stall states, checked per pipeline "head" (the most
     recent work-like assignment for a given (repo, issue) — see
     :func:`_pipeline_heads`):
 
@@ -663,7 +664,24 @@ def detect_stalled_pipeline(
        ``--only``): a ``coord merge`` invocation that dispatched a
        conflict-fix which then failed to actually attempt (no idle
        machine) leaves the entry parked with nothing watching it.
-    5. ``review_failed_no_verdict`` (#1584) — the head's linked review
+    6. ``merge_gate_checks_stale`` (#3349) — the head's merge-queue entry
+       is still ``PENDING`` (never flips to ``CONFLICT`` — staleness is a
+       gate refusal recorded at CI-check time, not a merge-attempt
+       failure) but its stored ``error`` starts with
+       :data:`coord.merge_queue.CI_STALE_PREFIX`: every gate ahead of CI
+       (review, smoke, uat) already passed and the checks themselves are
+       neither failed nor pending, only stale against a base that has
+       moved since they ran. Nothing else in the system can clear this —
+       ``coord merge --revalidate`` deliberately excludes it (a same-base
+       CI re-run can never see a moved base) — so it is the one merge-gate
+       refusal kind with no automatic remedy anywhere until this arm:
+       reuse the same rebase-and-push worker
+       :func:`coord.conflict_fix.dispatch_conflict_fix` already provides
+       for ``merge_conflict_unresolved``, gated by the same
+       :func:`coord.conflict_fix.has_prior_conflict_fix` retry cap so a
+       second staleness block on the same base does not dispatch a second
+       worker.
+    7. ``review_failed_no_verdict`` (#1584) — the head's linked review
        WORKER died (transient API error, network drop, ...) before ever
        producing a verdict — ``status="failed"`` with no
        ``review_verdict``. Before #1584 this could not happen (a dying
@@ -706,7 +724,9 @@ def detect_stalled_pipeline(
     from coord.auto_loop import FIX_DISPATCH_TYPES  # noqa: PLC0415
     from coord.conflict_fix import has_prior_conflict_fix  # noqa: PLC0415
     from coord.merge_queue import (  # noqa: PLC0415
+        CI_STALE_PREFIX,
         CONFLICT,
+        PENDING,
         classify_conflict,
         live_gate_entry,
         load_queue,
@@ -931,6 +951,31 @@ def detect_stalled_pipeline(
                     f"stuck in CONFLICT ({matching_entry.error or 'no error recorded'}) "
                     "with no active or previously-failed conflict-fix attempt."
                 )
+            elif (
+                matching_entry.state == PENDING
+                and (matching_entry.error or "").startswith(CI_STALE_PREFIX)
+                and not has_prior_conflict_fix(
+                    board,
+                    matching_entry.assignment_id,
+                    current_error=matching_entry.error,
+                )
+            ):
+                # #3349: refused SOLELY on stale CI — every gate ahead of CI
+                # (review/smoke/uat) already passed, and the checks
+                # themselves are neither failed nor pending, only stale
+                # against a base that moved since they last ran
+                # (`coord.merge_queue.CI_STALE_PREFIX`, set by
+                # `_entry_gate_status`/`process()`, never `checks_failed`/
+                # `checks_pending` — see `MERGE_GATE_REFUSAL_KINDS`). Unlike
+                # a mechanical conflict, staleness never flips `state` away
+                # from PENDING, so this checks `error`'s prefix directly
+                # rather than `state == CONFLICT`.
+                reason = "merge_gate_checks_stale"
+                detail = (
+                    f"Merge queue entry for branch {matching_entry.branch!r} is "
+                    f"blocked solely on stale CI ({matching_entry.error}) with no "
+                    "active or previously-failed rebase attempt."
+                )
 
         if reason is None:
             continue
@@ -1014,7 +1059,8 @@ class StalledDispatchAction:
       ``enqueue_approved_work`` call already enqueued this one earlier in
       the same sweep tick — see the queue-membership check below).
     - ``"conflict_fix_dispatched"`` — a conflict-fix worker was dispatched
-      for ``merge_conflict_unresolved``.
+      for ``merge_conflict_unresolved``, or (#3349) a stale-rebase-only
+      conflict-fix worker was dispatched for ``merge_gate_checks_stale``.
     - ``"no_action"``               — the reused dispatcher declined (no
       capable machine, already in flight, gate not actually satisfied,
       entry vanished from the board/queue between detection and dispatch).
@@ -1206,6 +1252,12 @@ def dispatch_stalled_pipeline_action(
       again, the SAME call as ``done_no_review`` — the failed review left no
       verdict behind, so recovery is identical to "no review was ever
       dispatched": open a fresh one against the still-``done`` work row.
+    - ``merge_gate_checks_stale`` (#3349) → :func:`coord.conflict_fix.
+      dispatch_conflict_fix` with ``stale_rebase=True`` — the SAME worker
+      ``merge_conflict_unresolved`` dispatches, briefed for a PURE,
+      content-preserving rebase (no conflict expected) rather than the
+      ordinary conflict-resolution briefing. Guarded by the same
+      :func:`coord.conflict_fix.has_prior_conflict_fix` retry cap.
 
     Never re-entrant across ticks: the caller only reaches this after
     :func:`detect_stalled_pipeline` has already filtered out any row whose
@@ -1531,11 +1583,13 @@ def dispatch_stalled_pipeline_action(
 
     if detection.reason == "merge_conflict_unresolved":
         from coord.conflict_fix import (  # noqa: PLC0415
+            describe_conflict_fix_decline,
             dispatch_conflict_fix,
             has_prior_conflict_fix,
             sealed_conflict_could_touch_manifest,
         )
         from coord.merge_queue import load_queue  # noqa: PLC0415
+        from coord.network import fetch_status  # noqa: PLC0415
 
         entry = next(
             (m for m in load_queue() if m.assignment_id == work.assignment_id), None,
@@ -1601,15 +1655,83 @@ def dispatch_stalled_pipeline_action(
                             "human"
                         ),
                     )
-        fix = dispatch_conflict_fix(entry, board, config, prefer_machine=work.machine_name)
+        # #3353: opt into a live liveness check on machine selection — a
+        # machine with no pending/running assignments otherwise reads as
+        # idle regardless of whether its agent answers at all.
+        # #3353 review (round 3): report the REAL decline reason, read off
+        # the pick `dispatch_conflict_fix` already made, instead of the old
+        # hardcoded "(no machine / no repo_path)" — the same ambiguity item
+        # 4 killed in `coord merge`, still live on this arm. Shared
+        # formatter, not a second copy of the branching (#2096).
+        pick_out: list = []
+        fix = dispatch_conflict_fix(
+            entry, board, config, prefer_machine=work.machine_name,
+            status_fetcher=fetch_status, machine_pick_out=pick_out,
+        )
         if fix is None:
             return StalledDispatchAction(
                 kind="no_action",
-                detail="dispatch_conflict_fix declined (no machine / no repo_path)",
+                detail=(
+                    "dispatch_conflict_fix declined: "
+                    + describe_conflict_fix_decline(pick_out)
+                ),
             )
         return StalledDispatchAction(
             kind="conflict_fix_dispatched",
             detail=f"conflict-fix {fix.assignment_id} dispatched to {fix.machine_name}",
+        )
+
+    if detection.reason == "merge_gate_checks_stale":
+        from coord.conflict_fix import (  # noqa: PLC0415
+            describe_conflict_fix_decline,
+            dispatch_conflict_fix,
+            has_prior_conflict_fix,
+        )
+        from coord.merge_queue import load_queue  # noqa: PLC0415
+        from coord.network import fetch_status  # noqa: PLC0415
+
+        entry = next(
+            (m for m in load_queue() if m.assignment_id == work.assignment_id), None,
+        )
+        if entry is None:
+            return StalledDispatchAction(
+                kind="no_action", detail="merge queue entry no longer found",
+            )
+        if has_prior_conflict_fix(
+            board, entry.assignment_id, current_error=entry.error,
+        ):
+            return StalledDispatchAction(
+                kind="skipped_human_required",
+                detail="conflict-fix already active or its retry cap was already hit",
+            )
+        # #3349: `stale_rebase=True` — no content conflict is expected here
+        # (unlike `merge_conflict_unresolved`), so the worker gets the
+        # narrower briefing that refuses to push anything but a byte-
+        # identical (patch-id-verified) rebase, and escalates to a human
+        # exactly like any other conflict-fix failure the instant a real
+        # conflict or a content change shows up.
+        # #3353 review (round 3): same real-reason reporting as the
+        # `merge_conflict_unresolved` arm above.
+        pick_out: list = []
+        fix = dispatch_conflict_fix(
+            entry, board, config, prefer_machine=work.machine_name,
+            stale_rebase=True, status_fetcher=fetch_status,
+            machine_pick_out=pick_out,
+        )
+        if fix is None:
+            return StalledDispatchAction(
+                kind="no_action",
+                detail=(
+                    "dispatch_conflict_fix declined: "
+                    + describe_conflict_fix_decline(pick_out)
+                ),
+            )
+        return StalledDispatchAction(
+            kind="conflict_fix_dispatched",
+            detail=(
+                f"stale-rebase conflict-fix {fix.assignment_id} dispatched to "
+                f"{fix.machine_name}"
+            ),
         )
 
     return StalledDispatchAction(
@@ -3436,9 +3558,23 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
         # same HUMAN_REQUIRED/escalation outcome a reported failure would,
         # instead of silently retrying the identical, already-diagnosed
         # conflict.
+        # #3349 review: the same clean-exit ambiguity applies to a
+        # stale-rebase dispatch (`dispatch_conflict_fix(..., stale_rebase=
+        # True)`, used for `merge_gate_checks_stale`) — its briefing tells
+        # the worker to stop and NOT push when the rebase isn't content-
+        # preserving, which ends the turn just as cleanly as a resolved
+        # rebase does. Check for `STALE_REBASE_MISMATCH_MARKER` alongside
+        # the SEMANTIC marker (mutually exclusive per dispatch, so only
+        # checked when semantic is False) and downgrade `succeeded` the
+        # same way, without routing it through the SEMANTIC tier-2
+        # escalation path — see `coord.reconcile.on_conflict_fix_done`'s
+        # `stale_rebase_mismatch` docstring for why that's a separate arm.
         parent_id = record.get("review_of_assignment_id")
         if parent_id:
-            from coord.conflict_fix import detect_semantic_conflict  # noqa: PLC0415
+            from coord.conflict_fix import (  # noqa: PLC0415
+                detect_semantic_conflict,
+                detect_stale_rebase_mismatch,
+            )
             from coord.reconcile import on_conflict_fix_done  # noqa: PLC0415
 
             log_path = entry.get("log_path")
@@ -3451,6 +3587,17 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
                 )
             except Exception:  # noqa: BLE001 — best-effort, never break notify
                 semantic = False
+
+            stale_rebase_mismatch = False
+            if not semantic:
+                try:
+                    stale_rebase_mismatch = detect_stale_rebase_mismatch(
+                        log_path=log_path,
+                        host=host,
+                        assignment_id=transition.assignment_id,
+                    )
+                except Exception:  # noqa: BLE001
+                    stale_rebase_mismatch = False
 
             stuck_summary: str | None = None
             board = None
@@ -3475,13 +3622,26 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
                     config = _load_config()
                 except Exception:  # noqa: BLE001
                     board, config = None, None
+            elif stale_rebase_mismatch:
+                # No board/config needed here — a stale-rebase mismatch has
+                # no tier-2 escalation path, it goes straight to
+                # HUMAN_REQUIRED inside `on_conflict_fix_done`.
+                progress = entry.get("progress") or {}
+                stuck_summary = progress.get("stuck")
+                if not stuck_summary and log_path:
+                    try:
+                        from coord.progress import parse_progress  # noqa: PLC0415
+                        stuck_summary = parse_progress(log_path).stuck
+                    except Exception:  # noqa: BLE001
+                        stuck_summary = None
 
             on_conflict_fix_done(
                 parent_assignment_id=parent_id,
                 fix_assignment_id=transition.assignment_id,
                 machine_name=transition.machine_name,
-                succeeded=not semantic,
+                succeeded=not semantic and not stale_rebase_mismatch,
                 semantic=semantic,
+                stale_rebase_mismatch=stale_rebase_mismatch,
                 board=board,
                 config=config,
                 stuck_summary=stuck_summary,

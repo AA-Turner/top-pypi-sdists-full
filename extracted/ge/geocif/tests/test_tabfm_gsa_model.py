@@ -115,8 +115,8 @@ def test_geocif_wiring_for_tabfm_gsa():
     # fitter map
     assert '"tabfm_gsa": TabPFNFitter(self.obj)' in src
     # lat/lon requirement gate + coord-degeneracy warning cover tabfm_gsa
-    assert '("pygrf", "tabpfn_gsa", "tabfm_gsa")' in src
+    assert '("pygrf", "tabpfn_gsa", "tabfm_gsa", "tabicl_gsa")' in src
     # inner-ensemble width config key
     assert "tabfm_gsa_n_estimators" in src
     # XAI force-off covers tabfm_gsa
-    assert 'self.dispatch_name in ("tabpfn_gsa", "tabfm_gsa")' in src
+    assert 'self.dispatch_name in ("tabpfn_gsa", "tabfm_gsa", "tabicl_gsa")' in src

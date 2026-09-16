@@ -187,16 +187,27 @@ case_admin/org_id,ws_id:
 data_viewer/org_id,ws_id:
     - r:workspace_management/org_id,ws_id,{env=*,type=*}
     - r:workspace_feature_query/org_id,ws_id,{env=*,component=*,current_status_live=*}
+    # leftover entity instance reads: viewer is sandbox-only (live used w:workspace_data)
+    - r:workspace_record/org_id,ws_id,{env=sandbox,type=entity}
+    # leftover event/feature instance reads used r:workspace_data (live included)
+    - r:workspace_record/org_id,ws_id,{env=*,type=event}
+    - r:workspace_record/org_id,ws_id,{env=*,type=feature}
 data_editor/org_id,ws_id:
     - data_viewer/org_id,ws_id
     - w+d:workspace_feature_query/org_id,ws_id,{env=*,component=definition,current_status_live=inactive}
     - w:workspace_feature_query/org_id,ws_id,{env=sandbox,component=status,current_status_live=*}
+    - r:workspace_record/org_id,ws_id,{env=live,type=entity}
+    - w:workspace_record/org_id,ws_id,{env=sandbox,type=entity}
+    - w:workspace_record/org_id,ws_id,{env=sandbox,type=event}
 data_admin/org_id,ws_id:
     - data_editor/org_id,ws_id
     - w+d:workspace_management/org_id,ws_id,{env=*,type=feature}
     - w+d:workspace_management/org_id,ws_id,{env=*,type=event}
     - w+d:workspace_management/org_id,ws_id,{env=*,type=entity}
+    - r:workspace_sensitive_field/org_id,ws_id,{env=*,type=*}
     - w:workspace_feature_query/org_id,ws_id,{env=live,component=status,current_status_live=*}
+    - w:workspace_record/org_id,ws_id,{env=live,type=entity}
+    - w:workspace_record/org_id,ws_id,{env=live,type=event}
 
 # P141c file roles, carved verbatim from the ws_* roles (capability-neutral)
 file_viewer_sandbox/org_id,ws_id:
@@ -339,6 +350,7 @@ api_key_ws_viewer/org_id,ws_id:
 api_key_ws_editor/org_id,ws_id:
     - ws_editor/org_id,ws_id
 api_key_case_management/org_id,ws_id:
+    - r:workspace_data/org_id,ws_id
     - r+w:workspace_case/org_id,ws_id
     - w:workspace_case_flow_trigger/org_id,ws_id
     - w:workspace_case_queue/org_id,ws_id
@@ -354,6 +366,15 @@ api_key_case_management_templates/org_id,ws_id:
     - r+w:workspace_case_template/org_id,ws_id
 api_key_wizard/org_id,ws_id:
     - r+w:workspace_wizard/org_id,ws_id,{env=*}
+
+elements_sdk_sandbox/org_id,ws_id,flow_folder_id:
+    - execute:flows/org_id,ws_id,flow_folder_id,{env=sandbox}
+    - r:workspace_sdk_bundle/org_id,ws_id
+    - r+w:workspace_wizard/org_id,ws_id,{env=sandbox}
+elements_sdk_live/org_id,ws_id,flow_folder_id:
+    - execute:flows/org_id,ws_id,flow_folder_id,{env=live}
+    - r:workspace_sdk_bundle/org_id,ws_id
+    - r+w:workspace_wizard/org_id,ws_id,{env=live}
 
 # scim
 scim_provisioner/org_id:

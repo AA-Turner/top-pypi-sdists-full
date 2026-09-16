@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ocp-tessellate
-Version: 3.5.2
+Version: 3.5.3
 Summary: Tessellate OCP (https://github.com/cadquery/OCP) objects to use with threejs
 Author-email: Bernhard Walter <b_walter@arcor.de>
 License-Expression: Apache-2.0

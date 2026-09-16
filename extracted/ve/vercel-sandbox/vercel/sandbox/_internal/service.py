@@ -22,8 +22,10 @@ from vercel.sandbox._internal.errors import (
 from vercel.sandbox._internal.log_stream import _parse_command_log_record
 from vercel.sandbox._internal.models import (
     _OMITTED,
+    NO_PRIVATE_PARAMETERS,
     DirectoryEntry,
     NetworkPolicy,
+    PrivateSandboxParameters,
     ProcessLog,
     SandboxQuery,
     SandboxQueryByCreatedAt,
@@ -264,6 +266,9 @@ class SandboxService:
         tags: Mapping[str, str] | None = None,
         snapshot_expiration: SnapshotExpiration | None = None,
         snapshot_retention: SnapshotRetention | None = None,
+        region: str | None = None,
+        failover_regions: tuple[str, ...] | None = None,
+        private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
     ) -> SandboxState:
         self._ensure_open()
         sandbox = await self._api_client.create_sandbox(
@@ -280,6 +285,50 @@ class SandboxService:
             tags=tags,
             snapshot_expiration=snapshot_expiration,
             snapshot_retention=snapshot_retention,
+            region=region or self._options.region,
+            failover_regions=failover_regions,
+            private_parameters=private_parameters,
+        )
+        return await self._wait_for_ready_sandbox(sandbox, project_id=project_id)
+
+    async def fork_sandbox(
+        self,
+        *,
+        source_sandbox: str,
+        project_id: str | None = None,
+        name: str | None = None,
+        ports: list[int] | None = None,
+        execution_time_limit: timedelta | None = None,
+        resources: SandboxResources | None = None,
+        image: str | None = None,
+        persistent: bool | None = None,
+        network_policy: NetworkPolicy | None = None,
+        env: Mapping[str, str] | None = None,
+        tags: Mapping[str, str] | None = None,
+        snapshot_expiration: SnapshotExpiration | None = None,
+        snapshot_retention: SnapshotRetention | None = None,
+        region: str | None = None,
+        failover_regions: tuple[str, ...] | None = None,
+        private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
+    ) -> SandboxState:
+        self._ensure_open()
+        sandbox = await self._api_client.fork_sandbox(
+            source_sandbox=source_sandbox,
+            project_id=project_id,
+            name=name,
+            ports=ports,
+            execution_time_limit=execution_time_limit,
+            resources=resources,
+            image=image,
+            persistent=persistent,
+            network_policy=network_policy,
+            env=env,
+            tags=tags,
+            snapshot_expiration=snapshot_expiration,
+            snapshot_retention=snapshot_retention,
+            region=region or self._options.region,
+            failover_regions=failover_regions,
+            private_parameters=private_parameters,
         )
         return await self._wait_for_ready_sandbox(sandbox, project_id=project_id)
 
@@ -290,6 +339,7 @@ class SandboxService:
         project_id: str | None = None,
         resume: bool = False,
         include_system_routes: bool | None = None,
+        private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
     ) -> SandboxState:
         self._ensure_open()
         return await self._api_client.get_sandbox(
@@ -297,6 +347,7 @@ class SandboxService:
             project_id=project_id,
             resume=resume,
             include_system_routes=include_system_routes,
+            private_parameters=private_parameters,
         )
 
     async def get_or_create_sandbox(
@@ -317,6 +368,9 @@ class SandboxService:
         tags: Mapping[str, str] | None = None,
         snapshot_expiration: SnapshotExpiration | None = None,
         snapshot_retention: SnapshotRetention | None = None,
+        region: str | None = None,
+        failover_regions: tuple[str, ...] | None = None,
+        private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
     ) -> tuple[SandboxState, bool]:
         """Return a named sandbox and whether it had to be created."""
         try:
@@ -325,6 +379,7 @@ class SandboxService:
                 project_id=project_id,
                 resume=resume,
                 include_system_routes=include_system_routes,
+                private_parameters=private_parameters,
             )
         except SandboxApiError as error:
             if error.status_code == 404:
@@ -354,6 +409,9 @@ class SandboxService:
             tags=tags,
             snapshot_expiration=snapshot_expiration,
             snapshot_retention=snapshot_retention,
+            region=region,
+            failover_regions=failover_regions,
+            private_parameters=private_parameters,
         )
         return sandbox, True
 
@@ -396,6 +454,8 @@ class SandboxService:
         snapshot_expiration: SnapshotExpiration | None = None,
         snapshot_retention: SnapshotRetentionUpdate = _OMITTED,
         current_snapshot_id: str | None = None,
+        region: str | None = None,
+        failover_regions: tuple[str, ...] | None = None,
     ) -> SandboxState:
         self._ensure_open()
         return await self._api_client.update_sandbox(
@@ -411,6 +471,8 @@ class SandboxService:
             snapshot_expiration=snapshot_expiration,
             snapshot_retention=snapshot_retention,
             current_snapshot_id=current_snapshot_id,
+            region=region or self._options.region,
+            failover_regions=failover_regions,
         )
 
     async def resume_sandbox(
@@ -419,12 +481,14 @@ class SandboxService:
         name: str,
         project_id: str | None = None,
         include_system_routes: bool | None = None,
+        private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
     ) -> SandboxState:
         self._ensure_open()
         sandbox = await self._api_client.resume_sandbox(
             name=name,
             project_id=project_id,
             include_system_routes=include_system_routes,
+            private_parameters=private_parameters,
         )
         if sandbox.current_session is None:
             raise SandboxResponseError(
@@ -1075,6 +1139,7 @@ def get_sync_sandbox_service(session: "SyncSdkSession") -> SandboxService:
             base_url=sync_options.base_url,
             credentials_factory=_adapt_sync_credentials_factory(sync_options.credentials_factory),
             file_transfer_timeout=sync_options.file_transfer_timeout,
+            region=sync_options.region,
         )
         return SandboxService(
             api_client=SandboxApiClient(

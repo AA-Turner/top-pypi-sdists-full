@@ -2652,6 +2652,20 @@ class CustomerMcpAuthorizationStatus(sgqlc.types.Enum):
     __choices__ = ("AUTHORIZED", "EXPIRED", "NOT_AUTHORIZED", "PENDING", "REVOKED")
 
 
+class CustomerMcpConnectionStatus(sgqlc.types.Enum):
+    """Result of the last authenticated connection check.
+
+    Enumeration Choices:
+
+    * `ERROR`None
+    * `NOT_TESTED`None
+    * `READY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ERROR", "NOT_TESTED", "READY")
+
+
 class CustomerMcpOAuthGrantType(sgqlc.types.Enum):
     """OAuth2 grant type for customer MCP servers.
 
@@ -2678,6 +2692,19 @@ class CustomerMcpServerStatus(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ACTIVE", "CREATING", "DELETING", "ERROR")
+
+
+class CustomerMcpTokenEndpointAuthMethod(sgqlc.types.Enum):
+    """How the client authenticates to the OAuth2 token endpoint.
+
+    Enumeration Choices:
+
+    * `CLIENT_SECRET_BASIC`None
+    * `CLIENT_SECRET_POST`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CLIENT_SECRET_BASIC", "CLIENT_SECRET_POST")
 
 
 class CustomerMcpUserIdFieldType(sgqlc.types.Enum):
@@ -9389,6 +9416,22 @@ class TriageScore(sgqlc.types.Enum):
     __choices__ = ("HIGH", "LOW", "MEDIUM")
 
 
+class TriageSignal(sgqlc.types.Enum):
+    """Direction one reason bullet pushes its score axis.      Judged per
+    axis, not as good/bad for the customer — "No downstream
+    tables" LOWERS impact. Drives the colour of the dot the alert-page
+    banner     renders next to the bullet.
+
+    Enumeration Choices:
+
+    * `LOWERS`None
+    * `RAISES`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("LOWERS", "RAISES")
+
+
 class TriageState(sgqlc.types.Enum):
     """Whether triage has ever run for an alert, and the latest attempt's
     outcome: PENDING (a run is in flight), COMPLETED, ERROR, or
@@ -11951,6 +11994,7 @@ class ClusteringConfigInput(sgqlc.types.Input):
         "min_conversations",
         "classify_cadence_minutes",
         "daily_classification_budget",
+        "work_item_batch_cap",
         "collection_lag_hours",
         "percentile_window_days",
         "eval_score_threshold",
@@ -12009,6 +12053,11 @@ class ClusteringConfigInput(sgqlc.types.Input):
     dispatched — the coverage watermark holds and scanning resumes
     oldest-first when budget frees, so nothing is dropped, only
     delayed.
+    """
+
+    work_item_batch_cap = sgqlc.types.Field(Int, graphql_name="workItemBatchCap")
+    """Maximum work items one consumer run claims from the space's list.
+    Each item is a chunk of conversations.
     """
 
     collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
@@ -13187,6 +13236,22 @@ class CustomSqlRuleAlertConditionInput(sgqlc.types.Input):
 
     lower_threshold = sgqlc.types.Field(Float, graphql_name="lowerThreshold")
     """Lower threshold value"""
+
+
+class CustomerMcpAuthHeaderInput(sgqlc.types.Input):
+    """A custom authentication header for an API-key MCP server.  Values
+    are write-only secrets stored in Vault; they are sent literally
+    (no Bearer prefix). On update, an entry without a value keeps the
+    stored one.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("name", "value")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """HTTP header name (RFC 7230 token)"""
+
+    value = sgqlc.types.Field(String, graphql_name="value")
+    """Header value (secret). Omitted on update keeps the stored value."""
 
 
 class DODCriteriaInput(sgqlc.types.Input):
@@ -29004,6 +29069,7 @@ class ClusteringConfig(sgqlc.types.Type):
         "min_conversations",
         "classify_cadence_minutes",
         "daily_classification_budget",
+        "work_item_batch_cap",
         "collection_lag_hours",
         "percentile_window_days",
         "eval_score_threshold",
@@ -29082,6 +29148,13 @@ class ClusteringConfig(sgqlc.types.Type):
     dispatched — the coverage watermark holds and scanning resumes
     oldest-first when budget frees, so nothing is dropped, only
     delayed.
+    """
+
+    work_item_batch_cap = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="workItemBatchCap"
+    )
+    """Maximum work items one consumer run claims from the space's list.
+    Each item is a chunk of conversations.
     """
 
     collection_lag_hours = sgqlc.types.Field(
@@ -33739,12 +33812,22 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
         "gateway_endpoint",
         "error_message",
         "api_key_header_name",
+        "auth_header_names",
         "user_id_header_name",
         "user_id_field_type",
         "oauth_grant_type",
         "oauth_client_id",
         "oauth_callback_url",
         "oauth_scopes",
+        "oauth_token_endpoint",
+        "oauth_token_endpoint_auth_method",
+        "oauth_resource",
+        "oauth_audience",
+        "oauth_client_secret_configured",
+        "oauth_config_revision",
+        "connection_status",
+        "connection_last_checked_at",
+        "connection_error",
         "created_time",
         "updated_time",
         "created_by",
@@ -33783,6 +33866,13 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
     is.
     """
 
+    auth_header_names = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="authHeaderNames"
+    )
+    """Names of configured custom auth headers (API_KEY only). Values are
+    never exposed.
+    """
+
     user_id_header_name = sgqlc.types.Field(String, graphql_name="userIdHeaderName")
     """HTTP header name for user identity (e.g., 'Arcade-User-ID')"""
 
@@ -33805,7 +33895,46 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
     oauth_scopes = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="oauthScopes"
     )
-    """OAuth2 scopes supported by this server"""
+    """OAuth2 scopes requested for this server"""
+
+    oauth_token_endpoint = sgqlc.types.Field(String, graphql_name="oauthTokenEndpoint")
+    """OAuth2 token endpoint (explicit or discovered at configuration
+    time)
+    """
+
+    oauth_token_endpoint_auth_method = sgqlc.types.Field(
+        CustomerMcpTokenEndpointAuthMethod, graphql_name="oauthTokenEndpointAuthMethod"
+    )
+    """Client authentication method for the token endpoint"""
+
+    oauth_resource = sgqlc.types.Field(String, graphql_name="oauthResource")
+    """OAuth2 resource indicator sent with the token request (RFC 8707)"""
+
+    oauth_audience = sgqlc.types.Field(String, graphql_name="oauthAudience")
+    """Provider-specific audience sent with the token request"""
+
+    oauth_client_secret_configured = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="oauthClientSecretConfigured"
+    )
+    """Whether a client secret is stored (the secret itself is never
+    exposed)
+    """
+
+    oauth_config_revision = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="oauthConfigRevision"
+    )
+    """Monotonic revision of the credential-affecting OAuth configuration"""
+
+    connection_status = sgqlc.types.Field(
+        sgqlc.types.non_null(CustomerMcpConnectionStatus), graphql_name="connectionStatus"
+    )
+    """Result of the last authenticated connection check"""
+
+    connection_last_checked_at = sgqlc.types.Field(DateTime, graphql_name="connectionLastCheckedAt")
+    """When the connection was last checked"""
+
+    connection_error = sgqlc.types.Field(String, graphql_name="connectionError")
+    """Sanitized error from the last failed connection check"""
 
     created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
     """When the server was created"""
@@ -33822,7 +33951,9 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
     user_authorization_status = sgqlc.types.Field(
         CustomerMcpAuthorizationStatus, graphql_name="userAuthorizationStatus"
     )
-    """Current user's authorization status for this server"""
+    """Current user's authorization status for this server. Null where
+    per-user consent does not apply (client-credentials servers).
+    """
 
 
 class DODCriteriaOutput(sgqlc.types.Type):
@@ -44714,6 +44845,7 @@ class McpServerAuthDiscovery(sgqlc.types.Type):
         "authorization_endpoint",
         "token_endpoint",
         "registration_endpoint",
+        "token_endpoint_auth_methods",
         "error",
     )
     auth_metadata_found = sgqlc.types.Field(
@@ -44759,6 +44891,14 @@ class McpServerAuthDiscovery(sgqlc.types.Type):
 
     registration_endpoint = sgqlc.types.Field(String, graphql_name="registrationEndpoint")
     """Dynamic Client Registration endpoint (RFC 7591)"""
+
+    token_endpoint_auth_methods = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="tokenEndpointAuthMethods",
+    )
+    """Client auth methods the token endpoint advertises; empty means the
+    server did not say
+    """
 
     error = sgqlc.types.Field(String, graphql_name="error")
     """Error message when auth_metadata_found is False"""
@@ -47838,6 +47978,7 @@ class Mutation(sgqlc.types.Type):
         "add_redshift_consumer_connection",
         "remove_connection",
         "set_connection_deletion_protection",
+        "set_connection_agent_observability_trace_store",
         "add_bi_connection",
         "update_bi_connection_name",
         "add_etl_connection",
@@ -48170,6 +48311,14 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(String, graphql_name="apiKeyHeaderName", default=None),
                 ),
                 (
+                    "auth_headers",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpAuthHeaderInput)),
+                        graphql_name="authHeaders",
+                        default=None,
+                    ),
+                ),
+                (
                     "auth_type",
                     sgqlc.types.Arg(
                         CustomerMcpAuthenticationMethod, graphql_name="authType", default="NONE"
@@ -48189,6 +48338,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "oauth_audience",
+                    sgqlc.types.Arg(String, graphql_name="oauthAudience", default=None),
+                ),
+                (
                     "oauth_client_id",
                     sgqlc.types.Arg(String, graphql_name="oauthClientId", default=None),
                 ),
@@ -48203,9 +48356,25 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "oauth_resource",
+                    sgqlc.types.Arg(String, graphql_name="oauthResource", default=None),
+                ),
+                (
                     "oauth_scopes",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String), graphql_name="oauthScopes", default=None
+                    ),
+                ),
+                (
+                    "oauth_token_endpoint",
+                    sgqlc.types.Arg(String, graphql_name="oauthTokenEndpoint", default=None),
+                ),
+                (
+                    "oauth_token_endpoint_auth_method",
+                    sgqlc.types.Arg(
+                        CustomerMcpTokenEndpointAuthMethod,
+                        graphql_name="oauthTokenEndpointAuthMethod",
+                        default=None,
                     ),
                 ),
                 (
@@ -48226,22 +48395,35 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `api_key` (`String`): API key (required if auth_type=API_KEY;
-      not persisted by MC)
+      stored in Vault, never exposed)
     * `api_key_header_name` (`String`): HTTP header name for the API
       key (default: 'Authorization'). When 'Authorization', value is
       sent as 'Bearer <key>'.
+    * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): Custom auth
+      headers (API_KEY only), sent literally. May be combined with
+      api_key; names must not collide with it.
     * `auth_type` (`CustomerMcpAuthenticationMethod`): Authentication
       type (default: `"NONE"`)
     * `description` (`String`): Optional description
     * `mcp_server_url` (`String!`): URL of the customer's MCP server
     * `name` (`String!`): Display name for the server
+    * `oauth_audience` (`String`): Provider-specific audience for the
+      token request
     * `oauth_client_id` (`String`): OAuth2 client ID (required for
       CLIENT_CREDENTIALS; optional for PKCE)
     * `oauth_client_secret` (`String`): OAuth2 client secret
-      (CLIENT_CREDENTIALS only; not persisted by MC)
+      (CLIENT_CREDENTIALS only; stored in Vault, never exposed)
     * `oauth_grant_type` (`CustomerMcpOAuthGrantType`): OAuth2 grant
       type (required if auth_type=OAUTH2)
+    * `oauth_resource` (`String`): OAuth2 resource indicator for the
+      token request (RFC 8707)
     * `oauth_scopes` (`[String]`): OAuth2 scopes to request
+    * `oauth_token_endpoint` (`String`): OAuth2 token endpoint
+      (CLIENT_CREDENTIALS only). Discovered from the server's metadata
+      when omitted.
+    * `oauth_token_endpoint_auth_method`
+      (`CustomerMcpTokenEndpointAuthMethod`): Client authentication
+      method for the token endpoint (default: CLIENT_SECRET_BASIC)
     * `user_id_field_type` (`CustomerMcpUserIdFieldType`): Field type
       for user identity: EMAIL or USER_ID
     * `user_id_header_name` (`String`): HTTP header name for user
@@ -48259,6 +48441,14 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(String, graphql_name="apiKeyHeaderName", default=None),
                 ),
                 (
+                    "auth_headers",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpAuthHeaderInput)),
+                        graphql_name="authHeaders",
+                        default=None,
+                    ),
+                ),
+                (
                     "auth_type",
                     sgqlc.types.Arg(
                         CustomerMcpAuthenticationMethod, graphql_name="authType", default=None
@@ -48270,6 +48460,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(String, graphql_name="mcpServerUrl", default=None),
                 ),
                 ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
+                (
+                    "oauth_audience",
+                    sgqlc.types.Arg(String, graphql_name="oauthAudience", default=None),
+                ),
                 (
                     "oauth_client_id",
                     sgqlc.types.Arg(String, graphql_name="oauthClientId", default=None),
@@ -48285,9 +48479,33 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "oauth_resource",
+                    sgqlc.types.Arg(String, graphql_name="oauthResource", default=None),
+                ),
+                (
                     "oauth_scopes",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String), graphql_name="oauthScopes", default=None
+                    ),
+                ),
+                (
+                    "oauth_token_endpoint",
+                    sgqlc.types.Arg(String, graphql_name="oauthTokenEndpoint", default=None),
+                ),
+                (
+                    "oauth_token_endpoint_auth_method",
+                    sgqlc.types.Arg(
+                        CustomerMcpTokenEndpointAuthMethod,
+                        graphql_name="oauthTokenEndpointAuthMethod",
+                        default=None,
+                    ),
+                ),
+                (
+                    "remove_auth_headers",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="removeAuthHeaders",
+                        default=None,
                     ),
                 ),
                 (
@@ -48314,17 +48532,31 @@ class Mutation(sgqlc.types.Type):
     * `api_key` (`String`): New API key (required when changing to
       API_KEY auth)
     * `api_key_header_name` (`String`): New header name for API key
+    * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): Custom auth
+      headers to add or replace (API_KEY only). An entry without a
+      value keeps the stored value; omitted names are preserved.
     * `auth_type` (`CustomerMcpAuthenticationMethod`): New
       authentication type
     * `description` (`String`): New description
     * `mcp_server_url` (`String`): New MCP server URL
     * `name` (`String`): New display name
+    * `oauth_audience` (`String`): New provider-specific audience; an
+      empty string clears it
     * `oauth_client_id` (`String`): New OAuth2 client ID
     * `oauth_client_secret` (`String`): New OAuth2 client secret
-      (CLIENT_CREDENTIALS only; not persisted by MC)
+      (CLIENT_CREDENTIALS only; stored in Vault, never exposed)
     * `oauth_grant_type` (`CustomerMcpOAuthGrantType`): New OAuth2
       grant type
+    * `oauth_resource` (`String`): New OAuth2 resource indicator; an
+      empty string clears it
     * `oauth_scopes` (`[String]`): New OAuth2 scopes
+    * `oauth_token_endpoint` (`String`): New OAuth2 token endpoint
+      (CLIENT_CREDENTIALS only)
+    * `oauth_token_endpoint_auth_method`
+      (`CustomerMcpTokenEndpointAuthMethod`): New client
+      authentication method for the token endpoint
+    * `remove_auth_headers` (`[String!]`): Names of custom auth
+      headers to remove (API_KEY only)
     * `user_id_field_type` (`CustomerMcpUserIdFieldType`): New field
       type for user identity
     * `user_id_header_name` (`String`): New header name for user
@@ -48362,15 +48594,65 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(String, graphql_name="apiKeyHeaderName", default=None),
                 ),
                 (
+                    "auth_headers",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpAuthHeaderInput)),
+                        graphql_name="authHeaders",
+                        default=None,
+                    ),
+                ),
+                (
                     "auth_type",
                     sgqlc.types.Arg(
-                        CustomerMcpAuthenticationMethod, graphql_name="authType", default="NONE"
+                        CustomerMcpAuthenticationMethod, graphql_name="authType", default=None
                     ),
                 ),
                 (
                     "mcp_server_url",
+                    sgqlc.types.Arg(String, graphql_name="mcpServerUrl", default=None),
+                ),
+                (
+                    "mcp_server_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="mcpServerUuid", default=None),
+                ),
+                (
+                    "oauth_audience",
+                    sgqlc.types.Arg(String, graphql_name="oauthAudience", default=None),
+                ),
+                (
+                    "oauth_client_id",
+                    sgqlc.types.Arg(String, graphql_name="oauthClientId", default=None),
+                ),
+                (
+                    "oauth_client_secret",
+                    sgqlc.types.Arg(String, graphql_name="oauthClientSecret", default=None),
+                ),
+                (
+                    "oauth_grant_type",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcpServerUrl", default=None
+                        CustomerMcpOAuthGrantType, graphql_name="oauthGrantType", default=None
+                    ),
+                ),
+                (
+                    "oauth_resource",
+                    sgqlc.types.Arg(String, graphql_name="oauthResource", default=None),
+                ),
+                (
+                    "oauth_scopes",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="oauthScopes", default=None
+                    ),
+                ),
+                (
+                    "oauth_token_endpoint",
+                    sgqlc.types.Arg(String, graphql_name="oauthTokenEndpoint", default=None),
+                ),
+                (
+                    "oauth_token_endpoint_auth_method",
+                    sgqlc.types.Arg(
+                        CustomerMcpTokenEndpointAuthMethod,
+                        graphql_name="oauthTokenEndpointAuthMethod",
+                        default=None,
                     ),
                 ),
                 (
@@ -48393,9 +48675,27 @@ class Mutation(sgqlc.types.Type):
     * `api_key` (`String`): API key to use during the test
     * `api_key_header_name` (`String`): HTTP header name for the API
       key (default: 'Authorization')
+    * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): Custom auth
+      headers to test (API_KEY only). An entry without a value uses
+      the saved server's stored value for that name.
     * `auth_type` (`CustomerMcpAuthenticationMethod`): Authentication
-      type (default: `"NONE"`)
-    * `mcp_server_url` (`String!`): URL to test
+      type (defaults to the saved server's when uuid is given)
+    * `mcp_server_url` (`String`): URL to test; defaults to the saved
+      server's URL when uuid is given
+    * `mcp_server_uuid` (`UUID`): Test a saved server; omitted OAuth
+      fields resolve from its stored configuration
+    * `oauth_audience` (`String`): Provider-specific audience
+    * `oauth_client_id` (`String`): OAuth2 client ID to test
+    * `oauth_client_secret` (`String`): OAuth2 client secret to test;
+      when omitted for a saved server, the stored secret is used
+    * `oauth_grant_type` (`CustomerMcpOAuthGrantType`): OAuth2 grant
+      type to test (defaults to the saved server's)
+    * `oauth_resource` (`String`): OAuth2 resource indicator
+    * `oauth_scopes` (`[String]`): OAuth2 scopes to request
+    * `oauth_token_endpoint` (`String`): OAuth2 token endpoint to test
+    * `oauth_token_endpoint_auth_method`
+      (`CustomerMcpTokenEndpointAuthMethod`): Client authentication
+      method for the token endpoint
     * `user_id_field_type` (`CustomerMcpUserIdFieldType`): Field type
       for user identity: EMAIL or USER_ID
     * `user_id_header_name` (`String`): HTTP header name for user
@@ -69364,6 +69664,12 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "agent_observability_trace_store",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="agentObservabilityTraceStore", default=None
+                    ),
+                ),
+                (
                     "allowed_dbt_cloud_connections",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -69413,6 +69719,10 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `agent_observability_trace_store` (`Boolean`): ClickHouse only.
+      true/false: records whether the connection is an Agent
+      Observability trace store. null / omitted: nothing is recorded
+      on the connection.
     * `allowed_dbt_cloud_connections` (`[String!]`): dbt Cloud webhook
       only: explicit allow-list of dbt connection ids/names; a run is
       kept only if its environment connection id or name is listed.
@@ -69548,6 +69858,37 @@ class Mutation(sgqlc.types.Type):
       protection
     * `enable_deletion_protection` (`Boolean!`): Enable or disable
       deletion protection
+    """
+
+    set_connection_agent_observability_trace_store = sgqlc.types.Field(
+        "SetConnectionAgentObservabilityTraceStore",
+        graphql_name="setConnectionAgentObservabilityTraceStore",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+                (
+                    "enable",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="enable", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Mark or unmark a ClickHouse connection as an Agent
+    Observability trace store.
+
+    Arguments:
+
+    * `connection_id` (`UUID!`): ID of the connection to update
+    * `enable` (`Boolean!`): true marks the connection as a trace
+      store. false unmarks it, and is rejected while the connection's
+      database is named otel_traces.
     """
 
     add_bi_connection = sgqlc.types.Field(
@@ -105158,6 +105499,18 @@ class SetCollibraMcDomainMapping(sgqlc.types.Type):
     )
 
 
+class SetConnectionAgentObservabilityTraceStore(sgqlc.types.Type):
+    """Mark or unmark a ClickHouse connection as an Agent Observability
+    trace store. Unmarking is rejected while the connection's database
+    is named otel_traces, because the connection would still be
+    classified as a trace store.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
 class SetConnectionCtpConfig(sgqlc.types.Type):
     """Set (create or replace) the custom CTP config for a connection."""
 
@@ -108633,12 +108986,15 @@ class TestCustomerMcpServerConnection(sgqlc.types.relay.Connection):
     """Test connectivity to a customer MCP server"""
 
     __schema__ = schema
-    __field_names__ = ("success", "error_message", "tools_count")
+    __field_names__ = ("success", "error_message", "error_code", "tools_count")
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
     """Whether the connection succeeded"""
 
     error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
     """Error details if the connection failed"""
+
+    error_code = sgqlc.types.Field(String, graphql_name="errorCode")
+    """Sanitized error code if the connection failed"""
 
     tools_count = sgqlc.types.Field(Int, graphql_name="toolsCount")
     """Number of tools discovered (if successful)"""
@@ -110712,6 +111068,8 @@ class TriageAgentRunResult(sgqlc.types.Type):
         "alert_impact",
         "alert_description",
         "triage_summary",
+        "likelihood_reasons",
+        "impact_reasons",
         "error_message",
         "triaged_at",
         "triaged_by_user",
@@ -110731,6 +111089,22 @@ class TriageAgentRunResult(sgqlc.types.Type):
     )
 
     triage_summary = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="triageSummary")
+
+    likelihood_reasons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TriageReason"))),
+        graphql_name="likelihoodReasons",
+    )
+    """Reason bullets behind alertConfidence. Populated when status is
+    COMPLETED; empty otherwise.
+    """
+
+    impact_reasons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TriageReason"))),
+        graphql_name="impactReasons",
+    )
+    """Reason bullets behind alertImpact. Populated when status is
+    COMPLETED; empty otherwise.
+    """
 
     error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
     """Populated when status is ERROR."""
@@ -111043,6 +111417,25 @@ class TriageCostEstimateOutput(sgqlc.types.Type):
         sgqlc.types.non_null(Float), graphql_name="creditsPerAlert"
     )
     """Credits charged per automated triage past the free allowance."""
+
+
+class TriageReason(sgqlc.types.Type):
+    """One reason bullet behind a triage score."""
+
+    __schema__ = schema
+    __field_names__ = ("text", "highlight", "signal")
+    text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="text")
+    """The bullet text."""
+
+    highlight = sgqlc.types.Field(String, graphql_name="highlight")
+    """Exact substring of text rendered in bold on the alert-page banner.
+    Null when the agent supplied none.
+    """
+
+    signal = sgqlc.types.Field(sgqlc.types.non_null(TriageSignal), graphql_name="signal")
+    """Whether the fact pushes the score up (RAISES) or down (LOWERS);
+    drives the colour of the dot next to the bullet.
+    """
 
 
 class TriageVerdictOrigin(sgqlc.types.Type):
@@ -114684,6 +115077,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "triage_result",
         "triage_state",
         "tsa_analysis_thread_id",
+        "has_tsa_investigation",
         "status",
         "tables",
         "assets",
@@ -114778,6 +115172,13 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
     investigated without querying each one. Null means unknown — the
     alert was never investigated, or a completed analysis was not
     recorded against it.
+    """
+
+    has_tsa_investigation = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasTsaInvestigation"
+    )
+    """(experimental) True when a completed Troubleshooting Agent
+    analysis has been recorded for this alert.
     """
 
     status = sgqlc.types.Field(AlertStatus, graphql_name="status")

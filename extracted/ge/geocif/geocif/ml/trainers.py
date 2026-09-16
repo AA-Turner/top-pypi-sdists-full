@@ -601,6 +601,155 @@ def _tabfm_gsa_predict_fn(reg, X):
     ).ravel()
 
 
+def _tabicl_gsa_fit_fn(X, y, n_estimators=8, device="cpu", seed=0,
+                       norm_methods=None, outlier_threshold=5.0):
+    """Function-backend fit hook for GSAModel: one TabICL in-context 'fit'
+    per local grid cell (plus the global fallback). Module-level (not a
+    closure) so it survives pickling into pool workers.
+
+    Unlike the TabFM hook, NO object-dtype cast is needed: TabICLRegressor
+    accepts pandas `category` columns directly (verified against tabicl
+    2.1.1), so geocif's Region/Harvest Year categoricals pass through as-is.
+
+    norm_methods / outlier_threshold mirror the plain 'tabicl' branch so the
+    two arms differ only in the spatial context sampler, not in TabICL's own
+    preprocessing.
+    """
+    import sklearn
+
+    from tabicl import TabICLRegressor
+
+    # sklearn's transform_output is PROCESS-GLOBAL. TabICLFitter pins it in the
+    # PARENT process, but GSAModel fits local cells in pool workers that do not
+    # inherit that pin -- so pin and restore here too, or a worker whose config
+    # says pandas output raises mid-fold. Same copy-the-pattern rule as every
+    # other geocif site that touches sklearn's global config.
+    prev = sklearn.get_config()["transform_output"]
+    sklearn.set_config(transform_output="default")
+    try:
+        reg = TabICLRegressor(
+            n_estimators=int(n_estimators),
+            norm_methods=norm_methods or ["none", "power", "quantile", "robust"],
+            outlier_threshold=float(outlier_threshold),
+            random_state=int(seed),
+            device=device,
+        )
+        reg.fit(pd.DataFrame(X), np.asarray(y, dtype=float).ravel())
+    finally:
+        sklearn.set_config(transform_output=prev)
+    return reg
+
+
+def _tabicl_gsa_predict_fn(reg, X):
+    return np.asarray(reg.predict(pd.DataFrame(X))).ravel()
+
+
+class TabICLGSARegressor:
+    """GSA spatial context-sampler (ruid7181/TabPFN-GSA) with TabICL as the
+    local in-context estimator instead of TabPFN.
+
+    Same geometry as TabPFNGSARegressor -- K-cell grid over region-centroid
+    lat/lon, per-cell fits on the 3x3 Moore neighborhood + fraction ``s`` of
+    distant rows, 3 ensembles, global fallback -- but each local model is a
+    TabICLRegressor, plugged in through GSAModel's function backend
+    (fit_fn/predict_fn in model_kwargs), which bypasses the TabPFN-only
+    kwargs (ignore_pretraining_limits / categorical_features_indices).
+
+    Why this arm is worth running: on kenya_admin1_am and zimbabwe_admin1_am
+    (2026-09-15) plain tabicl was mid-pack on accuracy but had the BEST 80%
+    interval coverage of any model tested (Kenya 79.9% against an 80%
+    nominal), and GSA's measured edge is many-units x data-starved-cells --
+    exactly usa_admin2 county. NOTE the interval advantage does NOT carry
+    over: GSAModel's function backend returns point predictions only, so
+    tabicl_gsa is conformal-wrapped by estimate_ci() like the other *_gsa
+    arms, NOT left unwrapped like plain tabicl.
+
+    n_estimators is TabICL's INTERNAL ensemble width per local fit (upstream
+    default 8; geocif's plain 'tabicl' branch uses 16). Default 8 here: GSA
+    already ensembles 3x over ~dozens of local models per fold, so a wide
+    inner ensemble multiplies into thousands of prefills per fold. Override
+    via [ML] tabicl_gsa_n_estimators.
+
+    GPU strongly recommended -- in-context prefill per local cell is the cost
+    driver. device='auto' resolves to cuda when available.
+    """
+
+    def __init__(self, K=64, s=0.1, device="auto", n_estimators=8, seed=0):
+        self.K = K
+        self.s = s
+        self.device = device
+        self.n_estimators = n_estimators
+        self.seed = seed
+
+    def get_params(self, deep=True):
+        return dict(
+            K=self.K,
+            s=self.s,
+            device=self.device,
+            n_estimators=self.n_estimators,
+            seed=self.seed,
+        )
+
+    def set_params(self, **p):
+        for k, v in p.items():
+            setattr(self, k, v)
+        return self
+
+    def fit(self, X, y):
+        try:
+            from tabpfn_gsa import GSAModel
+        except ImportError as exc:
+            raise ImportError(
+                "model = 'tabicl_gsa' requires tabpfn-gsa, a git-only "
+                "optional dependency (not on PyPI): "
+                "pip install git+https://github.com/ruid7181/TabPFN-GSA.git"
+            ) from exc
+        try:
+            import tabicl  # noqa: F401
+        except ImportError as exc:
+            raise ImportError(
+                "model = 'tabicl_gsa' requires tabicl: pip install tabicl"
+            ) from exc
+
+        X = pd.DataFrame(X)
+        PyGRFRegressor._require_coords(X, model_label="tabicl_gsa")
+        # Fill at FIT time, not just predict: GSAModel stores X internally
+        # and reuses those coords when building the predict-time grid.
+        self._coord_mean = np.nanmean(
+            X[["lat", "lon"]].to_numpy(dtype=float), axis=0
+        )
+        if not np.all(np.isfinite(self._coord_mean)):
+            self._coord_mean = np.zeros(2)
+        X = TabPFNGSARegressor._fill_nan_coords(X, self._coord_mean)
+        x_cols = [c for c in X.columns if c not in ("lat", "lon")]
+        side = max(2, int(round(np.sqrt(self.K))))
+        self._m = GSAModel(
+            spa_cols=["lat", "lon"],
+            x_cols=x_cols,
+            K=side * side,
+            s=float(np.clip(self.s, 0.0, 1.0)),
+            random_state=int(self.seed),
+            device=self.device,
+            model_kwargs={
+                "fit_fn": _tabicl_gsa_fit_fn,
+                "predict_fn": _tabicl_gsa_predict_fn,
+                "fit_kwargs": {
+                    "n_estimators": int(self.n_estimators),
+                    "device": TabFMGSARegressor._resolve_device(self.device),
+                    "seed": int(self.seed),
+                },
+            },
+        )
+        self._m.fit(X, np.asarray(y, dtype=float).ravel())
+        return self
+
+    def predict(self, X):
+        X = TabPFNGSARegressor._fill_nan_coords(
+            pd.DataFrame(X), self._coord_mean
+        )
+        return np.asarray(self._m.predict(X)).ravel()
+
+
 class TabFMGSARegressor:
     """GSA spatial context-sampler (ruid7181/TabPFN-GSA) with Google
     Research's TabFM as the local in-context estimator instead of TabPFN.
@@ -936,6 +1085,19 @@ def optimized_model(
     return hyperparams, model
 
 
+# Checkpoint geocif asks TabPFN for when [ML] tabpfn_model_version is unset.
+# Deliberately NOT the installed library's own default: tabpfn 9.0.0 moved that
+# to v3.5, which would have changed every tabpfn result in place on upgrade.
+# Override per config with tabpfn_model_version; see the tabpfn branch of
+# auto_train() for the usa_admin1 v3-vs-v3.5 measurements behind this choice.
+DEFAULT_TABPFN_MODEL_VERSION = "v3"
+
+# Values of tabpfn_model_version that mean "don't pin -- follow the installed
+# tabpfn". Kept separate from ModelVersion so they can never collide with a
+# real version string.
+_TABPFN_LIBRARY_DEFAULT = frozenset({"default", "library", "none", "unset"})
+
+
 def strip_variant_prefix(model_name: str) -> str:
     """Map a wrapper section name to the algorithm it dispatches to.
 
@@ -990,6 +1152,8 @@ def auto_train(
     gsa_params: dict = None,
     bnn_params: dict = None,
     mitra_params: dict = None,
+    tabpfn_params: dict = None,
+    causilo_params: dict = None,
 ):
     """
     Train a model using specified parameters and optionally perform hyperparameter optimization.
@@ -1128,19 +1292,68 @@ def auto_train(
             # model_type was ignored here and a REGRESSOR was silently fitted
             # to integer class labels, which is ordinal regression, not
             # classification, and produced continuous output like 0.7.
+            #   * tabpfn_n_estimators / tabpfn_model_version ([ML] config,
+            #     both optional): unset reproduces every pre-9.0.0 result, so
+            #     the defaults below are load-bearing, not cosmetic.
+            _tp = tabpfn_params or {}
+
+            # "auto" defers to the count the checkpoint declares for itself
+            # (9.0.0's InferenceConfig.N_ESTIMATORS); an explicit int always
+            # wins over the checkpoint, which is why hard-coding 8 silently
+            # overrode whatever TabPFN-3.5 wanted.
+            _n_est = _tp.get("n_estimators", 8)
+            if isinstance(_n_est, str):
+                _n_est = _n_est.strip()
+                _n_est = "auto" if _n_est.lower() == "auto" else int(_n_est)
+
             _tabpfn_kwargs = dict(
                 device="auto",
                 categorical_features_indices=cat_feature_indices,
                 random_state=int(seed),
-                n_estimators=8,
+                n_estimators=_n_est,
                 ignore_pretraining_limits=True,
             )
+
             if model_type == "CLASSIFICATION":
                 from tabpfn import TabPFNClassifier
 
-                model = TabPFNClassifier(**_tabpfn_kwargs)
+                _cls = TabPFNClassifier
             else:
-                model = TabPFNRegressor(**_tabpfn_kwargs)
+                _cls = TabPFNRegressor
+
+            # Pinning a version also pins model_path, letting two checkpoints be
+            # compared on identical folds without reinstalling the shared env.
+            # create_default_for_version applies the version's own defaults and
+            # then `options.update(overrides)`, so _tabpfn_kwargs still wins.
+            #
+            # geocif PINS v3 rather than following the installed tabpfn's own
+            # default, which became v3.5 in 9.0.0. Measured on usa_admin1
+            # (2026-09-15, identical folds): v3.5 is a wash on maize
+            # (bootstrap dR2 +0.013, 95% CI [-0.010, +0.035]) and a consistent
+            # loss on soybean, where it also roughly doubles the 2025 anomaly
+            # blow-up (R2 -6.25 -> -12.81). Pinning keeps every archived result
+            # reproducible across tabpfn upgrades instead of silently changing
+            # the model underneath them. Set tabpfn_model_version = v3.5 per
+            # config to opt in, or = default to follow the library.
+            _version = _tp.get("model_version", DEFAULT_TABPFN_MODEL_VERSION)
+            _version = str(_version).strip().lower() if _version else ""
+            if _version in _TABPFN_LIBRARY_DEFAULT:
+                # Explicit opt-out: whatever the installed tabpfn picks.
+                model = _cls(**_tabpfn_kwargs)
+            else:
+                from tabpfn.constants import ModelVersion
+
+                try:
+                    _mv = ModelVersion(_version)
+                except ValueError:
+                    raise ValueError(
+                        f"[ML] tabpfn_model_version = {_version!r} is not a known "
+                        f"TabPFN version. Valid: "
+                        f"{[m.value for m in ModelVersion]}, or one of "
+                        f"{sorted(_TABPFN_LIBRARY_DEFAULT)} to follow the "
+                        f"installed tabpfn's own default."
+                    ) from None
+                model = _cls.create_default_for_version(_mv, **_tabpfn_kwargs)
         elif model_name == "tabpfn_phe":
             # Post-Hoc Ensembling wrapper from tabpfn_extensions — runs
             # TabPFN with multiple preprocessing configurations and
@@ -1613,6 +1826,50 @@ def auto_train(
                 mitra.get("fine_tune", False)
             )
             model = MitraYieldRegressor(seed=int(seed), **mitra)
+        elif model_name == "causilo":
+            # Causilo (Nums AI Inc., github.com/nums-ai/causilo) -- pretrained
+            # tabular foundation model in the TabPFN/Mitra family: in-context,
+            # sklearn interface, no gradient updates at fit time. Its row-wise
+            # processing is cross-attention only (no full self-attention), so
+            # cost scales linearly in feature count for a fixed latent budget.
+            #
+            # Why it is wired like tabpfn rather than EXAONE: it accepts a
+            # pandas DataFrame directly and handles categorical columns and
+            # missing features itself, so no integer-encoding shim is needed.
+            # Targets must be NaN-free (LOOCV training rows already are).
+            #
+            # The regression head emits 999 NATIVE QUANTILES, so it gets a real
+            # predictive distribution and estimate_ci() below leaves it
+            # unwrapped, exactly like mitra/bnn -- see
+            # Geocif._predict_causilo_with_ci.
+            #
+            # LICENSING: code is Apache-2.0 but the WEIGHTS are under the
+            # Causilo License v1.0 -- non-commercial research only; commercial
+            # or production use, and hosted/API/SaaS services paid or free,
+            # need a separate license from Nums AI. Cleared for research
+            # evaluation; confirm before any operational GEOGLAM use.
+            if model_type != "REGRESSION":
+                raise ValueError(
+                    f"model = '{model_name}' is wired for REGRESSION only. "
+                    f"CausiloClassifier exists (<=10 classes) but is not "
+                    f"integrated, and geocif's CLASSIFICATION path is itself "
+                    f"unreliable -- use a regression target."
+                )
+            try:
+                from causilo import CausiloRegressor
+            except ImportError as exc:  # pragma: no cover
+                raise ImportError(
+                    "model = 'causilo' requires the `causilo` package: "
+                    "pip install causilo "
+                    "(needs Python 3.10-3.12 and torch >= 2.13)"
+                ) from exc
+
+            # n_estimators=8 is causilo's own default, matching geocif's tabpfn
+            # setting so the two sit on the same ensemble budget.
+            _cz = dict(n_estimators=8, device="auto")
+            _cz.update(causilo_params or {})
+            _cz["random_state"] = int(seed)
+            model = CausiloRegressor(**_cz)
         elif model_name == "pygrf":
             # Geographical Random Forest (geoai-lab/PyGRF). Coords come from
             # the lat/lon feature columns; band_width/local_weight default to
@@ -1634,6 +1891,7 @@ def auto_train(
             # so a config carrying tabfm_gsa_n_estimators can still run
             # tabpfn_gsa side by side without a TypeError here.
             gsa.pop("n_estimators", None)
+            gsa.pop("tabicl_n_estimators", None)
             model = TabPFNGSARegressor(seed=int(seed), **gsa)
         elif model_name == "tabfm_gsa":
             # GSA context sampler with Google Research TabFM as the local
@@ -1643,7 +1901,30 @@ def auto_train(
             # tabfm_gsa_n_estimators (default 8). GPU strongly recommended.
             gsa = dict(K=64, s=0.1, device="auto", n_estimators=8)
             gsa.update(gsa_params or {})
+            gsa.pop("tabicl_n_estimators", None)
             model = TabFMGSARegressor(seed=int(seed), **gsa)
+        elif model_name == "tabicl_gsa":
+            # GSA context sampler with TabICL as the local estimator (via
+            # GSAModel's fit_fn/predict_fn function backend). Shares [ML]
+            # tabpfn_gsa_K / tabpfn_gsa_s with tabpfn_gsa so the arms grid
+            # identically; inner-ensemble width via [ML]
+            # tabicl_gsa_n_estimators (default 8). GPU strongly recommended.
+            gsa = dict(K=64, s=0.1, device="auto")
+            gsa.update(gsa_params or {})
+            # tabfm_gsa_n_estimators lands under the PLAIN "n_estimators" key,
+            # tabicl_gsa_n_estimators under "tabicl_n_estimators". Drop the
+            # foreign key UNCONDITIONALLY (exactly like the tabpfn_gsa branch),
+            # THEN take this arm's own key, falling back to this arm's own
+            # default of 8 -- never to tabfm's width. Renaming without the
+            # unconditional pop is one-directional and lets a config that sets
+            # only tabfm_gsa_n_estimators silently re-width TabICL.
+            gsa.pop("n_estimators", None)
+            gsa["n_estimators"] = (
+                gsa.pop("tabicl_n_estimators")
+                if "tabicl_n_estimators" in gsa
+                else 8
+            )
+            model = TabICLGSARegressor(seed=int(seed), **gsa)
         elif model_name == "george":
             # george (dfm/george) — C++ exact-GP regression, routed through
             # the same scaled path as 'gpr' (GPRFitter / StandardScaler).
@@ -1702,7 +1983,7 @@ def estimate_ci(model_type, model_name, model, alpha=0.05, ci_method="crepes"):
     # (Geocif._predict_mitra_with_ci).
     if model_name in [
         "ngboost", "tabpfn", "tabpfn_ft", "tabicl", "tabicl_ft", "bnn",
-        "mitra", "mitra_ft",
+        "mitra", "mitra_ft", "causilo",
     ]:
         return model
     elif model_type == "CLASSIFICATION" and model_name == "catboost":

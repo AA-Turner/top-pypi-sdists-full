@@ -4,6 +4,7 @@
 import os
 from typing import Any
 
+import lance
 import pyarrow as pa
 import pytest
 from lance.blob import BlobFile
@@ -21,6 +22,7 @@ from geneva.apply.blob_range import (
     _reassemble_struct_columns,
     blob_columns_in_schema,
     is_blob_field,
+    is_blob_v2_field,
     nested_blob_paths,
     plan_struct_blob_decomposition,
     resolve_field_path,
@@ -74,6 +76,66 @@ def _two_blob_table(tmp_path) -> Any:
         "range_two_blob_source",
         table,
         storage_options={"new_table_data_storage_version": "2.0"},
+    )
+
+
+_PACKED_BLOB_V2_SIZE = 64 * 1024 + 48
+
+
+def _packed_blob_v2_bytes(seed: int) -> bytes:
+    return bytes(((i + seed) * 17) % 256 for i in range(_PACKED_BLOB_V2_SIZE))
+
+
+def _v2_blob_table(tmp_path, payloads: list[bytes | None]) -> Any:
+    db = connect(tmp_path)
+    schema = pa.schema(
+        [
+            pa.field("id", pa.int32()),
+            lance.blob_field("blob"),
+        ]
+    )
+    table = pa.table(
+        {
+            "id": list(range(len(payloads))),
+            "blob": lance.blob_array(payloads),
+        },
+        schema=schema,
+    )
+    return db.create_table(
+        "v2_blob_source",
+        table,
+        storage_options={"new_table_data_storage_version": "2.2"},
+    )
+
+
+def _v2_nested_blob_table(tmp_path, payloads: list[bytes | None]) -> Any:
+    db = connect(tmp_path)
+    image_fields = [
+        lance.blob_field("image_bytes"),
+        pa.field("error", pa.string(), nullable=True),
+    ]
+    image_type = pa.struct(image_fields)
+    image_array = pa.StructArray.from_arrays(
+        [
+            lance.blob_array(payloads),
+            pa.array([None] * len(payloads), type=pa.string()),
+        ],
+        fields=image_fields,
+    )
+    schema = pa.schema(
+        [
+            pa.field("id", pa.int32()),
+            pa.field("image", image_type),
+        ]
+    )
+    table = pa.table(
+        {"id": list(range(len(payloads))), "image": image_array},
+        schema=schema,
+    )
+    return db.create_table(
+        "v2_nested_blob_source",
+        table,
+        storage_options={"new_table_data_storage_version": "2.2"},
     )
 
 
@@ -150,6 +212,45 @@ def test_read_blob_values_preserves_null_descriptors() -> None:
     assert values.to_pylist() == [b"bc", None, b""]
 
 
+def test_range_reader_refuses_v2_descriptors() -> None:
+    from geneva.apply.blob_range import _blob_descriptor_arrays
+
+    descriptors = pa.array(
+        [
+            {
+                "kind": 1,
+                "position": 0,
+                "size": 4,
+                "blob_id": 1,
+                "blob_uri": "x.pack",
+            }
+        ],
+        type=pa.struct(
+            [
+                pa.field("kind", pa.uint8()),
+                pa.field("position", pa.uint64()),
+                pa.field("size", pa.uint64()),
+                pa.field("blob_id", pa.uint32()),
+                pa.field("blob_uri", pa.utf8()),
+            ]
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="sidecars"):
+        _blob_descriptor_arrays(descriptors)
+
+
+def test_is_blob_v2_field_detects_extension_and_v1_marker() -> None:
+    assert is_blob_v2_field(lance.blob_field("blob"))
+    v1 = pa.field(
+        "blob",
+        pa.large_binary(),
+        metadata={"lance-encoding:blob": "true"},
+    )
+    assert is_blob_field(v1)
+    assert not is_blob_v2_field(v1)
+
+
 def test_coalesce_blob_ranges_avoids_sparse_gap() -> None:
     ranges = [
         ("data.lance", 0, 4),
@@ -197,6 +298,18 @@ def test_iter_row_budget_slices_accounts_after_out_of_order_range() -> None:
 
     assert list(_iter_row_budget_slices(row_ranges, byte_budget=25)) == [
         slice(0, 2),
+        slice(2, 3),
+    ]
+
+
+def test_iter_row_budget_slices_charges_extra_row_bytes() -> None:
+    row_ranges: list[list[tuple[str, int, int]]] = [[], [], []]
+    extra = [10, 10, 10]
+    assert list(
+        _iter_row_budget_slices(row_ranges, byte_budget=15, extra_row_bytes=extra)
+    ) == [
+        slice(0, 1),
+        slice(1, 2),
         slice(2, 3),
     ]
 
@@ -1416,3 +1529,101 @@ def test_carry_forward_range_matches_legacy_byte_for_byte(tmp_path, blob_shape) 
             range_table.schema.field("image").metadata[b"lance-encoding:blob"]
             == b"true"
         )
+
+
+def test_scan_task_materializes_packed_blob_v2_bytes(tmp_path, monkeypatch) -> None:
+    packed = _packed_blob_v2_bytes(1)
+    inline = b"inline-v2"
+    tbl = _v2_blob_table(tmp_path, [inline, packed, None])
+    dataset = tbl.to_lance()
+    fragment = dataset.get_fragments()[0]
+
+    from geneva.apply import blob_range as blob_range_module
+
+    read_calls: list[Any] = []
+    original_read = blob_range_module._read_data_file_ranges
+
+    def spy_read_data_file_ranges(*args: Any, **kwargs: Any) -> Any:
+        read_calls.append(True)
+        return original_read(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "geneva.apply.blob_range._read_data_file_ranges",
+        spy_read_data_file_ranges,
+    )
+
+    task = ScanTask(
+        uri=tbl.uri,
+        table_ref=tbl.get_reference(),
+        columns=["id", "blob"],
+        frag_id=fragment.fragment_id,
+        offset=0,
+        limit=3,
+        version=dataset.version,
+        range_blob_columns=frozenset({"blob"}),
+        blob_read_strategy="range",
+        blob_read_buffer_size=256,
+    )
+
+    result = pa.Table.from_batches(task.to_batches(batch_size=10)).combine_chunks()
+
+    assert read_calls == []
+    assert result.column("id").to_pylist() == [0, 1, 2]
+    assert result.column("blob").to_pylist() == [inline, packed, None]
+
+
+def test_scan_task_materializes_nested_packed_blob_v2_bytes(tmp_path) -> None:
+    packed = _packed_blob_v2_bytes(2)
+    tbl = _v2_nested_blob_table(tmp_path, [b"tiny", packed, None])
+    dataset = tbl.to_lance()
+    fragment = dataset.get_fragments()[0]
+
+    task = ScanTask(
+        uri=tbl.uri,
+        table_ref=tbl.get_reference(),
+        columns=["id", "image.image_bytes"],
+        frag_id=fragment.fragment_id,
+        offset=0,
+        limit=3,
+        version=dataset.version,
+        range_blob_columns=frozenset({"image.image_bytes"}),
+        blob_read_strategy="range",
+        blob_read_buffer_size=256,
+    )
+
+    result = pa.Table.from_batches(task.to_batches(batch_size=10)).combine_chunks()
+
+    assert result.column("image.image_bytes").to_pylist() == [b"tiny", packed, None]
+
+
+def test_packed_blob_v2_scalar_udf_reads_exact_bytes(tmp_path) -> None:
+    packed = _packed_blob_v2_bytes(3)
+    tbl = _v2_blob_table(tmp_path, [packed, None])
+
+    @udf(data_type=pa.int64())
+    def blob_len(blob: BlobFile) -> int:
+        if blob is None:
+            return 0
+        assert isinstance(blob, BlobFile)
+        data = blob.readall()
+        assert data == packed
+        return len(data)
+
+    map_task = BackfillUDFTask(udfs={"n": blob_len})
+    plans, _ = plan_read(
+        tbl.uri,
+        tbl.get_reference(),
+        ["id", "blob"],
+        batch_size=10,
+        map_task=map_task,
+        blob_read_strategy="range",
+        blob_read_buffer_size=256,
+    )
+    task = next(iter(plans))
+    assert isinstance(task, ScanTask)
+    assert task.range_blob_columns == frozenset({"blob"})
+
+    result = pa.Table.from_batches(
+        [map_task.apply(batch) for batch in task.to_batches(batch_size=10)]
+    )
+    assert result.column("n").to_pylist() == [_PACKED_BLOB_V2_SIZE, 0]

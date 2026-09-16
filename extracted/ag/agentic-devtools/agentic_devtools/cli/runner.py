@@ -10,6 +10,8 @@ Usage:
 
 import sys
 
+_HELP_AWARE_COMMANDS = frozenset({"agdt-get-pull-request-details"})
+
 # Map command names to their entry point functions
 # This mirrors pyproject.toml [project.scripts]
 COMMAND_MAP = {
@@ -93,7 +95,7 @@ COMMAND_MAP = {
     ),
     "agdt-get-pull-request-details": (
         "agentic_devtools.cli.azure_devops",
-        "get_pull_request_details_async",
+        "get_pull_request_details_async_cli",
     ),
     # v2 PR review artifact commands (sync)
     "agdt-pr-review-build-manifest": (
@@ -295,6 +297,10 @@ COMMAND_MAP = {
     "agdt-phase0-review": (
         "agentic_devtools.cli.phase0_review",
         "phase0_review_async",
+    ),
+    "agdt-check-issue-template": (
+        "agentic_devtools.cli.phase0_review.template_compliance",
+        "check_issue_template_cli",
     ),
     "agdt-validate-templates": (
         "agentic_devtools.cli.issue_template.validate_templates",
@@ -557,6 +563,7 @@ def run_command(command: str) -> None:
         sys.exit(1)
 
     module_name, func_name = COMMAND_MAP[command]
+    help_request = False
 
     # Import the module and get the function
     import importlib
@@ -571,6 +578,17 @@ def run_command(command: str) -> None:
     # Run the command
     try:
         func()
+    except SystemExit as exc:
+        # A help-aware command's argparse-based wrapper raises SystemExit(0)
+        # only from its help action; any other exit code (or a non-help
+        # command's SystemExit) is a parser error or unrelated exit and must
+        # not suppress persistence. Checking the actual exit code here (as
+        # opposed to pre-scanning sys.argv) matches argparse's real behavior
+        # for combined short flags (e.g. "-hh"), invalid explicit help
+        # values (e.g. "--help=x"), and "--" option termination.
+        if command in _HELP_AWARE_COMMANDS and exc.code == 0:
+            help_request = True
+        raise
     finally:
         try:
             from agentic_devtools.cli.git.agdt_branch import persist_if_dirty
@@ -584,7 +602,8 @@ def run_command(command: str) -> None:
             )
         else:
             try:
-                persist_if_dirty()
+                if not help_request:
+                    persist_if_dirty()
             except Exception:
                 pass  # Never crash the command due to persist hook failures
 

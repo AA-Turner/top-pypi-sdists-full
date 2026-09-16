@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 class ResolutionVerdict(enum.Enum):
@@ -20,6 +20,15 @@ class ResolutionVerdict(enum.Enum):
     ABANDONED = "ABANDONED"
 
 
+class ResolutionBasis(enum.Enum):
+    """Evidence basis for a resolution decision."""
+
+    CODE_CHANGE = "code_change"
+    EXPLICIT_REJECTION = "explicit_rejection"
+    OUT_OF_SCOPE = "out_of_scope"
+    UNRESOLVE = "unresolve"
+
+
 @dataclass(frozen=True)
 class TierResult:
     """Result from a single evaluation tier.
@@ -29,12 +38,15 @@ class TierResult:
         confidence: Confidence level ("high", "medium", "low").
         tier_name: Name of the tier that produced this result.
         explanation: Human-readable explanation of the rationale.
+        resolution_basis: Structured evidence basis for the verdict; None indicates
+            no structured basis was provided.
     """
 
     verdict: ResolutionVerdict
     confidence: str
     tier_name: str
     explanation: str
+    resolution_basis: ResolutionBasis | None = None
 
 
 @dataclass(frozen=True)
@@ -45,11 +57,14 @@ class ResolutionReply:
         html_marker: HTML comment marker for machine parsing.
         human_text: Human-readable explanation body.
         model_id: Model identifier (for SDK tier), or None.
+        resolution_basis: Structured evidence basis for the reply; None indicates
+            no structured basis was provided.
     """
 
     html_marker: str
     human_text: str
     model_id: str | None = None
+    resolution_basis: ResolutionBasis | None = None
 
 
 @dataclass
@@ -71,7 +86,7 @@ class ThreadResolutionState:
     verdict: ResolutionVerdict
     tier_name: str
     confidence: str
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     iteration_count: int = 0
     max_iterations: int = 5
     max_age_hours: float = 24.0
@@ -82,7 +97,7 @@ class ThreadResolutionState:
             return True
         try:
             created = datetime.fromisoformat(self.timestamp)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             elapsed_hours = (now - created).total_seconds() / 3600
             return elapsed_hours >= self.max_age_hours
         except (ValueError, TypeError):
@@ -113,7 +128,7 @@ class ThreadResolutionState:
             verdict=ResolutionVerdict(data["verdict"]),
             tier_name=data["tier_name"],
             confidence=data["confidence"],
-            timestamp=data.get("timestamp", datetime.now(timezone.utc).isoformat()),
+            timestamp=data.get("timestamp", datetime.now(UTC).isoformat()),
             iteration_count=data.get("iteration_count", 0),
             max_iterations=data.get("max_iterations", 5),
             max_age_hours=data.get("max_age_hours", 24.0),

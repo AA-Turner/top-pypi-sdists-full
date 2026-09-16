@@ -1833,10 +1833,36 @@ components:
         details:
           type: object
           additionalProperties: true
-          description: >-
+          description: |
             Additional structured context (e.g. field-level validation errors), for example
             `privateReplyConsumed` on the private-reply endpoint's 400 when the comment's
             single reply is already spent.
+
+            On a Google Ads 429 it carries `quotaExhausted: true`, which marks the failure as
+            Google's own ads quota rather than a Zernio rate limit, so you can keep calling
+            other platforms instead of backing off everywhere. When Google names the scope it
+            also carries `quotaScope`: `DEVELOPER` means the shared developer-token budget
+            (every Google account is affected and there is nothing to change on your side),
+            `ACCOUNT` means your own ad account. A Meta 429 carries neither field.
+
+            A Zernio Google Ads budget 429 carries `budgetScope` instead, and never
+            `quotaExhausted`: these are Zernio's own limits, applied before the call
+            reaches Google. `user` is your own burst or daily allowance, so the work is
+            yours to reschedule; `platform` is the fleet-wide daily budget shared with
+            every other customer, so only waiting for the reset clears it. The two
+            scopes are separate axes from `quotaScope`, not the same pool named twice.
+          properties:
+            quotaExhausted:
+              type: boolean
+              description: 'Google Ads 429 only. True when the upstream Google Ads quota is spent rather than a Zernio limit.'
+            quotaScope:
+              type: string
+              enum: [DEVELOPER, ACCOUNT]
+              description: 'Google Ads 429 only, when Google names the scope. DEVELOPER is the shared developer-token budget; ACCOUNT is your ad account.'
+            budgetScope:
+              type: string
+              enum: [user, platform]
+              description: "Zernio Google Ads operations-budget 429 only (never set alongside `quotaExhausted`). `user` is your own burst/daily allowance; `platform` is the fleet-wide daily budget shared across customers."
     CommentAutomationAudience:
       type: object
       description: |
@@ -3029,6 +3055,9 @@ components:
           type: [string, "null"]
           enum: [local, mobile, national, toll_free, null]
           description: 'The watched number type, or null when the watch covers every type in the country.'
+        areaCode:
+          type: [string, "null"]
+          description: 'The watched area code (NDC), or null when the watch covers every area.'
         createdAt: { type: string, format: date-time }
     WebhookPayloadPhoneNumberStockAvailable:
       type: object
@@ -3057,6 +3086,8 @@ components:
                 properties:
                   numberType: { type: string, description: 'local, mobile, national or toll_free.' }
                   availableCount: { type: integer, description: 'Deliverable numbers at sweep time; first come, first served.' }
+            areaCode: { type: string, description: 'Set when the watch named an area: the area code (NDC) that is back in stock.' }
+            areaName: { type: string, description: 'The name of that area, when known.' }
         timestamp:
           type: string
           format: date-time
@@ -3321,7 +3352,7 @@ components:
                   type: [string, "null"]
                 isOwnAccount:
                   type: boolean
-                  description: 'True when this comment was authored by the connected account itself (Meta re-delivers the account''s own replies as comments events). Populated on the Instagram and Facebook realtime webhooks only; absent means not evaluated, never "not the account".'
+                  description: 'True when this comment was authored by the connected account itself. Populated on the Instagram and Facebook realtime webhooks (Meta re-delivers the account''s own replies as comments events) and on TikTok, where it is inferred: comments created through this API are always flagged, and once the account''s own author identifier is known (from one of those or from a comments listing) every author is compared against it. Absent means not evaluated, never "not the account".'
                 instagramProfile:
                   type: object
                   description: |
@@ -6993,6 +7024,15 @@ components:
         videoMadeWithAi:
           type: boolean
           description: 'Set true to disclose AI-generated content. Accounts connected through the TikTok for Business app carry the disclosure on video posts only: the business photo endpoint has no AI disclosure field, so true on a direct photo post is rejected at creation rather than published undisclosed. Send draft true to publish such a photo post and set the disclosure in the TikTok app.'
+        locationId:
+          type: string
+          description: 'Location tag to attach, as the id of a result from GET /v1/accounts/{accountId}/tiktok/locations. Accounts connected through the TikTok for Business app and video posts only: a developer-app account rejects the post at publish time with a message that says so, and a direct photo post is rejected at creation since the business photo endpoint has no location field. Requires locationName. Ignored on drafts, where TikTok ignores every post_info field.'
+        locationName:
+          type: string
+          description: 'Display name of the location tag, as returned next to its id. Required with locationId; a locationId without it is rejected at creation.'
+        isAdsOnly:
+          type: boolean
+          description: 'Set true to publish the video as an "Only show in ads" post: it is kept off the profile and exists to be used as a Spark Ad. Accounts connected through the TikTok for Business app and video posts only, with the same rejections as locationId. Ignored on drafts.'
         description:
           type: string
           maxLength: 4000
@@ -19225,6 +19265,45 @@ paths:
                             id: { type: string }
                             durationSec: { type: integer }
                             previewUrl: { type: string }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Account not found
+
+  /v1/accounts/{accountId}/tiktok/locations:
+    get:
+      x-resource-group: "accounts"
+      operationId: searchTikTokLocations
+      tags: [Accounts]
+      summary: Search TikTok location tags
+      description: 'Searches the location tags a TikTok account connected through the TikTok for Business app can attach to a video post. Send a result''s id and name as tiktokSettings.locationId and locationName when creating a post. TikTok answers the 20 closest matches and fills the list with fuzzy matches when nothing matches, so an unrelated result does not mean the place is missing.'
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+          description: The TikTok account ID
+        - name: query
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+          description: 'Place name to search, for example a city, a venue or an address'
+      responses:
+        '200':
+          description: The closest location tags, best match first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: 'The value to send as locationId' }
+                        name: { type: string, description: 'The value to send as locationName' }
+                        address: { type: string, description: 'Address or region TikTok shows for the place, for disambiguation' }
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -31886,7 +31965,7 @@ paths:
       operationId: deleteInboxComment
       summary: Delete comment
       description: |
-        Delete a comment on a post. Supported by Facebook, Instagram, Bluesky, Reddit, YouTube, and LinkedIn.
+        Delete a comment on a post. Supported by Facebook, Instagram, Threads, LinkedIn, Reddit, Bluesky, X (Twitter), YouTube, and TikTok (accounts connected through the TikTok for Business app). Not supported on Google Business (reviews only).
         Requires accountId and commentId query parameters.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
@@ -33439,6 +33518,11 @@ paths:
                       text: { type: string }
                       created: { type: string, format: date-time }
                   platform: { type: string }
+        '400':
+          description: "Facebook refused the reply for this review (code platform_api_error, platform facebook, Meta error 12 echoed in platformError). Permanent for that review: Graph cannot address its underlying post, and it usually already carries a reply from the Page, which the review listing reports under hasReply. Do not retry."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -37289,6 +37373,19 @@ paths:
                         ndc: { type: string, description: 'Area code (national destination code), e.g. "11".' }
                         name: { type: string, description: 'Area name: "City, ST" for US/CA (e.g. "Miami, FL"), city otherwise (e.g. "Sao Paulo").' }
                         count: { type: integer, description: 'Numbers available in this area: country-wide count for US/CA, numbers seen on the latest inventory page otherwise.' }
+                  soldOutAreas:
+                    type: array
+                    description: >
+                      Areas that had stock in the last 90 days and have none
+                      now. Pass one as `areaCode` with `preOrder: true` on the
+                      KYC submit when `preOrderable` is true, or watch it with
+                      POST /v1/phone-numbers/stock-watches.
+                    items:
+                      type: object
+                      properties:
+                        ndc: { type: string, description: 'Area code (national destination code).' }
+                        name: { type: string, description: 'Area name.' }
+                        preOrderable: { type: boolean, description: 'Whether this area can be pre-ordered: the carrier sources a number in it (usually 2 to 4 weeks, never guaranteed).' }
         '400': { description: 'Country not offerable, or the inventory provider rejected the lookup (its 4xx status is forwarded as-is).' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '502': { description: 'The inventory provider was unreachable or returned an unclassified error.' }
@@ -37685,6 +37782,19 @@ paths:
                         ndc: { type: string, description: 'Area code (national destination code), e.g. "11".' }
                         name: { type: string, description: 'Area name: "City, ST" for US/CA (e.g. "Miami, FL"), city otherwise (e.g. "Sao Paulo").' }
                         count: { type: integer, description: 'Numbers available in this area: country-wide count for US/CA, numbers seen on the latest inventory page otherwise.' }
+                  soldOutAreas:
+                    type: array
+                    description: >
+                      Areas that had stock in the last 90 days and have none
+                      now. Pass one as `areaCode` with `preOrder: true` on the
+                      KYC submit when `preOrderable` is true, or watch it with
+                      POST /v1/phone-numbers/stock-watches.
+                    items:
+                      type: object
+                      properties:
+                        ndc: { type: string, description: 'Area code (national destination code).' }
+                        name: { type: string, description: 'Area name.' }
+                        preOrderable: { type: boolean, description: 'Whether this area can be pre-ordered: the carrier sources a number in it (usually 2 to 4 weeks, never guaranteed).' }
         '400': { description: 'Country not offerable, or the inventory provider rejected the lookup (its 4xx status is forwarded as-is).' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '502': { description: 'The inventory provider was unreachable or returned an unclassified error.' }
@@ -37800,6 +37910,7 @@ paths:
                 reuseOptionId: { type: string, description: 'Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.' }
                 reuseFrom: { type: string, description: 'Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.' }
                 areaCode: { type: string, pattern: '^\d{1,4}$', description: 'Area code (NDC) the number must be in. Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area. Omit for any area. Options come from GET /v1/phone-numbers/availability (areaOptions); the purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.' }
+                preOrder: { type: boolean, description: 'With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area.' }
                 endUserFirstName: { type: string, description: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement. }
                 endUserLastName: { type: string, description: End user's legal last name. Same condition as endUserFirstName. }
                 values:
@@ -37822,6 +37933,7 @@ paths:
                         properties:
                           requirementId: { type: string }
                           documentId: { type: string, description: Id from POST /v1/phone-numbers/kyc/upload-document. }
+                          issuedAt: { type: string, format: date, description: 'Date printed on the document (YYYY-MM-DD), for slots the regulator windows such as proof of address. The pre-submit review trusts it over its own read of the PDF.' }
                 address:
                   type: object
                   properties:
@@ -38451,6 +38563,7 @@ paths:
                     properties:
                       requirementId: { type: string }
                       documentId: { type: string, description: Id from POST /v1/phone-numbers/kyc/upload-document. }
+                      issuedAt: { type: string, format: date, description: 'Date printed on the document (YYYY-MM-DD), for slots the regulator windows such as proof of address. The pre-submit review trusts it over its own read of the PDF.' }
       responses:
         '200':
           description: Advisories (empty when the packet looks fine or the review was unavailable).
@@ -38636,6 +38749,7 @@ paths:
                       filename: { type: string }
                       base64: { type: string, description: Base64-encoded file bytes (or supply documentId instead). }
                       documentId: { type: string, description: Id of a document already uploaded out-of-band. }
+                      issuedAt: { type: string, format: date, description: 'Date printed on the document (YYYY-MM-DD), for slots the regulator windows such as proof of address. The pre-submit review trusts it over its own read of the PDF.' }
                 address:
                   type: object
                   description: A corrected address record, keyed to its requirement.
@@ -38794,6 +38908,7 @@ paths:
                 reuseOptionId: { type: string, description: 'Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.' }
                 reuseFrom: { type: string, description: 'Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.' }
                 areaCode: { type: string, pattern: '^\d{1,4}$', description: 'Area code (NDC) the number must be in. Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area. Omit for any area. Options come from GET /v1/phone-numbers/availability (areaOptions); the purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.' }
+                preOrder: { type: boolean, description: 'With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area.' }
                 endUserFirstName: { type: string, description: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement. }
                 endUserLastName: { type: string, description: End user's legal last name. Same condition as endUserFirstName. }
                 values:
@@ -39314,6 +39429,11 @@ paths:
         GET /v1/phone-numbers/countries can also be watched, but anything with
         `preOrderable: true` does not need a watch: submit KYC and the carrier
         sources the number to order.
+
+        Pass `areaCode` (with `numberType`) to watch one sold-out area, for
+        example an entry of `soldOutAreas` from
+        GET /v1/phone-numbers/availability. Area stock is checked live on the
+        same 6h cadence.
       security:
         - bearerAuth: []
       requestBody:
@@ -39329,6 +39449,7 @@ paths:
                   type: string
                   enum: [local, mobile, national, toll_free]
                   description: 'Narrow the watch to one number type. Omit to be notified when any type in the country is back.'
+                areaCode: { type: string, pattern: '^\d{1,4}$', description: 'Narrow the watch to one area code (NDC). Requires numberType.' }
       responses:
         '201':
           description: Watch created.
@@ -39344,7 +39465,7 @@ paths:
                 $ref: '#/components/schemas/PhoneNumberStockWatch'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '409': { description: 'The country is in stock right now (buy instead of watching), or the 20-country watch limit is reached (code invalid_resource_state).' }
+        '409': { description: 'The country (or the watched area) is in stock right now (buy instead of watching), or the 20-watch limit is reached (code invalid_resource_state).' }
     get:
       x-resource-group: "telephony"
       operationId: listPhoneNumberStockWatches
@@ -44325,8 +44446,7 @@ paths:
                 buyingType:
                   type: string
                   enum: [AUCTION, RESERVED]
-                  default: AUCTION
-                  description: 'Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. SKAdNetwork app promotion requires AUCTION.'
+                  description: 'Every platform buys at auction by default, so this only needs sending on Meta, and only to choose RESERVED. `AUCTION` is accepted on every platform and changes nothing. `RESERVED` (Reach & Frequency) is Meta-only and is rejected with a 400 elsewhere. SKAdNetwork app promotion requires AUCTION.'
                 validateOnly:
                   type: boolean
                   description: 'Meta only. Runs campaign validation without creating or persisting a campaign; Idempotency-Key storage is bypassed. Returns HTTP 200 with validateOnly true and status VALIDATED.'
@@ -44575,7 +44695,7 @@ paths:
                       startMinute: { type: integer, enum: [0, 15, 30, 45], default: 0, description: 'Quarter-hours only.' }
                       endHour: { type: integer, minimum: 0, maximum: 24, description: '24 means midnight at the end of the day.' }
                       endMinute: { type: integer, enum: [0, 15, 30, 45], default: 0, description: 'Quarter-hours only. Must be 0 when endHour is 24.' }
-                      bidModifier: { type: [number, "null"], minimum: 0.1, maximum: 10, default: null, description: 'Bid adjustment for this window. Null runs it at the campaign bid.' }
+                      bidModifier: { type: [number, "null"], minimum: 0.1, maximum: 10, description: 'Bid adjustment for this window. Null runs it at the campaign bid.' }
             examples:
               officeHours:
                 summary: Weekday office hours, bidding up over lunch
@@ -46085,12 +46205,18 @@ paths:
         the campaign's live criteria and sends the removes and the creates in ONE
         `googleAds:mutate`, so the campaign is never left with a half-applied set; criteria
         already in the list keep their criterion ID and history. Excluded (negative)
-        locations are left untouched. Two cases are refused rather than applied: an empty
-        location list returns 400 (a Google campaign with no location criteria targets every
-        country, which is never what "remove my locations" means, so omit the field instead),
-        and radius targeting (`customLocations`) returns 422 because it is a separate Google
-        criterion type that this replacement neither creates nor removes. Send either
-        `targeting.locations` or the top-level geo fields, not both: mixing them returns 400.
+        locations are left untouched. An empty location list returns 400 (a Google campaign
+        with no location criteria targets every country, which is never what "remove my
+        locations" means, so omit the field instead). Send either `targeting.locations` or the
+        top-level geo fields, not both: mixing them returns 400.
+
+        **Google radius targeting:** `customLocations` is editable and is replaced the same
+        way, but as its OWN set. Google models a place (LOCATION) and a point plus radius
+        (PROXIMITY) as different criterion types, so the two are independent: sending
+        `customLocations` replaces every radius and leaves the cities and countries alone,
+        and sending places replaces those and leaves the radius alone. Send
+        `customLocations: []` to drop radius targeting entirely. A circle you re-send
+        unchanged keeps its criterion ID rather than being removed and recreated.
 
         **Google keyword replacement:** These edits affect the ad's entire ad group,
         including sibling ads. Positive (`targeting.keywords`) and negative
@@ -51649,6 +51775,29 @@ paths:
                     account running the ads (same-BC creators only). The creator generates the
                     code in their TikTok app's Promote settings and shares it with the
                     advertiser. Maps to `auth_code` on the creative entry of /v2/ad/create/.
+                promotedObject:
+                  type: object
+                  description: |
+                    TikTok-only on this endpoint. The pixel a Website Conversion ad group
+                    optimizes toward, so a Spark Ad built from an existing organic post can
+                    optimize for a conversion instead of only engagement or traffic.
+
+                    Required when `goal` is `conversions`, and BOTH fields are required:
+                    TikTok refuses a conversion ad group with no pixel ("Please select a
+                    pixel") and equally one that has a pixel but no event ("Select a pixel
+                    event."), because the event is what the ad group optimizes toward. Ignored
+                    on every other goal, since only a WEB_CONVERSIONS ad group accepts them.
+
+                    Combine freely with `platformPostId` + `sparkAuthCode`: the pixel lives on
+                    the ad group and the Spark item on the creative, so they never conflict.
+                  required: [pixelId, customEventType]
+                  properties:
+                    pixelId:
+                      type: string
+                      description: 'TikTok Pixel. Either the numeric pixel id or the alphanumeric pixel code from Events Manager, which is resolved for you.'
+                    customEventType:
+                      type: string
+                      description: 'Optimization event, as a TikTok optimization_event code (e.g. ON_WEB_ORDER, SHOPPING, FORM) or the exact event name shown in Events Manager, which is resolved to its code. The event must already exist on that pixel, or TikTok rejects the ad group.'
                 dsaBeneficiary:
                   type: string
                   maxLength: 100
@@ -53672,15 +53821,20 @@ paths:
         TikTok geo searches return every matching level in one list (`type` is
         `country`, `region`, `city`, `district`, or `metro` for DMA areas), and
         `geoType` is not applied. Results are scoped to the advertiser's targetable
-        markets, and every id is usable in `regions`/`cities`/`metros` keys on
-        `POST /v1/ads/create`.
+        markets. A `country` result's id is its ISO 3166-1 alpha-2 code, for
+        `targeting.countries`; every other id is TikTok's numeric location id,
+        usable in `regions`/`cities`/`metros` keys on `POST /v1/ads/create`.
 
         LinkedIn geo searches also return every matching level in one list, and
         neither `geoType` nor `countryCode` is applied: LinkedIn's typeahead only
         returns a name and a URN per result, with no level or country field to
-        filter on. Every result has `type` set to `location`, and its id is a
-        `urn:li:geo:*` URN usable as a `regions[].key` on `POST /v1/ads/create`,
-        `POST /v1/ads/boost` and `POST /v1/ads/targeting/reach-estimate`.
+        filter on. A result whose URN is a country Zernio holds a code for has
+        `type: country` and its ISO 3166-1 alpha-2 code as the id, for
+        `targeting.countries`. Every other result has `type: region` and keeps
+        its `urn:li:geo:*` URN as the id, usable as a `regions[].key` on
+        `POST /v1/ads/create`, `POST /v1/ads/boost` and
+        `POST /v1/ads/targeting/reach-estimate` (LinkedIn puts countries and
+        regions in the same `locations` facet, so both target the same way).
 
         LinkedIn B2B searches (`industry`, `jobFunction`, `seniority`, `companySize`) return the
         full URN to pass straight back, so no URN id fragment has to be assembled by hand:
@@ -53696,11 +53850,13 @@ paths:
         `target_type` is an open taxonomy that does not map one-to-one onto the
         `geoType` enum), so filter client-side on the returned `type` (`country`,
         `region`, `city`, `zip`, `metro`, or the lowercased Google target type for
-        rarer levels). `countryCode` scopes the search to one country. Each id is
-        Google's numeric criterion id, usable as a `regions`/`cities`/`zips`/`metros`
-        `key` on `POST /v1/ads/create`. Google city radius is not supported (pass a
-        `customLocations` lat/lng pin for a radius); country targeting also accepts
-        plain ISO codes via `countries` with no search call.
+        rarer levels). `countryCode` scopes the search to one country. A `country`
+        result's id is its ISO 3166-1 alpha-2 code, for `targeting.countries`;
+        every other id is Google's numeric criterion id, usable as a
+        `regions`/`cities`/`zips`/`metros` `key` on `POST /v1/ads/create`. Google
+        city radius is not supported (pass a `customLocations` lat/lng pin for a
+        radius); country targeting also accepts plain ISO codes via `countries`
+        with no search call.
 
         Pinterest resolves against three whole-catalog endpoints (interests, locations,
         regions) with no server-side query or pagination, so matching, ranking and the
@@ -53747,7 +53903,7 @@ paths:
                       type: object
                       required: [id, name, type]
                       properties:
-                        id: { type: string, description: "The platform's opaque id. Use as a geo `key` (regions/cities/zips/metros) or an entity `id` (interests/behaviors) in TargetingSpec." }
+                        id: { type: string, description: "The platform's opaque id. Use as a geo `key` (regions/cities/zips/metros) or an entity `id` (interests/behaviors) in TargetingSpec. A `country` result is the exception on every platform: its id is the ISO 3166-1 alpha-2 code, which is what `targeting.countries` takes." }
                         name: { type: string, description: "Human-readable label." }
                         type: { type: string, description: "What the result is (e.g. city, region, country, zip, metro, location, interest, behavior, income, industry, jobFunction, seniority, companySize)." }
                         path: { type: array, items: { type: string }, description: "Optional breadcrumb of parent labels (e.g. ['United States', 'California', 'Los Angeles']). Disambiguates same-named results." }

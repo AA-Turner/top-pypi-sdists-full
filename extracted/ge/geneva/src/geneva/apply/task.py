@@ -535,6 +535,7 @@ class SparseRangeTask(ReadTask):
     output_column: str
     version: int | None = None
     batch_rows: int = 1024
+    is_generated_resume_filter: bool = False
     _table: Table | None = attrs.field(
         default=None, init=False, repr=False, eq=False, order=False
     )
@@ -569,7 +570,8 @@ class SparseRangeTask(ReadTask):
         hasher = hashlib.md5()
         hasher.update(
             f"sparse_rows_range:{self.uri}:{self.version}:{self.where}"
-            f":{self.output_column}:{self.frag_ids[0] if self.frag_ids else -1}"
+            f":{self.output_column}:{self.is_generated_resume_filter}"
+            f":{self.frag_ids[0] if self.frag_ids else -1}"
             f":{len(self.frag_ids)}".encode(),
         )
         return hasher.hexdigest()
@@ -735,6 +737,12 @@ class BackfillUDFTask(MapTask):
     # carry-forward blob backfills from materializing every unmatched row's old
     # blob on the applier.
     defer_carry_forward: bool = attrs.field(default=False)
+    use_blob_v2: bool = attrs.field(default=False)
+
+    # Per-job overrides from backfill(); kept here so the UDF is never mutated.
+    override_num_cpus: float | None = attrs.field(default=None)
+    override_num_gpus: float | None = attrs.field(default=None)
+    override_memory: int | None = attrs.field(default=None)
 
     def __get_udf(self) -> tuple[str, UDF]:
         # TODO: Add support for multiple columns to add_columns operation
@@ -809,15 +817,25 @@ class BackfillUDFTask(MapTask):
 
     def _output_fields(self, udf_col_name: str, udf: UDF) -> list[pa.Field]:
         if self.unpack_fields is None:
-            return [pa.field(udf_col_name, udf.data_type, metadata=udf.field_metadata)]
+            fields = [
+                pa.field(udf_col_name, udf.data_type, metadata=udf.field_metadata)
+            ]
+        else:
+            fields = [
+                pa.field(
+                    field.output_column,
+                    field.field.type,
+                    nullable=field.field.nullable,
+                    metadata=field.field.metadata,
+                )
+                for field in self.unpack_fields
+            ]
+        if not self.use_blob_v2:
+            return fields
+        from geneva.apply.blob_range import rewrite_blob_fields_for_storage
+
         return [
-            pa.field(
-                field.output_column,
-                field.field.type,
-                nullable=field.field.nullable,
-                metadata=field.field.metadata,
-            )
-            for field in self.unpack_fields
+            rewrite_blob_fields_for_storage(field, use_blob_v2=True) for field in fields
         ]
 
     def _output_column_names(self, udf_col_name: str) -> list[str]:
@@ -839,10 +857,22 @@ class BackfillUDFTask(MapTask):
                 f"got {new_arr.type}"
             )
         struct_arr = cast("pa.StructArray", new_arr)
-        return {
-            field.output_column: struct_arr.field(field.struct_field_name)
-            for field in self.unpack_fields
-        }
+        # GEN-948: flatten() merges the struct's validity bitmap into every
+        # child. StructArray.field() hands back the raw child buffer, so a row
+        # the UDF returned None for would land as 0 / '' / b'' in each sibling
+        # instead of NULL, and never be picked up by a later backfill.
+        children = struct_arr.flatten()
+        struct_type = cast("pa.StructType", struct_arr.type)
+        split: dict[str, pa.Array] = {}
+        for field in self.unpack_fields:
+            idx = struct_type.get_field_index(field.struct_field_name)
+            if idx < 0:
+                raise KeyError(
+                    "Columns[T] multi-column UDF result has no unambiguous struct "
+                    f"field {field.struct_field_name!r}; got {struct_type}"
+                )
+            split[field.output_column] = children[idx]
+        return split
 
     @override
     def name(self) -> str:
@@ -1066,10 +1096,39 @@ class BackfillUDFTask(MapTask):
                 f"between the table schema and UDF expectations."
             ) from e
 
-        # now finalize the result.
+        from geneva.apply.blob_range import (
+            blob_v2_field_paths,
+            encode_blob_v2_storage_array,
+            field_with_blob_v2_as_bytes,
+        )
+
         output_fields = self._output_fields(udf_col_name, udf)
         new_arrays = self._split_result_arrays(udf_col_name, new_arr)
         schema = pa.schema([*output_fields, pa.field("_rowaddr", pa.uint64())])
+
+        def carry_type(field: pa.Field) -> pa.DataType:
+            if blob_v2_field_paths(pa.schema([field])):
+                return field_with_blob_v2_as_bytes(field).type
+            return field.type
+
+        def output_batch(arrays: dict[str, pa.Array]) -> pa.RecordBatch:
+            return pa.record_batch(
+                [
+                    *[
+                        encode_blob_v2_storage_array(field, arrays[field.name])
+                        for field in output_fields
+                    ],
+                    row_addr,
+                ],
+                schema=schema,
+            )
+
+        def coerce_carry_array(field: pa.Field, orig_arr: pa.Array) -> pa.Array:
+            # Upstream readers have already materialized v2 payloads.
+            target = carry_type(field)
+            if orig_arr.type.equals(target):
+                return orig_arr
+            return pa.array(orig_arr.to_pylist(), type=target)
 
         if self.defer_carry_forward and has_backfill_selected:
             # GEN-624: emit only the WHERE-matched rows (sparse). The old column
@@ -1077,37 +1136,28 @@ class BackfillUDFTask(MapTask):
             # FragmentWriter fills those gaps by streaming the old column at
             # write time. Filtering to matched keeps the matched output (incl.
             # any blob bytes) and their _rowaddr.
-            dense = pa.record_batch(
-                [*[new_arrays[field.name] for field in output_fields], row_addr],
-                schema=schema,
-            )
             if isinstance(batch, pa.RecordBatch):
                 mask = batch[BACKFILL_SELECTED]
             else:
                 mask = pa.array(
                     [x.get(BACKFILL_SELECTED) for x in batch], type=pa.bool_()
                 )
-            return dense.filter(mask)
+            return output_batch(new_arrays).filter(mask)
 
         if not has_carry_forward_col or not has_backfill_selected:
-            schema = pa.schema([*output_fields, pa.field("_rowaddr", pa.uint64())])
+            return output_batch(new_arrays)
 
-            # no carry forward col? return the new
-            return pa.record_batch(
-                [*[new_arrays[field.name] for field in output_fields], row_addr],
-                schema=schema,
-            )
-
-        # handle carry forward of old values
-        merged_arrays = []
+        merged_arrays: dict[str, pa.Array] = {}
         if isinstance(batch, pa.RecordBatch):
             mask = batch[BACKFILL_SELECTED]
             for field in output_fields:
                 if field.name in batch.schema.names:
-                    orig_arr = batch[field.name]
+                    orig_arr = coerce_carry_array(field, batch[field.name])
                 else:
-                    orig_arr = make_null_array(batch.num_rows, field.type)
-                merged_arrays.append(pc.if_else(mask, new_arrays[field.name], orig_arr))
+                    orig_arr = make_null_array(batch.num_rows, carry_type(field))
+                merged_arrays[field.name] = pc.if_else(
+                    mask, new_arrays[field.name], orig_arr
+                )
         else:
             mask_vals = [x.get(BACKFILL_SELECTED) for x in batch]
             mask = pa.array(mask_vals, type=pa.bool_())
@@ -1117,11 +1167,12 @@ class BackfillUDFTask(MapTask):
                     v.readall() if isinstance(v, BlobFile) else v
                     for v in (x.get(field.name) for x in batch)
                 ]
-                orig_arr = pa.array(orig_vals, type=field.type)
-                merged_arrays.append(pc.if_else(mask, new_arrays[field.name], orig_arr))
+                orig_arr = pa.array(orig_vals, type=carry_type(field))
+                merged_arrays[field.name] = pc.if_else(
+                    mask, new_arrays[field.name], orig_arr
+                )
 
-        schema = pa.schema([*output_fields, pa.field("_rowaddr", pa.uint64())])
-        return pa.record_batch([*merged_arrays, row_addr], schema=schema)
+        return output_batch(merged_arrays)
 
     @override
     def output_schema(self) -> pa.Schema:
@@ -1133,21 +1184,27 @@ class BackfillUDFTask(MapTask):
     @override
     def is_cuda(self) -> bool:
         """Deprecated: Use num_gpus() instead."""
-        _, udf = self.__get_udf()
-        return bool(udf.num_gpus and udf.num_gpus > 0)
+        num_gpus = self.num_gpus()
+        return bool(num_gpus and num_gpus > 0)
 
     @override
     def num_cpus(self) -> float | None:
+        if self.override_num_cpus is not None:
+            return self.override_num_cpus
         _, udf = self.__get_udf()
         return udf.num_cpus
 
     @override
     def num_gpus(self) -> float | None:
+        if self.override_num_gpus is not None:
+            return self.override_num_gpus
         _, udf = self.__get_udf()
         return udf.num_gpus
 
     @override
     def memory(self) -> int | None:
+        if self.override_memory is not None:
+            return self.override_memory
         _, udf = self.__get_udf()
         return udf.memory
 

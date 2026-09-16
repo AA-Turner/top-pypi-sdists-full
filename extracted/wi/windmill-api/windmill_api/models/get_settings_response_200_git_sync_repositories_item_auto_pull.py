@@ -34,6 +34,8 @@ class GetSettingsResponse200GitSyncRepositoriesItemAutoPull:
         webhook_error (Union[Unset, str]):
         last_synced_sha (Union[Unset, GetSettingsResponse200GitSyncRepositoriesItemAutoPullLastSyncedSha]):
         last_pull_status (Union[Unset, GetSettingsResponse200GitSyncRepositoriesItemAutoPullLastPullStatus]):
+        enabled_by (Union[Unset, str]): Email of the admin automatic pulls apply changes as. Set by the server when the
+            settings are saved.
     """
 
     enabled: bool
@@ -46,6 +48,7 @@ class GetSettingsResponse200GitSyncRepositoriesItemAutoPull:
     webhook_error: Union[Unset, str] = UNSET
     last_synced_sha: Union[Unset, "GetSettingsResponse200GitSyncRepositoriesItemAutoPullLastSyncedSha"] = UNSET
     last_pull_status: Union[Unset, "GetSettingsResponse200GitSyncRepositoriesItemAutoPullLastPullStatus"] = UNSET
+    enabled_by: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -67,6 +70,8 @@ class GetSettingsResponse200GitSyncRepositoriesItemAutoPull:
         last_pull_status: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.last_pull_status, Unset):
             last_pull_status = self.last_pull_status.to_dict()
+
+        enabled_by = self.enabled_by
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -93,6 +98,8 @@ class GetSettingsResponse200GitSyncRepositoriesItemAutoPull:
             field_dict["last_synced_sha"] = last_synced_sha
         if last_pull_status is not UNSET:
             field_dict["last_pull_status"] = last_pull_status
+        if enabled_by is not UNSET:
+            field_dict["enabled_by"] = enabled_by
 
         return field_dict
 
@@ -145,6 +152,8 @@ class GetSettingsResponse200GitSyncRepositoriesItemAutoPull:
                 _last_pull_status
             )
 
+        enabled_by = d.pop("enabled_by", UNSET)
+
         get_settings_response_200_git_sync_repositories_item_auto_pull = cls(
             enabled=enabled,
             mode=mode,
@@ -156,6 +165,7 @@ class GetSettingsResponse200GitSyncRepositoriesItemAutoPull:
             webhook_error=webhook_error,
             last_synced_sha=last_synced_sha,
             last_pull_status=last_pull_status,
+            enabled_by=enabled_by,
         )
 
         get_settings_response_200_git_sync_repositories_item_auto_pull.additional_properties = d

@@ -33,11 +33,15 @@ from vercel.sandbox._internal.filesystem_handle_core import (
 )
 from vercel.sandbox._internal.models import (
     _OMITTED,
+    NO_PRIVATE_PARAMETERS,
     CompletedProcess,
     DirectoryEntry,
     DurationInput,
+    FailoverRegionsInput,
     NetworkPolicy,
+    PrivateSandboxParameters,
     ProcessLog,
+    ProcessSignal,
     SandboxQuery,
     SandboxResources,
     SandboxSource,
@@ -47,6 +51,7 @@ from vercel.sandbox._internal.models import (
     SnapshotRetentionUpdate,
     _parse_snapshot_expiration,
     _WriteFile,
+    normalize_failover_regions,
 )
 from vercel.sandbox._internal.pagination import (
     QuerySandboxesPage,
@@ -182,12 +187,17 @@ class SyncProcess(_ProcessHandleState):
         self.wait()
         return stdout, stderr
 
-    def send_signal(self, signal: int | str | signal_module.Signals) -> None:
+    def send_signal(self, signal: int | str | signal_module.Signals | ProcessSignal) -> None:
         """Send a signal to the running process.
 
         Args:
-            signal: Numeric signal, ``Signals`` member, or name such as
+            signal: Numeric signal, ``ProcessSignal`` member, or name such as
                 ``"TERM"`` or ``"SIGTERM"``.
+
+        Note:
+            Passing ``signal.Signals`` directly is deprecated. Use
+            ``ProcessSignal`` so signal availability does not depend on the
+            SDK host platform.
         """
         payload = iter_coroutine(
             self._service.send_process_signal(
@@ -200,11 +210,11 @@ class SyncProcess(_ProcessHandleState):
 
     def terminate(self) -> None:
         """Request graceful process termination with ``SIGTERM``."""
-        self.send_signal(signal_module.SIGTERM)
+        self.send_signal(ProcessSignal.SIGTERM)
 
     def kill(self) -> None:
         """Terminate the process immediately with ``SIGKILL``."""
-        self.send_signal(signal_module.SIGKILL)
+        self.send_signal(ProcessSignal.SIGKILL)
 
 
 class SyncSnapshot(SnapshotHandleBase):
@@ -1405,6 +1415,8 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         snapshot_expiration: SnapshotExpirationInput = None,
         snapshot_retention: SnapshotRetentionUpdate = _OMITTED,
         current_snapshot_id: str | None = None,
+        region: str | None = None,
+        failover_regions: FailoverRegionsInput = None,
     ) -> Self:
         """Update mutable sandbox configuration.
 
@@ -1431,6 +1443,8 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
                 tags=tags,
                 snapshot_expiration=_parse_snapshot_expiration(snapshot_expiration),
                 snapshot_retention=snapshot_retention,
+                region=region,
+                failover_regions=normalize_failover_regions(failover_regions),
                 current_snapshot_id=current_snapshot_id,
             )
         )
@@ -1507,7 +1521,10 @@ def create_sandbox(
     tags: Mapping[str, str] | None = None,
     snapshot_expiration: SnapshotExpirationInput = None,
     snapshot_retention: SnapshotRetention | None = None,
+    region: str | None = None,
+    failover_regions: FailoverRegionsInput = None,
     destroy: bool = True,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
 ) -> _ManagedSyncSandbox:
     try:
         state = iter_coroutine(
@@ -1525,6 +1542,60 @@ def create_sandbox(
                 tags=tags,
                 snapshot_expiration=_parse_snapshot_expiration(snapshot_expiration),
                 snapshot_retention=snapshot_retention,
+                region=region,
+                failover_regions=normalize_failover_regions(failover_regions),
+                private_parameters=private_parameters,
+            )
+        )
+        return _ManagedSyncSandbox(
+            payload=state,
+            service=service,
+            destroy_on_exit=destroy,
+        )
+    except _SandboxTerminalState as error:
+        raise _terminal_error(error, SyncSandbox(payload=error.sandbox, service=service)) from error
+
+
+def fork_sandbox(
+    service: SandboxService,
+    *,
+    source_sandbox: str,
+    project_id: str | None = None,
+    name: str | None = None,
+    ports: list[int] | None = None,
+    execution_time_limit: DurationInput = None,
+    resources: SandboxResources | None = None,
+    image: str | None = None,
+    persistent: bool | None = None,
+    network_policy: NetworkPolicy | None = None,
+    env: Mapping[str, str] | None = None,
+    tags: Mapping[str, str] | None = None,
+    snapshot_expiration: SnapshotExpirationInput = None,
+    snapshot_retention: SnapshotRetention | None = None,
+    region: str | None = None,
+    failover_regions: FailoverRegionsInput = None,
+    destroy: bool = True,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
+) -> _ManagedSyncSandbox:
+    try:
+        state = iter_coroutine(
+            service.fork_sandbox(
+                source_sandbox=source_sandbox,
+                project_id=project_id,
+                name=name,
+                ports=ports,
+                execution_time_limit=parse_duration_seconds(execution_time_limit),
+                resources=resources,
+                image=image,
+                persistent=persistent,
+                network_policy=network_policy,
+                env=env,
+                tags=tags,
+                snapshot_expiration=_parse_snapshot_expiration(snapshot_expiration),
+                snapshot_retention=snapshot_retention,
+                region=region,
+                failover_regions=normalize_failover_regions(failover_regions),
+                private_parameters=private_parameters,
             )
         )
         return _ManagedSyncSandbox(
@@ -1543,6 +1614,7 @@ def get_sandbox(
     project_id: str | None = None,
     resume: bool = False,
     include_system_routes: bool | None = None,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
 ) -> SyncSandbox:
     return SyncSandbox(
         payload=iter_coroutine(
@@ -1551,6 +1623,7 @@ def get_sandbox(
                 project_id=project_id,
                 resume=resume,
                 include_system_routes=include_system_routes,
+                private_parameters=private_parameters,
             )
         ),
         service=service,
@@ -1576,6 +1649,9 @@ def get_or_create_sandbox(
     tags: Mapping[str, str] | None = None,
     snapshot_expiration: SnapshotExpirationInput = None,
     snapshot_retention: SnapshotRetention | None = None,
+    region: str | None = None,
+    failover_regions: FailoverRegionsInput = None,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
 ) -> tuple[SyncSandbox, bool]:
     try:
         state, created = iter_coroutine(
@@ -1595,6 +1671,9 @@ def get_or_create_sandbox(
                 tags=tags,
                 snapshot_expiration=_parse_snapshot_expiration(snapshot_expiration),
                 snapshot_retention=snapshot_retention,
+                region=region,
+                failover_regions=normalize_failover_regions(failover_regions),
+                private_parameters=private_parameters,
             )
         )
         return (
@@ -1622,6 +1701,7 @@ def resume_sandbox(
     name: str,
     project_id: str | None = None,
     include_system_routes: bool | None = None,
+    private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
 ) -> _ManagedSyncSandbox:
     return _ManagedSyncSandbox(
         payload=iter_coroutine(
@@ -1629,6 +1709,7 @@ def resume_sandbox(
                 name=name,
                 project_id=project_id,
                 include_system_routes=include_system_routes,
+                private_parameters=private_parameters,
             )
         ),
         service=service,

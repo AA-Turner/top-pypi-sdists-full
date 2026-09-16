@@ -14,10 +14,11 @@ import tempfile
 import time
 from dataclasses import asdict
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Dict, Iterator, List, NamedTuple, Optional, Set, Tuple
 
 if TYPE_CHECKING:
     from socketsecurity.config import CliConfig
+from git import Repo
 from socketdev import socketdev
 from socketdev.exceptions import APIFailure
 from socketdev.fullscans import DiffArtifacts, FullScanParams, SocketArtifact
@@ -50,6 +51,17 @@ _ALERT_TYPE_TITLE_OVERRIDES = {
 }
 
 _HUMANIZE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+
+# How many full scans to request when resolving a diff baseline. The newest scan is
+# usually the one we want, but temporary scans have to be skipped (see
+# Core.newest_persisted_scan_id), so a single result is not enough.
+SCAN_LOOKUP_PAGE_SIZE = 10
+
+# Bounds on the search for a scanned ancestor when the requested baseline commit has
+# no full scan of its own. Full-scan listing pages are matched against bounded local
+# history, so the local walk cannot grow without limit.
+ANCESTOR_SCAN_LOOKUP_LIMIT = 100
+ANCESTOR_WALK_MAX_DEPTH = 100
 
 # Reachability facts-file upload compression.
 #
@@ -1279,6 +1291,7 @@ class Core:
         diff.report_url = f"{base_socket}/{self.config.org_slug}/sbom/{new_full_scan.id}"
         diff.diff_url = diff.report_url
         diff.id = new_full_scan.id
+        diff.is_full_scan = True
 
         needs_alerts = (
             self.cli_config is not None
@@ -1288,30 +1301,43 @@ class Core:
                 or self.cli_config.enable_sarif
             )
         )
+        # --generate-license (and --legal-format fossa, which it gates) enumerates
+        # diff.packages rather than the alert list, so a full scan has to carry the
+        # package map even when no alert-bearing output format is enabled. Without
+        # this, an SCM branch pipeline writes an attribution file with zero packages.
+        # Keep in sync with _requires_unchanged_artifacts, which lists the same
+        # consumers for the comparison path.
+        needs_license_artifacts = (
+            self.cli_config is not None and self.cli_config.generate_license
+        )
 
-        if needs_alerts:
-            log.info("Output format requires alerts, fetching SBOM data for full scan")
+        if needs_alerts or needs_license_artifacts:
+            log.info("Output format requires SBOM data, fetching it for the full scan")
             sbom_start = time.time()
             sbom_artifacts_dict = self.get_sbom_data(new_full_scan.id)
             sbom_artifacts = self.get_sbom_data_list(sbom_artifacts_dict)
             packages = self._create_packages_dict_without_license_text(sbom_artifacts)
+            if needs_license_artifacts:
+                packages = self._add_license_details(packages)
             diff.packages = packages
 
-            all_alerts_collection: Dict[str, List[Issue]] = {}
-            for package_id, package in packages.items():
-                self.add_package_alerts_to_collection(
-                    package=package,
-                    alerts_collection=all_alerts_collection,
-                    packages=packages
-                )
+            if needs_alerts:
+                all_alerts_collection: Dict[str, List[Issue]] = {}
+                for package_id, package in packages.items():
+                    self.add_package_alerts_to_collection(
+                        package=package,
+                        alerts_collection=all_alerts_collection,
+                        packages=packages
+                    )
 
-            consolidated: Set[str] = set()
-            for alert_key, alerts in all_alerts_collection.items():
-                for alert in alerts:
-                    alert_str = f"{alert.purl},{alert.type}"
-                    if (alert.error or alert.warn) and alert_str not in consolidated:
-                        diff.new_alerts.append(alert)
-                        consolidated.add(alert_str)
+                consolidated: Set[str] = set()
+                for alert_key, alerts in all_alerts_collection.items():
+                    for alert in alerts:
+                        alert_str = f"{alert.purl},{alert.type}"
+                        if (alert.error or alert.warn) and alert_str not in consolidated:
+                            diff.new_alerts.append(alert)
+                            consolidated.add(alert_str)
+                diff.alerts_fetched = True
 
             sbom_end = time.time()
             log.info(
@@ -1322,6 +1348,29 @@ class Core:
             diff.packages = {}
 
         return diff
+
+    def _add_license_details(self, packages: dict[str, Package]) -> dict[str, Package]:
+        """Populate licenseAttrib/licenseDetails on a full scan's package map.
+
+        get_license_text_via_purl keys off ``ecosystem/name@version`` because that is
+        what the PURL endpoint echoes back, while a full scan's package map is keyed
+        by artifact id. Build a purl-keyed view over the same Package objects so the
+        enrichment lands on the map the caller keeps.
+        """
+        batch_size = self.cli_config.max_purl_batch_size if self.cli_config else 5000
+        packages_by_purl = {}
+        for package in packages.values():
+            qualified_name = package.name
+            if package.namespace:
+                qualified_name = f"{package.namespace.strip('/')}/{qualified_name}"
+            packages_by_purl[
+                f"{package.type}/{qualified_name}@{package.version}"
+            ] = package
+        self.get_license_text_via_purl(
+            packages_by_purl,
+            batch_size=batch_size,
+        )
+        return packages
 
     def get_full_scan(self, full_scan_id: str) -> FullScan:
         """
@@ -1463,18 +1512,228 @@ class Core:
 
         return response.data
 
-    def get_head_scan_for_repo(self, repo_slug: str) -> str:
+    def get_head_scan_for_repo(
+            self,
+            repo_slug: str,
+            workspace: Optional[str] = None,
+            scan_type: Optional[str] = None,
+    ) -> Optional[str]:
         """
         Gets the head scan ID for a repository.
 
+        Without a workspace or scan type this is the repository's head scan pointer.
+        That pointer tracks a single scan for the whole repository rather than one per
+        workspace or scan type, so scoped runs instead take the newest matching scan
+        on the default branch.
+
         Args:
             repo_slug: Repository slug to get head scan for
+            workspace: Socket workspace the scan belongs to, if any
+            scan_type: Socket scan type to match, if any
 
         Returns:
             Head scan ID if it exists, None otherwise
+
+        Raises:
+            APIFailure: If the scoped scan lookup fails. A failed lookup must not
+                be reported as "no baseline": the caller answers that by creating an
+                empty baseline scan, which reports every dependency in the repository
+                as newly added.
         """
         repo_info = self.get_repo_info(repo_slug)
+        if workspace or scan_type:
+            query_params = {
+                "repo": repo_slug,
+                "branch": repo_info.default_branch,
+                "sort": "created_at",
+                "direction": "desc",
+                "per_page": SCAN_LOOKUP_PAGE_SIZE,
+            }
+            if workspace:
+                query_params["workspace"] = workspace
+            if scan_type:
+                query_params["scan_type"] = Core.query_param_value(scan_type)
+            for results in self._full_scan_result_pages(
+                    query_params,
+                    f"Failed to list matching full scans for repo {repo_slug}",
+            ):
+                scan_id = Core.newest_persisted_scan_id(results)
+                if scan_id:
+                    return scan_id
+            return None
         return repo_info.head_full_scan_id if repo_info.head_full_scan_id else None
+
+    @staticmethod
+    def query_param_value(value):
+        """
+        Unwraps an enum member so it survives URL encoding.
+
+        The SDK types several query params as str-backed enums (ScanType,
+        IntegrationType). urlencode calls str(), which renders a (str, Enum) member
+        as "ScanType.SOCKET_TIER1" -- a filter value the API does not recognize.
+        """
+        return getattr(value, "value", value)
+
+    @staticmethod
+    def newest_persisted_scan_id(results: List[dict]) -> Optional[str]:
+        """
+        Returns the newest scan ID from a full scan listing, skipping temporary scans.
+
+        create_new_diff creates an empty ``tmp`` scan when a repository has no baseline
+        yet, and that scan inherits the branch and commit of the run that created it.
+        If the real scan then fails, the empty scan is left behind as the newest scan
+        for that branch/commit; selecting it as a baseline would report every
+        dependency as newly added.
+
+        Args:
+            results: Full scan listing results, newest first
+
+        Returns:
+            Newest non-temporary scan ID, or None if the listing has none
+        """
+        for result in results or []:
+            if not isinstance(result, dict) or result.get("tmp"):
+                continue
+            scan_id = result.get("id")
+            if scan_id:
+                return scan_id
+        return None
+
+    def _full_scan_result_pages(
+            self,
+            query_params: dict,
+            failure_message: str,
+    ) -> Iterator[List[dict]]:
+        """Yields successful full-scan listing pages and rejects failed lookups."""
+        request_params = dict(query_params)
+        seen_pages = {str(request_params.get("page", 1))}
+        per_page = int(request_params.get("per_page", 30))
+
+        while True:
+            response = self.sdk.fullscans.get(self.config.org_slug, request_params)
+            results = response.get("results") if isinstance(response, dict) else None
+            if results is None:
+                # The SDK logs and returns {} for any non-200, so a present results
+                # key is the only signal that the request itself succeeded.
+                raise APIFailure(failure_message)
+            yield results
+
+            next_page = response.get("nextPage")
+            # The API has historically returned nextPage=1 for a short final page.
+            if len(results) < per_page or next_page in (None, 0, "0", False, ""):
+                return
+
+            page_key = str(next_page)
+            if page_key in seen_pages:
+                raise APIFailure(
+                    f"{failure_message}: full-scan pagination repeated page {next_page}"
+                )
+            seen_pages.add(page_key)
+            request_params = {**query_params, "page": next_page}
+
+    def first_parent_commits(self, start_commit_sha: str, max_count: int) -> List[str]:
+        """
+        Lists a commit and its first-parent ancestors, newest first.
+
+        Follows only first parents so a merge commit contributes the branch's own
+        history rather than everything merged into it. A shallow checkout simply
+        yields fewer commits, which narrows the search rather than failing it.
+
+        Args:
+            start_commit_sha: Commit to walk back from, included in the result
+            max_count: Maximum number of commits to return
+
+        Returns:
+            Commit SHAs, newest first. Empty when the repository or commit is
+            unavailable locally.
+        """
+        target_path = self.cli_config.target_path if self.cli_config else None
+        if not target_path:
+            return []
+        try:
+            repo = Repo(target_path)
+            output = repo.git.rev_list(
+                "--first-parent",
+                f"--max-count={max_count}",
+                start_commit_sha,
+            )
+        except Exception as error:
+            log.debug(f"Unable to walk history back from {start_commit_sha}: {error}")
+            return []
+        return [line.strip() for line in output.splitlines() if line.strip()]
+
+    def find_baseline_scan_for_ancestor(
+            self,
+            repo_slug: str,
+            commit_sha: str,
+            workspace: Optional[str] = None,
+            scan_type: Optional[str] = None,
+    ) -> Tuple[Optional[str], Optional[str], int]:
+        """
+        Finds the nearest ancestor of a commit that does have a full scan.
+
+        Used when --base-commit-sha names a commit that was never scanned. Squash
+        merges and rebases rewrite commits, and a multi-commit push produces one scan
+        for the tip, so a merge base can be unscanned even when default-branch
+        scanning is configured correctly. Diffing against a slightly older ancestor
+        is a wider diff; failing outright is no diff at all.
+
+        Scan listing pages are matched against local first-parent history. All pages
+        are considered because scans from other branches and reruns can fill newer
+        pages without covering the nearest candidate ancestors.
+
+        Args:
+            repo_slug: Repository slug the scan belongs to
+            commit_sha: Commit that has no full scan of its own
+            workspace: Socket workspace the scan belongs to, if any
+            scan_type: Socket scan type to match, if any
+
+        Returns:
+            (scan_id, ancestor_commit_sha, commits_back), or (None, None, 0) when no
+            scanned ancestor is reachable.
+        """
+        ancestors = self.first_parent_commits(commit_sha, ANCESTOR_WALK_MAX_DEPTH)
+        if not ancestors:
+            return None, None, 0
+
+        query_params = {
+            "repo": repo_slug,
+            "sort": "created_at",
+            "direction": "desc",
+            "per_page": ANCESTOR_SCAN_LOOKUP_LIMIT,
+        }
+        if workspace:
+            query_params["workspace"] = workspace
+        if scan_type:
+            query_params["scan_type"] = Core.query_param_value(scan_type)
+
+        scans_by_commit = {}
+        ancestor_set = set(ancestors)
+        for results in self._full_scan_result_pages(
+                query_params,
+                f"Failed to list ancestor full scans for repo {repo_slug}",
+        ):
+            for result in results:
+                if not isinstance(result, dict) or result.get("tmp"):
+                    continue
+                result_commit = result.get("commit_hash")
+                scan_id = result.get("id")
+                # Newest first, so the first scan seen for a commit is the one to keep.
+                if (
+                        result_commit in ancestor_set
+                        and scan_id
+                        and result_commit not in scans_by_commit
+                ):
+                    scans_by_commit[result_commit] = scan_id
+
+        if not scans_by_commit:
+            return None, None, 0
+
+        for distance, ancestor in enumerate(ancestors):
+            scan_id = scans_by_commit.get(ancestor)
+            if scan_id:
+                return scan_id, ancestor, distance
+        return None, None, 0
 
     def get_full_scan_id_by_commit(
             self,
@@ -1504,31 +1763,32 @@ class Core:
             "commit_hash": commit_sha,
             "sort": "created_at",
             "direction": "desc",
-            "per_page": 1,
+            "per_page": SCAN_LOOKUP_PAGE_SIZE,
         }
         if workspace:
             query_params["workspace"] = workspace
         if scan_type:
-            query_params["scan_type"] = scan_type
+            query_params["scan_type"] = Core.query_param_value(scan_type)
 
-        response = self.sdk.fullscans.get(
-            self.config.org_slug,
-            query_params,
-        )
-        results = response.get("results") if isinstance(response, dict) else None
-        if not results:
-            return None
-        return results[0].get("id")
+        for results in self._full_scan_result_pages(
+                query_params,
+                f"Failed to list full scans for commit {commit_sha} in repo {repo_slug}",
+        ):
+            scan_id = Core.newest_persisted_scan_id(results)
+            if scan_id:
+                return scan_id
+        return None
 
     def resolve_base_full_scan_id(self, params: FullScanParams) -> Optional[str]:
         """
         Resolves the baseline full scan ID to diff a new scan against.
 
         Priority: --base-scan-id (used verbatim), then --base-commit-sha (newest
-        full scan for that commit), then the repository's current head scan. A
-        --base-commit-sha with no matching full scan is a hard error rather than a
-        silent fallback to the head scan, because diffing against the wrong
-        baseline silently misreports which alerts a PR introduces.
+        full scan for that commit, or its nearest scanned first-parent ancestor),
+        then the repository's current matching head scan. A --base-commit-sha with
+        no reachable scanned ancestor is a hard error rather than a silent fallback
+        to the head scan, because diffing against the wrong baseline silently
+        misreports which alerts a PR introduces.
 
         Returns:
             Full scan ID to use as the diff baseline, or None when the repository
@@ -1549,26 +1809,61 @@ class Core:
                 workspace=params.workspace,
                 scan_type=params.scan_type,
             )
+            baseline_source = "explicit-commit"
+            baseline_commit = commit_sha
             if scan_id is None:
-                log.error(
-                    f"No full scan found for commit {commit_sha} in repo {params.repo} "
-                    "(--base-commit-sha). Ensure a scan was created for that commit "
-                    "(e.g. the CLI runs on default-branch pushes), or pass "
-                    "--base-scan-id instead."
+                scan_id, ancestor_sha, commits_back = self.find_baseline_scan_for_ancestor(
+                    params.repo,
+                    commit_sha,
+                    workspace=params.workspace,
+                    scan_type=params.scan_type,
                 )
-                if self.cli_config.disable_blocking:
-                    sys.exit(0)
-                sys.exit(self.cli_config.exit_code_on_api_error)
+                if scan_id:
+                    baseline_source = "explicit-commit-ancestor"
+                    baseline_commit = ancestor_sha
+                    log.warning(
+                        f"No full scan for commit {commit_sha} (--base-commit-sha). "
+                        f"Diffing against its nearest scanned ancestor {ancestor_sha}, "
+                        f"{commits_back} commit(s) earlier, so the diff is wider than "
+                        "the merge base."
+                    )
+                else:
+                    log.error(
+                        f"No full scan found for commit {commit_sha} in repo {params.repo} "
+                        "(--base-commit-sha), and no scanned ancestor within "
+                        f"{ANCESTOR_WALK_MAX_DEPTH} commits of it. Ensure a scan was "
+                        "created for that commit (e.g. the CLI runs on default-branch "
+                        "pushes), or pass --base-scan-id instead."
+                    )
+                    if self.cli_config.disable_blocking:
+                        sys.exit(0)
+                    sys.exit(self.cli_config.exit_code_on_api_error)
             log.info(
-                "Baseline selected: source=explicit-commit "
-                f"scan_id={json.dumps(scan_id)} commit={json.dumps(commit_sha)}"
+                f"Baseline selected: source={baseline_source} "
+                f"scan_id={json.dumps(scan_id)} commit={json.dumps(baseline_commit)}"
             )
             return scan_id
 
         try:
-            scan_id = self.get_head_scan_for_repo(params.repo)
+            scan_id = self.get_head_scan_for_repo(
+                params.repo,
+                workspace=params.workspace,
+                scan_type=params.scan_type,
+            )
         except APIResourceNotFound:
             return None
+        except APIFailure as error:
+            # Returning None would make the caller create an empty baseline scan,
+            # reporting every dependency as newly added, so fail loudly like the
+            # --base-commit-sha path above.
+            log.error(
+                f"Failed to resolve the matching head scan for repo {params.repo}: {error}"
+            )
+            if self.cli_config is None:
+                raise
+            if self.cli_config.disable_blocking:
+                sys.exit(0)
+            sys.exit(self.cli_config.exit_code_on_api_error)
         if scan_id:
             log.info(
                 "Baseline selected: source=repository-head "
@@ -1578,12 +1873,11 @@ class Core:
 
     @staticmethod
     def update_package_values(pkg: Package) -> Package:
+        pkg.type = Package.normalize_type(pkg.type)
         pkg.purl = f"{pkg.name}@{pkg.version}"
-        pkg.url = f"https://socket.dev/{pkg.type}/package"
         if pkg.namespace:
             pkg.purl = f"{pkg.namespace}/{pkg.purl}"
-            pkg.url += f"/{pkg.namespace}"
-        pkg.url += f"/{pkg.name}/overview/{pkg.version}"
+        pkg.url = Package.socket_url(pkg.type, pkg.namespace, pkg.name, pkg.version)
         return pkg
 
     def get_license_text_via_purl(self, packages: dict[str, Package], batch_size: int = 5000) -> dict:
@@ -1627,6 +1921,9 @@ class Core:
             for result in results:
                 ecosystem = result["type"]
                 name = result["name"]
+                namespace = (result.get("namespace") or "").strip("/")
+                if namespace and not name.startswith(f"{namespace}/"):
+                    name = f"{namespace}/{name}"
                 package_version = result["version"]
                 licenseDetails = result.get("licenseDetails")
                 licenseAttrib = result.get("licenseAttrib")
@@ -1640,7 +1937,8 @@ class Core:
     def get_diff_scan_artifacts(
             self,
             head_full_scan_id: str,
-            new_full_scan_id: str
+            new_full_scan_id: str,
+            external_href: Optional[str] = None
     ) -> DiffArtifacts:
         """Compare two full scans via the diff-scans endpoints, polling for the result.
 
@@ -1663,6 +1961,8 @@ class Core:
         Args:
             head_full_scan_id: The before/base full scan ID
             new_full_scan_id: The after/head full scan ID
+            external_href: Optional pull request or merge request URL to associate
+                with the diff scan in the Socket Dashboard
 
         Returns:
             DiffArtifacts with the added/removed/unchanged/replaced/updated lists
@@ -1672,6 +1972,13 @@ class Core:
             "after": new_full_scan_id,
             "description": f"Socket Security CLI v{__version__} scan comparison",
         }
+        if external_href:
+            create_params["external_href"] = external_href
+            # external_href is only honored while a diff scan is being created,
+            # so a re-run over an already-compared scan pair needs
+            # on_duplicate=update to apply the link to the existing resource. It
+            # answers 200 with the same {"diff_scan": ...} envelope as a create.
+            create_params["on_duplicate"] = "update"
         try:
             result = self.sdk.diffscans.create_from_ids(self.config.org_slug, create_params)
             diff_scan = result.get("diff_scan") or {}
@@ -1680,11 +1987,13 @@ class Core:
             if error.status_code != 409:
                 raise
 
-            # Do not use on_duplicate=redirect here. The SDK follows that 302
-            # automatically with a GET that lacks cached=true, which can leave
-            # the connection idle while an existing diff scan is still computing.
-            # Resolve the duplicate resource explicitly so every result fetch
-            # continues through the bounded cached polling path below.
+            # Reached when there is no pull request context to attach, and on
+            # deployments that answer 409 regardless. Do NOT switch this to
+            # on_duplicate=redirect: the SDK follows that 302 automatically with
+            # a GET that lacks cached=true, which can leave the connection idle
+            # while an existing diff scan is still computing. Resolve the
+            # duplicate explicitly so every result fetch continues through the
+            # bounded cached polling path below.
             existing = self.sdk.diffscans.list(
                 self.config.org_slug,
                 params={
@@ -1820,7 +2129,8 @@ class Core:
             self,
             head_full_scan_id: str,
             new_full_scan_id: str,
-            include_license_details: bool = False
+            include_license_details: bool = False,
+            external_href: Optional[str] = None
     ) -> Tuple[Dict[str, Package], Dict[str, Package], Dict[str, Package]]:
         """
         Get packages that were added and removed between scans.
@@ -1853,6 +2163,8 @@ class Core:
                 is retained as an explicit override seam, not wired to the
                 ``--exclude-license-details`` user flag (which still governs the
                 human-facing dashboard report URL).
+            external_href: Optional pull request or merge request URL to associate
+                with the primary diff-scan resource
 
         Returns:
             Tuple of (added_packages, removed_packages) dictionaries
@@ -1864,7 +2176,8 @@ class Core:
         try:
             diff_artifacts = self.get_diff_scan_artifacts(
                 head_full_scan_id,
-                new_full_scan_id
+                new_full_scan_id,
+                external_href=external_href,
             )
         except Exception as error:
             # SDK error messages can span many lines (path + response headers); the
@@ -1980,7 +2293,8 @@ class Core:
             save_files_list_path: Optional[str] = None,
             save_manifest_tar_path: Optional[str] = None,
             base_paths: Optional[List[str]] = None,
-            explicit_files: Optional[List[str]] = None
+            explicit_files: Optional[List[str]] = None,
+            external_href: Optional[str] = None
     ) -> Diff:
         """Create a new diff using the Socket SDK.
 
@@ -1992,6 +2306,8 @@ class Core:
             save_manifest_tar_path: Optional path to save manifest files tar.gz archive
             base_paths: List of base paths for the scan (optional)
             explicit_files: Optional list of explicit files to use instead of discovering files
+            external_href: Optional pull request or merge request URL to associate
+                with the diff scan
         """
         log.debug(f"starting create_new_diff with no_change: {no_change}")
         if no_change:
@@ -2126,7 +2442,8 @@ class Core:
         ) = self.get_added_and_removed_packages(
             head_full_scan_id,
             new_full_scan.id,
-            include_license_details=False
+            include_license_details=False,
+            external_href=external_href,
         )
 
         # Separate unchanged packages from added/removed for --strict-blocking support
@@ -2190,16 +2507,22 @@ class Core:
         alerts_in_removed_packages: Dict[str, List[Issue]] = {}
         alerts_in_unchanged_packages: Dict[str, List[Issue]] = {}
 
-        seen_new_packages = set()
-        seen_removed_packages = set()
+        seen_packages = {
+            "added": set(),
+            "updated": set(),
+            "removed": set(),
+            "replaced": set(),
+        }
 
         for package_id, package in added_packages.items():
             purl = self.create_purl(package_id, added_packages)
             base_purl = f"{purl.ecosystem}/{purl.name}@{purl.version}"
 
-            if (not direct_only or package.direct) and base_purl not in seen_new_packages:
-                diff.new_packages.append(purl)
-                seen_new_packages.add(base_purl)
+            change_type = "updated" if package.diffType == "updated" else "added"
+            target = diff.updated_packages if change_type == "updated" else diff.new_packages
+            if (not direct_only or package.direct) and base_purl not in seen_packages[change_type]:
+                target.append(purl)
+                seen_packages[change_type].add(base_purl)
 
             self.add_package_alerts_to_collection(
                 package=package,
@@ -2211,9 +2534,11 @@ class Core:
             purl = self.create_purl(package_id, removed_packages)
             base_purl = f"{purl.ecosystem}/{purl.name}@{purl.version}"
 
-            if (not direct_only or package.direct) and base_purl not in seen_removed_packages:
-                diff.removed_packages.append(purl)
-                seen_removed_packages.add(base_purl)
+            change_type = "replaced" if package.diffType == "replaced" else "removed"
+            target = diff.replaced_packages if change_type == "replaced" else diff.removed_packages
+            if (not direct_only or package.direct) and base_purl not in seen_packages[change_type]:
+                target.append(purl)
+                seen_packages[change_type].add(base_purl)
 
             self.add_package_alerts_to_collection(
                 package=package,
@@ -2338,23 +2663,24 @@ class Core:
     @staticmethod
     def add_purl_capabilities(diff: Diff) -> None:
         """
-        Adds capability information to each package in the diff's new_packages list.
+        Adds capability information to the diff's added and updated packages.
+
+        Both lists are walked because an updated package is still newly present at
+        its new version, so its capabilities are as relevant as an added one's.
 
         Args:
             diff: Diff object to update with capability information
         """
-        new_packages = []
-        for purl in diff.new_packages:
-            if purl.id in diff.new_capabilities:
-                new_purl = Purl(
-                    **{**purl.__dict__,
-                    "capabilities": diff.new_capabilities[purl.id]}
-                )
-                new_packages.append(new_purl)
-            else:
-                new_packages.append(purl)
-
-        diff.new_packages = new_packages
+        for attribute in ("new_packages", "updated_packages"):
+            packages = []
+            for purl in getattr(diff, attribute):
+                if purl.id in diff.new_capabilities:
+                    purl = Purl(
+                        **{**purl.__dict__,
+                        "capabilities": diff.new_capabilities[purl.id]}
+                    )
+                packages.append(purl)
+            setattr(diff, attribute, packages)
 
     def add_package_alerts_to_collection(self, package: Package, alerts_collection: dict, packages: dict) -> dict:
         """
@@ -2407,6 +2733,8 @@ class Core:
                 suggestion=props.suggestion,
                 next_step_title=props.nextStepTitle,
                 introduced_by=introduced_by,
+                manifest_files=package.manifestFiles or [],
+                direct=bool(package.direct),
                 purl=package.purl,
                 url=package.url
             )

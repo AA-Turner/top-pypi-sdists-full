@@ -1228,8 +1228,16 @@ class Connection:
         # Delegates to self.create_table() which is namespace-aware.
         schema_with_meta = udtf.output_schema.with_metadata(metadata)
         empty_table = schema_with_meta.empty_table()
+        # Mirror the source: a view over a source without stable row IDs is
+        # created without them too, so Geneva never introduces a stable-row-ID
+        # table into a deployment that does not already use them (GEN-952).
+        # The backend capability check still applies -- see
+        # _supports_stable_row_ids_on_create (GEN-839).
+        # to_lance: fresh manifest needed for stable-row-ID capability detection
+        source_ds = source._table.to_lance()
+        source_has_stable_row_ids = dataset_uses_stable_row_ids(source_ds)
         storage_options: dict[str, str] = {}
-        if self._supports_stable_row_ids_on_create():
+        if source_has_stable_row_ids and self._supports_stable_row_ids_on_create():
             storage_options["new_table_enable_stable_row_ids"] = "true"
 
         return self.create_table(
@@ -1318,24 +1326,31 @@ class Connection:
                 auto_refresh=auto_refresh,
             )
 
-        # to_lance: fresh manifest needed for stable-row-ID capability detection
-        if not dataset_uses_stable_row_ids(source._table.to_lance()):
-            warnings.warn(
-                f"Creating chunker materialized view from table "
-                f"'{source._table.name}' without stable row IDs enabled.\n\n"
-                "Without stable row IDs, chunker materialized views can only "
-                "refresh to the same source version they were created from. "
-                "Attempting to refresh to a different source version will fail "
-                "because physical row IDs may have changed.\n\n"
-                "For cross-version refresh support, create the source table "
-                "with stable row IDs enabled.",
-                UserWarning,
-                stacklevel=2,
-            )
-
         # Get source table info
         local_tbl = source._table._ltbl
         db_uri = _get_db_uri(source._table.uri)
+
+        # Pinned into MATVIEW_META_BASE_VERSION below; read once so the warning
+        # names exactly the version the refresh guard will accept.
+        base_version = local_tbl.version
+
+        # to_lance: fresh manifest needed for stable-row-ID capability detection
+        source_ds = source._table.to_lance()
+        source_has_stable_row_ids = dataset_uses_stable_row_ids(source_ds)
+        if not source_has_stable_row_ids:
+            warnings.warn(
+                f"Chunker materialized view '{name}' is pinned to source "
+                f"version {base_version}.\n\n"
+                "Refresh only works against that version. Once "
+                f"'{source._table.name}' moves past it -- any append, update, "
+                "delete or compaction -- a plain refresh() fails, because it "
+                "targets the latest source version; call "
+                f"refresh(src_version={base_version}) instead.\n\n"
+                "Either way the view will not pick up rows written to "
+                f"'{source._table.name}' after version {base_version}.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         # Build metadata
         metadata = {
@@ -1343,7 +1358,7 @@ class Connection:
             MATVIEW_META_QUERY: source_query_json,
             MATVIEW_META_BASE_TABLE: local_tbl.name,
             MATVIEW_META_BASE_DBURI: db_uri,
-            MATVIEW_META_BASE_VERSION: str(local_tbl.version),
+            MATVIEW_META_BASE_VERSION: str(base_version),
             MATVIEW_META_VERSION: MATVIEW_VERSION_CHUNKER,
         }
 
@@ -1361,8 +1376,13 @@ class Connection:
         # Create empty table with the full schema + metadata.
         schema_with_meta = view_schema.with_metadata(metadata)
         empty_table = schema_with_meta.empty_table()
+        # Mirror the source: a view over a source without stable row IDs is
+        # created without them too, so Geneva never introduces a stable-row-ID
+        # table into a deployment that does not already use them (GEN-952).
+        # The backend capability check still applies -- see
+        # _supports_stable_row_ids_on_create (GEN-839).
         storage_options: dict[str, str] = {}
-        if self._supports_stable_row_ids_on_create():
+        if source_has_stable_row_ids and self._supports_stable_row_ids_on_create():
             storage_options["new_table_enable_stable_row_ids"] = "true"
 
         return self.create_table(

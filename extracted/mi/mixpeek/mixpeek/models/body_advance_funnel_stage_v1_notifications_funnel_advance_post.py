@@ -19,7 +19,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,7 +28,8 @@ class BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost(BaseModel):
     BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost
     """ # noqa: E501
     stage: StrictStr
-    __properties: ClassVar[List[str]] = ["stage"]
+    source: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["stage", "source"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -81,7 +82,8 @@ class BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "stage": obj.get("stage")
+            "stage": obj.get("stage"),
+            "source": obj.get("source")
         })
         return _obj
 

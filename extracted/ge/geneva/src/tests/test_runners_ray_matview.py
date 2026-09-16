@@ -1785,7 +1785,7 @@ def test_materialized_view_creation_warns_without_stable_row_ids(db) -> None:
         # Check that a warning was issued
         assert len(w) == 1
         assert issubclass(w[0].category, UserWarning)
-        assert "without stable row IDs" in str(w[0].message)
+        assert "pinned to source version" in str(w[0].message)
 
     # Verify MV was created despite the warning
     # Note: MV has placeholder rows initially (__is_set=False)
@@ -1850,7 +1850,7 @@ def test_materialized_view_refresh_fails_on_version_change_without_stable_row_id
     with pytest.raises(RuntimeError) as exc_info:
         mv.refresh(src_version=new_version)
 
-    assert "does not have stable row IDs enabled" in str(exc_info.value)
+    assert "pinned to source version" in str(exc_info.value)
     assert f"version {new_version}" in str(exc_info.value)
     assert f"version {initial_version}" in str(exc_info.value)
 

@@ -152,6 +152,7 @@ def create_jwt() -> t.Callable[..., str]:
         iat: int = int(time.time()) - 10,
         aud: str = settings.ENV,
         act: t.Optional[t.Dict[str, t.Any]] = None,
+        jti: t.Optional[str] = None,
     ) -> str:
         token: t.Dict[str, t.Any] = {
             "iss": "iss",
@@ -164,6 +165,8 @@ def create_jwt() -> t.Callable[..., str]:
         }
         if act is not None:
             token["act"] = act
+        if jti is not None:
+            token["jti"] = jti
 
         return jwt.encode(
             token,

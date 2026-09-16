@@ -36,6 +36,21 @@ class _AttrDict(dict):
             raise AttributeError(name) from exc
 
 
+def _feature_search_entry(query: dict[str, Any]) -> dict[str, Any]:
+    """Accept the ``vector_name``/``vector`` spelling the vector-store docs use.
+
+    feature_search reads ``feature_uri`` and ``query``. An entry that names its
+    vector with ``vector_name`` and passes it as ``vector`` is rewritten to that
+    shape; an entry already in it passes through. The caller's dict is left as is.
+    """
+    entry = dict(query)
+    if "feature_uri" not in entry and "vector_name" in entry:
+        entry["feature_uri"] = entry.pop("vector_name")
+    if "query" not in entry and "vector" in entry:
+        entry["query"] = {"input_mode": "vector", "value": entry.pop("vector")}
+    return entry
+
+
 class Mixpeek:
     """One-liner client for the Mixpeek API.
 
@@ -118,6 +133,7 @@ class Mixpeek:
                 namespace_id=namespace_id or self.namespace,
                 queries=queries or [],
                 limit=limit,
+                filters=filters,
                 **kwargs,
             )
 
@@ -155,6 +171,7 @@ class Mixpeek:
         namespace_id: str | None,
         queries: list[dict[str, Any]],
         limit: int = 10,
+        filters: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Run a BYO-vector search by creating + executing an ephemeral retriever.
@@ -168,6 +185,7 @@ class Mixpeek:
         """
         if not queries:
             raise ValueError("queries is required for a BYO-vector search.")
+        queries = [_feature_search_entry(q) for q in queries]
 
         final_top_k = max((q.get("top_k", limit) for q in queries), default=limit)
         stage = {
@@ -199,7 +217,7 @@ class Mixpeek:
             return self._request(
                 "POST",
                 f"/retrievers/{ret_id}/execute",
-                body={"inputs": {}},
+                body={"inputs": {}, **({"filters": filters} if filters else {})},
                 namespace=namespace_id,
             )
         finally:
@@ -215,6 +233,8 @@ class Mixpeek:
         collection: str | None = None,
         metadata: dict[str, Any] | None = None,
         namespace: str | None = None,
+        blob_property: str | None = None,
+        blob_type: str | None = None,
     ) -> dict[str, Any]:
         """Upload a file URL to a bucket and optionally trigger a collection.
 
@@ -233,7 +253,21 @@ class Mixpeek:
             else buckets["results"][0]["bucket_id"]
         )
 
-        upload_body: dict[str, Any] = {"blob": {"url": source}}
+        from mixpeek._client.resources import _blob_entry
+
+        # The blob's property and type come from the bucket schema, as in
+        # Buckets.upload; blob_property= and blob_type= choose them explicitly.
+        upload_body: dict[str, Any] = {
+            "blobs": [
+                _blob_entry(
+                    lambda bid: self._request("GET", f"/buckets/{bid}", namespace=ns),
+                    bucket_id,
+                    source,
+                    blob_property=blob_property,
+                    blob_type=blob_type,
+                )
+            ]
+        }
         if metadata:
             upload_body["metadata"] = metadata
 

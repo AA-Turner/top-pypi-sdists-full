@@ -12,6 +12,8 @@ class TestGetPrState:
         """Build a mock API response dict."""
         data = {
             "state": "OPEN",
+            "baseRefName": "main",
+            "baseRefOid": "abcdef1234567890",
             "headRefOid": "9123c3c53d7d4a5b6c7d8e9f0a1b2c3d4e5f6a7b",
             "mergeable": "MERGEABLE",
             "mergeStateStatus": "CLEAN",
@@ -33,6 +35,8 @@ class TestGetPrState:
         assert result["prNumber"] == 1115
         assert result["repo"] == "ayaiayorg/agentic-devtools"
         assert result["state"] == "OPEN"
+        assert result["baseRefName"] == "main"
+        assert result["baseRefOid"] == "abcdef1234567890"
         assert result["headRefOid"] == "9123c3c53d7d4a5b6c7d8e9f0a1b2c3d4e5f6a7b"
         assert result["headRefOidShort"] == "9123c3c"
         assert result["mergeable"] == "MERGEABLE"
@@ -75,7 +79,7 @@ class TestGetPrState:
         assert result["headRefOidShort"] == ""
 
     def test_writes_state_keys(self):
-        """All 9 github.* state keys are written."""
+        """All expected github.* state keys are written."""
         api_data = self._mock_api_response()
 
         with patch.object(pr_state_module, "_fetch_pr_with_retry", return_value=api_data):
@@ -90,6 +94,8 @@ class TestGetPrState:
             call("github.head_ref_oid_short", "9123c3c"),
             call("github.mergeable", "MERGEABLE"),
             call("github.merge_state_status", "CLEAN"),
+            call("github.base_ref_name", "main"),
+            call("github.base_ref_oid", "abcdef1234567890"),
             call("github.is_draft", False),
             call("github.is_terminal", False),
         ]

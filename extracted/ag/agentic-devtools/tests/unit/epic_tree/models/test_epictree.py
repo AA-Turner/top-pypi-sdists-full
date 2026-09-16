@@ -185,3 +185,14 @@ class TestEpicTree:
         dumped = tree.model_dump(by_alias=True, mode="json")
         tree2 = EpicTree.model_validate(dumped)
         assert tree == tree2
+
+    def test_tree_id_is_canonical_and_immutable(self):
+        epic = EpicNode(ref="e1", title="Epic", body="", features=())
+        tree = EpicTree(
+            schemaVersion="2.0",
+            treeId="12345678-1234-5678-1234-567812345678".upper(),
+            epic=epic,
+        )
+        assert tree.treeId == "12345678-1234-5678-1234-567812345678"
+        with pytest.raises(ValidationError):
+            EpicTree(schemaVersion="2.0", treeId="not-a-uuid", epic=epic)

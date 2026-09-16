@@ -244,6 +244,35 @@ async def test_hook_emits_exactly_once_with_wire_bytes_when_snapshot_enabled():
     assert payload.request_id == "req-abc"
 
 
+async def test_hook_sizes_multibyte_utf8_body_by_wire_bytes_not_characters():
+    """httpx's own ``json=`` serialization does NOT \\u-escape non-ASCII (unlike
+    ``json.dumps``'s default ``ensure_ascii=True``), so a real multibyte body
+    hits the wire as genuine multibyte UTF-8 — a mutation that measures
+    ``body_size_bytes`` by decoding and counting characters instead of raw
+    bytes silently undercounts. Every other fixture in this file is
+    ASCII-only (1 char == 1 byte there), so that mutation currently passes
+    unnoticed."""
+    emitter = _make_emitter()
+    _install_ctx(snapshot=True, emitter=emitter)
+    set_call_meta(CallMeta(provider="openai"))
+
+    request = _make_request(
+        method="POST",
+        url="https://api.openai.com/v1/responses",
+        body={"text": "é漢" * 3},
+    )
+
+    await _outbound_request_hook(request)
+
+    payload = _only_payload(emitter)
+    assert payload.body == {"text": "é漢é漢é漢"}
+    # Wire bytes: b'{"text":"\xc3\xa9\xe6\xbc\xa2\xc3\xa9\xe6\xbc\xa2\xc3\xa9\xe6\xbc\xa2"}'
+    # 9 ASCII structural bytes (`{"text":"`) + 2 closing bytes (`"}`) = 11,
+    # plus 3 repetitions of "é" (2 bytes, U+00E9) + "漢" (3 bytes, U+6F22) = 15.
+    # 11 + 15 = 26 bytes — but only 17 *characters* (`{"text":"é漢é漢é漢"}`).
+    assert payload.body_size_bytes == 26
+
+
 async def test_captured_provider_payload_is_recorded_byte_faithfully():
     """The committed payload goes out through the real capture client; the
     event must carry it exactly and size it by the bytes that hit the wire."""

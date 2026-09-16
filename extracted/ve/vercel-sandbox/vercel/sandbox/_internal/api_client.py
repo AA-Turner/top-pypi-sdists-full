@@ -9,8 +9,8 @@ from datetime import timedelta
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from typing import Literal, TypeVar, cast
 
-from httpx import Response
-from httpx._types import QueryParamTypes
+from httpx2 import Response
+from httpx2._types import QueryParamTypes
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -22,10 +22,12 @@ from pydantic import (
 )
 
 from vercel._internal.core.http import (
+    NO_TIMEOUT,
     BaseTransport,
     JSONBody,
     ReadResponsePolicy,
     RequestBody,
+    RequestTimeout,
     StreamingRequest,
     StreamingResponse,
     extract_structured_error,
@@ -39,9 +41,11 @@ from vercel.sandbox._internal.errors import (
 )
 from vercel.sandbox._internal.models import (
     _OMITTED,
+    NO_PRIVATE_PARAMETERS,
     JSONObject,
     JSONValue,
     NetworkPolicy,
+    PrivateSandboxParameters,
     ProcessLog,
     ProcessLogStream,
     SandboxResources,
@@ -130,11 +134,8 @@ class _ApiRequestModel(_ApiModel):
         return cast(JSONObject, self.model_dump(by_alias=True, exclude_none=True))
 
 
-class _CreateSandboxRequest(_ApiRequestModel):
-    project_id: str = Field(serialization_alias="projectId")
+class _SandboxCreationOverridesRequest(_ApiRequestModel):
     name: str | None = None
-    image: str | None = None
-    source: SandboxSource | None = None
     ports: list[int] | None = None
     timeout: timedelta | None = None
     resources: SandboxResources | None = None
@@ -148,6 +149,8 @@ class _CreateSandboxRequest(_ApiRequestModel):
     keep_last_snapshots: SnapshotRetention | None = Field(
         default=None, serialization_alias="keepLastSnapshots"
     )
+    region: str | None = None
+    failover_regions: list[str] | None = Field(default=None, serialization_alias="failoverRegions")
 
     @field_serializer("timeout")
     def _serialize_duration(self, value: timedelta | None) -> int | None:
@@ -173,6 +176,16 @@ class _CreateSandboxRequest(_ApiRequestModel):
         raise TypeError("network_policy must be a NetworkPolicy")
 
 
+class _CreateSandboxRequest(_SandboxCreationOverridesRequest):
+    project_id: str = Field(serialization_alias="projectId")
+    image: str | None = None
+    source: SandboxSource | None = None
+
+
+class _ForkSandboxRequest(_SandboxCreationOverridesRequest):
+    image: str | None = None
+
+
 class _UpdateSandboxRequest(_ApiRequestModel):
     ports: list[int] | None = None
     timeout: timedelta | None = None
@@ -185,6 +198,8 @@ class _UpdateSandboxRequest(_ApiRequestModel):
         default=None, serialization_alias="snapshotExpiration"
     )
     current_snapshot_id: str | None = Field(default=None, serialization_alias="currentSnapshotId")
+    region: str | None = None
+    failover_regions: list[str] | None = Field(default=None, serialization_alias="failoverRegions")
 
     @field_serializer("timeout")
     def _serialize_duration(self, value: timedelta | None) -> int | None:
@@ -386,6 +401,10 @@ class _SandboxPayload(_ApiModel):
     )
     cwd: str | None = None
     region: str | None = None
+    failover_regions: tuple[str, ...] | None = Field(
+        default=None,
+        validation_alias=AliasChoices("failover_regions", "failoverRegions"),
+    )
     memory: int | None = None
     vcpus: int | None = None
     execution_time_limit: int | None = Field(
@@ -436,6 +455,7 @@ class _SnapshotPayload(_ApiModel):
         serialization_alias="sourceSessionId",
     )
     region: str
+    regions: tuple[str, ...] | None = None
     status: Literal["created", "deleted", "failed"]
     size_bytes: int = Field(
         validation_alias=AliasChoices("size_bytes", "sizeBytes"), serialization_alias="sizeBytes"
@@ -686,6 +706,7 @@ def _sandbox_state(
         project_id=payload.project_id or project_id,
         cwd=payload.cwd,
         region=payload.region,
+        failover_regions=payload.failover_regions or (),
         memory=payload.memory,
         vcpus=payload.vcpus,
         execution_time_limit=parse_duration(payload.execution_time_limit, MILLISECOND),
@@ -727,6 +748,7 @@ def _snapshot_state(payload: _SnapshotPayload) -> SnapshotState:
         id=payload.id,
         source_session_id=payload.source_session_id,
         region=payload.region,
+        regions=payload.regions or (payload.region,),
         status=payload.status,
         size_bytes=payload.size_bytes,
         expires_at=payload.expires_at,
@@ -794,7 +816,7 @@ class SandboxApiClient:
         body: RequestBody = None,
         params: Mapping[str, JSONValue | None] | None = None,
         headers: Mapping[str, str] | None = None,
-        timeout: timedelta | None = None,
+        timeout: RequestTimeout = None,
     ) -> Response:
         query = cast(
             QueryParamTypes,
@@ -835,7 +857,7 @@ class SandboxApiClient:
         body: RequestBody = None,
         params: Mapping[str, JSONValue | None] | None = None,
         headers: Mapping[str, str] | None = None,
-        timeout: timedelta | None = None,
+        timeout: RequestTimeout = None,
     ) -> StreamingResponse:
         query = cast(
             QueryParamTypes,
@@ -878,6 +900,7 @@ class SandboxApiClient:
         credentials: SandboxCredentials,
         body: JSONValue | None = None,
         params: Mapping[str, JSONValue | None] | None = None,
+        timeout: RequestTimeout = None,
     ) -> JSONObject:
         response = await self._request(
             method,
@@ -886,6 +909,7 @@ class SandboxApiClient:
             body=JSONBody(body) if body is not None else None,
             params=params,
             headers={"content-type": "application/json"},
+            timeout=timeout,
         )
 
         try:
@@ -915,6 +939,9 @@ class SandboxApiClient:
         tags: Mapping[str, str] | None = None,
         snapshot_expiration: SnapshotExpiration | None = None,
         snapshot_retention: SnapshotRetention | None = None,
+        region: str | None = None,
+        failover_regions: tuple[str, ...] | None = None,
+        private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
     ) -> SandboxState:
         credentials = await self._credentials_factory()
         request = _CreateSandboxRequest(
@@ -931,9 +958,56 @@ class SandboxApiClient:
             tags=dict(tags) if tags is not None else None,
             snapshot_expiration=snapshot_expiration,
             keep_last_snapshots=snapshot_retention,
+            region=region,
+            failover_regions=None if failover_regions is None else list(failover_regions),
+        )
+        body = request.to_api_dict()
+        body.update(private_parameters)
+        data = await self._request_json("POST", "v3/sandboxes", credentials=credentials, body=body)
+        return _validate_response(_SandboxResponse, data).to_sandbox()
+
+    async def fork_sandbox(
+        self,
+        *,
+        source_sandbox: str,
+        project_id: str | None = None,
+        name: str | None = None,
+        ports: list[int] | None = None,
+        execution_time_limit: timedelta | None = None,
+        resources: SandboxResources | None = None,
+        image: str | None = None,
+        persistent: bool | None = None,
+        network_policy: NetworkPolicy | None = None,
+        env: Mapping[str, str] | None = None,
+        tags: Mapping[str, str] | None = None,
+        snapshot_expiration: SnapshotExpiration | None = None,
+        snapshot_retention: SnapshotRetention | None = None,
+        region: str | None = None,
+        failover_regions: tuple[str, ...] | None = None,
+        private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
+    ) -> SandboxState:
+        credentials = await self._credentials_factory()
+        request = _ForkSandboxRequest(
+            name=name,
+            ports=ports,
+            timeout=execution_time_limit,
+            resources=resources,
+            image=image,
+            persistent=persistent,
+            network_policy=network_policy,
+            env=dict(env) if env is not None else None,
+            tags=dict(tags) if tags is not None else None,
+            snapshot_expiration=snapshot_expiration,
+            keep_last_snapshots=snapshot_retention,
+            region=region,
+            failover_regions=None if failover_regions is None else list(failover_regions),
         )
         data = await self._request_json(
-            "POST", "v3/sandboxes", credentials=credentials, body=request.to_api_dict()
+            "POST",
+            format_url_path("v2/sandboxes/{source_sandbox}/fork", source_sandbox=source_sandbox),
+            credentials=credentials,
+            params={"projectId": project_id or credentials.project_id},
+            body={**request.to_api_dict(), **(private_parameters)},
         )
         return _validate_response(_SandboxResponse, data).to_sandbox()
 
@@ -944,6 +1018,7 @@ class SandboxApiClient:
         project_id: str | None = None,
         resume: bool = False,
         include_system_routes: bool | None = None,
+        private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
     ) -> SandboxState:
         credentials = await self._credentials_factory()
         request = _GetSandboxRequest(
@@ -955,7 +1030,7 @@ class SandboxApiClient:
             "GET",
             format_url_path("v2/sandboxes/{name}", name=name),
             credentials=credentials,
-            params=request.to_api_dict(),
+            params={**request.to_api_dict(), **(private_parameters)},
         )
         return _validate_response(_SandboxResponse, data).to_sandbox()
 
@@ -1026,6 +1101,8 @@ class SandboxApiClient:
         snapshot_expiration: SnapshotExpiration | None = None,
         snapshot_retention: SnapshotRetentionUpdate = _OMITTED,
         current_snapshot_id: str | None = None,
+        region: str | None = None,
+        failover_regions: tuple[str, ...] | None = None,
     ) -> SandboxState:
         credentials = await self._credentials_factory()
         effective_project_id = project_id or credentials.project_id
@@ -1039,6 +1116,8 @@ class SandboxApiClient:
             tags=dict(tags) if tags is not None else None,
             snapshot_expiration=snapshot_expiration,
             current_snapshot_id=current_snapshot_id,
+            region=region,
+            failover_regions=None if failover_regions is None else list(failover_regions),
         )
         body = request.to_api_dict()
         if not isinstance(snapshot_retention, _Omitted):
@@ -1063,12 +1142,14 @@ class SandboxApiClient:
         name: str,
         project_id: str | None = None,
         include_system_routes: bool | None = None,
+        private_parameters: PrivateSandboxParameters = NO_PRIVATE_PARAMETERS,
     ) -> SandboxState:
         return await self.get_sandbox(
             name=name,
             project_id=project_id,
             resume=True,
             include_system_routes=include_system_routes,
+            private_parameters=private_parameters,
         )
 
     async def stop_runtime_session(self, *, session_id: str) -> RuntimeSessionStopState:
@@ -1305,6 +1386,7 @@ class SandboxApiClient:
             params={"wait": "true", "logs": "true"},
             body=JSONBody(request.to_api_dict()),
             headers={"connection": "close"},
+            timeout=NO_TIMEOUT,
         )
 
         initial: ProcessState | None = None
@@ -1383,6 +1465,7 @@ class SandboxApiClient:
             ),
             credentials=credentials,
             params={"wait": "true" if wait else "false"},
+            timeout=NO_TIMEOUT if wait else None,
         )
         return _validate_response(_CommandResponse, data).to_command()
 
@@ -1496,4 +1579,5 @@ class SandboxApiClient:
             ),
             credentials=credentials,
             headers={"connection": "close"},
+            timeout=NO_TIMEOUT,
         )

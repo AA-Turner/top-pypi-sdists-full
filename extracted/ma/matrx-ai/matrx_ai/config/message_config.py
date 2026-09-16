@@ -1796,10 +1796,45 @@ class MessageList:
             raise ValueError(f"Invalid user input type: {type(user_input)}")
 
     def _is_last_message_user(self) -> bool:
-        """Check if the last message in the list is from a user."""
+        """True when the last message is a user message THIS TURN MAY STILL EXTEND.
+
+        "Still extendable" is the whole point, and it is why this is not simply
+        ``role == USER``. ``append_or_extend_user_*`` exists so that an authored
+        agent's trailing user placeholder (a template the request's own input
+        completes) absorbs the caller's text instead of producing two user turns
+        in a row. A user message LOADED FROM THE DB is the opposite case: it is a
+        turn that was already spoken, already persisted, and already answered or
+        abandoned. Extending it writes the new text NOWHERE.
+
+        🚨 THE DATA-LOSS CLASS THIS GUARD CLOSES (live, 2026-09-15, conversation
+        e812c501-d912-55be-af02-df08dc2ded74): a mirrored Claude Code transcript
+        ends on the human's own prompt, so the last persisted row was
+        ``role='user'``. A continuation turn then extended THAT row in memory —
+        the model received the person's new question and answered it, but the row
+        carries ``id`` + ``position`` from the DB, so the executor skipped its
+        reservation (``not _trigger_msg.id``) and ``persist_completed_request``
+        skipped it again as pre-existing (``_existing_id in pre_existing_ids`` →
+        ``continue``, no UPDATE). The answer was persisted; the question was
+        silently lost, leaving a transcript that answers an invisible message.
+        The class is not door-specific and not coding-session-specific: it hits
+        ANY continuation of ANY conversation whose last persisted message is a
+        user row, through every caller of ``append_or_extend_user_input``.
+
+        A message that carries BOTH ``id`` and ``position`` is a DB-loaded row —
+        the same signal ``executor`` uses for ``pre_existing_message_ids`` and
+        ``context_trim`` uses for "already persisted". Such a row is never
+        extended; the caller gets a new user turn, which is what the person
+        actually did.
+        """
         if not self._messages:
             return False
-        return self._messages[-1].role == Role.USER
+        last = self._messages[-1]
+        if last.role != Role.USER:
+            return False
+        return not (
+            getattr(last, "id", None) is not None
+            and getattr(last, "position", None) is not None
+        )
 
     def append_assistant_text(self, text: str, **kwargs) -> None:
         """

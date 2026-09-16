@@ -66,7 +66,7 @@ class NotificationsApi:
     ) -> Dict[str, object]:
         """Advance Funnel Stage
 
-        Advance the funnel stage from the client side.  Studio calls this when key milestones happen in-browser that the server cannot observe directly (e.g. first_search executed in the test tab). Accepts both resource-creation stages and activation funnel stages.
+        Advance the funnel stage from the client side.  Studio calls this when key milestones happen in-browser that the server cannot observe directly (e.g. first_search executed in the test tab). Accepts both resource-creation stages and activation funnel stages.  ``source`` is optional provenance for the stage being advanced, recorded on the analytics event so a stage reached two different ways can be counted separately. It distinguishes a click on sample data from a real upload, and a search of a sample retriever from a search of the caller's own data, which the stage name alone cannot. Ignored for resource-creation stages.
 
         :param body_advance_funnel_stage_v1_notifications_funnel_advance_post: (required)
         :type body_advance_funnel_stage_v1_notifications_funnel_advance_post: BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost
@@ -139,7 +139,7 @@ class NotificationsApi:
     ) -> ApiResponse[Dict[str, object]]:
         """Advance Funnel Stage
 
-        Advance the funnel stage from the client side.  Studio calls this when key milestones happen in-browser that the server cannot observe directly (e.g. first_search executed in the test tab). Accepts both resource-creation stages and activation funnel stages.
+        Advance the funnel stage from the client side.  Studio calls this when key milestones happen in-browser that the server cannot observe directly (e.g. first_search executed in the test tab). Accepts both resource-creation stages and activation funnel stages.  ``source`` is optional provenance for the stage being advanced, recorded on the analytics event so a stage reached two different ways can be counted separately. It distinguishes a click on sample data from a real upload, and a search of a sample retriever from a search of the caller's own data, which the stage name alone cannot. Ignored for resource-creation stages.
 
         :param body_advance_funnel_stage_v1_notifications_funnel_advance_post: (required)
         :type body_advance_funnel_stage_v1_notifications_funnel_advance_post: BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost
@@ -212,7 +212,7 @@ class NotificationsApi:
     ) -> RESTResponseType:
         """Advance Funnel Stage
 
-        Advance the funnel stage from the client side.  Studio calls this when key milestones happen in-browser that the server cannot observe directly (e.g. first_search executed in the test tab). Accepts both resource-creation stages and activation funnel stages.
+        Advance the funnel stage from the client side.  Studio calls this when key milestones happen in-browser that the server cannot observe directly (e.g. first_search executed in the test tab). Accepts both resource-creation stages and activation funnel stages.  ``source`` is optional provenance for the stage being advanced, recorded on the analytics event so a stage reached two different ways can be counted separately. It distinguishes a click on sample data from a real upload, and a search of a sample retriever from a search of the caller's own data, which the stage name alone cannot. Ignored for resource-creation stages.
 
         :param body_advance_funnel_stage_v1_notifications_funnel_advance_post: (required)
         :type body_advance_funnel_stage_v1_notifications_funnel_advance_post: BodyAdvanceFunnelStageV1NotificationsFunnelAdvancePost

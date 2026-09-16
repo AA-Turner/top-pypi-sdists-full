@@ -62,6 +62,8 @@ class ClipManagerLike(Protocol):
 
     async def handle_bash(self, command: str): ...
 
+    async def finalize_all(self) -> None: ...
+
 
 class _ActionSummarizer:
     """Generates natural language action descriptions via Claude Haiku."""

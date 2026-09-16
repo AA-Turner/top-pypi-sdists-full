@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flowtask
-Version: 5.12.15
+Version: 5.12.16
 Summary: Framework for Task orchestration
 Author-email: Jesus Lara <jesuslarag@gmail.com>
 License: Apache-2.0
@@ -118,6 +118,8 @@ Requires-Dist: microsoft-kiota-authentication-azure~=1.9
 Requires-Dist: msgraph-sdk~=1.22
 Requires-Dist: zendriver>=0.15.2
 Requires-Dist: pyarrow>=14.0
+Requires-Dist: redis>=5.2
+Requires-Dist: cloudpickle>=3.1
 Requires-Dist: scipy>=1.13
 Requires-Dist: scikit-learn>=1.5
 Requires-Dist: polyline>=2.0.4
@@ -144,6 +146,7 @@ Requires-Dist: pytest-xdist==3.3.1; extra == "dev"
 Requires-Dist: pytest-assume==2.4.3; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: aioresponses>=0.7.8; extra == "dev"
+Requires-Dist: fakeredis[aioredis]>=2.26; extra == "dev"
 Dynamic: license-file
 
 # FlowTask #

@@ -32,15 +32,15 @@ class CreateVpnRouteEntryRequest(DaraModel):
         # 
         # The description must be **1** to **100** characters in length and cannot start with `http://` or `https://`.
         self.description = description
-        # Specifies whether to perform a dry run. Valid values:
-        # - **true**: performs a dry run without creating the route. The system checks the required parameters, request syntax, and business restrictions. If the check fails, the corresponding error is returned. If the check passes, the error code `DryRunOperation` is returned.
-        # - **false** (default): performs a dry run and sends the request. If the check passes, an HTTP 2xx status code is returned and the operation is performed.
+        # Specifies whether to perform a dry run, without performing the actual request. Valid values:
+        # - **true**: performs only a dry run. The system checks the request for potential issues, including missing parameter values, incorrect request syntax, and service limits. If the request fails the dry run, an error code is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
+        # - **false** (default): performs a dry run and performs the actual request. If the request passes the dry run, an HTTP 2xx status code is returned and the operation is performed.
         self.dry_run = dry_run
         # The next hop of the destination route.
         # 
         # This parameter is required.
         self.next_hop = next_hop
-        # The tunneling protocol. Set the value to **Ipsec** (IPsec tunneling).
+        # The tunneling protocol. Set the value to **Ipsec** (IPsec tunneling protocol).
         self.overlay_mode = overlay_mode
         self.owner_account = owner_account
         self.owner_id = owner_id
@@ -71,7 +71,7 @@ class CreateVpnRouteEntryRequest(DaraModel):
         # 
         # This parameter is required.
         self.vpn_gateway_id = vpn_gateway_id
-        # The weight of the destination route.
+        # The weight of the destination routing.
         # 
         # If you use the same VPN gateway instance to establish active/standby IPsec-VPN connections, you can specify the active and standby links by configuring the weight of the destination routing. A destination route with a weight of 100 is the active link by default, and a destination route with a weight of 0 is the standby link by default.
         # 
@@ -80,8 +80,8 @@ class CreateVpnRouteEntryRequest(DaraModel):
         # - **100**: The IPsec-VPN connection associated with the destination route serves as the active link.
         # - **0**: The IPsec-VPN connection associated with the destination route serves as the standby link.
         # 
-        # > - When you specify active and standby links, the active and standby destination routes must have the same destination CIDR block, different next hops, and different weights.
-        # > - For VPN gateway instances that support dual-tunnel pattern IPsec-VPN connections, you do not need to configure this parameter. A dual-tunnel pattern IPsec-VPN connection contains two tunnels that automatically form active/standby links. You do not need to specify active/standby links by using the parameter settings. If you configure this parameter, the parameter settings do not take effect.
+        # > - When you specify active/standby links, the active and standby destination routes must have the same destination CIDR block, different next hops, and different weights.
+        # > - For VPN gateway instances that support dual-tunnel pattern IPsec-VPN connections, you do not need to configure this parameter. A dual-tunnel pattern IPsec-VPN connection contains two tunnels that automatically form active/standby links. You do not need to specify active/standby links by configuring the parameter settings. If you configure this parameter, the parameter settings do not take effect.
         # 
         # This parameter is required.
         self.weight = weight

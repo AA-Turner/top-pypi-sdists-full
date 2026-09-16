@@ -641,6 +641,7 @@ class DispatchRepairAction:
                 decision=ActionDecision.SKIP,
                 details=f"Dedup limit reached (count={dedup_count})",
                 limit_reached=True,
+                dedup_limit_reached=True,
             )
 
         # Check cycle limit
@@ -663,6 +664,7 @@ class DispatchRepairAction:
                 decision=ActionDecision.SKIP,
                 details=f"Cycle limit reached (count={cycle_count})",
                 limit_reached=True,
+                cycle_limit_reached=True,
             )
 
         # Determine repair type

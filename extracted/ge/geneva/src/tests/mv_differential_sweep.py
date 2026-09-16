@@ -80,7 +80,7 @@ if not _SRID:
     # View creation over a non-SRID source warns by design; under srid-off that
     # warning fires for every guard case and is pure noise (module-level so the
     # spawned pool workers, which re-import this module, inherit the filter).
-    warnings.filterwarnings("ignore", message=".*without stable row IDs.*")
+    warnings.filterwarnings("ignore", message=".*pinned to source version.*")
 
 # --- op alphabet -----------------------------------------------------------
 APPEND, DELETE, UPDATE, COMPACT, ADDCOL, MOVE = "A", "D", "U", "C", "X", "M"
@@ -673,11 +673,11 @@ def _run_chunker(db: Connection, name: str, shape: str, seq: tuple) -> str:
 # --- srid-off GUARD runners -------------------------------------------------
 # A view over a non-SRID source is format v1: refresh succeeds iff the source is
 # still AT the view's base version, else the guard must raise (projection MV: a
-# client-side RuntimeError mentioning "stable row IDs", table.py; chunker: a
-# worker-side ValueError mentioning "chunker materialized view", pipeline.py)
-# and must leave the view byte-identical to its last-good state. An at-base
-# refresh must also MATCH the oracle (GUARD-CONTENT): the frozen snapshot every
-# later GUARD-MUTATE check compares against must itself be right.
+# client-side RuntimeError mentioning "pinned to source version", table.py;
+# chunker: a worker-side ValueError mentioning "chunker materialized view",
+# pipeline.py) and must leave the view byte-identical to its last-good state.
+# An at-base refresh must also MATCH the oracle (GUARD-CONTENT): the frozen
+# snapshot every later GUARD-MUTATE check compares against must itself be right.
 
 
 class _MvSnap(NamedTuple):
@@ -813,7 +813,7 @@ def _run_mv_guard(
             snapshot,
             op,
             RuntimeError,
-            "stable row IDs",
+            "pinned to source version",
             content_fail,
         )
         if fail is not None:

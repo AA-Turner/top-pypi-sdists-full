@@ -19,7 +19,6 @@ from ..utils import SafeDict
 # TODO: migrate to FileStore component
 from ..interfaces.flow import FlowComponent
 from ..interfaces import TemplateSupport
-from ..conf import TASK_PATH
 from ..interfaces.qs import QSSupport
 
 
@@ -148,7 +147,8 @@ class ExecuteSQL(QSSupport, TemplateSupport, FlowComponent):
                 )
             for fs in qs:
                 self._logger.debug(f"Execute SQL File: {fs!s}")
-                file_path = TASK_PATH.joinpath(self._program, "sql", fs)
+                # sql files live in the task storage the task was loaded from
+                file_path = self._taskstore.get_path().joinpath(self._program, "sql", fs)
                 try:
                     sql = await self.open_sqlfile(file_path)
                     self._queries.append(sql)
@@ -243,7 +243,9 @@ class ExecuteSQL(QSSupport, TemplateSupport, FlowComponent):
                     )
                 else:
                     if self._driver == 'bigquery':
-                        return next(iter(result))
+                        # first row of a SELECT; None for DML/scripts, which
+                        # return no rows (next() without default raised StopIteration)
+                        return next(iter(result), None)
                     return result
         except StatementError as err:
             raise StatementError(f"Statement error: {err}") from err

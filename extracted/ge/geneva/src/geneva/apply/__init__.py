@@ -712,6 +712,8 @@ class CheckpointingApplier:
             min_size = 1
         if min_size > max_size:
             min_size = max_size
+        if initial_size is None and min_size < max_size:
+            initial_size = min(min_size + 1, max_size)
 
         target_secs = self.map_task.checkpoint_interval_seconds()
         if target_secs is None or target_secs <= 0:
@@ -1670,9 +1672,17 @@ def _plan_read(
         blob_columns_in_schema,
         normalize_blob_read_strategy,
         plan_struct_blob_decomposition,
+        where_references_blob_v2,
     )
 
     dataset_schema = getattr(dataset, "schema", None)
+    if (
+        where is not None
+        and dataset_schema is not None
+        and where_references_blob_v2(where, dataset_schema)
+    ):
+        # Lance count_rows panics on blob v2 predicates.
+        _skip_planner_filter_count = True
     scan_columns = _canonical_read_columns(dataset_schema, columns)
     map_input_cols = map_task.input_columns() if map_task is not None else None
     canonical_map_input_cols = (

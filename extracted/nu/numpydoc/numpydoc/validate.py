@@ -14,6 +14,7 @@ import inspect
 import os
 import pydoc
 import re
+import sys
 import textwrap
 import tokenize
 from copy import deepcopy
@@ -44,9 +45,8 @@ ALLOWED_SECTIONS = [
 # modify/remove
 # start-err-msg
 ERROR_MSGS = {
-    "GL01": "Docstring text (summary) should start in the line immediately "
-    "after the opening quotes (not in the same line, or leaving a "
-    "blank line in between)",
+    "GL01": "Docstring text (summary) should start right after, or on the "
+    "line following the opening quotes",
     "GL02": "Closing quotes should be placed in the line after the last text "
     "in the docstring (do not close the quotes in the same line as "
     "the text, or leave a blank line between the last text and the "
@@ -328,7 +328,8 @@ class Validator:
             def_line = next(
                 i
                 for i, x in enumerate(
-                    re.match("^ *(def|class) ", s) for s in sourcelines[0]
+                    re.match(r"^\s*(async\s+)?(?:def|class)\s+", s)
+                    for s in sourcelines[0]
                 )
                 if x is not None
             )
@@ -346,6 +347,7 @@ class Validator:
             for i, row in enumerate(self.raw_doc.split("\n")):
                 if row.strip():
                     break
+
         return i
 
     @property
@@ -434,7 +436,19 @@ class Validator:
                 # accessor classes have a signature but don't want to show this
                 return tuple()
         try:
-            sig = inspect.signature(self.obj)
+            if sys.version_info >= (3, 14):
+                # PEP 649: on Python 3.14+ ``inspect.signature`` evaluates annotations
+                # eagerly, raising ``NameError`` for forward references that only
+                # resolve under ``TYPE_CHECKING``. Only parameter names and kinds are
+                # used below, so request the forward-ref-preserving format to
+                # introspect the signature without evaluating annotations.
+                import annotationlib
+
+                sig = inspect.signature(
+                    self.obj, annotation_format=annotationlib.Format.FORWARDREF
+                )
+            else:
+                sig = inspect.signature(self.obj)
         except (TypeError, ValueError):
             # Some objects, mainly in C extensions do not support introspection
             # of the signature
@@ -707,7 +721,7 @@ def validate(obj_name, validator_cls=None, **validator_kwargs):
             "examples_errors": "",
         }
 
-    if doc.start_blank_lines != 1 and "\n" in doc.raw_doc:
+    if doc.start_blank_lines not in (0, 1) and "\n" in doc.raw_doc:
         errs.append(error("GL01"))
     if doc.end_blank_lines != 1 and "\n" in doc.raw_doc:
         errs.append(error("GL02"))

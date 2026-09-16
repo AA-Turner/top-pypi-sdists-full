@@ -8,11 +8,18 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from agentic_devtools.cli.ci.reconciliation.models import (
+    AdmissionController,
+    AdmissionFence,
+    AdmissionRequestStatus,
     CooldownProbe,
+    PermitRequest,
+    PermitStatus,
     ProbeStatus,
+    ProviderCapacityObservation,
     QuarantineRecord,
     QueueState,
     ReconciliationRecord,
+    WorkerPermit,
     WorkItem,
     WorkItemStatus,
     queue_state_from_dict,
@@ -115,6 +122,117 @@ def test_missing_fields_use_defaults() -> None:
     assert state.full_scan_complete is False
     assert state.next_inventory_at is None
     assert state.inventory_invalidated is True
+
+
+def test_round_trip_decodes_shared_admission_records(foundation) -> None:
+    f = foundation()
+    now = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
+    state = f.state
+    state.permit_requests["request"] = PermitRequest(
+        "request",
+        state.repo,
+        42,
+        "problem",
+        "batch",
+        "worker",
+        "github",
+        "gpt-5.6-luna",
+        1,
+        now,
+        now + timedelta(minutes=5),
+        0,
+        AdmissionRequestStatus.ACCEPTED,
+        "permit",
+    )
+    state.active_permits["permit"] = WorkerPermit(
+        "permit",
+        "request",
+        state.repo,
+        42,
+        "problem",
+        "batch",
+        "worker",
+        "github",
+        "gpt-5.6-luna",
+        1,
+        now,
+        now + timedelta(minutes=5),
+        PermitStatus.ACCEPTED,
+        "task",
+        "session",
+    )
+    state.controllers[42] = AdmissionController(42, state.repo, 1, ("permit",), ("request",), state.revision)
+    state.provider_capacity["github"] = ProviderCapacityObservation(
+        "github",
+        now,
+        now + timedelta(minutes=5),
+        10,
+        1,
+        0,
+        "capacity",
+    )
+    state.effect_fences["fence:request"] = AdmissionFence(
+        "fence:request",
+        "request",
+        1,
+        1,
+        "github",
+        "gpt-5.6-luna",
+    )
+    assert queue_state_from_dict(asdict(state)) == state
+    raw = asdict(state)
+    raw["controllers"] = {"42": asdict(state.controllers[42]), 42: asdict(state.controllers[42])}
+    with pytest.raises(ValueError, match="duplicate normalized admission key"):
+        queue_state_from_dict(raw)
+
+
+def test_schema_three_legacy_omission_and_invalid_admission_shape() -> None:
+    raw = asdict(QueueState("owner/repo", 0, {}, [], []))
+    raw["schema_version"] = 3
+    raw["audit_refs"] = 1
+    with pytest.raises(ValueError, match="audit_refs"):
+        queue_state_from_dict(raw)
+    raw.pop("audit_refs")
+    for field in (
+        "global_epoch",
+        "permit_requests",
+        "active_permits",
+        "controllers",
+        "provider_capacity",
+        "effect_fences",
+        "effects",
+    ):
+        raw.pop(field)
+    assert queue_state_from_dict(raw).migration_status == "preactivation"
+
+
+@pytest.mark.parametrize("missing", [key for key in asdict(QueueState("owner/repo", 0, {}, [], []))])
+def test_schema3_requires_every_persisted_field(missing: str) -> None:
+    raw = asdict(QueueState("owner/repo", 0, {}, [], []))
+    del raw[missing]
+    with pytest.raises(ValueError):
+        queue_state_from_dict(raw)
+
+
+@pytest.mark.parametrize("version", [None, True, "3", 0, 2, 4])
+def test_schema_version_is_never_coerced(version: object) -> None:
+    raw = asdict(QueueState("owner/repo", 0, {}, [], []))
+    raw["schema_version"] = version
+    with pytest.raises(ValueError):
+        queue_state_from_dict(raw)
+
+
+def test_legacy_minimal_document_has_no_new_mode_authority() -> None:
+    decoded = queue_state_from_dict({"repo": "owner/repo"})
+    assert decoded.migration_status == "preactivation"
+    assert decoded.migration is None
+
+
+def test_unknown_fields_are_rejected_for_schema3() -> None:
+    raw = asdict(QueueState("owner/repo", 0, {}, [], []))
+    raw["magic_native_budget"] = True
+    with pytest.raises(ValueError):
+        queue_state_from_dict(raw)
 
 
 def test_accepts_numeric_string_key_and_datetime_string() -> None:
@@ -306,3 +424,41 @@ def test_defaults_record_invalidations() -> None:
 def test_invalid_field_types_raise_value_error(data: object, match: str) -> None:
     with pytest.raises(ValueError, match=match):
         queue_state_from_dict(data)  # type: ignore[arg-type]
+
+
+def test_full_foundation_round_trip(foundation):
+    from dataclasses import asdict
+
+    from agentic_devtools.cli.ci.reconciliation.models import AttemptStatus, queue_state_from_dict
+
+    f = foundation((AttemptStatus.FAILED,) * 3 + (AttemptStatus.SUCCEEDED,), "reviewed")
+    raw = asdict(f.state)
+    assert queue_state_from_dict(raw) == f.state
+    raw["pr_envelopes"] = {str(key): value for key, value in raw["pr_envelopes"].items()}
+    assert queue_state_from_dict(raw) == f.state
+
+
+def test_rejects_noncanonical_and_duplicate_pr_keys(foundation):
+    from dataclasses import asdict
+
+    import pytest
+
+    from agentic_devtools.cli.ci.reconciliation.models import queue_state_from_dict
+
+    raw = asdict(foundation().state)
+    envelope = raw["pr_envelopes"][42]
+    raw["pr_envelopes"] = {"042": envelope}
+    with pytest.raises(ValueError, match="noncanonical"):
+        queue_state_from_dict(raw)
+    raw["pr_envelopes"] = {42: envelope, "42": envelope}
+    with pytest.raises(ValueError, match="duplicate normalized"):
+        queue_state_from_dict(raw)
+
+
+def test_legacy_unknown_field_does_not_silently_drop_history():
+    import pytest
+
+    from agentic_devtools.cli.ci.reconciliation.models import queue_state_from_dict
+
+    with pytest.raises(ValueError, match="unknown legacy fields"):
+        queue_state_from_dict({"repo": "owner/repo", "hidden_attempt_history": []})

@@ -14,7 +14,7 @@ from agentic_devtools.cli.ci.models import (
     ReviewInfo,
     VerificationVerdict,
 )
-from agentic_devtools.cli.ci.resolution.models import ResolutionVerdict, TierResult
+from agentic_devtools.cli.ci.resolution.models import ResolutionBasis, ResolutionVerdict, TierResult
 
 
 class TestFinalizePostRepairReplyFormat:
@@ -256,3 +256,78 @@ class TestFinalizePostRepairReplyFormat:
         # The body should NOT be just the bare fallback when tier_result was available
         assert body != _ADDRESSED_REPLY_BODY
         assert "<!-- agdt:resolution-tier:" in body
+
+    @patch.object(GitHubActionsProvider, "_list_unresolve_reply_parent_comment_ids")
+    @patch.object(GitHubActionsProvider, "_fetch_outdated_by_comment_id")
+    @patch.object(GitHubActionsProvider, "_verify_comments_via_tiered_engine")
+    @patch("agentic_devtools.cli.ci.github_provider._resolve_review_threads")
+    @patch.object(GitHubActionsProvider, "_reply_to_review_comment")
+    @patch.object(GitHubActionsProvider, "_list_abandoned_reply_parent_comment_ids")
+    @patch.object(GitHubActionsProvider, "_list_addressed_reply_parent_comment_ids")
+    @patch.object(GitHubActionsProvider, "list_review_comments")
+    @patch.object(GitHubActionsProvider, "_build_verification_context_diff")
+    @patch.object(GitHubActionsProvider, "list_reviews")
+    def test_high_confidence_fallback_uses_confirmed_reply(
+        self,
+        mock_list_reviews,
+        mock_build_diff,
+        mock_list_comments,
+        mock_addressed_parent_ids,
+        mock_abandoned,
+        mock_reply,
+        mock_resolve,
+        mock_verify_batch,
+        mock_fetch_outdated,
+        mock_unresolve,
+    ) -> None:
+        mock_fetch_outdated.return_value = {}
+        mock_list_reviews.return_value = [
+            ReviewInfo(id=7, user="Copilot", state="CHANGES_REQUESTED", commit_sha="old_sha_123"),
+        ]
+        mock_build_diff.return_value = "diff content"
+        mock_list_comments.return_value = [
+            ReviewCommentInfo(id=101, path="foo.py", body="fix this", html_url="http://url1"),
+        ]
+        mock_addressed_parent_ids.return_value = set()
+        mock_abandoned.return_value = set()
+        mock_unresolve.return_value = set()
+        tier_result = TierResult(
+            verdict=ResolutionVerdict.RESOLVE,
+            confidence="high",
+            tier_name="sdk_evaluation_fallback",
+            explanation="The reviewer explicitly rejected the concern.",
+            resolution_basis=ResolutionBasis.EXPLICIT_REJECTION,
+        )
+
+        def _verify_side_effect(payloads, *, tier_results_out=None, **kwargs):
+            if tier_results_out is not None:
+                tier_results_out[101] = tier_result
+            return {101: VerificationVerdict.COMMENT_RESOLVE}
+
+        mock_verify_batch.side_effect = _verify_side_effect
+        mock_resolve.return_value = {"threadsResolved": 1, "verified": True, "details": []}
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        with (
+            patch.object(GitHubActionsProvider, "list_review_thread_states", return_value={}),
+            patch.object(GitHubActionsProvider, "list_pr_issue_events", return_value=[]),
+            patch.object(GitHubActionsProvider, "list_issue_comments", return_value=[]),
+            patch.object(GitHubActionsProvider, "_fetch_latest_thread_comment_body_by_comment_id", return_value=""),
+            patch.object(
+                GitHubActionsProvider,
+                "_fetch_latest_thread_comment_author_login_by_comment_id",
+                return_value="",
+            ),
+        ):
+            provider.finalize_post_repair(
+                pr_number=42,
+                base_branch="main",
+                head_branch="feature/test",
+                head_sha="abc1234567890",
+                review_id=7,
+            )
+
+        body = mock_reply.call_args.kwargs["body"]
+        assert "<!-- agdt:resolution-tier:sdk_evaluation_fallback -->" in body
+        assert "<!-- agdt:resolution-basis:explicit_rejection -->" in body
+        assert "unconfirmed-commit-change" not in body

@@ -98,15 +98,10 @@ if TYPE_CHECKING:
     from tomlrt._format import FormatOptions
     from tomlrt._scalar import Scalar
     from tomlrt._slots import AoTEntry, Slot, SlotRef
-    from tomlrt._values import (
-        CommaItem,
-        CommaValue,
-        Value,
-    )
+    from tomlrt._values import Value
 
 
 _T = TypeVar("_T")
-_ItemT = TypeVar("_ItemT", bound="CommaItem")
 
 _MISSING = object()
 
@@ -149,7 +144,7 @@ class Container(_View, dict[str, Any]):
         self._layout_root: Document | None = None
         self._path: tuple[str, ...] = ()
         self._inline = False
-        self._host: Array | Container | None = None
+        self._host: Array | AoT | Container | None = None
         self._owner_aot_entry: AoTEntry | None = None
         self._index: dict[str, list[SlotRef]] = {}
         self._refs: list[SlotRef] = []
@@ -159,14 +154,16 @@ class Container(_View, dict[str, Any]):
 
     @property
     def _parent(self) -> Container | None:
-        """The container this one is bound in, or ``None``.
+        """The path-parent container, or ``None`` for an inline array element.
 
-        Read-only: this narrows :attr:`_host`, which is the field to
-        assign. ``None`` for an inline table held as an array element,
-        whose host is the `Array`.
+        An AoT entry's immediate host is its array; its path parent is
+        the container holding that array. Assign :attr:`_host`, not this
+        read-only projection.
         """
         host = self._host
-        return host if isinstance(host, Container) else None
+        if isinstance(host, Container):
+            return host
+        return host._host if isinstance(host, AoT) else None  # noqa: SLF001
 
     @property
     def _kind(self) -> _Kind:
@@ -420,7 +417,7 @@ class Container(_View, dict[str, Any]):
         self,
         *,
         layout_root: Document | None,
-        parent: Container | None,
+        parent: Container | AoT | None,
         path: tuple[str, ...],
         owner: AoTEntry | None,
     ) -> None:
@@ -688,6 +685,11 @@ class Container(_View, dict[str, Any]):
         if src_root is not None and not _can_adopt_from(src_root, self._attached_doc):
             _layout_ops.clone_aot(self, key, value)
             return
+        snapshot = _snapshot_for_overlapping_install(self, key, value)
+        if snapshot is not value:
+            assert isinstance(snapshot, AoT)
+            _layout_ops.clone_aot(self, key, snapshot)
+            return
         emptied = value._host  # noqa: SLF001
         existing_entries: list[Table] = list(value)
         _layout_ops.detach_aot_from_orphan(value)
@@ -699,11 +701,15 @@ class Container(_View, dict[str, Any]):
             if source_doc is None:
                 _layout_ops.add_aot_entry(value, None, rehome=entry_table)
             elif _can_adopt_from(source_doc, self._attached_doc):
+                source_parent = (
+                    emptied if src_root is not None else entry_table._parent  # noqa: SLF001
+                )
                 _layout_ops.adopt_private_entry(
                     value,
                     entry_table,
                     preserve_source_separator=src_root is not None,
                 )
+                _layout_ops.synthesise_header_for_emptied(source_parent)
             else:
                 _layout_ops.add_aot_entry(value, entry_table)
         _layout_ops.synthesise_header_for_emptied(emptied)
@@ -729,10 +735,8 @@ class Container(_View, dict[str, Any]):
             else:
                 _layout_ops.adopt_private_implicit(self, key, value)
             _layout_ops.synthesise_header_for_emptied(emptied)
-        elif value._header_ref is not None:
-            _layout_ops.clone_section_as_section(self, key, value)
-        elif isinstance(value, Document):
-            _layout_ops.clone_document_as_section(self, key, value)
+        elif value._header_ref is not None or isinstance(value, Document):
+            _layout_ops.clone_section(self, key, value)
         else:
             _layout_ops.clone_implicit_section(self, key, value)
 
@@ -1134,12 +1138,12 @@ class Container(_View, dict[str, Any]):
             if not (_is_inline_table(el)):
                 msg = f"{key!r} contains a non-inline-table element"
                 raise TOMLError(msg)
-        if _array_value_has_outer_comments(cur._value):  # noqa: SLF001
+        if cur._value.has_own_comment():  # noqa: SLF001
             msg = f"cannot promote {key!r}: array has comments that would be lost"
             raise TOMLError(msg)
         for entry_view in cur:
             ev = entry_view._value  # noqa: SLF001
-            if ev is not None and _inline_value_has_inner_comments(ev):
+            if ev is not None and ev.has_own_comment():
                 msg = (
                     f"cannot promote {key!r}: array entry has inner "
                     f"comments that would be lost"
@@ -1522,46 +1526,19 @@ class Document(Container):
         return Document(self)
 
 
-def _inline_value_has_inner_comments(v: object) -> bool:
-    """Return True iff the inline-table value carries inner comments.
-
-    Used to refuse ``promote_inline`` on inline tables whose comments
-    would have nowhere to live in the promoted form.
-    """
-    return isinstance(v, InlineTableValue) and _comma_value_has_outer_comments(v)
-
-
 def _check_inline_promotable(v: Container, key: str) -> None:
     """Raise `TOMLError` if promoting ``v`` (bound to ``key``) would lose comments.
 
     Callers are expected to have already confirmed ``v`` is an inline
     table (e.g. via `_is_inline_table`).
     """
-    if _inline_value_has_inner_comments(v._value):  # noqa: SLF001
+    value = v._value  # noqa: SLF001
+    if value is not None and value.has_own_comment():
         msg = (
             f"cannot promote {key!r}: inline table has inner "
             f"comments that would be lost"
         )
         raise TOMLError(msg)
-
-
-def _array_value_has_outer_comments(v: object) -> bool:
-    """Return True iff the array carries item-level or final comments.
-
-    "Outer" here means comments at the array layer itself; nested
-    inline-value comments are tested separately (and produce a
-    different error message).
-    """
-    return isinstance(v, ArrayValue) and _comma_value_has_outer_comments(v)
-
-
-def _comma_value_has_outer_comments(v: CommaValue[_ItemT]) -> bool:
-    if "#" in v.header_trivia or "#" in v.final_trivia:
-        return True
-    return any(
-        "#" in p.leading or "#" in p.trailing or "#" in p.post_comma_trivia
-        for p in v.items
-    )
 
 
 def _detached_inline_value(v: Container | Array) -> Value | None:
@@ -1932,7 +1909,7 @@ def _host_kv_slot(view: Array | Container) -> KVSlot | None:
         return None
     cur: Array | Container = view
     up = cur._host  # noqa: SLF001
-    while up is not None and up._inline:  # noqa: SLF001
+    while is_inline_value(up):
         cur = up
         up = cur._host  # noqa: SLF001
     assert isinstance(up, Container), "internal: attached value has no host container"

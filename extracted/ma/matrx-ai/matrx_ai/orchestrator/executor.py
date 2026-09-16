@@ -455,12 +455,22 @@ async def execute_ai_request(
     )
     from matrx_ai.providers import UnifiedAIClient
 
-    return await execute_until_complete(
-        request,
-        UnifiedAIClient(),
-        max_iterations,
-        max_retries_per_iteration,
-    )
+    async def invoke_provider() -> CompletedRequest:
+        return await execute_until_complete(
+            request,
+            UnifiedAIClient(),
+            max_iterations,
+            max_retries_per_iteration,
+        )
+
+    # A host may require a bound-sandbox presence ACK before a paid provider
+    # task starts. It receives this thunk, never an already-created task.
+    from matrx_ai._ext import get_presence_invocation_hook
+
+    hook = get_presence_invocation_hook()
+    if hook is None:
+        return await invoke_provider()
+    return await hook(invoke_provider, ctx=ctx)
 
 
 def _build_skipped_tool_results(
@@ -4303,6 +4313,7 @@ async def _execute_until_complete_inner(
                         ),
                         conversation_id=current_request.conversation_id,
                         request_id=current_request.request_id,
+                        loop_id=current_request.cache_loop_id,
                         system_text=(current_request.config.resolved_system_instruction or ""),
                         tool_names=_cache_prefix_tool_names(current_request.config),
                         raw_usage=api_response.usage.raw_usage or {},

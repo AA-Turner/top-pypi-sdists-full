@@ -18,10 +18,10 @@ class BridgeAction(StrEnum):
     member arrives only WITH its implementation, or it is refused out loud
     (:class:`BridgeRefusal`). Never add a placeholder member.
 
-    The dispatch family (``capabilities`` today; ``start``/``send``/``cancel``/
-    ``handoff`` in their own lanes) answers with :class:`BridgeDispatchResult`
-    on ``BridgeResponse.dispatch`` — never by overloading the entry-ledger
-    counters.
+    The dispatch family (``capabilities`` and ``handoff`` today;
+    ``start``/``send``/``cancel`` in their own lanes) answers with
+    :class:`BridgeDispatchResult` on ``BridgeResponse.dispatch`` — never by
+    overloading the entry-ledger counters.
     """
 
     OBSERVE_HOOK = "observe_hook"
@@ -31,6 +31,7 @@ class BridgeAction(StrEnum):
     DELETE = "delete"
     HEALTH = "health"
     CAPABILITIES = "capabilities"
+    HANDOFF = "handoff"
 
 
 IMPLEMENTED_ACTIONS: frozenset[BridgeAction] = frozenset(
@@ -42,6 +43,7 @@ IMPLEMENTED_ACTIONS: frozenset[BridgeAction] = frozenset(
         BridgeAction.DELETE,
         BridgeAction.HEALTH,
         BridgeAction.CAPABILITIES,
+        BridgeAction.HANDOFF,
     }
 )
 """The actions this contract actually serves.
@@ -75,7 +77,9 @@ class BridgeRuntimeKind(StrEnum):
     :class:`BridgeOrigin` values (the user's own machine via Matrx Local, and
     the hosted Matrx Sandbox). ``seeded`` is the no-runtime case: a handoff
     that carries a seed packet instead of an executor, so a second tool can
-    continue a conversation it never ran. ``independent_hook`` has no runtime
+    continue a conversation it never ran. It is implemented (lane XT-05) and is
+    the only runtime that serves every provider, precisely because it executes
+    nothing. ``independent_hook`` has no runtime
     by definition — nothing on our side executes those turns.
     """
 
@@ -293,6 +297,32 @@ class BridgeRequest(BaseModel):
                     "account_identity is only valid for observe_hook; "
                     "append_native carries account provenance inside source_metadata"
                 )
+        if self.action is BridgeAction.HANDOFF:
+            # `provider` IS the destination for a handoff: the call is about the
+            # binding it creates. Deliberately no `to_provider` field — a new
+            # enum-typed input would have to be widened on both doors and listed
+            # in BRIDGE_ENUM_FIELDS, and the contract already has the field that
+            # means "the provider this call is about".
+            if self.conversation is None:
+                raise ValueError(
+                    "conversation is required for handoff: a handoff moves an EXISTING "
+                    "conversation to a second provider"
+                )
+            if self.conversation.is_new:
+                raise ValueError(
+                    "handoff never creates a conversation; send conversation.is_new=false "
+                    "with the id of the conversation being handed off"
+                )
+            if self.origin is not None:
+                raise ValueError(
+                    "handoff does not take an origin: the seeded binding's origin is the "
+                    "receiving tool's own (independent_hook), decided server-side"
+                )
+            if self.writer_runtime_id is not None:
+                raise ValueError(
+                    "handoff claims no writer lease; a seeded binding has no runtime writing "
+                    "native entries"
+                )
         if self.action is BridgeAction.LOAD_NATIVE and self.conversation is not None:
             raise ValueError("load_native resolves its persisted binding; omit conversation")
         if self.action is BridgeAction.CAPABILITIES and self.conversation is not None:
@@ -420,8 +450,53 @@ class BridgeRefusalCode(StrEnum):
     UNIMPLEMENTED_ACTION = "unimplemented_action"
     """The action is in this server's vocabulary but has no implementation."""
 
+    UNKNOWN_FIELD_VALUE = "unknown_field_value"
+    """A typed field other than ``action`` carried a value outside its vocabulary.
+
+    ``action`` keeps its own two codes because clients already branch on them;
+    every OTHER enum-typed input (``provider``, ``origin``) refuses under this
+    one code, naming the field, the value and that field's supported values.
+    The class this closes (2026-09-15, V-XT-2): only ``action`` was widened, so
+    ``provider=claude`` — the name a coding agent guesses for ``claude_code`` —
+    came back as a pydantic enum dump with no reason and no remedy from both
+    doors, which is exactly the defect the action refusal was built to end.
+    """
+
     UNSUPPORTED_RUNTIME = "unsupported_runtime"
     """The action is implemented, but no runtime can serve this provider/origin."""
+
+    HANDOFF_NOT_POSSIBLE = "handoff_not_possible"
+    """There is nothing to hand off, or the hand-off would not be truthful.
+
+    The two real cases (lane XT-05): the conversation carries no coding-session
+    binding at all, so there is no source tool to hand FROM; and the caller
+    named a receiving provider session that is already bound to a different
+    owner's conversation. Both name the conversation and the remedy.
+    """
+
+    CONVERSATION_NOT_OWNED = "conversation_not_owned"
+    """The conversation named by the call is not the authenticated account's.
+
+    One code for the two readings a caller cannot distinguish and must not be
+    told apart: the conversation belongs to someone else, or no conversation
+    with that id exists. Every bridge read is owner-scoped, so answering
+    "not found" for a row that exists would leak its existence and answering
+    "not yours" for a typo would be a lie; the refusal names both readings and
+    the remedy. The class this closes (2026-09-15, V-XT-5): `handoff` on
+    another account's conversation raised a bare `PermissionError`, which no
+    door had a handler for, so the ordinary first mistake of a coding agent —
+    pasting someone else's conversation id — came back as HTTP 500
+    "Something went wrong. Please try again later." and filed TWO
+    `ops.system_error` rows per call. A refusal is client-fixable and is never
+    a server fault.
+    """
+
+    DISPATCH_CEILING = "dispatch_ceiling"
+    """The account's daily coding-tool dispatch ceiling refused this call.
+
+    Carries the ceiling, the rung that set it and the screen where it is raised,
+    quoted from the one ceiling resolver — never a generic "try later".
+    """
 
 
 class BridgeRefusal(BaseModel):
@@ -436,10 +511,144 @@ class BridgeRefusal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: BridgeRefusalCode
+    #: The input that was refused. ``action`` for the two action codes; the
+    #: field name (``provider``, ``origin``) for ``unknown_field_value``.
+    requested_field: Annotated[str, Field(min_length=1, max_length=64)] = "action"
+    #: The offending value of ``requested_field``, echoed back truncated.
+    requested_value: Annotated[str, Field(min_length=1, max_length=128)]
+    #: The action of the refused call. Equal to ``requested_value`` when the
+    #: action itself was the problem; kept as its own field because every
+    #: client that reads a refusal today reads this one.
     requested_action: Annotated[str, Field(min_length=1, max_length=128)]
     reason: Annotated[str, Field(min_length=1, max_length=2048)]
     remedy: Annotated[str, Field(min_length=1, max_length=2048)]
+    #: This server's live vocabulary for ``requested_field``.
+    supported_values: list[str]
     supported_actions: list[BridgeAction]
+
+
+class BridgeHandoffState(StrEnum):
+    """Where one handoff stands. Never inferred by a reader from other fields."""
+
+    OFFERED = "offered"
+    """The second binding exists and carries the seed packet, but no real
+    provider session has claimed it yet. Its ``provider_session_id`` is the
+    self-describing ``matrx-handoff:<digest>`` placeholder."""
+
+    CLAIMED = "claimed"
+    """A real session of the receiving provider is bound to the conversation:
+    every turn its hooks mirror from here on lands on THIS conversation."""
+
+    ALREADY_BOUND = "already_bound"
+    """The receiving provider already had a live binding on this conversation,
+    so nothing was minted. Answered, not refused — a handoff asked for twice is
+    the same handoff (the replay rule), and saying "already bound" is the only
+    honest reading of a second call."""
+
+
+class BridgeSeedRead(BaseModel):
+    """One call the receiving tool makes to read the conversation it inherits.
+
+    The seed packet does NOT carry the transcript: it carries the reads. The
+    adapter skills (``matrx-claude-plugin/skills/conversations``,
+    ``matrx-codex-plugin/skills/use-ai-matrx``) already consume exactly these
+    two ``conversations`` actions, so a handoff needs no client release — which
+    is the whole point of putting the verb on the bridge contract.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    tool: Literal["conversations"] = "conversations"
+    action: Literal["get_summary", "get_messages"]
+    arguments: dict[str, JsonValue]
+    returns: Annotated[str, Field(min_length=1, max_length=512)]
+
+
+class BridgeSeedPacket(BaseModel):
+    """The seed a second tool continues a conversation from.
+
+    ``native_resume`` is a ``Literal[False]``, not a bool: a seeded handoff can
+    never become a native resume by any code path, and the contract forbids
+    calling prompt seeding "resume" (FEATURE.md §collaboration). A reader that
+    has this object in hand cannot be misled about which one it got.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["seeded_handoff"] = "seeded_handoff"
+    native_resume: Literal[False] = False
+    conversation_id: UUID
+    title: Annotated[str, Field(max_length=512)] | None = None
+    visible_message_count: Annotated[int, Field(ge=0)]
+    read_with: Annotated[list[BridgeSeedRead], Field(min_length=1, max_length=8)]
+    instructions: Annotated[str, Field(min_length=1, max_length=2048)]
+    claim_with: dict[str, JsonValue] | None = None
+    """The exact bridge call that turns this offer into a claimed binding, with
+    the receiving session's own id as the one blank. ``None`` once claimed."""
+
+
+class BridgeHandoffResult(BaseModel):
+    """What a handoff did — both bindings named, with an explicit verdict.
+
+    The FIRST contract object that describes two provider bindings on one
+    conversation. Until 2026-09-15 every one of 4,633 bound conversations in
+    production had exactly one binding and one provider, so "take a
+    conversation from one tool and continue it in another" had zero instances;
+    this result is that operation's receipt.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    state: BridgeHandoffState
+    conversation_id: UUID
+    fidelity: Literal["seeded"] = "seeded"
+    """The bridge-level fidelity verdict of the receiving binding. It is NOT the
+    stored ``chat.coding_session.fidelity`` column, which is ``event_mirror``
+    for this row and means what it has always meant (the receiving tool's own
+    hooks mirror its turns). The seeded verdict is stored beside it in
+    ``metadata.handoff`` so no schema change was needed to tell the truth.
+    """
+    verdict: Annotated[str, Field(min_length=1, max_length=1024)]
+    from_provider: BridgeProvider
+    from_provider_session_id: Annotated[str, Field(min_length=1, max_length=1024)]
+    from_coding_session_id: UUID
+    to_provider: BridgeProvider
+    to_provider_session_id: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
+    to_coding_session_id: UUID
+    rebound_from_conversation_id: UUID | None = None
+    """Set when the receiving session already had a binding of its own: that row
+    was MOVED onto this conversation rather than a second row inserted, because
+    an active provider identity is unique per owner (FEATURE.md §identity)."""
+    carried_message_count: Annotated[int, Field(ge=0)] = 0
+    """How many turns moved WITH the binding on a rebind.
+
+    A rebind moves a claiming session's row off its own conversation; any turns
+    that session had already produced there travel with it, appended in order
+    with provenance. Zero means the old conversation held nothing — never that
+    content was left behind silently: `rebound_from_conversation_id` plus this
+    count is the whole truth about what moved (V-XT-5 found the content-bearing
+    case stranded, and the residue remedy only covered empty ones).
+    """
+
+    prior_context_conversation_id: UUID | None = None
+    """Set when a rebind's turns STAYED on the old conversation because there
+    were more of them than one transaction moves (`CARRY_LIMIT`). They are not
+    stranded: that conversation is named here and readable with
+    `conversations get_messages`. Never set together with a non-zero
+    `carried_message_count` — exactly one of the two answers "where are the
+    turns that session already produced".
+    """
+
+    prior_context_message_count: Annotated[int, Field(ge=0)] = 0
+    """How many turns are on `prior_context_conversation_id`. Zero when none
+    stayed behind."""
+
+    absorbed_offer_session_id: UUID | None = None
+    """The placeholder offer row this claim replaced, when the claim landed on a
+    different row. It is deleted, so the conversation never shows a stale
+    "handoff offered" binding beside the real one."""
+    bindings_on_conversation: Annotated[int, Field(ge=1)]
+    seed: BridgeSeedPacket
 
 
 class BridgeDispatchResult(BaseModel):
@@ -458,6 +667,7 @@ class BridgeDispatchResult(BaseModel):
     status: Literal["completed", "accepted", "in_flight", "refused"]
     runtime: BridgeRuntimeKind | None = None
     capabilities: BridgeCapabilityReport | None = None
+    handoff: BridgeHandoffResult | None = None
     detail: Annotated[str, Field(min_length=1, max_length=2048)] | None = None
 
 

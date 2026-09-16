@@ -658,7 +658,7 @@ class TestCreateAndRefresh:
             yield Clip(clip_start=0, clip_end=duration)
 
         query = videos.search(None).select(["video_path", "duration"])
-        with pytest.warns(UserWarning, match="same source version"):
+        with pytest.warns(UserWarning, match="pinned to source version"):
             db.create_udtf_view("clips_warn", query, extract_clips)
 
     def test_inherited_columns_correct(self, tmp_path, ray_with_test_path) -> None:
@@ -878,7 +878,7 @@ class TestCreateAndRefresh:
             yield Clip(clip_start=0, clip_end=duration)
 
         query = videos.search(None).select(["video_path", "duration"])
-        with pytest.warns(UserWarning, match="same source version"):
+        with pytest.warns(UserWarning, match="pinned to source version"):
             view = db.create_udtf_view("clips_guard", query, extract_clips)
 
         base_version = videos.version
@@ -900,7 +900,7 @@ class TestCreateAndRefresh:
 
         monkeypatch.setattr(ray_pipeline, "_delete_stale_mv_rows", fail_delete)
 
-        with pytest.raises(ValueError, match="stable row IDs"):
+        with pytest.raises(ValueError, match="pinned to source version"):
             ray_pipeline.run_ray_copy_table(
                 view.get_reference(),
                 db._packager,

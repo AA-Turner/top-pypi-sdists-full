@@ -14,6 +14,7 @@ class UpdatePostPaidBindRelRequest(DaraModel):
         auto_bind_version: int = None,
         bind_action: List[main_models.UpdatePostPaidBindRelRequestBindAction] = None,
         client_token: str = None,
+        dry_run: bool = None,
         product_code: str = None,
         update_if_necessary: bool = None,
     ):
@@ -33,6 +34,8 @@ class UpdatePostPaidBindRelRequest(DaraModel):
         self.bind_action = bind_action
         # The client token that is used to ensure the idempotence of the request. Different requests should use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
+        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        self.dry_run = dry_run
         # The abbreviated name of the cloud service. Valid values:
         # - **sas**: Security Center
         self.product_code = product_code
@@ -64,6 +67,9 @@ class UpdatePostPaidBindRelRequest(DaraModel):
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
+
         if self.product_code is not None:
             result['ProductCode'] = self.product_code
 
@@ -88,6 +94,9 @@ class UpdatePostPaidBindRelRequest(DaraModel):
 
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
 
         if m.get('ProductCode') is not None:
             self.product_code = m.get('ProductCode')

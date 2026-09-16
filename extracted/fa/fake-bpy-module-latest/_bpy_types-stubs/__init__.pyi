@@ -157,6 +157,14 @@ class FileHandler:
         :return: The class or default when not found.
         """
 
+    def label_with_extensions(self, *args, **kwargs) -> None:
+        """FileHandler.label_with_extensions(idname)
+        Return the label of the file handler with the given ID, with its file extensions
+
+                :param args:
+                :param kwargs:
+        """
+
 class Gizmo:
     bl_rna: typing.Any
     id_data: typing.Any

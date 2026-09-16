@@ -16,6 +16,7 @@ def build_virtual_column_entry(
     input_cols: list[str],
     packager: Any,
     table_ref: Any = None,
+    outputs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build an ``AddVirtualColumnEntry`` dict from a Geneva UDF.
 
@@ -35,18 +36,19 @@ def build_virtual_column_entry(
         if backend_spec.tag:
             image = f"{image}:{backend_spec.tag}"
 
-    data_type = _arrow_type_to_json(udf.data_type)
-
-    entry: dict[str, Any] = {
-        "input_columns": input_cols,
-        "outputs": [
+    if outputs is None:
+        outputs = [
             {
                 "column": col_name,
                 "struct_field": "",
-                "data_type": data_type,
+                "data_type": _arrow_type_to_json(udf.data_type),
                 "nullable": True,
             }
-        ],
+        ]
+
+    entry: dict[str, Any] = {
+        "input_columns": input_cols,
+        "outputs": outputs,
         "image": image,
         "udf_version": udf.version or "",
         "udf_name": udf_spec.name,
@@ -99,38 +101,80 @@ def _arrow_type_to_json(dt: Any) -> dict[str, Any]:
         return {"type": simple_map[dt]}
 
     if pa.types.is_list(dt):
+        value_field = dt.value_field
         return {
             "type": "list",
-            "fields": [_arrow_field_to_json("item", dt.value_type, nullable=True)],
+            "fields": [
+                _arrow_field_to_json(
+                    value_field.name,
+                    value_field.type,
+                    nullable=value_field.nullable,
+                    metadata=value_field.metadata,
+                )
+            ],
         }
 
     if pa.types.is_large_list(dt):
+        value_field = dt.value_field
         return {
             "type": "large_list",
-            "fields": [_arrow_field_to_json("item", dt.value_type, nullable=True)],
+            "fields": [
+                _arrow_field_to_json(
+                    value_field.name,
+                    value_field.type,
+                    nullable=value_field.nullable,
+                    metadata=value_field.metadata,
+                )
+            ],
         }
 
     if pa.types.is_fixed_size_list(dt):
+        value_field = dt.value_field
         return {
             "type": "fixed_size_list",
-            "fields": [_arrow_field_to_json("item", dt.value_type, nullable=True)],
+            "fields": [
+                _arrow_field_to_json(
+                    value_field.name,
+                    value_field.type,
+                    nullable=value_field.nullable,
+                    metadata=value_field.metadata,
+                )
+            ],
             "length": dt.list_size,
         }
 
     if pa.types.is_struct(dt):
         fields = []
         for i in range(dt.num_fields):
-            f = dt.field(i)
-            fields.append(_arrow_field_to_json(f.name, f.type, f.nullable))
+            field = dt.field(i)
+            fields.append(
+                _arrow_field_to_json(
+                    field.name,
+                    field.type,
+                    field.nullable,
+                    metadata=field.metadata,
+                )
+            )
         return {"type": "struct", "fields": fields}
 
     return {"type": str(dt)}
 
 
-def _arrow_field_to_json(name: str, dt: Any, nullable: bool = True) -> dict[str, Any]:
-    """Convert to lance's ``JsonField`` format."""
-    return {
+def _arrow_field_to_json(
+    name: str,
+    dt: Any,
+    nullable: bool = True,
+    metadata: dict[bytes, bytes] | None = None,
+) -> dict[str, Any]:
+    """Convert a PyArrow field to the namespace ``JsonArrowField`` format."""
+    encoded = {
         "name": name,
         "type": _arrow_type_to_json(dt),
         "nullable": nullable,
     }
+    if metadata:
+        encoded["metadata"] = {
+            key.decode("utf-8"): value.decode("utf-8")
+            for key, value in metadata.items()
+        }
+    return encoded

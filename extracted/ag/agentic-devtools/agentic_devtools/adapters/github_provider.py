@@ -16,6 +16,7 @@ from typing import Any
 from agentic_devtools.adapters.dry_run_manifest import build_dry_run_manifest
 from agentic_devtools.adapters.exceptions import AdapterValidationError, HierarchyLinkError
 from agentic_devtools.adapters.issue_provider import (
+    DefinitiveCreationFailure,
     IssueTypeMappingError,
     ProviderIssueResult,
     ProviderLinkResult,
@@ -179,28 +180,31 @@ class GitHubProvider:
         """
         operation = f"POST /repos/{self._owner_repo}/issues"
 
-        if not title or not title.strip():
-            raise ValueError("title must be a non-empty string")
+        if not isinstance(title, str) or not title.strip():
+            raise DefinitiveCreationFailure("title must be a non-empty string")
         # Fully validate and normalize parent_id *before* creating the issue so
         # that a malformed value (e.g. "1/comments") fails fast rather than
         # creating an orphaned issue that link_subissue only rejects afterwards.
         normalized_parent_id: str | None = None
         if parent_id is not None:
-            normalized_parent_id = self._normalize_issue_number(parent_id, "parent_id")
+            try:
+                normalized_parent_id = self._normalize_issue_number(parent_id, "parent_id")
+            except (ValueError, AttributeError, TypeError) as exc:
+                raise DefinitiveCreationFailure(str(exc)) from exc
 
         # Validate issue_type before creating.
-        if not issue_type or not issue_type.strip():
-            raise ValueError("issue_type must be a non-empty string")
+        if not isinstance(issue_type, str) or not issue_type.strip():
+            raise DefinitiveCreationFailure("issue_type must be a non-empty string")
 
         type_lower = issue_type.lower()
         if type_lower in _UNSUPPORTED_TYPES:
-            raise IssueTypeMappingError(
+            raise DefinitiveCreationFailure(
                 f"Issue type '{issue_type}' cannot be mapped to a GitHub label. "
                 f"GitHub does not support native sub-task types. "
                 f"Supported types: {list(_ISSUE_TYPE_LABELS.keys())}"
             )
         if type_lower not in _ISSUE_TYPE_LABELS:
-            raise IssueTypeMappingError(
+            raise DefinitiveCreationFailure(
                 f"Issue type '{issue_type}' has no GitHub label mapping. "
                 f"Supported types: {list(_ISSUE_TYPE_LABELS.keys())}"
             )

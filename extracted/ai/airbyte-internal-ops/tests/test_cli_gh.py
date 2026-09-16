@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import cyclopts
 import pytest
@@ -32,6 +32,58 @@ def test_gh_connector_help(capsys: pytest.CaptureFixture[str]) -> None:
     assert "ref" in output.out
     assert "owner" in output.out
     assert "repo" in output.out
+
+
+@pytest.mark.unit
+def test_gh_workflow_trigger_waits_when_requested() -> None:
+    result = MagicMock(success=True)
+    result.model_dump.return_value = {"success": True}
+
+    with patch(
+        "airbyte_ops_mcp.cli.gh.trigger_ci_workflow",
+        return_value=result,
+    ) as mock_trigger:
+        exit_code = invoke_cli(
+            [
+                "gh",
+                "workflow",
+                "trigger",
+                "airbytehq",
+                "airbyte-ops-mcp",
+                "example.yml",
+                "--wait",
+                "--wait-seconds",
+                "30",
+            ]
+        )
+
+    assert exit_code == 0
+    assert mock_trigger.call_args.kwargs["wait_for_completion"] is True
+    assert mock_trigger.call_args.kwargs["max_wait_seconds"] == 30
+
+
+@pytest.mark.unit
+def test_gh_workflow_trigger_exits_on_failure() -> None:
+    result = MagicMock(success=False)
+    result.model_dump.return_value = {"success": False}
+
+    with patch(
+        "airbyte_ops_mcp.cli.gh.trigger_ci_workflow",
+        return_value=result,
+    ), pytest.raises(SystemExit) as exc_info:
+        app(
+            tokens=[
+                "gh",
+                "workflow",
+                "trigger",
+                "airbytehq",
+                "airbyte-ops-mcp",
+                "example.yml",
+            ],
+            exit_on_error=False,
+        )
+
+    assert exc_info.value.code == 1
 
 
 @pytest.mark.unit

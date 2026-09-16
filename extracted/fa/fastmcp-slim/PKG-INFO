@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fastmcp-slim
-Version: 4.0.3
+Version: 4.0.4
 Summary: The dependency-slim FastMCP package.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -25,7 +25,7 @@ Requires-Dist: python-dotenv>=1.1.0
 Requires-Dist: rich>=13.9.4
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: anthropic
-Requires-Dist: anthropic<1,>=0.48.0; extra == 'anthropic'
+Requires-Dist: anthropic<2,>=0.48.0; extra == 'anthropic'
 Provides-Extra: apps
 Requires-Dist: prefab-ui>=0.18.0; extra == 'apps'
 Provides-Extra: azure
@@ -40,7 +40,7 @@ Requires-Dist: opentelemetry-api>=1.28.0; extra == 'client'
 Requires-Dist: py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4; extra == 'client'
 Requires-Dist: starlette>=1.0.1; extra == 'client'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-monty==0.0.18; extra == 'code-mode'
+Requires-Dist: pydantic-monty==0.0.21; extra == 'code-mode'
 Provides-Extra: gemini
 Requires-Dist: google-genai>=1.18.0; extra == 'gemini'
 Requires-Dist: jsonref>=1.1.0; extra == 'gemini'

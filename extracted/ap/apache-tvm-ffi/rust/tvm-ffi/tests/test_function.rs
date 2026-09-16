@@ -92,6 +92,56 @@ fn test_function_call_tuple() {
 }
 
 #[test]
+fn test_function_call_tuple_supports_all_value_holders() {
+    let echo = Function::get_global("testing.echo").unwrap();
+
+    let any = Any::from(3i64);
+    assert_eq!(i64::try_from(echo.call_tuple((&any,)).unwrap()).unwrap(), 3);
+
+    assert_eq!(
+        echo.call_tuple(((),)).unwrap().type_index(),
+        TypeIndex::kTVMFFINone as i32
+    );
+
+    let optional = Some(4i64);
+    assert_eq!(
+        Option::<i64>::try_from(echo.call_tuple((&optional,)).unwrap()).unwrap(),
+        optional
+    );
+
+    let dtype = DLDataType::try_from_str("int32").unwrap();
+    assert_eq!(
+        DLDataType::try_from(echo.call_tuple((dtype,)).unwrap()).unwrap(),
+        dtype
+    );
+
+    let device = DLDevice::new(DLDeviceType::kDLCPU, 1);
+    assert_eq!(
+        DLDevice::try_from(echo.call_tuple((device,)).unwrap()).unwrap(),
+        device
+    );
+}
+
+#[test]
+fn test_function_rvalue_ref_arguments() {
+    let strong_count = Function::from_typed(|value: RValueRef<Array<i64>>| -> Result<i64> {
+        let value = value.into_inner();
+        Ok(AnyView::from(&value).debug_strong_count().unwrap() as i64)
+    });
+
+    let moved = Array::new(vec![1i64, 2]);
+    assert_eq!(AnyView::from(&moved).debug_strong_count(), Some(1));
+    let count = i64::try_from(strong_count.call_tuple((RValueRef::new(moved),)).unwrap()).unwrap();
+    assert_eq!(count, 1);
+
+    let borrowed = Array::new(vec![3i64, 4]);
+    assert_eq!(AnyView::from(&borrowed).debug_strong_count(), Some(1));
+    let count = i64::try_from(strong_count.call_tuple((&borrowed,)).unwrap()).unwrap();
+    assert_eq!(count, 2);
+    assert_eq!(AnyView::from(&borrowed).debug_strong_count(), Some(1));
+}
+
+#[test]
 fn test_function_into_typed_fn() {
     let offset = 2;
     let typed_sum1 = into_typed_fn!(
@@ -129,6 +179,44 @@ fn test_function_echo_tensor_typed() {
     assert_eq!(result_data[1], 2.0);
     assert_eq!(result_data[2], 3.0);
     assert_eq!(result_data[3], 4.0);
+}
+
+#[test]
+fn test_function_from_type_key_method_ctor_and_method() {
+    // constructors registered via refl::init are reachable as `__ffi_init__`
+    let ctor = Function::from_type_key_method("testing.TestIntPair", "__ffi_init__").unwrap();
+    let pair = ctor.call_tuple((1i64, 2i64)).unwrap();
+    // instance method: the first packed argument is the object itself
+    let sum = Function::from_type_key_method("testing.TestIntPair", "sum").unwrap();
+    let result = sum.call_packed(&[AnyView::from(&pair)]).unwrap();
+    assert_eq!(i64::try_from(result).unwrap(), 3);
+}
+
+#[test]
+fn test_function_from_type_method_by_index() {
+    let ctor = Function::from_type_key_method("testing.TestIntPair", "__ffi_init__").unwrap();
+    let pair = ctor.call_tuple((5i64, 7i64)).unwrap();
+    let sum = Function::from_type_method(pair.type_index(), "sum").unwrap();
+    let result = sum.call_packed(&[AnyView::from(&pair)]).unwrap();
+    assert_eq!(i64::try_from(result).unwrap(), 12);
+}
+
+#[test]
+fn test_function_from_type_method_unknown_method() {
+    let error = Function::from_type_key_method("testing.TestIntPair", "nonexistent_method")
+        .err()
+        .unwrap();
+    assert_eq!(error.kind(), TYPE_ERROR);
+    assert!(error.message().contains("nonexistent_method"));
+    assert!(error.message().contains("testing.TestIntPair"));
+}
+
+#[test]
+fn test_function_from_type_key_method_unknown_type_key() {
+    let error = Function::from_type_key_method("testing.NonExistentType", "sum")
+        .err()
+        .unwrap();
+    assert!(error.message().contains("testing.NonExistentType"));
 }
 
 fn testing_add_one(x: i32) -> Result<i32> {

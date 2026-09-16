@@ -156,7 +156,7 @@ class tMap(FlowComponent):
             if result:
                 return {item["column_name"]: item["data_type"] for item in result}
         # getting model from file:
-        model = await open_model(table, schema)
+        model = await open_model(table, schema, path=self._taskstore.get_path())
         if model:
             fields = model["fields"]
             return {field: fields[field]["data_type"] for field in fields}
@@ -213,8 +213,11 @@ class tMap(FlowComponent):
         else:
             try:
                 # open a map file:
+                # maps live in the task storage the task was loaded from
                 self._mapping = await open_map(
-                    filename=str(self.map), program=self._program
+                    filename=str(self.map),
+                    program=self._program,
+                    path=self._taskstore.get_path(),
                 )
             except Exception as err:
                 raise ComponentError(f"TableMap: Error open Map File: {err}") from err

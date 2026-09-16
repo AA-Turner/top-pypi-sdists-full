@@ -12,7 +12,7 @@ use tracing::{debug, instrument};
 
 use uv_build_backend::check_direct_build;
 use uv_cache::{Cache, CacheBucket};
-use uv_client::{BaseClientBuilder, FlatIndexClient, RegistryClientBuilder};
+use uv_client::{BaseClientBuilder, RegistryClientBuilder};
 use uv_configuration::{
     BuildIsolation, BuildKind, BuildOptions, BuildOutput, Concurrency, Constraints,
     DependencyGroupsWithDefaults, HashCheckingMode, IndexStrategy, KeyringProviderType, NoSources,
@@ -23,8 +23,8 @@ use uv_distribution_filename::{
     DistFilename, SourceDistExtension, SourceDistFilename, WheelFilename,
 };
 use uv_distribution_types::{
-    ConfigSettings, DependencyMetadata, ExtraBuildVariables, Index, IndexLocations,
-    PackageConfigSettings, Requirement, SourceDist,
+    ConfigSettings, DependencyMetadata, ExtraBuildVariables, IndexLocations,
+    NameRequirementSpecification, PackageConfigSettings, Requirement, SourceDist,
 };
 use uv_errors::{ErrorOptions, Hinted, Hints, write_error_chain_with_options};
 use uv_fs::{Simplified, normalize_path, relative_to};
@@ -652,11 +652,13 @@ async fn build_package(
         HashStrategy::default()
     };
 
-    let build_constraints = Constraints::from_requirements(
-        build_constraints
-            .into_iter()
-            .map(|constraint| constraint.requirement)
-            .chain(build_constraints_from_workspace.iter().cloned()),
+    let build_constraints = Constraints::from_specifications(
+        build_constraints.into_iter().chain(
+            build_constraints_from_workspace
+                .iter()
+                .cloned()
+                .map(NameRequirementSpecification::from),
+        ),
     );
 
     // Initialize the registry client.
@@ -683,13 +685,7 @@ async fn build_package(
     };
 
     // Resolve the flat indexes from `--find-links`.
-    let flat_index = {
-        let client = FlatIndexClient::new(client.cached_client(), client.connectivity(), cache);
-        let entries = client
-            .fetch_all(index_locations.flat_indexes().map(Index::url))
-            .await?;
-        FlatIndex::from_entries(entries)
-    };
+    let flat_index = FlatIndex::load(&client, cache, index_locations).await?;
 
     // Initialize any shared state.
     let state = SharedState::default();

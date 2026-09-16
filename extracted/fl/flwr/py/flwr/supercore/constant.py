@@ -61,6 +61,7 @@ FLWR_IN_MEMORY_SQLITE_DB_URL = "sqlite:///:memory:"
 APP_ID_PATTERN = r"^@[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
 APP_VERSION_PATTERN = r"^\d+\.\d+\.\d+$"
 FLWR_SUPERGRID_API_URL = os.getenv("FLWR_SUPERGRID_API_URL", "https://api.flower.ai/v1")
+HUB_APP_REFRESH_INTERVAL = timedelta(minutes=5)
 
 # Constants for Flower CLI update check
 FLWR_DISABLE_UPDATE_CHECK = "FLWR_DISABLE_UPDATE_CHECK"
@@ -84,7 +85,7 @@ SUPERNODE_DEFAULT_CLIENT_ADDRESS = f"{CLIENT_OCTET}:{SUPERNODE_UVICORN_DEFAULT_P
 MAX_PROTOBUF_STREAM_MESSAGE_LENGTH = 2_147_483_647  # 2 GiB - 1 byte
 
 # SuperGrid constants
-SUPERGRID_ADDRESS = os.getenv("FLWR_SUPERGRID_ADDRESS", "supergrid.flower.ai")
+SUPERGRID_ADDRESS = os.getenv("FLWR_SUPERGRID_ADDRESS", "api.flower.ai")
 
 # Control API constants
 OAUTH_SESSION_TTL = timedelta(minutes=10)
@@ -160,6 +161,9 @@ SUPEREXEC_AUTH_SIGNATURE_HEADER = "flwr-superexec-signature"
 SUPEREXEC_AUTH_SECRET_CONTEXT = b"superexec-auth-v1"
 MIN_TIMESTAMP_DIFF_SECONDS = -SYSTEM_TIME_TOLERANCE
 MAX_TIMESTAMP_DIFF_SECONDS = TIMESTAMP_TOLERANCE + SYSTEM_TIME_TOLERANCE
+
+# Flower client metadata
+FLWR_CLIENT_METADATA_KEY = "x-flwr-client"
 
 # Constants for Flower runtime version metadata
 FLWR_PACKAGE_NAME_METADATA_KEY = "flwr-package-name"

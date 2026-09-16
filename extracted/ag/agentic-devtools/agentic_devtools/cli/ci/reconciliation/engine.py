@@ -10,7 +10,7 @@ The ``reconcile()`` function is the main entry point. It:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from agentic_devtools.cli.ci.provider import CIPlatformProvider
 from agentic_devtools.cli.ci.reconciliation.config import (
@@ -36,6 +36,9 @@ def reconcile(
     *,
     max_run_attempts: int | None = None,
     window_hours: int | None = None,
+    ai_pr_loop_enabled: bool = False,
+    loop_controller: object | None = None,
+    queue_store: object | None = None,
 ) -> ReconciliationResult:
     """Run the reconciliation engine for a given workflow.
 
@@ -53,6 +56,11 @@ def reconcile(
     """
     effective_max_attempts = max_run_attempts if max_run_attempts is not None else MAX_RUN_ATTEMPTS
     effective_window = window_hours if window_hours is not None else RECONCILIATION_WINDOW_HOURS
+    if ai_pr_loop_enabled:
+        if loop_controller is None or queue_store is None:
+            raise ValueError("AI PR loop reconciliation requires a controller and queue store")
+        state = queue_store.load()  # type: ignore[attr-defined]
+        loop_controller._gate(state)  # type: ignore[attr-defined]
 
     logger.info(
         "Reconciling workflow %r (max_attempts=%d, window=%dh)",
@@ -188,15 +196,15 @@ def _parse_created_at_for_sort(created_at: str) -> datetime:
     as UTC for stable cross-provider comparisons.
     """
     if not created_at:
-        return datetime.max.replace(tzinfo=timezone.utc)
+        return datetime.max.replace(tzinfo=UTC)
 
     normalized = created_at.replace("Z", "+00:00")
     try:
         parsed = datetime.fromisoformat(normalized)
     except ValueError:
-        return datetime.max.replace(tzinfo=timezone.utc)
+        return datetime.max.replace(tzinfo=UTC)
 
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
+        return parsed.replace(tzinfo=UTC)
 
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)

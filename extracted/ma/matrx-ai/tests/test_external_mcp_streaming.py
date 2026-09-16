@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+from types import SimpleNamespace
 
 import httpx
 import pytest
 
 from matrx_ai.tools import external_mcp
 from matrx_ai.tools.external_mcp import ExternalMCPClient
+from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolType
 
 
 class _SseStream(httpx.AsyncByteStream):
@@ -150,6 +152,80 @@ async def test_json_response_is_bounded_and_request_correlated() -> None:
             client, "https://example.test", {"id": 7}, {"Accept": "application/json"}
         )
     assert result == payload
+
+
+@pytest.mark.asyncio
+async def test_call_tool_preserves_text_file_body_from_resource_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GitHub MCP returns file bodies as a resource after its text receipt."""
+    raw_result = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+            "content": [
+                {
+                    "type": "text",
+                    "text": "successfully downloaded text file (SHA: d5ac9c1dfb5b83dc186b51980ecb0b053ba9d80f)",
+                },
+                {
+                    "type": "resource",
+                    "resource": {
+                        "uri": "repo://aimatrx-integrations/github-access-reference/sha/d0632e6b98724327adb2c799a9749736e329b71a/contents/verification/sandbox-access.txt",
+                        "mimeType": "text/plain; charset=utf-8",
+                        "text": "Organization access verified through the bound Matrx sandbox credential bridge.\n",
+                    },
+                },
+            ]
+        },
+    }
+
+    async def send(*_args, **_kwargs):
+        return raw_result
+
+    monkeypatch.setattr(ExternalMCPClient, "_send", send)
+    result = await ExternalMCPClient().call_tool(
+        ToolDefinition(
+            name="github:get_file_contents",
+            description="",
+            parameters={},
+            tool_type=ToolType.EXTERNAL_MCP,
+            mcp_transport="http",
+            mcp_server_url="https://api.githubcopilot.com/mcp/",
+        ),
+        {
+            "owner": "aimatrx-integrations",
+            "repo": "github-access-reference",
+            "path": "verification/sandbox-access.txt",
+            "ref": "sandbox-org-proof-6d0d2a8bbe",
+        },
+        ToolContext(call_id="captured-github-file-read", tool_name="github:get_file_contents"),
+    )
+
+    assert result.success is True
+    assert result.output == (
+        "successfully downloaded text file (SHA: d5ac9c1dfb5b83dc186b51980ecb0b053ba9d80f)\n"
+        "Organization access verified through the bound Matrx sandbox credential bridge.\n"
+    )
+
+
+def test_content_text_parts_preserves_sdk_resource_text_without_binary_blob() -> None:
+    """The stdio MCP SDK exposes the same resource body as typed objects."""
+    parts = ExternalMCPClient._content_text_parts(
+        [
+            SimpleNamespace(type="text", text="receipt"),
+            SimpleNamespace(
+                type="resource",
+                resource=SimpleNamespace(text="text file body", blob="binary-must-not-be-output"),
+            ),
+            SimpleNamespace(
+                type="resource",
+                resource=SimpleNamespace(blob="binary-only-resource"),
+            ),
+        ]
+    )
+
+    assert parts == ["receipt", "text file body"]
 
 
 @pytest.mark.asyncio

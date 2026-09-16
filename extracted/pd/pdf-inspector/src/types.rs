@@ -21,6 +21,10 @@ pub(crate) type FontEncodingMap = HashMap<u8, char>;
 pub(crate) struct FontEncoding {
     pub(crate) differences: FontEncodingMap,
     pub(crate) identity_overrides: FontEncodingMap,
+    /// Codes whose embedded glyph has no outline but a positive advance:
+    /// painted, they leave a gap and nothing else, so they read as spaces
+    /// whatever the font's ToUnicode claims (see `blank_glyph_codes`).
+    pub(crate) blank_codes: std::collections::HashSet<u8>,
 }
 
 /// All font encodings for a page
@@ -125,6 +129,13 @@ pub struct PdfRect {
 /// `extract_text_with_positions_and_rotations_mem`) and the shift is turned
 /// the same way; `/Rotate` is not applied. Inside the markdown pipeline
 /// items stay in raw user space.
+///
+/// [`PositionFrame::Display`](crate::PositionFrame) (see
+/// [`extract_text_with_positions_mem_in_frame`](crate::extract_text_with_positions_mem_in_frame))
+/// reports items in the rendered page's frame instead: the visible page box
+/// turned clockwise by the page's inheritable `/Rotate`, with the turn of a
+/// rotated page undone, so the box and `rotation` describe the item as a
+/// renderer draws it.
 #[derive(Debug, Clone)]
 pub struct TextItem {
     /// The text content

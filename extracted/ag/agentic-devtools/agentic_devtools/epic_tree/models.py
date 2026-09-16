@@ -11,6 +11,7 @@ Provides typed, immutable models that mirror the epic-tree JSON Schema:
 from __future__ import annotations
 
 import re
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -89,10 +90,21 @@ class EpicNode(IssueNode):
 class EpicTree(BaseModel):
     """Document root model for an epic-tree JSON file.
 
-    Contains the schema version and the root epic node.
+    Contains the schema version, immutable tree identity, and root epic node.
     """
 
     model_config = ConfigDict(frozen=True, populate_by_name=True, extra="forbid")
 
     schemaVersion: str
+    treeId: str | None = None
     epic: EpicNode
+
+    @field_validator("treeId")
+    @classmethod
+    def _validate_tree_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            return str(UUID(value))
+        except (ValueError, AttributeError, TypeError) as exc:
+            raise ValueError("treeId must be a valid UUID") from exc

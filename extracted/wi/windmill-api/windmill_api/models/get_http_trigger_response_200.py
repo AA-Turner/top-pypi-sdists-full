@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -46,6 +46,15 @@ class GetHttpTriggerResponse200:
             configuration (for api_key, basic_http, custom_script, signature methods)
         summary (Union[Unset, None, str]): Short summary describing the purpose of this trigger
         description (Union[Unset, None, str]): Detailed description of what this trigger does
+        allowed_origins (Union[Unset, None, List[str]]): Origins allowed to call this route cross-origin, matched
+            against the request's Origin header (ignoring case) and echoed back on a match. When set, the list governs both
+            the preflight and the response, overriding any Access-Control-Allow-Origin the runnable returns via wm_headers.
+            Use ['*'] to opt out of any restriction, including the http_route_default_allowed_origins instance setting. An
+            empty list is not a configuration and resolves exactly as null does. When null, the instance setting applies, or
+            Access-Control-Allow-Origin: * if it is unset. Ignored on a static website, which has no authentication of its
+            own and so hands out public files: restricting which browsers may read them protects nothing while breaking
+            cross-origin webfonts and fetches. A single-file static asset is not exempt, since it can carry an
+            authentication_method.
         error_handler_path (Union[Unset, str]): Path to a script to run when the triggered job fails. A bare path,
             without the script/ or flow/ prefix a schedule error handler takes; it cannot be a flow.
         error_handler_args (Union[Unset, GetHttpTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the
@@ -75,6 +84,7 @@ class GetHttpTriggerResponse200:
     authentication_resource_path: Union[Unset, None, str] = UNSET
     summary: Union[Unset, None, str] = UNSET
     description: Union[Unset, None, str] = UNSET
+    allowed_origins: Union[Unset, None, List[str]] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "GetHttpTriggerResponse200ErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "GetHttpTriggerResponse200Retry"] = UNSET
@@ -104,6 +114,13 @@ class GetHttpTriggerResponse200:
         authentication_resource_path = self.authentication_resource_path
         summary = self.summary
         description = self.description
+        allowed_origins: Union[Unset, None, List[str]] = UNSET
+        if not isinstance(self.allowed_origins, Unset):
+            if self.allowed_origins is None:
+                allowed_origins = None
+            else:
+                allowed_origins = self.allowed_origins
+
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -153,6 +170,8 @@ class GetHttpTriggerResponse200:
             field_dict["summary"] = summary
         if description is not UNSET:
             field_dict["description"] = description
+        if allowed_origins is not UNSET:
+            field_dict["allowed_origins"] = allowed_origins
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -216,6 +235,8 @@ class GetHttpTriggerResponse200:
 
         description = d.pop("description", UNSET)
 
+        allowed_origins = cast(List[str], d.pop("allowed_origins", UNSET))
+
         error_handler_path = d.pop("error_handler_path", UNSET)
 
         _error_handler_args = d.pop("error_handler_args", UNSET)
@@ -271,6 +292,7 @@ class GetHttpTriggerResponse200:
             authentication_resource_path=authentication_resource_path,
             summary=summary,
             description=description,
+            allowed_origins=allowed_origins,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

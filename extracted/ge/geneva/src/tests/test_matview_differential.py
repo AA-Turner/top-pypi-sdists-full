@@ -259,7 +259,9 @@ def _build(
         # A non-SRID source warns at MV creation (query.py); that limitation is
         # exactly the condition under test here, so silence it.
         warnings.filterwarnings(
-            "ignore", message=".*without stable row IDs.*", category=UserWarning
+            "ignore",
+            message=".*pinned to source version.*",
+            category=UserWarning,
         )
         return source, _create_mv(q, db, f"mv_{name}"), base_version
 
@@ -373,7 +375,7 @@ def _run_sequence_srid_off(
             snapshot = _mv_state()
             _check(_read(target, flavor), _oracle(source, flavor, shape), ctx)
         else:
-            with pytest.raises(RuntimeError, match="stable row IDs"):
+            with pytest.raises(RuntimeError, match="pinned to source version"):
                 _refresh(target)
             version, schema, rows = _mv_state()
             snap_version, snap_schema, snap_rows = snapshot

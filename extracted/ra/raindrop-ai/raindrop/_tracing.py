@@ -30,9 +30,40 @@ import logging
 import threading
 import weakref
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, Optional, Sequence
+from typing import Any, Callable, Dict, Iterator, Optional, Sequence
+
+from raindrop.app_git import (
+    AppGitSnapshot,
+    BRANCH_PROPERTY,
+    CANONICAL_PROPERTIES,
+    COMMIT_DIRTY_PROPERTY,
+    COMMIT_SHA_PROPERTY,
+    INFERRED_CONTEXT_KEY,
+    effective_app_git,
+)
 
 logger = logging.getLogger("raindrop.analytics")
+
+_context_scope_order: "contextvars.ContextVar[int]" = contextvars.ContextVar(
+    "raindrop_context_scope_order", default=0
+)
+
+
+def _next_context_scope_order() -> int:
+    order = _context_scope_order.get() + 1
+    _context_scope_order.set(order)
+    return order
+
+_default_span_attributes_resolver: Optional[
+    Callable[[Dict[str, Any]], Dict[str, Any]]
+] = None
+
+
+def set_default_span_attributes_resolver(
+    resolver: Callable[[Dict[str, Any]], Dict[str, Any]]
+) -> None:
+    global _default_span_attributes_resolver
+    _default_span_attributes_resolver = resolver
 
 PROJECT_ID_SPAN_ATTRIBUTE = "raindrop.project_id"
 AUTH_HINT_SPAN_ATTRIBUTE = "raindrop.auth_hint"
@@ -64,17 +95,29 @@ class _BoundContext:
     the ``with`` block via ``finally``.
     """
 
-    __slots__ = ("project_id", "auth_hint", "owner_ref")
+    __slots__ = (
+        "project_id",
+        "auth_hint",
+        "owner_ref",
+        "attributes",
+        "client_identity",
+        "scope_order",
+    )
 
     def __init__(
         self,
         project_id: Optional[str],
         auth_hint: Optional[str],
         owner_ref: "weakref.ref | None" = None,
+        attributes: Optional[Dict[str, Any]] = None,
+        client_identity: int | None = None,
     ) -> None:
         self.project_id = project_id
         self.auth_hint = auth_hint
         self.owner_ref = owner_ref
+        self.attributes = dict(attributes or {})
+        self.client_identity = client_identity
+        self.scope_order = _next_context_scope_order()
 
     def is_live(self) -> bool:
         return self.owner_ref is None or self.owner_ref() is not None
@@ -103,6 +146,8 @@ def bind_current(
     project_id: str | None,
     auth_hint: str | None,
     owner: "Any | None" = None,
+    attributes: Optional[Dict[str, Any]] = None,
+    client_identity: int | None = None,
 ) -> _BoundContext:
     """Push a client's routing identity onto the current context's stack.
 
@@ -125,6 +170,8 @@ def bind_current(
         project_id,
         auth_hint,
         weakref.ref(owner) if owner is not None else None,
+        attributes,
+        client_identity,
     )
     stack = _current.get()
     if len(stack) >= _MAX_BINDING_STACK:
@@ -155,9 +202,19 @@ def unbind_current(bound: "_BoundContext | None") -> None:
 
 
 @contextmanager
-def as_current(project_id: str | None, auth_hint: str | None) -> Iterator[None]:
+def as_current(
+    project_id: str | None,
+    auth_hint: str | None,
+    attributes: Optional[Dict[str, Any]] = None,
+    client_identity: int | None = None,
+) -> Iterator[None]:
     """Scope spans in the ``with`` block to a client (see Raindrop.as_current)."""
-    bound = bind_current(project_id, auth_hint)
+    bound = bind_current(
+        project_id,
+        auth_hint,
+        attributes=attributes,
+        client_identity=client_identity,
+    )
     try:
         yield
     finally:
@@ -202,12 +259,19 @@ class _AttributeFrame:
     live — its lifetime is a ``with`` block's ``finally``.
     """
 
-    __slots__ = ("attributes", "saw_error_span", "owner_ref")
+    __slots__ = (
+        "attributes",
+        "saw_error_span",
+        "owner_ref",
+        "client_identity",
+        "scope_order",
+    )
 
     def __init__(
         self,
-        attributes: Dict[str, str],
+        attributes: Dict[str, Any],
         owner_ref: "weakref.ref | None" = None,
+        client_identity: int | None = None,
     ) -> None:
         self.attributes = attributes
         # Whether a span ended in error while this frame was bound. A detached
@@ -215,6 +279,8 @@ class _AttributeFrame:
         # "nothing recorded it", so it records one only in the second case.
         self.saw_error_span = False
         self.owner_ref = owner_ref
+        self.client_identity = client_identity
+        self.scope_order = _next_context_scope_order()
 
     def is_live(self) -> bool:
         return self.owner_ref is None or self.owner_ref() is not None
@@ -230,7 +296,9 @@ _MAX_ATTRIBUTE_FRAMES = 128
 
 
 def bind_span_attributes(
-    attributes: Dict[str, str], owner: Any = None
+    attributes: Dict[str, Any],
+    owner: Any = None,
+    client_identity: int | None = None,
 ) -> "_AttributeFrame | None":
     """Stamp ``attributes`` on every span started later in this context.
 
@@ -251,7 +319,7 @@ def bind_span_attributes(
             # Not weak-referenceable: the frame is simply always live, exactly
             # as it was before owners existed.
             owner_ref = None
-    frame = _AttributeFrame(dict(attributes), owner_ref)
+    frame = _AttributeFrame(dict(attributes), owner_ref, client_identity)
     try:
         frames = _span_attribute_frames.get()
         if len(frames) >= _MAX_ATTRIBUTE_FRAMES:
@@ -306,9 +374,11 @@ def unbind_span_attributes(frame: "_AttributeFrame | None") -> None:
 
 
 @contextmanager
-def span_attributes(attributes: Dict[str, str]) -> Iterator[None]:
+def span_attributes(
+    attributes: Dict[str, Any], client_identity: int | None = None
+) -> Iterator[None]:
     """Stamp ``attributes`` on spans started inside the ``with`` block."""
-    frame = bind_span_attributes(attributes)
+    frame = bind_span_attributes(attributes, client_identity=client_identity)
     try:
         yield
     finally:
@@ -331,12 +401,44 @@ def live_span_attribute_frames() -> tuple:
     return live
 
 
-def current_span_attributes() -> Dict[str, str]:
-    """Merged contextual span attributes, innermost frame winning."""
-    merged: Dict[str, str] = {}
+def current_span_attributes(client_identity: int | None = None) -> Dict[str, Any]:
+    """Merged contextual attributes, excluding another client's Git identity."""
+
+    def owned(attributes: Dict[str, Any], source_identity: int | None) -> Dict[str, Any]:
+        if (
+            client_identity is None
+            or source_identity is None
+            or source_identity == client_identity
+        ):
+            return attributes
+        return {
+            key: value
+            for key, value in attributes.items()
+            if key not in CANONICAL_PROPERTIES and key != INFERRED_CONTEXT_KEY
+        }
+
+    bound = current_context()
+    merged: Dict[str, Any] = (
+        dict(owned(bound.attributes, bound.client_identity))
+        if bound is not None
+        else {}
+    )
     for frame in live_span_attribute_frames():
-        merged.update(frame.attributes)
+        merged.update(owned(frame.attributes, frame.client_identity))
     return merged
+
+
+def current_span_client_identity() -> int | None:
+    """Most specific SDK client owning the current contextual span metadata."""
+
+    bound = current_context()
+    identity = bound.client_identity if bound is not None else None
+    scope_order = bound.scope_order if bound is not None else -1
+    for frame in live_span_attribute_frames():
+        if frame.client_identity is not None and frame.scope_order > scope_order:
+            identity = frame.client_identity
+            scope_order = frame.scope_order
+    return identity
 
 
 # --- Span stamping -----------------------------------------------------------
@@ -423,10 +525,241 @@ def stamp_context_attributes(span: Any) -> None:
     """Apply the current context's contextual span attributes to ``span``."""
     try:
         for key, value in current_span_attributes().items():
-            span.set_attribute(key, value)
+            if isinstance(value, (str, bool, int, float)):
+                span.set_attribute(key, value)
     except Exception:
         # Telemetry must never crash the host app.
         pass
+
+
+def _own_app_git_attributes(span: Any) -> Dict[str, Any]:
+    """Read canonical attributes supplied when the span was constructed."""
+
+    result: Dict[str, Any] = {}
+    try:
+        attributes = span.attributes
+        for key in CANONICAL_PROPERTIES:
+            if key in attributes:
+                result[key] = attributes[key]
+    except Exception:
+        # Some Span implementations do not expose readable attributes. The
+        # processor must still route and stamp all other safe context.
+        pass
+    return result
+
+
+def _contextual_app_git(
+    contextual: Dict[str, Any], own: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Merge own span provenance over a frozen contextual snapshot."""
+
+    result = {
+        key: contextual[key]
+        for key in CANONICAL_PROPERTIES
+        if key in contextual
+    }
+    try:
+        inferred = set(contextual.get(INFERRED_CONTEXT_KEY, ()))
+    except Exception:
+        inferred = set()
+    if COMMIT_SHA_PROPERTY in own and own[COMMIT_SHA_PROPERTY] != result.get(
+        COMMIT_SHA_PROPERTY
+    ):
+        for key in (COMMIT_DIRTY_PROPERTY, BRANCH_PROPERTY):
+            if key in inferred and key not in own:
+                result.pop(key, None)
+    result.update(own)
+    return result
+
+
+def _stamp_attributes(
+    span: Any, attributes: Dict[str, Any], existing: Dict[str, Any]
+) -> None:
+    """Best-effort stamp while preserving every pre-existing key."""
+
+    for key, value in attributes.items():
+        if key == INFERRED_CONTEXT_KEY or key in existing:
+            continue
+        if isinstance(value, (str, bool, int, float)):
+            try:
+                span.set_attribute(key, value)
+            except Exception:
+                # A bad metadata attribute must not suppress routing or other
+                # ordinary telemetry attributes.
+                pass
+
+
+class _SpanAppGitContext(dict):
+    __slots__ = ("__weakref__",)
+
+
+_live_span_app_git_context: "weakref.WeakKeyDictionary[Any, _SpanAppGitContext]" = (
+    weakref.WeakKeyDictionary()
+)
+_readable_span_app_git_context: "weakref.WeakKeyDictionary[Any, dict[str, Any]]" = (
+    weakref.WeakKeyDictionary()
+)
+_active_span_app_git_context_by_id: "weakref.WeakValueDictionary[tuple[int, int], _SpanAppGitContext]" = (
+    weakref.WeakValueDictionary()
+)
+_span_app_git_lock = threading.Lock()
+
+
+def _span_identity(span: Any) -> Optional[tuple[int, int]]:
+    try:
+        context = span.get_span_context()
+    except Exception:
+        context = getattr(span, "context", None)
+    try:
+        trace_id = int(getattr(context, "trace_id"))
+        span_id = int(getattr(context, "span_id"))
+    except Exception:
+        return None
+    if trace_id == 0 or span_id == 0:
+        return None
+    return trace_id, span_id
+
+
+def remember_span_app_git(span: Any, attributes: Dict[str, Any]) -> None:
+    try:
+        properties = {
+            key: attributes[key] for key in CANONICAL_PROPERTIES if key in attributes
+        }
+        inferred = frozenset(attributes.get(INFERRED_CONTEXT_KEY, ()))
+        if not properties and not inferred:
+            return
+        with _span_app_git_lock:
+            context = _SpanAppGitContext(
+                snapshot=AppGitSnapshot(properties, inferred),
+                overrides={},
+                accepted_overrides={},
+            )
+            _live_span_app_git_context[span] = context
+            identity = _span_identity(span)
+            if identity is not None:
+                _active_span_app_git_context_by_id[identity] = context
+    except Exception:
+        pass
+
+
+def update_span_app_git_overrides(span: Any, properties: Dict[str, Any]) -> None:
+    try:
+        overrides = {
+            key: properties[key] for key in CANONICAL_PROPERTIES if key in properties
+        }
+        if not overrides:
+            return
+        with _span_app_git_lock:
+            context = _live_span_app_git_context.get(span)
+            identity = _span_identity(span)
+            if context is None and identity is not None:
+                context = _active_span_app_git_context_by_id.get(identity)
+            if context is None:
+                return
+            context["overrides"].update(overrides)
+            # Remember what OTel actually accepted after this SDK setter.
+            # A later raw public OTel mutation must supersede our logical
+            # override, including null suppression, without guessing from a
+            # prefix or restoring values past OTel's attribute limits.
+            accepted = _own_app_git_attributes(span)
+            context["accepted_overrides"].update({
+                key: (key in accepted, accepted.get(key)) for key in overrides
+            })
+    except Exception:
+        pass
+
+
+def finish_span_app_git(span: Any) -> None:
+    try:
+        with _span_app_git_lock:
+            identity = _span_identity(span)
+            context = _live_span_app_git_context.pop(span, None)
+            by_id_context = (
+                _active_span_app_git_context_by_id.pop(identity, None)
+                if identity is not None
+                else None
+            )
+            if context is None:
+                context = by_id_context
+            if context is None:
+                return
+            frozen = {
+                "snapshot": context.get("snapshot"),
+                "overrides": dict(context.get("overrides") or {}),
+                "accepted_overrides": dict(context.get("accepted_overrides") or {}),
+            }
+            try:
+                _readable_span_app_git_context[span] = frozen
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+def _span_app_git_export_context(span: Any) -> Optional[dict[str, Any]]:
+    try:
+        with _span_app_git_lock:
+            context = _readable_span_app_git_context.get(span)
+            if context is not None:
+                return context
+    except Exception:
+        pass
+    return None
+
+
+def _export_attributes(span: Any) -> Optional[Dict[str, Any]]:
+    try:
+        context = _span_app_git_export_context(span)
+        if context is None:
+            return None
+        snapshot = context.get("snapshot")
+        overrides = dict(context.get("overrides") or {})
+        accepted_overrides = context.get("accepted_overrides") or {}
+        if not isinstance(snapshot, AppGitSnapshot):
+            return None
+        original_attributes = dict(getattr(span, "attributes", None) or {})
+        for key in CANONICAL_PROPERTIES:
+            if key not in original_attributes:
+                continue
+            current = original_attributes[key]
+            if key in accepted_overrides:
+                if (True, current) != accepted_overrides[key]:
+                    overrides[key] = current
+            elif key not in overrides and current != snapshot.properties.get(key):
+                overrides[key] = current
+        effective = effective_app_git(snapshot, overrides)
+        attributes = dict(original_attributes)
+        for key in CANONICAL_PROPERTIES:
+            attributes.pop(key, None)
+        for key, value in effective.properties.items():
+            if isinstance(value, (str, bool, int, float)):
+                if key in original_attributes:
+                    attributes[key] = original_attributes[key]
+        return attributes
+    except Exception:
+        return None
+
+
+class _SpanAttributeProxy:
+    def __init__(self, span: Any, attributes: Dict[str, Any]) -> None:
+        self._span = span
+        self.attributes = attributes
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._span, name)
+
+
+def finalize_app_git_spans(spans: Sequence[Any]) -> Sequence[Any]:
+    result = []
+    changed = False
+    for span in spans:
+        attributes = _export_attributes(span)
+        if attributes is None:
+            result.append(span)
+            continue
+        result.append(_SpanAttributeProxy(span, attributes))
+        changed = True
+    return result if changed else spans
 
 
 class _RaindropContextSpanProcessor(SpanProcessor):
@@ -440,16 +773,50 @@ class _RaindropContextSpanProcessor(SpanProcessor):
 
     def on_start(self, span: Any, parent_context: Any = None) -> None:
         try:
-            stamp_context_attributes(span)
             bound = current_context()
-            if bound is None:
-                return
+        except Exception:
+            bound = None
+        try:
+            contextual = current_span_attributes(current_span_client_identity())
+        except Exception:
+            contextual = {}
+        own = _own_app_git_attributes(span)
+
+        try:
+            if bound is None and _default_span_attributes_resolver is not None:
+                operation = {
+                    key: contextual[key]
+                    for key in CANONICAL_PROPERTIES
+                    if key in contextual
+                }
+                operation.update(own)
+                app_git = _default_span_attributes_resolver(operation)
+            else:
+                app_git = _contextual_app_git(contextual, own)
+        except Exception:
+            app_git = own
+
+        ordinary_context = {
+            key: value
+            for key, value in contextual.items()
+            if key not in CANONICAL_PROPERTIES and key != INFERRED_CONTEXT_KEY
+        }
+        _stamp_attributes(span, ordinary_context, {})
+        _stamp_attributes(span, app_git, own)
+        memory_app_git = dict(app_git)
+        if INFERRED_CONTEXT_KEY in contextual:
+            memory_app_git.setdefault(INFERRED_CONTEXT_KEY, contextual[INFERRED_CONTEXT_KEY])
+        remember_span_app_git(span, memory_app_git)
+        if bound is None:
+            return
+        try:
             stamp_span(span, bound.project_id, bound.auth_hint)
         except Exception:
             # Telemetry must never crash the host app.
             pass
 
     def on_end(self, span: Any) -> None:
+        finish_span_app_git(span)
         try:
             status = getattr(span, "status", None)
             if status is None or status.status_code is not StatusCode.ERROR:
@@ -563,7 +930,7 @@ class _GuardedSpanExporter:
             from opentelemetry.sdk.trace.export import SpanExportResult
 
             return SpanExportResult.SUCCESS
-        return self._inner.export(allowed)
+        return self._inner.export(finalize_app_git_spans(allowed))
 
     def shutdown(self) -> None:
         return self._inner.shutdown()

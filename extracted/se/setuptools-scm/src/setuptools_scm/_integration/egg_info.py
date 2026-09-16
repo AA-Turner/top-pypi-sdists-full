@@ -23,18 +23,11 @@ from setuptools.command.egg_info import egg_info as _egg_info
 from setuptools.command.egg_info import manifest_maker
 from setuptools.command.sdist import sdist
 from setuptools.command.sdist import walk_revctrl
-from vcs_versioning._file_finders import scm_search_known_failed
 
 from .build_py import get_version_inference_data
 
 if TYPE_CHECKING:
     from .build_py import VersionInferenceData
-
-    # Typing-only base -- see ``ScmEggInfoMixin`` for why the mixin has no
-    # runtime base class.
-    _MixinBase = _egg_info
-else:
-    _MixinBase = object
 
 log = logging.getLogger(__name__)
 
@@ -76,24 +69,6 @@ def _normalize_tracked_files(files: list[str]) -> list[str]:
     return [os.path.relpath(f, cwd) if os.path.isabs(f) else f for f in files]
 
 
-def _scm_search_failed(data: VersionInferenceData | None) -> bool:
-    """Whether inference already ran and turned up no SCM workdir.
-
-    ``data is None`` means inference never ran (setuptools-scm is merely
-    installed), so nothing is known and the finders must still probe.
-    A :class:`FallbackWorkdir` means discovery fell back to archival or
-    PKG-INFO metadata -- the SCM search itself failed.
-    """
-    if data is None:
-        return False
-    if data.workdir is None:
-        return True
-
-    from vcs_versioning._fallback_workdir import FallbackWorkdir
-
-    return isinstance(data.workdir, FallbackWorkdir)
-
-
 def _get_tracked_files(data: VersionInferenceData | None) -> list[str] | None:
     """Extract tracked files from the workdir, or ``None`` to fall back.
 
@@ -111,12 +86,8 @@ def _get_tracked_files(data: VersionInferenceData | None) -> list[str] | None:
     return None
 
 
-class ScmEggInfoMixin(_MixinBase):
+class ScmEggInfoMixin(_egg_info):
     """Mixin for the ``egg_info`` command.
-
-    Like :class:`~._integration.build_py.ScmVersionFileMixin` this has no
-    runtime base class, so wrapping a project's own ``egg_info`` never
-    reorders that project's MRO (#1529).
 
     * ``find_sources()`` -- uses the workdir from ``VersionInferenceData``
       to supply tracked files to ``manifest_maker`` without going through
@@ -138,13 +109,6 @@ class ScmEggInfoMixin(_MixinBase):
             mm._tracked_files = tracked
             mm.run()
             self.filelist = mm.filelist
-        elif _scm_search_failed(data):
-            # inference ran and found no SCM workdir -- walk_revctrl() would
-            # re-probe every backend for a repository we already know is not
-            # there, which is how a slow ``hg`` on PATH broke unrelated
-            # builds (#1212)
-            with scm_search_known_failed():
-                super().find_sources()
         else:
             super().find_sources()
 

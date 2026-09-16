@@ -26,7 +26,6 @@ __all__: list[str] = []
 
 import json
 import sys
-import time
 from typing import Annotated, Literal
 
 from cyclopts import Parameter
@@ -373,46 +372,22 @@ def workflow_trigger(
         except json.JSONDecodeError as e:
             exit_with_error(f"Invalid JSON for --inputs: {e}")
 
-    # Trigger the workflow
+    if wait:
+        print(
+            f"Waiting for workflow to complete (timeout: {wait_seconds}s)...",
+            file=sys.stderr,
+        )
+
     result = trigger_ci_workflow(
         owner=owner,
         repo=repo,
         workflow_file=workflow_file,
         workflow_definition_ref=workflow_definition_ref,
         inputs=parsed_inputs,
+        wait_for_completion=wait,
+        max_wait_seconds=wait_seconds,
     )
 
     print_json(result.model_dump())
-
-    # If wait is enabled and we have a run_id, poll for completion
-    if wait and result.run_id:
-        print(f"\nWaiting for workflow to complete (timeout: {wait_seconds}s)...")
-        start_time = time.time()
-        poll_interval = 10  # seconds
-
-        while time.time() - start_time < wait_seconds:
-            status_result = check_ci_workflow_status(
-                owner=owner,
-                repo=repo,
-                run_id=result.run_id,
-            )
-
-            if status_result.status == "completed":
-                print(
-                    f"\nWorkflow completed with conclusion: {status_result.conclusion}"
-                )
-                print_json(status_result.model_dump())
-                return
-
-            elapsed = int(time.time() - start_time)
-            print(f"  Status: {status_result.status} (elapsed: {elapsed}s)")
-            time.sleep(poll_interval)
-
-        print(f"\nTimeout reached after {wait_seconds}s. Workflow still running.")
-        # Print final status
-        final_status = check_ci_workflow_status(
-            owner=owner,
-            repo=repo,
-            run_id=result.run_id,
-        )
-        print_json(final_status.model_dump())
+    if not result.success:
+        sys.exit(1)

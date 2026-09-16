@@ -5,10 +5,13 @@ from collections.abc import Callable
 from pathlib import Path
 from tqdm import tqdm
 from threading import Semaphore
-from asyncdb.exceptions import ProviderError
-from ..exceptions import ComponentError, NotSupported, FileNotFound
-from ..utils import check_empty
+from asyncdb.exceptions import NoDataFound, ProviderError
+from ..exceptions import ComponentError, NotSupported, FileNotFound, DataNotFound
 from .IteratorBase import IteratorBase, ThreadJob
+from ..interfaces.skip_policy import (
+    ConsecutiveFailureTracker,
+    SKIPPED_ITERATION,
+)
 
 
 class MergeFileList(IteratorBase):
@@ -120,6 +123,7 @@ class MergeFileList(IteratorBase):
                 # Parallelized execution
                 threads = []
                 semaphore = Semaphore(self._num_threads)
+                tracker = ConsecutiveFailureTracker(self.max_consecutive_failures)
                 with tqdm(total=len(files)) as pbar:
                     for file in files:
                         self._result = file
@@ -137,17 +141,37 @@ class MergeFileList(IteratorBase):
                     for thread in threads:
                         thread.join()
                         # check if thread raised any exceptions
-                        if thread.exc:
+                        if thread.exc is not None:
+                            if isinstance(thread.exc, (NoDataFound, DataNotFound, FileNotFound)):
+                                # D3: continue INCONDICIONAL, y NO cuenta
+                                # para el umbral — paridad con el camino
+                                # secuencial.
+                                self._logger.debug(
+                                    f"Data not Found for {step_name}, got: {thread.exc}"
+                                )
+                                continue
                             raise thread.exc
+                        # check if iteration was skipped
+                        if thread.result is SKIPPED_ITERATION:
+                            should_abort = tracker.record_skip(ComponentError("Skipped iteration for file"))
+                            if should_abort:
+                                tracker.publish(self)
+                                raise ComponentError(
+                                    f"MergeFileList: Aborted due to {tracker.consecutive} consecutive failures. Last error: {tracker.last_error}"
+                                ) from tracker.last_error
+                        else:
+                            tracker.record_success()
+                            results.append(thread.result)
                         pbar.update(1)
-                        results.append(thread.result)
-                if check_empty(results):
+                tracker.publish(self)
+                if not results:
                     return False
                 else:
                     self._result = results
                     return self._result
             else:
                 # Sequential execution
+                tracker = ConsecutiveFailureTracker(self.max_consecutive_failures)
                 with tqdm(total=len(files)) as pbar:
                     for file in files:
                         self._result = file
@@ -161,19 +185,30 @@ class MergeFileList(IteratorBase):
                             pbar.set_description(f"Processing {file.name}")
                             try:
                                 status = await self.async_job(job, step_name)
-                                pbar.update(1)
-                            except (ProviderError, ComponentError, NotSupported) as err:
-                                raise NotSupported(
-                                    f"Error running Component {step_name}, error: {err}"
-                                ) from err
+                            except (NoDataFound, DataNotFound, FileNotFound) as err:
+                                # D3: continue INCONDICIONAL, y NO cuenta para el umbral.
+                                self._logger.debug(f"Data not Found for {step_name}, got: {err}")
+                                continue
+                            except (ProviderError, ComponentError, NotSupported):
+                                # async_job ya consulto skipError: si llega aqui era ENFORCE.
+                                raise
                             except Exception as err:
                                 raise ComponentError(
-                                    f"Generic Component Error on {step_name}, error: {err}"
+                                    f"Component Error on {step_name}, error: {err}"
                                 ) from err
-                if check_empty(status):
-                    return False
-                else:
-                    return status
+                            
+                            if status is SKIPPED_ITERATION:
+                                should_abort = tracker.record_skip(ComponentError(f"Skipped iteration for file {file.name}"))
+                                if should_abort:
+                                    tracker.publish(self)
+                                    raise ComponentError(
+                                        f"MergeFileList: Aborted due to {tracker.consecutive} consecutive failures at file {file.name}. Last error: {tracker.last_error}"
+                                    ) from tracker.last_error
+                            else:
+                                tracker.record_success()
+                            pbar.update(1)
+                tracker.publish(self)
+                return tracker.successes > 0
         else:
             files = self.get_filelist()
             if files:

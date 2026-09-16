@@ -24,7 +24,9 @@ from vercel.sandbox._internal.models import (
     CompletedProcess,
     DirectoryEntry,
     DurationInput,
+    FailoverRegionsInput,
     GitSource,
+    JSONValue as _JSONValue,
     NetworkPolicy,
     NetworkPolicyKeyValueMatcher,
     NetworkPolicyMatcher,
@@ -32,6 +34,7 @@ from vercel.sandbox._internal.models import (
     NetworkPolicyRule,
     NetworkPolicySubnets,
     NetworkPolicyTransform,
+    ProcessSignal,
     ProcessStatus,
     SandboxQuery,
     SandboxQueryByCreatedAt,
@@ -47,6 +50,7 @@ from vercel.sandbox._internal.models import (
     SnapshotSource,
     TagFilter,
     TarballSource,
+    normalize_private_parameters as _normalize_private_parameters,
 )
 from vercel.sandbox._internal.options import (
     SandboxCredentials,
@@ -70,6 +74,7 @@ from vercel.sandbox._internal.sync_runtime import (
     SyncSnapshot,
     _ManagedSyncSandbox,
     create_sandbox as _create_sandbox,
+    fork_sandbox as _fork_sandbox,
     get_or_create_sandbox as _get_or_create_sandbox,
     get_sandbox as _get_sandbox,
     get_snapshot as _get_snapshot,
@@ -100,7 +105,10 @@ def create_sandbox(
     tags: Mapping[str, str] | None = None,
     snapshot_expiration: SnapshotExpirationInput = None,
     snapshot_retention: SnapshotRetention | None = None,
+    region: str | None = None,
+    failover_regions: FailoverRegionsInput = None,
     destroy: bool = True,
+    **private_parameters: _JSONValue,
 ) -> _ManagedSyncSandbox:
     """Create a sandbox and wait until it is ready.
 
@@ -126,6 +134,8 @@ def create_sandbox(
         snapshot_expiration: Default lifetime for snapshots created from this
             sandbox.
         snapshot_retention: Automatic snapshot retention policy.
+        region: Preferred region for the sandbox.
+        failover_regions: Regions available if creation in ``region`` fails.
         destroy: Whether context-manager exit destroys the sandbox after
             stopping it.
 
@@ -150,7 +160,90 @@ def create_sandbox(
         tags=tags,
         snapshot_expiration=snapshot_expiration,
         snapshot_retention=snapshot_retention,
+        region=region,
+        failover_regions=failover_regions,
         destroy=destroy,
+        private_parameters=_normalize_private_parameters("create_sandbox", private_parameters),
+    )
+
+
+def fork_sandbox(
+    *,
+    source_sandbox: str,
+    project_id: str | None = None,
+    name: str | None = None,
+    ports: list[int] | None = None,
+    execution_time_limit: DurationInput = None,
+    resources: SandboxResources | None = None,
+    image: str | None = None,
+    persistent: bool | None = None,
+    network_policy: NetworkPolicy | None = None,
+    env: Mapping[str, str] | None = None,
+    tags: Mapping[str, str] | None = None,
+    snapshot_expiration: SnapshotExpirationInput = None,
+    snapshot_retention: SnapshotRetention | None = None,
+    region: str | None = None,
+    failover_regions: FailoverRegionsInput = None,
+    destroy: bool = True,
+    **private_parameters: _JSONValue,
+) -> _ManagedSyncSandbox:
+    """Fork a sandbox and wait until the fork is ready.
+
+    The server initializes the fork from the source sandbox's current snapshot,
+    or from its runtime or image when it has no snapshot. Configuration is
+    inherited from the source; values supplied here replace the corresponding
+    inherited values.
+
+    The returned handle is also a context manager that stops the fork on exit
+    and destroys it by default. Calling this function without entering the
+    handle performs no automatic cleanup.
+
+    Args:
+        source_sandbox: Name of the sandbox to fork.
+        project_id: Project that owns both the source and fork. Uses the active
+            credentials when omitted.
+        name: Requested name for the fork. The service generates one when
+            omitted.
+        ports: Ports to expose instead of the source sandbox's ports.
+        execution_time_limit: Maximum session runtime override.
+        resources: CPU and memory resource override.
+        image: Vercel Container Registry image override.
+        persistent: Persistence override.
+        network_policy: Network access policy override.
+        env: Environment variable override.
+        tags: Metadata tag override.
+        snapshot_expiration: Default snapshot lifetime override.
+        snapshot_retention: Automatic snapshot retention override.
+        region: Preferred region override.
+        failover_regions: Failover region override.
+        destroy: Whether context-manager exit destroys the fork after stopping
+            it.
+
+    Returns:
+        A managed handle for the fork.
+
+    Raises:
+        SandboxTerminalStateError: If the fork reaches a terminal failure state.
+    """
+    return _fork_sandbox(
+        _service(),
+        source_sandbox=source_sandbox,
+        project_id=project_id,
+        name=name,
+        ports=ports,
+        execution_time_limit=execution_time_limit,
+        resources=resources,
+        image=image,
+        persistent=persistent,
+        network_policy=network_policy,
+        env=env,
+        tags=tags,
+        snapshot_expiration=snapshot_expiration,
+        snapshot_retention=snapshot_retention,
+        region=region,
+        failover_regions=failover_regions,
+        destroy=destroy,
+        private_parameters=_normalize_private_parameters("fork_sandbox", private_parameters),
     )
 
 
@@ -171,6 +264,9 @@ def get_or_create_sandbox(
     tags: Mapping[str, str] | None = None,
     snapshot_expiration: SnapshotExpirationInput = None,
     snapshot_retention: SnapshotRetention | None = None,
+    region: str | None = None,
+    failover_regions: FailoverRegionsInput = None,
+    **private_parameters: _JSONValue,
 ) -> tuple[SyncSandbox, bool]:
     """Get a named sandbox or create it when it does not exist.
 
@@ -199,6 +295,8 @@ def get_or_create_sandbox(
         snapshot_expiration: Default lifetime for snapshots created from this
             sandbox.
         snapshot_retention: Automatic snapshot retention policy.
+        region: Preferred region for a newly created sandbox.
+        failover_regions: Failover regions for a newly created sandbox.
 
     Returns:
         A ``(sandbox, created)`` tuple. ``created`` is true when this call
@@ -222,6 +320,11 @@ def get_or_create_sandbox(
         tags=tags,
         snapshot_expiration=snapshot_expiration,
         snapshot_retention=snapshot_retention,
+        region=region,
+        failover_regions=failover_regions,
+        private_parameters=_normalize_private_parameters(
+            "get_or_create_sandbox", private_parameters
+        ),
     )
 
 
@@ -230,6 +333,7 @@ def get_sandbox(
     name: str,
     project_id: str | None = None,
     include_system_routes: bool | None = None,
+    **private_parameters: _JSONValue,
 ) -> SyncSandbox:
     """Fetch a sandbox by name without resuming it.
 
@@ -253,6 +357,7 @@ def get_sandbox(
         name=name,
         project_id=project_id,
         include_system_routes=include_system_routes,
+        private_parameters=_normalize_private_parameters("get_sandbox", private_parameters),
     )
 
 
@@ -261,6 +366,7 @@ def resume_sandbox(
     name: str,
     project_id: str | None = None,
     include_system_routes: bool | None = None,
+    **private_parameters: _JSONValue,
 ) -> _ManagedSyncSandbox:
     """Resume a sandbox and return a managed handle.
 
@@ -284,6 +390,7 @@ def resume_sandbox(
         name=name,
         project_id=project_id,
         include_system_routes=include_system_routes,
+        private_parameters=_normalize_private_parameters("resume_sandbox", private_parameters),
     )
 
 
@@ -395,6 +502,7 @@ __all__ = [
     "SandboxApiError",
     "SandboxCleanupError",
     "ProcessStatus",
+    "ProcessSignal",
     "CompletedProcess",
     "SandboxCredentials",
     "SandboxCredentialsError",
@@ -446,6 +554,7 @@ __all__ = [
     "TarballSource",
     "SyncTextReader",
     "create_sandbox",
+    "fork_sandbox",
     "get_or_create_sandbox",
     "get_sandbox",
     "get_snapshot",

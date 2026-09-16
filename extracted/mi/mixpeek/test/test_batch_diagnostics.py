@@ -66,7 +66,29 @@ class TestBatchDiagnostics(unittest.TestCase):
                         error = '', 
                         error_type = '', 
                         requires_gpu = True, 
-                        ray_job_status = '', )
+                        ray_job_status = '', 
+                        submission_params = mixpeek.models.submission_params.SubmissionParams(
+                            entrypoint = '', 
+                            deployment_mode = '', 
+                            requires_gpu = True, 
+                            num_cpus = 1.337, 
+                            num_gpus = 1.337, 
+                            memory_bytes = 56, 
+                            priority = 56, 
+                            plugin_archives = [
+                                ''
+                                ], 
+                            plugin_dependencies = [
+                                ''
+                                ], 
+                            image_uri = '', 
+                            extractor_name = '', 
+                            extractor_version = '', 
+                            env_vars_keys = [
+                                ''
+                                ], 
+                            manifest_key = '', 
+                            submitted_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), ), )
                     ],
                 collections = [
                     mixpeek.models.collection_diagnostic.CollectionDiagnostic(

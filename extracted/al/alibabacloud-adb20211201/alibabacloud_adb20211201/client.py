@@ -14981,8 +14981,12 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.dbcluster_id):
             query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.path):
+            query['Path'] = request.path
         if not DaraCore.is_null(request.question):
             query['Question'] = request.question
+        if not DaraCore.is_null(request.tags):
+            query['Tags'] = request.tags
         if not DaraCore.is_null(request.topk):
             query['Topk'] = request.topk
         if not DaraCore.is_null(request.user):
@@ -15015,8 +15019,12 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.dbcluster_id):
             query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.path):
+            query['Path'] = request.path
         if not DaraCore.is_null(request.question):
             query['Question'] = request.question
+        if not DaraCore.is_null(request.tags):
+            query['Tags'] = request.tags
         if not DaraCore.is_null(request.topk):
             query['Topk'] = request.topk
         if not DaraCore.is_null(request.user):
@@ -21613,6 +21621,84 @@ class Client(OpenApiClient):
     ) -> main_models.RemoveKnowledgeTagsResponse:
         runtime = RuntimeOptions()
         return await self.remove_knowledge_tags_with_options_async(request, runtime)
+
+    def remove_knowledge_upload_user_with_options(
+        self,
+        request: main_models.RemoveKnowledgeUploadUserRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.RemoveKnowledgeUploadUserResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        if not DaraCore.is_null(request.users):
+            query['Users'] = request.users
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'RemoveKnowledgeUploadUser',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.RemoveKnowledgeUploadUserResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def remove_knowledge_upload_user_with_options_async(
+        self,
+        request: main_models.RemoveKnowledgeUploadUserRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.RemoveKnowledgeUploadUserResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        if not DaraCore.is_null(request.users):
+            query['Users'] = request.users
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'RemoveKnowledgeUploadUser',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.RemoveKnowledgeUploadUserResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def remove_knowledge_upload_user(
+        self,
+        request: main_models.RemoveKnowledgeUploadUserRequest,
+    ) -> main_models.RemoveKnowledgeUploadUserResponse:
+        runtime = RuntimeOptions()
+        return self.remove_knowledge_upload_user_with_options(request, runtime)
+
+    async def remove_knowledge_upload_user_async(
+        self,
+        request: main_models.RemoveKnowledgeUploadUserRequest,
+    ) -> main_models.RemoveKnowledgeUploadUserResponse:
+        runtime = RuntimeOptions()
+        return await self.remove_knowledge_upload_user_with_options_async(request, runtime)
 
     def rename_semantic_view_with_options(
         self,

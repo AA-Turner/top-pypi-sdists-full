@@ -1,32 +1,38 @@
 import asyncio
 import traceback
-from typing import Any, Optional
 from collections.abc import Callable
+from typing import Any
+
 from asyncdb.exceptions import NoDataFound, ProviderError
-# Flowtask Core:
-from ..interfaces.log import SkipErrors
-from ..utils.stats import StepMonitor
-from ..models import TaskState, setTaskState
-from ..exceptions import (
-    TaskFailed,
-    TaskDefinition,
-    TaskError,
-    TaskParseError,
-    TaskNotFound,
-    NotSupported,
-    ComponentError,
-    DataNotFound,
-    FileNotFound,
-    FileError,
-    DataError,
-    EmptyFile,
-)
-from ..tasks.pile import TaskPile
-from ..utils import cPrint, check_empty, AttrDict
-from .abstract import AbstractTask
+
+from ..bots import ENABLE_BOT_REVIEWER, CodeReview
 from ..events import LogError
 from ..events.events.exec import LogExecution, SaveExecution
-from ..bots import CodeReview, ENABLE_BOT_REVIEWER
+from ..exceptions import (
+    ComponentError,
+    DataError,
+    DataNotFound,
+    EmptyFile,
+    FileError,
+    FileNotFound,
+    NotSupported,
+    TaskDefinition,
+    TaskError,
+    TaskFailed,
+    TaskNotFound,
+    TaskParseError,
+)
+
+# Flowtask Core:
+from ..interfaces.log import SkipErrors
+from ..models import TaskState, setTaskState
+from ..tasks.pile import TaskPile
+from ..utils import AttrDict, check_empty, cPrint
+from ..utils.stats import StepMonitor
+from .abstract import AbstractTask
+from .chain import (  # FEAT-555 — MODELS ONLY; chainer/exchange are imported lazily
+    ChainPayload,
+)
 
 
 class Task(AbstractTask):
@@ -38,18 +44,18 @@ class Task(AbstractTask):
 
     def __init__(
         self,
-        task_id: str = None,
-        task: str = None,
-        program: str = None,
-        loop: asyncio.AbstractEventLoop = None,
-        parser: Callable = None,
-        worker: Callable = None,
+        task_id: str | None = None,
+        task: str | None = None,
+        program: str | None = None,
+        loop: asyncio.AbstractEventLoop | None = None,
+        parser: Callable | None = None,
+        worker: Callable | None = None,
         **kwargs,
     ) -> None:
         self._pile_: TaskPile = None
         self._steps = None
         self._vars = None
-        super(Task, self).__init__(
+        super().__init__(
             task_id=task_id,
             task=task,
             program=program,
@@ -93,6 +99,20 @@ class Task(AbstractTask):
             self._stepattrs = {**self._stepattrs, **steps}
         # Is a Subtask?
         self.is_subtask: bool = kwargs.pop('is_subtask', False)
+        # FEAT-555: chain intake. MUST be popped before the `self._kwargs =
+        # {**kwargs}` catch-all at task.py:137 — anything left in kwargs there
+        # reaches every component as params["_vars"].
+        self._chain: ChainPayload | None = kwargs.pop("chain_input", None)
+        self._chain_key: str | None = kwargs.pop("chain_key", None)
+        # Result handed by a parent component (SubTask `pass_input`) to this
+        # task's first component, through the same injection as the chain result.
+        self._input_result: Any = kwargs.pop("input_result", None)
+        # Continuations reserved by this task's own pile (filled in prepare()).
+        self._continuations: list = []
+        # FEAT-555: chain output state.
+        self._chain_done: bool = False        # run_continuations() already ran
+        self._chain_consumed: bool = False    # chain result already injected (A3)
+        self.chain_results: list = []         # one ChainHopResult per continuation
         # override attributes:
         self._override_attributes = kwargs.pop("override_attributes", False)
         self.ignore_steps = kwargs.pop('ignore_steps', [])
@@ -140,9 +160,9 @@ class Task(AbstractTask):
             LogExecution(disable_notification=self._no_notify)
         )
         ## set the Task State:
-        running = getattr(self._events, "running")
+        running = self._events.running
         running.add(setTaskState)
-        completed = getattr(self._events, "completed")
+        completed = self._events.completed
         completed.add(setTaskState)
         # Special Events (NotifyEvent lazy-imported to defer loading the notify package):
         from ..events import NotifyEvent
@@ -166,13 +186,68 @@ class Task(AbstractTask):
             self._events.exception += self._codereview
             self._events.on_error += self._codereview
 
+    async def run_continuations(self) -> list:
+        """Fire this task's reserved NextTask continuations. Idempotent; never raises.
+
+        Called from :meth:`close`, the one method every launcher awaits — the qw
+        worker awaits it twice (di_task.py:122 and :164), hence the once-only
+        guard.
+
+        Returns:
+            One ChainHopResult per declared continuation, or ``[]`` when this
+            task is a subtask, has no continuations, already ran them, or the
+            chainer itself failed.
+        """
+        # Fast path: return immediately when self._chain_done, or self.is_subtask, or
+        # not self._continuations. This fast path is what keeps an ordinary
+        # task free of chain cost (AC-2/G10).
+        if self._chain_done or self.is_subtask or not self._continuations:
+            return []
+        
+        # Set self._chain_done = True BEFORE any await — the re-entrancy
+        # guard must close before the first suspension point (AC-7).
+        self._chain_done = True
+        
+        try:
+            # Lazy import to avoid circular dependency
+            from .chainer import TaskChainer
+            
+            # Run the chainer and store results
+            self.chain_results = await TaskChainer(self).run()
+            
+            # Log a summary line with the per-status counts
+            status_counts = {}
+            for result in self.chain_results:
+                status_counts[result.status] = status_counts.get(result.status, 0) + 1
+            if status_counts:
+                self.logger.info(
+                    f"Task.{self.task_id}: chain continuations fired: {status_counts}"
+                )
+            else:
+                self.logger.debug(f"Task.{self.task_id}: no chain continuations to fire")
+                
+            return self.chain_results
+        except asyncio.CancelledError:
+            # Re-raise CancelledError (do not swallow, A6)
+            raise
+        except Exception:
+            # Log the exception and return empty list (AC-6)
+            self.logger.exception(
+                f"Task.{self.task_id}: chainer failed"
+            )
+            self.chain_results = []
+            return []
+
     async def close(self):
         """close.
 
         Closing the remaining connections.
         """
         if self.is_subtask is False:
-            await super(Task, self).close()
+            await super().close()
+        # FEAT-555: fire continuations after the TaskMonitor has stopped (so
+        # stats are final) and BEFORE _pile_ is nulled. Never raises.
+        await self.run_continuations()
         self._pile_ = None
         self._steps = None
         self._args = None
@@ -191,11 +266,78 @@ class Task(AbstractTask):
     def pile(self):
         return self._pile_
 
+    async def _resolve_chain_input(self) -> None:
+        """Load a staged chain payload and fold it into this task's variables.
+
+        Called from :meth:`start` after ``prepare()``. A ``chain_key`` is read
+        from the Redis exchange exactly once (the key is deleted on success); an
+        in-memory ``chain_input`` is used as-is.
+
+        Raises:
+            TaskError: Via ``_on_exception`` when the staged payload is missing
+                or expired (AC-19).
+        """
+        # When self._chain_key and self._chain is None: lazily
+        # `from .exchange import ResultExchange` and `from .chain import
+        # ChainError`; exchange = ResultExchange(); try
+        # self._chain = await exchange.get(self._chain_key) except ChainError
+        # as exc -> self._on_exception(status="Chain payload missing",
+        # exc=exc); finally await exchange.close().
+        # When self._chain is not None: self._variables = {
+        #       **self._chain.variables, **self._variables,
+        #       **self._chain.as_variables()}
+        #    and log at info the origin task id and the chain depth.
+        # Return immediately when there is neither a key nor a payload --
+        # this is the ordinary, non-chained case and must cost nothing (G10).
+        # Bounded by AC-12 (precedence) and AC-19 (clear failure).
+        if self._chain is None and self._chain_key is None:
+            # No chain input - nothing to do (G10)
+            return
+        
+        if self._chain_key is not None and self._chain is None:
+            # Need to fetch the payload from Redis
+            from .chain import ChainError
+            from .exchange import ResultExchange
+            
+            exchange = ResultExchange()
+            try:
+                self._chain = await exchange.get(self._chain_key)
+            except ChainError as exc:
+                self._on_exception(status="Chain payload missing", exc=exc)
+            finally:
+                await exchange.close()
+        
+        if self._chain is not None:
+            # Merge the chain variables with precedence: 
+            # payload.variables < own variables < chain_* reserved names
+            self._variables = {
+                **self._chain.variables,
+                **self._variables,
+                **self._chain.as_variables()
+            }
+            
+            # Log the chain origin information
+            self.logger.info(
+                f"Chain payload received from task {self._chain.metadata.origin_task_id} "
+                f"(depth={self._chain.metadata.depth})"
+            )
+
     async def prepare(self):
         if self._task_:
             # calling steps
             try:
                 self._pile_ = TaskPile(self._task_, program=self._program)
+                # FEAT-555: lift the reserved NextTask continuations onto the task.
+                self._continuations = list(
+                    getattr(self._pile_, "continuations", [])
+                )
+                if self.is_subtask and self._continuations:
+                    self.logger.warning(
+                        f"NextTask ignored inside SubTask "
+                        f"{self._program}.{self._taskname}: "
+                        f"{len(self._continuations)} continuation(s) dropped."
+                    )
+                    self._continuations = []
             except (KeyError, TaskDefinition) as exc:
                 raise TaskDefinition(
                     f"Bad Task Definition: {exc!s}"
@@ -272,6 +414,7 @@ class Task(AbstractTask):
         params["debug"] = self._debug
         params["argparser"] = self._argparser
         params["taskstorage"] = self.taskstore
+        params["storage_name"] = self._storage
         component = None
         component = step.component
         # get dependency
@@ -284,6 +427,27 @@ class Task(AbstractTask):
             )
             self.logger.debug(f"Task.{self.task_id}: Component {comp}")
             comp.TaskName = step_name
+            # FEAT-555: hand the origin's result to the FIRST executed component.
+            # Assigned through the ResultSupport.input setter (result.py:71-72)
+            # AFTER construction — never written into step.params(), which is the
+            # live YAML dict an iterator re-uses when it re-creates a step (A3).
+            # The same applies to a result handed by a parent SubTask (pass_input).
+            handoff = None
+            if self._chain is not None and self._chain.result is not None:
+                handoff = self._chain.result
+            elif self._input_result is not None:
+                handoff = self._input_result
+            if (
+                prev is None
+                and not self._chain_consumed
+                and handoff is not None
+                and "input" not in params
+            ):
+                comp.input = handoff
+                self._chain_consumed = True
+                self.logger.debug(
+                    f"Task.{self.task_id}: input result injected into {step_name}"
+                )
             # Set File and Task Storage:
             comp.set_filestore(self._filestore)
             comp.set_taskstore(self.taskstore)
@@ -375,9 +539,9 @@ class Task(AbstractTask):
     def get_task_code(self):
         return self._task_payload
 
-    async def start(self, payload: Optional[str] = None):
+    async def start(self, payload: str | None = None):
         # starting a Task
-        await super(Task, self).start()
+        await super().start()
         self.logger.info(
             f"Task Started {self._taskname}"
         )
@@ -424,7 +588,6 @@ class Task(AbstractTask):
                 # re-set timezone based on a Task parameter
                 self.set_timezone(self._task_.timezone)
             await self.prepare()
-            return True
         except TaskDefinition as exc:
             self._on_exception(
                 status="Error on Task Definition",
@@ -439,6 +602,16 @@ class Task(AbstractTask):
                 status="Unknown Exception",
                 exc=exc
             )
+        # FEAT-555: resolved as its own, sibling try/except — NOT inside the
+        # block above. `_resolve_chain_input()` already calls `_on_exception`
+        # itself (status="Chain payload missing", AC-19) for a missing/expired
+        # `chain_key`, and `_on_exception` always raises; nesting the call
+        # inside the generic `except Exception` above would let that same
+        # exception be caught a second time there, firing the exception/
+        # completed events twice and downgrading the specific "Chain payload
+        # missing" status to the generic "Unknown Exception" one.
+        await self._resolve_chain_input()
+        return True
 
     def _task_running(self):
         try:
@@ -640,7 +813,7 @@ class Task(AbstractTask):
                 cPrint(f":: Running {step_name} from {task_name}", level="DEBUG")
             # try START
             try:
-                start = getattr(comp, "start")
+                start = comp.start
                 parameters = comp.user_params()
                 if callable(start):
                     if asyncio.iscoroutinefunction(start):

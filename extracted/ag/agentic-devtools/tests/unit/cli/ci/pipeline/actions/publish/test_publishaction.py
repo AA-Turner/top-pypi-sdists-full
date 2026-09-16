@@ -120,6 +120,8 @@ class TestPublishAction:
         assert result.decision == ActionDecision.FAILED
         assert result.details == "squash_before_publish failed"
         assert result.error == "push failed"
+        assert result.invalidates_snapshot is True
+        assert result.preserves_diff_fingerprint is True
         provider.publish_pr.assert_not_called()
 
     def test_execute_fails_when_publish_raises(self) -> None:
@@ -140,6 +142,8 @@ class TestPublishAction:
         assert result.decision == ActionDecision.FAILED
         assert result.details == "publish_pr failed"
         assert result.error == "publish failed"
+        assert result.invalidates_snapshot is True
+        assert result.preserves_diff_fingerprint is True
 
     def test_execute_reraises_rate_limit_from_squash(self) -> None:
         snapshot = PRStateSnapshot(
@@ -158,8 +162,10 @@ class TestPublishAction:
             credential_identity="SPECKIT_PR_TOKEN",
         )
         action = PublishAction()
-        with pytest.raises(ProviderRateLimitError):
+        with pytest.raises(ProviderRateLimitError) as exc_info:
             action.execute(provider, snapshot, derived)
+        assert bool(getattr(exc_info.value, "invalidates_snapshot", False)) is True
+        assert bool(getattr(exc_info.value, "preserves_diff_fingerprint", False)) is True
 
     def test_execute_reraises_rate_limit_from_publish(self) -> None:
         snapshot = PRStateSnapshot(
@@ -178,5 +184,7 @@ class TestPublishAction:
             credential_identity="SPECKIT_PR_TOKEN",
         )
         action = PublishAction()
-        with pytest.raises(ProviderRateLimitError):
+        with pytest.raises(ProviderRateLimitError) as exc_info:
             action.execute(provider, snapshot, derived)
+        assert bool(getattr(exc_info.value, "invalidates_snapshot", False)) is True
+        assert bool(getattr(exc_info.value, "preserves_diff_fingerprint", False)) is True

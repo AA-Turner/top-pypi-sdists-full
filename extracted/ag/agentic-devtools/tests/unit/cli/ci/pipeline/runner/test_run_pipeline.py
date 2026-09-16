@@ -1,10 +1,16 @@
 """Tests for run_pipeline."""
 
+import base64
+import hashlib
+import json
 import logging
-from unittest.mock import MagicMock, patch
+import zlib
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from agentic_devtools.cli.ci.models import IssueCommentInfo, ReviewInfo
 from agentic_devtools.cli.ci.pipeline.actions import (
     ApproveAction,
     DispatchRepairAction,
@@ -17,11 +23,19 @@ from agentic_devtools.cli.ci.pipeline.actions import (
 )
 from agentic_devtools.cli.ci.pipeline.base import Action
 from agentic_devtools.cli.ci.pipeline.gate_verdict import (
+    REASON_HAS_COMMENTS,
     REASON_SUPPRESSED_COMMENTS,
     CopilotGateVerdict,
 )
 from agentic_devtools.cli.ci.pipeline.models import ActionDecision, ActionResult
-from agentic_devtools.cli.ci.pipeline.runner import _log_endgroup, _log_group, run_pipeline
+from agentic_devtools.cli.ci.pipeline.runner import (
+    DiffPreservationBlockerLookupError,
+    _find_recent_conflict_repair_head,
+    _find_recent_diff_preservation_blocker,
+    _log_endgroup,
+    _log_group,
+    run_pipeline,
+)
 from agentic_devtools.cli.ci.pipeline.snapshot import PRStateSnapshot
 from agentic_devtools.cli.shared.retry import ProviderRateLimitError
 
@@ -29,10 +43,19 @@ from agentic_devtools.cli.shared.retry import ProviderRateLimitError
 class _MockAction:
     """A mock action for testing the runner."""
 
-    def __init__(self, name: str, eval_decision: ActionDecision, exec_decision: ActionDecision | None = None):
+    def __init__(
+        self,
+        name: str,
+        eval_decision: ActionDecision,
+        exec_decision: ActionDecision | None = None,
+        definitive_no_mutation: bool = False,
+        may_invalidate_snapshot: bool = False,
+    ):
         self._name = name
         self._eval_decision = eval_decision
         self._exec_decision = exec_decision
+        self._definitive_no_mutation = definitive_no_mutation
+        self.may_invalidate_snapshot = may_invalidate_snapshot
 
     @property
     def name(self) -> str:
@@ -43,11 +66,112 @@ class _MockAction:
 
     def execute(self, provider, snapshot, derived) -> ActionResult:
         decision = self._exec_decision or ActionDecision.EXECUTE
-        return ActionResult(name=self._name, decision=decision, details=f"exec_{self._name}")
+        return ActionResult(
+            name=self._name,
+            decision=decision,
+            details=f"exec_{self._name}",
+            definitive_no_mutation=self._definitive_no_mutation,
+        )
+
+
+def _diff_preservation_blocker_comment(payload: dict[str, object]) -> str:
+    payload = {"allowed_removed_files": [], **payload}
+    encoded = base64.urlsafe_b64encode(
+        zlib.compress(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode(), level=9)
+    ).decode()
+    return f"<!-- agdt:diff-preservation-blocker:{encoded.rstrip('=')} -->"
 
 
 class TestRunPipeline:
     """Tests for the pipeline runner."""
+
+    def test_marker_lookup_rejects_malformed_trusted_comments(self) -> None:
+        """Malformed trusted markers are ignored and malformed blockers fail closed."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        for body in (
+            "not-a-marker",
+            "<!-- agdt:conflict-repair:abc123:feedbeef:2026-01-01T00:00:00+00:00 -->",
+            "<!-- agdt:conflict-repair:abc123:deadbeef:not-a-time -->",
+        ):
+            provider.list_issue_comments.return_value = [
+                IssueCommentInfo(id=1, author="trusted-bot", body=body),
+            ]
+            assert _find_recent_conflict_repair_head(provider, 1, "feedbeef") == ""
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=2,
+                author="trusted-bot",
+                body="not-a-marker",
+            ),
+        ]
+        assert _find_recent_diff_preservation_blocker(provider, 1) is None
+
+        encoded_list = base64.urlsafe_b64encode(json.dumps(["not", "a", "dict"]).encode()).decode().rstrip("=")
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=3,
+                author="trusted-bot",
+                body=f"<!-- agdt:diff-preservation-blocker:{encoded_list} -->",
+            ),
+        ]
+        with pytest.raises(DiffPreservationBlockerLookupError, match="latest authenticated"):
+            _find_recent_diff_preservation_blocker(provider, 1)
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {
+                "baseline_head": "",
+                "baseline_files": ["fix.py"],
+                "baseline_hash": "",
+                "baseline_hash_available": True,
+                "fingerprint_supported": True,
+                "allow_file_removal": False,
+                "intentional_noop": False,
+            },
+            {
+                "baseline_head": "head",
+                "baseline_files": [""],
+                "baseline_hash": "",
+                "baseline_hash_available": True,
+                "fingerprint_supported": True,
+            },
+            {
+                "baseline_head": "head",
+                "baseline_files": ["fix.py"],
+                "baseline_hash": None,
+                "baseline_hash_available": True,
+                "fingerprint_supported": True,
+            },
+            {
+                "baseline_head": "head",
+                "baseline_files": ["fix.py"],
+                "baseline_hash": "",
+                "baseline_hash_available": "yes",
+                "fingerprint_supported": True,
+            },
+            {
+                "baseline_head": "head",
+                "baseline_files": ["fix.py"],
+                "baseline_hash": "",
+                "baseline_hash_available": True,
+                "fingerprint_supported": "yes",
+            },
+        ],
+    )
+    def test_marker_lookup_rejects_invalid_blocker_fields(self, payload: dict[str, object]) -> None:
+        """Invalid persisted blocker fields fail closed."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(id=1, author="trusted-bot", body=_diff_preservation_blocker_comment(payload)),
+        ]
+
+        with pytest.raises(DiffPreservationBlockerLookupError, match="latest authenticated"):
+            _find_recent_diff_preservation_blocker(provider, 1)
 
     def test_happy_path_all_skip(self) -> None:
         """All actions skip — no execution."""
@@ -60,6 +184,31 @@ class TestRunPipeline:
         summary = run_pipeline(provider, snapshot, actions)
         assert len(summary.results) == 2
         assert all(r.decision == ActionDecision.SKIP for r in summary.results)
+
+    def test_persisted_blocker_identity_failure_blocks_pipeline(self) -> None:
+        """An unavailable authenticated blocker identity fails closed."""
+        provider = MagicMock()
+        provider.get_pr_token_login.side_effect = RuntimeError("identity unavailable")
+        snapshot = PRStateSnapshot(pr_number=1)
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("publish", ActionDecision.EXECUTE)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "persisted post-mutation diff validation unavailable" in summary.results[0].details
+
+    def test_conflict_repair_identity_failure_blocks_pipeline(self) -> None:
+        """An unavailable conflict-repair marker identity fails closed."""
+        provider = MagicMock()
+        snapshot = PRStateSnapshot(pr_number=1)
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner._find_recent_conflict_repair_head",
+            side_effect=DiffPreservationBlockerLookupError("identity unavailable"),
+        ):
+            summary = run_pipeline(provider, snapshot, [_MockAction("approve", ActionDecision.EXECUTE)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "conflict-repair diff validation unavailable" in summary.results[0].details
 
     def test_guard_block_propagates(self) -> None:
         """When guards BLOCK, subsequent actions are BLOCKED_BY_GUARD."""
@@ -406,8 +555,22 @@ class TestRunPipeline:
     def test_runs_after_invalidation_actions_proceed_after_snapshot_invalidation(self) -> None:
         """Actions with runs_after_invalidation=True execute; others are skipped."""
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
-        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
 
         class _InvalidatingAction:
             @property
@@ -422,6 +585,7 @@ class TestRunPipeline:
                     name="squash",
                     decision=ActionDecision.EXECUTE,
                     invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
                 )
 
         class _OptInAction:
@@ -501,11 +665,2060 @@ class TestRunPipeline:
             with pytest.raises(ProviderRateLimitError):
                 run_pipeline(provider, snapshot, [_InvalidatingAction(), _OptInAction()])
 
+    def test_rate_limit_from_invalidating_action_refreshes_before_reraising(self) -> None:
+        """Rate-limit pauses still refresh and validate if the action may have mutated HEAD."""
+        provider = MagicMock()
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main", files=["fix.py"])
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", base_branch="main", files=[])
+
+        class _InvalidatingAction:
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                error = ProviderRateLimitError(provider="github", credential_identity="SPECKIT_PR_TOKEN")
+                setattr(error, "invalidates_snapshot", True)
+                setattr(error, "preserves_diff_fingerprint", True)
+                raise error
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ) as mock_refresh:
+            with pytest.raises(ProviderRateLimitError):
+                run_pipeline(provider, snapshot, [_InvalidatingAction()])
+
+        mock_refresh.assert_called_once_with(provider, 1, actionable_check_names=None)
+
+    @pytest.mark.parametrize(
+        "refresh_error",
+        [
+            RuntimeError("refresh failed"),
+            ProviderRateLimitError(provider="github", credential_identity="SPECKIT_PR_TOKEN"),
+        ],
+    )
+    def test_rate_limit_from_invalidating_action_persists_blocker_before_refresh_failure(
+        self, refresh_error: Exception
+    ) -> None:
+        """A rate-limited mutation persists its trusted baseline before refresh can fail."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="pre-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        class _InvalidatingAction:
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                error = ProviderRateLimitError(provider="github", credential_identity="SPECKIT_PR_TOKEN")
+                setattr(error, "invalidates_snapshot", True)
+                setattr(error, "preserves_diff_fingerprint", True)
+                raise error
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            side_effect=refresh_error,
+        ) as mock_refresh:
+            with pytest.raises(ProviderRateLimitError):
+                run_pipeline(provider, snapshot, [_InvalidatingAction()])
+
+        mock_refresh.assert_called_once_with(provider, 1, actionable_check_names=None)
+        provider.post_comment_as_pr_token.assert_called_once()
+        persisted_marker = provider.post_comment_as_pr_token.call_args.args[1]
+        encoded_payload = persisted_marker.removeprefix("<!-- agdt:diff-preservation-blocker:").removesuffix(" -->")
+        persisted_payload = json.loads(zlib.decompress(base64.urlsafe_b64decode(encoded_payload + "==")))
+        assert persisted_payload["baseline_head"] == "oldsha"
+        assert persisted_payload["baseline_files"] == ["fix.py"]
+        assert persisted_payload["baseline_hash"] == "pre-hash"
+        assert persisted_payload["baseline_hash_available"] is True
+        assert persisted_payload["fingerprint_supported"] is True
+
+    def test_rate_limit_from_intentional_noop_does_not_persist_blocker(self) -> None:
+        """Intentional no-op invalidations stay exempt from persisted blockers on rate limits."""
+        provider = MagicMock()
+        provider.get_pr_metadata.side_effect = [
+            MagicMock(head_sha="oldsha"),
+            MagicMock(head_sha="oldsha"),
+            MagicMock(head_sha="oldsha"),
+        ]
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main")
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", base_branch="main", files=[])
+
+        class _NoOpAction:
+            may_invalidate_snapshot = True
+
+            @property
+            def name(self):
+                return "squash"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="squash", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                error = ProviderRateLimitError(provider="github", credential_identity="SPECKIT_PR_TOKEN")
+                setattr(error, "invalidates_snapshot", True)
+                setattr(error, "intentional_noop", True)
+                raise error
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ) as mock_refresh:
+            with pytest.raises(ProviderRateLimitError):
+                run_pipeline(provider, snapshot, [_NoOpAction()])
+
+        mock_refresh.assert_called_once_with(provider, 1, actionable_check_names=None)
+        assert provider.post_comment_as_pr_token.call_count == 2
+        persisted_marker = provider.post_comment_as_pr_token.call_args.args[1]
+        encoded_payload = persisted_marker.removeprefix("<!-- agdt:diff-preservation-blocker:").removesuffix(" -->")
+        persisted_payload = json.loads(zlib.decompress(base64.urlsafe_b64decode(encoded_payload + "==")))
+        assert persisted_payload["intentional_noop"] is True
+
+    def test_skips_oversized_diff_preservation_blocker(self) -> None:
+        """An unpostable blocker is skipped instead of exceeding GitHub's comment limit."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+            files=[f"file-{index}-" + hashlib.sha256(str(index).encode()).hexdigest() * 8 for index in range(2000)],
+        )
+
+        class _InvalidatingAction:
+            name = "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name=self.name,
+                    decision=ActionDecision.FAILED,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            side_effect=RuntimeError("refresh failed"),
+        ):
+            run_pipeline(provider, snapshot, [_InvalidatingAction()])
+
+        provider.post_comment_as_pr_token.assert_not_called()
+
+    @pytest.mark.parametrize("downstream_action_name", ["request_review", "approve", "merge"])
+    def test_post_mutation_empty_diff_blocks_opt_in_actions(self, downstream_action_name: str) -> None:
+        """A mutation that drops the PR diff blocks every downstream opt-in gate."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main", files=["fix.py"])
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", base_branch="main", files=[])
+
+        class _InvalidatingAction:
+            name = "rebase"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE, invalidates_snapshot=True)
+
+        class _ReviewAction:
+            name = downstream_action_name
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                raise AssertionError("empty diff must be blocked before evaluation")
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("empty diff must not be executed")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(provider, snapshot, [_InvalidatingAction(), _ReviewAction()])
+
+        assert summary.results[1].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "oldsha" in summary.results[1].details
+        assert "newsha" in summary.results[1].details
+        assert "fix.py" in summary.results[1].details
+
+    def test_post_mutation_fingerprint_change_blocks_tree_preserving_actions(self) -> None:
+        """Tree-preserving invalidations must keep the patch fingerprint stable."""
+        provider = MagicMock()
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="old-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="new-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        class _InvalidatingAction:
+            name = "rebase"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name=self.name,
+                    decision=ActionDecision.EXECUTE,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        class _ReviewAction:
+            name = "request_review"
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                raise AssertionError("fingerprint drift must be blocked before evaluation")
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("fingerprint drift must not be executed")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(provider, snapshot, [_InvalidatingAction(), _ReviewAction()])
+
+        assert summary.results[1].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "fingerprint changed" in summary.results[1].details
+
+    def test_post_mutation_fingerprint_change_after_apply_suggestions_allows_opt_in_actions(self) -> None:
+        """Patch-changing actions should still be checked for empty/missing files only."""
+        provider = MagicMock()
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="old-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="new-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        seen_heads: list[str] = []
+
+        class _InvalidatingAction:
+            name = "apply_suggestions"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE, invalidates_snapshot=True)
+
+        class _ReviewAction:
+            name = "request_review"
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                seen_heads.append(snapshot.head_sha)
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(provider, snapshot, [_InvalidatingAction(), _ReviewAction()])
+
+        assert seen_heads == ["newsha"]
+        assert summary.results[1].decision == ActionDecision.EXECUTE
+
+    def test_post_mutation_file_removal_after_apply_suggestions_blocks_opt_in_actions(self) -> None:
+        """Patch-changing actions cannot remove baseline files without explicit confirmation."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+            files=["fix.py", "keep.py"],
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            base_branch="main",
+            files=["fix.py"],
+        )
+
+        class _InvalidatingAction:
+            name = "apply_suggestions"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE, invalidates_snapshot=True)
+
+        class _ReviewAction:
+            name = "request_review"
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                raise AssertionError("file removal must be blocked before evaluation")
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("file removal must not be executed")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(provider, snapshot, [_InvalidatingAction(), _ReviewAction()])
+
+        assert summary.results[1].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "missing files=keep.py" in summary.results[1].details
+
+    def test_post_mutation_explicit_file_removal_authorization_allows_opt_in_actions(self) -> None:
+        """An action may explicitly confirm that removing a baseline file is intentional."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main", files=["fix.py", "remove.py"])
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", base_branch="main", files=["fix.py"])
+
+        class _InvalidatingAction:
+            name = "apply_suggestions"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name=self.name,
+                    decision=ActionDecision.EXECUTE,
+                    invalidates_snapshot=True,
+                    allows_file_removal=True,
+                )
+
+        class _ReviewAction:
+            name = "request_review"
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(provider, snapshot, [_InvalidatingAction(), _ReviewAction()])
+
+        assert summary.results[1].decision == ActionDecision.EXECUTE
+        assert provider.post_comment_as_pr_token.call_args_list[-1] == call(
+            1,
+            _diff_preservation_blocker_comment(
+                {
+                    "baseline_head": "oldsha",
+                    "baseline_files": ["fix.py", "remove.py"],
+                    "baseline_hash": "",
+                    "baseline_hash_available": False,
+                    "fingerprint_supported": False,
+                    "allow_file_removal": True,
+                    "allowed_removed_files": [],
+                    "intentional_noop": False,
+                }
+            ),
+        )
+
+    def test_post_mutation_empty_to_empty_diff_without_explicit_noop_blocks_opt_in_actions(self) -> None:
+        """Invalidations do not infer intentional no-op from empty diffs alone."""
+        provider = MagicMock()
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+            files=[],
+            diff_hash="",
+            diff_hash_supported=False,
+            diff_hash_available=False,
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            base_branch="main",
+            files=[],
+            diff_hash="",
+            diff_hash_supported=False,
+            diff_hash_available=False,
+        )
+
+        class _InvalidatingAction:
+            name = "apply_suggestions"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE, invalidates_snapshot=True)
+
+        class _ReviewAction:
+            name = "request_review"
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                raise AssertionError("implicit empty-to-empty diffs must be blocked before evaluation")
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("implicit empty-to-empty diffs must not be executed")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(provider, snapshot, [_InvalidatingAction(), _ReviewAction()])
+
+        assert summary.results[1].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "explicit no-op intent" in summary.results[1].details
+
+    def test_post_mutation_unsupported_fingerprint_does_not_block_when_files_preserved(self) -> None:
+        """Fingerprint checks require both action opt-in and provider fingerprint support."""
+        provider = MagicMock()
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="",
+            diff_hash_supported=False,
+            diff_hash_available=False,
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="",
+            diff_hash_supported=False,
+            diff_hash_available=False,
+        )
+
+        class _InvalidatingAction:
+            name = "squash"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name=self.name,
+                    decision=ActionDecision.EXECUTE,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        class _ReviewAction:
+            name = "request_review"
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.SKIP)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("request_review should not execute for SKIP result")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(provider, snapshot, [_InvalidatingAction(), _ReviewAction()])
+
+        assert summary.results[1].decision == ActionDecision.SKIP
+
+    def test_recent_conflict_repair_marker_with_changed_fingerprint_blocks_pipeline(self) -> None:
+        """A repaired head must preserve the pre-repair fingerprint from the dispatch marker."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.return_value = "old-hash"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="new-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        actions = [_MockAction("guards", ActionDecision.SKIP)]
+
+        summary = run_pipeline(provider, snapshot, actions)
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "pre-repair HEAD=def456" in summary.results[0].details
+        assert "post-repair HEAD=feedbeef" in summary.results[0].details
+        assert "fingerprint changed" in summary.results[0].details
+
+    def test_persisted_diff_preservation_blocker_blocks_pipeline_until_diff_restored(self) -> None:
+        """A persisted blocker must re-block later runs while the degraded diff remains."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py", "keep.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                        "allow_file_removal": False,
+                        "allowed_removed_files": [],
+                        "intentional_noop": False,
+                    }
+                ),
+            )
+        ]
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["keep.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "persisted post-mutation diff validation blocked" in summary.results[0].details
+        assert "missing files=fix.py" in summary.results[0].details
+
+    def test_valid_persisted_diff_preservation_blocker_is_cleared_after_run(self) -> None:
+        """A restored diff clears the persisted blocker once the live HEAD is verified."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                        "allow_file_removal": False,
+                        "allowed_removed_files": [],
+                        "intentional_noop": False,
+                    }
+                ),
+            )
+        ]
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        provider.post_comment_as_pr_token.assert_called_once_with(
+            1,
+            "<!-- agdt:diff-preservation-blocker-cleared:feedbeef -->",
+        )
+
+    def test_definitive_no_mutation_clears_blocker_after_concurrent_push(self) -> None:
+        """A rejected mutation does not block a later concurrent HEAD."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = []
+        provider.get_pr_metadata.side_effect = [
+            MagicMock(head_sha="feedbeef"),
+            MagicMock(head_sha="concurrent"),
+        ]
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        action = _MockAction(
+            "rebase",
+            ActionDecision.EXECUTE,
+            ActionDecision.FAILED,
+            definitive_no_mutation=True,
+            may_invalidate_snapshot=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [action])
+
+        assert summary.results[0].decision == ActionDecision.FAILED
+        assert provider.post_comment_as_pr_token.call_args_list[1].args == (
+            1,
+            "<!-- agdt:diff-preservation-blocker-cleared:concurrent -->",
+        )
+
+    def test_pending_persisted_conflict_repair_blocker_is_not_cleared(self) -> None:
+        """A conflict-repair blocker remains armed while the repair agent has not pushed."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "feedbeef",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                        "allow_file_removal": False,
+                        "intentional_noop": False,
+                        "conflict_repair": True,
+                    }
+                ),
+            )
+        ]
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        provider.post_comment_as_pr_token.assert_not_called()
+
+    def test_valid_persisted_diff_preservation_blocker_recomputes_missing_baseline_hash(self) -> None:
+        """A persisted blocker can recover once the baseline fingerprint becomes available again."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "",
+                        "baseline_hash_available": False,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.compute_diff_hash.return_value = "same-hash"
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        provider.compute_diff_hash.assert_called_once_with(base_branch="main", sha="prehead")
+        provider.post_comment_as_pr_token.assert_called_once_with(
+            1,
+            "<!-- agdt:diff-preservation-blocker-cleared:feedbeef -->",
+        )
+
+    def test_valid_persisted_diff_preservation_blocker_without_hash_lookup_stays_blocked(self) -> None:
+        """Without hash lookup capability, a missing persisted baseline fingerprint still fails closed."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "",
+                        "baseline_hash_available": False,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.compute_diff_hash = None
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "fingerprint unavailable" in summary.results[0].details
+
+    def test_valid_persisted_diff_preservation_blocker_logs_empty_recomputed_hash(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """An empty recomputed persisted baseline fingerprint remains unavailable and is logged."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "",
+                        "baseline_hash_available": False,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.compute_diff_hash.return_value = ""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "fingerprint unavailable" in summary.results[0].details
+        assert "Ignoring empty persisted baseline fingerprint" in caplog.text
+
+    def test_valid_persisted_diff_preservation_blocker_with_non_string_recomputed_hash_stays_blocked(self) -> None:
+        """A non-string recomputed persisted baseline fingerprint is treated as unavailable."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "",
+                        "baseline_hash_available": False,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.compute_diff_hash.return_value = None
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "fingerprint unavailable" in summary.results[0].details
+
+    def test_valid_persisted_diff_preservation_blocker_logs_recompute_failure(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A persisted baseline hash lookup failure logs and remains fail-closed."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "",
+                        "baseline_hash_available": False,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.compute_diff_hash.side_effect = RuntimeError("git failure")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "fingerprint unavailable" in summary.results[0].details
+        assert "Failed to recompute persisted baseline fingerprint" in caplog.text
+
+    def test_valid_persisted_diff_preservation_blocker_reraises_rate_limit_during_recompute(self) -> None:
+        """Rate limits while recomputing a persisted baseline fingerprint must propagate."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "",
+                        "baseline_hash_available": False,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.compute_diff_hash.side_effect = ProviderRateLimitError(
+            provider="github",
+            credential_identity="SPECKIT_PR_TOKEN",
+        )
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        with pytest.raises(ProviderRateLimitError):
+            run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+    def test_valid_persisted_diff_preservation_blocker_logs_when_clear_fails(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A non-rate-limit clear failure logs and leaves the run otherwise successful."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        provider.post_comment_as_pr_token.side_effect = RuntimeError("comment failed")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        assert "Failed to clear diff-preservation blocker" in caplog.text
+
+    def test_valid_persisted_diff_preservation_blocker_reraises_rate_limit_during_clear(self) -> None:
+        """Rate limits while clearing a blocker must propagate."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        provider.post_comment_as_pr_token.side_effect = ProviderRateLimitError(
+            provider="github",
+            credential_identity="SPECKIT_PR_TOKEN",
+        )
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        with pytest.raises(ProviderRateLimitError):
+            run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+    def test_valid_persisted_diff_preservation_blocker_skips_clear_when_live_head_missing(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A missing live HEAD must skip clearing the blocker."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.get_pr_metadata.return_value.head_sha = ""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        provider.post_comment_as_pr_token.assert_not_called()
+        assert "live HEAD could not be confirmed" in caplog.text
+
+    def test_valid_persisted_diff_preservation_blocker_skips_clear_for_stale_head(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A stale live HEAD must not clear a blocker for another commit."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.get_pr_metadata.return_value.head_sha = "otherhead"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        provider.post_comment_as_pr_token.assert_not_called()
+        assert "Skipping diff-preservation blocker clear for stale HEAD" in caplog.text
+
+    def test_valid_persisted_diff_preservation_blocker_logs_when_live_head_lookup_fails(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A non-rate-limit live HEAD lookup failure logs and skips clearing."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.get_pr_metadata.side_effect = RuntimeError("metadata failed")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        provider.post_comment_as_pr_token.assert_not_called()
+        assert "Failed to verify live HEAD before clearing diff-preservation blocker" in caplog.text
+
+    def test_valid_persisted_diff_preservation_blocker_reraises_rate_limit_during_live_head_lookup(self) -> None:
+        """Rate limits while verifying live HEAD for blocker clearing must propagate."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "prehead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                    }
+                ),
+            )
+        ]
+        provider.get_pr_metadata.side_effect = ProviderRateLimitError(
+            provider="github",
+            credential_identity="SPECKIT_PR_TOKEN",
+        )
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        with pytest.raises(ProviderRateLimitError):
+            run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+    def test_recent_conflict_repair_marker_reports_missing_baseline_files(self) -> None:
+        """Cross-run validation should report dropped files from pre-repair file inventory."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash = None
+        provider.compute_diff_files.return_value = ["fix.py", "keep.py"]
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["keep.py"],
+            diff_hash="",
+            diff_hash_supported=False,
+            diff_hash_available=False,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "missing files=fix.py" in summary.results[0].details
+        assert "<pre-repair-diff>" not in summary.results[0].details
+
+    def test_recent_conflict_repair_marker_without_file_inventory_capability_blocks_without_fingerprint(self) -> None:
+        """Providers without a trusted baseline inventory fail closed when fingerprinting is unavailable."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash = None
+        provider.compute_diff_files = None
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="",
+            diff_hash_supported=False,
+            diff_hash_available=False,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "pre-repair file inventory unavailable" in summary.results[0].details
+        assert "changed-file count=1" in summary.results[0].details
+        assert "missing files=<unavailable>" in summary.results[0].details
+
+    def test_recent_conflict_repair_marker_without_file_inventory_capability_uses_hash_fallback(self) -> None:
+        """Live files are only an acceptable fallback when matching fingerprints authenticate the diff."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.return_value = "same-hash"
+        provider.compute_diff_files = None
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+
+    def test_recent_conflict_repair_marker_file_inventory_failure_logs_and_blocks_without_fingerprint(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """A non-rate-limit file-inventory failure logs and fails closed without fingerprint data."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash = None
+        provider.compute_diff_files.side_effect = RuntimeError("inventory failed")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="",
+            diff_hash_supported=False,
+            diff_hash_available=False,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "pre-repair file inventory unavailable" in summary.results[0].details
+        assert "Failed to compute pre-repair file inventory" in caplog.text
+
+    def test_recent_conflict_repair_marker_file_inventory_rate_limit_is_reraised(self) -> None:
+        """Rate limits while loading pre-repair file inventory must propagate."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash = None
+        provider.compute_diff_files.side_effect = ProviderRateLimitError(
+            provider="github",
+            credential_identity="SPECKIT_PR_TOKEN",
+        )
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="",
+            diff_hash_supported=False,
+            diff_hash_available=False,
+        )
+
+        with pytest.raises(ProviderRateLimitError):
+            run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+    def test_recent_conflict_repair_marker_with_matching_fingerprint_allows_pipeline(self) -> None:
+        """Cross-run validation should allow downstream actions when fingerprint matches."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.return_value = "same-hash"
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        provider.post_comment_as_pr_token.assert_called_once_with(
+            1,
+            "<!-- agdt:conflict-repair-validated:feedbeef -->",
+        )
+
+    def test_newer_validated_marker_for_different_head_consumes_dispatch(self) -> None:
+        """A newer validation marker consumes the older dispatch by comment ordering."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=10,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:deadbeef:{marker_time} -->",
+            ),
+            IssueCommentInfo(
+                id=11,
+                author="trusted-bot",
+                body="<!-- agdt:conflict-repair-validated:abcdef12 -->",
+            ),
+        ]
+
+        assert _find_recent_conflict_repair_head(provider, 1, "12345678") == ""
+
+    def test_recent_conflict_repair_marker_without_fingerprint_support_blocks_without_inventory(self) -> None:
+        """Without fingerprinting, recent repairs need a recovered pre-repair file inventory."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash = None
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="",
+            diff_hash_supported=False,
+            diff_hash_available=False,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "pre-repair file inventory unavailable" in summary.results[0].details
+
+    def test_cross_run_validation_logs_and_continues_when_validation_marker_persistence_fails(self) -> None:
+        """A persistence failure should not bypass validation or fail a valid repaired head."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.find_comment.side_effect = [
+            None,
+            (1, f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->"),
+            None,
+        ]
+        provider.compute_diff_hash.return_value = "same-hash"
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        provider.post_comment_as_pr_token.side_effect = RuntimeError("comment failed")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+
+    def test_cross_run_validation_reraises_rate_limit_during_validation_marker_persistence(self) -> None:
+        """Rate limits while persisting the consumed baseline must propagate."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.return_value = "same-hash"
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        provider.post_comment_as_pr_token.side_effect = ProviderRateLimitError(
+            provider="github",
+            credential_identity="SPECKIT_PR_TOKEN",
+        )
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        with pytest.raises(ProviderRateLimitError):
+            run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+    def test_recent_conflict_repair_marker_with_unavailable_pre_hash_blocks_pipeline(self) -> None:
+        """A capable provider returning None for the baseline fingerprint fails closed."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.return_value = None
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="",
+            diff_hash_supported=True,
+            diff_hash_available=False,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "pre-repair file inventory unavailable" in summary.results[0].details
+
+    def test_recent_conflict_repair_marker_with_empty_pre_hash_blocks_pipeline(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """An empty baseline fingerprint string is treated as unavailable and logged."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.return_value = ""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="current-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "pre-repair file inventory unavailable" in summary.results[0].details
+        assert "Ignoring empty pre-repair fingerprint" in caplog.text
+
+    def test_cross_run_validation_persists_the_final_verified_head(self) -> None:
+        """A validated repair marker is recorded only after the final refreshed HEAD is verified."""
+        provider = MagicMock()
+        provider.get_pr_metadata.side_effect = [
+            MagicMock(head_sha="feedbeef"),
+            MagicMock(head_sha="finalhead"),
+            MagicMock(head_sha="finalhead"),
+        ]
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.return_value = "same-hash"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="finalhead",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        class _InvalidatingAction:
+            name = "squash"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name=self.name,
+                    decision=ActionDecision.EXECUTE,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        class _ReviewAction:
+            name = "request_review"
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.SKIP)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("request_review should not execute for SKIP result")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            provider.get_pr_metadata.return_value.head_sha = "finalhead"
+            summary = run_pipeline(provider, snapshot, [_InvalidatingAction(), _ReviewAction()])
+
+        assert summary.results[1].decision == ActionDecision.SKIP
+        assert provider.post_comment_as_pr_token.call_args_list == [
+            call(
+                1,
+                _diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "feedbeef",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                        "allow_file_removal": False,
+                        "allowed_removed_files": [],
+                        "intentional_noop": False,
+                    }
+                ),
+            ),
+            call(1, "<!-- agdt:conflict-repair-validated:finalhead -->"),
+            call(1, "<!-- agdt:diff-preservation-blocker-cleared:finalhead -->"),
+        ]
+
+    def test_cross_run_validation_does_not_persist_when_later_refresh_fails(self) -> None:
+        """A later invalidation without a verified refreshed HEAD must not consume the baseline."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.return_value = "same-hash"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        class _InvalidatingAction:
+            name = "rebase"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE, invalidates_snapshot=True)
+
+        class _OptInAction:
+            name = "request_review"
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("request_review should not execute when refresh fails")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            side_effect=RuntimeError("refresh failed"),
+        ):
+            summary = run_pipeline(provider, snapshot, [_InvalidatingAction(), _OptInAction()])
+
+        assert summary.results[1].decision == ActionDecision.FAILED
+        provider.post_comment_as_pr_token.assert_called_once_with(
+            1,
+            _diff_preservation_blocker_comment(
+                {
+                    "baseline_head": "feedbeef",
+                    "baseline_files": ["fix.py"],
+                    "baseline_hash": "same-hash",
+                    "baseline_hash_available": True,
+                    "fingerprint_supported": False,
+                    "allow_file_removal": False,
+                    "allowed_removed_files": [],
+                    "intentional_noop": False,
+                }
+            ),
+        )
+
+    def test_cross_run_validation_does_not_persist_after_new_repair_dispatch(self) -> None:
+        """A newly dispatched repair must keep the older validated baseline unconsumed."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.return_value = "same-hash"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        class _DispatchConflictResolutionAction:
+            name = "dispatch_conflict_resolution"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                derived.set("repair_dispatched", True)
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+        summary = run_pipeline(provider, snapshot, [_DispatchConflictResolutionAction()])
+
+        assert summary.results[0].decision == ActionDecision.EXECUTE
+        provider.post_comment_as_pr_token.assert_called_once()
+        encoded_payload = (
+            provider.post_comment_as_pr_token.call_args.args[1]
+            .removeprefix("<!-- agdt:diff-preservation-blocker:")
+            .removesuffix(" -->")
+        )
+        persisted_payload = json.loads(zlib.decompress(base64.urlsafe_b64decode(encoded_payload + "==")))
+        assert persisted_payload["conflict_repair"] is True
+
+    def test_conflict_repair_dispatch_persists_pre_dispatch_baseline(self) -> None:
+        """A conflict-repair dispatch records the exact diff before handing off the PR."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        provider.list_issue_comments.return_value = []
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        class _DispatchConflictResolutionAction:
+            name = "dispatch_conflict_resolution"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+        summary = run_pipeline(provider, snapshot, [_DispatchConflictResolutionAction()])
+
+        assert summary.results[0].decision == ActionDecision.EXECUTE
+        provider.post_comment_as_pr_token.assert_called_once()
+        encoded_payload = (
+            provider.post_comment_as_pr_token.call_args.args[1]
+            .removeprefix("<!-- agdt:diff-preservation-blocker:")
+            .removesuffix(" -->")
+        )
+        persisted_payload = json.loads(zlib.decompress(base64.urlsafe_b64decode(encoded_payload + "==")))
+        assert persisted_payload == {
+            "baseline_files": ["fix.py"],
+            "baseline_hash": "same-hash",
+            "baseline_hash_available": True,
+            "baseline_head": "feedbeef",
+            "conflict_repair": True,
+            "fingerprint_supported": True,
+            "intentional_noop": False,
+            "allow_file_removal": False,
+            "allowed_removed_files": [],
+        }
+
+    def test_persisted_conflict_repair_baseline_blocks_dropped_diff(self) -> None:
+        """A dropped file is blocked from downstream actions without refetching the old HEAD."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "oldhead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                        "allow_file_removal": False,
+                        "intentional_noop": False,
+                        "conflict_repair": True,
+                    }
+                ),
+            )
+        ]
+        provider.compute_diff_hash.side_effect = AssertionError("old HEAD should not be refetched")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newhead",
+            base_branch="main",
+            files=[],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("approve", ActionDecision.EXECUTE)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "missing files=fix.py" in summary.results[0].details
+        provider.compute_diff_hash.assert_not_called()
+
+    def test_persisted_conflict_repair_baseline_allows_preserved_diff(self) -> None:
+        """A preserved diff consumes its stored baseline without refetching the old HEAD."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.get_pr_metadata.return_value.head_sha = "newhead"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "oldhead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                        "allow_file_removal": False,
+                        "intentional_noop": False,
+                        "conflict_repair": True,
+                    }
+                ),
+            )
+        ]
+        provider.compute_diff_hash.side_effect = AssertionError("old HEAD should not be refetched")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newhead",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("approve", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        assert provider.compute_diff_hash.call_count == 0
+        assert provider.post_comment_as_pr_token.call_args_list == [
+            call(1, "<!-- agdt:conflict-repair-validated:newhead -->"),
+            call(1, "<!-- agdt:diff-preservation-blocker-cleared:newhead -->"),
+        ]
+
+    def test_failed_conflict_repair_validation_persistence_keeps_blocker(self) -> None:
+        """A failed validation marker post keeps the cross-run blocker armed."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.get_pr_metadata.return_value.head_sha = "newhead"
+        provider.post_comment_as_pr_token.side_effect = RuntimeError("post failed")
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=_diff_preservation_blocker_comment(
+                    {
+                        "baseline_head": "oldhead",
+                        "baseline_files": ["fix.py"],
+                        "baseline_hash": "same-hash",
+                        "baseline_hash_available": True,
+                        "fingerprint_supported": True,
+                        "allow_file_removal": False,
+                        "intentional_noop": False,
+                        "conflict_repair": True,
+                    }
+                ),
+            )
+        ]
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newhead",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("approve", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        provider.post_comment_as_pr_token.assert_called_once_with(
+            1,
+            "<!-- agdt:conflict-repair-validated:newhead -->",
+        )
+
+    def test_conflict_repair_dispatch_requires_persisted_baseline(self) -> None:
+        """A dispatch is blocked when its pre-mutation baseline cannot be persisted."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        provider.get_pr_metadata.return_value.head_sha = ""
+        provider.list_issue_comments.return_value = []
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+        )
+
+        class _DispatchConflictResolutionAction:
+            name = "dispatch_conflict_resolution"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("dispatch must not run without a persisted baseline")
+
+        summary = run_pipeline(provider, snapshot, [_DispatchConflictResolutionAction()])
+
+        assert summary.results[0].decision == ActionDecision.FAILED
+        assert "pre-dispatch baseline" in summary.results[0].details
+
+    def test_recent_conflict_repair_marker_with_non_string_pre_hash_blocks_pipeline(self) -> None:
+        """A non-string pre-repair fingerprint is treated as unavailable and blocked."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.return_value = object()
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "pre-repair file inventory unavailable" in summary.results[0].details
+
+    def test_recent_conflict_repair_marker_with_pre_hash_lookup_error_blocks_pipeline(self) -> None:
+        """A failed pre-repair fingerprint lookup fails closed for recent conflict repairs."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.side_effect = RuntimeError("git failure")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "pre-repair file inventory unavailable" in summary.results[0].details
+
+    def test_recent_conflict_repair_marker_rate_limit_error_is_reraised(self) -> None:
+        """Rate limits during cross-run baseline hashing are propagated."""
+        provider = MagicMock()
+        marker_time = datetime.now(UTC).isoformat()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=1,
+                author="trusted-bot",
+                body=f"<!-- agdt:conflict-repair:abc123:def456:{marker_time} -->",
+            ),
+        ]
+        provider.compute_diff_hash.side_effect = ProviderRateLimitError(
+            provider="github",
+            credential_identity="SPECKIT_PR_TOKEN",
+            is_rate_limit=True,
+        )
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        with pytest.raises(ProviderRateLimitError):
+            run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+    def test_second_invalidation_uses_latest_pre_mutation_head_in_diagnostic(self) -> None:
+        """Diagnostics must use the head that existed right before the failing mutation."""
+        provider = MagicMock()
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="initial", base_branch="main", files=["fix.py"])
+        first_refresh = PRStateSnapshot(pr_number=1, head_sha="midsha", base_branch="main", files=["fix.py"])
+        second_refresh = PRStateSnapshot(pr_number=1, head_sha="finalsha", base_branch="main", files=[])
+
+        class _FirstInvalidatingAction:
+            name = "apply_suggestions"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE, invalidates_snapshot=True)
+
+        class _SecondInvalidatingOptInAction:
+            name = "dispatch_repair"
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(name=self.name, decision=ActionDecision.EXECUTE, invalidates_snapshot=True)
+
+        class _LaterOptInAction:
+            name = "request_review"
+            runs_after_invalidation = True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                raise AssertionError("guard should block before evaluate")
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("guard should block before execute")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            side_effect=[first_refresh, second_refresh],
+        ):
+            summary = run_pipeline(
+                provider,
+                snapshot,
+                [_FirstInvalidatingAction(), _SecondInvalidatingOptInAction(), _LaterOptInAction()],
+            )
+
+        assert summary.results[2].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "pre-mutation HEAD=midsha" in summary.results[2].details
+        assert "pre-mutation HEAD=initial" not in summary.results[2].details
+        assert "post-mutation HEAD=finalsha" in summary.results[2].details
+
     def test_runs_after_invalidation_actions_share_refreshed_derived_state(self) -> None:
         """All opt-in actions after invalidation share refreshed snapshot/derived state."""
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
-        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
         observed: list[str] = []
 
         class _InvalidatingAction:
@@ -517,7 +2730,12 @@ class TestRunPipeline:
                 return ActionResult(name="squash", decision=ActionDecision.EXECUTE)
 
             def execute(self, provider, snapshot, derived) -> ActionResult:
-                return ActionResult(name="squash", decision=ActionDecision.EXECUTE, invalidates_snapshot=True)
+                return ActionResult(
+                    name="squash",
+                    decision=ActionDecision.EXECUTE,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
 
         class _FirstOptInAction:
             @property
@@ -576,8 +2794,8 @@ class TestRunPipeline:
         from agentic_devtools.cli.ci.pipeline.exclusion import ExclusionContext
 
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
-        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha")
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", files=["fix.py"])
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", files=["fix.py"])
         exclusion_context = ExclusionContext(resolved_comment_ids={101, 102})
 
         class _InvalidatingAction:
@@ -678,8 +2896,8 @@ class TestRunPipeline:
     def test_runs_after_invalidation_preserves_autofix_applied_flag(self) -> None:
         """autofix_applied_this_iteration survives the post-invalidation refresh."""
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
-        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha")
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", files=["fix.py"])
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", files=["fix.py"])
         observed: list[object] = []
 
         class _InvalidatingAction:
@@ -725,8 +2943,22 @@ class TestRunPipeline:
     def test_runs_after_invalidation_without_autofix_flag_defaults_false(self) -> None:
         """The autofix flag is not fabricated when the invalidating action never set it."""
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
-        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
         observed: list[object] = []
 
         class _InvalidatingAction:
@@ -742,6 +2974,7 @@ class TestRunPipeline:
                     name="squash",
                     decision=ActionDecision.EXECUTE,
                     invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
                 )
 
         class _OptInAction:
@@ -771,8 +3004,23 @@ class TestRunPipeline:
     def test_runs_after_invalidation_preserves_squash_preserved_green(self) -> None:
         """squash_preserved_green is carried when refreshed head_sha matches the post-squash SHA."""
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
-        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", ci_status="pending")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            ci_status="pending",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
 
         class _InvalidatingAction:
             @property
@@ -789,6 +3037,7 @@ class TestRunPipeline:
                     name="squash",
                     decision=ActionDecision.EXECUTE,
                     invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
                 )
 
         class _OptInAction:
@@ -828,9 +3077,24 @@ class TestRunPipeline:
         RequestReviewAction fails closed and defers to fresh CI.
         """
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
         # A concurrent push moved the branch to "concurrentsha" — not the post-squash "squashedsha"
-        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="concurrentsha", ci_status="pending")
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="concurrentsha",
+            ci_status="pending",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
 
         class _InvalidatingAction:
             @property
@@ -847,6 +3111,7 @@ class TestRunPipeline:
                     name="squash",
                     decision=ActionDecision.EXECUTE,
                     invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
                 )
 
         class _OptInAction:
@@ -880,8 +3145,22 @@ class TestRunPipeline:
     def test_runs_after_invalidation_without_squash_flag_defaults_false(self) -> None:
         """When squash did not set the flag, it is not carried into the refreshed state."""
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
-        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
 
         class _InvalidatingAction:
             @property
@@ -896,6 +3175,7 @@ class TestRunPipeline:
                     name="squash",
                     decision=ActionDecision.EXECUTE,
                     invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
                 )
 
         class _OptInAction:
@@ -936,9 +3216,25 @@ class TestRunPipeline:
         the true post-resolution count rather than the stale pre-refresh override.
         """
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", unresolved_threads=7)
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            unresolved_threads=7,
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
         # Fresh query after resolution + squash: all threads are resolved.
-        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", unresolved_threads=0)
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            unresolved_threads=0,
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
         observed: list[int] = []
 
         class _ResolveThreadsAction:
@@ -963,7 +3259,12 @@ class TestRunPipeline:
                 return ActionResult(name="squash", decision=ActionDecision.EXECUTE)
 
             def execute(self, provider, snapshot, derived) -> ActionResult:
-                return ActionResult(name="squash", decision=ActionDecision.EXECUTE, invalidates_snapshot=True)
+                return ActionResult(
+                    name="squash",
+                    decision=ActionDecision.EXECUTE,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
 
         class _OptInAction:
             @property
@@ -1067,6 +3368,7 @@ class TestRunPipeline:
     def test_runs_after_invalidation_fails_when_snapshot_refresh_raises(self) -> None:
         """Refresh failures on opt-in actions fail closed and halt remaining actions."""
         provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
         snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
 
         class _InvalidatingAction:
@@ -1122,13 +3424,386 @@ class TestRunPipeline:
         assert "Failed to refresh snapshot" in summary.results[1].details
         assert summary.results[2].decision == ActionDecision.SKIP
         assert "halted" in summary.results[2].details.lower()
+        persisted_marker = provider.post_comment_as_pr_token.call_args.args[1]
+        assert persisted_marker.startswith("<!-- agdt:diff-preservation-blocker:")
+
+    def test_failed_invalidating_action_refreshes_immediately_and_blocks_dropped_diff(self) -> None:
+        """A failed mutating action still refreshes and validates the pushed HEAD."""
+        provider = MagicMock()
+        provider.get_pr_metadata.side_effect = [
+            MagicMock(head_sha="oldsha"),
+            MagicMock(head_sha="newsha"),
+        ]
+        provider.post_comment_as_pr_token.side_effect = [RuntimeError("comment failed"), None]
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+            files=["fix.py"],
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            base_branch="main",
+            files=[],
+        )
+
+        class _PartialFailureAction:
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name="publish",
+                    decision=ActionDecision.FAILED,
+                    details="publish_pr failed",
+                    error="publish failed",
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        class _LaterAction:
+            @property
+            def name(self):
+                return "merge"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                raise AssertionError("evaluate() should not run after invalid diff validation fails")
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("execute() should not run after invalid diff validation fails")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ) as mock_refresh:
+            summary = run_pipeline(provider, snapshot, [_PartialFailureAction(), _LaterAction()])
+
+        mock_refresh.assert_called_once_with(provider, 1, actionable_check_names=None)
+        assert summary.snapshot is refreshed_snapshot
+        assert summary.results[0].decision == ActionDecision.FAILED
+        assert summary.results[1].decision == ActionDecision.BLOCKED_BY_GUARD
+        assert "post-mutation diff validation blocked" in summary.results[1].details
+        assert provider.post_comment_as_pr_token.call_count == 1
+        persisted_marker = provider.post_comment_as_pr_token.call_args.args[1]
+        assert persisted_marker.startswith("<!-- agdt:diff-preservation-blocker:")
+
+    def test_intentional_noop_invalidation_refreshes_without_persisting_blocker(self) -> None:
+        """Explicit no-op invalidations refresh downstream state without arming a blocker."""
+        provider = MagicMock()
+        provider.get_pr_metadata.side_effect = [MagicMock(head_sha="oldsha"), MagicMock(head_sha="newsha")]
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+        )
+        refreshed_snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="newsha",
+            base_branch="main",
+            files=[],
+        )
+
+        class _NoOpAction:
+            may_invalidate_snapshot = True
+
+            @property
+            def name(self):
+                return "squash"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="squash", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name="squash",
+                    decision=ActionDecision.EXECUTE,
+                    invalidates_snapshot=True,
+                    intentional_noop=True,
+                )
+
+        class _OptInAction:
+            @property
+            def name(self):
+                return "request_review"
+
+            @property
+            def runs_after_invalidation(self):
+                return True
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                assert snapshot is refreshed_snapshot
+                return ActionResult(name="request_review", decision=ActionDecision.SKIP)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("request_review should not execute for SKIP result")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ) as mock_refresh:
+            summary = run_pipeline(provider, snapshot, [_NoOpAction(), _OptInAction()])
+
+        mock_refresh.assert_called_once_with(provider, 1, actionable_check_names=None)
+        assert summary.results[0].decision == ActionDecision.EXECUTE
+        assert summary.results[1].decision == ActionDecision.SKIP
+        assert provider.post_comment_as_pr_token.call_count == 2
+        marker = provider.post_comment_as_pr_token.call_args.args[1]
+        assert marker.startswith("<!-- agdt:diff-preservation-blocker:")
+        payload = json.loads(
+            zlib.decompress(
+                base64.urlsafe_b64decode(
+                    marker.removeprefix("<!-- agdt:diff-preservation-blocker:").removesuffix(" -->") + "==="
+                )
+            )
+        )
+        assert payload["intentional_noop"] is True
+
+    def test_mutating_action_is_skipped_when_blocker_persistence_fails(self, caplog: pytest.LogCaptureFixture) -> None:
+        """A mutating action does not execute when its baseline cannot be persisted."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
+        provider.post_comment_as_pr_token.side_effect = RuntimeError("comment failed")
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main", files=["fix.py"])
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", base_branch="main", files=[])
+
+        class _PartialFailureAction:
+            may_invalidate_snapshot = True
+            preserves_diff_fingerprint = True
+
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                raise AssertionError("execute() must not run when baseline persistence fails")
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(
+                provider, snapshot, [_PartialFailureAction(), _MockAction("merge", ActionDecision.EXECUTE)]
+            )
+
+        assert summary.results[0].decision == ActionDecision.FAILED
+        assert summary.results[1].decision == ActionDecision.SKIP
+        assert "Failed to persist diff-preservation blocker" in caplog.text
+
+    def test_failed_invalidating_action_reraises_rate_limit_during_blocker_persistence(self) -> None:
+        """Rate limits while persisting a blocker must propagate."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
+        provider.post_comment_as_pr_token.side_effect = ProviderRateLimitError(
+            provider="github",
+            credential_identity="SPECKIT_PR_TOKEN",
+        )
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main", files=["fix.py"])
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", base_branch="main", files=[])
+
+        class _PartialFailureAction:
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name="publish",
+                    decision=ActionDecision.FAILED,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            with pytest.raises(ProviderRateLimitError):
+                run_pipeline(provider, snapshot, [_PartialFailureAction()])
+
+    def test_failed_invalidating_action_skips_blocker_persistence_when_live_head_missing(self) -> None:
+        """A missing live HEAD no longer prevents blocker persistence."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = ""
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main", files=["fix.py"])
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", base_branch="main", files=[])
+
+        class _PartialFailureAction:
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name="publish",
+                    decision=ActionDecision.FAILED,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(
+                provider, snapshot, [_PartialFailureAction(), _MockAction("merge", ActionDecision.EXECUTE)]
+            )
+
+        assert summary.results[1].decision == ActionDecision.BLOCKED_BY_GUARD
+        provider.post_comment_as_pr_token.assert_not_called()
+
+    def test_failed_invalidating_action_skips_blocker_persistence_for_stale_head(self) -> None:
+        """A stale live HEAD no longer prevents persisting the trusted baseline."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "otherhead"
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main", files=["fix.py"])
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", base_branch="main", files=[])
+
+        class _PartialFailureAction:
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name="publish",
+                    decision=ActionDecision.FAILED,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(
+                provider, snapshot, [_PartialFailureAction(), _MockAction("merge", ActionDecision.EXECUTE)]
+            )
+
+        assert summary.results[1].decision == ActionDecision.BLOCKED_BY_GUARD
+        provider.post_comment_as_pr_token.assert_not_called()
+
+    def test_failed_invalidating_action_logs_when_live_head_lookup_fails(self) -> None:
+        """A live HEAD lookup failure prevents blocker persistence."""
+        provider = MagicMock()
+        provider.get_pr_metadata.side_effect = RuntimeError("metadata failed")
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main", files=["fix.py"])
+        refreshed_snapshot = PRStateSnapshot(pr_number=1, head_sha="newsha", base_branch="main", files=[])
+
+        class _PartialFailureAction:
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name="publish",
+                    decision=ActionDecision.FAILED,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            return_value=refreshed_snapshot,
+        ):
+            summary = run_pipeline(
+                provider, snapshot, [_PartialFailureAction(), _MockAction("merge", ActionDecision.EXECUTE)]
+            )
+
+        assert summary.results[1].decision == ActionDecision.BLOCKED_BY_GUARD
+        provider.post_comment_as_pr_token.assert_not_called()
+
+    def test_failed_invalidating_action_reraises_rate_limit_during_live_head_lookup(self) -> None:
+        """A rate limit during live HEAD lookup prevents blocker persistence."""
+        provider = MagicMock()
+        provider.get_pr_metadata.side_effect = ProviderRateLimitError(
+            provider="github",
+            credential_identity="SPECKIT_PR_TOKEN",
+        )
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main", files=["fix.py"])
+
+        class _PartialFailureAction:
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name="publish",
+                    decision=ActionDecision.FAILED,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        with pytest.raises(ProviderRateLimitError):
+            run_pipeline(provider, snapshot, [_PartialFailureAction()])
+
+        provider.get_pr_metadata.assert_called_once_with(1)
+        provider.post_comment_as_pr_token.assert_not_called()
+
+    def test_failed_invalidating_action_surfaces_refresh_failure_on_result(self) -> None:
+        """A failed mutating action reports snapshot refresh failures on the same result."""
+        provider = MagicMock()
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", base_branch="main", files=["fix.py"])
+
+        class _PartialFailureAction:
+            @property
+            def name(self):
+                return "squash"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="squash", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                return ActionResult(
+                    name="squash",
+                    decision=ActionDecision.FAILED,
+                    details="squash_post_repair failed",
+                    error="squash failed",
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            side_effect=RuntimeError("refresh failed"),
+        ) as mock_refresh:
+            summary = run_pipeline(provider, snapshot, [_PartialFailureAction()])
+
+        mock_refresh.assert_called_once_with(provider, 1, actionable_check_names=None)
+        assert summary.results[0].decision == ActionDecision.FAILED
+        assert "failed to refresh snapshot after potential partial mutation" in summary.results[0].details
+        assert "refresh failed: refresh failed" in summary.results[0].error
 
     def test_second_invalidation_re_arms_the_snapshot_refresh(self) -> None:
         """A second invalidation refreshes again so no action sees a pre-invalidation snapshot."""
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
-        first_refresh = PRStateSnapshot(pr_number=1, head_sha="sha_after_first")
-        second_refresh = PRStateSnapshot(pr_number=1, head_sha="sha_after_second")
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", files=["fix.py"])
+        first_refresh = PRStateSnapshot(pr_number=1, head_sha="sha_after_first", files=["fix.py"])
+        second_refresh = PRStateSnapshot(pr_number=1, head_sha="sha_after_second", files=["fix.py"])
         observed: list[str] = []
 
         class _FirstInvalidatingAction:
@@ -1207,8 +3882,8 @@ class TestRunPipeline:
     def test_second_invalidation_halts_later_non_opt_in_actions(self) -> None:
         """After a second invalidation, non-opt-in actions are halted naming the newest invalidator."""
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha")
-        refreshed = PRStateSnapshot(pr_number=1, head_sha="newsha")
+        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", files=["fix.py"])
+        refreshed = PRStateSnapshot(pr_number=1, head_sha="newsha", files=["fix.py"])
 
         class _FirstInvalidatingAction:
             @property
@@ -1271,9 +3946,33 @@ class TestRunPipeline:
     def test_second_invalidation_drops_squash_preserved_green(self) -> None:
         """The squash green-CI shortcut is not carried across a re-armed second refresh."""
         provider = MagicMock()
-        snapshot = PRStateSnapshot(pr_number=1, head_sha="oldsha", ci_status="passing")
-        first_refresh = PRStateSnapshot(pr_number=1, head_sha="squashedsha", ci_status="pending")
-        second_refresh = PRStateSnapshot(pr_number=1, head_sha="repairedsha", ci_status="pending")
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            ci_status="passing",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        first_refresh = PRStateSnapshot(
+            pr_number=1,
+            head_sha="squashedsha",
+            ci_status="pending",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+        second_refresh = PRStateSnapshot(
+            pr_number=1,
+            head_sha="repairedsha",
+            ci_status="pending",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
         observed_flags: list[bool] = []
 
         class _SquashAction:
@@ -1287,7 +3986,12 @@ class TestRunPipeline:
             def execute(self, provider, snapshot, derived) -> ActionResult:
                 derived.set("squash_preserved_green", True)
                 derived.set("squash_preserved_green_sha", "squashedsha")
-                return ActionResult(name="squash", decision=ActionDecision.EXECUTE, invalidates_snapshot=True)
+                return ActionResult(
+                    name="squash",
+                    decision=ActionDecision.EXECUTE,
+                    invalidates_snapshot=True,
+                    preserves_diff_fingerprint=True,
+                )
 
         class _OptInInvalidatingAction:
             @property
@@ -1592,10 +4296,21 @@ class TestRunPipeline:
         ]
 
         provider1 = MagicMock()
-        summary1 = run_pipeline(provider1, snapshot, actions)
+        with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.approve.is_copilot_session_active_via_agent_task",
+                return_value=False,
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.merge.is_copilot_session_active_via_agent_task",
+                return_value=False,
+            ),
+        ):
+            provider1 = MagicMock()
+            summary1 = run_pipeline(provider1, snapshot, actions)
 
-        provider2 = MagicMock()
-        summary2 = run_pipeline(provider2, snapshot, actions)
+            provider2 = MagicMock()
+            summary2 = run_pipeline(provider2, snapshot, actions)
 
         assert len(summary1.results) == len(summary2.results)
         for r1, r2 in zip(summary1.results, summary2.results):
@@ -1645,7 +4360,17 @@ class TestRunPipeline:
         provider = MagicMock()
         provider.approve_pr.return_value = False
 
-        summary = run_pipeline(provider, snapshot, actions)
+        with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.approve.is_copilot_session_active_via_agent_task",
+                return_value=False,
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.merge.is_copilot_session_active_via_agent_task",
+                return_value=False,
+            ),
+        ):
+            summary = run_pipeline(provider, snapshot, actions)
 
         assert [result.decision for result in summary.results] == [
             ActionDecision.EXECUTE,
@@ -1707,6 +4432,7 @@ class TestRunPipeline:
     def test_review_request_can_run_after_dispatch_repair_review_dedup_skip(self) -> None:
         """Review request can still run when dispatch repair dedup path skips."""
         provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
         # Build a suppressed-only block that is still actionable for dispatch_repair
         # while the shared review gate passes via a matching repair-satisfied marker.
         initial_snapshot = PRStateSnapshot(
@@ -1716,11 +4442,19 @@ class TestRunPipeline:
             head_branch="feature",
             commit_count=2,
             ci_status="passing",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
             review_state="APPROVED",
             copilot_review_id=0,
             copilot_review_inline_count=0,
             unresolved_threads=0,
             repair_satisfied_review_id=4401589029,
+            repairable_threads=1,
+            reviews=[
+                ReviewInfo(id=4401589029, user="Copilot", state="COMMENTED"),
+            ],
             copilot_gate_verdict=CopilotGateVerdict(
                 passed=False,
                 reason=REASON_SUPPRESSED_COMMENTS,
@@ -1739,6 +4473,10 @@ class TestRunPipeline:
             head_branch="feature",
             commit_count=1,
             ci_status="passing",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
             review_state="",
             copilot_review_id=0,
             copilot_review_inline_count=0,
@@ -1754,6 +4492,10 @@ class TestRunPipeline:
         ]
 
         with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_copilot_session_active_via_agent_task",
+                return_value=False,
+            ),
             patch(
                 "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_duplicate_trigger",
                 return_value=True,
@@ -1783,6 +4525,110 @@ class TestRunPipeline:
         provider.dispatch_repair.assert_not_called()
         provider.squash_post_repair.assert_called_once()
         provider.request_reviewer.assert_called_once()
+
+    @pytest.mark.parametrize("review_state", ["COMMENTED", "CHANGES_REQUESTED", "APPROVED"])
+    def test_review_request_runs_after_repair_dedup_limit_when_gate_is_blocked(self, review_state: str) -> None:
+        """A repair dedup limit must not suppress a fresh review for a blocked gate."""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="head-sha",
+            ci_status="passing",
+            review_state=review_state,
+            copilot_review_id=100,
+            copilot_review_inline_count=1 if review_state == "COMMENTED" else 0,
+            copilot_gate_verdict=CopilotGateVerdict(
+                passed=False,
+                reason=REASON_HAS_COMMENTS,
+                review_id=100,
+            ),
+            is_draft=False,
+            copilot_review_pending=False,
+            unresolved_threads=0,
+            base_repo_full_name="org/repo",
+        )
+        provider = MagicMock()
+        actions: list[Action] = [DispatchRepairAction(), RequestReviewAction()]
+
+        with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_duplicate_trigger",
+                return_value=False,
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.check_deduplication",
+                return_value=(True, 8),
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_copilot_session_active_via_agent_task",
+                return_value=False,
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.request_review.is_copilot_session_active_via_agent_task",
+                return_value=False,
+            ),
+        ):
+            summary = run_pipeline(provider, snapshot, actions)
+
+        assert [result.decision for result in summary.results] == [
+            ActionDecision.SKIP,
+            ActionDecision.EXECUTE,
+        ]
+        assert summary.results[0].limit_reached is True
+        provider.request_reviewer.assert_called_once()
+
+    def test_review_request_stops_after_repair_cycle_limit_when_gate_is_blocked(self) -> None:
+        """A global repair cycle limit must stop for human intervention."""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="head-sha",
+            ci_status="passing",
+            review_state="CHANGES_REQUESTED",
+            copilot_review_id=100,
+            copilot_gate_verdict=CopilotGateVerdict(
+                passed=False,
+                reason=REASON_HAS_COMMENTS,
+                review_id=100,
+            ),
+            is_draft=False,
+            copilot_review_pending=False,
+            unresolved_threads=0,
+            base_repo_full_name="org/repo",
+        )
+        provider = MagicMock()
+        actions: list[Action] = [DispatchRepairAction(), RequestReviewAction()]
+
+        with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_duplicate_trigger",
+                return_value=False,
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.check_deduplication",
+                return_value=(False, 0),
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.check_cycle_limit",
+                return_value=(True, 50),
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_copilot_session_active_via_agent_task",
+                return_value=False,
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.actions.request_review.is_copilot_session_active_via_agent_task",
+                return_value=False,
+            ),
+        ):
+            summary = run_pipeline(provider, snapshot, actions)
+
+        assert [result.decision for result in summary.results] == [
+            ActionDecision.SKIP,
+            ActionDecision.SKIP,
+        ]
+        assert summary.results[0].limit_reached is True
+        assert summary.results[0].cycle_limit_reached is True
+        assert "human intervention" in summary.results[1].details.lower()
+        provider.request_reviewer.assert_not_called()
 
     def _make_pipeline_snapshot(self) -> PRStateSnapshot:
         return PRStateSnapshot(

@@ -238,7 +238,7 @@ def test_cross_version_guard_is_not_suppressible_by_error_mode(
     """
     db, source = make_source(tmp_path, "videos_guard", stable=False)
     query = source.search(None).select(["video_path", "duration"])
-    with pytest.warns(UserWarning, match="same source version"):
+    with pytest.warns(UserWarning, match="pinned to source version"):
         view = db.create_udtf_view("clips_guard_mode", query, split_into_clips)
 
     created_at = source.version
@@ -270,7 +270,7 @@ def test_cross_version_guard_is_not_suppressible_by_error_mode(
         ray_pipeline, "_delete_stale_mv_rows", must_not_run("_delete_stale_mv_rows")
     )
 
-    with pytest.raises(ValueError, match="stable row IDs"):
+    with pytest.raises(ValueError, match="pinned to source version"):
         ray_pipeline.run_ray_copy_table(
             view.get_reference(),
             db._packager,

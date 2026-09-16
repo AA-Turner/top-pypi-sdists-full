@@ -260,3 +260,170 @@ class TestIsCopilotSessionActiveViaAgentTask:
             side_effect=subprocess.TimeoutExpired(cmd="gh", timeout=5),
         ):
             assert is_copilot_session_active_via_agent_task("owner/repo", 42, timeout_seconds=5) is None
+
+    def test_gh_agent_task_fails_rest_api_active_task_by_number(self) -> None:
+        """When gh agent-task list fails, REST API finds active task by PR number."""
+        cli_result = self._make_result(stdout="", returncode=1)
+        rest_tasks = {
+            "tasks": [
+                {"id": "task-rest-1", "state": "in_progress", "pullRequestNumber": 42},
+            ]
+        }
+        rest_result = self._make_result(stdout=json.dumps(rest_tasks), returncode=0)
+
+        with patch("agentic_devtools.cli.ci.pipeline.session_detector.run_safe", side_effect=[cli_result, rest_result]):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42) is True
+
+    def test_gh_agent_task_fails_rest_api_active_task_by_name(self) -> None:
+        """When gh agent-task list fails, REST API matches active task by name."""
+        cli_result = self._make_result(stdout="", returncode=1)
+        rest_tasks = {
+            "tasks": [
+                {"id": "task-rest-2", "state": "running", "name": "Repairing review feedback for PR #42"},
+            ]
+        }
+        rest_result = self._make_result(stdout=json.dumps(rest_tasks), returncode=0)
+
+        with patch("agentic_devtools.cli.ci.pipeline.session_detector.run_safe", side_effect=[cli_result, rest_result]):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42) is True
+
+    def test_gh_agent_task_fails_rest_api_active_task_by_artifacts(self) -> None:
+        """When gh agent-task list fails, REST API matches active task by artifacts."""
+        cli_result = self._make_result(stdout="", returncode=1)
+        rest_tasks_pull = {
+            "tasks": [
+                {
+                    "id": "task-rest-3",
+                    "state": "queued",
+                    "artifacts": [
+                        "not-a-dict",
+                        {"type": "other", "data": {}},
+                        {"type": "pull", "data": "not-a-dict"},
+                        {"type": "pull", "data": {"number": 999}},
+                        {"type": "branch", "data": {"head_ref": "feature/unrelated"}},
+                        {"type": "pull", "data": {"number": 42}},
+                    ],
+                },
+            ]
+        }
+        rest_result = self._make_result(stdout=json.dumps(rest_tasks_pull), returncode=0)
+
+        with patch("agentic_devtools.cli.ci.pipeline.session_detector.run_safe", side_effect=[cli_result, rest_result]):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42) is True
+
+        # Also test branch artifact matching
+        rest_tasks_branch = {
+            "tasks": [
+                {
+                    "id": "task-rest-4",
+                    "state": "queued",
+                    "artifacts": [
+                        {"type": "branch", "data": {"head_ref": "copilot/pr-42-fix"}},
+                    ],
+                },
+            ]
+        }
+        rest_result_branch = self._make_result(stdout=json.dumps(rest_tasks_branch), returncode=0)
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.session_detector.run_safe",
+            side_effect=[cli_result, rest_result_branch],
+        ):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42) is True
+
+    def test_gh_agent_task_fails_rest_api_confirms_inactive(self) -> None:
+        """When gh agent-task list fails, REST API confirms no active task exists."""
+        cli_result = self._make_result(stdout="", returncode=1)
+        rest_tasks = {
+            "tasks": [
+                "not-a-dict",
+                {"id": "t-no-artifacts", "state": "completed"},
+                {
+                    "id": "t-unmatched-artifacts",
+                    "state": "completed",
+                    "artifacts": [
+                        {"type": "other", "data": {}},
+                        {"type": "pull", "data": {"number": 999}},
+                    ],
+                },
+                {"id": "task-rest-5", "state": "completed", "pullRequestNumber": 42},
+                {"id": "task-rest-6", "state": "in_progress", "pullRequestNumber": 99},
+            ]
+        }
+        rest_result = self._make_result(stdout=json.dumps(rest_tasks), returncode=0)
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.session_detector.run_safe",
+            side_effect=[cli_result, rest_result],
+        ):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42) is False
+
+    def test_rest_api_failures_and_errors(self) -> None:
+        """REST API error handling: malformed json, bad shape, timeout."""
+        cli_result = self._make_result(stdout="", returncode=1)
+
+        # Non-zero returncode on rest API
+        rest_bad_code = self._make_result(stdout="", returncode=1)
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.session_detector.run_safe",
+            side_effect=[cli_result, rest_bad_code],
+        ):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42) is None
+
+        # Malformed JSON
+        rest_bad_json = self._make_result(stdout="bad-json", returncode=0)
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.session_detector.run_safe",
+            side_effect=[cli_result, rest_bad_json],
+        ):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42) is None
+
+        # Non-dict JSON
+        rest_non_dict = self._make_result(stdout="[]", returncode=0)
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.session_detector.run_safe",
+            side_effect=[cli_result, rest_non_dict],
+        ):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42) is None
+
+        # Timeout on REST API
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.session_detector.run_safe",
+            side_effect=[cli_result, subprocess.TimeoutExpired(cmd="gh api", timeout=5)],
+        ):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42) is None
+
+    def test_fallback_to_provider_issue_events(self) -> None:
+        """When both CLI and REST fail, falls back to provider.list_pr_issue_events."""
+        from unittest.mock import MagicMock
+
+        cli_result = self._make_result(stdout="", returncode=1)
+        rest_result = self._make_result(stdout="", returncode=1)
+
+        provider = MagicMock()
+        # Fallback says inactive
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.session_detector.run_safe", side_effect=[cli_result, rest_result]),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.session_detector.is_copilot_session_active",
+                return_value=False,
+            ) as mock_events,
+        ):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42, provider=provider) is False
+            mock_events.assert_called_once_with(provider, 42)
+
+        # Fallback says active
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.session_detector.run_safe", side_effect=[cli_result, rest_result]),
+            patch("agentic_devtools.cli.ci.pipeline.session_detector.is_copilot_session_active", return_value=True),
+        ):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42, provider=provider) is True
+
+        # Fallback raises exception -> None
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.session_detector.run_safe", side_effect=[cli_result, rest_result]),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.session_detector.is_copilot_session_active",
+                side_effect=RuntimeError("events error"),
+            ),
+        ):
+            assert is_copilot_session_active_via_agent_task("owner/repo", 42, provider=provider) is None

@@ -1,6 +1,6 @@
 [project]
 name = "geneva"
-version = "0.16.0"
+version = "0.17.0"
 description = "Geneva - Multimodal Data Lake for AI"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -71,7 +71,7 @@ classifiers = [
 k8s = ["pandas"]
 flightsql = ["flightsql-dbapi"]
 torch = ["torch>=2,<3", "torchvision"]
-embedding = ["sentence-transformers>=2.7"]
+embedding = ["sentence-transformers>=6.0.0"]
 docs = ["mkdocs", "mkdocs-material", "mkdocstrings[python]"]
 jupyter = ["jupyterlab", "ipywidgets"]
 ipy = ["ipython"]
@@ -110,7 +110,7 @@ udf-audio-whisper = [
     "scipy>=1.11.0",
     "torch==2.10.0",
     "transformers>=4.51.0",
-    "sentence-transformers>=2.7.0",
+    "sentence-transformers>=6.0.0",
 ]
 udf-audio-kokoro-base-onnx = [
     "nltk==3.9.3",
@@ -126,7 +126,7 @@ udf-audio-wavlm-tbr-onnx = [
 udf-document-pdf = [
     "requests",
     "pypdf>=6.0",
-    "sentence-transformers==5.4.0",
+    "sentence-transformers==6.0.0",
     "transformers==5.0.0",
     "langchain-text-splitters>=0.3.0",
     "torch==2.10.0",

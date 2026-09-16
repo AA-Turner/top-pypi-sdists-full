@@ -94,6 +94,43 @@ async def test_preview_gate_log_keeps_address_but_not_credentials(
     _assert_address_kept_secrets_gone(caplog)
 
 
+@pytest.mark.asyncio
+async def test_preview_gate_log_redacts_secrets_carried_by_the_raised_exception(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The preview SSRF gate (quick_preview's first ``validate_public_http_url``
+    call) must redact ``exc`` itself, not only the caller's raw url. The REAL
+    validator strips userinfo via ``urlparse`` before building its message, so
+    for ``LEAKY_URL`` its exception text never actually contains a secret —
+    which is why ``test_preview_gate_log_keeps_address_but_not_credentials``
+    (aggregate scan, real validator) cannot tell a redacted ``exc`` from an
+    unredacted one: there is nothing to leak either way. Force the validator to
+    raise a message that itself carries the credentials, then inspect ONLY
+    this gate's own log record (not the whole caplog) so a different,
+    already-redacting call site can't accidentally satisfy the assertion."""
+    from matrx_scraper import preview as preview_module
+
+    async def _raise_with_embedded_secret(_url: str) -> str:
+        raise ValueError(f"blocked target: {LEAKY_URL}")
+
+    monkeypatch.setattr(preview_module, "validate_public_http_url", _raise_with_embedded_secret)
+    caplog.set_level("DEBUG")
+
+    envelope = await preview_module.quick_preview(LEAKY_URL)
+    assert envelope["ok"] is False
+
+    gate_records = [
+        r for r in caplog.records if r.getMessage().startswith("preview BLOCKED target")
+    ]
+    assert len(gate_records) == 1, (
+        f"expected exactly one gate log line, got: {[r.getMessage() for r in caplog.records]}"
+    )
+    message = gate_records[0].getMessage()
+    assert ADDRESS in message, f"the refused address was not logged at all:\n{message}"
+    for secret in SECRETS:
+        assert secret not in message, f"{secret!r} leaked into the gate's own log line:\n{message}"
+
+
 def _enable_browser_pool(monkeypatch: pytest.MonkeyPatch) -> None:
     import matrx_scraper._ext as ext
 

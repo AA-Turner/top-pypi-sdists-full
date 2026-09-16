@@ -23,7 +23,7 @@ services:
       retries: 15
 
   phalanx:
-    image: ${PHALANX_IMAGE:-948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:phalanx_release-2026-07-02.a8a6480a12.x64}
+    image: ${PHALANX_IMAGE:-948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:phalanx_release-2026-08-28.3659eef13b.x64}
     platform: linux/amd64
     network_mode: host
     depends_on:
@@ -54,14 +54,12 @@ services:
       start_period: 30s
 
   lance_agent:
-    image: ${LANCE_AGENT_IMAGE:-948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:lance_agent_release-2026-04-20.3f670cd22b.x64}
+    image: ${LANCE_AGENT_IMAGE:-948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:lance_agent_release-2026-08-28.3659eef13b.x64}
     platform: linux/amd64
     network_mode: host
     depends_on:
       phalanx:
         condition: service_healthy
-    volumes:
-      - ${HOME}/.kube:/root/.kube:ro
     ulimits:
       nofile:
         soft: 65535
@@ -74,10 +72,14 @@ services:
       PHALANX_EVENTS_TOPIC: phalanx-events
       PHALANX_EVENTS_PARTITION_KEY: table
       PHALANX_KAFKA_BOOTSTRAP_BROKERS: localhost:9092
+      PHALANX_URI: http://localhost:10024
+      PHALANX_API_KEY: sk_localtest
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+    # The release Agent image bundles geneva_driver. Run it locally so this
+    # PR-level E2E does not depend on shared-cluster Job creation RBAC.
     command: >-
       --kafka-topic phalanx-events
       --healthcheck-port 25239
@@ -90,11 +92,6 @@ services:
       --backfill
       --backfill-manifest test-manifest
       --backfill-row-threshold 1
-      --indexer-node-selector "eks.amazonaws.com/nodegroup: lancedb-install-node-group-indexer"
-      --geneva-driver-image "${GENEVA_DRIVER_IMAGE:-948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:geneva_driver_release-2026-06-19.340acc6932.arm64}"
-      --use-pods
-      --k8s-config-method LOCAL
-      --k8s-namespace lancedb
       --aws-region us-east-1
       --check-aws-credentials
     healthcheck:

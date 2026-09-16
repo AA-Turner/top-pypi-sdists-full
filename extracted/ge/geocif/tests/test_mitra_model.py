@@ -286,7 +286,10 @@ def test_wrapper_prefix_regex_leaves_mitra_alone():
 
 def test_geocif_wiring_for_mitra():
     src = (ROOT / "geocif.py").read_text(encoding="utf-8")
-    assert '"tabfm_gsa", "mitra", "mitra_ft"]' in src        # tabular flags
+    # NB: no trailing "]" -- pinning the end of that list makes this test
+    # break whenever ANY other model is appended to the dispatch (it already
+    # did once, when tabpfn_v3 was added alongside this work).
+    assert '"tabfm_gsa", "tabicl_gsa", "mitra", "mitra_ft"' in src          # tabular flags
     assert '"mitra": TabPFNFitter(self.obj)' in src           # fitter map
     assert '"mitra_ft": TabPFNFitter(self.obj)' in src
     assert 'self.dispatch_name in ("mitra", "mitra_ft")' in src   # CI dispatch

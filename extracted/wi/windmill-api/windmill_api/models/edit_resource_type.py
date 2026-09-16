@@ -17,12 +17,15 @@ class EditResourceType:
         is_fileset (Union[Unset, bool]):
         format_extension (Union[Unset, None, str]): File extension for a type whose value is one file rather than a set
             of fields. Omit to leave it unchanged; send null to clear it.
+        display_name (Union[Unset, None, str]): The name the product goes by. Omit to leave it unchanged; send null to
+            clear it.
     """
 
     schema: Union[Unset, Any] = UNSET
     description: Union[Unset, str] = UNSET
     is_fileset: Union[Unset, bool] = UNSET
     format_extension: Union[Unset, None, str] = UNSET
+    display_name: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -30,6 +33,7 @@ class EditResourceType:
         description = self.description
         is_fileset = self.is_fileset
         format_extension = self.format_extension
+        display_name = self.display_name
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -42,6 +46,8 @@ class EditResourceType:
             field_dict["is_fileset"] = is_fileset
         if format_extension is not UNSET:
             field_dict["format_extension"] = format_extension
+        if display_name is not UNSET:
+            field_dict["display_name"] = display_name
 
         return field_dict
 
@@ -56,11 +62,14 @@ class EditResourceType:
 
         format_extension = d.pop("format_extension", UNSET)
 
+        display_name = d.pop("display_name", UNSET)
+
         edit_resource_type = cls(
             schema=schema,
             description=description,
             is_fileset=is_fileset,
             format_extension=format_extension,
+            display_name=display_name,
         )
 
         edit_resource_type.additional_properties = d

@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from collections.abc import Callable
-import traceback
 import pprint
 from asyncdb.exceptions import NoDataFound
 from ..tasks.task import Task
@@ -35,6 +34,9 @@ class SubTask(FlowComponent):
             | ignore_steps   |   No     | List of steps to ignore during the sub-task execution.                    |
             | run_only       |   No     | List of specific steps to run, ignoring others.                           |
             | conditions     |   No     | Dictionary of conditions to apply to the sub-task execution.              |
+            | pass_input     |   No     | Hand this component's input (the previous step result, e.g. a DataFrame)  |
+            |                |          | to the first component of the sub-task, and pass that same input on to    |
+            |                |          | the next step, so several SubTasks can consume it. Default: False.        |
 
         Returns
 
@@ -63,6 +65,20 @@ class SubTask(FlowComponent):
           task: forms
           program: banco_chile
         ```
+
+        ```yaml
+          - CopyToBigQuery:
+              tablename: sales
+              schema: epson
+          - SubTask:
+              task: sales_by_day
+              program: epson
+              pass_input: true   # sales_by_day receives the DataFrame just loaded
+          - SubTask:
+              task: sales_by_product
+              program: epson
+              pass_input: true   # ...and so does sales_by_product
+        ```
     """
     _version = "1.0.0"
 
@@ -82,6 +98,8 @@ class SubTask(FlowComponent):
         self._arguments = {}
         self.ignore_steps: list = []
         self.run_only: list = []
+        # popped so it is not forwarded to the sub-task as a parameter
+        self.pass_input: bool = kwargs.pop("pass_input", False)
         super(SubTask, self).__init__(loop=loop, job=job, stat=stat, **kwargs)
         self.program = self._program
 
@@ -114,12 +132,17 @@ class SubTask(FlowComponent):
             "is_subtask": True,
             "conditions": self.conditions,
             "params": self._params,
+            "storage": self._storage_name,
         }
+        if self.pass_input is True and self.previous and not check_empty(self.input):
+            # the sub-task's first component receives it as its self.input
+            params["input_result"] = self.input
         if self._debug is True:
             pp = pprint.PrettyPrinter(indent=4)
-            print(" Subtask Properties ==================")
-            pp.pprint(params)
-            print(" ==================")
+            self._logger.debug(
+                " Subtask Properties ==================\n%s\n ==================",
+                pp.pformat(params),
+            )
         if "debug" in self._params:
             del self._params["debug"]
         # definition of task
@@ -145,12 +168,23 @@ class SubTask(FlowComponent):
                         return False
             except (TaskDefinition, TaskFailed) as err:
                 logging.exception(err, stack_info=True)
+                raise ComponentError(
+                    f"SubTask {self.program}.{self.task}: bad task definition: {err}"
+                ) from err
         except TaskNotFound as err:
             logging.exception(err, stack_info=True)
+            raise ComponentError(
+                f"SubTask {self.program}.{self.task}: task not found: {err}"
+            ) from err
+        except ComponentError:
+            # Already wrapped by the inner (TaskDefinition, TaskFailed) handler
+            # above — re-raise as-is instead of double-wrapping it here.
+            raise
         except Exception as err:
-            traceback.print_exc()
-            print(err, err.__class__)
             logging.exception(err, stack_info=True)
+            raise ComponentError(
+                f"SubTask {self.program}.{self.task}: error preparing task: {err}"
+            ) from err
 
     async def close(self):
         if self._task:
@@ -180,8 +214,12 @@ class SubTask(FlowComponent):
             raise ComponentError(
                 f"Error on Task {self.task}: {err}"
             ) from err
+        if self.pass_input is True:
+            # side branch: the next step receives the same input, so several
+            # SubTasks can consume the same DataFrame one after another
+            self._result = self.input
         if check_empty(result):
             return False
-        else:
+        if self.pass_input is not True:
             self._result = self
-            return result
+        return result

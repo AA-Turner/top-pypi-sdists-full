@@ -57,6 +57,9 @@ class ApplySuggestionsAction:
     - Not blocked by guards (fork, privileged paths, etc.)
     """
 
+    may_invalidate_snapshot = True
+    preserves_diff_fingerprint = False
+
     @property
     def name(self) -> str:
         return "apply_suggestions"
@@ -246,12 +249,15 @@ class ApplySuggestionsAction:
             if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
                 raise
             logger.warning("PR #%d: Failed to apply suggestions: %s", snapshot.pr_number, exc)
-            # Return SKIP (not FAILED) to avoid halting pipeline per FR-010
+            # Return SKIP (not FAILED) to avoid halting pipeline per FR-010. The
+            # mutation may have partially committed before raising, so force a
+            # refresh before any downstream action evaluates the stale snapshot.
             return ActionResult(
                 name=self.name,
                 decision=ActionDecision.SKIP,
                 preconditions={"suggestions_found": True, "within_threshold": True},
                 details=f"Failed to apply suggestions: {exc}",
+                invalidates_snapshot=True,
             )
 
         # If nothing was applied, return SKIP
@@ -273,6 +279,15 @@ class ApplySuggestionsAction:
         # (some suggestions conflicted/skipped) leaves the comment visible to the
         # repair agent so the remaining feedback is not silently dropped.
         applied_suggestion_ids_set = set(result.applied_ids)
+        applied_paths = tuple(
+            sorted(
+                {
+                    suggestion.path
+                    for suggestion in suggestions
+                    if suggestion.suggestion_id in applied_suggestion_ids_set and suggestion.path
+                }
+            )
+        )
 
         comment_suggestions: dict[int, list[str]] = {}
         for s in suggestions:
@@ -312,6 +327,7 @@ class ApplySuggestionsAction:
                 f" [{discovery_details}]"
             ),
             invalidates_snapshot=True,
+            allowed_removed_files=applied_paths,
         )
 
 
@@ -465,7 +481,9 @@ def _apply_copilot_autofix_suggestions(
     (ExclusionContext or None) if suggestions were found and processed, or None
     if no Copilot autofix suggestions exist.
 
-    On any error, returns None (fail-open, per FR-010 — does not halt the pipeline).
+    On any error, returns an invalidating SKIP (fail-open, per FR-010 — does not
+    halt the pipeline) so downstream actions refresh after a possible partial
+    mutation.
     """
     from agentic_devtools.cli.github.apply_thread_autofix import apply_pr_suggestions
 
@@ -494,12 +512,22 @@ def _apply_copilot_autofix_suggestions(
         )
     except SystemExit:
         # apply_pr_suggestions may call sys.exit on fatal errors (e.g., gh not found)
-        # In pipeline context, treat as non-fatal skip
+        # In pipeline context, treat as non-fatal skip. The fallback may have
+        # mutated the PR before exiting, so require a fresh snapshot.
         logger.warning(
             "PR #%d: Copilot autofix fallback exited — treating as skip",
             snapshot.pr_number,
         )
-        return None
+        return {
+            "action_result": ActionResult(
+                name="apply_suggestions",
+                decision=ActionDecision.SKIP,
+                preconditions={"suggestions_found": True, "within_threshold": True},
+                details="No applicable suggestions found; Copilot autofix fallback exited",
+                invalidates_snapshot=True,
+            ),
+            "exclusion_ctx": None,
+        }
     except Exception as exc:
         _raise_if_rate_limit(exc)
         logger.warning(
@@ -507,7 +535,16 @@ def _apply_copilot_autofix_suggestions(
             snapshot.pr_number,
             exc,
         )
-        return None
+        return {
+            "action_result": ActionResult(
+                name="apply_suggestions",
+                decision=ActionDecision.SKIP,
+                preconditions={"suggestions_found": True, "within_threshold": True},
+                details=f"No applicable suggestions found; Copilot autofix fallback failed: {exc}",
+                invalidates_snapshot=True,
+            ),
+            "exclusion_ctx": None,
+        }
 
     applied = result.get("applied", 0)
     skipped = result.get("skipped", 0)

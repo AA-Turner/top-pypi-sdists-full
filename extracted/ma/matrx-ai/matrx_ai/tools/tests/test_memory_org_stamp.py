@@ -277,6 +277,36 @@ async def test_memory_store_updates_existing_row_with_active_org(
     assert captured.get("organization_id") == TEAM_ORG_ID
 
 
+async def test_memory_store_update_path_never_invents_an_org_when_none_is_active(
+    monkeypatch: pytest.MonkeyPatch, app_ctx_with_active_org
+) -> None:
+    """Break caught: a writer substituting a default/personal/system org on the
+    UPDATE branch (an existing row is found) when the request carries none.
+    The sibling ``..._never_invents_an_org_when_none_is_active`` test always
+    gets an empty ``filter_agent_memories`` result, so it only ever exercises
+    the create branch — a mutation that invents an org solely on the update
+    branch passes it untouched."""
+    app_ctx_with_active_org(None)
+
+    existing_row = type("Row", (), {"id": "existing-id"})()
+    monkeypatch.setattr(
+        cxm.agent_memory, "filter_agent_memories", AsyncMock(return_value=[existing_row])
+    )
+    captured: dict[str, Any] = {}
+
+    def fake_update(item_id: str, **data: Any) -> str:
+        captured["item_id"] = item_id
+        captured.update(data)
+        return "queued"
+
+    monkeypatch.setattr(memory_module, "queue_agent_memory_update", fake_update)
+
+    await memory_store({"key": "pref", "content": "updated", "scope": "user"}, _tool_ctx())
+
+    assert captured["item_id"] == "existing-id"
+    assert "organization_id" not in captured
+
+
 async def test_memory_update_filters_by_scope_id_for_organization_scope(
     monkeypatch: pytest.MonkeyPatch, app_ctx_with_active_org
 ) -> None:

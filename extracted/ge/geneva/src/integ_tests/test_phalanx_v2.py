@@ -16,6 +16,7 @@ Tests verify:
 
 import logging
 import uuid
+from typing import NamedTuple
 
 import pyarrow as pa
 import pytest
@@ -90,9 +91,47 @@ class TestPhalanxBackfill:
         tbl = phalanx_conn.open_table(test_table)
         assert "upper" in tbl.schema.names
 
-        res = tbl.backfill_async(["upper"], concurrency=4)
-        _LOG.info("backfill job id=%s", res.job_id)
-        _assert_remote_job_dispatched(res)
+    def test_add_multi_output_columns_and_backfill(
+        self,
+        test_table: str,
+        phalanx_conn: Connection,
+    ) -> None:
+        """Backfill all sibling outputs through the public remote API."""
+
+        class Dimensions(NamedTuple):
+            height: int
+            width: int
+
+        @geneva.udf(version=uuid.uuid4().hex)
+        def dimensions(id: int) -> geneva.Columns[Dimensions]:  # noqa: A002
+            return Dimensions(height=id + 10, width=id + 20)
+
+        tbl = phalanx_conn.open_table(test_table)
+        tbl.add_columns(dimensions)
+
+        tbl = phalanx_conn.open_table(test_table)
+        assert {"height", "width"}.issubset(tbl.schema.names)
+        height_metadata = tbl.schema.field("height").metadata or {}
+        width_metadata = tbl.schema.field("width").metadata or {}
+        assert height_metadata[b"virtual_column.unpack"] == b"true"
+        assert width_metadata[b"virtual_column.unpack"] == b"true"
+        assert (
+            height_metadata[b"virtual_column.unpack_group"]
+            == width_metadata[b"virtual_column.unpack_group"]
+        )
+
+        result = tbl.backfill("height", concurrency=4, timeout=600)
+        assert set(result.columns) == {"height", "width"}
+
+        rows = (
+            phalanx_conn.open_table(test_table)
+            .search()
+            .limit(100)
+            .to_arrow()
+            .sort_by("id")
+        )
+        assert rows["height"].to_pylist() == list(range(10, 110))
+        assert rows["width"].to_pylist() == list(range(20, 120))
 
     def test_add_then_alter_column(
         self,

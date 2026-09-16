@@ -37,7 +37,7 @@ from geneva.checkpoint import CheckpointStore
 from geneva.runners.ray.pipeline import FragmentWriterSession
 from geneva.runners.ray.writer import FragmentWriteResult, WriterProgress
 
-pytestmark = pytest.mark.ray
+pytestmark = [pytest.mark.ray, pytest.mark.usefixtures("local_ray_context")]
 
 
 @udf(data_type=pa.int64())

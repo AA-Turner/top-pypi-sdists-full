@@ -160,16 +160,15 @@ if __name__ == "__main__":
         project_urls={
             "Source": "https://github.com/microsoft/debugpy",
         },
-        python_requires=">=3.8",
+        python_requires=">=3.10",
         classifiers=[
             "Development Status :: 5 - Production/Stable",
-            "Programming Language :: Python :: 3.8",
-            "Programming Language :: Python :: 3.9",
             "Programming Language :: Python :: 3.10",
             "Programming Language :: Python :: 3.11",
             "Programming Language :: Python :: 3.12",
             "Programming Language :: Python :: 3.13",
             "Programming Language :: Python :: 3.14",
+            "Programming Language :: Python :: 3.15",
             "Topic :: Software Development :: Debuggers",
             "Operating System :: Microsoft :: Windows",
             "Operating System :: MacOS",

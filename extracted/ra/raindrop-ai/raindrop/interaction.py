@@ -53,6 +53,10 @@ class Interaction:
         "_state",
         "_bound_ctx",
         "_tool_events_frame",
+        "_app_git_properties",
+        "_app_git_snapshot",
+        "_app_git_overrides",
+        "_app_git_frame",
         "_disabled",
         "_finish_called",
         "__weakref__",
@@ -67,6 +71,9 @@ class Interaction:
         disabled: bool = False,
         state: Any = None,
         bound_ctx: Any = None,
+        app_git_properties: Optional[Dict[str, Any]] = None,
+        app_git_snapshot: Any = None,
+        app_git_overrides: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._event_id = event_id or str(uuid4())
         self._user_id = user_id
@@ -89,6 +96,12 @@ class Interaction:
         # reused worker thread keeps its context, so an opt-in left bound would
         # let a later turn that launched nothing become an event.
         self._tool_events_frame = None
+        # Frozen when begin() starts. Explicit canonical properties can update
+        # this operation-local copy, but later background discovery cannot.
+        self._app_git_properties = dict(app_git_properties or {})
+        self._app_git_snapshot = app_git_snapshot
+        self._app_git_overrides = dict(app_git_overrides or {})
+        self._app_git_frame = None
         # When True, every mutator / finish / span / tool call is a no-op so
         # that callers who passed invalid arguments to ``begin()`` don't crash
         # the whole code path. ``analytics.begin()`` is the only place that
@@ -99,6 +112,37 @@ class Interaction:
         # that layers its own lifecycle on top of this one — a sub-agent run —
         # needs to know whether the event was already closed behind its back.
         self._finish_called = False
+
+    def _update_app_git_context(self, props: Any) -> None:
+        if isinstance(props, dict):
+            for key in self._analytics.APP_GIT_PROPERTIES:
+                if key in props:
+                    self._app_git_overrides[key] = props[key]
+        if self._app_git_snapshot is not None:
+            try:
+                self._app_git_properties = self._analytics.effective_app_git(
+                    self._app_git_snapshot, self._app_git_overrides
+                ).context_attributes()
+            except Exception:
+                pass
+        if self._bound_ctx is not None:
+            self._bound_ctx.attributes = dict(self._app_git_properties)
+
+    def _track_partial(self, event: PartialTrackAIEvent) -> None:
+        self._analytics._track_ai_partial(
+            event,
+            state=self._state,
+            app_git_snapshot=self._app_git_snapshot,
+            app_git_overrides=self._app_git_overrides,
+        )
+
+    def _scoped_app_git_properties(self, properties: Dict[str, Any]) -> Dict[str, Any]:
+        if self._app_git_snapshot is None:
+            return dict(properties)
+        scoped = dict(properties)
+        for key in self._analytics.APP_GIT_PROPERTIES:
+            scoped.setdefault(key, None)
+        return scoped
 
     @property
     def finished(self) -> bool:
@@ -117,22 +161,23 @@ class Interaction:
                 ai_data={"input": self._analytics._cap_text(text, state=self._state)},
             ),
             state=self._state,
+            app_git_snapshot=self._app_git_snapshot,
+            app_git_overrides=self._app_git_overrides,
         )
 
     def add_attachments(self, attachments: List[Attachment]) -> None:
         if self._disabled:
             return
-        self._analytics._track_ai_partial(
-            PartialTrackAIEvent(event_id=self._event_id, attachments=attachments),
-            state=self._state,
+        self._track_partial(
+            PartialTrackAIEvent(event_id=self._event_id, attachments=attachments)
         )
 
     def set_properties(self, props: Dict[str, Any]) -> None:
         if self._disabled:
             return
-        self._analytics._track_ai_partial(
+        self._update_app_git_context(props)
+        self._track_partial(
             PartialTrackAIEvent(event_id=self._event_id, properties=props),
-            state=self._state,
         )
 
     def set_property(self, key: str, value: Any) -> None:
@@ -148,12 +193,11 @@ class Interaction:
         """
         if self._disabled:
             return
-        self._analytics._track_ai_partial(
+        self._track_partial(
             PartialTrackAIEvent(
                 event_id=self._event_id,
                 ai_data={"model": model},
             ),
-            state=self._state,
         )
 
     def finish(self, *, output: str | None = None, **extra: Any) -> None:
@@ -219,7 +263,8 @@ class Interaction:
 
             payload = self._coalesce_finish_payload(ai_data, passthrough)
             if payload is not None:
-                self._analytics._track_ai_partial(payload, state=self._state)
+                self._update_app_git_context(passthrough.get("properties"))
+                self._track_partial(payload)
         except Exception:
             # Crash protection (AGENTS.md): a telemetry finish() must never
             # take the host app down. Log with traceback and degrade; the
@@ -245,6 +290,10 @@ class Interaction:
                 self._tool_events_frame
             )
             self._tool_events_frame = None
+            self._analytics._rd_tracing.unbind_span_attributes(
+                self._app_git_frame
+            )
+            self._app_git_frame = None
 
     def _coalesce_finish_payload(
         self, ai_data: Dict[str, Any], passthrough: Dict[str, Any]
@@ -410,16 +459,21 @@ class Interaction:
             return self._analytics.ManualSpan(
                 None, kind, name, self._event_id, state=self._state
             )
-        return self._analytics.start_span(
-            kind,
-            name,
-            version,
-            event_id=self._event_id,
-            user_id=self._user_id,
-            event=self._event,
-            convo_id=self._convo_id,
-            state=self._state,
-        )
+        scoped_app_git = self._scoped_app_git_properties(self._app_git_properties)
+        with self._analytics._rd_tracing.span_attributes(
+            scoped_app_git, client_identity=id(self._state)
+        ):
+            return self._analytics.start_span(
+                kind,
+                name,
+                version,
+                event_id=self._event_id,
+                user_id=self._user_id,
+                event=self._event,
+                convo_id=self._convo_id,
+                state=self._state,
+                app_git_properties=scoped_app_git,
+            )
 
     def track_tool(
         self,
@@ -491,8 +545,12 @@ class Interaction:
             key: value for key, value in association_props.items() if value is not None
         }
 
+        tool_overrides = dict(self._app_git_overrides)
+
         if properties:
             for key, value in properties.items():
+                if key in _core.APP_GIT_PROPERTIES:
+                    tool_overrides[key] = value
                 if key in association_props or value is None:
                     continue
                 if isinstance(value, str):
@@ -508,6 +566,16 @@ class Interaction:
                         merged_association_props[key] = _core._cap_text(
                             str(value), state=self._state
                         )
+
+        app_git_properties = dict(self._app_git_properties)
+        if self._app_git_snapshot is not None:
+            try:
+                app_git_properties = _core.effective_app_git(
+                    self._app_git_snapshot, tool_overrides
+                ).context_attributes()
+            except Exception:
+                pass
+        scoped_app_git = self._scoped_app_git_properties(app_git_properties)
 
         serialized_input: str | None = None
         serialized_output: str | None = None
@@ -542,6 +610,13 @@ class Interaction:
         )
 
         if st._bypass_otel_for_tools:
+            raw_attributes = {
+                key: value
+                for key, value in _core._rd_tracing.current_span_attributes(
+                    id(st)
+                ).items()
+                if key not in _core.APP_GIT_PROPERTIES
+            }
             direct_span = _core._build_direct_tool_span(
                 span_name=span_name,
                 tool_name=name,
@@ -553,7 +628,8 @@ class Interaction:
                 output_value=serialized_output,
                 error_message=error_message,
                 association_properties=merged_association_props,
-                extra_attributes=_core._rd_tracing.current_span_attributes(),
+                extra_attributes=raw_attributes,
+                app_git_properties=app_git_properties,
             )
             _core._enqueue_direct_tool_span(direct_span, state=self._state)
             if _core.debug_logs:
@@ -565,49 +641,53 @@ class Interaction:
         if not _core.TracerWrapper.verify_initialized():
             return
 
-        tracer = _core.trace.get_tracer("traceloop.tracer")
-        span = tracer.start_span(span_name, start_time=start_ns)
+        with _core._rd_tracing.span_attributes(
+            scoped_app_git, client_identity=id(st)
+        ):
+            tracer = _core.trace.get_tracer("traceloop.tracer")
+            span = tracer.start_span(span_name, start_time=start_ns)
 
-        try:
-            span.set_attribute(_core.SpanAttributes.TRACELOOP_SPAN_KIND, tlp_kind.value)
-            span.set_attribute(_core.SpanAttributes.TRACELOOP_ENTITY_NAME, name)
+            try:
+                span.set_attribute(_core.SpanAttributes.TRACELOOP_SPAN_KIND, tlp_kind.value)
+                span.set_attribute(_core.SpanAttributes.TRACELOOP_ENTITY_NAME, name)
 
-            # Pin the owning client's project on the span: track_tool is often
-            # called from a different task/thread than the one that bound the
-            # context, so the processor's context stamp can't be relied on.
-            _core._rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
-            _core._rd_tracing.stamp_context_attributes(span)
-            if version is not None:
-                span.set_attribute(
-                    _core.SpanAttributes.TRACELOOP_ENTITY_VERSION, version
-                )
+                # Pin the owning client's project on the span: track_tool is often
+                # called from a different task/thread than the one that bound the
+                # context, so the processor's context stamp can't be relied on.
+                _core._rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
+                _core._rd_tracing.stamp_context_attributes(span)
+                _core._stamp_app_git(span, app_git_properties)
+                if version is not None:
+                    span.set_attribute(
+                        _core.SpanAttributes.TRACELOOP_ENTITY_VERSION, version
+                    )
 
-            for key, value in merged_association_props.items():
-                span.set_attribute(f"traceloop.association.properties.{key}", value)
+                for key, value in merged_association_props.items():
+                    span.set_attribute(f"traceloop.association.properties.{key}", value)
 
-            if duration_ms is not None:
-                span.set_attribute("traceloop.entity.duration_ms", dur_ms)
+                if duration_ms is not None:
+                    span.set_attribute("traceloop.entity.duration_ms", dur_ms)
 
-            if serialized_input is not None:
-                span.set_attribute(
-                    _core.SpanAttributes.TRACELOOP_ENTITY_INPUT, serialized_input
-                )
+                if serialized_input is not None:
+                    span.set_attribute(
+                        _core.SpanAttributes.TRACELOOP_ENTITY_INPUT, serialized_input
+                    )
 
-            if serialized_output is not None:
-                span.set_attribute(
-                    _core.SpanAttributes.TRACELOOP_ENTITY_OUTPUT, serialized_output
-                )
+                if serialized_output is not None:
+                    span.set_attribute(
+                        _core.SpanAttributes.TRACELOOP_ENTITY_OUTPUT, serialized_output
+                    )
 
-            if error is not None:
-                exc = (
-                    error if isinstance(error, BaseException) else Exception(str(error))
-                )
-                span.set_status(_core.Status(_core.StatusCode.ERROR, str(exc)))
-                span.record_exception(exc)
-            else:
-                span.set_status(_core.Status(_core.StatusCode.OK))
-        finally:
-            span.end(end_time=end_ns)
+                if error is not None:
+                    exc = (
+                        error if isinstance(error, BaseException) else Exception(str(error))
+                    )
+                    span.set_status(_core.Status(_core.StatusCode.ERROR, str(exc)))
+                    span.record_exception(exc)
+                else:
+                    span.set_status(_core.Status(_core.StatusCode.OK))
+            finally:
+                span.end(end_time=end_ns)
 
         if _core.debug_logs:
             _core.logger.debug(

@@ -25,6 +25,32 @@ from matrx_ai.graph_nodes import _strict_json
 from matrx_ai.graph_nodes._strict_json import llm_to_pydantic
 
 
+class _StubResult:
+    """What ``_run_completion_measured`` returns: the text AND what it cost.
+
+    The runner is measured now (the strict-JSON funnel has to be able to tell a
+    caller what a call cost), so a double that returned a bare ``(text, finish)``
+    tuple would be doubling a function that no longer exists.
+    """
+
+    class _Usage:
+        input_tokens = 100
+        output_tokens = 20
+        cost_usd = 0.001
+
+    def __init__(self, text: str, finish: str | None = "stop") -> None:
+        self.final_text = text
+        self.finish_reason = finish
+        self.usage = _StubResult._Usage()
+        self.duration_ms = 10
+
+    def model_copy(self, *, update: dict | None = None) -> "_StubResult":
+        clone = _StubResult(self.final_text, self.finish_reason)
+        for key, value in (update or {}).items():
+            setattr(clone, key, value)
+        return clone
+
+
 class _RecordingEmitter:
     def __init__(self) -> None:
         self.chunks: list[str] = []
@@ -65,9 +91,9 @@ async def test_first_attempt_streams_and_wire_kind_is_schema_backed(monkeypatch)
         emitter = get_app_context().emitter
         for i in range(0, len(payload), 7):
             await emitter.send_chunk(payload[i : i + 7])
-        return payload, "stop"
+        return _StubResult(payload, "stop")
 
-    monkeypatch.setattr(_strict_json, "_run_completion", _fake_run_completion)
+    monkeypatch.setattr(_strict_json, "_run_completion_measured", _fake_run_completion)
     _install_ctx(monkeypatch, base)
 
     async def _on_delta(text: str) -> None:
@@ -109,13 +135,13 @@ async def test_repair_retry_is_not_streamed(monkeypatch):
             calls.append("first")
             broken = '{"__kind": "page_brief", "brief": "not-a-list"}'
             await emitter.send_chunk(broken)
-            return broken, "stop"
+            return _StubResult(broken, "stop")
         calls.append("second")
         fixed = '{"__kind": "page_brief", "brief": ["fixed"]}'
         await emitter.send_chunk(fixed)  # provider still streams; wrapper must mute
-        return fixed, "stop"
+        return _StubResult(fixed, "stop")
 
-    monkeypatch.setattr(_strict_json, "_run_completion", _fake_run_completion)
+    monkeypatch.setattr(_strict_json, "_run_completion_measured", _fake_run_completion)
     _install_ctx(monkeypatch, base)
 
     async def _on_delta(text: str) -> None:
@@ -149,9 +175,9 @@ async def test_no_kwargs_means_no_behavior_change(monkeypatch):
         captured_formats.append(kwargs.get("response_format"))
         assert "__kind" not in system_text
         await get_app_context().emitter.send_chunk("internal")
-        return '{"brief": ["a"]}', "stop"
+        return _StubResult('{"brief": ["a"]}', "stop")
 
-    monkeypatch.setattr(_strict_json, "_run_completion", _fake_run_completion)
+    monkeypatch.setattr(_strict_json, "_run_completion_measured", _fake_run_completion)
     _install_ctx(monkeypatch, base)
 
     result = await llm_to_pydantic(model="m", system="s", user="u", output_cls=_Brief)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pioarduino
-Version: 6.1.19
+Version: 6.2.0
 Summary: pioarduino core is needed to run pioarduino Platform espressif32. 
 Home-page: https://github.com/pioarduino
 Author: PlatformIO Labs and pioarduino

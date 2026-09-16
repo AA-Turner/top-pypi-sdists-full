@@ -17,7 +17,9 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-# Suppress lance fork-safety warning - Geneva uses Ray which handles this properly
+# These warnings predate the compatibility shim below and remain suppressed for
+# Geneva's supported Ray workflows. The shim only prevents LanceDB from starting
+# a thread inside its child-atfork callback; it does not make arbitrary forks safe.
 warnings.filterwarnings("ignore", message=".*lance is not fork-safe.*")
 warnings.filterwarnings("ignore", message=".*lancedb fork support is experimental.*")
 
@@ -148,6 +150,10 @@ if "GENEVA_ZIPS" in os.environ:
         fcntl.lockf(file, fcntl.LOCK_UN)
 
 
+from geneva._lancedb_fork_compat import install as _install_lancedb_fork_compat
+
+_install_lancedb_fork_compat()
+
 from geneva import telemetry
 from geneva._context import get_current_context
 from geneva.apply import CheckpointingApplier, ReadTask, ScanTask
@@ -170,6 +176,7 @@ from geneva.errors import (
     FatalWorkerCrashError,
     FatalWorkerError,
     FatalWorkerExitError,
+    FatalWorkerHardwareError,
     FatalWorkerOOMError,
     FatalWorkerTransientError,
 )
@@ -206,6 +213,7 @@ __all__ = [
     "FatalWorkerCrashError",
     "FatalWorkerError",
     "FatalWorkerExitError",
+    "FatalWorkerHardwareError",
     "FatalWorkerOOMError",
     "FatalWorkerTransientError",
     "fail_fast",
@@ -234,6 +242,6 @@ __all__ = [
     "udtf",
 ]
 
-version = "0.16.0"
+version = "0.17.0"
 
 __version__ = version

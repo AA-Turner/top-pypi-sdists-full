@@ -23,6 +23,7 @@ is automatic; see ``matrx_ai.configure``.
 
 from __future__ import annotations
 
+import inspect
 from typing import Any
 from urllib.parse import quote
 
@@ -67,28 +68,26 @@ class ServerMandateSource:
     def url_for(self, mandate_key: str) -> str:
         return f"{self._base}/api/mandates/{quote(mandate_key, safe='')}/resolution"
 
-    def _headers(self) -> dict[str, str]:
+    async def _headers(self) -> dict[str, str]:
         headers: dict[str, str] = {"Accept": "application/json"}
-        token = None
-        if callable(self._get_jwt):
-            try:
-                token = self._get_jwt()
-            except Exception as exc:  # noqa: BLE001 — report, never fetch anonymously
-                raise MandateSourceFetchError(
-                    f"get_jwt() raised {type(exc).__name__}: {exc}; refusing to resolve a "
-                    f"mandate anonymously — the answer depends on the caller's bindings"
-                ) from exc
-            import inspect
-
-            if inspect.iscoroutine(token):
-                token.close()
-                raise MandateSourceFetchError(
-                    "get_jwt is async (returned a coroutine); the seam requires a SYNC "
-                    "zero-arg callable. Fix the host's configure(get_jwt=...)."
-                )
-        if not token:
+        if not callable(self._get_jwt):
             raise MandateSourceFetchError(
-                "no JWT available; mandate resolution is per-caller (user and org bindings "
+                "no JWT provider is configured; mandate resolution is per-caller (user and org bindings "
+                "decide the agent), so an anonymous fetch would silently ignore the "
+                "user's own rebind"
+            )
+        try:
+            token = self._get_jwt()
+            if inspect.isawaitable(token):
+                token = await token
+        except Exception:  # noqa: BLE001 — report, never fetch anonymously
+            raise MandateSourceFetchError(
+                "JWT provider failed; refusing to resolve a mandate anonymously because "
+                "the answer depends on the caller's bindings"
+            ) from None
+        if not isinstance(token, str) or not token:
+            raise MandateSourceFetchError(
+                "no usable JWT available; mandate resolution is per-caller (user and org bindings "
                 "decide the agent), so an anonymous fetch would silently ignore the "
                 "user's own rebind"
             )
@@ -101,7 +100,7 @@ class ServerMandateSource:
         url = self.url_for(mandate_key)
         try:
             async with httpx.AsyncClient(timeout=self._timeout, follow_redirects=True) as client:
-                resp = await client.get(url, headers=self._headers())
+                resp = await client.get(url, headers=await self._headers())
         except httpx.HTTPError as exc:
             raise MandateSourceFetchError(
                 f"mandate resolution failed: GET {url} → {type(exc).__name__}: {exc}"

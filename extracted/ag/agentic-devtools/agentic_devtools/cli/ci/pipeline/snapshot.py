@@ -39,6 +39,17 @@ def _raise_if_rate_limit(exc: Exception) -> None:
         raise
 
 
+def _supports_diff_fingerprint(provider: object) -> bool:
+    """Return whether ``provider`` implements diff fingerprinting."""
+    method = getattr(provider, "compute_diff_hash", None)
+    if not callable(method):
+        return False
+    provider_method = getattr(method, "__func__", None)
+    if provider_method is None:
+        return True
+    return provider_method is not CIPlatformProvider.compute_diff_hash
+
+
 @dataclass(frozen=True)
 class PRStateSnapshot:
     """Immutable snapshot of all PR state gathered in one pass.
@@ -47,6 +58,7 @@ class PRStateSnapshot:
         pr_number: The pull request number.
         head_sha: Current HEAD commit SHA.
         base_branch: Target branch name.
+        base_sha: Target branch commit SHA captured with the snapshot.
         head_branch: Source branch name.
         commit_count: Number of commits above merge-base.
         ci_status: Overall CI status ("passing", "failing", "pending", "unknown").
@@ -117,6 +129,9 @@ class PRStateSnapshot:
         head_repo_full_name: Full name of the head repository.
         base_repo_full_name: Full name of the base repository.
         files: List of files changed in the PR.
+        diff_hash: Rebase-invariant patch fingerprint, when available.
+        diff_hash_supported: Whether the provider supports diff fingerprinting.
+        diff_hash_available: Whether fingerprinting returned a usable value.
         check_runs: All check run statuses.
         reviews: All reviews for the PR.
         has_changes: Whether the PR has file changes.
@@ -154,6 +169,7 @@ class PRStateSnapshot:
     pr_number: int = 0
     head_sha: str = ""
     base_branch: str = ""
+    base_sha: str = ""
     head_branch: str = ""
     commit_count: int = 1
     ci_status: str = "unknown"
@@ -182,11 +198,17 @@ class PRStateSnapshot:
     head_repo_full_name: str = ""
     base_repo_full_name: str = ""
     files: list[str] = field(default_factory=list)
+    diff_hash: str = ""
+    diff_hash_supported: bool = False
+    diff_hash_available: bool = False
     check_runs: list[CheckRunStatus] = field(default_factory=list)
     reviews: list[ReviewInfo] = field(default_factory=list)
     has_changes: bool = False
     commits_behind: int = 0
     head_author_login: str = ""
+    author_login: str = ""
+    required_codeowners: list[str] = field(default_factory=list)
+    codeowner_logins: list[str] = field(default_factory=list)
     copilot_gate_verdict: CopilotGateVerdict | None = None
     head_changed_since_review: bool = False
     repair_satisfied_review_id: int | None = None
@@ -261,10 +283,73 @@ def build_pr_state_snapshot(
         raw_head_author = ""
     head_author_login = raw_head_author if isinstance(raw_head_author, str) else ""
 
-    # List files — fail closed: if this raises, the caller gets EXIT_METADATA_FAILED
-    # so that guards (privileged-path / Dockerfile checks) are never bypassed by a
-    # missing file list.
-    files = provider.list_pr_files(pr_number)
+    # List files. When the provider can derive the diff file list for the exact
+    # HEAD SHA, prefer that over the live PR-files API so the snapshot cannot mix
+    # one head's file inventory with another head's diff fingerprint.
+    get_ref_sha = getattr(provider, "get_ref_sha", None)
+    base_sha = get_ref_sha(pr_meta.base_branch) if callable(get_ref_sha) else ""
+    if not isinstance(base_sha, str):
+        base_sha = ""
+    get_ref_sha_func = getattr(get_ref_sha, "__func__", None)
+    base_sha_lookup_supported = callable(get_ref_sha) and (
+        get_ref_sha_func is not None and get_ref_sha_func is not CIPlatformProvider.get_ref_sha
+    )
+    if base_sha_lookup_supported and not base_sha:
+        raise RuntimeError(f"PR #{pr_number}: base branch SHA unavailable for exact diff snapshot")
+    base_ref_kwargs = {"base_sha": base_sha} if base_sha else {}
+    compute_diff_files = getattr(provider, "compute_diff_files", None)
+    files: list[str] | None = None
+    pinned_inventory_supported = (
+        callable(compute_diff_files)
+        and getattr(compute_diff_files, "__func__", None) is not CIPlatformProvider.compute_diff_files
+    )
+    if pinned_inventory_supported:
+        assert callable(compute_diff_files)
+        try:
+            candidate_files = compute_diff_files(
+                base_branch=pr_meta.base_branch, sha=pr_meta.head_sha, **base_ref_kwargs
+            )
+        except Exception as exc:
+            _raise_if_rate_limit(exc)
+            logger.warning(
+                "PR #%d: Failed to compute diff files for HEAD %s: %s",
+                pr_number,
+                pr_meta.head_sha[:12],
+                str(exc)[:200],
+            )
+            raise
+        else:
+            if candidate_files is not None:
+                files = candidate_files
+            else:
+                raise RuntimeError(f"PR #{pr_number}: exact-HEAD file inventory unavailable for {pr_meta.head_sha}")
+
+    # Fall back to the live PR files list when the provider cannot pin the file
+    # inventory to the captured HEAD. This still fails closed on API errors so
+    # guards (privileged-path / Dockerfile checks) are never bypassed.
+    if files is None:
+        files = provider.list_pr_files(pr_number)
+    diff_hash = ""
+    diff_hash_supported = _supports_diff_fingerprint(provider)
+    diff_hash_available = False
+    compute_diff_hash = getattr(provider, "compute_diff_hash", None)
+    if diff_hash_supported and callable(compute_diff_hash):
+        try:
+            candidate_hash = compute_diff_hash(base_branch=pr_meta.base_branch, sha=pr_meta.head_sha, **base_ref_kwargs)
+            if isinstance(candidate_hash, str) and candidate_hash:
+                diff_hash = candidate_hash
+                diff_hash_available = True
+            elif candidate_hash == "":
+                logger.warning("PR #%d: Ignoring empty diff fingerprint from provider", pr_number)
+            elif candidate_hash is not None:
+                logger.warning(
+                    "PR #%d: Ignoring non-string diff fingerprint of type %s",
+                    pr_number,
+                    type(candidate_hash).__name__,
+                )
+        except Exception as exc:
+            _raise_if_rate_limit(exc)
+            logger.warning("PR #%d: Failed to compute diff fingerprint: %s", pr_number, str(exc)[:200])
 
     # Get check runs — fail closed: if this raises, the caller gets EXIT_METADATA_FAILED
     # so that a provider/API outage cannot silently drive ci_status to 'pending' and
@@ -467,6 +552,7 @@ def build_pr_state_snapshot(
         pr_number=pr_number,
         head_sha=pr_meta.head_sha,
         base_branch=pr_meta.base_branch,
+        base_sha=base_sha,
         head_branch=pr_meta.head_branch,
         commit_count=commit_count,
         ci_status=ci_status,
@@ -494,6 +580,9 @@ def build_pr_state_snapshot(
         head_repo_full_name=pr_meta.head_repo_full_name,
         base_repo_full_name=pr_meta.base_repo_full_name,
         files=files,
+        diff_hash=diff_hash,
+        diff_hash_supported=diff_hash_supported,
+        diff_hash_available=diff_hash_available,
         check_runs=check_runs,
         reviews=reviews,
         has_changes=bool(files),

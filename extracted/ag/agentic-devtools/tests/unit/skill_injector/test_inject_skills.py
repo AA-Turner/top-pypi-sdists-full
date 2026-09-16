@@ -111,6 +111,57 @@ class TestInjectSkills:
         assert target.exists()
         assert "# Body" in target.read_text(encoding="utf-8")
 
+    def test_copies_shared_fingerprint_resource(self, tmp_path):
+        """Copies the shared fingerprint helper at the skills tree root."""
+        agents_source = tmp_path / "source_agents"
+        prompts_source = tmp_path / "source_prompts"
+        skills_source = tmp_path / "source_skills"
+        agents_source.mkdir()
+        prompts_source.mkdir()
+        skills_source.mkdir()
+        (skills_source / "fingerprint.py").write_text("print('fingerprint')", encoding="utf-8")
+
+        def select_source(kind):
+            return {
+                "agents": agents_source,
+                "prompts": prompts_source,
+                "skills": skills_source,
+            }[kind]
+
+        with patch("agentic_devtools.skill_injector._get_source_dir", side_effect=select_source):
+            result = inject_skills(tmp_path)
+
+        assert result is True
+        target = tmp_path / ".agents" / "skills" / "fingerprint.py"
+        assert target.read_text(encoding="utf-8") == "print('fingerprint')"
+
+    def test_preserves_consumer_fingerprint_resource(self, tmp_path):
+        """Does not overwrite a consumer-authored shared fingerprint helper."""
+        agents_source = tmp_path / "source_agents"
+        prompts_source = tmp_path / "source_prompts"
+        skills_source = tmp_path / "source_skills"
+        agents_source.mkdir()
+        prompts_source.mkdir()
+        skills_source.mkdir()
+        (skills_source / "fingerprint.py").write_text("bundled", encoding="utf-8")
+        target = tmp_path / ".agents" / "skills" / "fingerprint.py"
+        target.parent.mkdir(parents=True)
+        target.write_text("consumer-authored", encoding="utf-8")
+
+        def select_source(kind):
+            return {
+                "agents": agents_source,
+                "prompts": prompts_source,
+                "skills": skills_source,
+            }[kind]
+
+        with pytest.warns(RuntimeWarning, match="fingerprint.py"):
+            with patch("agentic_devtools.skill_injector._get_source_dir", side_effect=select_source):
+                result = inject_skills(tmp_path)
+
+        assert result is True
+        assert target.read_text(encoding="utf-8") == "consumer-authored"
+
     def test_generates_readme_with_manifest(self, tmp_path):
         """Generates agdt.README.md with a file manifest table in each target directory."""
         source = tmp_path / "source_agents"

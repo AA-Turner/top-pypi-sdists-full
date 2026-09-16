@@ -534,3 +534,108 @@ async def test_mid_loop_flush_appends_without_overwriting_reserved_position(monk
     assert len(creates) == 1
     assert creates[0]["position"] == APPEND_MESSAGE_POSITION
     assert reserved[1] == message_id
+
+
+@pytest.mark.asyncio
+async def test_continuation_after_a_persisted_user_row_reserves_a_new_user_row(monkeypatch):
+    """A continuation whose conversation ENDS ON A PERSISTED USER ROW must still
+    write the person's new message.
+
+    THE LIVE LOSS THIS GUARDS (2026-09-15, conversation
+    e812c501-d912-55be-af02-df08dc2ded74, a mirrored Claude Code session whose
+    last entry was the human's own prompt): ``append_or_extend_user_input``
+    extended that already-persisted ``role='user'`` row in memory. The model
+    received the person's question and answered it, but the row carried ``id`` +
+    ``position`` from the DB, so the executor skipped its reservation and
+    ``persist_completed_request`` skipped it again as pre-existing — no INSERT,
+    no UPDATE. One answer row landed; the question vanished, leaving a
+    transcript that answers an invisible message.
+
+    The contract: a DB-loaded user row is a spoken turn and is never extended.
+    The new input becomes its own reserved row, with the real content, and the
+    loaded row is left byte-identical.
+    """
+    captured_creates: list[dict[str, Any]] = []
+
+    def fake_queue_message_create(**kwargs):
+        captured_creates.append(kwargs)
+        return "msg-id"
+
+    import matrx_ai.persistence.queue_helpers as qh
+
+    monkeypatch.setattr(qh, "queue_message_create", fake_queue_message_create)
+    monkeypatch.setattr(qh, "get_coordinator", lambda: _StubCoordinator())
+
+    async def _noop_async(*a, **k):
+        return None
+
+    monkeypatch.setattr(executor_mod, "ensure_conversation_exists", _noop_async)
+    monkeypatch.setattr(executor_mod, "ensure_user_request_exists", _noop_async)
+    monkeypatch.setattr(executor_mod, "get_tracker", lambda: _StubTracker())
+    monkeypatch.setattr(executor_mod, "get_app_context", lambda: _StubAppContext())
+
+    # The mirrored transcript as the resolver loads it: ONE user row that is
+    # already on disk (id + position are the "DB-loaded" signal the executor
+    # and context_trim both use).
+    mirrored_id = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa"
+    mirrored_text = "XT-FIX-1 F4: real Claude Code hook proof"
+    loaded_row = UnifiedMessage(
+        role="user",
+        content=[TextContent(text=mirrored_text)],
+    )
+    loaded_row.id = mirrored_id
+    loaded_row.position = 0
+    messages = MessageList(_messages=[loaded_row])
+
+    reply_text = "Who is answering me here, and does Claude Code see this?"
+    messages.append_or_extend_user_input(reply_text)
+
+    # In-memory shape first: a new turn, and the persisted row untouched.
+    assert len(messages.to_list()) == 2, (
+        "the person's reply was folded into the already-persisted user row — "
+        "the row nothing will ever UPDATE"
+    )
+    assert messages.to_list()[0].id == mirrored_id
+    assert mirrored_text == messages.to_list()[0].content[0].text, (
+        "the persisted mirror row was mutated in place"
+    )
+    assert messages.to_list()[1].id is None
+
+    cfg = UnifiedConfig(model="claude-sonnet-5", messages=messages)
+    req = AIMatrixRequest(
+        conversation_id=_StubAppContext.conversation_id,
+        config=cfg,
+        request_id=_StubAppContext.request_id,
+    )
+
+    class _AbortingClient:
+        async def execute(self, *a, **k):
+            raise _AbortIteration()
+
+    from matrx_ai.orchestrator.execution_state import ExecutionState
+
+    with pytest.raises(BaseException):
+        await executor_mod._execute_until_complete_inner(
+            exec_ctx=_StubAppContext(),
+            state=ExecutionState(),
+            initial_request=req,
+            client=_AbortingClient(),
+            max_iterations=1,
+            max_retries_per_iteration=0,
+        )
+
+    user_reservations = [c for c in captured_creates if c.get("role") == "user"]
+    assert len(user_reservations) == 1, (
+        "the person's reply got NO cx_message reservation — it reaches the model "
+        "and is never written (live loss: conversation e812c501-…-df08dc2ded74). "
+        f"captured: {captured_creates}"
+    )
+    user_call = user_reservations[0]
+    assert user_call.get("position") == APPEND_MESSAGE_POSITION
+    assert user_call.get("status") == "active"
+    content = user_call.get("content") or []
+    text_blocks = [b for b in content if isinstance(b, dict) and b.get("type") == "text"]
+    assert text_blocks, f"no text block in the reply reservation: {content}"
+    assert reply_text in text_blocks[0].get("text", "")
+    # And it is the REPLY that was reserved, never a second copy of the mirror.
+    assert user_call.get("id") != mirrored_id

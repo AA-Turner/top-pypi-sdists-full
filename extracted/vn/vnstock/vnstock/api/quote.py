@@ -8,11 +8,9 @@ Module quản lý dữ liệu giá chứng khoán với phát hiện phương th
 from typing import Any, Optional
 
 import pandas as pd
-from tenacity import retry, stop_after_attempt, wait_exponential
 from vnai import optimize_execution
 
 from vnstock.base import BaseAdapter, dynamic_method
-from vnstock.config import Config
 from vnstock.core.types import (
     DataSource,
     TimeFrame,
@@ -23,6 +21,7 @@ from vnstock.core.types import (
 from vnstock.core.types import (
     ParameterNames as P,
 )
+from vnstock.core.utils.retry import api_retry
 
 # Backward compatibility aliases
 DataSources = DataSource
@@ -55,7 +54,7 @@ class Quote(BaseAdapter):
         Args:
             source (str): Data source (VCI, MSN). Nguồn dữ liệu (VCI, MSN).
             symbol (str): Stock symbol. Mã chứng khoán.
-            random_agent (bool): Use random user agent for requests. Sử dụng user agent ngẫu nhiên cho các yêu cầu.
+            random_agent (bool): Deprecated and ignored. Đã lỗi thời, không còn tác dụng.
             show_log (bool): Show log messages. Hiển thị thông báo nhật ký.
         """
         # Ensure explorer modules and vnai patches are loaded
@@ -85,14 +84,7 @@ class Quote(BaseAdapter):
         )
 
     @optimize_execution("API")
-    @retry(
-        stop=stop_after_attempt(Config.RETRIES),
-        wait=wait_exponential(
-            multiplier=Config.BACKOFF_MULTIPLIER,
-            min=Config.BACKOFF_MIN,
-            max=Config.BACKOFF_MAX,
-        ),
-    )
+    @api_retry
     @dynamic_method
     def history(
         self,
@@ -146,14 +138,7 @@ class Quote(BaseAdapter):
     ohlcv = history
 
     @optimize_execution("API")
-    @retry(
-        stop=stop_after_attempt(Config.RETRIES),
-        wait=wait_exponential(
-            multiplier=Config.BACKOFF_MULTIPLIER,
-            min=Config.BACKOFF_MIN,
-            max=Config.BACKOFF_MAX,
-        ),
-    )
+    @api_retry
     @dynamic_method
     def intraday(
         self,

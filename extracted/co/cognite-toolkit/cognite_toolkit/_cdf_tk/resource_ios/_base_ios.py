@@ -150,11 +150,19 @@ class SuccessExtra(ReadExtra):
         "extra content should be placed in the resource. For example, in transformations this is 'query'."
         "If None, the extra content needs to be written to a separate file."
     )
+    remove_fields: list[str] = Field(
+        description="List of fields that should be removed from the resource when writing to the build directory. For example, in transformations the 'queryFile' field should be removed as it not part of the API.",
+        default_factory=list,
+    )
     source_hash: str
     suffix: str
+    content_parsed: dict[str, Any] | list[Any] | None = None
     content: str | None = None
-    byte_content: bytes | None = None
+    content_byte: bytes | None = None
     description: str
+    write_to_build: bool = Field(
+        False, description="Whether the extra content should be written to the build directory."
+    )
 
 
 class ResourceIO(

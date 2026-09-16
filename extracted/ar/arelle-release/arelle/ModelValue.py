@@ -5,7 +5,8 @@ from __future__ import annotations
 import datetime, isodate
 from collections.abc import Mapping
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, cast, overload, Optional, Union
+from typing import TYPE_CHECKING, Any, cast, overload, Literal, Optional, Union
+from typing_extensions import Self
 from fractions import Fraction
 from arelle.UrlUtil import isValidUriReference
 from arelle.typing import ModelObjectBase
@@ -22,22 +23,31 @@ if TYPE_CHECKING:
 import regex as re
 
 @overload
-def qname(value: ModelObject | str | QName) -> QName: ...
+def qname(
+    value: QName,
+    name: str | QName | ModelObject | dict[str, str] | dict[str | None, str] | None = None,
+    noPrefixIsNoNamespace: bool = False,
+    castException: Exception | type[Exception] | None = None,
+    prefixException: Exception | type[Exception] | None = None,
+) -> QName: ...
 
 @overload
-def qname(value: ModelObject | str | QName, name: str | ModelObject) -> QName: ...
+def qname(
+    value: ModelObject,
+    name: QName | Literal[""] | None = None,
+    noPrefixIsNoNamespace: bool = False,
+    castException: Exception | type[Exception] | None = None,
+    prefixException: Exception | type[Exception] | None = None,
+) -> QName: ...
 
 @overload
-def qname(value: ModelObject | str | QName, name: str | ModelObject | None = None, noPrefixIsNoNamespace: bool = False) -> QName: ...
-
-@overload
-def qname(value: ModelObject, name: QName, noPrefixIsNoNamespace: bool) -> QName: ...
-
-@overload
-def qname(value: str, name: dict[str, str], noPrefixIsNoNamespace: bool, castException: type[Exception], prefixException: type[Exception]) -> QName: ...
-
-@overload
-def qname(value: ModelObject | str | QName | Any | None, name: str | ModelObject | dict[str, str] | dict[str | None, str] | None) -> QName | None : ...
+def qname(
+    value: ModelObject | str | QName | Any | None,
+    name: str | QName | ModelObject | dict[str, str] | dict[str | None, str] | None = None,
+    noPrefixIsNoNamespace: bool = False,
+    castException: Exception | type[Exception] | None = None,
+    prefixException: Exception | type[Exception] | None = None,
+) -> QName | None: ...
 
 def qname(
     value: ModelObject | str | QName | Any | None,
@@ -207,6 +217,10 @@ class QName:
         self.localName = localName
         self.qnameValueHash = hash((self.namespaceURI, self.localName))
 
+    @classmethod
+    def fromParts(cls, localName: str, namespaceURI: str | None = None, prefix: str | None = None) -> Self:
+        return cls(prefix, namespaceURI, localName)
+
     def __hash__(self) -> int:
         return self.qnameValueHash
 
@@ -268,8 +282,8 @@ class QName:
         return bool(self.localName)
 
 def anyURI(value: str,
-           castException: Exception | None = None,
-) -> AnyURI | None:
+           castException: Exception | type[Exception] | None = None,
+) -> AnyURI:
     if castException is not None and (not value or not isValidUriReference(value)):
         raise castException
     return AnyURI(value)
@@ -305,6 +319,16 @@ def tzinfoStr(dt: datetime.datetime | datetime.date) -> str:
     if isinstance(dt, datetime.datetime):
         return _tzSuffix(dt.tzinfo)
     return ""
+
+
+@overload
+def dateTime(
+    value: datetime.date,
+    time: Any = ...,
+    addOneDay: bool = ...,
+    type: int | None = ...,
+    castException: type[Exception] | None = ...,
+) -> DateTime: ...
 
 
 @overload
@@ -476,12 +500,12 @@ def dateUnionEqual(
         if instantEndDate and dateUnion1.dateOnly:
             dateUnion1 += datetime.timedelta(1)
     elif isinstance(dateUnion1,datetime.date):
-        dateUnion1 = cast(DateTime, dateTime(dateUnion1, addOneDay=instantEndDate))
+        dateUnion1 = dateTime(dateUnion1, addOneDay=instantEndDate)
     if isinstance(dateUnion2, DateTime):
         if instantEndDate and dateUnion2.dateOnly:
             dateUnion2 += datetime.timedelta(1)
     elif isinstance(dateUnion2,datetime.date):
-        dateUnion2 = cast(DateTime, dateTime(dateUnion2, addOneDay=instantEndDate))
+        dateUnion2 = dateTime(dateUnion2, addOneDay=instantEndDate)
     return dateUnion1 == dateUnion2
 
 def dateunionDate(datetimeValue: datetime.date, subtractOneDay: bool = False) -> datetime.date:
@@ -1120,6 +1144,7 @@ TypeSValue = Union[
     str,
 ]
 TypeXValue = Union[
+    bool,
     datetime.datetime,
     datetime.time,
     Decimal,
@@ -1130,6 +1155,7 @@ TypeXValue = Union[
     gMonthDay,
     gYearMonth,
     gYear,
+    int,
     IsoDuration,
     Fraction,
     list[Optional[QName]],

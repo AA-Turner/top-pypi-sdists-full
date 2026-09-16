@@ -8,6 +8,7 @@ import warnings
 from typing import (
     Any,
     Dict,
+    Generator,
     Iterator,
     List,
     Literal,
@@ -34,7 +35,7 @@ from langchain_core.messages import (
 )
 from langchain_core.runnables import RunnableBinding
 from langchain_tests.unit_tests import ChatModelUnitTests
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 from syrupy import SnapshotAssertion
 
 from langchain_aws import ChatBedrockConverse
@@ -1198,6 +1199,74 @@ def test__messages_to_bedrock_keeps_tool_calls_when_content_dropped() -> None:
                 }
             ],
         }
+    ]
+
+
+def test__messages_to_bedrock_keeps_invalid_tool_call_for_error_result() -> None:
+    """An error result must retain its Bedrock tool-use block on replay."""
+    tool_call_id = "toolu_invalid"
+    invalid_tool_call = {
+        "type": "invalid_tool_call",
+        "id": tool_call_id,
+        "name": "get_weather",
+        "args": '{"location":',
+        "error": "Failed to parse tool call arguments as JSON",
+    }
+    messages: list[BaseMessage] = [
+        HumanMessage("Check the weather"),
+        AIMessage(
+            content=[invalid_tool_call],
+            invalid_tool_calls=[invalid_tool_call],
+        ),
+        ToolMessage(
+            "Tool call arguments were malformed.",
+            tool_call_id=tool_call_id,
+            status="error",
+        ),
+    ]
+
+    actual_messages, _ = _messages_to_bedrock(messages)
+
+    assert actual_messages[1] == {
+        "role": "assistant",
+        "content": [
+            {
+                "toolUse": {
+                    "toolUseId": tool_call_id,
+                    "name": "get_weather",
+                    "input": {},
+                }
+            }
+        ],
+    }
+    assert actual_messages[2]["content"][0]["toolResult"] == {
+        "toolUseId": tool_call_id,
+        "content": [{"text": "Tool call arguments were malformed."}],
+        "status": "error",
+    }
+
+
+def test__messages_to_bedrock_drops_unidentified_invalid_tool_call() -> None:
+    """Incomplete invalid calls must not become malformed Bedrock tool uses."""
+    invalid_tool_call = {
+        "type": "invalid_tool_call",
+        "id": None,
+        "name": "get_weather",
+        "args": '{"location":',
+        "error": "Failed to parse tool call arguments as JSON",
+    }
+
+    actual_messages, _ = _messages_to_bedrock(
+        [
+            AIMessage(
+                content=[invalid_tool_call],
+                invalid_tool_calls=[invalid_tool_call],
+            )
+        ]
+    )
+
+    assert actual_messages == [
+        {"role": "assistant", "content": [{"text": EMPTY_CONTENT}]}
     ]
 
 
@@ -3388,9 +3457,7 @@ def test_stream_guard_last_turn_only() -> None:
     """Test that stream() applies guardContent to final user turn."""
     llm, mocked_client = _create_mock_llm_guard_last_turn_only()
 
-    mocked_client.converse_stream.return_value = {
-        "stream": [{"messageStart": {"role": "assistant"}}]
-    }
+    mocked_client.converse_stream.return_value = {"stream": _completion_events()}
 
     messages = [
         HumanMessage(content="Hello"),
@@ -3500,9 +3567,7 @@ def test_stream_guard_last_turn_only_tool_continuation() -> None:
     llm, mocked_client = _create_mock_llm_guard_last_turn_only()
     llm_with_tools = llm.bind_tools([GetWeather])
 
-    mocked_client.converse_stream.return_value = {
-        "stream": [{"messageStart": {"role": "assistant"}}]
-    }
+    mocked_client.converse_stream.return_value = {"stream": _completion_events()}
 
     messages = [
         HumanMessage(content="What is the weather?"),
@@ -3552,6 +3617,52 @@ def test_bedrock_client_creation(mock_create_client: mock.Mock) -> None:
     assert chat_model.bedrock_client == mock_bedrock_client
     assert chat_model.client == mock_runtime_client
     assert mock_create_client.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("gateway", "expected_endpoint"),
+    [
+        ("true", "https://gateway.smith.langchain.com/bedrock"),
+        (
+            "https://eu.gateway.smith.langchain.com/",
+            "https://eu.gateway.smith.langchain.com/bedrock",
+        ),
+    ],
+)
+@mock.patch("langchain_aws.chat_models.bedrock_converse.create_aws_client")
+def test_langsmith_gateway_configures_bedrock_clients(
+    mock_create_client: mock.Mock,
+    monkeypatch: pytest.MonkeyPatch,
+    gateway: str,
+    expected_endpoint: str,
+) -> None:
+    monkeypatch.setenv("LANGSMITH_GATEWAY", gateway)
+    monkeypatch.setenv("LANGSMITH_API_KEY", "lsv2_gateway-key")
+
+    ChatBedrockConverse(model="anthropic.claude-3-sonnet-20240229-v1:0")
+
+    assert mock_create_client.call_count == 2
+    for call in mock_create_client.call_args_list:
+        assert call.kwargs["endpoint_url"] == expected_endpoint
+        assert call.kwargs["api_key"].get_secret_value() == "lsv2_gateway-key"
+
+
+@mock.patch("langchain_aws.chat_models.bedrock_converse.create_aws_client")
+def test_explicit_bedrock_config_takes_precedence_over_gateway(
+    mock_create_client: mock.Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LANGSMITH_GATEWAY", "true")
+    monkeypatch.setenv("LANGSMITH_GATEWAY_API_KEY", "lsv2_gateway-key")
+
+    ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        base_url="https://bedrock.example.com",
+        api_key=SecretStr("bedrock-key"),
+    )
+
+    for call in mock_create_client.call_args_list:
+        assert call.kwargs["endpoint_url"] == "https://bedrock.example.com"
+        assert call.kwargs["api_key"].get_secret_value() == "bedrock-key"
 
 
 @mock.patch("langchain_aws.chat_models.bedrock_converse.create_aws_client")
@@ -5444,6 +5555,226 @@ def test_stream_closes_event_stream_on_exception() -> None:
     mock_stream.close.assert_called_once()
 
 
+def _completion_events(
+    *,
+    include_message_stop: bool = True,
+    include_metadata: bool = True,
+    text: str = "This answer is cut",
+    tool: bool = False,
+) -> List[Dict[str, Any]]:
+    events: List[Dict[str, Any]] = [{"messageStart": {"role": "assistant"}}]
+    if tool:
+        events.extend(
+            [
+                {
+                    "contentBlockStart": {
+                        "contentBlockIndex": 0,
+                        "start": {
+                            "toolUse": {
+                                "toolUseId": "tool-1",
+                                "name": "get_weather",
+                            }
+                        },
+                    }
+                },
+                {
+                    "contentBlockDelta": {
+                        "contentBlockIndex": 0,
+                        "delta": {"toolUse": {"input": '{"city": "Paris"}'}},
+                    }
+                },
+            ]
+        )
+    else:
+        events.append(
+            {
+                "contentBlockDelta": {
+                    "contentBlockIndex": 0,
+                    "delta": {"text": text},
+                }
+            }
+        )
+    events.append({"contentBlockStop": {"contentBlockIndex": 0}})
+    if include_message_stop:
+        events.append(
+            {"messageStop": {"stopReason": "tool_use" if tool else "end_turn"}}
+        )
+    if include_metadata:
+        events.append(
+            {
+                "metadata": {
+                    "usage": {
+                        "inputTokens": 1,
+                        "outputTokens": 2,
+                        "totalTokens": 3,
+                    },
+                    "metrics": {"latencyMs": 1},
+                }
+            }
+        )
+    return events
+
+
+def _streaming_model(
+    events: List[Dict[str, Any]],
+) -> Tuple[ChatBedrockConverse, mock.MagicMock]:
+    stream = mock.MagicMock()
+    stream.__iter__ = mock.Mock(return_value=iter(events))
+    client = mock.MagicMock()
+    client.converse_stream.return_value = {"stream": stream}
+    model = ChatBedrockConverse(
+        client=client,
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+        streaming=True,
+    )
+    return model, stream
+
+
+@pytest.mark.parametrize("include_metadata", [False, True])
+@pytest.mark.parametrize("tool", [False, True])
+def test_stream_rejects_response_without_message_stop(
+    include_metadata: bool, tool: bool
+) -> None:
+    """Natural EOF without messageStop is not a successful response."""
+    model, stream = _streaming_model(
+        _completion_events(
+            include_message_stop=False,
+            include_metadata=include_metadata,
+            tool=tool,
+        )
+    )
+
+    with pytest.raises(ConnectionError, match="Incomplete Bedrock response stream"):
+        model.invoke("Reply briefly")
+
+    stream.close.assert_called_once()
+
+
+@pytest.mark.parametrize("tool", [False, True])
+def test_stream_accepts_response_without_metadata(tool: bool) -> None:
+    """A stop event is sufficient even when usage metadata is unavailable."""
+    model, stream = _streaming_model(
+        _completion_events(include_metadata=False, tool=tool)
+    )
+
+    response = model.invoke("Reply briefly")
+
+    assert response.response_metadata["stopReason"] == (
+        "tool_use" if tool else "end_turn"
+    )
+    assert response.usage_metadata is None
+    stream.close.assert_called_once()
+
+
+@pytest.mark.parametrize("tool", [False, True])
+def test_stream_accepts_complete_response(tool: bool) -> None:
+    """Complete text and tool responses preserve stop and usage metadata."""
+    model, stream = _streaming_model(_completion_events(tool=tool))
+
+    response = model.invoke("Reply briefly")
+
+    assert response.response_metadata["stopReason"] == (
+        "tool_use" if tool else "end_turn"
+    )
+    assert response.usage_metadata is not None
+    assert response.usage_metadata["total_tokens"] == 3
+    if tool:
+        assert response.tool_calls == [
+            {
+                "name": "get_weather",
+                "args": {"city": "Paris"},
+                "id": "tool-1",
+                "type": "tool_call",
+            }
+        ]
+    else:
+        assert response.content == [
+            {"type": "text", "text": "This answer is cut", "index": 0}
+        ]
+    stream.close.assert_called_once()
+
+
+def test_closing_stream_early_does_not_report_incomplete_response() -> None:
+    """Caller cancellation closes the transport without validating completion."""
+    model, transport = _streaming_model(_completion_events())
+    stream = cast(Generator[AIMessageChunk, None, None], model.stream("Reply briefly"))
+
+    next(stream)
+    stream.close()
+
+    transport.close.assert_called_once()
+
+
+def test_incomplete_stream_reports_error_callback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An incomplete response reports an error rather than a successful end."""
+    from langchain_core.callbacks import BaseCallbackHandler
+
+    handler = BaseCallbackHandler()
+    on_llm_end = mock.MagicMock()
+    on_llm_error = mock.MagicMock()
+    monkeypatch.setattr(handler, "on_llm_end", on_llm_end)
+    monkeypatch.setattr(handler, "on_llm_error", on_llm_error)
+    model, _ = _streaming_model(
+        _completion_events(include_message_stop=False, include_metadata=False)
+    )
+
+    with pytest.raises(ConnectionError, match="Incomplete Bedrock response stream"):
+        model.invoke("Reply briefly", config={"callbacks": [handler]})
+
+    on_llm_end.assert_not_called()
+    on_llm_error.assert_called_once()
+
+
+def test_incomplete_stream_uses_fallback_on_invoke() -> None:
+    """Invocation fallback replaces, rather than returns, a partial response."""
+    from langchain_core.language_models import LanguageModelInput
+    from langchain_core.runnables import RunnableLambda
+
+    model, stream = _streaming_model(
+        _completion_events(include_message_stop=False, text="partial response")
+    )
+    fallback: RunnableLambda[LanguageModelInput, AIMessage] = RunnableLambda(
+        lambda _: AIMessage(content="fallback response")
+    )
+
+    response = model.with_fallbacks([fallback]).invoke("Reply briefly")
+
+    assert response.content == "fallback response"
+    stream.close.assert_called_once()
+
+
+def test_incomplete_stream_retries_on_invoke() -> None:
+    """Invocation retry returns only the subsequent complete response."""
+    model, first_stream = _streaming_model(
+        _completion_events(include_message_stop=False, text="partial response")
+    )
+    second_stream = mock.MagicMock()
+    second_stream.__iter__ = mock.Mock(
+        return_value=iter(_completion_events(text="complete response"))
+    )
+    client = cast(mock.MagicMock, model.client)
+    client.converse_stream.side_effect = [
+        {"stream": first_stream},
+        {"stream": second_stream},
+    ]
+
+    response = model.with_retry(
+        retry_if_exception_type=(ConnectionError,),
+        wait_exponential_jitter=False,
+        stop_after_attempt=2,
+    ).invoke("Reply briefly")
+
+    assert response.content == [
+        {"type": "text", "text": "complete response", "index": 0}
+    ]
+    assert client.converse_stream.call_count == 2
+    first_stream.close.assert_called_once()
+    second_stream.close.assert_called_once()
+
+
 def test_guardrail_config_snake_to_camel_conversion() -> None:
     """Test that guardrail_config is properly converted
     from snake_case to camelCase."""
@@ -6580,6 +6911,36 @@ def test_apply_cache_points_anthropic_end_of_history() -> None:
     assert messages[-1]["content"][-1] == {"cachePoint": {"type": "default"}}
     assert system[-1] == {"cachePoint": {"type": "default"}}
     assert _count_cache_points(system, messages, tools) == 4
+
+
+def test_apply_cache_points_skips_end_of_history_after_reasoning() -> None:
+    system: list[dict[str, Any]] = [{"text": "You are helpful."}]
+    reasoning_block = {
+        "reasoningContent": {
+            "reasoningText": {"text": "Thinking.", "signature": "signature"}
+        }
+    }
+    messages: list[dict[str, Any]] = [
+        {"role": "user", "content": [{"text": "Hello"}]},
+        {"role": "assistant", "content": [reasoning_block]},
+        {"role": "user", "content": [{"text": "Classify the conversation."}]},
+    ]
+    params: dict[str, Any] = {
+        "toolConfig": {
+            "tools": [
+                {"toolSpec": {"name": "t", "description": "d", "inputSchema": {}}}
+            ]
+        }
+    }
+    ChatBedrockConverse(
+        client=mock.MagicMock(),
+        model="us.anthropic.claude-sonnet-5",
+        region_name="us-west-2",
+    )._apply_cache_points({"type": "ephemeral"}, system, messages, params)
+    assert messages[-2]["content"] == [reasoning_block]
+    assert messages[-1]["content"][-1] == {"cachePoint": {"type": "default"}}
+    assert system[-1] == {"cachePoint": {"type": "default"}}
+    assert params["toolConfig"]["tools"][-1] == {"cachePoint": {"type": "default"}}
 
 
 def test_apply_cache_points_non_anthropic_no_end_of_history() -> None:

@@ -1,3 +1,5 @@
+import json
+import logging
 from typing import Any, cast
 
 from strands import Agent
@@ -7,6 +9,8 @@ from ..types.evaluation import EvaluationData, EvaluationOutput, InputT, OutputT
 from .evaluator import Evaluator
 from .prompt_templates.case_prompt_template import compose_test_prompt
 from .prompt_templates.prompt_templates import judge_output_template as SYSTEM_PROMPT
+
+logger = logging.getLogger(__name__)
 
 
 class OutputEvaluator(Evaluator[InputT, OutputT]):
@@ -40,7 +44,63 @@ class OutputEvaluator(Evaluator[InputT, OutputT]):
         self.include_inputs = include_inputs
         self.system_prompt = system_prompt
         self.uses_environment_state = uses_environment_state
-        self.tools = tools
+        # Stored privately so the base to_dict() skips it; to_dict() below re-adds
+        # the JSON-serializable subset so tools like module path strings round-trip.
+        self._tools = tools
+
+    @property
+    def tools(self) -> list[Any] | None:
+        """Optional tools for the evaluator agent.
+
+        Only tools that can be written as valid JSON in a utf-8 file survive `to_dict()`,
+        for example module path strings. Tools that cannot (callables, NaN or Infinity
+        floats, strings with unpaired surrogates) are skipped with a warning and must be
+        re-attached after `from_dict()`.
+        """
+        return self._tools
+
+    @tools.setter
+    def tools(self, value: list[Any] | None) -> None:
+        self._tools = value
+
+    def to_dict(self) -> dict:
+        """
+        Convert the evaluator into a dictionary.
+
+        Returns:
+            dict: A dictionary containing the evaluator's information. Includes only tools
+            that can be written as valid JSON in a utf-8 file. Tools that cannot (decorated
+            functions, NaN or Infinity floats, strings with unpaired surrogates) are skipped
+            with a warning and must be re-attached after `from_dict()`.
+        """
+        _dict = super().to_dict()
+        if self._tools:
+            serializable_tools = []
+            for tool in self._tools:
+                try:
+                    # Check each tool with the same settings Experiment.to_file() uses.
+                    # The utf-8 encode rejects unpaired surrogates. allow_nan=False
+                    # rejects NaN and Infinity, which are not allowed in valid JSON.
+                    # UnicodeEncodeError is a subclass of ValueError.
+                    json.dumps(tool, ensure_ascii=False, allow_nan=False).encode("utf-8")
+                except (TypeError, ValueError):
+                    tool_name = getattr(tool, "tool_name", None) or getattr(tool, "__name__", None)
+                    if not isinstance(tool_name, str):
+                        # The tool may be a plain string or a dict with no name attribute.
+                        # A short ascii() preview identifies it better than a type name.
+                        tool_name = ascii(tool)
+                        if len(tool_name) > 80:
+                            tool_name = tool_name[:77] + "..."
+                    logger.warning(
+                        "tool_name=<%s> | skipping tool that cannot be written as valid utf-8 JSON, "
+                        "re-attach it via the `tools` attribute after loading",
+                        tool_name,
+                    )
+                else:
+                    serializable_tools.append(tool)
+            if serializable_tools:
+                _dict["tools"] = serializable_tools
+        return _dict
 
     def _build_prompt(self, evaluation_case: EvaluationData[InputT, OutputT]) -> str | list:
         """Build the evaluation prompt for a test case.

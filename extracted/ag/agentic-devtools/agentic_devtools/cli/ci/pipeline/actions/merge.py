@@ -58,6 +58,34 @@ class MergeAction:
         """Evaluate whether the PR can be merged."""
         preconditions: dict[str, bool] = {}
 
+        loop_controller = derived.get("loop_controller")
+        loop_state = derived.get("loop_state")
+        loop_observation = derived.get("loop_observation")
+        if loop_controller is not None or loop_state is not None or loop_observation is not None:
+            if not all(value is not None for value in (loop_controller, loop_state, loop_observation)):
+                preconditions["loop_eligible"] = False
+                return ActionResult(self.name, ActionDecision.SKIP, preconditions, "Incomplete governed loop state")
+            decision = loop_controller.merge_eligible(loop_state, snapshot.pr_number, loop_observation)
+            preconditions["loop_eligible"] = decision.eligible
+            if not decision.eligible:
+                return ActionResult(self.name, ActionDecision.SKIP, preconditions, f"Loop gate: {decision.reason}")
+
+        if snapshot.author_login and snapshot.approver_login:
+            preconditions["approver_is_not_author"] = (
+                snapshot.author_login.casefold() != snapshot.approver_login.casefold()
+            )
+            if not preconditions["approver_is_not_author"]:
+                return ActionResult(self.name, ActionDecision.SKIP, preconditions, "Approver is the PR author")
+        if snapshot.required_codeowners:
+            approved_owners = {login.casefold() for login in snapshot.codeowner_logins}
+            preconditions["codeowner_approval"] = all(
+                owner.casefold() in approved_owners for owner in snapshot.required_codeowners
+            )
+            if not preconditions["codeowner_approval"]:
+                return ActionResult(
+                    self.name, ActionDecision.SKIP, preconditions, "Required CODEOWNER approval missing"
+                )
+
         repair_dispatched = derived.get("repair_dispatched", False)
         preconditions["no_repair_dispatched"] = not repair_dispatched
         if repair_dispatched:

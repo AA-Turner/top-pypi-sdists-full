@@ -22,6 +22,8 @@ class GetResourceTypeResponse200:
         edited_at (Union[Unset, datetime.datetime]):
         format_extension (Union[Unset, str]):
         is_fileset (Union[Unset, bool]):
+        display_name (Union[Unset, str]): The name the product goes by, e.g. "Google Sheets" for gsheets. Absent where
+            nobody named the type.
     """
 
     name: str
@@ -32,6 +34,7 @@ class GetResourceTypeResponse200:
     edited_at: Union[Unset, datetime.datetime] = UNSET
     format_extension: Union[Unset, str] = UNSET
     is_fileset: Union[Unset, bool] = UNSET
+    display_name: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -46,6 +49,7 @@ class GetResourceTypeResponse200:
 
         format_extension = self.format_extension
         is_fileset = self.is_fileset
+        display_name = self.display_name
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -68,6 +72,8 @@ class GetResourceTypeResponse200:
             field_dict["format_extension"] = format_extension
         if is_fileset is not UNSET:
             field_dict["is_fileset"] = is_fileset
+        if display_name is not UNSET:
+            field_dict["display_name"] = display_name
 
         return field_dict
 
@@ -95,6 +101,8 @@ class GetResourceTypeResponse200:
 
         is_fileset = d.pop("is_fileset", UNSET)
 
+        display_name = d.pop("display_name", UNSET)
+
         get_resource_type_response_200 = cls(
             name=name,
             workspace_id=workspace_id,
@@ -104,6 +112,7 @@ class GetResourceTypeResponse200:
             edited_at=edited_at,
             format_extension=format_extension,
             is_fileset=is_fileset,
+            display_name=display_name,
         )
 
         get_resource_type_response_200.additional_properties = d

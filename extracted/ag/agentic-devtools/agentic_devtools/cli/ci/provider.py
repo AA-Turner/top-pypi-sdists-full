@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from agentic_devtools.cli.ci.models import (
     CheckRunStatus,
+    CopilotSessionSummary,
     EventPayload,
     FinalizationResult,
     IssueCommentInfo,
@@ -91,6 +92,10 @@ class CIPlatformProvider(ABC):
             List of ReviewInfo for all reviews.
         """
 
+    def list_pr_session_summaries(self, pr_number: int) -> list[CopilotSessionSummary]:
+        """Return completed Copilot session summaries for the given pull request."""
+        return []
+
     @abstractmethod
     def post_comment(self, pr_number: int, body: str) -> int:
         """Post a comment on a pull request.
@@ -128,6 +133,17 @@ class CIPlatformProvider(ABC):
             comment_id: ID of the comment to update.
             body: New comment body text.
         """
+
+    def delete_comment(self, comment_id: int) -> None:
+        """Delete an issue comment.
+
+        Args:
+            comment_id: ID of the comment to delete.
+
+        Raises:
+            NotImplementedError: When the provider does not support deleting comments.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not implement delete_comment")
 
     @abstractmethod
     def find_comment(self, pr_number: int, marker: str) -> tuple[int, str] | None:
@@ -382,6 +398,14 @@ class CIPlatformProvider(ABC):
             resolved or the provider does not support this operation.
         """
         return ""
+
+    def compute_diff_hash(self, *, base_branch: str, sha: str, base_sha: str = "") -> str | None:
+        """Return a patch fingerprint compared with the base, when supported."""
+        return None
+
+    def compute_diff_files(self, *, base_branch: str, sha: str, base_sha: str = "") -> list[str] | None:
+        """Return changed files compared with the base, when supported."""
+        return None
 
     @abstractmethod
     def list_review_comments(self, pr_number: int, review_id: int) -> list[ReviewCommentInfo]:

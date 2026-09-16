@@ -1025,6 +1025,7 @@ class DeploymentInfoTypeDef(TypedDict):
     loadBalancerInfo: NotRequired[LoadBalancerInfoOutputTypeDef]
     additionalDeploymentStatusInfo: NotRequired[str]
     fileExistsBehavior: NotRequired[FileExistsBehaviorType]
+    deploymentMode: NotRequired[DeploymentModeType]
     deploymentStatusMessages: NotRequired[list[str]]
     computePlatform: NotRequired[ComputePlatformType]
     externalId: NotRequired[str]

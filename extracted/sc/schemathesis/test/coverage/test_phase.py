@@ -3949,6 +3949,27 @@ def test_path_parameter_with_slash_in_custom_format(ctx):
     assert all(v == "0.0.0.0%2F0" for v in path_values), f"Unexpected values: {path_values}"
 
 
+def test_path_parameter_enum_value_with_slash_is_covered(ctx):
+    # An enum member containing "/" must still be tried, percent-encoded, not dropped.
+    operation = load_schema(
+        ctx,
+        path="/metrics/{metricId}",
+        method="get",
+        parameters=[
+            {
+                "name": "metricId",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string", "enum": ["requests/count", "users/count"]},
+            }
+        ],
+    )["/metrics/{metricId}"]["get"]
+
+    path_values = {case.path_parameters.get("metricId") for case in collect_cases(operation, GenerationMode.POSITIVE)}
+
+    assert "requests%2Fcount" in path_values, f"Unexpected values: {path_values}"
+
+
 def test_xml_string_field_no_type_mutations(ctx):
     # For {"type": "string"} XML fields, type mutations produce the same wire bytes as valid strings.
     # None -> "", False -> "False", 0 -> "0" all become valid string content in XML elements.
@@ -4166,6 +4187,85 @@ def test_all_of_branch_judging_outer_properties_as_additional(ctx):
     assert_bodies(operation, GenerationMode.POSITIVE, valid=True)
 
 
+def test_positive_body_covers_nested_enum_under_an_unfoldable_all_of(ctx):
+    operation = body_operation(
+        ctx,
+        {"$ref": "#/components/schemas/Payload"},
+        path="/x",
+        components={
+            "schemas": {
+                "Base": {"type": "object", "properties": {"id": {"type": "string"}}},
+                "Payload": {
+                    "type": "object",
+                    "additionalProperties": {"type": "object"},
+                    "allOf": [{"$ref": "#/components/schemas/Base"}],
+                    "properties": {
+                        "conditions": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": ["Succeeded", "Failed"]},
+                        }
+                    },
+                },
+            }
+        },
+    )
+    assert {
+        entry
+        for case in iter_cases(operation, GenerationMode.POSITIVE)
+        if isinstance(case.body, dict)
+        for entry in case.body.get("conditions", [])
+    } == {"Succeeded", "Failed"}
+
+
+def test_positive_body_drawn_whole_when_an_inherited_property_cannot_be_folded(ctx):
+    # No single spelling carries both patterns, so `code` is drawn against them together.
+    operation = body_operation(
+        ctx,
+        {"$ref": "#/components/schemas/Payload"},
+        path="/x",
+        components={
+            "schemas": {
+                "Base": {
+                    "type": "object",
+                    "properties": {"code": {"type": "string", "pattern": "^a", "minLength": 2, "maxLength": 2}},
+                    "required": ["code"],
+                },
+                "Payload": {
+                    "type": "object",
+                    "maxProperties": 1,
+                    "additionalProperties": {"type": "string", "pattern": "b$", "minLength": 2, "maxLength": 2},
+                    "allOf": [{"$ref": "#/components/schemas/Base"}],
+                },
+            }
+        },
+    )
+
+    assert [(case.body, case.meta.phase.data.scenario) for case in iter_cases(operation, GenerationMode.POSITIVE)] == [
+        ({"code": "ab"}, CoverageScenario.DEFAULT_POSITIVE_TEST)
+    ]
+
+
+def test_no_positive_body_when_an_inherited_required_property_admits_nothing(ctx):
+    # `code` has to be a string and an integer at once, so no object fits.
+    operation = body_operation(
+        ctx,
+        {"$ref": "#/components/schemas/Payload"},
+        path="/x",
+        components={
+            "schemas": {
+                "Base": {"type": "object", "properties": {"code": {"type": "string"}}, "required": ["code"]},
+                "Payload": {
+                    "type": "object",
+                    "additionalProperties": {"type": "integer"},
+                    "allOf": [{"$ref": "#/components/schemas/Base"}],
+                },
+            }
+        },
+    )
+
+    assert iter_cases(operation, GenerationMode.POSITIVE) == []
+
+
 def test_all_of_branch_that_stays_a_reference(ctx):
     # A branch left as a bare reference cannot carry its siblings' constraints - `$ref` wins over them.
     operation = body_operation(
@@ -4232,6 +4332,64 @@ def test_reference_cycle_through_a_combinator_branch(ctx, combinator):
         },
     )
     assert iter_cases(operation, GenerationMode.POSITIVE)
+
+
+def test_positive_body_descends_past_a_second_use_of_a_shared_base(ctx):
+    # A base reused at two nesting levels must not stop the walk at a pointer it has nothing to do with.
+    operation = body_operation(
+        ctx,
+        {"$ref": "#/components/schemas/Outer"},
+        path="/x",
+        components={
+            "schemas": {
+                "Base": {"type": "object", "properties": {"id": {"type": "string"}}},
+                "Outer": {
+                    "type": "object",
+                    "allOf": [{"$ref": "#/components/schemas/Base"}],
+                    "properties": {"inner": {"$ref": "#/components/schemas/Middle"}},
+                },
+                "Middle": {
+                    "type": "object",
+                    "allOf": [{"$ref": "#/components/schemas/Base"}],
+                    "properties": {"leaf": {"$ref": "#/components/schemas/Leaf"}},
+                },
+                "Leaf": {
+                    "type": "object",
+                    "properties": {"tags": {"type": "array", "items": {"type": "string"}}},
+                },
+            }
+        },
+    )
+    assert {
+        tuple(case.body["inner"]["leaf"]["tags"])
+        for case in iter_cases(operation, GenerationMode.POSITIVE)
+        if isinstance(case.body, dict) and "tags" in case.body.get("inner", {}).get("leaf", {})
+    } == {(), ("",)}
+
+
+def test_positive_body_descends_past_a_third_use_of_a_shared_base(ctx):
+    # A base carrying no `$ref` of its own cannot recur, so a third nesting level leaves the walk below it intact.
+    operation = body_operation(
+        ctx,
+        {
+            "type": "object",
+            "allOf": [{"$ref": "#/components/schemas/Base"}],
+            "properties": {
+                "inner": {
+                    "type": "object",
+                    "allOf": [{"$ref": "#/components/schemas/Base"}],
+                    "properties": {"pools": {"type": "array", "items": {"$ref": "#/components/schemas/Base"}}},
+                }
+            },
+        },
+        path="/x",
+        components={"schemas": {"Base": {"type": "object", "properties": {"id": {"type": "string"}}}}},
+    )
+    assert {
+        json.dumps(case.body["inner"]["pools"])
+        for case in iter_cases(operation, GenerationMode.POSITIVE)
+        if isinstance(case.body, dict) and "pools" in case.body.get("inner", {})
+    } == {"[]", '[{"id": ""}]', "[{}]"}
 
 
 @pytest.mark.parametrize(
@@ -4821,6 +4979,64 @@ def test_coverage_positive_body_uuid_format_with_uppercase_pattern(ctx):
         path="/docs",
     )
     assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=generate_cases)
+
+
+def test_coverage_positive_body_required_format_with_wider_pattern(ctx):
+    # A lowercase UUID satisfies both keywords, so this required property must not sink the whole body.
+    operation = body_operation(
+        ctx,
+        {
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f-]+$"}},
+        },
+        path="/docs",
+    )
+    assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=generate_cases)
+
+
+def test_coverage_positive_body_only_long_enough_pattern_branch_satisfies_format(ctx):
+    operation = body_operation(
+        ctx,
+        {
+            "type": "object",
+            "properties": {
+                "issued": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(2020-01-02|x)$",
+                    "minLength": 2,
+                    "maxLength": 10,
+                }
+            },
+        },
+        path="/reports",
+    )
+    assert assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=generate_cases) == [
+        {"issued": "2020-01-02"},
+        {},
+    ]
+
+
+def test_coverage_positive_body_only_long_enough_pattern_branch_violates_format(ctx):
+    # No other match fits the length window, so the property goes instead of shipping a non-date.
+    operation = body_operation(
+        ctx,
+        {
+            "type": "object",
+            "properties": {
+                "issued": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(20200102|x)$",
+                    "minLength": 2,
+                    "maxLength": 8,
+                }
+            },
+        },
+        path="/reports",
+    )
+    assert assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=generate_cases) == [{}]
 
 
 def test_coverage_positive_body_skips_properties_with_no_valid_enum_values(ctx):
@@ -6146,6 +6362,26 @@ def test_negative_coverage_emits_invalid_format_for_uuid_body_property(ctx):
         uuid.UUID(value)
 
 
+def test_negative_coverage_emits_invalid_format_for_duration_body_property(ctx):
+    operation = body_operation(
+        ctx,
+        {
+            "type": "object",
+            "required": ["retentionTime"],
+            "properties": {"retentionTime": {"type": "string", "format": "duration"}},
+        },
+        path="/tasks",
+        version="2.0",
+    )
+    cases = iter_cases(operation, GenerationMode.NEGATIVE)
+
+    assert [
+        case.body["retentionTime"]
+        for case in scenario_cases(cases, CoverageScenario.INVALID_FORMAT)
+        if isinstance(case.body, dict) and "retentionTime" in case.body
+    ], "no INVALID_FORMAT case emitted for body property with format: duration"
+
+
 def test_coverage_form_urlencoded_filters_primitives_with_bundled_ref(ctx):
     # Every NEGATIVE form-urlencoded body must remain schema-invalid after string coercion.
     operation = body_operation(
@@ -6735,6 +6971,47 @@ def test_negative_coverage_violates_int64_format_bounds(ctx):
     assert violations[CoverageScenario.VALUE_ABOVE_MAXIMUM] == 2**63
     assert violations[CoverageScenario.VALUE_BELOW_MINIMUM] == -(2**63) - 1
     assert all(case.meta.generation.mode == GenerationMode.NEGATIVE for case in cases)
+
+
+def test_coverage_parameter_negatives_survive_unserializable_body_media_type(ctx):
+    # The declared media type has no serializer, but path-parameter negatives do not depend on the body.
+    operation = load_schema(
+        ctx,
+        parameters=[
+            {"in": "path", "name": "name", "required": True, "type": "string", "maxLength": 3},
+            {"in": "body", "name": "content", "required": True, "schema": {"type": "string"}},
+        ],
+        path="/items/{name}",
+        method="put",
+        version="2.0",
+        consumes=["text/powershell"],
+    )["/items/{name}"]["PUT"]
+    cases = generate_cases(operation, GenerationMode.NEGATIVE)
+
+    assert [
+        case.path_parameters["name"] for case in scenario_cases(cases, CoverageScenario.STRING_ABOVE_MAX_LENGTH)
+    ] == ["0000"]
+
+
+def test_negative_coverage_violates_maximum_wider_than_int64_range(ctx):
+    # `maximum` above the `format: int64` ceiling still has to be exceeded, or the bound is never tested.
+    operation = body_operation(
+        ctx,
+        {
+            "type": "object",
+            "properties": {
+                "value": {"type": "integer", "format": "int64", "maximum": 9223372036854776000, "minimum": 0}
+            },
+            "required": ["value"],
+        },
+        path="/x",
+        version="2.0",
+    )
+    cases = iter_cases(operation, GenerationMode.NEGATIVE)
+
+    assert [case.body["value"] for case in scenario_cases(cases, CoverageScenario.VALUE_ABOVE_MAXIMUM)] == [
+        9223372036854776001
+    ]
 
 
 def test_coverage_recursive_body_is_generated(ctx):

@@ -79,6 +79,10 @@ class MockedRayWriterHarness:
     def patch(self) -> Iterator[MockedRayWriterHarness]:
         with (
             patch(
+                "geneva.runners.ray.pipeline.ray.is_initialized",
+                return_value=True,
+            ),
+            patch(
                 "geneva.runners.ray.pipeline.ray.util.queue.Queue",
                 side_effect=self.make_queue,
             ) as queue_cls,

@@ -1,6 +1,10 @@
-from asyncdb.exceptions import ProviderError
-from ..exceptions import ComponentError, NotSupported
+from asyncdb.exceptions import NoDataFound, ProviderError
+from ..exceptions import ComponentError, NotSupported, DataNotFound, FileNotFound
 from .IteratorBase import IteratorBase
+from ..interfaces.skip_policy import (
+    ConsecutiveFailureTracker,
+    SKIPPED_ITERATION,
+)
 
 
 class ParamIterator(IteratorBase):
@@ -96,10 +100,10 @@ class ParamIterator(IteratorBase):
             raise ComponentError(f"Error: Generating Iterator: {err}") from err
 
     async def run(self):
-        status = False
         iterator = self.get_iterator()
         step, target, params = self.get_step()
         step_name = step.name
+        tracker = ConsecutiveFailureTracker(self.max_consecutive_failures)
         for item in iterator:
             params["parameters"] = item
             self._result = item
@@ -107,15 +111,29 @@ class ParamIterator(IteratorBase):
             if job:
                 try:
                     status = await self.async_job(job, step_name)
-                except (ProviderError, ComponentError, NotSupported) as err:
-                    raise NotSupported(
-                        f"Error running Component {step_name}, error: {err}"
-                    ) from err
+                except (NoDataFound, DataNotFound, FileNotFound) as err:
+                    # D3: continue INCONDICIONAL, y NO cuenta para el umbral.
+                    self._logger.debug(f"Data not Found for {step_name}, got: {err}")
+                    continue
+                except (ProviderError, ComponentError, NotSupported):
+                    # async_job ya consulto skipError: si llega aqui era ENFORCE.
+                    raise
                 except Exception as err:
                     raise ComponentError(
                         f"Generic Component Error on {step_name}, error: {err}"
                     ) from err
-        return status
+                
+                if status is SKIPPED_ITERATION:
+                    should_abort = tracker.record_skip(ComponentError(f"Skipped iteration for item {item}"))
+                    if should_abort:
+                        tracker.publish(self)
+                        raise ComponentError(
+                            f"ParamIterator: Aborted due to {tracker.consecutive} consecutive failures at item {item}. Last error: {tracker.last_error}"
+                        ) from tracker.last_error
+                else:
+                    tracker.record_success()
+        tracker.publish(self)
+        return tracker.successes > 0
 
     async def close(self):
         pass

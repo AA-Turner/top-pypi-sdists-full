@@ -22,9 +22,11 @@ from fastmcp_extensions import mcp_tool, register_mcp_tools
 from pydantic import BaseModel, Field
 
 from airbyte_ops_mcp.github_actions import (
+    format_failed_jobs,
     get_workflow_jobs,
     resolve_default_workflow_branch,
     trigger_workflow_dispatch,
+    wait_for_workflow_completion,
 )
 from airbyte_ops_mcp.github_api import (
     GITHUB_API_BASE,
@@ -223,6 +225,10 @@ class TriggerCIWorkflowResult(BaseModel):
     workflow_url: str
     run_id: int | None = None
     run_url: str | None = None
+    completed: bool = False
+    status: str | None = None
+    conclusion: str | None = None
+    failed_jobs: list[str] | None = None
 
 
 class AIReviewResult(BaseModel):
@@ -330,12 +336,28 @@ def trigger_ci_workflow(
             "These are passed to the workflow_dispatch event."
         ),
     ] = None,
+    wait_for_completion: Annotated[
+        bool,
+        Field(
+            description="Block until the workflow run completes and report its conclusion. "
+            "Set False to return immediately after dispatch."
+        ),
+    ] = True,
+    max_wait_seconds: Annotated[
+        int,
+        Field(
+            description="Maximum seconds to wait when wait_for_completion is True. "
+            "On timeout the tool returns with completed=False; poll with "
+            "check_ci_workflow_status."
+        ),
+    ] = 600,
 ) -> TriggerCIWorkflowResult:
     """Trigger a GitHub Actions CI workflow via workflow_dispatch.
 
     This tool triggers a workflow in any GitHub repository that has workflow_dispatch
     enabled. It resolves PR numbers to branch names automatically since GitHub's
     workflow_dispatch API only accepts branch names, not refs/pull/{pr}/head format.
+    By default, it blocks until the dispatched workflow completes, up to the configured timeout.
 
     Requires GITHUB_CI_WORKFLOW_TRIGGER_PAT or GITHUB_TOKEN environment variable
     with 'actions:write' permission.
@@ -374,12 +396,86 @@ def trigger_ci_workflow(
     else:
         message = f"Successfully triggered workflow {workflow_file} on {owner}/{repo} (ref: {resolved_ref}). Run ID not yet available."
 
+    if not wait_for_completion:
+        return TriggerCIWorkflowResult(
+            success=True,
+            message=message,
+            workflow_url=result.workflow_url,
+            run_id=result.run_id,
+            run_url=result.run_url,
+        )
+
+    if result.run_id is None:
+        return TriggerCIWorkflowResult(
+            success=True,
+            message=(
+                f"Successfully triggered workflow {workflow_file} on {owner}/{repo} "
+                f"(ref: {resolved_ref}), but the run ID could not be discovered, "
+                f"so completion could not be verified. Check workflow URL: "
+                f"{result.workflow_url}"
+            ),
+            workflow_url=result.workflow_url,
+            run_id=None,
+            run_url=result.run_url,
+        )
+
+    bounded_max_wait_seconds = max(10, min(max_wait_seconds, 1800))
+    run_status = wait_for_workflow_completion(
+        owner=owner,
+        repo=repo,
+        run_id=result.run_id,
+        token=token,
+        poll_interval_seconds=10.0,
+        max_wait_seconds=bounded_max_wait_seconds,
+    )
+    run_url = run_status.run_url or result.run_url or result.workflow_url
+
+    if run_status.succeeded:
+        return TriggerCIWorkflowResult(
+            success=True,
+            message=f"Workflow {workflow_file} completed successfully. Run: {run_url}",
+            workflow_url=result.workflow_url,
+            run_id=result.run_id,
+            run_url=run_url,
+            completed=True,
+            status=run_status.status,
+            conclusion=run_status.conclusion,
+        )
+
+    if run_status.failed:
+        failed_jobs = format_failed_jobs(run_status)
+        failed_jobs_message = (
+            f" Non-successful jobs: {', '.join(failed_jobs)}" if failed_jobs else ""
+        )
+        return TriggerCIWorkflowResult(
+            success=False,
+            message=(
+                f"Workflow run did not succeed (conclusion={run_status.conclusion}). "
+                f"Run: {run_url}.{failed_jobs_message}"
+            ),
+            workflow_url=result.workflow_url,
+            run_id=result.run_id,
+            run_url=run_url,
+            completed=True,
+            status=run_status.status,
+            conclusion=run_status.conclusion,
+            failed_jobs=failed_jobs,
+        )
+
     return TriggerCIWorkflowResult(
         success=True,
-        message=message,
+        message=(
+            f"Workflow has not yet completed, and the {bounded_max_wait_seconds}s "
+            f"timeout has elapsed (status={run_status.status}). "
+            f"Poll with check_ci_workflow_status: "
+            f"{run_url}"
+        ),
         workflow_url=result.workflow_url,
         run_id=result.run_id,
-        run_url=result.run_url,
+        run_url=run_url,
+        completed=False,
+        status=run_status.status,
+        conclusion=run_status.conclusion,
     )
 
 

@@ -2578,7 +2578,7 @@ int32_t JSONSchemaConverter::GetAnyOrderRuleForProperties(
           value_rule_id,
           rule_name,
           additional_suffix,
-          /*schema=*/nullptr
+          additional
       ));
     }
   }
@@ -2650,7 +2650,7 @@ int32_t JSONSchemaConverter::GetPartialRuleForProperties(
             value_rule_id,
             rule_name,
             additional_suffix,
-            /*schema=*/nullptr
+            additional
         );
       }
     }
@@ -2951,11 +2951,7 @@ int32_t JSONSchemaConverter::GenerateObject(
         int32_t value_rule_id =
             CreateRule(effective_additional, rule_name + "_" + effective_suffix);
         patterns.push_back(FormatOtherProperty(
-            KeyPatternExpression(),
-            value_rule_id,
-            rule_name,
-            effective_suffix,
-            /*schema=*/nullptr
+            KeyPatternExpression(), value_rule_id, rule_name, effective_suffix, effective_additional
         ));
       }
       additional_override = Choice(patterns);
@@ -2974,7 +2970,7 @@ int32_t JSONSchemaConverter::GenerateObject(
           value_rule_id,
           rule_name,
           /*rule_name_suffix=*/"pn",
-          /*schema=*/nullptr
+          effective_additional
       );
       effective_suffix = "pn";
     }
@@ -3018,8 +3014,15 @@ int32_t JSONSchemaConverter::GenerateObject(
         }
       } else {
         int32_t key_rule_id = CreateRule(spec.property_names, rule_name + "_name");
-        int32_t value_rule_id = builder_.GetRuleId(GetBasicAnyRuleName());
-        XGRAMMAR_DCHECK(value_rule_id != -1);
+        // propertyNames constrains only the key, so a typed additionalProperties
+        // schema still applies to the value (issue #826).
+        int32_t value_rule_id;
+        if (additional_property) {
+          value_rule_id = CreateRule(additional_property, rule_name + "_" + additional_suffix);
+        } else {
+          value_rule_id = builder_.GetRuleId(GetBasicAnyRuleName());
+          XGRAMMAR_DCHECK(value_rule_id != -1);
+        }
         property_choices.push_back(Sequence(
             {beginning_separator,
              FormatOtherProperty(
@@ -3027,7 +3030,7 @@ int32_t JSONSchemaConverter::GenerateObject(
                  value_rule_id,
                  rule_name,
                  /*rule_name_suffix=*/"pn",
-                 /*schema=*/nullptr
+                 additional_property
              )}
         ));
       }
@@ -3066,11 +3069,7 @@ int32_t JSONSchemaConverter::GenerateObject(
     if (spec.max_properties != 0) {
       int32_t value_rule_id = CreateRule(additional_property, rule_name + "_" + additional_suffix);
       int32_t property = FormatOtherProperty(
-          KeyPatternExpression(),
-          value_rule_id,
-          rule_name,
-          additional_suffix,
-          /*schema=*/nullptr
+          KeyPatternExpression(), value_rule_id, rule_name, additional_suffix, additional_property
       );
       content = Sequence(
           {NextSeparatorExpression(),
@@ -4142,7 +4141,9 @@ std::optional<JSONFormat> JSONFormatFromString(const std::string& format) {
       {"json", JSONFormat::kJSON},
       {"qwen_xml", JSONFormat::kQwenXML},
       {"minimax_xml", JSONFormat::kMiniMaxXML},
+      {"minimax_m3_xml", JSONFormat::kMiniMaxM3XML},
       {"deepseek_xml", JSONFormat::kDeepSeekXML},
+      {"deepseek_v4_1_xml", JSONFormat::kDeepSeekV41XML},
       {"glm_xml", JSONFormat::kGlmXML},
       {"cohere_xml", JSONFormat::kCohereXML},
       {"kimi_k3_xml", JSONFormat::kKimiK3XML},
@@ -4197,6 +4198,7 @@ Grammar JSONSchemaToGrammar(
     case JSONFormat::kQwenXML:
     case JSONFormat::kMiniMaxXML:
     case JSONFormat::kDeepSeekXML:
+    case JSONFormat::kDeepSeekV41XML:
     case JSONFormat::kGlmXML:
     case JSONFormat::kKimiK3XML: {
       XMLToolCallingConverter converter(
@@ -4206,6 +4208,17 @@ Grammar JSONSchemaToGrammar(
           max_whitespace_cnt,
           std::move(ref_resolver),
           json_format,
+          any_order
+      );
+      return converter.Convert(spec);
+    }
+    case JSONFormat::kMiniMaxM3XML: {
+      MiniMaxM3XMLToolCallingConverter converter(
+          indent,
+          std::move(separators),
+          any_whitespace,
+          max_whitespace_cnt,
+          std::move(ref_resolver),
           any_order
       );
       return converter.Convert(spec);
@@ -4290,6 +4303,7 @@ std::string JSONSchemaToEBNF(
     case JSONFormat::kQwenXML:
     case JSONFormat::kMiniMaxXML:
     case JSONFormat::kDeepSeekXML:
+    case JSONFormat::kDeepSeekV41XML:
     case JSONFormat::kGlmXML:
     case JSONFormat::kKimiK3XML: {
       XMLToolCallingConverter converter(
@@ -4300,6 +4314,12 @@ std::string JSONSchemaToEBNF(
           ref_resolver,
           json_format,
           any_order
+      );
+      return GrammarNormalizer::Apply(converter.Convert(spec)).ToString();
+    }
+    case JSONFormat::kMiniMaxM3XML: {
+      MiniMaxM3XMLToolCallingConverter converter(
+          indent, separators, any_whitespace, max_whitespace_cnt, ref_resolver, any_order
       );
       return GrammarNormalizer::Apply(converter.Convert(spec)).ToString();
     }

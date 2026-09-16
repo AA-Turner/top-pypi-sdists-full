@@ -365,8 +365,11 @@ class _JobTracker:
                 self._db = await self.table_ref.open_system_db_async()
             if self._jobs_table is None:
                 namespace = self.table_ref.system_namespace
+                # The async open_table honors only per-call storage options.
                 self._jobs_table = await self._db.open_table(
-                    GENEVA_JOBS_TABLE_NAME, namespace_path=namespace
+                    GENEVA_JOBS_TABLE_NAME,
+                    namespace_path=namespace,
+                    storage_options=getattr(self._db, "storage_options", None) or None,
                 )
                 _LOG.info(
                     "using jobs table uri=%s namespace=%s",

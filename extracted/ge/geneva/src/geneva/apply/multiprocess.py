@@ -21,6 +21,7 @@ from geneva.apply.error_handling import (
     BatchStrategy,
     ErrorHandlingContext,
     get_error_handling_config,
+    has_hardware_fault,
     make_skip_budget_tracker,
 )
 from geneva.apply.memory import (
@@ -30,7 +31,7 @@ from geneva.apply.memory import (
 from geneva.apply.task import MapTask, ReadTask
 from geneva.apply.utils import _iter_with_next_duration
 from geneva.debug.logger import ErrorLogger
-from geneva.errors import FatalWorkerCrashError
+from geneva.errors import FatalWorkerCrashError, FatalWorkerHardwareError
 
 _LOG = logging.getLogger(__name__)
 
@@ -329,7 +330,9 @@ def _picklable_worker_error(exc: Exception) -> RuntimeError:
     original exception carries unpicklable objects in its traceback (e.g.
     native Azure SDK handles, Lance FFI objects), the pool raises a
     ``MaybeEncodingError`` that hides the real failure.  This helper
-    preserves the full exception chain as a plain string.
+    preserves the full exception chain as a plain string. A
+    ``FatalWorkerHardwareError`` in the chain keeps its type so the parent can
+    retire the worker.
     """
     parts: list[str] = []
     seen: set[int] = set()
@@ -338,7 +341,12 @@ def _picklable_worker_error(exc: Exception) -> RuntimeError:
         seen.add(id(current))
         parts.append(f"{type(current).__module__}.{type(current).__name__}: {current}")
         current = current.__cause__ or current.__context__
-    return RuntimeError(" | caused by ".join(parts))
+    message = " | caused by ".join(parts)
+    if isinstance(exc, FatalWorkerHardwareError):
+        return FatalWorkerHardwareError(str(exc))
+    if has_hardware_fault(exc):
+        return FatalWorkerHardwareError(message)
+    return RuntimeError(message)
 
 
 def _apply_with_stream_buf(

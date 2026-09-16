@@ -18,6 +18,10 @@ class TestDetermineExitCode:
         results = [ActionResult(name="guards", decision=ActionDecision.BLOCKED)]
         assert _determine_exit_code(results) == EXIT_GUARD_BLOCKED
 
+    def test_returns_guard_blocked_for_blocked_by_guard_result(self) -> None:
+        results = [ActionResult(name="request_review", decision=ActionDecision.BLOCKED_BY_GUARD)]
+        assert _determine_exit_code(results) == EXIT_GUARD_BLOCKED
+
     def test_returns_repair_dispatched_when_dispatch_repair_executes(self) -> None:
         results = [ActionResult(name="dispatch_repair", decision=ActionDecision.EXECUTE)]
         assert _determine_exit_code(results) == EXIT_REPAIR_DISPATCHED

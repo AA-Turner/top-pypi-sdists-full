@@ -173,5 +173,5 @@ def test_geocif_wiring_for_tabpfn_gsa():
     assert 'gsa_params=getattr(self.obj, "gsa_params"' in src
     # do_xai has no explainer path for GSAModel — must be forced off with a
     # warning inside _setup_tabular_flags (review finding)
-    assert 'self.dispatch_name in ("tabpfn_gsa", "tabfm_gsa")' in src
+    assert 'self.dispatch_name in ("tabpfn_gsa", "tabfm_gsa", "tabicl_gsa")' in src
     assert "disabling XAI for this model" in src

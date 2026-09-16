@@ -11,7 +11,7 @@ from dbt.adapters.clickhouse.errors import (
 )
 from dbt.adapters.clickhouse.logger import logger
 from dbt.adapters.clickhouse.query import quote_identifier
-from dbt.adapters.clickhouse.util import compare_versions, engine_can_atomic_exchange
+from dbt.adapters.clickhouse.util import engine_can_atomic_exchange
 from dbt.adapters.exceptions import FailedToConnectError
 from dbt_common.exceptions import DbtConfigError, DbtDatabaseError
 
@@ -96,6 +96,7 @@ class ChClientWrapper(ABC):
         if credentials.database_engine == 'Shared':
             self._conn_settings.setdefault('select_sequential_consistency', '1')
         self._conn_settings.setdefault('mutations_sync', '3')
+        self._conn_settings.setdefault('lightweight_deletes_sync', '3')
         self._conn_settings.setdefault('alter_sync', '3')
         self._conn_settings.setdefault('insert_distributed_sync', '1')
         self._client = self._create_client(credentials)
@@ -121,10 +122,7 @@ class ChClientWrapper(ABC):
             "distributed_incremental": {},
             "general": {},
         }
-        if (
-            not credentials.allow_automatic_deduplication
-            and compare_versions(self._server_version(), '22.7.1.2484') >= 0
-        ):
+        if not credentials.allow_automatic_deduplication:
             for materialization in DEDUP_WINDOW_SETTING_SUPPORTED_MATERIALIZATION:
                 self._model_settings[materialization][DEDUP_WINDOW_SETTING] = '0'
 

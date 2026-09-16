@@ -45,6 +45,7 @@ from agentic_devtools.adapters.github_adapter import GitHubIssuesAdapter
 from agentic_devtools.adapters.idempotency_query_provider import IdempotencyQueryProvider
 from agentic_devtools.adapters.issue_provider import (
     VALID_ISSUE_TYPES,
+    DefinitiveCreationFailure,
     HierarchyValidationProvider,
     InMemoryIssueProvider,
     IssueProvider,
@@ -90,6 +91,7 @@ from agentic_devtools.tools.jira import JiraConfig
 __all__ = [
     "AdapterError",
     "AdapterValidationError",
+    "DefinitiveCreationFailure",
     "AzureDevOpsPullRequestCommentAdapter",
     "AzureDevOpsThreadResolutionAdapter",
     "Comment",

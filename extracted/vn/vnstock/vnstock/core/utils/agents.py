@@ -76,16 +76,32 @@ def list_cached() -> list:
         return []
 
 
+_UPGRADE_HINT = (
+    "Tính năng này yêu cầu vnai >= 2.6.0. "
+    "Vui lòng cập nhật bằng lệnh: pip install -U vnai"
+)
+
+
 def init_agent_environment(project_root: str = ".", async_mode: bool = True) -> bool:
     """
-    Initialize or update the .agents/AGENTS.md file in the user's project root
-    with the vnstock Dynamic Skill Router instructions.
+    Write the vnstock agent bootstrap instruction into the rules files of the AI
+    assistants vnai knows about.
+
+    This touches `AGENTS.md` in `project_root` **and three machine-wide memory
+    files**: `~/.gemini/GEMINI.md` (Antigravity), `~/.claude/CLAUDE.md` (Claude
+    Code) and `~/.codex/AGENTS.md` (Codex). Each can be switched off on its own - see
+    `agent_status()` and `disable_agent()`, or the `VNSTOCK_AGENT_TARGETS`,
+    `VNSTOCK_DISABLE_GLOBAL_AGENT` and `VNSTOCK_DISABLE_AGENT_SETUP` environment
+    variables.
 
     This feature requires the 'vnai' tier to be installed.
 
     Args:
         project_root: The root directory of the user's project. Default is current dir.
-        async_mode: If True, runs the initialization in a background thread.
+        async_mode: If True, runs the initialization in a background thread. Note
+            that the thread is a daemon: a short-lived process may exit before it
+            finishes, so pass async_mode=False when the result must be
+            deterministic.
 
     Returns:
         bool: True if successfully started or completed, False otherwise.
@@ -106,3 +122,72 @@ def init_agent_environment(project_root: str = ".", async_mode: bool = True) -> 
     except Exception as e:
         logger.error(f"Lỗi khi cấu hình agent environment: {e}")
         return False
+
+
+def agent_status(project_root: str = ".") -> Optional[Dict[str, Any]]:
+    """
+    Report what the agent bootstrap would write and why.
+
+    Returns a dict with the resolved per-target decision, the path of each rules
+    file, whether it already exists, the config file location and any environment
+    variable currently overriding the configuration.
+    """
+    try:
+        from vnai import agent_status as _status
+
+        return _status(project_root)
+    except ImportError:
+        logger.warning(_UPGRADE_HINT)
+        return None
+
+
+def disable_agent(*targets: str) -> Optional[Dict[str, Any]]:
+    """
+    Turn the agent bootstrap off and remember the choice.
+
+    No arguments disables it entirely. Pass `"global"` to keep only the project's
+    own `AGENTS.md`, or individual target names (`"antigravity"`, `"claude"`,
+    `"codex"`, `"project"`).
+
+    The choice is stored in `~/.vnstock/config/agent.json` and survives restarts.
+    """
+    try:
+        from vnai import disable_agent_setup
+
+        return disable_agent_setup(*targets)
+    except ImportError:
+        logger.warning(_UPGRADE_HINT)
+        return None
+
+
+def enable_agent(*targets: str) -> Optional[Dict[str, Any]]:
+    """Re-enable the agent bootstrap, entirely or for the named targets."""
+    try:
+        from vnai import enable_agent_setup
+
+        return enable_agent_setup(*targets)
+    except ImportError:
+        logger.warning(_UPGRADE_HINT)
+        return None
+
+
+def remove_agent_files(*targets: str) -> Optional[Dict[str, str]]:
+    """
+    Take the vnstock block back out of the rules files it was written into.
+
+    Files that held nothing else are deleted; files the user also wrote in keep
+    their own content. No arguments means the active targets; `"global"` leaves
+    the project's `AGENTS.md` alone, `"legacy"` cleans up the paths versions
+    before 2.6.0 wrote to (Cursor, Windsurf, Cline, Copilot, `~/.clauderc`,
+    `~/.gemini/config/AGENTS.md`, `~/AGENTS.md`), and `"all"` does both.
+
+    Disabling and removing are separate steps - call `disable_agent()` too, or
+    the next import writes the files again.
+    """
+    try:
+        from vnai import remove_agent_files as _remove
+
+        return _remove(*targets)
+    except ImportError:
+        logger.warning(_UPGRADE_HINT)
+        return None

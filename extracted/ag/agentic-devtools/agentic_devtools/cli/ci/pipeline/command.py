@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import time
 
@@ -165,7 +166,19 @@ def run_ai_pr_loop_v2(
             raise
 
         # Determine exit code from results
-        return _determine_exit_code(summary.results, snapshot=summary.snapshot)
+        exit_code = _determine_exit_code(summary.results, snapshot=summary.snapshot)
+
+        # Record whether any action executed for workflow redispatch gating
+        actions_executed = any(r.decision == ActionDecision.EXECUTE for r in summary.results)
+        github_output = os.environ.get("GITHUB_OUTPUT")
+        if github_output:
+            try:
+                with open(github_output, "a", encoding="utf-8") as f:
+                    f.write(f"actions_executed={'true' if actions_executed else 'false'}\n")
+            except OSError as exc:
+                logger.warning("Failed to write actions_executed to GITHUB_OUTPUT: %s", exc)
+
+        return exit_code
 
     finally:
         # Release lock — distinguish rate-limit errors from ordinary failures so that
@@ -209,6 +222,8 @@ def _determine_exit_code(results: list[ActionResult], *, snapshot: PRStateSnapsh
         None,
     )
     for result in results:
+        if result.decision == ActionDecision.BLOCKED_BY_GUARD:
+            return EXIT_GUARD_BLOCKED
         if result.decision == ActionDecision.BLOCKED and not (
             result.name == "rebase"
             and conflict_repair_result is not None

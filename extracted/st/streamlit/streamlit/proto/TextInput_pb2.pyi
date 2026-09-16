@@ -91,6 +91,7 @@ class TextInput(_message.Message):
     VALIDATE_REGEX_FIELD_NUMBER: _builtins.int
     VALIDATE_MESSAGE_FIELD_NUMBER: _builtins.int
     IGNORE_RERUN_FIELD_NUMBER: _builtins.int
+    LIVE_DEBOUNCE_MS_FIELD_NUMBER: _builtins.int
     id: _builtins.str
     label: _builtins.str
     default: _builtins.str
@@ -113,7 +114,11 @@ class TextInput(_message.Message):
     the next rerun. Bound widgets still update the URL when the value is
     committed. Inside a form, this flag has no effect because the form batches
     values until submit.
-    Next: 19
+    """
+    live_debounce_ms: _builtins.int
+    """Unset = live off. 0 = commit on every accepted change.
+    Positive = debounce in milliseconds (`True` maps to 250).
+    Next: 20
     """
     @_builtins.property
     def label_visibility(self) -> _LabelVisibility_pb2.LabelVisibility: ...
@@ -138,13 +143,16 @@ class TextInput(_message.Message):
         validate_regex: _builtins.str | None = ...,
         validate_message: _builtins.str | None = ...,
         ignore_rerun: _builtins.bool = ...,
+        live_debounce_ms: _builtins.int | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_query_param_key", b"_query_param_key", "_validate_message", b"_validate_message", "_validate_regex", b"_validate_regex", "_value", b"_value", "default", b"default", "label_visibility", b"label_visibility", "query_param_key", b"query_param_key", "validate_message", b"validate_message", "validate_regex", b"validate_regex", "value", b"value"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_live_debounce_ms", b"_live_debounce_ms", "_query_param_key", b"_query_param_key", "_validate_message", b"_validate_message", "_validate_regex", b"_validate_regex", "_value", b"_value", "default", b"default", "label_visibility", b"label_visibility", "live_debounce_ms", b"live_debounce_ms", "query_param_key", b"query_param_key", "validate_message", b"validate_message", "validate_regex", b"validate_regex", "value", b"value"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_query_param_key", b"_query_param_key", "_validate_message", b"_validate_message", "_validate_regex", b"_validate_regex", "_value", b"_value", "autocomplete", b"autocomplete", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "help", b"help", "icon", b"icon", "id", b"id", "ignore_rerun", b"ignore_rerun", "label", b"label", "label_visibility", b"label_visibility", "max_chars", b"max_chars", "placeholder", b"placeholder", "query_param_key", b"query_param_key", "set_value", b"set_value", "type", b"type", "validate_message", b"validate_message", "validate_regex", b"validate_regex", "value", b"value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_live_debounce_ms", b"_live_debounce_ms", "_query_param_key", b"_query_param_key", "_validate_message", b"_validate_message", "_validate_regex", b"_validate_regex", "_value", b"_value", "autocomplete", b"autocomplete", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "help", b"help", "icon", b"icon", "id", b"id", "ignore_rerun", b"ignore_rerun", "label", b"label", "label_visibility", b"label_visibility", "live_debounce_ms", b"live_debounce_ms", "max_chars", b"max_chars", "placeholder", b"placeholder", "query_param_key", b"query_param_key", "set_value", b"set_value", "type", b"type", "validate_message", b"validate_message", "validate_regex", b"validate_regex", "value", b"value"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__default: _TypeAlias = _typing.Literal["default"]  # noqa: Y015
     _WhichOneofArgType__default: _TypeAlias = _typing.Literal["_default", b"_default"]  # noqa: Y015
+    _WhichOneofReturnType__live_debounce_ms: _TypeAlias = _typing.Literal["live_debounce_ms"]  # noqa: Y015
+    _WhichOneofArgType__live_debounce_ms: _TypeAlias = _typing.Literal["_live_debounce_ms", b"_live_debounce_ms"]  # noqa: Y015
     _WhichOneofReturnType__query_param_key: _TypeAlias = _typing.Literal["query_param_key"]  # noqa: Y015
     _WhichOneofArgType__query_param_key: _TypeAlias = _typing.Literal["_query_param_key", b"_query_param_key"]  # noqa: Y015
     _WhichOneofReturnType__validate_message: _TypeAlias = _typing.Literal["validate_message"]  # noqa: Y015
@@ -155,6 +163,8 @@ class TextInput(_message.Message):
     _WhichOneofArgType__value: _TypeAlias = _typing.Literal["_value", b"_value"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__default) -> _WhichOneofReturnType__default | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__live_debounce_ms) -> _WhichOneofReturnType__live_debounce_ms | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__query_param_key) -> _WhichOneofReturnType__query_param_key | None: ...
     @_typing.overload

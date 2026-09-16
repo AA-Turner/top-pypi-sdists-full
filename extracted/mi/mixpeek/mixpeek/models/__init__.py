@@ -1180,6 +1180,7 @@ from mixpeek.models.text_index_params import TextIndexParams
 from mixpeek.models.text_split_strategy import TextSplitStrategy
 from mixpeek.models.theme_config import ThemeConfig
 from mixpeek.models.ticket_response import TicketResponse
+from mixpeek.models.tier_audit_info import TierAuditInfo
 from mixpeek.models.tier_diagnostic import TierDiagnostic
 from mixpeek.models.tier_limits import TierLimits
 from mixpeek.models.tier_task_info import TierTaskInfo

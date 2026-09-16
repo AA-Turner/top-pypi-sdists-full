@@ -80,7 +80,9 @@ class TestExecutionDetail(unittest.TestCase):
                 completed_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 current_stage = '',
                 stages_completed = 0.0,
-                total_stages = 0.0
+                total_stages = 0.0,
+                documents_retained = True,
+                total_returned = 56
             )
         else:
             return ExecutionDetail(

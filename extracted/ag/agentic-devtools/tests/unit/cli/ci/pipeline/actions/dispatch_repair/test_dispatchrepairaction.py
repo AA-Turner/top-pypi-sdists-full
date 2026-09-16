@@ -977,6 +977,8 @@ class TestDispatchRepairAction:
             assert result.decision == ActionDecision.SKIP
             assert "dedup" in result.details.lower()
             assert result.limit_reached is True
+            assert result.dedup_limit_reached is True
+            assert result.cycle_limit_reached is False
 
     def test_skip_when_cycle_limit_reached(self) -> None:
         snapshot = PRStateSnapshot(pr_number=1, ci_status="failing", head_sha="abc123")
@@ -998,6 +1000,8 @@ class TestDispatchRepairAction:
             assert result.decision == ActionDecision.SKIP
             assert "cycle" in result.details.lower()
             assert result.limit_reached is True
+            assert result.dedup_limit_reached is False
+            assert result.cycle_limit_reached is True
 
     def test_failed_checks_uses_actionable_subset_only(self) -> None:
         """execute() passes only actionable failed checks to dispatch_repair."""

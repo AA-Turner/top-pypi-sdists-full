@@ -136,6 +136,9 @@ class AgentConfig(BaseModel):
     Attributes:
         package: Agent package name with optional version (e.g. "claude-code:latest").
             Resolved to a Docker image URI by the Chronos backend before launch.
+        agent_name: Registered agent to run when the package registers several
+            (the agent-side twin of ``world.world_name``), e.g. "exploration-agent"
+            inside ``computer-use-agent``. Defaults to the package name.
         image: Docker image URI for the agent (set by Chronos after resolving package,
             or provided directly for local/test runs).
         runtime: Runtime configuration (VM resources)
@@ -147,6 +150,7 @@ class AgentConfig(BaseModel):
     """
 
     package: str | None = None
+    agent_name: str | None = None
     image: str = ""
     runtime: RuntimeConfig = Field(default_factory=VMRuntimeConfig)
     config: dict[str, Any] = Field(default_factory=dict)

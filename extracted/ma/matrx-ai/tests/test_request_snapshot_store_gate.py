@@ -50,6 +50,7 @@ def _with_lane(monkeypatch):
 async def test_write_request_snapshot_skips_when_store_false(monkeypatch):
     queued: list[dict] = []
 
+    _with_lane(monkeypatch)
     monkeypatch.setattr(
         "matrx_ai.persistence.queue_helpers.queue_request_snapshot_create",
         lambda **kwargs: queued.append(kwargs) or "op",

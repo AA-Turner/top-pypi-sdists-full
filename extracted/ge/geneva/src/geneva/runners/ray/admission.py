@@ -415,6 +415,10 @@ def calculate_job_resources(
     enable_gpu_pipelining: bool = False,
     pipelining_num_readers: int = 8,
     default_memory_bytes: int = 0,
+    num_cpus_override: float | None = None,
+    num_gpus_override: float | None = None,
+    memory_override: int | None = None,
+    fragment_writers: bool = True,
 ) -> JobResources:
     """
     Calculate total resources needed for a backfill job.
@@ -432,6 +436,14 @@ def calculate_job_resources(
         ``actor_cpu_thread_count`` instead of ``intra_applier_concurrency``.
     pipelining_num_readers : int
         Preprocess pool size; only used when pipelining + ``preprocess()``.
+    num_cpus_override : float | None
+        Per-job replacement for ``udf.num_cpus``.
+    num_gpus_override : float | None
+        Per-job replacement for ``udf.num_gpus``.
+    memory_override : int | None
+        Per-job replacement for ``udf.memory``, in bytes.
+    fragment_writers : bool
+        False for sparse updates, which run no FragmentWriter actors.
 
     Returns
     -------
@@ -444,15 +456,17 @@ def calculate_job_resources(
         has_preprocess=udf.has_preprocess(),
         intra_applier_concurrency=intra_applier_concurrency,
     )
-    udf_cpus = (udf.num_cpus or 1.0) * cpu_threads
-    udf_gpus = udf.num_gpus or 0.0
+    declared_cpus = udf.num_cpus if num_cpus_override is None else num_cpus_override
+    udf_cpus = (declared_cpus or 1.0) * cpu_threads
+    declared_gpus = udf.num_gpus if num_gpus_override is None else num_gpus_override
+    udf_gpus = declared_gpus or 0.0
     # A backfill UDF that declares no memory reserves the floor on the actor,
     # so admission prices the same floor -- otherwise it clears jobs Ray cannot
     # place. Passed in rather than resolved here: the floor is a backfill
     # policy, and callers on other paths leave it at 0 and get the declaration
     # alone. ``is None`` rather than truthiness, matching the actor --
     # ``@udf(memory=0)`` asks for unreserved scheduling and gets it.
-    declared = udf.memory
+    declared = udf.memory if memory_override is None else memory_override
     udf_memory = (
         max(0, int(default_memory_bytes)) if declared is None else declared
     ) * intra_applier_concurrency
@@ -465,8 +479,9 @@ def calculate_job_resources(
     # Worker-side overhead resources. The driver is pinned to the head pod,
     # so only the JobTracker and fragment writers consume worker CPU.
     rc = _get_resource_config()
-    overhead_cpus = rc.jobtracker_num_cpus + concurrency * rc.fragment_writer_num_cpus
-    overhead_memory = rc.jobtracker_memory + concurrency * rc.fragment_writer_memory
+    writers = concurrency if fragment_writers else 0
+    overhead_cpus = rc.jobtracker_num_cpus + writers * rc.fragment_writer_num_cpus
+    overhead_memory = rc.jobtracker_memory + writers * rc.fragment_writer_memory
 
     return JobResources(
         applier_cpus=applier_cpus,
@@ -914,7 +929,8 @@ def _check_static_admission(
         return (
             AdmissionDecision.REJECT,
             f"Job requires {job.total_gpus:.1f} GPUs but cluster has none. "
-            "Either remove GPU requirement from UDF (num_gpus=0) or add GPU nodes.",
+            "Either drop the GPU requirement (num_gpus=0 on the UDF or backfill()) "
+            "or add GPU nodes.",
         )
 
     # Check single UDF fits on at least one node (combined resource check)
@@ -950,7 +966,8 @@ def _check_static_admission(
         return (
             AdmissionDecision.REJECT,
             f"Job requires {job.total_cpus:.1f} CPUs but cluster only has "
-            f"{cluster.total_cpus:.1f}. Reduce concurrency or UDF num_cpus.",
+            f"{cluster.total_cpus:.1f}. Reduce concurrency or num_cpus "
+            "(UDF or backfill()).",
         )
 
     # More memory than cluster has
@@ -963,7 +980,7 @@ def _check_static_admission(
             AdmissionDecision.REJECT,
             f"Job requires {job.total_memory / 1e9:.1f}GB memory but cluster "
             f"only has {cluster.total_memory / 1e9:.1f}GB. Reduce concurrency, "
-            "reduce UDF memory, or add more nodes to the cluster.",
+            "reduce memory (UDF or backfill()), or add more nodes to the cluster.",
         )
 
     # Check available resources (warn if busy)
@@ -1086,6 +1103,10 @@ def validate_admission(
     check: bool | None = None,
     strict: bool | None = None,
     default_memory_bytes: int = 0,
+    num_cpus_override: float | None = None,
+    num_gpus_override: float | None = None,
+    memory_override: int | None = None,
+    fragment_writers: bool = True,
     kuberay_namespace: str | None = None,
     kuberay_cluster_name: str | None = None,
 ) -> None:
@@ -1115,6 +1136,14 @@ def validate_admission(
         If True, raise exception on rejection. If False, only log warnings.
         If None, use AdmissionConfig.strict (default False, configurable via
         GENEVA_ADMISSION__STRICT env var).
+    num_cpus_override : float | None
+        Per-job replacement for the UDF's ``num_cpus``.
+    num_gpus_override : float | None
+        Per-job replacement for the UDF's ``num_gpus``.
+    memory_override : int | None
+        Per-job replacement for the UDF's ``memory``, in bytes.
+    fragment_writers : bool
+        False for sparse updates, which run no FragmentWriter actors.
     kuberay_namespace : str, optional
         Kubernetes namespace for KubeRay clusters
     kuberay_cluster_name : str, optional
@@ -1151,6 +1180,10 @@ def validate_admission(
         enable_gpu_pipelining=enable_gpu_pipelining,
         pipelining_num_readers=pipelining_num_readers,
         default_memory_bytes=default_memory_bytes,
+        num_cpus_override=num_cpus_override,
+        num_gpus_override=num_gpus_override,
+        memory_override=memory_override,
+        fragment_writers=fragment_writers,
     )
 
     kind = _detect_cluster_kind()

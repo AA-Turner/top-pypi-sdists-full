@@ -27,15 +27,15 @@ class CreateRouteEntryRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters.
+        # Generate a parameter value from your client. Make sure that the value is unique among different requests. The ClientToken value can contain only ASCII characters.
         # 
-        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
+        # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
         self.client_token = client_token
         # The description of the custom route entry.
         # 
         # The description must be 1 to 256 characters in length and cannot start with `http://` or `https://`.
         self.description = description
-        # The destination CIDR block of the custom route entry. IPv4 CIDR blocks, IPv6 CIDR blocks, prefix list destination CIDR blocks, and prefix list instance IDs are supported. The following requirements must be met:
+        # The destination CIDR block of the custom route entry. IPv4 CIDR blocks, IPv6 CIDR blocks, destination CIDR blocks of prefix lists, and instance IDs of prefix lists are supported. The following requirements must be met:
         #           
         # - The destination CIDR block cannot point to or be contained by 100.64.0.0/10.  
         #  
@@ -44,14 +44,14 @@ class CreateRouteEntryRequest(DaraModel):
         # This parameter is required.
         self.destination_cidr_block = destination_cidr_block
         # Specifies whether to perform a dry run. Valid values:
-        # - **true**: performs a dry run. The system checks the required parameters, request format, and business restrictions. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
-        # - **false** (default): sends a normal request. After the request passes the dry run, an HTTP 2xx status code is returned and the route is created.
+        # - **true**: performs a dry run without creating the route entry. The system checks required parameters, request format, and service limits. If the check fails, the corresponding error is returned. If the check succeeds, the `DryRunOperation` error code is returned.
+        # - **false** (default): sends the request. After the request passes the check, an HTTP 2xx status code is returned and the operation is performed.
         self.dry_run = dry_run
         # The ID of the next hop instance of the custom route entry.
         # > If you set NextHopType to ECR, you can call the [DescribeExpressConnectRouterAssociation](https://help.aliyun.com/document_detail/2712069.html) operation to obtain the AssociationId as the next hop ID.
         # > -
         self.next_hop_id = next_hop_id
-        # The information about the next hops.
+        # The information about the next hop.
         self.next_hop_list = next_hop_list
         # The type of next hop for the custom route entry. Valid values: 
         # 
@@ -59,7 +59,7 @@ class CreateRouteEntryRequest(DaraModel):
         # 
         # - **HaVip**: high-availability virtual IP address.  
         # 
-        # - **RouterInterface**: router interface.
+        # - **RouterInterface**: vRouter interface.
         # 
         # - **NetworkInterface**: network interface controller (NIC).
         # 
@@ -212,7 +212,7 @@ class CreateRouteEntryRequestNextHopList(DaraModel):
         self.next_hop_id = next_hop_id
         # The type of next hop for the ECMP route. Set the value to **RouterInterface** (router interface).
         self.next_hop_type = next_hop_type
-        # The weight of the next hop of the ECMP route.
+        # The weight of the next hop for the ECMP route.
         self.weight = weight
 
     def validate(self):

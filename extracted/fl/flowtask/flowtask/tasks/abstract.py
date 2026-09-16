@@ -1,35 +1,34 @@
-from typing import Union
-import os
-import time
 import asyncio
-import uuid
-import random
-import locale
 import contextlib
+import locale
+import os
+import random
+import time
 import traceback
-from collections.abc import Callable, Awaitable
+import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
+
 import jsonschema
+
 # asyncdb
 from asyncdb import AsyncDB
 from asyncdb.drivers.base import BaseDriver
 from asyncdb.exceptions import ProviderError
 from asyncdb.meta.record import Record
+
 # and navconfig
-from navconfig import config, DEBUG
+from navconfig import DEBUG, config
 from navconfig.logging import logging
-from ..exceptions import TaskError, TaskParseError
+
 # Flowtask Dependencies
-from ..conf import (
-    default_dsn,
-    SYSTEM_LOCALE,
-    TASK_STORAGES,
-    FILE_STORAGES
-)
-from ..utils.stats import TaskMonitor
-from ..models import TaskState
+from ..conf import FILE_STORAGES, SYSTEM_LOCALE, TASK_STORAGES, default_dsn
+from ..events import LogError, LogEvent
 from ..events.manager import EventManager
-from ..events import LogEvent, LogError
+from ..exceptions import TaskError, TaskParseError
+from ..models import TaskState
+from ..utils.stats import TaskMonitor
+
 
 class AbstractTask(ABC):
     """
@@ -55,12 +54,12 @@ class AbstractTask(ABC):
 
     def __init__(
         self,
-        task_id: str = None,
-        task: str = None,
-        program: str = None,
-        loop: asyncio.AbstractEventLoop = None,
-        parser: Callable = None,
-        userid: Union[int, str] = None,
+        task_id: str | None = None,
+        task: str | None = None,
+        program: str | None = None,
+        loop: asyncio.AbstractEventLoop | None = None,
+        parser: Callable | None = None,
+        userid: int | str | None = None,
         **kwargs,
     ):
         self._state = TaskState.PENDING
@@ -169,6 +168,11 @@ class AbstractTask(ABC):
         # File Storage:
         # Site where Files are stored during Task execution
         fstore = kwargs.pop("filestore", "default")
+        # FEAT-555: remember the NAME as well as the store. A continuation hop
+        # inherits the name (a plain, cloudpickle-safe string); the FILE_STORAGES
+        # object itself is a shared singleton whose set_program() mutates global
+        # state and must never travel to a hop.
+        self._filestore_name: str = fstore
         try:
             self._filestore = FILE_STORAGES[fstore]
             self._filestore.set_program(self._program)

@@ -48,6 +48,7 @@ from matrx_ai.processing.blocks.block_detector import (
 from matrx_ai.processing.blocks.envelope import (
     BLOCK_KIND_MAP,
     IR_ENVELOPE_KEY,
+    BlockEnvelopeContractFailure,
     adapt_block_data,
     discriminator_for_block,
     envelope_for_block,
@@ -488,6 +489,7 @@ class StreamBlockProcessor:
         # Streaming partial kinds — the ledger that guarantees every partial
         # this processor announces gets a terminal event. See _stamp_partial.
         self._partials = PartialKindTracker()
+        self._envelope_contract_failures: list[BlockEnvelopeContractFailure] = []
         # block_id -> (block_index, block_type) as it stood when the partial was
         # announced. The drain needs an honest event for a block that no longer
         # exists in the split, and law 1 does not get to be conditional on the
@@ -706,6 +708,12 @@ class StreamBlockProcessor:
         """Get current buffer contents (for inspection/testing)."""
         return self._buffer
 
+    def drain_envelope_contract_failures(self) -> list[BlockEnvelopeContractFailure]:
+        """Return safe complete-block contract failures once for host capture."""
+        failures = self._envelope_contract_failures
+        self._envelope_contract_failures = []
+        return failures
+
     # -------------------------------------------------------------------
     # Internal methods
     # -------------------------------------------------------------------
@@ -742,6 +750,7 @@ class StreamBlockProcessor:
                 block.data,
                 source_text=block.content,
                 language=block.metadata.get("language"),
+                on_contract_failure=self._envelope_contract_failures.append,
             )
             if envelope is not None:
                 block.metadata[IR_ENVELOPE_KEY] = envelope

@@ -119,6 +119,32 @@ class TestSetBootstrapState:
 
         mock_gitignore.assert_called_once_with(tmp_path)
 
+    def test_repeated_calls_preserve_canonical_lf_gitignore_bytes(self, tmp_path):
+        """Repeated bootstrap initialization leaves a canonical LF .agdt/.gitignore untouched."""
+        with patch.object(state, "_get_git_repo_root", return_value=tmp_path):
+            with patch.object(state, "_get_git_email", return_value="test@example.com"):
+                state.set_bootstrap_state(identity="ama", worktree_key="PROJECT-1")
+                gitignore_path = tmp_path / ".agdt" / ".gitignore"
+                original = gitignore_path.read_bytes()
+                assert b"\r\n" not in original
+
+                state.set_bootstrap_state(identity="ama", worktree_key="PROJECT-2")
+
+        assert gitignore_path.read_bytes() == original
+
+    def test_repeated_calls_preserve_canonical_crlf_gitignore_bytes(self, tmp_path):
+        """Repeated bootstrap initialization leaves a canonical CRLF .agdt/.gitignore untouched."""
+        with patch.object(state, "_get_git_repo_root", return_value=tmp_path):
+            with patch.object(state, "_get_git_email", return_value="test@example.com"):
+                state.set_bootstrap_state(identity="ama", worktree_key="PROJECT-1")
+                gitignore_path = tmp_path / ".agdt" / ".gitignore"
+                gitignore_path.write_bytes(gitignore_path.read_bytes().replace(b"\n", b"\r\n"))
+                original = gitignore_path.read_bytes()
+
+                state.set_bootstrap_state(identity="ama", worktree_key="PROJECT-2")
+
+        assert gitignore_path.read_bytes() == original
+
 
 class TestSetBootstrapStateNormalization:
     """Tests for value normalization in set_bootstrap_state()."""

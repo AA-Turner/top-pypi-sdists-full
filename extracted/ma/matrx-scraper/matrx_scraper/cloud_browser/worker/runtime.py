@@ -69,12 +69,12 @@ logger = logging.getLogger(__name__)
 
 _PROFILE_CHECKPOINT_MARKER = ".matrx-checkpoint-hash"
 
-# The Browser Manager gives a worker call 65 seconds.  Bootstrap must finish
-# (successfully or as a typed refusal) comfortably inside that envelope: an
-# unbounded Playwright launch otherwise leaves the fixed-fleet worker occupied,
-# and production eventually removes the only task after its health probes fail.
-BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS = 45.0
-PARTIAL_LAUNCH_CLEANUP_TIMEOUT_SECONDS = 5.0
+# The manager derives its bootstrap envelope from the shared S2 budgets below.
+# Each worker phase must finish (successfully or as a typed refusal) inside its
+# declared budget: an unbounded restore or Playwright launch can leave the
+# fixed-fleet worker occupied after the manager has stopped awaiting it.
+BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS = M.BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS
+PARTIAL_LAUNCH_CLEANUP_TIMEOUT_SECONDS = M.BOOTSTRAP_PARTIAL_LAUNCH_CLEANUP_TIMEOUT_SECONDS
 
 WORKER_VERSION = "s2-worker/0.1.0"
 REPLAY_STATE_FILENAME = ".matrx-browser-replay.json"
@@ -260,6 +260,9 @@ class BrowserWorker:
         # and replays it instead of restoring/launching a second Chromium over
         # the same EFS profile.
         self._bootstrap_gate = asyncio.Lock()
+        self._bootstrap_task: asyncio.Task[M.BootstrapResponse] | None = None
+        self._bootstrap_activation_key: str | None = None
+        self._bootstrap_lifecycle: str = "idle"
         self._bootstrapped = False
         self._activation_key: str | None = None
         self._bootstrap_response: M.BootstrapResponse | None = None
@@ -551,7 +554,7 @@ class BrowserWorker:
         being applied: the control plane reads it as "nothing ever started" and
         retires the run, and the bootstrap then completes into an orphan that
         refuses every later start ``already_bootstrapped`` (2026-09-13)."""
-        if self._bootstrap_gate.locked() and not self._bootstrapped:
+        if self._bootstrap_lifecycle in {"starting", "aborting", "quarantined"}:
             raise WorkerProtocolError(
                 "bootstrap_in_progress", message="a bootstrap is being applied; retry"
             )
@@ -617,22 +620,85 @@ class BrowserWorker:
         self._callback_url = None
         self._callback_token = None
         self._lock = None
+        self._bootstrap_task = None
+        self._bootstrap_activation_key = None
+        self._bootstrap_lifecycle = "idle"
 
     async def bootstrap(
         self, request: M.BootstrapRequest, *, bearer: str | None = None
     ) -> M.BootstrapResponse:
-        async with self._bootstrap_gate:
-            return await self._bootstrap_once(request, bearer=bearer)
+        """Join the activation owner without letting HTTP cancellation own it.
 
-    async def _bootstrap_once(
-        self, request: M.BootstrapRequest, *, bearer: str | None = None
-    ) -> M.BootstrapResponse:
+        FastAPI cancels a request coroutine when the manager's HTTP deadline
+        expires. The profile restore may still have a filesystem thread in
+        flight, so that request must never cancel the process-wide owner or
+        release its lock for another activation. The same activation joins the
+        owner; a different activation receives the explicit retryable state.
+        """
         try:
             self._verify_bearer(bearer, "bootstrap")
         except WorkerProtocolError as err:
             return self._error_reply(
                 M.BootstrapResponse, err, accepted=False, host_lock_acquired=False
             )
+
+        async with self._bootstrap_gate:
+            if self._bootstrapped and self.health == "stopped" and self.queue_state == "closed":
+                self._reset_after_stopped_run()
+            if self._bootstrapped:
+                # A live worker's replay/refusal path is synchronous and must
+                # retain the incumbent identity; it is not a new owner.
+                return await self._bootstrap_once(request, authenticated=True)
+            active = self._bootstrap_task
+            if active is not None and not active.done():
+                if self._bootstrap_activation_key != request.activation_key:
+                    return self._error_reply(
+                        M.BootstrapResponse,
+                        WorkerProtocolError(
+                            "bootstrap_in_progress",
+                            message="a different bootstrap activation is still cleaning up",
+                        ),
+                        accepted=False,
+                        host_lock_acquired=self._lock.held if self._lock else False,
+                    )
+                owner = active
+                joined = True
+            else:
+                self._bootstrap_activation_key = request.activation_key
+                self._bootstrap_lifecycle = "starting"
+                owner = asyncio.create_task(
+                    self._bootstrap_owner(request),
+                    name=f"cloud-browser-bootstrap:{request.activation_key}",
+                )
+                self._bootstrap_task = owner
+                joined = False
+        try:
+            response = await asyncio.shield(owner)
+            return response.model_copy(update={"replayed": True}) if joined else response
+        except asyncio.CancelledError:
+            # The owner remains strongly referenced and continues to terminal
+            # cleanup. A retry joins it instead of mutating the same profile.
+            logger.info("bootstrap caller cancelled; activation owner continues")
+            raise
+
+    async def _bootstrap_owner(self, request: M.BootstrapRequest) -> M.BootstrapResponse:
+        """Own one activation through all cleanup, independent of its callers."""
+        try:
+            return await self._bootstrap_once(request, authenticated=True)
+        finally:
+            if not self._bootstrapped:
+                self._bootstrap_lifecycle = "idle"
+
+    async def _bootstrap_once(
+        self, request: M.BootstrapRequest, *, bearer: str | None = None, authenticated: bool = False
+    ) -> M.BootstrapResponse:
+        if not authenticated:
+            try:
+                self._verify_bearer(bearer, "bootstrap")
+            except WorkerProtocolError as err:
+                return self._error_reply(
+                    M.BootstrapResponse, err, accepted=False, host_lock_acquired=False
+                )
 
         # A fixed-fleet process is reusable only after the prior run reached a
         # terminal stopped state and released its profile lock. A second start
@@ -805,10 +871,9 @@ class BrowserWorker:
             )
         self._controller.fencing_revision = self.fencing_revision
 
-        # Launch.  Chromium startup is an external-process boundary and MUST be
-        # bounded below the manager's 65-second HTTP deadline.  A timed-out
-        # request is not allowed to keep launching in the background while the
-        # manager records worker_unreachable and retries another run.
+        # Launch is owned by the activation task, not by the HTTP request that
+        # happened to start it. A cancelled caller therefore cannot free the
+        # profile lock while Playwright is still touching this profile.
         try:
             egress_ok = await asyncio.wait_for(
                 self._launch_context(request.policy, request.display),
@@ -854,6 +919,7 @@ class BrowserWorker:
             )
 
         self._bootstrapped = True
+        self._bootstrap_lifecycle = "active"
         self.health = "healthy"
         self.queue_state = "open"
         await asyncio.to_thread(_remove_profile_checkpoint_marker, self._user_data_dir)
@@ -2397,12 +2463,34 @@ def _decrypt_and_verify_checkpoint(restore: M.CheckpointRestore, ciphertext: byt
 
 
 async def _restore_profile(user_data_dir: str, restore: M.CheckpointRestore) -> None:
+    """Bound the response, but never abandon a profile filesystem thread.
+
+    ``asyncio.to_thread`` cannot kill an active decrypt/install/marker write.
+    On a deadline or owner cancellation we therefore wait for that retained
+    task before allowing the bootstrap owner to release the profile lock. A
+    hung filesystem operation deliberately keeps the worker busy; capacity is
+    safer than concurrent mutation of a canonical browser profile.
+    """
+    restore_task = asyncio.create_task(
+        _restore_profile_once(user_data_dir, restore), name="cloud-browser-profile-restore"
+    )
+    try:
+        async with asyncio.timeout(M.CHECKPOINT_RESTORE_TOTAL_TIMEOUT_SECONDS):
+            await asyncio.shield(restore_task)
+    except (TimeoutError, asyncio.CancelledError):
+        await asyncio.shield(restore_task)
+        raise
+
+
+async def _restore_profile_once(user_data_dir: str, restore: M.CheckpointRestore) -> None:
     """Download, authenticate, and safely replace a closed profile directory."""
     if await asyncio.to_thread(
         _profile_checkpoint_matches, user_data_dir, restore.plaintext_hash
     ):
         return
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(
+        timeout=M.CHECKPOINT_RESTORE_TOTAL_TIMEOUT_SECONDS
+    ) as client:
         response = await client.get(restore.download_url, headers=restore.headers)
         response.raise_for_status()
     ciphertext = response.content

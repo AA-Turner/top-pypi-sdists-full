@@ -47,7 +47,7 @@ def test_point_in_time_refresh_requires_stable_row_ids(db, local_ray_context) ->
     assert v2 > v1
 
     # Refresh to v2 should fail (different version without stable row IDs)
-    with pytest.raises(RuntimeError, match="stable row IDs"):
+    with pytest.raises(RuntimeError, match="pinned to source version"):
         dogs.refresh()
 
 

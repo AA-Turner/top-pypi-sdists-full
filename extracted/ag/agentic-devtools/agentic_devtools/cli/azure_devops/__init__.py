@@ -32,6 +32,7 @@ from .async_commands import (
     create_pull_request_async_cli,
     get_pipeline_id_async,
     get_pull_request_details_async,
+    get_pull_request_details_async_cli,
     get_pull_request_threads_async,
     get_pull_request_threads_async_cli,
     get_run_details_async,
@@ -248,6 +249,7 @@ __all__ = [
     "mark_pull_request_draft_async",
     "publish_pull_request_async",
     "get_pull_request_details_async",
+    "get_pull_request_details_async_cli",
     # Pipeline commands
     "run_e2e_tests_fabric",
     "run_e2e_tests_synapse",

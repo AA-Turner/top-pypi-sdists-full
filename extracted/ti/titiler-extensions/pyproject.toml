@@ -30,7 +30,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "titiler-core==2.2.2",  # x-release-please-version
+    "titiler-core==2.3.0",  # x-release-please-version
     "typing-extensions; python_version < '3.12'"
 ]
 
@@ -47,7 +47,6 @@ test = [
     "pytest",
     "pytest-cov",
     "pytest-asyncio",
-    "httpx2",
     "pystac[validation]>=1.0.0,<2.0.0",
     "owslib",
 ]

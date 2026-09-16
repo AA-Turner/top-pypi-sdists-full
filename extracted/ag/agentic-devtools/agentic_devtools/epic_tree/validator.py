@@ -398,7 +398,7 @@ def _detect_cycles_in_graph(graph: dict[str, set[str]]) -> list[list[str]]:
 
 def check_schema_version(
     document: dict,
-    supported_major: int = 1,
+    supported_major: int = 2,
 ) -> None:
     """Verify that the document's ``schemaVersion`` is compatible.
 
@@ -422,5 +422,5 @@ def check_schema_version(
 
     major_str = version_str.split(".", 1)[0]
     major = int(major_str)
-    if major != supported_major:
+    if major not in {1, supported_major}:
         raise VersionMismatchError(version_str, supported_major)

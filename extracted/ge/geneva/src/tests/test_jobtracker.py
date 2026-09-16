@@ -6,7 +6,9 @@ import tempfile
 import uuid
 from datetime import timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import ray
@@ -791,7 +793,11 @@ class _BlockingJobsTableConnection:
         self.table = _FakeJobsTable()
 
     async def open_table(
-        self, table_name: str, *, namespace_path: list[str]
+        self,
+        table_name: str,
+        *,
+        namespace_path: list[str],
+        storage_options: dict[str, str] | None = None,
     ) -> _FakeJobsTable:
         assert table_name == GENEVA_JOBS_TABLE_NAME
         assert namespace_path
@@ -1038,3 +1044,32 @@ def test_mark_done_always_forces() -> None:
     current_time = 1.0
     save_with_throttle(force=True)
     assert len(save_calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_jobs_table_open_forwards_storage_options() -> None:
+    """lancedb's async open_table honors only per-call storage options; the
+    connection-level ones alone leave a MinIO or SAS-only store unreachable."""
+    options = {"aws_endpoint": "http://minio:9000", "aws_allow_http": "true"}
+    seen: dict[str, Any] = {}
+
+    class _FakeDb:
+        storage_options = options
+
+        async def open_table(self, name: str, **kwargs: Any) -> Any:
+            seen.update(kwargs, name=name)
+            return SimpleNamespace(uri="s3://bucket/db/__system/geneva_jobs.lance")
+
+    table_ref = TableReference(
+        table_id=["t"], version=None, db_uri="s3://bucket/db", storage_options=options
+    )
+    tracker = _JobTracker(job_id="job", table_ref=table_ref)
+    with patch.object(
+        TableReference, "open_system_db_async", AsyncMock(return_value=_FakeDb())
+    ):
+        table = await tracker._get_jobs_table()
+
+    assert table is not None
+    assert seen["name"] == GENEVA_JOBS_TABLE_NAME
+    assert seen["namespace_path"] == ["__system"]
+    assert seen["storage_options"] == options

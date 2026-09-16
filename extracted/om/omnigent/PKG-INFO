@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnigent
-Version: 0.13.0
+Version: 0.14.0
 Summary: Omnigent: declarative agent authoring and runtime framework
 Author: Databricks, Inc.
 Keywords: agents,llm,ai,databricks,cli
@@ -14,8 +14,8 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: omnigent-client==0.13.0
-Requires-Dist: omnigent-ui-sdk==0.13.0
+Requires-Dist: omnigent-client==0.14.0
+Requires-Dist: omnigent-ui-sdk==0.14.0
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: json5<1,>=0.10
 Requires-Dist: openai<2.45,>=1.0
@@ -35,6 +35,7 @@ Requires-Dist: tomlkit<1,>=0.12
 Requires-Dist: alembic<2,>=1.0
 Requires-Dist: anyio<5,>=4.0
 Requires-Dist: cachetools<7,>=5.0
+Requires-Dist: filelock>=3.0
 Requires-Dist: click<10,>=8.0
 Requires-Dist: fastapi<1,>=0.100
 Requires-Dist: pexpect<5,>=4.9; platform_system != "Windows"
@@ -55,6 +56,9 @@ Requires-Dist: python-dateutil<3,>=2.8
 Requires-Dist: tzdata>=2024.1; platform_system == "Windows"
 Provides-Extra: claude-sdk
 Provides-Extra: openai-agents
+Provides-Extra: cockroachdb
+Requires-Dist: psycopg[binary]<4,>=3.1; extra == "cockroachdb"
+Requires-Dist: sqlalchemy-cockroachdb<3,>=2.0; extra == "cockroachdb"
 Provides-Extra: all
 Requires-Dist: databricks-sdk<1,>=0.56.0; extra == "all"
 Requires-Dist: opentelemetry-sdk<2,>=1.20; extra == "all"
@@ -122,7 +126,7 @@ Requires-Dist: hindsight-client>=0.4.0; extra == "hindsight"
 Provides-Extra: nimble
 Requires-Dist: nimble-python<2,>=1.2.0; extra == "nimble"
 Provides-Extra: slack
-Requires-Dist: omnigent-slack==0.13.0; extra == "slack"
+Requires-Dist: omnigent-slack==0.14.0; extra == "slack"
 Provides-Extra: postgres
 Requires-Dist: psycopg[binary]<4,>=3.1; extra == "postgres"
 Provides-Extra: databricks
@@ -183,6 +187,7 @@ Omnigent lets you:
   disposable [Modal](https://modal.com), [Daytona](https://www.daytona.io),
   [Blaxel](https://blaxel.ai),
   [Islo](https://islo.dev), [E2B](https://e2b.dev),
+  [Gensee](https://gensee.ai),
   [CoreWeave](https://docs.coreweave.com/products/sandboxes),
   [Kubernetes](https://kubernetes.io), [OpenShell](https://github.com/NVIDIA/OpenShell),
   [Boxlite](https://github.com/boxlite-ai/boxlite),
@@ -247,6 +252,20 @@ Or with [Homebrew](https://github.com/omnigent-ai/homebrew-tap):
 ```bash
 brew install omnigent-ai/tap/omnigent
 ```
+
+For source builds on networks that require package mirrors, replace these example
+URLs with your mirrors:
+
+```bash
+HOMEBREW_PIP_INDEX_URL='https://pypi.example.com/simple' \
+HOMEBREW_CARGO_INDEX_URL='https://cargo.example.com/index/' \
+  brew install --build-from-source omnigent-ai/tap/omnigent
+```
+
+The PyPI setting also routes pip's isolated build dependencies through the mirror.
+The Cargo setting takes a sparse registry index URL ending in `/`, without the
+`sparse+` prefix. Both overrides are optional and do not affect prebuilt-bottle
+installs.
 
 Or install straight from the repo:
 
@@ -507,8 +526,10 @@ limited to 100 characters; custom title requirements may use up to 200.
 Default titles over 100 characters are rejected, leaving the first-message
 fallback title in place. Custom titles over 200 characters are truncated with
 a trailing ellipsis. Manually assigned titles are also limited to 200
-characters. The setting applies to new sessions after the local Omnigent
-server restarts.
+characters. The setting applies after the local Omnigent server restarts, both
+to new sessions and to later agent-initiated renames through `sys_session_rename`.
+Agent proposals are formatted using the same title requirements; if formatting
+fails, the existing title is preserved. Manual renames remain unchanged.
 For longer instructions, edit `~/.omnigent/config.yaml` directly and use a YAML
 block scalar:
 

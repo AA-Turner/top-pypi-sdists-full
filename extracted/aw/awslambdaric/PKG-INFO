@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: awslambdaric
-Version: 4.0.3
+Version: 4.0.4
 Summary: AWS Lambda Runtime Interface Client for Python
 Home-page: https://github.com/aws/aws-lambda-python-runtime-interface-client
 Author: Amazon Web Services
@@ -124,6 +124,16 @@ Example Python handler `app.py`:
 def handler(event, context):
     return "Hello World!"
 ```
+
+### Structured (JSON) logging
+
+When the function is configured to emit JSON-formatted logs (`AWS_LAMBDA_LOG_FORMAT=JSON`), logs written by the runtime for uncaught errors include the log level under the `level` key, e.g.:
+
+```json
+{"timestamp": "...", "level": "ERROR", "errorType": "...", "errorMessage": "...", "stackTrace": ["..."]}
+```
+
+If you parse these logs, read the level from `level` (this field was previously emitted as `log_level`).
 
 ### Local Testing
 

@@ -203,7 +203,71 @@ class TestApproveAction:
         action = ApproveAction()
         result = action.evaluate(snapshot, derived)
         assert result.decision == ActionDecision.SKIP
-        assert "not clean" in result.details.lower()
+
+    def test_skip_when_loop_state_incomplete(self) -> None:
+        snapshot = PRStateSnapshot(pr_number=1)
+        derived = DerivedState(snapshot)
+        derived.set("loop_controller", MagicMock())
+        action = ApproveAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert "Incomplete governed loop state" in result.details
+
+    def test_skip_when_loop_gate_ineligible(self) -> None:
+        snapshot = PRStateSnapshot(pr_number=1)
+        derived = DerivedState(snapshot)
+        controller = MagicMock()
+        decision = MagicMock(eligible=False, reason="hold active")
+        controller.approval_eligible.return_value = decision
+        derived.set("loop_controller", controller)
+        derived.set("loop_state", MagicMock())
+        derived.set("loop_observation", MagicMock())
+        action = ApproveAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert "Loop gate: hold active" in result.details
+
+    def test_execute_when_loop_gate_eligible(self) -> None:
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            has_approval_on_head=False,
+            ci_status="passing",
+            review_state="APPROVED",
+            copilot_review_id=1,
+            unresolved_threads=0,
+            repairable_threads=0,
+            approver_login="bot",
+            author_login="user",
+        )
+        derived = DerivedState(snapshot)
+        controller = MagicMock()
+        decision = MagicMock(eligible=True, reason="eligible")
+        controller.approval_eligible.return_value = decision
+        derived.set("loop_controller", controller)
+        derived.set("loop_state", MagicMock())
+        derived.set("loop_observation", MagicMock())
+        action = ApproveAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.EXECUTE
+        assert result.preconditions.get("loop_eligible") is True
+
+    def test_skip_when_approver_is_author(self) -> None:
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            has_approval_on_head=False,
+            ci_status="passing",
+            review_state="APPROVED",
+            copilot_review_id=1,
+            unresolved_threads=0,
+            repairable_threads=0,
+            approver_login="author-user",
+            author_login="author-user",
+        )
+        derived = DerivedState(snapshot)
+        action = ApproveAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert "Approver is the PR author" in result.details
 
     def test_skip_when_unresolved_threads(self) -> None:
         snapshot = PRStateSnapshot(

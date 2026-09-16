@@ -169,6 +169,28 @@ async def test_restore_skips_download_for_exact_installed_checkpoint(
 
 
 @pytest.mark.asyncio
+async def test_restore_has_one_total_wall_clock_budget(monkeypatch, tmp_path) -> None:
+    """Slow decrypt/install work cannot outlive the manager's restore budget."""
+
+    async def finishes_after_deadline(_profile: str, _restore: object) -> None:
+        await asyncio.sleep(0.02)
+
+    monkeypatch.setattr(runtime.M, "CHECKPOINT_RESTORE_TOTAL_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(runtime, "_restore_profile_once", finishes_after_deadline)
+    restore = runtime.M.CheckpointRestore(
+        download_url="https://download.invalid/checkpoint",
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+        dek_plaintext_b64="unused",
+        nonce_b64="unused",
+        ciphertext_hash="unused",
+        plaintext_hash="expected-hash",
+    )
+
+    with pytest.raises(TimeoutError):
+        await runtime._restore_profile(str(tmp_path / "profile"), restore)
+
+
+@pytest.mark.asyncio
 async def test_checkpoint_crypto_runs_off_loop_and_zeroizes_after_cancellation(monkeypatch) -> None:
     """The expensive crypto boundary cannot stall the worker or retain its DEK."""
     from cryptography.hazmat.primitives.ciphers import aead
@@ -878,6 +900,104 @@ async def test_concurrent_bootstrap_is_serialized_and_replayed(
     assert first.ok and first.accepted
     assert second.ok and second.replayed
     assert launch_count == 1
+
+
+async def test_cancelled_caller_keeps_activation_owner_and_rejects_competitor(
+    profile_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """HTTP cancellation never releases a profile another activation can reuse."""
+
+    worker, stub, _ = _new(profile_dir)
+    launch_started = asyncio.Event()
+    release_launch = asyncio.Event()
+
+    async def slow_launch(_policy: M.LaunchPolicy, _display: M.DisplayConfig | None) -> bool:
+        launch_started.set()
+        await release_launch.wait()
+        return True
+
+    monkeypatch.setattr(worker, "_launch_context", slow_launch)
+    caller = asyncio.create_task(stub.bootstrap(user_data_dir=profile_dir, run_mode="automation_only"))
+    await launch_started.wait()
+    caller.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await caller
+
+    competitor_run, competitor_profile = stub.run_id, stub.profile_id
+    stub.activation_key = "different-activation"
+    competing = await stub.bootstrap(user_data_dir=profile_dir, run_mode="automation_only")
+    assert not competing.ok and competing.error is not None
+    assert competing.error.code == "bootstrap_in_progress"
+
+    stub.activation_key = worker._bootstrap_activation_key or ""
+    stub.run_id, stub.profile_id = competitor_run, competitor_profile
+    joined = asyncio.create_task(stub.bootstrap(user_data_dir=profile_dir, run_mode="automation_only"))
+    release_launch.set()
+    response = await joined
+    assert response.ok and response.replayed
+
+
+async def test_bootstrap_auth_precedes_owner_join_and_lifecycle_disclosure(
+    profile_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Unauthenticated callers learn neither owner replay nor busy state."""
+
+    authority = InMemoryTokenAuthority()
+    worker, stub, _ = _new(profile_dir, authority=authority)
+    launch_started = asyncio.Event()
+    release_launch = asyncio.Event()
+
+    async def slow_launch(_policy: M.LaunchPolicy, _display: M.DisplayConfig | None) -> bool:
+        launch_started.set()
+        await release_launch.wait()
+        return True
+
+    monkeypatch.setattr(worker, "_launch_context", slow_launch)
+    owner = asyncio.create_task(stub.bootstrap(user_data_dir=profile_dir, run_mode="automation_only"))
+    await launch_started.wait()
+
+    def request(activation_key: str) -> M.BootstrapRequest:
+        return M.BootstrapRequest(
+            **stub._env(sequenced=False),
+            mount=M.ProfileMount(
+                user_data_dir=profile_dir, source="active_volume", profile_format_version=1
+            ),
+            policy=M.LaunchPolicy(run_mode="automation_only"),
+            activation_key=activation_key,
+            initial_fencing_token=stub.fencing_token,
+            sequence_base=stub.sequence_base + 1,
+            callback_url="stub://events",
+            callback_token="cbt_auth_test",
+        )
+
+    tokens: list[tuple[str | None, str]] = [
+        (None, "unauthorized_worker_call"),
+        ("not-a-worker-token", "unauthorized_worker_call"),
+        (
+            authority.mint_expired(
+                worker_id=worker.worker_id,
+                run_id=stub.run_id,
+                profile_id=stub.profile_id,
+                op="bootstrap",
+            ),
+            "credential_expired",
+        ),
+    ]
+    replayed = authority.mint(
+        worker_id=worker.worker_id, run_id=stub.run_id, profile_id=stub.profile_id, op="bootstrap"
+    )
+    authority.verify(replayed, worker_id=worker.worker_id, op="bootstrap")
+    tokens.append((replayed, "credential_replayed"))
+
+    for activation in (stub.activation_key, "competing-activation"):
+        for bearer, code in tokens:
+            response = await worker.bootstrap(request(activation), bearer=bearer)
+            assert not response.ok and response.error is not None
+            assert response.error.code == code
+            assert response.host_lock_acquired is False
+
+    release_launch.set()
+    assert (await owner).ok
 
 
 async def test_stopped_fixed_fleet_worker_accepts_next_run(

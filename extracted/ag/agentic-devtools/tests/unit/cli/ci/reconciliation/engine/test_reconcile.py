@@ -396,3 +396,31 @@ class TestReconcileApiError:
 
         assert result.action == ReconciliationAction.ESCALATED
         provider.post_comment.assert_called_once()
+
+
+class TestReconcileAiPrLoop:
+    """Tests for reconcile() with ai_pr_loop_enabled."""
+
+    def test_ai_pr_loop_requires_controller_and_store(self) -> None:
+        provider = MagicMock()
+        with pytest.raises(ValueError, match="requires a controller and queue store"):
+            reconcile(provider, "ci.yml", ai_pr_loop_enabled=True)
+
+    def test_ai_pr_loop_loads_state_and_gates(self) -> None:
+        provider = MagicMock()
+        provider.list_workflow_runs.return_value = []
+        controller = MagicMock()
+        store = MagicMock()
+        store.load.return_value = "state"
+
+        result = reconcile(
+            provider,
+            "ci.yml",
+            ai_pr_loop_enabled=True,
+            loop_controller=controller,
+            queue_store=store,
+        )
+
+        store.load.assert_called_once()
+        controller._gate.assert_called_once_with("state")
+        assert result.action == ReconciliationAction.NO_ACTION

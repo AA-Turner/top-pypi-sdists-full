@@ -122,7 +122,7 @@ def version_info() -> dict:
 
 def _through_baseline(
     diags: list, files: list[Path], path: str | None, disabled: bool, rules: set[str],
-    asked: list[Path],
+    asked: list[Path], accepted: list | None = None,
 ) -> tuple[list, dict]:
     """The findings the baseline leaves, plus the summary keys describing what it took.
 
@@ -143,7 +143,7 @@ def _through_baseline(
     data = baseline_data.load(found)
     roots = baseline_data.roots_of(asked, found.parent)
     kept, suppressed, unused, stale = baseline_data.apply(
-        diags, data, found.parent, rules, roots,
+        diags, data, found.parent, rules, roots, accepted=accepted,
     )
     summary = {
         "baseline": str(found),
@@ -217,6 +217,7 @@ def lint_paths(
     as_ci: bool = False,
     as_ci_job: str | None = None,
     compact: bool = False,
+    fix: bool = False,
 ) -> dict:
     """Check files/directories on disk.
 
@@ -229,6 +230,9 @@ def lint_paths(
     baseline    – a baseline file to apply; without it the project's own `.xbsllint-baseline`
                   is looked up above the checked files, exactly as the CLI does;
     no_baseline – report the frozen findings too;
+    fix         – apply unambiguous formatting and code fixes on disk, only outside the
+                  baseline; default false. Rechecks after each pass and reports remaining
+                  findings, with summary.fixed and summary.files_changed;
     as_ci       – check with the rule set the project's CI job runs: the --select/--ignore/
                   --enable flags and the baseline of the xbsl command in `.gitlab-ci.yml`
                   (or a GitHub workflow) next to the project, ADDED to whatever this call
@@ -245,7 +249,7 @@ def lint_paths(
                   one job, what `translate` wrote in another - and those judge different
                   sets. Without a name the first command wins and `as_ci.jobs` names the
                   others; a part of the name is enough when only one job fits;
-    compact     – answer without the list of findings: the summary alone, plus `errors` - the
+    compact     – omit the findings list and `summary.by_file`; keep counts and `errors` - the
                   full records of the error-level findings, and nothing else. A full answer
                   costs several hundred characters per finding, tens of thousands over one
                   project run, when the question was only whether the tree is clean and
@@ -287,18 +291,32 @@ def lint_paths(
             no_baseline = job.no_baseline
     files, requested = discover_with_context(asked)
     chosen = (_as_set(select), _as_set(ignore), _as_set(enable))
-    diags = _filter_requested(
-        run(files, select=chosen[0], ignore=chosen[1], enable=chosen[2]), requested,
-    )
+    fix_summary = {}
+    fix_accepted = None
+    if fix:
+        from xbsl import fixer
+
+        target = named
+        if target is None and not no_baseline:
+            target = baseline_data.discover(requested if requested is not None else files)
+        diags, fix_summary, fix_accepted = fixer.fix_paths(
+            files, select=chosen[0], ignore=chosen[1], enable=chosen[2],
+            requested=requested, baseline_path=None if no_baseline else target,
+        )
+    else:
+        diags = _filter_requested(
+            run(files, select=chosen[0], ignore=chosen[1], enable=chosen[2]), requested,
+        )
     counted = requested if requested is not None else files
     active = active_rules(*chosen)
     diags, extra = _through_baseline(
         diags, counted, str(named) if named else None, no_baseline, {r.id for r in active},
-        [Path(p) for p in asked],
+        [Path(p) for p in asked], accepted=fix_accepted,
     )
     payload = report.report(diags, len(counted))
     payload["summary"].update(environment.provenance(active))
     payload["summary"].update(extra)
+    payload["summary"].update(fix_summary)
     payload["summary"]["root"] = str(base)
     if job is not None:
         # The shared record: the file and the job, the rule set as data and as the sentence a
@@ -2035,7 +2053,7 @@ def translate_unused(
     limit: int = 50,
     offset: int = 0,
     prune: bool = False,
-    compact: bool = False,
+    compact: bool | None = None,
     budget_seconds: float = 300,
 ) -> dict:
     """The opposite of translate_gaps: what the DICTIONARY still says and the project has not.
@@ -2070,11 +2088,14 @@ def translate_unused(
     limit/offset – the page (limit 0 means all); a cut page says so in `truncated`;
     prune  – REMOVE the listed entries from the dictionary files. Off by default and named
              separately from the listing on purpose: this is the one direction where a
-             mistaken reading destroys a translation. It removes exactly the page it
-             answers with, so `kind`, `filter` and the page apply to the removal too;
-    compact – each row is only {key, kind, file, line}: the values are the bulk of a
-             page, and a cleaning pass needs the keys and their places, not the
-             translations;
+             mistaken reading destroys a translation. `kind`, `filter` and the page select
+             keys; all dictionary occurrences of those keys are removed, including repeats
+             outside the page. `removed` counts the physical occurrences;
+    compact – omitted: a preview lists full rows, a successful prune returns only counts.
+             False always includes full rows; True shortens preview rows to {key, kind,
+             file, line} and omits the list after pruning. `pruned` counts the removed
+             occurrences by kind and dictionary file; `counts` still covers all candidates.
+             A partial scan lists its candidates and never claims a removal;
     budget_seconds – how long the walk over the sources may take (300 by default). Past it
              the tool answers with what it has read: `partial` is true, `sources` counts the
              files read of the total, and `note` says how to go on (a larger budget, or a
@@ -2150,11 +2171,23 @@ def translate_unused(
         ]
     else:
         out["unused"] = [entry.as_dict() for entry in page]
-    if prune and page and not found.partial:
-        removed = entries_module.write_entries(
+    if prune and not found.partial:
+        selected = {(e.kind, e.key) for e in page}
+        # The writer removes every occurrence of a selected key, including repeated
+        # declarations beyond the page boundary. Count those same physical entries.
+        by_kind: dict[str, int] = {}
+        by_file: dict[str, int] = {}
+        for entry in found.entries:
+            if (entry.kind, entry.key) in selected:
+                by_kind[entry.kind] = by_kind.get(entry.kind, 0) + 1
+                by_file[entry.file] = by_file.get(entry.file, 0) + 1
+        result = entries_module.write_entries(
             path, [{"key": e.key, "kind": e.kind, "value": ""} for e in page],
-        )
-        out["removed"] = removed["removed"]
+        ) if page else {"removed": 0}
+        out["removed"] = result["removed"]
+        out["pruned"] = {"by_kind": by_kind, "by_file": by_file}
+        if compact is not False:
+            out.pop("unused", None)
     return out
 
 

@@ -18,10 +18,14 @@ import System
 import System.Collections.Generic
 import System.IO
 
+QuantConnect_Data_Market_BaseChain = typing.Any
+QuantConnect_Data_Market_FuturesChain = typing.Any
 QuantConnect_Data_Market_OptionChain = typing.Any
 
 QuantConnect_Data_Market_DataDictionary_T = typing.TypeVar("QuantConnect_Data_Market_DataDictionary_T")
 QuantConnect_Data_Market_BaseChain_TContractsCollection = typing.TypeVar("QuantConnect_Data_Market_BaseChain_TContractsCollection")
+QuantConnect_Data_Market_BaseChain_TSelf = typing.TypeVar("QuantConnect_Data_Market_BaseChain_TSelf")
+QuantConnect_Data_Market_BaseChain_TUniverse = typing.TypeVar("QuantConnect_Data_Market_BaseChain_TUniverse")
 QuantConnect_Data_Market_BaseChain_T = typing.TypeVar("QuantConnect_Data_Market_BaseChain_T")
 QuantConnect_Data_Market_BaseChains_T = typing.TypeVar("QuantConnect_Data_Market_BaseChains_T")
 QuantConnect_Data_Market_BaseChains_TContract = typing.TypeVar("QuantConnect_Data_Market_BaseChains_TContract")
@@ -1890,7 +1894,7 @@ class _Typed_BaseChain_GetAux(typing.Generic[QuantConnect_Data_Market_BaseChain_
     """"""
 
     @overload
-    def __call__(self, symbol: QuantConnect.Symbol) -> QuantConnect_Data_Market_BaseChain_GetAux_TAux:
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect_Data_Market_BaseChain_GetAux_TAux:
         """
         Gets the auxiliary data with the specified type and symbol
         
@@ -1920,21 +1924,21 @@ class _Typed_BaseChain_GetAuxList(typing.Generic[QuantConnect_Data_Market_BaseCh
     """"""
 
     @overload
-    def __call__(self) -> System.Collections.Generic.Dictionary[QuantConnect.Symbol, typing.List[QuantConnect.Data.BaseData]]:
-        """
-        Gets all auxiliary data of the specified type as a dictionary keyed by symbol
-        
-        :returns: A dictionary containing all auxiliary data of the specified type.
-        """
-        ...
-
-    @overload
-    def __call__(self, symbol: QuantConnect.Symbol) -> typing.List[QuantConnect_Data_Market_BaseChain_GetAuxList_TAux]:
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.List[QuantConnect_Data_Market_BaseChain_GetAuxList_TAux]:
         """
         Gets a list of auxiliary data with the specified type and symbol
         
         :param symbol: The symbol of the auxiliary data
         :returns: The list of auxiliary data with the specified type and symbol.
+        """
+        ...
+
+    @overload
+    def __call__(self) -> System.Collections.Generic.Dictionary[QuantConnect.Symbol, typing.List[QuantConnect.Data.BaseData]]:
+        """
+        Gets all auxiliary data of the specified type as a dictionary keyed by symbol
+        
+        :returns: A dictionary containing all auxiliary data of the specified type.
         """
         ...
 
@@ -1946,10 +1950,10 @@ class _BaseChain_GetAuxList:
         ...
 
 
-class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnect_Data_Market_BaseChain_TContractsCollection], QuantConnect.Data.BaseData, typing.Iterable[QuantConnect_Data_Market_BaseChain_T]):
+class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnect_Data_Market_BaseChain_TContractsCollection, QuantConnect_Data_Market_BaseChain_TSelf, QuantConnect_Data_Market_BaseChain_TUniverse], QuantConnect_Data_Market_BaseChain, QuantConnect.Securities.IContractFilters[QuantConnect_Data_Market_BaseChain_TSelf], typing.Iterable[QuantConnect_Data_Market_BaseChain_T], metaclass=abc.ABCMeta):
     """
-    Base representation of an entire chain of contracts for a single underlying security.
-    This type is IEnumerable{T} where T is OptionContract, FuturesContract, etc.
+    A chain of contracts with the filters of its universe selection, see IContractFilters{TSelf}.
+    Each filter returns a new chain, leaving this one untouched
     """
 
     @property
@@ -2029,6 +2033,21 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         ...
 
     @overload
+    def __init__(self, canonical_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], data_type: QuantConnect.MarketDataType, flatten: bool = True) -> None:
+        """
+        Initializes a new instance of the BaseChain{T, TContractsCollection, TSelf, TUniverse} class
+        
+        
+        This Class is protected.
+        
+        :param canonical_symbol: The symbol for this chain
+        :param time: The time of this chain
+        :param data_type: The type of data this chain represents
+        :param flatten: Whether to flatten the data frame
+        """
+        ...
+
+    @overload
     def __init__(self, canonical_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], data_type: QuantConnect.MarketDataType, flatten: bool = True) -> None:
         """
         Initializes a new instance of the BaseChain{T, TContractsCollection} class
@@ -2043,30 +2062,22 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         ...
 
     @overload
-    def __init__(self, data_type: QuantConnect.MarketDataType, flatten: bool) -> None:
-        """
-        Initializes a new default instance of the BaseChain{T, TContractsCollection} class
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    @overload
     def __init__(self, other: QuantConnect.Data.Market.BaseChain[QuantConnect_Data_Market_BaseChain_T, QuantConnect_Data_Market_BaseChain_TContractsCollection]) -> None:
         """
-        Initializes a new instance of the BaseChain{T, TContractsCollection} class as a copy of the specified chain
+        Initializes a new instance of the BaseChain{T, TContractsCollection, TSelf, TUniverse} class as a copy of the specified chain
         
         
         This Class is protected.
+        
+        :param other: The chain to copy
         """
         ...
 
     @overload
     def __init__(self, other: QuantConnect.Data.Market.BaseChain[QuantConnect_Data_Market_BaseChain_T, QuantConnect_Data_Market_BaseChain_TContractsCollection], contracts: typing.List[QuantConnect_Data_Market_BaseChain_T]) -> None:
         """
-        Initializes a new instance of the BaseChain{T, TContractsCollection} class as a copy of the specified chain
-        containing only the given subset of its contracts. The underlying, ticks, trade bars, quote bars and auxiliary data are shared with the source chain
+        Initializes a new instance of the BaseChain{T, TContractsCollection, TSelf, TUniverse} class as a copy of the specified chain
+        containing only the given subset of its contracts
         
         
         This Class is protected.
@@ -2076,13 +2087,39 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         """
         ...
 
+    @overload
+    def __init__(self, data_type: QuantConnect.MarketDataType, flatten: bool) -> None:
+        """
+        Initializes a new default instance of the BaseChain{T, TContractsCollection} class
+        
+        
+        This Class is protected.
+        """
+        ...
+
     def __iter__(self) -> typing.Iterator[QuantConnect_Data_Market_BaseChain_T]:
         ...
 
     def __len__(self) -> int:
         ...
 
-    def contains_key(self, key: QuantConnect.Symbol) -> bool:
+    def back_month(self) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts of the second nearest expiration. Same as ContractSecurityFilterUniverse{T, TData}.BackMonth
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def back_months(self) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts of all expirations but the nearest one. Same as ContractSecurityFilterUniverse{T, TData}.BackMonths
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def contains_key(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """
         Checks if the chain contains a contract with the specified symbol
         
@@ -2091,11 +2128,336 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         """
         ...
 
+    def create_chain(self, contracts: typing.List[QuantConnect_Data_Market_BaseChain_T]) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Creates a copy of this chain with only the given contracts
+        
+        
+        This Class is protected.
+        
+        :param contracts: The contracts to keep
+        """
+        ...
+
+    def create_filter_universe(self) -> QuantConnect_Data_Market_BaseChain_TUniverse:
+        """
+        Creates the filter universe over the contracts of this chain
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    @overload
+    def expiration(self, min_expiry: datetime.timedelta, max_expiry: datetime.timedelta) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts expiring in the given range relative to the chain date.
+        Same as ContractSecurityFilterUniverse{T, TData}.Expiration(TimeSpan, TimeSpan)
+        
+        :param min_expiry: The minimum time until expiry to include, for example, TimeSpan.FromDays(10)
+        would exclude contracts expiring in less than 10 days
+        :param max_expiry: The maximum time until expiry to include, for example, TimeSpan.FromDays(10)
+        would exclude contracts expiring in more than 10 days
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    @overload
+    def expiration(self, min_expiry_days: int, max_expiry_days: int) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts expiring in the given range of days relative to the chain date.
+        Same as ContractSecurityFilterUniverse{T, TData}.Expiration(int, int)
+        
+        :param min_expiry_days: The minimum time, expressed in days, until expiry to include, for example, 10
+        would exclude contracts expiring in less than 10 days
+        :param max_expiry_days: The maximum time, expressed in days, until expiry to include, for example, 10
+        would exclude contracts expiring in more than 10 days
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    @overload
+    def expiration(self, expiries: typing.List[datetime.datetime]) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts expiring on any of the given dates. Time of day is ignored.
+        Same as ContractSecurityFilterUniverse{T, TData}.Expiration(IEnumerable{DateTime})
+        
+        :param expiries: The expiration dates
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def expiring_after(self, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts expiring after the given date, excluding it. Time of day is ignored.
+        Same as ContractSecurityFilterUniverse{T, TData}.ExpiringAfter
+        
+        :param date: The date the expirations must be after
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def expiring_before(self, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts expiring before the given date, excluding it. Time of day is ignored.
+        Same as ContractSecurityFilterUniverse{T, TData}.ExpiringBefore
+        
+        :param date: The date the expirations must be before
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def farthest_expiration(self) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts of the farthest expiration. Same as ContractSecurityFilterUniverse{T, TData}.FarthestExpiration
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def filter(self, filter: typing.Callable[[QuantConnect_Data_Market_BaseChain_TUniverse], QuantConnect_Data_Market_BaseChain_TUniverse]) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Applies the given universe filter to the contracts of this chain and returns the result as a new chain
+        
+        
+        This Class is protected.
+        
+        :param filter: The universe filter to apply
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def front_month(self) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts of the nearest expiration. Same as ContractSecurityFilterUniverse{T, TData}.FrontMonth
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Data_Market_BaseChain_T]:
         """
         Returns an enumerator that iterates through the collection.
         
         :returns: An enumerator that can be used to iterate through the collection.
+        """
+        ...
+
+    def oi(self, min: int, max: int) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts with open interest in the given range. Alias for open_interest
+        
+        :param min: The minimum open interest value
+        :param max: The maximum open interest value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def open_interest(self, min: int, max: int) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts with open interest in the given range. Same as ContractSecurityFilterUniverse{T, TData}.OpenInterest
+        
+        :param min: The minimum open interest value
+        :param max: The maximum open interest value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def standards_only(self) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the standard contracts in the chain. Unlike ContractSecurityFilterUniverse{T, TData}.StandardsOnly,
+        it applies to the contracts already selected, so it can be combined with the expiry filters in any order
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def volume(self, min: int, max: int) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts with volume in the given range. Same as ContractSecurityFilterUniverse{T, TData}.Volume
+        
+        :param min: The minimum volume
+        :param max: The maximum volume
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def weeklys_only(self) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the non standard contracts in the chain. Unlike ContractSecurityFilterUniverse{T, TData}.WeeklysOnly,
+        it applies to the contracts already selected, so it can be combined with the expiry filters in any order
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def where(self, predicate: typing.Any) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts matching the given predicate, e.g. chain.where(lambda contract: contract.open_interest > 100).
+        From C# use Linq's Where, which keeps this chain's type untouched
+        
+        :param predicate: Function determining which contracts are kept
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def zero_dte(self) -> QuantConnect_Data_Market_BaseChain_TSelf:
+        """
+        Selects the contracts expiring today. Same as ContractSecurityFilterUniverse{T, TData}.ZeroDte
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+
+class FuturesContract(QuantConnect.Data.Market.BaseContract):
+    """Defines a single futures contract at a specific expiration"""
+
+    @property
+    def open_interest(self) -> float:
+        """Gets the open interest"""
+        ...
+
+    @property
+    def last_price(self) -> float:
+        """Gets the last price this contract traded at"""
+        ...
+
+    @property
+    def volume(self) -> int:
+        """Gets the last volume this contract traded at"""
+        ...
+
+    @property
+    def bid_price(self) -> float:
+        """Get the current bid price"""
+        ...
+
+    @property
+    def bid_size(self) -> int:
+        """Get the current bid size"""
+        ...
+
+    @property
+    def ask_price(self) -> float:
+        """Gets the current ask price"""
+        ...
+
+    @property
+    def ask_size(self) -> int:
+        """Get the current ask size"""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """
+        Initializes a new instance of the FuturesContract class
+        
+        :param symbol: The futures contract symbol
+        """
+        ...
+
+    @overload
+    def __init__(self, contract_data: QuantConnect.Data.UniverseSelection.FutureUniverse) -> None:
+        """
+        Initializes a new instance of the FuturesContract class
+        
+        :param contract_data: The contract universe data
+        """
+        ...
+
+
+class FuturesContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.FuturesContract]):
+    """Collection of FuturesContract keyed by futures symbol"""
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance of the FuturesContracts dictionary"""
+        ...
+
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """Creates a new instance of the FuturesContracts dictionary"""
+        ...
+
+
+class FuturesChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.FuturesContract, QuantConnect.Data.Market.FuturesContracts, QuantConnect_Data_Market_FuturesChain, QuantConnect.Securities.FuturesChainFilterUniverse], QuantConnect.Securities.IFutureContractFilters[QuantConnect_Data_Market_FuturesChain]):
+    """
+    The futures chain filters, the same ones the futures universe selection offers, see IFutureContractFilters{TSelf}.
+    The filters shared with the option chains live in BaseChain{T, TContractsCollection, TSelf, TUniverse}.
+    Each filter returns a new chain, leaving this one untouched
+    """
+
+    @overload
+    def __init__(self, canonical_future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], flatten: bool = True) -> None:
+        """
+        Initializes a new instance of the FuturesChain class
+        
+        :param canonical_future_symbol: The symbol for this chain.
+        :param time: The time of this chain
+        :param flatten: Whether to flatten the data frame
+        """
+        ...
+
+    @overload
+    def __init__(self, canonical_future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], contracts: typing.List[QuantConnect.Data.UniverseSelection.FutureUniverse], flatten: bool = True) -> None:
+        """
+        Initializes a new instance of the FuturesChain class
+        
+        :param canonical_future_symbol: The symbol for this chain.
+        :param time: The time of this chain
+        :param contracts: The list of contracts that form this chain
+        :param flatten: Whether to flatten the data frame
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
+        ...
+
+    def contract_months(self, months: typing.List[int]) -> QuantConnect.Data.Market.FuturesChain:
+        """
+        Selects the contracts whose contract month is any of the given months of the year, like expiration_cycle
+        but by the contract month, the month the contract is named after, which for some products, e.g. crude oil, is the month
+        after the expiration month.
+        Same as BaseFutureFilterUniverse{TUniverse, TData}.ContractMonths
+        
+        :param months: Months of the year to select contracts from, see FutureExpirationCycles
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def create_chain(self, contracts: typing.List[QuantConnect.Data.Market.FuturesContract]) -> QuantConnect.Data.Market.FuturesChain:
+        """
+        Creates a copy of this chain with only the given contracts
+        
+        
+        This Class is protected.
+        
+        :param contracts: The contracts to keep
+        """
+        ...
+
+    def create_filter_universe(self) -> QuantConnect.Securities.FuturesChainFilterUniverse:
+        """
+        Creates the filter universe over the contracts of this chain
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def expiration_cycle(self, months: typing.List[int]) -> QuantConnect.Data.Market.FuturesChain:
+        """
+        Selects the contracts expiring in any of the given months of the year.
+        Same as BaseFutureFilterUniverse{TUniverse, TData}.ExpirationCycle
+        
+        :param months: Months to select contracts from, see FutureExpirationCycles
+        :returns: A new chain with the filter applied.
         """
         ...
 
@@ -2374,115 +2736,6 @@ class SymbolChangedEvent(QuantConnect.Data.BaseData):
         ...
 
 
-class FuturesContract(QuantConnect.Data.Market.BaseContract):
-    """Defines a single futures contract at a specific expiration"""
-
-    @property
-    def open_interest(self) -> float:
-        """Gets the open interest"""
-        ...
-
-    @property
-    def last_price(self) -> float:
-        """Gets the last price this contract traded at"""
-        ...
-
-    @property
-    def volume(self) -> int:
-        """Gets the last volume this contract traded at"""
-        ...
-
-    @property
-    def bid_price(self) -> float:
-        """Get the current bid price"""
-        ...
-
-    @property
-    def bid_size(self) -> int:
-        """Get the current bid size"""
-        ...
-
-    @property
-    def ask_price(self) -> float:
-        """Gets the current ask price"""
-        ...
-
-    @property
-    def ask_size(self) -> int:
-        """Get the current ask size"""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
-        """
-        Initializes a new instance of the FuturesContract class
-        
-        :param symbol: The futures contract symbol
-        """
-        ...
-
-    @overload
-    def __init__(self, contract_data: QuantConnect.Data.UniverseSelection.FutureUniverse) -> None:
-        """
-        Initializes a new instance of the FuturesContract class
-        
-        :param contract_data: The contract universe data
-        """
-        ...
-
-
-class FuturesContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.FuturesContract]):
-    """Collection of FuturesContract keyed by futures symbol"""
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance of the FuturesContracts dictionary"""
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """Creates a new instance of the FuturesContracts dictionary"""
-        ...
-
-
-class FuturesChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.FuturesContract, QuantConnect.Data.Market.FuturesContracts]):
-    """
-    Represents an entire chain of futures contracts for a single underlying
-    This type is IEnumerable{FuturesContract}
-    """
-
-    @overload
-    def __init__(self, canonical_future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], flatten: bool = True) -> None:
-        """
-        Initializes a new instance of the FuturesChain class
-        
-        :param canonical_future_symbol: The symbol for this chain.
-        :param time: The time of this chain
-        :param flatten: Whether to flatten the data frame
-        """
-        ...
-
-    @overload
-    def __init__(self, canonical_future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], contracts: typing.List[QuantConnect.Data.UniverseSelection.FutureUniverse], flatten: bool = True) -> None:
-        """
-        Initializes a new instance of the FuturesChain class
-        
-        :param canonical_future_symbol: The symbol for this chain.
-        :param time: The time of this chain
-        :param contracts: The list of contracts that form this chain
-        :param flatten: Whether to flatten the data frame
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-
 class OptionContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.OptionContract]):
     """Collection of OptionContract keyed by option symbol"""
 
@@ -2497,9 +2750,10 @@ class OptionContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.
         ...
 
 
-class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.OptionContract, QuantConnect.Data.Market.OptionContracts], QuantConnect.Securities.IOptionContractFilters[QuantConnect_Data_Market_OptionChain]):
+class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.OptionContract, QuantConnect.Data.Market.OptionContracts, QuantConnect_Data_Market_OptionChain, QuantConnect.Securities.OptionChainFilterUniverse], QuantConnect.Securities.IOptionContractFilters[QuantConnect_Data_Market_OptionChain]):
     """
     The option chain filters, the same ones the option universe selection offers, see IOptionContractFilters{TSelf}.
+    The filters shared with the futures chains live in BaseChain{T, TContractsCollection, TSelf, TUniverse}.
     Each filter returns a new chain, leaving this one untouched
     """
 
@@ -2549,22 +2803,6 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         strikes on either side of the price, the highest at or below it and the lowest at or above it, each only when it is within
         the percentage of the price given by OptionFilterUniverse.default_at_the_money_strike_distance
         :returns: A new chain with the filter applied, empty when the underlying price is unknown.
-        """
-        ...
-
-    def back_month(self) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts of the second nearest expiration. Same as ContractSecurityFilterUniverse{T, TData}.BackMonth
-        
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    def back_months(self) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts of all expirations but the nearest one. Same as ContractSecurityFilterUniverse{T, TData}.BackMonths
-        
-        :returns: A new chain with the filter applied.
         """
         ...
 
@@ -2648,6 +2886,26 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         """
         ...
 
+    def create_chain(self, contracts: typing.List[QuantConnect.Data.Market.OptionContract]) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Creates a copy of this chain with only the given contracts
+        
+        
+        This Class is protected.
+        
+        :param contracts: The contracts to keep
+        """
+        ...
+
+    def create_filter_universe(self) -> QuantConnect.Securities.OptionChainFilterUniverse:
+        """
+        Creates the filter universe over the contracts of this chain
+        
+        
+        This Class is protected.
+        """
+        ...
+
     def d(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
         """
         Selects the contracts with delta in the given range. Alias for delta
@@ -2664,81 +2922,6 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         
         :param min: The minimum delta value
         :param max: The maximum delta value
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    @overload
-    def expiration(self, min_expiry: datetime.timedelta, max_expiry: datetime.timedelta) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts expiring in the given range relative to the chain date.
-        Same as ContractSecurityFilterUniverse{T, TData}.Expiration(TimeSpan, TimeSpan)
-        
-        :param min_expiry: The minimum time until expiry to include, for example, TimeSpan.FromDays(10)
-        would exclude contracts expiring in less than 10 days
-        :param max_expiry: The maximum time until expiry to include, for example, TimeSpan.FromDays(10)
-        would exclude contracts expiring in more than 10 days
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    @overload
-    def expiration(self, min_expiry_days: int, max_expiry_days: int) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts expiring in the given range of days relative to the chain date.
-        Same as ContractSecurityFilterUniverse{T, TData}.Expiration(int, int)
-        
-        :param min_expiry_days: The minimum time, expressed in days, until expiry to include, for example, 10
-        would exclude contracts expiring in less than 10 days
-        :param max_expiry_days: The maximum time, expressed in days, until expiry to include, for example, 10
-        would exclude contracts expiring in more than 10 days
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    @overload
-    def expiration(self, expiries: typing.List[datetime.datetime]) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts expiring on any of the given dates. Time of day is ignored.
-        Same as ContractSecurityFilterUniverse{T, TData}.Expiration(IEnumerable{DateTime})
-        
-        :param expiries: The expiration dates
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    def expiring_after(self, date: datetime.datetime) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts expiring after the given date, excluding it. Time of day is ignored.
-        Same as ContractSecurityFilterUniverse{T, TData}.ExpiringAfter
-        
-        :param date: The date the expirations must be after
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    def expiring_before(self, date: datetime.datetime) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts expiring before the given date, excluding it. Time of day is ignored.
-        Same as ContractSecurityFilterUniverse{T, TData}.ExpiringBefore
-        
-        :param date: The date the expirations must be before
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    def farthest_expiration(self) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts of the farthest expiration. Same as ContractSecurityFilterUniverse{T, TData}.FarthestExpiration
-        
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    def front_month(self) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts of the nearest expiration. Same as ContractSecurityFilterUniverse{T, TData}.FrontMonth
-        
         :returns: A new chain with the filter applied.
         """
         ...
@@ -2852,26 +3035,6 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         """
         ...
 
-    def oi(self, min: int, max: int) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts with open interest in the given range. Alias for open_interest
-        
-        :param min: The minimum open interest value
-        :param max: The maximum open interest value
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    def open_interest(self, min: int, max: int) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts with open interest in the given range. Same as BaseOptionFilterUniverse{TUniverse, TData}.OpenInterest
-        
-        :param min: The minimum open interest value
-        :param max: The maximum open interest value
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
     def otm(self) -> QuantConnect.Data.Market.OptionChain:
         """
         Selects the out of the money contracts. Alias for out_of_the_money
@@ -2968,15 +3131,6 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         
         :param min: The minimum rho value
         :param max: The maximum rho value
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    def standards_only(self) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the standard contracts in the chain, excluding weeklys. Unlike ContractSecurityFilterUniverse{T, TData}.StandardsOnly,
-        it applies to the contracts already selected, so it can be combined with the expiry filters in any order
-        
         :returns: A new chain with the filter applied.
         """
         ...
@@ -3080,33 +3234,6 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         
         :param min: The minimum vega value
         :param max: The maximum vega value
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    def weeklys_only(self) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the non standard weekly contracts in the chain. Unlike ContractSecurityFilterUniverse{T, TData}.WeeklysOnly,
-        it applies to the contracts already selected, so it can be combined with the expiry filters in any order
-        
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    def where(self, predicate: typing.Any) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts matching the given predicate, e.g. chain.where(lambda contract: contract.open_interest > 100).
-        From C# use Linq's Where, which keeps this chain's type untouched
-        
-        :param predicate: Function determining which contracts are kept
-        :returns: A new chain with the filter applied.
-        """
-        ...
-
-    def zero_dte(self) -> QuantConnect.Data.Market.OptionChain:
-        """
-        Selects the contracts expiring today. Same as BaseOptionFilterUniverse{TUniverse, TData}.ZeroDte
-        
         :returns: A new chain with the filter applied.
         """
         ...

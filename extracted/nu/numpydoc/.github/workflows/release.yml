@@ -1,0 +1,47 @@
+name: Build Wheel and Release
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    tags:
+      - v*
+
+jobs:
+  sdist_wheel:
+    name: sdist and wheels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Build wheels
+        run: |
+          git clean -fxd
+          pip install -U build twine wheel
+          python -m build --sdist --wheel
+      - run: twine check --strict dist/*
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist
+
+  pypi-publish:
+    needs: sdist_wheel
+    name: upload release to PyPI
+    if: github.repository_owner == 'numpy' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    # Specifying a GitHub environment is optional, but strongly encouraged
+    environment: release
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

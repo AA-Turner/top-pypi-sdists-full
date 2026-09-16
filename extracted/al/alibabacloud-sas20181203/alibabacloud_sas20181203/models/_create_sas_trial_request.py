@@ -9,6 +9,7 @@ class CreateSasTrialRequest(DaraModel):
     def __init__(
         self,
         client_token: str = None,
+        dry_run: bool = None,
         from_ecs: bool = None,
         lang: str = None,
         request_form: main_models.CreateSasTrialRequestRequestForm = None,
@@ -17,6 +18,8 @@ class CreateSasTrialRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request. Different requests should use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
+        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        self.dry_run = dry_run
         # Specifies whether the request is from the ECS console. Valid values:
         # - **true**: yes.
         # - **false**: no.
@@ -54,6 +57,9 @@ class CreateSasTrialRequest(DaraModel):
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
+
         if self.from_ecs is not None:
             result['FromEcs'] = self.from_ecs
 
@@ -75,6 +81,9 @@ class CreateSasTrialRequest(DaraModel):
         m = m or dict()
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
 
         if m.get('FromEcs') is not None:
             self.from_ecs = m.get('FromEcs')

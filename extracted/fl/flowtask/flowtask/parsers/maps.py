@@ -1,3 +1,4 @@
+from pathlib import PurePath
 from typing import Optional
 from ..conf import TASK_PATH
 from .json import JSONParser
@@ -6,9 +7,17 @@ from ..exceptions import ComponentError
 
 
 async def open_map(
-    filename: str, program: str = "navigator", ext: Optional[str] = "json"
+    filename: str,
+    program: str = "navigator",
+    ext: Optional[str] = "json",
+    path: Optional[PurePath] = None,
 ):
-    model_file = TASK_PATH.joinpath(program, "maps", f"{filename}.{ext}")
+    """Open ``<path>/<program>/maps/<filename>.<ext>``.
+
+    ``path`` is the root of the task storage the task was loaded from
+    (``component._taskstore.get_path()``); defaults to ``TASK_PATH``.
+    """
+    model_file = (path or TASK_PATH).joinpath(program, "maps", f"{filename}.{ext}")
     if model_file.is_file():
         try:
             if ext == "json":
@@ -28,9 +37,17 @@ async def open_map(
 
 
 async def open_model(
-    filename: str, program: str = "navigator", ext: Optional[str] = "json"
+    filename: str,
+    program: str = "navigator",
+    ext: Optional[str] = "json",
+    path: Optional[PurePath] = None,
 ):
-    model_file = TASK_PATH.joinpath(program, "models", f"{filename}.json")
+    """Open ``<path>/<program>/models/<filename>.json``.
+
+    ``path`` is the root of the task storage the task was loaded from
+    (``component._taskstore.get_path()``); defaults to ``TASK_PATH``.
+    """
+    model_file = (path or TASK_PATH).joinpath(program, "models", f"{filename}.json")
     if model_file.is_file():
         try:
             if ext == "json":

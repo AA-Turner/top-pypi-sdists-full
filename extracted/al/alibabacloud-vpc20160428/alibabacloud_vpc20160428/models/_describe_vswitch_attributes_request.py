@@ -16,8 +16,8 @@ class DescribeVSwitchAttributesRequest(DaraModel):
         v_switch_id: str = None,
     ):
         # Specifies whether to perform a dry run. Valid values:
-        # - **true**: performs a dry run without querying the vSwitch configuration. The system checks the required parameters, request format, and service limits. If the request fails the dry run, the corresponding error is returned. If the request passes the dry run, the error code `DryRunOperation` is returned.
-        # - **false** (default): performs a dry run and sends the request. If the request passes the dry run, an HTTP 2xx status code is returned and the vSwitch configuration is queried.
+        # - **true**: performs a dry run without querying the vSwitch configuration. The system checks the required parameters, request format, and service limits. If the check fails, the corresponding error is returned. If the check succeeds, the error code `DryRunOperation` is returned.
+        # - **false** (default): performs a dry run and sends the request. After the request passes the check, an HTTP 2xx status code is returned and the vSwitch configuration is queried.
         self.dry_run = dry_run
         self.owner_account = owner_account
         self.owner_id = owner_id

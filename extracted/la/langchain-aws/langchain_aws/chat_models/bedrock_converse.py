@@ -60,6 +60,7 @@ from langchain_core.runnables import (
 )
 from langchain_core.tools import BaseTool
 from langchain_core.utils import get_pydantic_field_names, secret_from_env
+from langchain_core.utils._gateway import _apply_gateway_config
 from langchain_core.utils.function_calling import (
     convert_to_openai_function,
     convert_to_openai_tool,
@@ -614,7 +615,11 @@ class ChatBedrockConverse(BaseChatModel):
     """Whether to stream the results or not."""
 
     endpoint_url: Optional[str] = Field(default=None, alias="base_url")
-    """Needed if you don't want to default to us-east-1 endpoint"""
+    """Bedrock endpoint URL.
+
+    If `LANGSMITH_GATEWAY` is set, the Bedrock direct gateway endpoint is used as a
+    fallback.
+    """
 
     default_headers: Mapping[str, str] | None = None
     """Headers to pass to the Anthropic clients, will be used for every API call."""
@@ -831,10 +836,30 @@ class ChatBedrockConverse(BaseChatModel):
             and len(bedrock_messages) >= 2
         ):
             penultimate_content = bedrock_messages[-2].get("content")
-            if isinstance(penultimate_content, list) and not any(
-                _is_cache_point(b) for b in penultimate_content
+            if (
+                isinstance(penultimate_content, list)
+                and not any(_is_cache_point(b) for b in penultimate_content)
+                and not (
+                    penultimate_content
+                    and "reasoningContent" in penultimate_content[-1]
+                )
             ):
                 penultimate_content.append(cache_block)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_gateway(cls, values: Any) -> Any:
+        """Apply LangSmith gateway settings to the Bedrock endpoint and API key."""
+        if isinstance(values, dict):
+            _apply_gateway_config(
+                values,
+                cls,
+                base_url_field="endpoint_url",
+                api_key_field="bedrock_api_key",
+                provider_path="bedrock",
+                api_key_env="AWS_BEARER_TOKEN_BEDROCK",
+            )
+        return values
 
     @model_validator(mode="before")
     @classmethod
@@ -1475,9 +1500,11 @@ class ChatBedrockConverse(BaseChatModel):
         except ClientError as e:
             _handle_bedrock_error(e)
         added_model_name = False
+        received_message_stop = False
         stream = response["stream"]
         try:
             for event in stream:
+                received_message_stop |= "messageStop" in event
                 if message_chunk := _parse_stream_event(event):
                     if (
                         hasattr(message_chunk, "usage_metadata")
@@ -1508,6 +1535,10 @@ class ChatBedrockConverse(BaseChatModel):
         finally:
             if hasattr(stream, "close"):
                 stream.close()
+
+        if not received_message_stop:
+            msg = "Incomplete Bedrock response stream: missing messageStop event."
+            raise ConnectionError(msg)
 
     def _get_llm_for_structured_output_no_tool_choice(
         self,
@@ -2996,6 +3027,24 @@ def _lc_content_to_bedrock(
             bedrock_content.append({"document": block["document"]})
         elif block["type"] == "search_result":
             bedrock_content.append(_format_search_result_block(block))
+        elif block["type"] == "invalid_tool_call":
+            tool_call_id = block.get("id")
+            tool_name = block.get("name")
+            if (
+                isinstance(tool_call_id, str)
+                and tool_call_id
+                and isinstance(tool_name, str)
+                and tool_name
+            ):
+                bedrock_content.append(
+                    {
+                        "toolUse": {
+                            "toolUseId": tool_call_id,
+                            "input": {},
+                            "name": tool_name,
+                        }
+                    }
+                )
         elif block["type"] == "tool_use":
             tool_input = block["input"]
             if isinstance(tool_input, str):

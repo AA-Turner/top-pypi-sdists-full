@@ -1,1 +1,0 @@
-import{ai as e,ha as t}from"./lucide-DJ7aTkmi.js";function n(e,t){if(!t&&e?.active_source&&e.active_source!==e.player_id)return e.source_list?.find(t=>t.id===e.active_source)}function r(r,i){return{externalSource:e(()=>n(t(r),t(i)))}}export{r as n,n as t};

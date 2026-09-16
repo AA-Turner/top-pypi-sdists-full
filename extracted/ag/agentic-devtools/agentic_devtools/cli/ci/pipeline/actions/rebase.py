@@ -34,6 +34,9 @@ class RebaseAction:
     Idempotency: Already up-to-date → skip.
     """
 
+    may_invalidate_snapshot = True
+    preserves_diff_fingerprint = True
+
     @property
     def name(self) -> str:
         return "rebase"
@@ -114,6 +117,8 @@ class RebaseAction:
                 decision=ActionDecision.FAILED,
                 error=str(exc),
                 details="Force-push-with-lease failed — concurrent update detected",
+                definitive_no_mutation=True,
+                preserves_diff_fingerprint=True,
             )
         except Exception as exc:
             if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
@@ -133,4 +138,5 @@ class RebaseAction:
             decision=ActionDecision.EXECUTE,
             details=f"Rebased onto {snapshot.base_branch} (was {snapshot.commits_behind} commit(s) behind)",
             invalidates_snapshot=True,
+            preserves_diff_fingerprint=True,
         )

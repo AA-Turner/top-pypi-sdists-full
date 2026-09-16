@@ -43,6 +43,16 @@ class TestSelectSkillSources:
         assert origins == {}
         assert pruned == 0
 
+    def test_shared_fingerprint_resource_is_selected(self, tmp_path: Path) -> None:
+        """The shared fingerprint helper is mirrored alongside the skills tree."""
+        fingerprint = tmp_path / "fingerprint.py"
+        fingerprint.write_text("print('fingerprint')", encoding="utf-8")
+
+        origins, _fm_cache, pruned = _select_skill_sources(tmp_path, issue_adapter=None, code_hosting=None)
+
+        assert origins == {"fingerprint.py": fingerprint}
+        assert pruned == 0
+
     def test_names_are_mirrored_verbatim_and_never_flattened(self, tmp_path: Path) -> None:
         """The destination path keeps the skill directory — no dotted flat name."""
         _skill(tmp_path, "run-targeted-checks")

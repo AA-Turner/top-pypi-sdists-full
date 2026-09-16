@@ -64,7 +64,7 @@ class RetryHandler(object):
 
     def pause_before_retry(self, exc):
         self._attempts += 1
-        if (not is_retryable_with_backoff(exc)):
+        if not is_retryable_with_backoff(exc):
             return
         self.wait_for_cluster(exc)
         delayMs = self._delay(attempts=self._attempts)

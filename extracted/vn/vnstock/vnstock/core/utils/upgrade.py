@@ -509,7 +509,7 @@ def migrate_to_sponsor(target_dir="."):
     count = 0
 
     for root, _dirs, files in os.walk(target_dir):
-        # Bỏ qua các folder môi trường hoặc ẩn
+        # Skip virtual-environment and hidden folders
         if any(
             ignored in root
             for ignored in [".venv", "venv", "__pycache__", ".git", "node_modules"]
@@ -548,7 +548,7 @@ def migrate_to_sponsor(target_dir="."):
                                 or node.module.startswith("vnstock.")
                             ):
                                 original_module = node.module
-                                # Tránh thay thế những thứ không phải gói vnstock chính (vd: vnstock_installer)
+                                # Do not rewrite anything that is not the vnstock package itself, e.g. vnstock_installer
                                 sponsor_module = original_module.replace(
                                     "vnstock", "vnstock_data", 1
                                 )

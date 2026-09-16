@@ -66,6 +66,7 @@ jobs:
           startsWith(github.event.pull_request.base.ref, 'speckit/')
         ) &&
         (
+          startsWith(github.event.pull_request.head.ref, 'copilot/') ||
           contains(github.event.pull_request.labels.*.name, 'speckit:phase-1') ||
           contains(github.event.pull_request.labels.*.name, 'speckit:phase-2') ||
           contains(github.event.pull_request.labels.*.name, 'speckit:phase-3') ||
@@ -98,6 +99,27 @@ jobs:
           ref: main
           fetch-depth: 1
           token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+
+      - name: Reconcile Required SpecKit Labels
+        if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          script: |
+            const path = require('path');
+            const { reconcileMergedPr } = require(path.join(
+              process.env.GITHUB_WORKSPACE,
+              '.github',
+              'scripts',
+              'speckit-trigger',
+              'extract-phase-info.js'
+            ));
+            const pr = (await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            })).data;
+            await reconcileMergedPr({ github, context, core, pr });
 
       - name: Resolve SpecKit Engine
         env:

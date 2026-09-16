@@ -279,3 +279,35 @@ async def hold_step(
         identity["filled"] = list(filled)
     carried[MANDATE_HOLDER_METADATA_KEY] = identity
     return HeldStep(config=merged, metadata=carried, filled_by_holder=tuple(filled))
+
+
+async def hold_ambient_workflow_strict_json(
+    metadata: dict[str, Any] | None,
+    *,
+    model: str,
+    ctx: Any | None = None,
+) -> dict[str, Any] | None:
+    """Resolve the workflow-step Holder for a strict-JSON graph action.
+
+    Graph actions use the public strict-JSON funnel directly, so they do not
+    pass through a typed ``ai.*`` node that already called :func:`hold_step`.
+    The ambient workflow context is the canonical proof that this is still an
+    authored workflow step.  Other callers remain pass-throughs: a generic
+    funnel must never assign them this workflow mandate.
+    """
+    if ctx is None:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+    if getattr(ctx, "source_app", None) != "workflow" or getattr(
+        ctx, "source_feature", None
+    ) not in {"workflow_run", "workflow_worker"}:
+        return metadata
+
+    held = await hold_step(
+        {"model": model},
+        spec_type="workflow.strict_json",
+        consumer="workflow.strict_json",
+        metadata=metadata,
+    )
+    return held.metadata

@@ -16,7 +16,7 @@ dependencies = [
     "scipy>=1.11.0",
     "torch>=2.6.0",
     "transformers>=4.51.0",
-    "sentence-transformers>=2.7.0",
+    "sentence-transformers>=6.0.0",
 ]
 
 [build-system]

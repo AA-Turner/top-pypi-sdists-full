@@ -235,9 +235,7 @@ class ExternalMCPClient:
             result_data = raw.get("result", {})
 
             content_list = result_data.get("content") or []
-            text_parts = [
-                item.get("text", "") for item in content_list if item.get("type") == "text"
-            ]
+            text_parts = self._content_text_parts(content_list)
             if result_data.get("structuredContent") is not None:
                 # ``structuredContent`` is the typed tool value. Servers may
                 # also include a text compatibility block for older clients;
@@ -332,9 +330,7 @@ class ExternalMCPClient:
                         ),
                         types.CallToolResult,
                     )
-            text_parts = [
-                item.text for item in result.content if getattr(item, "type", None) == "text"
-            ]
+            text_parts = self._content_text_parts(result.content)
             output: Any
             if result.structuredContent is not None:
                 output = result.structuredContent
@@ -367,6 +363,35 @@ class ExternalMCPClient:
                 tool_name=tool_def.name,
                 call_id=ctx.call_id,
             )
+
+    @staticmethod
+    def _content_text_parts(content: list[Any]) -> list[str]:
+        """Extract only explicit text from MCP text and embedded-resource blocks.
+
+        GitHub's ``get_file_contents`` reports a human receipt in a text block
+        and puts the actual text file in a following ``resource.text`` block.
+        Resource ``blob`` values are intentionally ignored: they are binary
+        payloads, not text tool output.
+        """
+        text_parts: list[str] = []
+        for item in content:
+            item_type = item.get("type") if isinstance(item, dict) else getattr(item, "type", None)
+            if item_type == "text":
+                text = item.get("text") if isinstance(item, dict) else getattr(item, "text", None)
+            elif item_type == "resource":
+                resource = (
+                    item.get("resource") if isinstance(item, dict) else getattr(item, "resource", None)
+                )
+                text = (
+                    resource.get("text")
+                    if isinstance(resource, dict)
+                    else getattr(resource, "text", None)
+                )
+            else:
+                continue
+            if isinstance(text, str):
+                text_parts.append(text)
+        return text_parts
 
     async def _resolve_runtime(self, tool_def: ToolDefinition) -> MCPRuntime:
         direct_transport = (tool_def.mcp_transport or "").strip().lower()

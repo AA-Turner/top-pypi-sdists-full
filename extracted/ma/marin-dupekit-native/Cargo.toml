@@ -1,6 +1,6 @@
 [package]
 name = "dupekit-native"
-version = "0.1.7-dev.32497398902"
+version = "0.1.8-dev.35019671596"
 edition = "2021"
 
 # Keep in sync with `module-name` in the sibling pyproject.toml. See

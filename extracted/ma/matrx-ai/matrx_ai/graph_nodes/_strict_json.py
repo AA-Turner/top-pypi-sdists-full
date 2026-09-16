@@ -23,9 +23,20 @@ one of these.
   ``llm_to_text`` but invokes ``on_delta(text)`` as each token arrives, so the
   caller can emit its OWN typed stream event (or drive an incremental parser)
   without ever touching a provider SDK.
+- ``llm_to_text_measured`` / ``llm_messages_to_text_measured`` — the same
+  free-text calls returning the whole ``AiExecutionResult`` (usage, cost_usd,
+  duration) instead of only the string. For any caller that must PUBLISH what
+  a call cost — a benchmark arm, a budget ceiling, a spend curve.
+- ``llm_to_pydantic_measured`` / ``llm_messages_to_pydantic_measured`` — the
+  STRICT-JSON twin of those: the validated value plus a ``MeasuredStrictJson``
+  carrying tokens, dollars at the catalog price, seconds and the number of
+  provider turns (a schema-repair retry counts, because it was paid for).
+  A judge, an extractor or a panel that publishes its price uses these; the
+  unmeasured names stay for callers that only want the value.
 
-All primitives share the same underlying runner (``_run_completion``) so
-the funnel routing, streaming, and drain-fallback behavior is identical.
+All primitives share the same underlying runner (``_run_completion_measured``,
+wrapped by ``_run_completion``) so the funnel routing, streaming, and
+drain-fallback behavior is identical.
 
 🚨 The strict-JSON primitives SUPPRESS the token stream by default. That is
 correct for an internal call and WRONG for a workflow node, whose live panel
@@ -43,17 +54,67 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from dataclasses import dataclass, field
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from matrx_ai.graph_nodes.mandates import hold_ambient_workflow_strict_json
 from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
 from matrx_ai.orchestrator.step_phase import emit_step_phase
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
+
+
+@dataclass(slots=True)
+class StrictJsonUsage:
+    """The usage of a strict-JSON call, summed over every attempt it took.
+
+    Deliberately the same attribute names the funnel's own ``usage`` object
+    uses (``input_tokens`` / ``output_tokens`` / ``cost_usd``), so a caller
+    that already knows how to measure an ``AiExecutionResult`` measures this
+    the same way and no consumer needs a second shape.
+    """
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+
+
+@dataclass(slots=True)
+class MeasuredStrictJson(Generic[T]):
+    """A validated strict-JSON result WITH what it cost.
+
+    ``value`` is exactly what :func:`llm_to_pydantic` would have returned;
+    ``usage`` / ``duration_ms`` mirror an ``AiExecutionResult`` so the same
+    measuring code works on both; ``calls`` is how many provider turns it
+    actually took (a schema-repair retry is a second paid turn, and a report
+    that prints one call for two is lying about the price).
+    """
+
+    value: T
+    usage: StrictJsonUsage = field(default_factory=StrictJsonUsage)
+    duration_ms: int = 0
+    calls: int = 0
+
+
+def _sum_attempts(results: list[Any], *, wall_seconds: float) -> tuple[StrictJsonUsage, int, int]:
+    """Fold every attempt's usage into one (usage, duration_ms, calls)."""
+    usage = StrictJsonUsage()
+    duration_ms = 0
+    for result in results:
+        attempt = getattr(result, "usage", None)
+        usage.input_tokens += int(getattr(attempt, "input_tokens", 0) or 0)
+        usage.output_tokens += int(getattr(attempt, "output_tokens", 0) or 0)
+        usage.cost_usd += float(getattr(attempt, "cost_usd", 0.0) or 0.0)
+        duration_ms += int(getattr(result, "duration_ms", 0) or 0)
+    if duration_ms <= 0:
+        duration_ms = int(round(wall_seconds * 1000))
+    return usage, duration_ms, len(results)
 
 
 class StrictJsonError(Exception):
@@ -110,6 +171,10 @@ async def _run_completion(
 ) -> tuple[str, str | None]:
     """One turn through the matrx-ai funnel. Returns ``(text, finish_reason)``.
 
+    The measured twin (:func:`_run_completion_measured`) returns the whole
+    normalized result, usage included; this wrapper is what every existing
+    caller and every test that patches the runner still sees.
+
     Streaming is enabled deliberately:
     1. Anthropic rejects non-streaming requests with ``max_tokens > ~8K``
        (their 10-minute completion-time SLA). Streaming lifts this to the
@@ -125,6 +190,47 @@ async def _run_completion(
 
     ``response_format`` is ``'json'`` / ``'text'`` / ``None`` — provider-enforced
     JSON mode when supported.
+    """
+    result = await _run_completion_measured(
+        messages,
+        system_text,
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        response_format=response_format,
+        internal_web_search=internal_web_search,
+        metadata=metadata,
+        store=store,
+        conversation_id=conversation_id,
+    )
+    return result.final_text, result.finish_reason
+
+
+@mandate_carrier_passthrough(
+    "the strict-JSON completion funnel resolves workflow_run/workflow_worker through "
+    "workflow.step_intelligence; non-workflow callers supply resolved Holder metadata"
+)
+async def _run_completion_measured(
+    messages: list[dict[str, Any]],
+    system_text: str,
+    *,
+    model: str,
+    max_tokens: int,
+    temperature: float | None = None,
+    response_format: str | dict[str, Any] | None = None,
+    internal_web_search: bool = False,
+    metadata: dict[str, Any] | None = None,
+    store: bool | None = None,
+    conversation_id: str | None = None,
+) -> Any:
+    """The same one turn, returning the whole normalized ``AiExecutionResult``.
+
+    Exists because usage is not an afterthought for every caller: a benchmark
+    harness has to report input/output tokens, dollars and seconds PER CALL,
+    and reconstructing that from ``chat.request`` afterwards is a second source
+    of truth waiting to disagree with the first. ``final_text`` here already
+    carries the drain fallback below, so the string is identical to what
+    :func:`_run_completion` returns.
     """
     from matrx_ai.config import UnifiedConfig
     from matrx_ai.graph_nodes.shared import normalize_completed
@@ -147,6 +253,11 @@ async def _run_completion(
         cfg["response_format"] = response_format
     if internal_web_search:
         cfg["internal_web_search"] = True
+    # A graph action may call this generic funnel directly rather than through
+    # a typed ai.* node.  When its real runtime is a workflow step, resolve the
+    # same Holder those nodes use; do not manufacture a carrier for any other
+    # strict-JSON caller.
+    metadata = await hold_ambient_workflow_strict_json(metadata, model=model)
     config = UnifiedConfig.from_dict(cfg)
     completed = await execute_ai_request(
         config,
@@ -177,7 +288,9 @@ async def _run_completion(
             drained = drain()
             if drained:
                 text = drained
-    return text, result.finish_reason
+    if text != result.final_text:
+        result = result.model_copy(update={"final_text": text})
+    return result
 
 
 async def llm_to_text(
@@ -210,6 +323,73 @@ async def llm_to_text(
         conversation_id=conversation_id,
     )
     return text
+
+
+async def llm_to_text_measured(
+    *,
+    model: str,
+    system: str,
+    user: str,
+    max_tokens: int = 8092,
+    temperature: float | None = None,
+    internal_web_search: bool = False,
+    metadata: dict[str, Any] | None = None,
+    store: bool | None = None,
+    conversation_id: str | None = None,
+) -> Any:
+    """:func:`llm_to_text`, but returning the whole ``AiExecutionResult``.
+
+    Same funnel, same routing, same cost tracking — the difference is that the
+    caller keeps ``usage`` (input/output tokens and ``cost_usd`` at list price)
+    and ``duration_ms`` instead of throwing them away. For any caller that must
+    PUBLISH what a call cost — a benchmark arm, a spend curve, a budget ceiling —
+    this is the primitive; ``llm_to_text`` stays the one for callers that only
+    want the prose.
+
+    ``internal_web_search`` asks for the provider's own hosted web search. The
+    funnel DROPS it with a loud capability-adjustment warning on a model that
+    cannot do it, so a caller that needs to report "this arm had web access"
+    must check the model's capabilities rather than assume the flag took.
+    """
+    return await _run_completion_measured(
+        [{"role": "user", "content": user}],
+        system,
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        internal_web_search=internal_web_search,
+        metadata=metadata,
+        store=store,
+        conversation_id=conversation_id,
+    )
+
+
+async def llm_messages_to_text_measured(
+    *,
+    model: str,
+    system: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int = 8092,
+    temperature: float | None = None,
+    internal_web_search: bool = False,
+    metadata: dict[str, Any] | None = None,
+    store: bool | None = None,
+    conversation_id: str | None = None,
+) -> Any:
+    """The multi-turn twin of :func:`llm_to_text_measured` — what an agentic
+    loop needs, because a loop is a conversation and re-flattening it into one
+    user message would change the thing being measured."""
+    return await _run_completion_measured(
+        messages,
+        system,
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        internal_web_search=internal_web_search,
+        metadata=metadata,
+        store=store,
+        conversation_id=conversation_id,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -461,6 +641,48 @@ async def _wrapped_completion(
 ) -> tuple[str, str | None]:
     """Run one funnel turn while suppressing or redirecting answer chunks.
 
+    The measured twin (:func:`_wrapped_completion_measured`) returns the whole
+    normalized result, usage included; this wrapper is what every caller that
+    only wants the text — and every test that patches it — still sees.
+    """
+    result = await _wrapped_completion_measured(
+        model=model,
+        system=system,
+        messages=messages,
+        on_delta=on_delta,
+        on_reset=on_reset,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        response_format=response_format,
+        internal_web_search=internal_web_search,
+        api_keys=api_keys,
+        system_run=system_run,
+        metadata=metadata,
+        store=store,
+        conversation_id=conversation_id,
+    )
+    return result.final_text or "", result.finish_reason
+
+
+async def _wrapped_completion_measured(
+    *,
+    model: str,
+    system: str,
+    messages: list[dict[str, Any]],
+    on_delta: Callable[[str], Awaitable[None]] | None,
+    on_reset: Callable[[], Awaitable[None]] | None,
+    max_tokens: int,
+    temperature: float | None,
+    response_format: str | dict[str, Any] | None,
+    internal_web_search: bool,
+    api_keys: dict[str, str] | None,
+    system_run: bool | None,
+    metadata: dict[str, Any] | None,
+    store: bool | None,
+    conversation_id: str | None,
+) -> Any:
+    """The same turn, returning the whole normalized ``AiExecutionResult``.
+
     The optional key overlay is request-scoped and restored without reverting
     conversation/store mutations made by the executor during the call.
     """
@@ -480,7 +702,7 @@ async def _wrapped_completion(
         overrides["system_run"] = system_run
     set_app_context(ctx.with_overrides(**overrides))
     try:
-        text, finish = await _run_completion(
+        result = await _run_completion_measured(
             messages,
             system,
             model=model,
@@ -492,7 +714,13 @@ async def _wrapped_completion(
             store=store,
             conversation_id=conversation_id,
         )
-        return text or wrapper.get_turn_text(), finish
+        if not (result.final_text or ""):
+            # The answer chunks went into OUR wrapper, not the context emitter,
+            # so the funnel's own drain found nothing. The wrapper holds them.
+            drained = wrapper.get_turn_text()
+            if drained:
+                result = result.model_copy(update={"final_text": drained})
+        return result
     finally:
         # Restore only fields this wrapper owns. The executor may have resolved
         # conversation identity or persistence policy while the call ran.
@@ -596,7 +824,7 @@ async def llm_stream_text(
     )
 
 
-async def llm_messages_to_pydantic(
+async def llm_messages_to_pydantic_measured(
     *,
     model: str,
     system: str,
@@ -612,7 +840,7 @@ async def llm_messages_to_pydantic(
     on_delta: Callable[[str], Awaitable[None]] | None = None,
     on_reset: Callable[[], Awaitable[None]] | None = None,
     wire_kind: str | None = None,
-) -> T:
+) -> MeasuredStrictJson[T]:
     """Validate structured output from multimodal or multi-turn messages.
 
     Calls the canonical execution funnel with provider-native JSON Schema
@@ -636,7 +864,17 @@ async def llm_messages_to_pydantic(
     arriving. The key is stripped before Pydantic validation — ``output_cls``
     never sees it, so ``extra="forbid"`` models stay valid and the persisted
     shape is unchanged.
+
+    This is the MEASURED primitive: it returns :class:`MeasuredStrictJson` —
+    the validated value plus the tokens, the dollars at the catalog price and
+    the seconds, summed over BOTH turns when a schema repair was needed.
+    :func:`llm_messages_to_pydantic` is the same call for callers that only
+    want the value. A caller that must publish what its calls cost (a
+    benchmark's judge, extractor or panel) uses this one; throwing the usage
+    away is what makes a report say "not priced".
     """
+    started = time.monotonic()
+    attempts: list[Any] = []
     schema = output_cls.model_json_schema()
     kind_rule = ""
     if wire_kind:
@@ -667,7 +905,7 @@ async def llm_messages_to_pydantic(
     async def _run(
         run_messages: list[dict[str, Any]], *, allow_web_search: bool, stream: bool = False
     ) -> tuple[str, str | None]:
-        return await _wrapped_completion(
+        result = await _wrapped_completion_measured(
             model=model,
             system=structured_system,
             messages=run_messages,
@@ -683,6 +921,10 @@ async def llm_messages_to_pydantic(
             store=store,
             conversation_id=conversation_id,
         )
+        # Every turn is recorded the moment it returns — a repair retry is a
+        # second PAID call and the measurement must carry it.
+        attempts.append(result)
+        return result.final_text or "", result.finish_reason
 
     def _validate(raw_text: str) -> T:
         cleaned = strip_json_fences(raw_text)
@@ -723,8 +965,17 @@ async def llm_messages_to_pydantic(
     # ``_emit_structured_output_if_schema``). Both announce it, neither node
     # authors it.
     await emit_step_phase("finalizing")
+
+    def _measured(value: T) -> MeasuredStrictJson[T]:
+        usage, duration_ms, calls = _sum_attempts(
+            attempts, wall_seconds=time.monotonic() - started
+        )
+        return MeasuredStrictJson(
+            value=value, usage=usage, duration_ms=duration_ms, calls=calls
+        )
+
     try:
-        return _validate(raw_first)
+        return _measured(_validate(raw_first))
     except ValidationError as first_err:
         retry_messages = [*messages]
         if raw_first:
@@ -750,7 +1001,7 @@ async def llm_messages_to_pydantic(
                 raw_output=raw_second or raw_first,
             ) from first_err
         try:
-            return _validate(raw_second)
+            return _measured(_validate(raw_second))
         except ValidationError as second_err:
             raise StrictJsonError(
                 f"Model failed to produce valid {output_cls.__name__} after one retry. "
@@ -761,6 +1012,98 @@ async def llm_messages_to_pydantic(
             ) from second_err
 
 
+@mandate_carrier_passthrough(
+    "the value-only wrapper forwards its caller's resolved Holder metadata to "
+    "llm_messages_to_pydantic_measured"
+)
+async def llm_messages_to_pydantic(
+    *,
+    model: str,
+    system: str,
+    messages: list[dict[str, Any]],
+    output_cls: type[T],
+    max_tokens: int = 8092,
+    internal_web_search: bool = False,
+    api_keys: dict[str, str] | None = None,
+    system_run: bool | None = None,
+    metadata: dict[str, Any] | None = None,
+    store: bool | None = None,
+    conversation_id: str | None = None,
+    on_delta: Callable[[str], Awaitable[None]] | None = None,
+    on_reset: Callable[[], Awaitable[None]] | None = None,
+    wire_kind: str | None = None,
+) -> T:
+    """:func:`llm_messages_to_pydantic_measured`, keeping only the value.
+
+    The contract, the retry and the streaming are identical — this wrapper
+    exists for the many callers that have no use for the usage.
+    """
+    measured = await llm_messages_to_pydantic_measured(
+        model=model,
+        system=system,
+        messages=messages,
+        output_cls=output_cls,
+        max_tokens=max_tokens,
+        internal_web_search=internal_web_search,
+        api_keys=api_keys,
+        system_run=system_run,
+        metadata=metadata,
+        store=store,
+        conversation_id=conversation_id,
+        on_delta=on_delta,
+        on_reset=on_reset,
+        wire_kind=wire_kind,
+    )
+    return measured.value
+
+
+@mandate_carrier_passthrough(
+    "the single-message measured wrapper forwards its caller's resolved Holder "
+    "metadata to llm_messages_to_pydantic_measured"
+)
+async def llm_to_pydantic_measured(
+    *,
+    model: str,
+    system: str,
+    user: str,
+    output_cls: type[T],
+    max_tokens: int = 8092,
+    internal_web_search: bool = False,
+    metadata: dict[str, Any] | None = None,
+    store: bool | None = None,
+    conversation_id: str | None = None,
+    on_delta: Callable[[str], Awaitable[None]] | None = None,
+    on_reset: Callable[[], Awaitable[None]] | None = None,
+    wire_kind: str | None = None,
+) -> MeasuredStrictJson[T]:
+    """:func:`llm_to_pydantic`, returning what the call COST beside the value.
+
+    The strict-JSON twin of :func:`llm_to_text_measured`. Every caller that
+    publishes a price — a benchmark's judge, extractor or forced-choice panel,
+    a budget ceiling, a spend curve — uses this one, so no report ever has to
+    print "these calls are not priced" about a call that went through a funnel
+    which knew the price all along.
+    """
+    return await llm_messages_to_pydantic_measured(
+        model=model,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+        output_cls=output_cls,
+        max_tokens=max_tokens,
+        internal_web_search=internal_web_search,
+        metadata=metadata,
+        store=store,
+        conversation_id=conversation_id,
+        on_delta=on_delta,
+        on_reset=on_reset,
+        wire_kind=wire_kind,
+    )
+
+
+@mandate_carrier_passthrough(
+    "the single-message wrapper forwards its caller's resolved Holder metadata to "
+    "llm_messages_to_pydantic"
+)
 async def llm_to_pydantic(
     *,
     model: str,

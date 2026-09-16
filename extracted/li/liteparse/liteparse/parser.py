@@ -1,9 +1,19 @@
 """LiteParse Python wrapper - native Rust bindings via PyO3."""
 
-import asyncio
-from concurrent.futures import Executor
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    TYPE_CHECKING,
+)
+
+if TYPE_CHECKING:
+    from concurrent.futures import Executor
 
 from liteparse._liteparse import LiteParse as _NativeLiteParse
 from liteparse._liteparse import search_items as _native_search_items
@@ -490,6 +500,7 @@ class LiteParse:
         extract_text_metadata: Optional[bool] = None,
         crop_box: Optional[Tuple[float, float, float, float]] = None,
         skip_diagonal_text: Optional[bool] = None,
+        page_orientation_corrections: Optional[List[Tuple[int, int]]] = None,
         include_complexity: Optional[bool] = None,
         extract_vector_graphics: Optional[bool] = None,
         pool_size: Optional[int] = None,
@@ -566,6 +577,14 @@ class LiteParse:
             skip_diagonal_text: Drop diagonal text — items whose rotation is
                 more than 2° off the nearest right angle (0/90/180/270).
                 Default False. Use to exclude rotated watermarks/stamps.
+            page_orientation_corrections: Per-page orientation corrections
+                from an upstream orientation classifier, as ``(page, angle)``
+                pairs: the 1-based page and the clockwise degrees (0, 90, 180
+                or 270) by which its content appears rotated. LiteParse
+                counter-rotates those pages before extraction so text,
+                reading order, page size and OCR rasters come out upright.
+                Applied on top of the PDF's own ``/Rotate``; unlisted or
+                out-of-range pages are left unchanged. Default None.
             include_complexity: Compute per-page complexity signals during
                 :meth:`parse` and attach them to each page as
                 ``ParsedPage.complexity`` (the same :meth:`is_complex` returns).
@@ -651,6 +670,10 @@ class LiteParse:
             kwargs["crop_box"] = crop_box
         if skip_diagonal_text is not None:
             kwargs["skip_diagonal_text"] = skip_diagonal_text
+        if page_orientation_corrections is not None:
+            kwargs["page_orientation_corrections"] = [
+                (int(page), int(angle)) for page, angle in page_orientation_corrections
+            ]
         if include_complexity is not None:
             kwargs["include_complexity"] = include_complexity
         if extract_vector_graphics is not None:
@@ -745,7 +768,7 @@ class LiteParse:
         self,
         file_data: Union[str, Path, bytes],
         *,
-        executor: Optional[Executor] = None,
+        executor: Optional["Executor"] = None,
     ) -> ParseResult:
         """
         Parse a document without blocking the running event loop.
@@ -762,6 +785,9 @@ class LiteParse:
             The same exceptions as :meth:`parse`, re-raised on the awaiting
             side.
         """
+        # Imported here, not at module scope: `asyncio` costs ~10ms
+        import asyncio
+
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(executor, self.parse, file_data)
 
@@ -962,6 +988,7 @@ class LiteParse:
             emit_word_boxes=cfg.emit_word_boxes,
             crop_box=cfg.crop_box,
             skip_diagonal_text=cfg.skip_diagonal_text,
+            page_orientation_corrections=list(cfg.page_orientation_corrections),
             include_complexity=cfg.include_complexity,
             extract_text_metadata=cfg.extract_text_metadata,
             extract_images=cfg.extract_images,

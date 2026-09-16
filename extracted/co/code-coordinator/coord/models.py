@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import string
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
@@ -166,6 +167,73 @@ class Repo:
     # `coord uat --passed` writes (attributed to `actor="checker"`), so
     # `evaluate_uat_verdict` never needs to know a third path exists.
     uat_checks: UatCheckConfig | None = None
+    # #3351: capabilities EVERY leg of this repo needs, regardless of which
+    # files a diff touches — the repo-level counterpart to
+    # `smoke_tests.capability_rules`, which can only gate on a matched file
+    # path (`coord.smoke.match_rules`). vimcode's `tests/nvim_conformance.rs`
+    # (vimcode#865) is the motivating case: it hard-fails on EVERY lane
+    # regardless of which files changed, so a `files:`-keyed rule can never
+    # correctly cover it — worse, `capability_rules` patterns are matched by
+    # PATH PREFIX across the WHOLE fleet, not scoped to one repo (see the
+    # `#2899, AND THE SHARP EDGE...` comment in coordinator.example.yml), and
+    # vimcode shares `Cargo.toml`/`Cargo.lock`/`src/` with every other Rust
+    # repo in this fleet (quadraui, coord-tui) — a "catch-all" files glob
+    # broad enough to cover vimcode would also over-match those siblings and
+    # needlessly gate THEIR routing on `nvim`. This field sidesteps both
+    # problems: it is keyed by repo name (this dataclass), never by path.
+    #
+    # `coord.smoke.required_capabilities` is the single function that unions
+    # this list with `match_rules`'s file-matched result — both
+    # `coord.smoke.dispatch_smoke` (Test-stage routing) and
+    # `coord.dispatch.route_work_by_capability` (#3241, Work-leg routing)
+    # call it, so the two can never drift into disagreeing answers about
+    # what a diff needs (#2096, "one question, one answer").
+    requires: list[str] = field(default_factory=list)
+
+    def unresolved_uat_preview_placeholder(
+        self,
+        *,
+        branch: str | None = None,
+        issue_number: int | None = None,
+        pr_number: int | None = None,
+    ) -> str | None:
+        """Name of the first `{placeholder}` this repo's `uat_preview`
+        template actually REFERENCES but has no value for in this call, or
+        ``None`` when the template is unset, has no such placeholder, or
+        every placeholder it uses has a value.
+
+        The single source of truth for "can this template resolve for this
+        entry" — :meth:`resolve_uat_preview_url` (render-or-``None``) and
+        :func:`coord.merge_queue._resolve_uat_preview_url` (the caller that
+        needs to NAME the gap in its "preview unresolved" message, #3350)
+        both call this rather than each re-deriving it, so the two can never
+        disagree about which entries are resolvable (#2096: one question,
+        one answer).
+
+        Only the three substitutable values are checked — ``{repo}`` always
+        has a value (``self.name``), and an unknown/typo'd placeholder
+        (e.g. ``{pr_branch_slug}``) is a template bug, not a missing-value
+        case; it renders verbatim instead (see `resolve_uat_preview_url`).
+        """
+        if not self.uat_preview:
+            return None
+        present = {
+            "branch": branch,
+            "issue_number": issue_number,
+            "pr_number": pr_number,
+        }
+        try:
+            referenced = {
+                field_name
+                for _, field_name, _, _ in string.Formatter().parse(self.uat_preview)
+                if field_name
+            }
+        except ValueError:
+            referenced = set()
+        for key, value in present.items():
+            if value is None and key in referenced:
+                return key
+        return None
 
     def resolve_uat_preview_url(
         self,
@@ -183,18 +251,37 @@ class Repo:
         live lookup). Never raises: an unresolvable `{placeholder}` in the
         template leaves it unrendered rather than raising ``KeyError`` — see
         the field docstring.
+
+        #3350: also returns ``None`` — never a partially-rendered URL — when
+        `unresolved_uat_preview_placeholder` reports a placeholder the
+        template actually REFERENCES (``{branch}``, ``{issue_number}`` or
+        ``{pr_number}``) has no value for this call. The old behaviour
+        coerced a missing value to ``""``, so ``.../pull/{pr_number}``
+        rendered as ``.../pull/`` — a syntactically valid but dead link
+        indistinguishable from success (the #2948 bug recurring through a
+        different door: that one guarded "neither resolution path produces
+        a URL", not "the override path produces a URL string that resolves
+        to nothing"). A template that references only placeholders it HAS
+        values for (e.g. ``{branch}``/``{repo}`` alone) is unaffected — this
+        checks "placeholders this template uses", not "all placeholders
+        exist". An unknown/typo'd placeholder (not one of the three above)
+        is untouched by this check and still renders verbatim as
+        ``{typo_field}``, matching existing behavior.
         """
         if not self.uat_preview:
             return None
+        if self.unresolved_uat_preview_placeholder(
+            branch=branch, issue_number=issue_number, pr_number=pr_number
+        ):
+            return None
+        values: dict[str, str | int] = {
+            "branch": branch if branch is not None else "",
+            "issue_number": issue_number if issue_number is not None else "",
+            "pr_number": pr_number if pr_number is not None else "",
+            "repo": self.name,
+        }
         try:
-            return self.uat_preview.format_map(
-                _UatPreviewVars(
-                    branch=branch or "",
-                    issue_number=issue_number if issue_number is not None else "",
-                    pr_number=pr_number if pr_number is not None else "",
-                    repo=self.name,
-                )
-            )
+            return self.uat_preview.format_map(_UatPreviewVars(values))
         except (ValueError, IndexError):
             # `str.format_map` can still raise on malformed format specs
             # (e.g. a stray "{}" or "{0}") that `_UatPreviewVars.__missing__`

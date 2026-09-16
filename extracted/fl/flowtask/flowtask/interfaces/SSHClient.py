@@ -1,12 +1,13 @@
 import os
 import asyncio
-from typing import List, Union
+from typing import List, Optional, Union
 from datetime import datetime
 from pathlib import Path, PurePath
 import asyncssh
 from navconfig.logging import logging
 from ..exceptions import ComponentError, FileNotFound, FileError
 from .client import ClientInterface
+
 
 class SSHClient(ClientInterface):
     """
@@ -34,6 +35,8 @@ class SSHClient(ClientInterface):
         +------------------+----------+-----------+--------------------------------------------------------------------------------------+
         | only_sftp        |   No     | A flag indicating if only SFTP connections are allowed.                                          |
         +------------------+----------+-----------+--------------------------------------------------------------------------------------+
+        | ssh_debug        |   No     | Enable asyncssh (connection/SFTP packet) debug logging, independent of --debug; default false.  |
+        +------------------+----------+-----------+--------------------------------------------------------------------------------------+
         | tunnel           |   Yes    | Describes an SSH tunnel connection                                                               |
         +------------------+----------+-----------+--------------------------------------------------------------------------------------+
         | _connection      |   Yes    | The current SSH connection object.                                                               |
@@ -46,8 +49,8 @@ class SSHClient(ClientInterface):
         +------------------+----------+--------------------------------------------------------------------------------------------------+
     Return
 
-        The methods in this class facilitate SSH and SFTP operations, including establishing connections, 
-        file transfers, command execution, and handling SSH tunnels. The class also manages environment settings 
+        The methods in this class facilitate SSH and SFTP operations, including establishing connections,
+        file transfers, command execution, and handling SSH tunnels. The class also manages environment settings
         and provides error handling mechanisms specific to SSH and SFTP operations.
 
     """  # noqa: E501
@@ -87,28 +90,54 @@ class SSHClient(ClientInterface):
         self.only_sftp: bool = False
         self.commands: list = kwargs.pop('commands', [])
         self.tunnel: dict = tunnel
+        self._tunnel: Optional[asyncssh.SSHClientConnection] = None
         self.max_requests = kwargs.pop('max_requests', 128)
         kwargs['no_host'] = False
         if "block_size" in kwargs:
             self.block_size = kwargs["block_size"]
+        # asyncssh debug is opt-in (`ssh_debug`): the task `--debug` flag alone
+        # would log every SFTP read/write packet.
+        self.ssh_debug: bool = kwargs.pop('ssh_debug', False)
         super(SSHClient, self).__init__(*args, **kwargs)
-        if getattr(self, '_debug', False) is True:
-            sshlog = logging.getLogger("asyncssh").setLevel(logging.DEBUG)
+        if self.ssh_debug is True:
+            asyncssh.set_log_level(logging.DEBUG)
+            asyncssh.set_sftp_log_level(logging.DEBUG)
             asyncssh.set_debug_level(1)
+        else:
+            # asyncssh logs every connection/auth/sftp packet: keep only problems.
+            asyncssh.set_log_level(logging.WARNING)
+            asyncssh.set_sftp_log_level(logging.WARNING)
 
     async def close(self, timeout: int = 1, reason: str = "Connection Ended."):
-        """Close Method."""
-        try:
-            if self._connection:
-                await asyncio.wait_for(self._connection.wait_closed(), timeout=timeout)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            self._connection.disconnect(
-                code=asyncssh.DISC_BY_APPLICATION, reason=reason, lang="en-US"
-            )
-        except OSError as err:
-            print(f"Error on SSH disconnection, reason: {err!s}")
-        except Exception as err:
-            raise ComponentError(f"SSH Connection Error: {err}") from err
+        """Close the SSH connection and, when used, the tunnel (jump host) one.
+
+        The final hop is closed first because it is carried by the tunnel.
+
+        Args:
+            timeout: seconds to wait for each connection to close gracefully
+                before aborting it.
+            reason: disconnect reason sent to the servers.
+
+        Raises:
+            ComponentError: on unexpected errors while disconnecting.
+        """
+        connections = [self._connection, self._tunnel]
+        self._connection = None
+        self._tunnel = None
+        for conn in connections:
+            if conn is None:
+                continue
+            try:
+                conn.disconnect(
+                    code=asyncssh.DISC_BY_APPLICATION, reason=reason, lang="en-US"
+                )
+                await asyncio.wait_for(conn.wait_closed(), timeout=timeout)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                conn.abort()
+            except OSError as err:
+                self._logger.warning(f"Error on SSH disconnection, reason: {err!s}")
+            except Exception as err:
+                raise ComponentError(f"SSH Connection Error: {err}") from err
 
     async def open(self, host: str, port: int, credentials: dict, **kwargs):
         """
@@ -135,35 +164,45 @@ class SSHClient(ClientInterface):
         if "known_hosts" not in self._clientargs:
             if "known_hosts" not in credentials:
                 self._clientargs["known_hosts"] = None
-        if self.tunnel:
-            self._clientargs = {**self._clientargs, **self.tunnel["credentials"]}
-            if "known_hosts" not in self._clientargs:
-                self._clientargs["known_hosts"] = None
         try:
             if self.tunnel:
+                # the jump host authenticates with its own credentials, which
+                # must never leak into the final hop (and vice versa).
+                tunnel_args = {
+                    **self._clientargs,
+                    **self.tunnel.get("credentials", {}),
+                }
+                tunnel_args.setdefault("known_hosts", None)
+                tunnel_args.pop("locale", None)
                 tnl = await asyncssh.connect(
                     host=self.tunnel["host"],
-                    port=int(self.tunnel["port"]),
-                    **self._clientargs,
+                    port=int(self.tunnel.get("port", 22)),
+                    **tunnel_args,
                 )
+                # kept so close() can shut down the jump host as well
+                self._tunnel = tnl
                 h = self.tunnel["host"]
-                result = await tnl.run(
-                    f'echo "SSH tunnel connection to {h} successful"', check=False
-                )
-                print(result.stdout, end="")
                 try:
-                    del self._clientargs["username"]
-                    del self._clientargs["password"]
-                    del self._clientargs["known_hosts"]
-                except KeyError:
-                    pass
+                    result = await tnl.run(
+                        f'echo "SSH tunnel connection to {h} successful"', check=False
+                    )
+                    self._logger.debug(result.stdout)
+                except asyncssh.Error as exc:
+                    # jump hosts may refuse shell sessions and still forward
+                    self._logger.debug(f"SSH tunnel {h}: no shell session: {exc}")
+                hop_args = {
+                    key: value
+                    for key, value in self._clientargs.items()
+                    if key not in credentials and key != "locale"
+                }
                 try:
-                    del self._clientargs["locale"]
-                except KeyError:
-                    pass
-                self._connection = await tnl.connect_ssh(
-                    host=host, port=int(port), **credentials, **self._clientargs
-                )
+                    self._connection = await tnl.connect_ssh(
+                        host=host, port=int(port), **credentials, **hop_args
+                    )
+                except BaseException:
+                    tnl.close()
+                    self._tunnel = None
+                    raise
             else:
                 try:
                     del self._clientargs["username"]

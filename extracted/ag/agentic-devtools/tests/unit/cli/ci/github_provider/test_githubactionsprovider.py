@@ -1001,3 +1001,121 @@ class TestListLinkedIssueLabels:
             labels = provider.list_linked_issue_labels(11)
 
         assert labels == []
+
+
+def _git_stub(responses: dict):
+    """Build a ``_run_git`` side effect from an args→output mapping."""
+
+    def side_effect(args, *, stdin_text=None):
+        del stdin_text
+        key = tuple(args)
+        if key in responses:
+            result = responses[key]
+            if isinstance(result, Exception):
+                raise result
+            return result
+        raise RuntimeError(f"unexpected: {args}")
+
+    return side_effect
+
+
+class TestGitHubActionsProviderComputeDiffFiles:
+    """Tests for GitHubActionsProvider.compute_diff_files."""
+
+    @patch.object(GitHubActionsProvider, "_run_git")
+    def test_uses_pinned_base_sha_for_fetch_and_diff(self, mock_run_git) -> None:
+        mock_run_git.side_effect = _git_stub(
+            {
+                ("fetch", "origin", "base-sha"): "",
+                ("cat-file", "-e", "abc123^{commit}"): "",
+                ("diff", "--name-only", "-z", "base-sha...abc123"): "a.py\0",
+            }
+        )
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        result = provider.compute_diff_files(base_branch="main", sha="abc123", base_sha="base-sha")
+
+        assert result == ["a.py"]
+
+    @patch.object(GitHubActionsProvider, "_run_git")
+    def test_raises_runtime_error_when_fetch_base_fails(self, mock_run_git) -> None:
+        mock_run_git.side_effect = RuntimeError("network failure")
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        with pytest.raises(RuntimeError, match="failed to fetch base branch main"):
+            provider.compute_diff_files(base_branch="main", sha="abc123")
+
+    @patch.object(GitHubActionsProvider, "_run_git")
+    def test_returns_changed_files(self, mock_run_git) -> None:
+        mock_run_git.side_effect = _git_stub(
+            {
+                ("fetch", "origin", "main"): "",
+                ("cat-file", "-e", "abc123^{commit}"): "",
+                ("diff", "--name-only", "-z", "origin/main...abc123"): "a.py\0b.py\0",
+            }
+        )
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        result = provider.compute_diff_files(base_branch="main", sha="abc123")
+
+        assert result == ["a.py", "b.py"]
+
+    @patch.object(GitHubActionsProvider, "_run_git")
+    def test_returns_none_when_sha_unavailable_and_targeted_fetch_fails(self, mock_run_git) -> None:
+        mock_run_git.side_effect = _git_stub(
+            {
+                ("fetch", "origin", "main"): "",
+                ("cat-file", "-e", "deadbeef^{commit}"): RuntimeError("unknown object"),
+                ("fetch", "--no-tags", "origin", "deadbeef"): RuntimeError("sha not found"),
+            }
+        )
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        result = provider.compute_diff_files(base_branch="main", sha="deadbeef")
+
+        assert result is None
+
+    @patch.object(GitHubActionsProvider, "_run_git")
+    def test_fetches_sha_when_not_locally_available(self, mock_run_git) -> None:
+        mock_run_git.side_effect = _git_stub(
+            {
+                ("fetch", "origin", "main"): "",
+                ("cat-file", "-e", "abc123^{commit}"): RuntimeError("not available"),
+                ("fetch", "--no-tags", "origin", "abc123"): "",
+                ("diff", "--name-only", "-z", "origin/main...abc123"): "folder/file.py\0",
+            }
+        )
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        result = provider.compute_diff_files(base_branch="main", sha="abc123")
+
+        assert result == ["folder/file.py"]
+
+    @patch.object(GitHubActionsProvider, "_run_git")
+    def test_raises_runtime_error_when_git_diff_fails(self, mock_run_git) -> None:
+        mock_run_git.side_effect = _git_stub(
+            {
+                ("fetch", "origin", "main"): "",
+                ("cat-file", "-e", "abc123^{commit}"): "",
+                ("diff", "--name-only", "-z", "origin/main...abc123"): RuntimeError("diff command failed"),
+            }
+        )
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        with pytest.raises(RuntimeError, match="git diff --name-only origin/main...abc123 failed"):
+            provider.compute_diff_files(base_branch="main", sha="abc123")
+
+    @patch.object(GitHubActionsProvider, "_run_git")
+    def test_preserves_unusual_filenames_without_stripping(self, mock_run_git) -> None:
+        mock_run_git.side_effect = _git_stub(
+            {
+                ("fetch", "origin", "main"): "",
+                ("cat-file", "-e", "abc123^{commit}"): "",
+                ("diff", "--name-only", "-z", "origin/main...abc123"): " leading.txt\0trailing.txt \0quoted\\name.py\0",
+            }
+        )
+        provider = GitHubActionsProvider(repo="owner/repo")
+
+        result = provider.compute_diff_files(base_branch="main", sha="abc123")
+
+        assert result == [" leading.txt", "trailing.txt ", "quoted\\name.py"]

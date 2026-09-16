@@ -16,6 +16,7 @@ class CreateOssScanConfigRequest(DaraModel):
         decompress_max_file_count: int = None,
         decompress_max_layer: int = None,
         decryption_list: List[str] = None,
+        dry_run: bool = None,
         enable: int = None,
         end_time: str = None,
         key_prefix_list: List[str] = None,
@@ -43,6 +44,8 @@ class CreateOssScanConfigRequest(DaraModel):
         self.decompress_max_layer = decompress_max_layer
         # The list of decryption types.
         self.decryption_list = decryption_list
+        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        self.dry_run = dry_run
         # Specifies whether to enable the policy. Valid values:
         # - **1**: Enabled.
         # - **0**: Disabled.
@@ -96,6 +99,9 @@ class CreateOssScanConfigRequest(DaraModel):
 
         if self.decryption_list is not None:
             result['DecryptionList'] = self.decryption_list
+
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
 
         if self.enable is not None:
             result['Enable'] = self.enable
@@ -151,6 +157,9 @@ class CreateOssScanConfigRequest(DaraModel):
 
         if m.get('DecryptionList') is not None:
             self.decryption_list = m.get('DecryptionList')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
 
         if m.get('Enable') is not None:
             self.enable = m.get('Enable')

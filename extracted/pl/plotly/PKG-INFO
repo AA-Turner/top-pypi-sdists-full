@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: plotly
-Version: 7.0.0
+Version: 7.1.0
 Summary: An open-source interactive data visualization library for Python
 Project-URL: Homepage, https://plotly.com/python/
 Project-URL: Documentation, https://plotly.com/python/
@@ -45,6 +45,7 @@ Requires-Dist: requests; extra == 'dev'
 Requires-Dist: ruff==0.11.12; extra == 'dev'
 Requires-Dist: scikit-image; extra == 'dev'
 Requires-Dist: scipy; extra == 'dev'
+Requires-Dist: sphinx-gallery; extra == 'dev'
 Requires-Dist: statsmodels; extra == 'dev'
 Requires-Dist: vaex; (python_version <= '3.9') and extra == 'dev'
 Requires-Dist: xarray; extra == 'dev'
@@ -86,6 +87,7 @@ Requires-Dist: requests; extra == 'dev-optional'
 Requires-Dist: ruff==0.11.12; extra == 'dev-optional'
 Requires-Dist: scikit-image; extra == 'dev-optional'
 Requires-Dist: scipy; extra == 'dev-optional'
+Requires-Dist: sphinx-gallery; extra == 'dev-optional'
 Requires-Dist: statsmodels; extra == 'dev-optional'
 Requires-Dist: vaex; (python_version <= '3.9') and extra == 'dev-optional'
 Requires-Dist: xarray; extra == 'dev-optional'
@@ -235,7 +237,7 @@ on your command line.
 
 ## Copyright and Licenses
 
-Code and documentation copyright 2019 Plotly, Inc.
+Code and documentation copyright 2026 Plotly, Inc.
 
 Code released under the [MIT license](https://github.com/plotly/plotly.py/blob/main/LICENSE.txt).
 

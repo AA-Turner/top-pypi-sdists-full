@@ -32,6 +32,10 @@ from geneva.runners.ray.actor_pool import (
     ActorPool,
     ActorPoolTaskError,
 )
+from geneva.runners.ray.memory_budget import (
+    largest_node_memory,
+    unplaceable_reservation_warning,
+)
 from geneva.runners.ray.naming import ray_name
 from geneva.runners.ray.oom_recovery_budget import (
     OOMRecoveryBudgetTracker,
@@ -51,6 +55,7 @@ from geneva.runners.sparse_update import (
     resolve_commit_granularity,
     validate_sparse_scope,
 )
+from geneva.utils.ray import cpu_only_pool_resources
 
 if typing.TYPE_CHECKING:
     import lance
@@ -161,6 +166,37 @@ def _normalize_sparse_actor_failure(exc: Exception) -> Exception:
     )
 
 
+def _sparse_actor_options(
+    udf: UDF,
+    *,
+    num_cpus: float | None = None,
+    num_gpus: float | None = None,
+    memory: int | None = None,
+    use_cpu_only_pool: bool = False,
+) -> dict[str, typing.Any]:
+    """Ray actor options for a sparse actor: per-call override, else the UDF's
+    declaration. Like ``setup_actor`` without multipliers or a memory floor."""
+    cpus = udf.num_cpus if num_cpus is None else num_cpus
+    options: dict[str, typing.Any] = {"num_cpus": float(cpus or 1.0)}
+    gpus = (udf.num_gpus if num_gpus is None else num_gpus) or 0.0
+    if gpus > 0:
+        options["num_gpus"] = float(gpus)
+        if use_cpu_only_pool:
+            _LOG.warning(
+                "use_cpu_only_pool=True is ignored for UDF '%s': it reserves "
+                "num_gpus=%s, and CPU-only nodes carry no GPUs, so the sparse "
+                "actor is placed by its GPU request instead.",
+                udf.name,
+                gpus,
+            )
+    elif use_cpu_only_pool:
+        options["resources"] = cpu_only_pool_resources()
+    declared_memory = udf.memory if memory is None else memory
+    if declared_memory is not None:
+        options["memory"] = int(declared_memory)
+    return options
+
+
 def _make_sparse_actor() -> typing.Any:
     """Lazily define the SparseActor (defers ``import ray`` until needed)."""
     import ray
@@ -223,6 +259,7 @@ def _make_sparse_actor() -> typing.Any:
                             task.where,
                             task.output_column,
                             task.batch_rows,
+                            is_generated_resume_filter=task.is_generated_resume_filter,
                         )
             except Exception as exc:  # noqa: BLE001 -- terminal: isolate the range
                 remote_error = _picklable_remote_error(exc)
@@ -252,6 +289,11 @@ def run_ray_sparse_update(
     batch_bytes: int = DEFAULT_BATCH_BYTES,
     job_tracker: typing.Any = None,
     job_id: str = "local",
+    is_generated_resume_filter: bool = False,
+    num_cpus: float | None = None,
+    num_gpus: float | None = None,
+    memory: int | None = None,
+    use_cpu_only_pool: bool = False,
 ) -> SparseUpdateResult:
     """Re-derive work from the live dataset each round and fan it out, until a
     round finds no new matches.
@@ -282,6 +324,9 @@ def run_ray_sparse_update(
     delete-by-address uses freshly scanned addresses, so re-processing a row is
     value-correct (no duplication) and merely wastes a recompute -- which is why we
     track fragments, not stable row ids.
+
+    Actor resources come from ``_sparse_actor_options`` and ride the actor
+    factory, so replacement actors reserve the same.
     """
     import lance
 
@@ -310,7 +355,23 @@ def run_ray_sparse_update(
         column=output_column,
         job_id=job_id,
     )
-    actor_factory = functools.partial(actor_cls.remote, udf, actor_label)
+    actor_options = _sparse_actor_options(
+        udf,
+        num_cpus=num_cpus,
+        num_gpus=num_gpus,
+        memory=memory,
+        use_cpu_only_pool=use_cpu_only_pool,
+    )
+    if actor_options.get("memory", 0) > 0:
+        unplaceable = unplaceable_reservation_warning(
+            actor_options["memory"], largest_node_memory()
+        )
+        if unplaceable is not None:
+            _LOG.warning("%s", unplaceable)
+    _LOG.info("sparse actors reserve %s", actor_options)
+    actor_factory = functools.partial(
+        actor_cls.options(**actor_options).remote, udf, actor_label
+    )
 
     if job_tracker is not None:
         job_tracker.set_total.remote("fragments", fragments_total)
@@ -354,6 +415,7 @@ def run_ray_sparse_update(
                 output_column=output_column,
                 version=cur_version,
                 batch_rows=batch_rows,
+                is_generated_resume_filter=is_generated_resume_filter,
             )
             for rng in _chunk_fragments(candidates, granularity)
         ]

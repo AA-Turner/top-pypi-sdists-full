@@ -37,8 +37,10 @@ QuantConnect_Securities_MarketHoursDatabase = typing.Any
 QuantConnect_Securities_MarketHoursDatabase_Entry = typing.Any
 DynamicObject = typing.Any
 QuantConnect_Securities_SymbolPropertiesDatabase = typing.Any
+QuantConnect_Securities_OptionChainFilterUniverse = typing.Any
 QuantConnect_Securities_OptionFilterUniverse = typing.Any
 QuantConnect_Securities_FutureFilterUniverse = typing.Any
+QuantConnect_Securities_FuturesChainFilterUniverse = typing.Any
 
 QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T = typing.TypeVar("QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T")
 QuantConnect_Securities_EmptyContractFilter_T = typing.TypeVar("QuantConnect_Securities_EmptyContractFilter_T")
@@ -50,9 +52,13 @@ QuantConnect_Securities_BaseSecurityDatabase_TEntry = typing.TypeVar("QuantConne
 QuantConnect_Securities_FuncSecurityDerivativeFilter_T = typing.TypeVar("QuantConnect_Securities_FuncSecurityDerivativeFilter_T")
 QuantConnect_Securities_DynamicSecurityData_Get_T = typing.TypeVar("QuantConnect_Securities_DynamicSecurityData_Get_T")
 QuantConnect_Securities_DynamicSecurityData_GetAll_T = typing.TypeVar("QuantConnect_Securities_DynamicSecurityData_GetAll_T")
+QuantConnect_Securities_IContractFilters_TSelf = typing.TypeVar("QuantConnect_Securities_IContractFilters_TSelf")
 QuantConnect_Securities_IOptionContractFilters_TSelf = typing.TypeVar("QuantConnect_Securities_IOptionContractFilters_TSelf")
 QuantConnect_Securities_BaseOptionFilterUniverse_TData = typing.TypeVar("QuantConnect_Securities_BaseOptionFilterUniverse_TData")
 QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse = typing.TypeVar("QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse")
+QuantConnect_Securities_BaseFutureFilterUniverse_TUniverse = typing.TypeVar("QuantConnect_Securities_BaseFutureFilterUniverse_TUniverse")
+QuantConnect_Securities_BaseFutureFilterUniverse_TData = typing.TypeVar("QuantConnect_Securities_BaseFutureFilterUniverse_TData")
+QuantConnect_Securities_IFutureContractFilters_TSelf = typing.TypeVar("QuantConnect_Securities_IFutureContractFilters_TSelf")
 QuantConnect_Securities__EventContainer_Callable = typing.TypeVar("QuantConnect_Securities__EventContainer_Callable")
 QuantConnect_Securities__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Securities__EventContainer_ReturnType")
 QuantConnect_Securities_DynamicSecurityData_HasData_T = typing.TypeVar("QuantConnect_Securities_DynamicSecurityData_HasData_T")
@@ -6576,7 +6582,7 @@ class SecurityInitializer(System.Object):
     """Gets an implementation of ISecurityInitializer that is a no-op"""
 
 
-class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_ContractSecurityFilterUniverse_T, QuantConnect_Securities_ContractSecurityFilterUniverse_TData], System.Object, QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], typing.Iterable[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], metaclass=abc.ABCMeta):
+class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_ContractSecurityFilterUniverse_T, QuantConnect_Securities_ContractSecurityFilterUniverse_TData], System.Object, QuantConnect.Securities.IDerivativeSecurityFilterUniverse[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], QuantConnect.Securities.IContractFilters[QuantConnect_Securities_ContractSecurityFilterUniverse_T], typing.Iterable[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], metaclass=abc.ABCMeta):
     """
     Base class for contract symbols filtering universes.
     Used by OptionFilterUniverse and FutureFilterUniverse
@@ -6827,6 +6833,24 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         """
         ...
 
+    def get_open_interest(self, contract: QuantConnect_Securities_ContractSecurityFilterUniverse_TData) -> float:
+        """
+        Gets the open interest of the given contract
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_volume(self, contract: QuantConnect_Securities_ContractSecurityFilterUniverse_TData) -> float:
+        """
+        Gets the volume of the given contract
+        
+        
+        This Class is protected.
+        """
+        ...
+
     def include_weeklys(self) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
         """
         Includes universe of non-standard weeklys contracts (if any) into selection
@@ -6838,6 +6862,20 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         """
         warnings.warn("IncludeWeeklys is obsolete because weekly contracts are now included by default.", DeprecationWarning)
 
+    def in_range(self, selector: typing.Callable[[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], float], min: float, max: float) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
+        """
+        Selects the contracts whose value, given by the selector, is within the given range. The selector runs once per contract
+        
+        
+        This Class is protected.
+        
+        :param selector: Gets the value of a contract
+        :param min: The minimum value
+        :param max: The maximum value
+        :returns: Universe with filter applied.
+        """
+        ...
+
     def is_standard(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """
         Function to determine if the given symbol is a standard contract
@@ -6846,6 +6884,16 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         This Class is protected.
         
         :returns: True if standard type.
+        """
+        ...
+
+    def oi(self, min: int, max: int) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
+        """
+        Applies filter selecting the contracts with open interest between the given range. Alias for open_interest
+        
+        :param min: The minimum open interest value
+        :param max: The maximum open interest value
+        :returns: Universe with filter applied.
         """
         ...
 
@@ -6859,6 +6907,16 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         :returns: Universe with filter applied.
         """
         warnings.warn("Deprecated as of 2023-12-13. Filters are always non-dynamic as of now, which means they will only bee applied daily.", DeprecationWarning)
+
+    def open_interest(self, min: int, max: int) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
+        """
+        Applies filter selecting the contracts with open interest between the given range
+        
+        :param min: The minimum open interest value
+        :param max: The maximum open interest value
+        :returns: Universe with filter applied.
+        """
+        ...
 
     def refresh(self, all_data: typing.Sequence[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
@@ -6878,9 +6936,27 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         """
         ...
 
+    def volume(self, min: int, max: int) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
+        """
+        Applies filter selecting the contracts with volume between the given range
+        
+        :param min: The minimum volume
+        :param max: The maximum volume
+        :returns: Universe with filter applied.
+        """
+        ...
+
     def weeklys_only(self) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
         """
         Sets universe of weeklys contracts (if any) as selection
+        
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def zero_dte(self) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
+        """
+        Applies filter selecting the contracts expiring today
         
         :returns: Universe with filter applied.
         """
@@ -7241,6 +7317,76 @@ class AccountEvent(System.Object):
         
         :returns: A string that represents the current object.
         """
+        ...
+
+
+class IContractFilters(typing.Generic[QuantConnect_Securities_IContractFilters_TSelf], metaclass=abc.ABCMeta):
+    """
+    The contract filters shared by every derivative universe selection and chain: expirations, contract types and liquidity.
+    IOptionContractFilters{TSelf} and IFutureContractFilters{TSelf} add the option and future specific ones
+    """
+
+    def back_month(self) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts of the second nearest expiration"""
+        ...
+
+    def back_months(self) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts of all expirations but the nearest one"""
+        ...
+
+    @overload
+    def expiration(self, min_expiry: datetime.timedelta, max_expiry: datetime.timedelta) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts expiring in the given range relative to the current date"""
+        ...
+
+    @overload
+    def expiration(self, min_expiry_days: int, max_expiry_days: int) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts expiring in the given range of days relative to the current date"""
+        ...
+
+    @overload
+    def expiration(self, expiries: typing.List[datetime.datetime]) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts expiring on any of the given dates, ignoring the time of day"""
+        ...
+
+    def expiring_after(self, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts expiring after the given date, excluding it"""
+        ...
+
+    def expiring_before(self, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts expiring before the given date, excluding it"""
+        ...
+
+    def farthest_expiration(self) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts of the farthest expiration"""
+        ...
+
+    def front_month(self) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts of the nearest expiration"""
+        ...
+
+    def oi(self, min: int, max: int) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts with open interest in the given range. Alias for open_interest"""
+        ...
+
+    def open_interest(self, min: int, max: int) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts with open interest in the given range"""
+        ...
+
+    def standards_only(self) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the standard contracts, excluding weeklys"""
+        ...
+
+    def volume(self, min: int, max: int) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts with volume in the given range"""
+        ...
+
+    def weeklys_only(self) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the non standard weekly contracts"""
+        ...
+
+    def zero_dte(self) -> QuantConnect_Securities_IContractFilters_TSelf:
+        """Selects the contracts expiring today"""
         ...
 
 
@@ -7709,10 +7855,83 @@ class IndicatorVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatility
         ...
 
 
-class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContractFilters_TSelf], metaclass=abc.ABCMeta):
+class OptionChainFilterUniverse(QuantConnect.Securities.BaseOptionFilterUniverse[QuantConnect_Securities_OptionChainFilterUniverse, QuantConnect.Data.Market.OptionContract]):
+    """
+    Option contracts filter over the contracts of an OptionChain, so chains offer
+    the same filters as the option universe selection (OptionFilterUniverse)
+    """
+
+    @property
+    def exchange_hours(self) -> QuantConnect.Securities.SecurityExchangeHours:
+        """
+        The option exchange hours
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def security_type(self) -> QuantConnect.SecurityType:
+        """
+        The option security type
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def create_data_instance(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Market.OptionContract:
+        """
+        Not supported: the chain filters only ever select contracts that are already in the chain
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_greeks(self, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Data.Market.Greeks:
+        """
+        Gets the greeks of the given contract
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_implied_volatility(self, contract: QuantConnect.Data.Market.OptionContract) -> float:
+        """
+        Gets the implied volatility of the given contract
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_open_interest(self, contract: QuantConnect.Data.Market.OptionContract) -> float:
+        """
+        Gets the open interest of the given contract
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_volume(self, contract: QuantConnect.Data.Market.OptionContract) -> float:
+        """
+        Gets the volume of the given contract
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContractFilters_TSelf], QuantConnect.Securities.IContractFilters[QuantConnect_Securities_IOptionContractFilters_TSelf], metaclass=abc.ABCMeta):
     """
     The option contract filters shared by the option universe selection (OptionFilterUniverse)
-    and the option chain (Data.Market.OptionChain), so both offer the same filters with the same semantics.
+    and the option chain (Data.Market.OptionChain), so both offer the same filters with the same semantics,
+    on top of the ones every contract has, see IContractFilters{TSelf}.
     OptionChainTests.ChainExposesEveryUniverseFilter checks that every universe filter is declared here
     """
 
@@ -7726,14 +7945,6 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
         equal to the price; null, the default, the strikes on either side of the price, each within the percentage of it
         given by OptionFilterUniverse.default_at_the_money_strike_distance
         """
-        ...
-
-    def back_month(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts of the second nearest expiration"""
-        ...
-
-    def back_months(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts of all expirations but the nearest one"""
         ...
 
     def box_spread(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
@@ -7770,37 +7981,6 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
 
     def delta(self, min: float, max: float) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects the contracts with delta in the given range"""
-        ...
-
-    @overload
-    def expiration(self, min_expiry: datetime.timedelta, max_expiry: datetime.timedelta) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts expiring in the given range relative to the current date"""
-        ...
-
-    @overload
-    def expiration(self, min_expiry_days: int, max_expiry_days: int) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts expiring in the given range of days relative to the current date"""
-        ...
-
-    @overload
-    def expiration(self, expiries: typing.List[datetime.datetime]) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts expiring on any of the given dates, ignoring the time of day"""
-        ...
-
-    def expiring_after(self, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts expiring after the given date, excluding it"""
-        ...
-
-    def expiring_before(self, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts expiring before the given date, excluding it"""
-        ...
-
-    def farthest_expiration(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts of the farthest expiration"""
-        ...
-
-    def front_month(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts of the nearest expiration"""
         ...
 
     def g(self, min: float, max: float) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
@@ -7847,14 +8027,6 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
         """Selects the single put contract with the closest match to the criteria given"""
         ...
 
-    def oi(self, min: int, max: int) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts with open interest in the given range. Alias for open_interest"""
-        ...
-
-    def open_interest(self, min: int, max: int) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts with open interest in the given range"""
-        ...
-
     def otm(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects the out of the money contracts. Alias for out_of_the_money"""
         ...
@@ -7893,10 +8065,6 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
 
     def rho(self, min: float, max: float) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects the contracts with rho in the given range"""
-        ...
-
-    def standards_only(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the standard contracts, excluding weeklys"""
         ...
 
     def straddle(self, min_days_till_expiry: int = 30) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
@@ -7939,14 +8107,6 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
 
     def vega(self, min: float, max: float) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects the contracts with vega in the given range"""
-        ...
-
-    def weeklys_only(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the non standard weekly contracts"""
-        ...
-
-    def zero_dte(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
-        """Selects the contracts expiring today"""
         ...
 
 
@@ -8197,15 +8357,6 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         """
         ...
 
-    def get_open_interest(self, contract: QuantConnect_Securities_BaseOptionFilterUniverse_TData) -> float:
-        """
-        Gets the open interest of the given contract
-        
-        
-        This Class is protected.
-        """
-        ...
-
     def implied_volatility(self, min: float, max: float) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
         """
         Applies the filter to the universe selecting the contracts with implied volatility between the given range
@@ -8308,20 +8459,10 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         """
         ...
 
-    def oi(self, min: int, max: int) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
-        """
-        Applies the filter to the universe selecting the contracts with open interest between the given range.
-        Alias for open_interest(long, long)
-        
-        :param min: The minimum open interest value
-        :param max: The maximum open interest value
-        :returns: Universe with filter applied.
-        """
-        ...
-
     def open_interest(self, min: int, max: int) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
         """
-        Applies the filter to the universe selecting the contracts with open interest between the given range
+        Applies the filter to the universe selecting the contracts with open interest between the given range.
+        Not supported for future options
         
         :param min: The minimum open interest value
         :param max: The maximum open interest value
@@ -8541,14 +8682,6 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         """
         ...
 
-    def zero_dte(self) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
-        """
-        Applies filter selecting the contracts expiring today
-        
-        :returns: Universe with filter applied.
-        """
-        ...
-
 
 class OptionFilterUniverse(QuantConnect.Securities.BaseOptionFilterUniverse[QuantConnect_Securities_OptionFilterUniverse, QuantConnect.Data.UniverseSelection.OptionUniverse]):
     """Represents options symbols universe used in filtering."""
@@ -8626,6 +8759,15 @@ class OptionFilterUniverse(QuantConnect.Securities.BaseOptionFilterUniverse[Quan
     def get_open_interest(self, contract: QuantConnect.Data.UniverseSelection.OptionUniverse) -> float:
         """
         Gets the open interest of the given contract
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_volume(self, contract: QuantConnect.Data.UniverseSelection.OptionUniverse) -> float:
+        """
+        Gets the volume of the given contract
         
         
         This Class is protected.
@@ -8733,7 +8875,57 @@ class OptionFilterUniverseEx(System.Object):
         ...
 
 
-class FutureFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUniverse[QuantConnect_Securities_FutureFilterUniverse, QuantConnect.Data.UniverseSelection.FutureUniverse]):
+class BaseFutureFilterUniverse(typing.Generic[QuantConnect_Securities_BaseFutureFilterUniverse_TUniverse, QuantConnect_Securities_BaseFutureFilterUniverse_TData], QuantConnect.Securities.ContractSecurityFilterUniverse[QuantConnect_Securities_BaseFutureFilterUniverse_TUniverse, QuantConnect_Securities_BaseFutureFilterUniverse_TData], QuantConnect.Securities.IFutureContractFilters[QuantConnect_Securities_BaseFutureFilterUniverse_TUniverse], metaclass=abc.ABCMeta):
+    """
+    Base future contracts filter, shared by the futures universe selection filter (FutureFilterUniverse)
+    and the futures chain filters (Data.Market.FuturesChain) so both offer the same filters with the same semantics
+    """
+
+    def __init__(self, all_data: typing.Sequence[QuantConnect_Securities_BaseFutureFilterUniverse_TData], local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Constructs BaseFutureFilterUniverse
+        
+        
+        This Class is protected.
+        
+        :param all_data: All data for the future contracts
+        :param local_time: The current local time
+        """
+        ...
+
+    def contract_months(self, months: typing.List[int]) -> QuantConnect_Securities_BaseFutureFilterUniverse_TUniverse:
+        """
+        Selects the contracts whose contract month is any of the given months of the year, see FutureExpirationCycles.
+        Like expiration_cycle but by the contract month, the month the contract is named after, which for some products,
+        e.g. crude oil, is the month after the expiration month, see FuturesExpiryUtilityFunctions.GetFutureContractMonth
+        
+        :param months: Months of the year to select contracts from
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def expiration_cycle(self, months: typing.List[int]) -> QuantConnect_Securities_BaseFutureFilterUniverse_TUniverse:
+        """
+        Applies filter selecting futures contracts based on expiration cycles. See FutureExpirationCycles for details
+        
+        :param months: Months to select contracts from
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def is_standard(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Determine if the given Future contract symbol is standard
+        
+        
+        This Class is protected.
+        
+        :returns: True if contract is standard.
+        """
+        ...
+
+
+class FutureFilterUniverse(QuantConnect.Securities.BaseFutureFilterUniverse[QuantConnect_Securities_FutureFilterUniverse, QuantConnect.Data.UniverseSelection.FutureUniverse]):
     """Represents futures symbols universe used in filtering."""
 
     def __init__(self, all_data: typing.Sequence[QuantConnect.Data.UniverseSelection.FutureUniverse], local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
@@ -8751,23 +8943,21 @@ class FutureFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUnivers
         """
         ...
 
-    def expiration_cycle(self, months: typing.List[int]) -> QuantConnect.Securities.FutureFilterUniverse:
+    def get_open_interest(self, contract: QuantConnect.Data.UniverseSelection.FutureUniverse) -> float:
         """
-        Applies filter selecting futures contracts based on expiration cycles. See FutureExpirationCycles for details
-        
-        :param months: Months to select contracts from
-        :returns: Universe with filter applied.
-        """
-        ...
-
-    def is_standard(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Determine if the given Future contract symbol is standard
+        Gets the open interest of the given contract
         
         
         This Class is protected.
+        """
+        ...
+
+    def get_volume(self, contract: QuantConnect.Data.UniverseSelection.FutureUniverse) -> float:
+        """
+        Gets the volume of the given contract
         
-        :returns: True if contract is standard.
+        
+        This Class is protected.
         """
         ...
 
@@ -8806,6 +8996,25 @@ class FutureFilterUniverseEx(System.Object):
         :param predicate: Bool function to determine which Symbol are filtered
         :returns: FutureFilterUniverse with filter applied.
         """
+        ...
+
+
+class IFutureContractFilters(typing.Generic[QuantConnect_Securities_IFutureContractFilters_TSelf], QuantConnect.Securities.IContractFilters[QuantConnect_Securities_IFutureContractFilters_TSelf], metaclass=abc.ABCMeta):
+    """
+    The future contract filters shared by the futures universe selection (FutureFilterUniverse)
+    and the futures chain (Data.Market.FuturesChain), so both offer the same filters with the same semantics.
+    FuturesChainTests.ChainExposesEveryUniverseFilter checks that every universe filter is declared here
+    """
+
+    def contract_months(self, months: typing.List[int]) -> QuantConnect_Securities_IFutureContractFilters_TSelf:
+        """
+        Selects the contracts whose contract month is any of the given months of the year, see FutureExpirationCycles.
+        Like expiration_cycle but by the contract month instead of the expiration month
+        """
+        ...
+
+    def expiration_cycle(self, months: typing.List[int]) -> QuantConnect_Securities_IFutureContractFilters_TSelf:
+        """Selects the contracts expiring in any of the given months of the year, see FutureExpirationCycles"""
         ...
 
 
@@ -9738,6 +9947,40 @@ class Futures(System.Object):
 
     MAXIMUM_CONTRACT_DEPTH_OFFSET: int = 2
     """The maximum supported contract offset depth"""
+
+
+class FuturesChainFilterUniverse(QuantConnect.Securities.BaseFutureFilterUniverse[QuantConnect_Securities_FuturesChainFilterUniverse, QuantConnect.Data.Market.FuturesContract]):
+    """
+    Future contracts filter over the contracts of a FuturesChain, so chains offer
+    the same filters as the futures universe selection (FutureFilterUniverse)
+    """
+
+    def create_data_instance(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Market.FuturesContract:
+        """
+        Not supported: the chain filters only ever select contracts that are already in the chain
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_open_interest(self, contract: QuantConnect.Data.Market.FuturesContract) -> float:
+        """
+        Gets the open interest of the given contract
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_volume(self, contract: QuantConnect.Data.Market.FuturesContract) -> float:
+        """
+        Gets the volume of the given contract
+        
+        
+        This Class is protected.
+        """
+        ...
 
 
 class FutureExpirationCycles(System.Object):

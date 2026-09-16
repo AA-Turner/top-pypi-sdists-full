@@ -54,7 +54,7 @@ class GetKnowledgeRecallResponseBodyData(DaraModel):
         results: List[Dict[str, Any]] = None,
         trace_id: str = None,
     ):
-        # The total number of records.
+        # The total number of entries.
         self.count = count
         # The prompt message.
         self.message = message

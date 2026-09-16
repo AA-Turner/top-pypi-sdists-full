@@ -32,7 +32,7 @@ class AiAgent:
             agent (Union[Unset, str]): Path of a reusable `ai_agent` resource (hybrid linking). When set, the agent brain
                 config (provider/model/system prompt/etc.) and tool set are resolved at runtime from
                 that resource; the module's input_transforms then only carry the flow-local inputs
-                (user_message/user_attachments).
+                (user_message/user_attachments/enabled_tools).
             tool_inputs (Union[Unset, AiAgentToolInputs]): Host-local wiring for an agent's tool inputs, keyed by tool id
                 then input key. Binds the
                 referenced agent's tools to this flow's context (flow_input/results) without mutating the

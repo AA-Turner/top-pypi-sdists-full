@@ -13,6 +13,7 @@ import pytest
 
 from geneva import (
     FatalWorkerExitError,
+    FatalWorkerHardwareError,
     FatalWorkerOOMError,
     FatalWorkerTransientError,
     Retry,
@@ -834,6 +835,46 @@ def test_non_oom_worker_exit_uses_default_retry_policy(
         (item.task.dest_offset(), item.task.num_rows(), item.attempt)
         for item in pending
     ] == [(0, 4, 2)]
+    assert job._oom_budget_tracker.total_oom_recoveries == 0
+
+
+def test_hardware_fault_retries_then_fails_without_null_fill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A GPU hardware fault is re-queued for another worker within the attempt
+    budget, then fails the job; it is never bisected or null-filled."""
+    tbl_ref, task = _make_task(limit=4)
+    job = _make_job(tbl_ref, _plain_udf(), monkeypatch)
+    fault = FatalWorkerHardwareError("GPU 0 requires reset [node=n1 host=h1 gpu=0]")
+
+    for attempt in (1, 2):
+        fwm = _FakeFwm()
+        pending: deque[ScheduledReadTask] = deque()
+        handled = job._handle_fatal_task_failure(
+            ScheduledReadTask(task, attempt=attempt),
+            fault,
+            pending,
+            fwm,  # type: ignore[arg-type]
+            pod_statuses=None,
+        )
+        assert handled is True
+        assert [
+            (item.task.dest_offset(), item.task.num_rows(), item.attempt)
+            for item in pending
+        ] == [(0, 4, attempt + 1)]
+
+    fwm = _FakeFwm()
+    pending = deque()
+    with pytest.raises(FatalWorkerHardwareError, match="GPU 0 requires reset"):
+        job._handle_fatal_task_failure(
+            ScheduledReadTask(task, attempt=3),
+            fault,
+            pending,
+            fwm,  # type: ignore[arg-type]
+            pod_statuses=None,
+        )
+    assert fwm.replaced is None
+    assert not pending
     assert job._oom_budget_tracker.total_oom_recoveries == 0
 
 

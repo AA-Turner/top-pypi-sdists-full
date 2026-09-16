@@ -1117,6 +1117,10 @@ if TYPE_CHECKING:
         FrameImageTypedDict,
         FrameType,
     )
+    from .freemodeldailyrequests import (
+        FreeModelDailyRequests,
+        FreeModelDailyRequestsTypedDict,
+    )
     from .functioncallargsdeltaevent import (
         FunctionCallArgsDeltaEvent,
         FunctionCallArgsDeltaEventType,
@@ -1233,6 +1237,10 @@ if TYPE_CHECKING:
         FusionServerToolConfigTypedDict,
     )
     from .fusionsource import FusionSource, FusionSourceTypedDict
+    from .gatewaytimeoutresponseerrordata import (
+        GatewayTimeoutResponseErrorData,
+        GatewayTimeoutResponseErrorDataTypedDict,
+    )
     from .generationcontentdata import (
         GenerationContentData,
         GenerationContentDataOutput,
@@ -4083,6 +4091,8 @@ __all__ = [
     "FrameImageType",
     "FrameImageTypedDict",
     "FrameType",
+    "FreeModelDailyRequests",
+    "FreeModelDailyRequestsTypedDict",
     "FunctionCallArgsDeltaEvent",
     "FunctionCallArgsDeltaEventType",
     "FunctionCallArgsDeltaEventTypedDict",
@@ -4151,6 +4161,8 @@ __all__ = [
     "FusionServerToolOpenRouterTypedDict",
     "FusionSource",
     "FusionSourceTypedDict",
+    "GatewayTimeoutResponseErrorData",
+    "GatewayTimeoutResponseErrorDataTypedDict",
     "GenerationContentData",
     "GenerationContentDataOutput",
     "GenerationContentDataOutputTypedDict",
@@ -6440,6 +6452,8 @@ _dynamic_imports: dict[str, str] = {
     "FrameImageType": ".frameimage",
     "FrameImageTypedDict": ".frameimage",
     "FrameType": ".frameimage",
+    "FreeModelDailyRequests": ".freemodeldailyrequests",
+    "FreeModelDailyRequestsTypedDict": ".freemodeldailyrequests",
     "FunctionCallArgsDeltaEvent": ".functioncallargsdeltaevent",
     "FunctionCallArgsDeltaEventType": ".functioncallargsdeltaevent",
     "FunctionCallArgsDeltaEventTypedDict": ".functioncallargsdeltaevent",
@@ -6523,6 +6537,8 @@ _dynamic_imports: dict[str, str] = {
     "FusionServerToolConfigTypedDict": ".fusionservertoolconfig",
     "FusionSource": ".fusionsource",
     "FusionSourceTypedDict": ".fusionsource",
+    "GatewayTimeoutResponseErrorData": ".gatewaytimeoutresponseerrordata",
+    "GatewayTimeoutResponseErrorDataTypedDict": ".gatewaytimeoutresponseerrordata",
     "GenerationContentData": ".generationcontentdata",
     "GenerationContentDataOutput": ".generationcontentdata",
     "GenerationContentDataOutputTypedDict": ".generationcontentdata",

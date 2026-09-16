@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-drf-extensions
-Version: 10.8.0
+Version: 10.9.0
 Summary: edX extensions of Django REST Framework
 Home-page: https://github.com/openedx/edx-drf-extensions
 Author: edX
@@ -120,6 +120,13 @@ Change Log
 
 Unreleased
 ----------
+
+[10.9.0] - 2026-09-12
+---------------------
+* Added ``FullScopePolicy`` to the ``scoping`` module: a reusable
+  ``ScopingPolicy`` that returns the queryset unchanged, for list endpoints
+  whose ``permission_classes`` already restrict callers to subjects that may
+  see every row.
 
 [10.8.0] - 2026-08-28
 ---------------------

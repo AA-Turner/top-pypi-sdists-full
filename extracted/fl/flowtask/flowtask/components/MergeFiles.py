@@ -178,7 +178,9 @@ class MergeFiles(FlowComponent):
                     file_engine = "openpyxl"
                 # get the Model (if any):
                 if hasattr(self, "model"):
-                    columns = await open_model(self.model, self._program)
+                    columns = await open_model(
+                        self.model, self._program, path=self._taskstore.get_path()
+                    )
                     fields = []
                     dates = []
                     for field, dtype in columns["fields"].items():

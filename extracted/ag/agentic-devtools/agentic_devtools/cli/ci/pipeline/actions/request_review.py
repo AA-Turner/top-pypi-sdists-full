@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from agentic_devtools.cli.ci.models import COPILOT_REVIEWER_LOGIN
+from agentic_devtools.cli.ci.pipeline.gate_verdict import REASON_CLEAN
 from agentic_devtools.cli.ci.pipeline.models import ActionDecision, ActionResult
 from agentic_devtools.cli.ci.pipeline.session_detector import is_copilot_session_active_via_agent_task
 from agentic_devtools.cli.ci.pipeline.snapshot import DerivedState, PRStateSnapshot
@@ -13,7 +14,7 @@ from agentic_devtools.cli.shared.retry import ProviderRateLimitError
 
 logger = logging.getLogger(__name__)
 
-_EFFECTIVE_REVIEW_STATES = {"APPROVED", "COMMENTED", "CHANGES_REQUESTED"}
+_EFFECTIVE_REVIEW_STATES = {"APPROVED", "CHANGES_REQUESTED"}
 
 
 class RequestReviewAction:
@@ -69,14 +70,22 @@ class RequestReviewAction:
             )
 
         # Guard: never request review when repair was just dispatched
-        repair_dispatched = getattr(derived, "repair_dispatched", False)
-        preconditions["no_repair_dispatched"] = not repair_dispatched
-        if repair_dispatched:
+        repair_dispatched = derived.get("repair_dispatched", False)
+        repair_limit_reached = derived.get("repair_limit_reached", False)
+        preconditions["no_repair_dispatched"] = not repair_dispatched or repair_limit_reached
+        if repair_dispatched and not repair_limit_reached:
             return ActionResult(
                 name=self.name,
                 decision=ActionDecision.SKIP,
                 preconditions=preconditions,
                 details="Repair dispatched — deferring review request",
+            )
+        if derived.get("cycle_limit_reached", False):
+            return ActionResult(
+                name=self.name,
+                decision=ActionDecision.SKIP,
+                preconditions=preconditions,
+                details="Repair cycle limit reached — human intervention required",
             )
 
         # Guard: block review request when unresolved review threads exist
@@ -129,7 +138,26 @@ class RequestReviewAction:
         # gated forever with no action able to unstick them.
         gate_verdict = snapshot.copilot_gate_verdict
         carried_over_sha = gate_verdict.carried_over_sha if gate_verdict is not None and gate_verdict.passed else ""
-        review_on_head = snapshot.review_state in _EFFECTIVE_REVIEW_STATES and snapshot.copilot_review_id > 0
+        review_identity_is_current = not snapshot.reviews or any(
+            review.id == snapshot.copilot_review_id and review.commit_sha and review.commit_sha == snapshot.head_sha
+            for review in snapshot.reviews
+        )
+        review_on_head = (
+            snapshot.review_state in _EFFECTIVE_REVIEW_STATES
+            and snapshot.copilot_review_id > 0
+            and review_identity_is_current
+        )
+        if repair_limit_reached and gate_verdict is not None and not gate_verdict.passed:
+            review_on_head = False
+        commented_review_is_clean = (
+            snapshot.review_state == "COMMENTED"
+            and gate_verdict is not None
+            and gate_verdict.passed
+            and gate_verdict.reason == REASON_CLEAN
+            and review_identity_is_current
+        )
+        if commented_review_is_clean:
+            review_on_head = True
         has_effective_review = review_on_head or bool(carried_over_sha)
         preconditions["no_effective_review_on_head"] = not has_effective_review
         if has_effective_review:

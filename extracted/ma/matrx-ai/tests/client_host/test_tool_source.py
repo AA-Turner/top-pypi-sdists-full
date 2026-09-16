@@ -111,23 +111,41 @@ def test_explicit_source_beats_derived():
     assert get_tool_source() is explicit
 
 
-def test_server_source_sends_jwt_header():
-    from matrx_ai.tools.tool_source import ServerToolSource
+@pytest.mark.asyncio
+async def test_server_source_resolves_sync_and_async_jwt_headers_at_request_time():
+    from matrx_ai.tools.tool_source import ServerToolSource, ToolSourceFetchError
 
     source = ServerToolSource(
         "https://server.example.com", "matrx_local", get_jwt=lambda: "jwt-token-123"
     )
-    assert source._headers()["Authorization"] == "Bearer jwt-token-123"
+    assert (await source._headers())["Authorization"] == "Bearer jwt-token-123"
 
     anon = ServerToolSource("https://server.example.com", "matrx_local")
-    assert "Authorization" not in anon._headers()
+    assert "Authorization" not in await anon._headers()
 
-    # A raising get_jwt degrades to anonymous — never kills the fetch.
-    def _boom() -> str:
-        raise RuntimeError("token cache empty")
+    tokens = iter(("first-grant", "rotated-grant"))
 
-    degraded = ServerToolSource("https://server.example.com", "matrx_local", get_jwt=_boom)
-    assert "Authorization" not in degraded._headers()
+    async def current_token() -> str:
+        return next(tokens)
+
+    rotating = ServerToolSource("https://server.example.com", "matrx_local", get_jwt=current_token)
+    assert (await rotating._headers())["Authorization"] == "Bearer first-grant"
+    assert (await rotating._headers())["Authorization"] == "Bearer rotated-grant"
+
+    secret = "must-not-appear-in-error"
+
+    def broken_provider() -> str:
+        raise RuntimeError(secret)
+
+    refused = ServerToolSource("https://server.example.com", "matrx_local", get_jwt=broken_provider)
+    with pytest.raises(ToolSourceFetchError) as excinfo:
+        await refused._headers()
+    assert "anonymous" in str(excinfo.value)
+    assert secret not in str(excinfo.value)
+
+    signed_out = ServerToolSource("https://server.example.com", "matrx_local", get_jwt=lambda: None)
+    with pytest.raises(ToolSourceFetchError, match="no usable JWT"):
+        await signed_out._headers()
 
 
 @pytest.mark.asyncio
@@ -145,6 +163,8 @@ async def test_server_source_parses_tools_payload(monkeypatch):
         def json(self):
             return {"tools": rows, "count": 1, "executor_name": "matrx-local"}
 
+    headers_seen: list[dict[str, str] | None] = []
+
     class FakeClient:
         def __init__(self, **kwargs: Any) -> None:
             pass
@@ -157,12 +177,17 @@ async def test_server_source_parses_tools_payload(monkeypatch):
 
         async def get(self, url: str, headers: dict[str, str] | None = None):
             assert url.endswith("/ai-tools/app/matrx_local/all")
+            headers_seen.append(headers)
             return FakeResponse()
 
     monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
-    source = ServerToolSource("https://server.example.com", "matrx_local")
+    async def current_token() -> str:
+        return "fresh-grant"
+
+    source = ServerToolSource("https://server.example.com", "matrx_local", get_jwt=current_token)
     fetched = await source.list_tools()
     assert fetched == rows
+    assert headers_seen == [{"Accept": "application/json", "Authorization": "Bearer fresh-grant"}]
     assert await source.list_bindings() == [
         {"tool_id": rows[0]["id"], "executor_name": "matrx-local"}
     ]

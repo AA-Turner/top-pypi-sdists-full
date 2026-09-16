@@ -314,7 +314,8 @@ def orchestrate_init_cmd() -> int:
 
     scratch_dir.mkdir(parents=True, exist_ok=True)
     epic_tree = {
-        "schemaVersion": "1.0",
+        "schemaVersion": "2.0",
+        "treeId": str(uuid.uuid4()),
         "epic": {"ref": "epic-1", "title": "Generated Epic", "body": "", "features": []},
     }
     epic_tree_path.write_text(json.dumps(epic_tree, indent=2))

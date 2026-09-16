@@ -208,9 +208,9 @@ def decompress(
     True
     >>> b"" == blosc2.decompress(blosc2.compress(b""))
     True
-    >>> b"1"*7 == blosc2.decompress(blosc2.compress(b"1"*7))
+    >>> b"1"*7 == blosc2.decompress(blosc2.compress(b"1"*7, typesize=1))
     True
-    >>> type(blosc2.decompress(blosc2.compress(b"1"*7),
+    >>> type(blosc2.decompress(blosc2.compress(b"1"*7, typesize=1),
     ...                        as_bytearray=True)) is bytearray
     True
     >>> import numpy as np
@@ -628,10 +628,13 @@ def normalize_urlpath(urlpath: object) -> object:
     """Turn a `file://` URL into the native path it names, leaving anything else alone.
 
     Local URLs are kept off the fsspec branch so they can use mmap and every
-    container format, which only works if the scheme is stripped first.
+    container format, which only works if the scheme is stripped first.  A
+    `::` container path (e.g. ``file:///x.h5::/d0/a2``) rides along: only the
+    part before it names the file, and Windows path conversion rejects `::`.
     """
     if isinstance(urlpath, str) and urlpath.startswith("file://"):
-        parsed = urllib.parse.urlparse(urlpath)
+        base, sep, suffix = urlpath.partition("::")
+        parsed = urllib.parse.urlparse(base)
         netloc = "" if parsed.netloc.lower() in ("", "localhost") else parsed.netloc
         if re.fullmatch("[A-Za-z]:", netloc):
             if os.name != "nt":
@@ -649,7 +652,7 @@ def normalize_urlpath(urlpath: object) -> object:
             raise ValueError(
                 f"{urlpath} names the host {netloc!r}; only Windows can reach one, as a UNC path"
             )
-        return urllib.request.url2pathname(prefix + parsed.path)
+        return urllib.request.url2pathname(prefix + parsed.path) + sep + suffix
     return urlpath
 
 
@@ -768,11 +771,59 @@ def fsspec_open(urlpath: str, mode: str, storage_options: dict | None = None):
     return _import_fsspec(urlpath).open(urlpath, mode, **(storage_options or {}))
 
 
-def fsspec_cache_path(urlpath: str, cache_storage: str | pathlib.Path, suffix: str = "") -> str:
-    """The local path under *cache_storage* reserved for *urlpath*, creating the directory."""
-    os.makedirs(cache_storage, exist_ok=True)
-    name = hashlib.sha256(urlpath.encode()).hexdigest()
-    return os.path.join(str(cache_storage), name + suffix)
+def cache_path_component(value: str) -> str:
+    """Encode a bounded, portable cache path component without losing its identity."""
+    name = urllib.parse.quote(value, safe="-_.")
+    reserved = {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        *(f"COM{i}" for i in range(1, 10)),
+        *(f"LPT{i}" for i in range(1, 10)),
+    }
+    if not name or name in {".", ".."} or name.split(".")[0].upper() in reserved:
+        name = "_" + name
+    name = name.rstrip(".") or "_"
+    if len(name) > 100:
+        name = name[:80] + "--" + hashlib.sha256(value.encode()).hexdigest()[:12]
+    return name
+
+
+def cache_directory_name(urlpath: str, identity: bytes) -> str:
+    """A recognizable source basename and a 48-bit cache identity."""
+    parsed = urllib.parse.urlsplit(urlpath)
+    name = pathlib.PurePosixPath(parsed.path.rstrip("/")).name or parsed.hostname or "remote"
+    name = cache_path_component(urllib.parse.unquote(name))
+    return name + "--" + hashlib.sha256(identity).hexdigest()[:12]
+
+
+def fsspec_cache_path(
+    urlpath: str,
+    cache_storage: str | pathlib.Path,
+    suffix: str = "",
+    *,
+    dataset: str | None = None,
+    storage_options: dict | None = None,
+) -> str:
+    """Readable source directory and optional dataset path, creating parent directories."""
+    identity = urlpath
+    fingerprint = storage_options_fingerprint(storage_options)
+    if fingerprint:
+        identity += "::" + fingerprint
+    directory = pathlib.Path(cache_storage) / cache_directory_name(urlpath, identity.encode())
+    if suffix:
+        parsed = urllib.parse.urlsplit(urlpath)
+        name = pathlib.PurePosixPath(parsed.path.rstrip("/")).name or parsed.hostname or "remote"
+        parts = dataset.strip("/").split("/") if dataset else [urllib.parse.unquote(name)]
+        parts = [cache_path_component(part) for part in parts]
+        if dataset or not parts[-1].endswith(suffix):
+            parts[-1] += suffix
+        path = directory.joinpath(*parts)
+    else:
+        path = directory
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return str(path)
 
 
 def storage_options_fingerprint(storage_options: dict | None) -> str:
@@ -789,19 +840,15 @@ def storage_options_fingerprint(storage_options: dict | None) -> str:
 
 
 @cache
-def _suffixed_cache_mapper():
-    """fsspec's cache naming, plus the extension `blosc2.open()` dispatches on.
-
-    A `.b2e` store is told apart from a bare SChunk by its name alone, so a cached
-    copy under fsspec's plain hash would silently open as the wrong type.
-    """
+def _basename_cache_mapper():
+    """Keep a localized file's recognizable, dispatchable basename."""
     from fsspec.implementations.cache_mapper import AbstractCacheMapper
 
-    class SuffixedCacheMapper(AbstractCacheMapper):
+    class BasenameCacheMapper(AbstractCacheMapper):
         def __call__(self, path: str) -> str:
-            return hashlib.sha256(path.encode()).hexdigest() + pathlib.PurePosixPath(path).suffix
+            return cache_path_component(urllib.parse.unquote(pathlib.PurePosixPath(path).name))
 
-    return SuffixedCacheMapper()
+    return BasenameCacheMapper()
 
 
 def localize_fsspec_url(
@@ -826,9 +873,9 @@ def localize_fsspec_url(
         # cached copy of an array that changed remotely -- the worst failure mode
         # this feature has, and worth one HEAD per open to avoid.
         opts = {
-            "cache_storage": cache_storage,
+            "cache_storage": fsspec_cache_path(urlpath, cache_storage, storage_options=storage_options),
             "check_files": True,
-            "cache_mapper": _suffixed_cache_mapper(),
+            "cache_mapper": _basename_cache_mapper(),
         }
         with fsspec.open(f"filecache::{urlpath}", "rb", filecache=opts, **(storage_options or {})) as f:
             return f.name
@@ -1096,7 +1143,7 @@ def load_tensor(
     :func:`~blosc2.save_tensor`
     :func:`~blosc2.pack_tensor`
     """
-    schunk = blosc2.open(urlpath, mode="r", dparams=dparams, storage_options=storage_options)
+    schunk = blosc2.open(urlpath, mode="r", lazy=False, dparams=dparams, storage_options=storage_options)
     return _unpack_tensor(schunk)
 
 
@@ -1192,6 +1239,7 @@ def set_nthreads(nthreads: int) -> int:
     >>> oldn = blosc2.set_nthreads(2)
     >>> blosc2.set_nthreads(1)
     2
+    >>> _ = blosc2.set_nthreads(oldn)
 
     See also
     --------
@@ -1339,6 +1387,7 @@ def set_releasegil(gilstate: bool) -> bool:
     Examples
     --------
     >>> oldReleaseState = blosc2.set_releasegil(True)
+    >>> _ = blosc2.set_releasegil(oldReleaseState)
     """
     gilstate = bool(gilstate)
     if blosc2.IS_WASM:
@@ -2014,8 +2063,9 @@ def compress2(src: object, **kwargs: dict) -> str | bytes:
     >>> data = np.arange(1e6, dtype=np.float32)
     >>> cparams = blosc2.CParams()
     >>> compressed_data = blosc2.compress2(data, cparams=cparams)
-    >>> print(f"Compressed data length: {len(compressed_data)} bytes")
-    Compressed data length: 14129 bytes
+    >>> len(compressed_data) < data.nbytes
+    True
+    >>> np.testing.assert_array_equal(np.frombuffer(blosc2.decompress2(compressed_data), dtype=data.dtype), data)
 
     See also
     --------
@@ -2152,8 +2202,8 @@ def schunk_from_cframe(cframe: bytes | str, copy: bool = False) -> blosc2.SChunk
     >>> cparams = blosc2.CParams(typesize=4)
     >>> schunk = blosc2.SChunk(data=data, cparams=cparams)
     >>> serialized_schunk = schunk.to_cframe()
-    >>> print(f"Serialized SChunk length: {len(serialized_schunk)} bytes")
-    Serialized SChunk length: 14129 bytes
+    >>> len(serialized_schunk) < data.nbytes
+    True
     >>> deserialized_schunk = blosc2.schunk_from_cframe(serialized_schunk)
     >>> start = 1000
     >>> stop = 1005

@@ -1,16 +1,19 @@
-from collections.abc import Callable
 import asyncio
+from collections.abc import Callable
 from typing import Any
+
 from asyncdb.exceptions import NoDataFound, ProviderError
-from .flow import FlowComponent
-from ..exceptions import (
-    ComponentError,
-    DataNotFound,
-    NotSupported,
-    FileNotFound
-)
+
+from ..exceptions import ComponentError, DataNotFound, FileNotFound, NotSupported
 from ..utils.stats import StepMonitor
-from .log import SkipErrors
+from .flow import FlowComponent
+from .skip_policy import (
+    SKIPPED_ITERATION,
+    Disposition,
+    ErrorFamily,
+    classify,
+    resolve_skip,
+)
 
 
 class BaseLoop(FlowComponent):
@@ -42,15 +45,15 @@ class BaseLoop(FlowComponent):
     _version = "1.0.0"
     def __init__(
         self,
-        loop: asyncio.AbstractEventLoop = None,
-        job: Callable = None,
-        stat: Callable = None,
+        loop: asyncio.AbstractEventLoop | None = None,
+        job: Callable | None = None,
+        stat: Callable | None = None,
         **kwargs,
     ):
         self._conditions: dict = {}
         self._default = kwargs.get("default", None)
         self._tracked_components = set()
-        super(BaseLoop, self).__init__(loop=loop, job=job, stat=stat, **kwargs)
+        super().__init__(loop=loop, job=job, stat=stat, **kwargs)
 
     def _define_tracking_components(self, *components):
         """
@@ -153,60 +156,77 @@ class BaseLoop(FlowComponent):
                 f"Component Error on {target}: {err}"
             ) from err
 
-    async def exec_component(self, job, step_name):
-        start = getattr(job, "start", None)
-        if callable(start):
-            try:
-                if asyncio.iscoroutinefunction(start):
-                    st = await job.start()
-                else:
-                    st = job.start()
-                self._logger.debug(f"STARTED: {st}")
-            except (NoDataFound, DataNotFound) as err:
-                raise DataNotFound(f"{err!s}") from err
-            except (ProviderError, ComponentError, NotSupported) as err:
-                raise ComponentError(
-                    f"Error running Start Function on {step_name}, error: {err}"
-                ) from err
+    def _dispatch_error(self, job, err, step_name):
+        """Decide que hacer con una excepcion de RAMA.
+
+        Gemelo del de `IteratorBase`, pero sin umbral: `IF`/`Switch` son
+        ramificacion, no iteracion (spec §2 D4).
+        """
+        if resolve_skip(job, err, logger=self._logger, step_name=step_name) is Disposition.RETURN:
+            return SKIPPED_ITERATION
+        family = classify(err)
+        if family is ErrorFamily.DATA:
+            raise DataNotFound(f"{err!s}") from err
+        elif family is ErrorFamily.COMPONENT:
+            # Leave original exception intact (don't narrow to NotSupported)
+            raise err
         else:
-            raise ComponentError(
-                f"Error running Function on {step_name}"
-            )
+            # GENERIC
+            raise ComponentError(f"Error running Component {step_name}, error: {err}") from err
+
+    async def exec_component(self, job, step_name):
+        """Ejecuta el componente de la rama.
+
+        Contrato tras FEAT-554 (spec §3 M6): misma clasificacion que
+        `IteratorBase.async_job` para las familias no-de-datos
+        -- verified: base_loop.py:201-209 (hoy estrecha a NotSupported).
+
+        **NO** aplica `max_consecutive_failures`: `IF`/`Switch` son
+        RAMIFICACION, no iteracion; "skip" omite el componente de la rama, no
+        reanuda un bucle (spec §2 D4).
+
+        Consumidores: `IF` (`IF.py:9`), `Switch` (`Switch.py:11`).
+
+        Returns:
+            El resultado del componente, o `SKIPPED_ITERATION` si se omitio.
+        """
         try:
-            run = getattr(job, "run", None)
-            if asyncio.iscoroutinefunction(run):
-                result = await job.run()
+            start = getattr(job, "start", None)
+            if callable(start):
+                try:
+                    if asyncio.iscoroutinefunction(start):
+                        st = await job.start()
+                    else:
+                        st = job.start()
+                    self._logger.debug(f"STARTED: {st}")
+                except (NoDataFound, DataNotFound, FileNotFound) as err:
+                    return self._dispatch_error(job, err, step_name)
+                except (ProviderError, ComponentError, NotSupported) as err:
+                    return self._dispatch_error(job, err, step_name)
+                except Exception as err:
+                    # Familia generica en start(): tambien debe consultar
+                    # skipError (misma clasificacion que async_job, §3 M6) —
+                    # sin este bloque, un fallo generico en start() escapa
+                    # crudo, ignorando la politica por completo.
+                    return self._dispatch_error(job, err, step_name)
             else:
-                result = job.run()
-            self._result = result
-            return self._result
-        except (NoDataFound, DataNotFound, FileNotFound) as err:
+                raise ComponentError(
+                    f"Error running Function on {step_name}"
+                )
             try:
-                if job.skipError == SkipErrors.SKIP:
-                    self._logger.warning(
-                        f"Component {job!s} was Skipped, error: {err}"
-                    )
-                    self._result = self.data
-                    return self._result
-                elif job.skipError == SkipErrors.ENFORCE:
-                    # Enforcing to Raise Error:
-                    raise DataNotFound(f"{err!s}") from err
+                run = getattr(job, "run", None)
+                if asyncio.iscoroutinefunction(run):
+                    result = await job.run()
                 else:
-                    # Log Only
-                    self._logger.error(
-                        f"Component {job!s} was Skipped, error: {err}"
-                    )
-            except AttributeError:
-                raise DataNotFound(f"{err!s}") from err
-        except (ProviderError, ComponentError, NotSupported) as err:
-            raise NotSupported(
-                f"Error running Component {step_name}, error: {err}"
-            ) from err
-        except Exception as err:
-            self._logger.exception(err, exc_info=True)
-            raise ComponentError(
-                f"Iterator Error on {step_name}, error: {err}"
-            ) from err
+                    result = job.run()
+                self._result = result
+                return self._result
+            except (NoDataFound, DataNotFound, FileNotFound) as err:
+                return self._dispatch_error(job, err, step_name)
+            except (ProviderError, ComponentError, NotSupported) as err:
+                return self._dispatch_error(job, err, step_name)
+            except Exception as err:  # noqa: BLE001
+                return self._dispatch_error(job, err, step_name)
         finally:
             try:
                 close = getattr(job, "close", None)
@@ -214,5 +234,5 @@ class BaseLoop(FlowComponent):
                     await job.close()
                 else:
                     job.close()
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001
+                self._logger.warning(f"Error closing job: {e}")

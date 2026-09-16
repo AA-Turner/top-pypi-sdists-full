@@ -130,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.438.0", "uqff_calculator.VERSION = 0.438.0 (THE KILL TEST SHIP: stages 1 and 2 of the kill test in one band - a million sampled tensors, then the true local maxima - the cap holds forty-four-fold, and the store's holes are named)")
+assert_that(C.VERSION == "0.440.0", "uqff_calculator.VERSION = 0.440.0 (FRONT 4 RE-SPECIFIED AND MEASURED SHIP: the equipartition identity named, eta(k) stated as the observable, and measured with the program's own MD - c_0 scale, c_inf excluded, coefficient not confirmed)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -15330,6 +15330,105 @@ assert_that(_b283['n_cubes'] == 8 and _b283['n_rejected'] == 2 and _b283['total_
             and 'CORRECTION (2026-09-15' in _readfile('whitepapers/PAPER_2277_THE_DEEP_TAIL_SAMPLE_ONE_MILLION_GRADIENT_TENSORS_PERSONAL_TOKEN_STAGE_1_KILL_TEST_UQFF_LANDMARK.md')
             and '2026-09-15' in _readfile('jhtdb_grade/README_PROVENANCE.md') and 'kill_test_stage2_cap_grade' in _readfile('UNIFIED_REGISTRY.csv'),
             "B283 - THE LOCAL MAXIMUM (PAPER_2278): stage 2 of the kill test, done through the same REST service and token without SciServer - GetVariable with sint=fd4noint returns fourth-order finite differences on the TRUE grid at every node asked, so full-resolution 64^3 and 128^3 cubes (2.6 million nodes, 132 sequential requests, 132/132 HTTP 200) were pulled around the most intense events of the deep sample and graded with each cube's OWN maximum: eight clean cubes on two Reynolds rungs, every one between 0.009 and 0.019 - worst 0.019442 (c8192_3), forty-four-fold under 17/20; the most intense region of the record (isotropic32768: cube mean 75x the global mean, peak 1.354e9 = 11,763x - eleven times the stage-1 sample at that spot) grades 0.012 at 64^3 and 0.011 at 128^3 with peak-cell efficiency 0.074; the 128^3 cubes hold the same peak node and grade lower, so 64^3 is the conservative figure; the octave efficiency FALLS with intensity inside every cube (eff(32x)/eff(mean) 0.14-0.45); two of eight peak cells are compressed along omega. THE DATA HOLE, the band's Rule-7 finding: the isotropic32768 store returns |w|^2 = 0 exactly over whole blocks (y-index <= 22781 in the region probed, deterministic on re-pull) and the fd4 stencil straddling a block edge manufactures |w| ~ 6,000 spikes two nodes in - stage-1 hotspots 3 and 4 on that rung were hole-edge artefacts, never turbulence, REJECTED with the mechanism named; B282's 166 zero points were the same hole; the two stage-1 chunks that contained them are biased low and say so; the chunk envelope 0.0187 stands; isotropic8192 shows no hole in 3.1 million nodes; every accepted cube has a zero-free interior and a zero-free three-layer halo (stencil reach two). NOT claimed: the cap proved; front 1 closed for the whole field (eight regions chosen by a million-point sample; the field has 3.5e13 nodes); the honest form is that the cap holds at the true local maximum of every intense event the deep sample could find on the two highest-Re public DNS in existence, with the efficiency trend running away from it")
+
+# ---- B284 2026-09-15: FRONT 2 - the pair-cap discrimination, near-wall tail (channel Re_tau ~ 1000) ----
+_b284 = _b267.in_medium_tail_grade()
+_b284p = _readfile('whitepapers/PAPER_2279_FRONT_2_THE_PAIR_CAP_DISCRIMINATION_NEAR_WALL_TAIL_CHANNEL_UQFF_LANDMARK.md')
+_b284nw = _b284['stage1']['near_wall']; _b284bulk = _b284['stage1']['bulk']
+_b284slabs = {sl['id']: sl for sl in _b284['stage2']['slabs']}
+assert_that(_b284['front'] == 2 and _b284['pair_cap']['csv_caps_match_primitives']
+            and abs(_b284['pair_cap']['vacuum'] - 17.0/20.0) < 1e-12 and abs(_b284['pair_cap']['in_medium'] - 197.0/200.0) < 1e-12
+            and abs(_b284['pair_cap']['gap'] - 0.135) < 1e-12
+            and _b284nw['n'] == 250000 and _b284bulk['n'] == 100000
+            and abs(_b284nw['ratio'] - 0.008149) < 1e-5 and abs(_b284bulk['ratio'] - 0.015438) < 1e-5
+            and abs(_b284['stage1']['band_ratio_peak'] - 0.023758) < 1e-5
+            and len(_b284['stage2']['slabs']) == 4 and all(sl['zero'] == 0 for sl in _b284['stage2']['slabs'])
+            and abs(_b284slabs['s1']['ratio_local'] - 0.00453) < 1e-6 and abs(_b284slabs['s3']['ratio_local'] - 0.04129) < 1e-6
+            and abs(_b284['stage2']['worst_ratio_local'] - 0.04129) < 1e-6 and _b284['stage2']['worst_at_yplus'] == 50
+            and _b284slabs['s1']['pos_frac'] < _b284slabs['s4']['pos_frac']
+            and abs(_b284['stage2']['peak_cell_efficiency_at_production_peak'] - 0.1766) < 1e-4
+            and _b284['overall_ratio_max'] <= _b284['pair_cap']['vacuum']
+            and _b284['in_medium_branch_holds'] and not _b284['discrimination_reachable']
+            and _b284['margin_under_vacuum'] > 20 and _b284['margin_under_in_medium'] > 20
+            and _b284['stage2']['no_data_holes']
+            and 'IN_MEDIUM_TAIL_CAP_HOLDS_B284' in _b284['status'] and 'discrimination' in _b284['not_claimed'].lower()
+            and 'B284' in _b275d['awaiting_outside_data'][1] and 'OUT OF REACH' in _b275d['awaiting_outside_data'][1] and 'CLOSED' in _b275d['awaiting_outside_data'][1]
+            and 'near-wall' in _b284p and 'y+' in _b284p and '0.041' in _b284p and 'out of reach' in _b284p.lower()
+            and 'in_medium_tail' in _readfile('UNIFIED_REGISTRY.csv'),
+            "B284 - FRONT 2, THE PAIR-CAP DISCRIMINATION AT THE NEAR-WALL TAIL (PAPER_2279): B277 sampled the channel bulk with the walls excluded (|y| < 0.9, y+ > 100) and could only give a bulk consistency pass; this grade supplies the near-wall cutouts PAPER_2276 sec 6.2 named as the instrument the discrimination needs - JHTDB channel (Re_tau ~ 1000), personal token, 250,000 gradient tensors in the band y+ in [0.5,150] (forty sequential 25k requests) plus 100,000 in the bulk, then four wall-parallel x-z grid slabs (fd4noint, the channel's own grid, graded with each slab's own maximum) through the layers. The in-medium branch (197/200) HOLDS: the 1182 ratio, resolved by wall distance, runs 0.007 (viscous sublayer) -> 0.024 (buffer, y+ 20-100) -> 0.015 (core) in stage 1, and the local-max slabs run 0.0045 (sublayer) -> 0.022 (production peak, y+ 15) -> 0.041 (y+ 50) -> 0.037 (y+ 100) in stage 2 - everywhere 20-130x under BOTH the vacuum cap 17/20 and the in-medium cap 197/200. The two branches are 0.135 apart; the flow sits an order of magnitude below the nearer of them, so the DISCRIMINATION is OUT OF REACH - a positive statement of what wall turbulence at Re_tau 1000 cannot decide, exactly as the vacuum branch was for isotropic (B283). FINDING (the in-medium echo of B282/B283): the viscous sublayer has the LOWEST positive-stretching fraction (0.52) and its most intense enstrophy - which is mean shear - the smallest local efficiency (0.047); stretching efficiency peaks in the buffer/log layer, not at the wall, and the peak-cell efficiency tops at 0.177 at the production peak - the most intense vorticity is the least efficiently stretched on the wall side too. The channel store is clean (zero data holes in every slab). NOT claimed: the discrimination achieved; the whole channel graded; channel5200 (deeper tail, the natural extension) - OPEN")
+
+
+# ---- B285 2026-09-15: FRONT 2 EXTENSION - channel5200, the in-medium Reynolds rung ----
+_b285 = _b267.in_medium_reynolds_rung()
+_b285p = _readfile('whitepapers/PAPER_2280_FRONT_2_EXTENSION_CHANNEL5200_THE_IN_MEDIUM_REYNOLDS_RUNG_NO_TREND_UQFF_LANDMARK.md')
+_b285s = {sl['id']: sl for sl in _b285['stage2']['slabs']}
+_b285cmp = {c['yplus']: c for c in _b285['reynolds_comparison_wall_units']}
+assert_that(_b285['rung'] == 'channel5200' and abs(_b285['re_tau'] - 5185.897) < 1e-6 and _b285['pair_cap']['csv_caps_match']
+            and _b285['stage1']['near_wall']['n'] == 250000 and _b285['stage1']['bulk']['n'] == 100000
+            and abs(_b285['stage1']['near_wall']['ratio'] - 0.006562) < 1e-5 and abs(_b285['stage1']['bulk']['ratio'] - 0.020226) < 1e-5
+            and _b285['stage1']['near_wall']['zero'] == 0 and _b285['stage1']['bulk']['zero'] == 0
+            and abs(_b285cmp['0-10']['ratio_5200'] - 0.005356) < 1e-5 and abs(_b285cmp['100-150']['ratio_5200'] - 0.024573) < 1e-5
+            and abs(_b285cmp['150-300']['ratio_5200'] - 0.033804) < 1e-5
+            and len(_b285cmp) == 8 and _b285['max_pos_frac_diff_between_rungs'] < 0.006
+            and len(_b285['stage2']['slabs']) == 7 and _b285['stage2']['no_data_holes']
+            and abs(_b285s['s1']['ratio_local'] - 0.007971) < 1e-5 and abs(_b285s['s4']['ratio_local'] - 0.041835) < 1e-5
+            and abs(_b285['stage2']['worst_ratio_local_64'] - 0.041835) < 1e-5 and _b285['stage2']['worst_at_yplus'] == 100
+            and _b285['stage2']['resolution_check_128_lower'] and set(_b285['stage2']['compressed_peaks']) == {'s3', 's4'}
+            and _b285['local_max_envelope']['relative_difference'] < 0.02
+            and _b285['margin_under_vacuum'] > 20 and _b285['margin_under_in_medium'] > 23
+            and _b285['in_medium_branch_holds'] and not _b285['discrimination_reachable']
+            and 'NONE' in _b285['reynolds_trend'] and 'IN_MEDIUM_REYNOLDS_RUNG_CAP_HOLDS_B285' in _b285['status']
+            and 'channel5200 DONE' in _b275d['awaiting_outside_data'][1] and 'NO Reynolds trend' in _b275d['awaiting_outside_data'][1]
+            and 'Re_tau' in _b285p and '0.0418' in _b285p and 'no reynolds trend' in _b285p.lower() and 'not claimed' in _b285p.lower()
+            and 'in_medium_reynolds_rung' in _readfile('UNIFIED_REGISTRY.csv'),
+            "B285 - FRONT 2 EXTENSION, THE IN-MEDIUM REYNOLDS RUNG (PAPER_2280): the B284 protocol repeated on JHTDB channel5200 (Re_tau 5186, five times the channel's 1000, the largest public wall-bounded DNS) - personal token, 250,000 gradient tensors in the near-wall band y+ [0.5,150] (ten sequential 25k requests, ~40 s each) plus 100,000 in the bulk, then seven wall-parallel x-z fd4noint slabs (64x64 at y+ 1.5/15/50/100/300/1000, one 128x128 check at y+ 50) graded with their own maxima, every number recomputed here from the CSV and compared with B284 band by band IN WALL UNITS. NO REYNOLDS TREND: the 1182-ratio profile is the same on both rungs to within chunk scatter (sublayer 0.0054 vs 0.0067; y+ 100-150 0.0246 vs 0.0200; peak in the log layer on both), the positive-stretching fraction agrees to 0.005 in every one of eight shared bands (0.547 vs 0.548 at the wall, 0.741 vs 0.744 at y+ 100-150), and the local-max envelope is 0.0418 (y+ 100) vs 0.0413 (y+ 50) - ONE PERCENT apart across a fivefold rise in Re_tau; 20x under 17/20 and 24x under 197/200 on both rungs. The 128x128 slab grades lower than its 64x64 core (the B283 rule); the peak cells at y+ 50 and y+ 100 are COMPRESSED along omega, as the 1052x cell of isotropic32768 was; zero zero-nodes anywhere (the channel5200 store is clean). The in-medium branch holds on the largest wall-bounded DNS in existence; the discrimination remains out of reach for the same reason as at Re_tau 1000; and the in-medium ladder - two rungs, both flat - is the wall-side twin of the isotropic Reynolds ladder (B278/B282). NOT claimed: the discrimination; a full 3D cube on the non-uniform y-grid; frames other than t = 1.0")
+
+
+# ---- B286 2026-09-15: FRONT 4 RE-SPECIFIED - the equipartition identity and eta(k) ----
+_b286 = _b267.front4_specification()
+_b286h = _b267.front4_grade_eta_k()
+_b286p = _readfile('whitepapers/PAPER_2281_FRONT_4_RESPECIFIED_THE_EQUIPARTITION_IDENTITY_AND_THE_WAVEVECTOR_DEPENDENT_SHEAR_VISCOSITY_UQFF_LANDMARK.md')
+_b286c0, _b286ci = _b286['prediction']['c_0'], _b286['prediction']['c_inf']
+import math as _b286m
+assert_that(_b286['front'] == 4 and abs(_b286['roll_off_coefficient'] - _b267.BETA_I * _b267.SSQ) < 1e-15
+            and abs(_b286['roll_off_coefficient'] - 0.3437) < 5e-4
+            and abs(_b286c0['k_c_per_nm'] - 5.307) < 1e-3 and abs(_b286ci['k_c_per_nm'] - 2.454) < 1e-3
+            and abs(_b286c0['small_k_coefficient_a_nm2'] - _b286['roll_off_coefficient'] / _b286c0['k_c_per_nm'] ** 2) < 1e-12
+            and abs(_b286c0['small_k_coefficient_a_nm2'] - 0.0122) < 1e-4 and abs(_b286ci['small_k_coefficient_a_nm2'] - 0.0570) < 1e-4
+            and abs(_b286ci['small_k_coefficient_a_nm2'] / _b286c0['small_k_coefficient_a_nm2'] - (3200.0 / 1480.0) ** 2) < 1e-9
+            and abs(_b286c0['one_over_e_k_per_nm'] - 9.05) < 0.01 and abs(_b286ci['one_over_e_k_per_nm'] - 4.19) < 0.01
+            and abs(_b286c0['half_k_per_nm'] - _b286m.sqrt(_b286m.log(2) / _b286['roll_off_coefficient']) * _b286c0['k_c_per_nm']) < 1e-12
+            and abs(_b286c0['table_eta_over_eta0'][0] - _b286m.exp(-_b286['roll_off_coefficient'] / _b286c0['k_c_per_nm'] ** 2)) < 1e-12
+            and 'equipartition' in _b286['defect_found'] and 'N k_B T / m' in _b286['defect_found']
+            and 'eta(k)' in _b286['corrected_observable'] and 'gmx tcaf' in _b286['corrected_observable']
+            and 'NEGATIVE' in _b286['falsifier_stated_before_measurement'] and 'Q-250' in _b286['ruling_opened']
+            and 'not' in _b286['not_claimed'].lower() and 'FRONT4_RESPECIFIED_B286' in _b286['status']
+            and _b286h['status'].startswith('FRONT4_GRADED_B286') and 'md_grade/front4_eta_k.csv' in _b286h['path'].replace('\\', '/')
+            and 'RE-SPECIFIED (B286' in _b275d['awaiting_outside_data'][3] and 'OPEN' in _b275d['awaiting_outside_data'][3] and 'equipartition' in _b275d['awaiting_outside_data'][3]
+            and 'equipartition' in _b286p.lower() and '0.0122' in _b286p and '0.0570' in _b286p and 'Q-250' in _b286p and 'gmx tcaf' in _b286p and 'not claimed' in _b286p.lower()
+            and _shos.path.exists('md_grade/front4_tcaf.py') and 'W = sqrt(1 - 4 tau eta k^2 / rho)' in _readfile('md_grade/front4_tcaf.py')
+            and 'front4_specification' in _readfile('UNIFIED_REGISTRY.csv') and 'Q-250' in _readfile('RULINGS_QUEUE.md'),
+            "B286 - FRONT 4 RE-SPECIFIED (PAPER_2281): the MD test PAPER_2276 sec 6.4 wrote - 'the transverse current integrated over omega against exp(-0.344 (k/k_c)^2)' - is int C_T(k,omega) domega = C_T(k,0) = N k_B T / m at EVERY wavenumber in any classical fluid at equilibrium (velocities independent of positions in the canonical ensemble): the equipartition identity, flat in k by construction, so an MD run would have 'falsified' the roll-off without testing any dynamics - the defect was the program's own specification and is named before any CPU is spent. The observable the claim is about - the hydrodynamic velocity field's TRANSFER of transverse momentum at wavenumber k - is the wavevector-dependent shear viscosity eta(k) from the transverse-current autocorrelation (Palmer PRE 49, 359 (1994); Hess JCP 116, 209 (2002); the stock GROMACS tool gmx tcaf, which fits f(t) = exp(-v)(cosh Wv + sinh Wv / W), W = sqrt(1 - 4 tau eta k^2/rho), and extrapolates eta(k) = eta_0 (1 - a k^2)). The framework's Gaussian eta(k)/eta_0 = exp(-0.344 (k/k_c)^2) expands to exactly that fit form with a = 0.344/k_c^2 - a number a stock tool prints: 0.0122 nm^2 for c_0 (k_c 5.307 nm^-1; 1/e at 9.05) or 0.0570 nm^2 for c_inf (k_c 2.454; 1/e at 4.19), ratio (c_inf/c_0)^2 = 4.67 so the two candidates cannot both fit and the run would also settle Q-247 from the fluid side. Falsifier stated before measurement (1/e scale far from both, or Lorentzian shape -> front 4 NEGATIVE for transfer = eta(k)); Q-250 opened (is eta(k) the canonical reading of transfer, or the transverse dispersion of C_T(k,omega), or a kernel-dependent coarse-grained spectrum); instrument md_grade/front4_tcaf.py (OpenMM, TIP4P/2005, on-the-fly j_T(k,t), TCAF fit per k-shell, CSV) on the wheel; harness front4_grade_eta_k() written data-gated (AWAITING_DATA until a CSV exists; it synthesizes nothing) - then FED the same day by the program's own MD (B286b, next pin). The package index is HTTP 403 from the cloud workspace, so the OpenMM route waits; the numpy engine did not. NOT claimed: front 4 passed or failed; the value of a for water; that eta(k) is the only admissible reading")
+
+
+# ---- B286b 2026-09-15: FRONT 4 MEASURED - the program's own MD, eta(k) graded ----
+_b286g = _b267.front4_grade_eta_k()
+_b286mg = _b286g['measured_gaussian']
+assert_that(_b286g['status'].startswith('FRONT4_GRADED_B286') and _b286g['n'] == 26 and 1.0 < _b286g['eta_0'] < 1.1
+            and abs(_b286mg['b_nm2'] - 0.0056) < 2e-4 and abs(_b286mg['k_c_measured_per_nm'] - 7.80) < 0.05
+            and abs(_b286mg['one_over_e_per_nm'] - 13.3) < 0.1 and abs(_b286g['measured_one_over_e_k_per_nm'] - 13.43) < 0.05
+            and abs(_b286mg['k_c_measured_per_nm'] - _b286m.sqrt(_b286['roll_off_coefficient'] / _b286mg['b_nm2'])) < 1e-9
+            and abs(_b286g['k_c_ratio_measured_over_predicted']['c_0'] - 1.47) < 0.01 and abs(_b286g['k_c_ratio_measured_over_predicted']['c_inf'] - 3.18) < 0.01
+            and _b286g['nearer_candidate'] == 'c_0' and 'SAME SCALE' in _b286g['candidate_reading']['c_0'] and 'EXCLUDED' in _b286g['candidate_reading']['c_inf']
+            and _b286g['candidates']['c_0']['rms_residual'] < _b286g['candidates']['c_inf']['rms_residual']
+            and 'Not a precision pass' in _b286g['verdict']
+            and 'MEASURED' in _b275d['awaiting_outside_data'][3] and 'EXCLUDED' in _b275d['awaiting_outside_data'][3] and 'OPEN' in _b275d['awaiting_outside_data'][3]
+            and '7.8' in _b286p and 'EXCLUDED' in _b286p.upper() and 'not a precision match' in _b286p.lower() and 'md_engine.py' in _b286p
+            and _shos.path.exists('md_grade/md_engine.py') and _shos.path.exists('md_grade/front4_eta_k.csv') and _shos.path.exists('md_grade/front4_main_analysis.json')
+            and 'reaction-field' in _readfile('md_grade/md_engine.py').lower() and 'RATTLE' in _readfile('md_grade/md_engine.py')
+            and 'front4_measured_roll_off' in _readfile('UNIFIED_REGISTRY.csv') and 'GRADED_2026-09-15' in _readfile('UNIFIED_REGISTRY.csv'),
+            "B286b - FRONT 4 MEASURED (PAPER_2281 sec 5b): with the package index unreachable, the instrument was written from scratch - md_grade/md_engine.py, a rigid TIP4P/2005 water MD in numpy (RATTLE, virtual M site with redistributed force, O-O LJ + reaction-field Coulomb with a SITE-based 0.9 nm cutoff after a molecule-based cutoff was caught heating at +1.5 kJ/mol per molecule per 2 ps timestep-independently; the site cutoff conserves energy to -0.006 kJ/mol per molecule over 2 ps at 2 fs; forces equal -grad E to machine precision by finite differences; E/N -47.5 vs the model's published -47.4) - and run: 512 molecules, L 2.486 nm, 40 ps equilibration, 240 ps production, j_T(k,t) every 20 fs for 369 k-vectors in 26 shells to 13.8 nm^-1, eta(k) by the Green-Kubo integral rho/(k^2 int C_T dt) with four-block errors, every number recomputed here from md_grade/front4_eta_k.csv. RESULT: eta_0 1.05 mPa s (model literature 0.855; reaction field, small box); eta/eta_0 flat to k ~ 6 nm^-1 then rolling off to 1/e at 13.3-13.4 nm^-1; weighted log-linear Gaussian b = 0.0056 nm^2 -> MEASURED k_c = 7.8 nm^-1. Against the candidates: c_0 (5.31) SAME SCALE, factor 1.47 in k_c - NOT a precision match; c_inf (2.45) EXCLUDED by a factor 3.2 - the first fluid-side evidence on Q-247, pointing to c_0 = 1480 m/s; shape undecided (the weighted log-linear fit prefers Gaussian, an error-weighted nonlinear fit prefers Lorentzian); the second estimator (gmx-form fit, biased low in the oscillatory regime) gives k_c 4.4, so the c_0 candidate sits between the estimators. Per the falsifier stated before measurement this is NOT a pass of exp(-0.344 (k/k_c)^2): the roll-off exists, sits on the hydrodynamic sound-cone scale, and the coefficient 0.344 is not confirmed. NOT claimed: front 4 passed or closed; the model's third digit; anything beyond one run, one box, one seed, 240 ps, reaction field; the diffusion coefficient (not reliably extracted). The record run - 8 nm, 1-2 ns, PME - is the next instrument")
+
 
 # ---- B268 2026-09-09: THE THREE TIERS - "TIER 1, THEN TIER 2, THEN TIER 3" (Daniel's order) ----
 import os as _b268os, tempfile as _b268tmp, csv as _b268csv

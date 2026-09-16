@@ -26,17 +26,17 @@ class AddCommonBandwidthPackageIpRequest(DaraModel):
         # 
         # You can use the client to generate the token, but you must make sure that the token is unique among different requests. The ClientToken value can contain only ASCII characters.
         # 
-        # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
+        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
         self.client_token = client_token
-        # Specifies whether to perform a dry run without actually executing the operation.
+        # Specifies whether to perform a dry run, without performing the actual request.
         self.dry_run = dry_run
         # The ID of the EIP instance. 
         # 
-        # You can call [DescribeEipAddresses](https://help.aliyun.com/document_detail/36018.html) to query the ID of the EIP instance.
+        # You can call [DescribeEipAddresses](https://www.alibabacloud.com/help/en/eip/developer-reference/api-vpc-2016-04-28-describeeipaddresses-eips) to query the ID of the EIP instance.
         # 
         # This parameter is required.
         self.ip_instance_id = ip_instance_id
-        # The IP type. Valid values: **EIP**, which indicates that an EIP is added to the Internet Shared Bandwidth instance.
+        # The IP type. Set the value to **EIP**, which specifies that an EIP is added to the Internet Shared Bandwidth instance.
         self.ip_type = ip_type
         self.owner_account = owner_account
         self.owner_id = owner_id

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import math
 import os
 import threading
@@ -18,6 +19,7 @@ import weakref
 from collections.abc import Mapping
 from contextlib import nullcontext
 from functools import wraps
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
@@ -32,7 +34,7 @@ from blosc2.b2objects import (
     write_b2object_payload,
     write_b2object_user_vlmeta,
 )
-from blosc2.core import parse_container_url, storage_options_fingerprint
+from blosc2.core import fsspec_cache_path, parse_container_url, storage_options_fingerprint
 from blosc2.info import InfoReporter, format_nbytes_info
 
 DEFAULT_DISK_CACHE_BYTES = 256 * 2**20
@@ -122,6 +124,69 @@ def _validate_assume_immutable(value, name="assume_immutable"):
     if not isinstance(value, bool):
         raise TypeError(f"{name} must be a bool")
     return value
+
+
+def _hdf5_refs_from_carrier(carrier):
+    """Decode the kerchunk reference snapshot a carrier stores, if present."""
+    if carrier is None:
+        return None
+    raw_refs = getattr(carrier, "schunk", carrier).vlmeta.get("hdf5-refs")
+    if raw_refs is None:
+        return None
+    try:
+        import ujson as json_mod
+    except ImportError:
+        import json as json_mod
+    return json_mod.loads(blosc2.decompress(raw_refs).decode("utf-8"))
+
+
+def _store_hdf5_refs(carrier, refs):
+    """Keep the kerchunk snapshot on the carrier so a reopen needs no rescan."""
+    if refs is None:
+        return
+    try:
+        import ujson as json_mod
+    except ImportError:
+        import json as json_mod
+    carrier.schunk.vlmeta["hdf5-refs"] = blosc2.compress(json_mod.dumps(refs).encode("utf-8"), typesize=1)
+
+
+def _publish_hdf5_refs(path, carrier, *, scanned):
+    if path is None or carrier is None:
+        return
+    raw_refs = getattr(carrier, "schunk", carrier).vlmeta.get("hdf5-refs")
+    if raw_refs is None:
+        return  # Local h5py readers have no reference snapshot to share.
+    if scanned or not path.exists():
+        from blosc2.remote_store_cache import atomic_write
+
+        # Also seed the shared snapshot when reopening an older leaf cache.
+        atomic_write(path, raw_refs)
+
+
+def _b2z_seed_from_carrier(carrier):
+    """Decode the cached B2Z bootstrap a carrier stores, if present."""
+    if carrier is None:
+        return None
+    seed = getattr(carrier, "schunk", carrier).vlmeta.get("b2z-frame")
+    # Older experimental carriers used a JSON blob; rebuild their bootstrap.
+    return seed if isinstance(seed, dict) and seed.get("version") == 1 else None
+
+
+def _store_b2z_seed(carrier, seed):
+    """Keep a B2Z bootstrap on the carrier so a reopen skips the remote ZIP bootstrap."""
+    if seed is not None:
+        schunk = getattr(carrier, "schunk", carrier)
+        if getattr(schunk, "mode", "a") != "r":
+            # A read-only portable carrier keeps whatever seed it already has.
+            schunk.vlmeta["b2z-frame"] = seed
+
+
+def _zarr_metadata_from_carrier(carrier):
+    """Read the Zarr metadata snapshot, including absent metadata keys."""
+    if carrier is None:
+        return None
+    return getattr(carrier, "schunk", carrier).vlmeta.get("zarr-metadata")
 
 
 def _serialized_operation(method):
@@ -256,6 +321,7 @@ def _open_url_source(
     assume_immutable=True,
     dataset=None,
     refs=None,
+    seed=None,
     blocks=None,
     cparams=None,
 ):
@@ -268,7 +334,9 @@ def _open_url_source(
     if source_format == "zarr":
         if not assume_immutable:
             raise NotImplementedError("mutable Zarr sources are not supported")
-        src = blosc2.ZarrNDSource(urlpath, _traffic=traffic, blocks=blocks, cparams=cparams, **kwargs)
+        src = blosc2.ZarrNDSource(
+            urlpath, _traffic=traffic, _metadata=seed, blocks=blocks, cparams=cparams, **kwargs
+        )
         source = {
             "kind": "zarr",
             "version": 1,
@@ -299,7 +367,7 @@ def _open_url_source(
     elif source_format == "b2z":
         if not assume_immutable:
             raise NotImplementedError("mutable B2Z sources are not supported")
-        src = blosc2.B2ZNDSource(urlpath, dataset, _traffic=traffic, **kwargs)
+        src = blosc2.B2ZNDSource(urlpath, dataset, _traffic=traffic, _seed=seed, **kwargs)
         source = {
             "kind": "b2z",
             "version": 1,
@@ -449,6 +517,8 @@ class RemoteArray(blosc2.Operand):
     cache_dir: str or path-like, optional
         Directory in which a source-derived persistent cache filename is made.
         Only valid with ``DISK``.
+        HDF5 leaves also share a container reference snapshot here, avoiding
+        repeated discovery scans when opening sibling datasets.
     max_cache_bytes: int or None, optional
         Post-operation compressed-payload bound. It defaults to 256 MiB for
         ``DISK`` and ``MEMORY``. Passing ``None`` with ``DISK`` disables cache
@@ -506,19 +576,49 @@ class RemoteArray(blosc2.Operand):
             urlpath, dataset, source_format
         )
         self._authorized_source = _source_descriptor is not None
+        shared_refs_path = None
+        if (
+            not self._authorized_source
+            and self._source_format == "hdf5"
+            and cache_policy is blosc2.CachePolicy.DISK
+            and cache_dir is not None
+            and refs is None
+        ):
+            shared_refs_path = Path(
+                fsspec_cache_path(urlpath, cache_dir, ".hdf5-refs.b2", storage_options=storage_options)
+            )
         if self._authorized_source:
             self.src, self._source = _validate_authorized_source(
                 urlpath, storage_options, _source_descriptor, store_attachment=_store_owner is not None
             )
         else:
+            read_seed = (
+                _zarr_metadata_from_carrier if self._source_format == "zarr" else _b2z_seed_from_carrier
+            )
+            seed = read_seed(_carrier) if self._source_format in {"b2z", "zarr"} else None
             if refs is None and _carrier is not None:
-                raw_refs = getattr(_carrier, "schunk", _carrier).vlmeta.get("hdf5-refs")
-                if raw_refs is not None:
-                    try:
-                        import ujson as json_mod
-                    except ImportError:
-                        import json as json_mod
-                    refs = json_mod.loads(blosc2.decompress(raw_refs).decode("utf-8"))
+                refs = _hdf5_refs_from_carrier(_carrier)
+            elif (
+                refs is None
+                and _carrier is None
+                and cache_policy is blosc2.CachePolicy.DISK
+                and (cache_dir is not None or cache_path is not None)
+                and self._source_format in {"hdf5", "b2z", "zarr"}
+            ):
+                # A DISK carrier already holds the container bootstrap from a
+                # previous run; reuse it rather than redoing the remote discovery.
+                path = self._carrier_path(cache_dir, cache_path, urlpath, storage_options)
+                if os.path.exists(path):
+                    with contextlib.suppress(Exception):
+                        cached = blosc2.blosc2_ext.open(path, "r", 0, dparams=blosc2.DParams(nthreads=1))
+                        if self._source_format == "hdf5":
+                            refs = _hdf5_refs_from_carrier(cached)
+                        else:
+                            seed = read_seed(cached)
+            if refs is None and shared_refs_path is not None:
+                # Disposable metadata: an absent or damaged snapshot needs a fresh scan.
+                with contextlib.suppress(OSError, ValueError, RuntimeError):
+                    refs = json.loads(blosc2.decompress(shared_refs_path.read_bytes()))
             self.src, self._source = self._open_source(
                 urlpath,
                 self._max_concurrency,
@@ -528,6 +628,7 @@ class RemoteArray(blosc2.Operand):
                 assume_immutable=assume_immutable,
                 dataset=self._dataset,
                 refs=refs,
+                seed=seed,
                 blocks=_source_blocks,
                 cparams=_source_cparams,
             )
@@ -551,6 +652,8 @@ class RemoteArray(blosc2.Operand):
         self._mutable = False
 
         self._initialize_runtime_cache(cache_dir, cache_path, _runtime_cache_path)
+
+        _publish_hdf5_refs(shared_refs_path, self._carrier, scanned=refs is None)
 
         if self._carrier is not None:
             if self._cached_meta is None:
@@ -579,6 +682,14 @@ class RemoteArray(blosc2.Operand):
                 self._attach_carrier_cache()
         elif self.cache_policy is blosc2.CachePolicy.MEMORY:
             self._attach_carrier_cache()
+        if isinstance(self.src, blosc2.B2ZNDSource):
+            self.src._prefetched_frame = None
+            if (
+                self._carrier is not None
+                and self._runtime_is_mutable
+                and _b2z_seed_from_carrier(self._carrier) != self.src._seed
+            ):
+                _store_b2z_seed(self._carrier, self.src._seed)
 
     def _check_open(self):
         finalizer = getattr(self, "_store_finalizer", None)
@@ -615,13 +726,24 @@ class RemoteArray(blosc2.Operand):
             tuple(src.blocks),
         )
 
-    def _open_or_create_carrier(self, cache_dir, cache_path):
+    def _carrier_path(self, cache_dir, cache_path, urlpath=None, storage_options=None):
         if cache_path is not None:
             path = os.fspath(cache_path)
             if os.path.isdir(path):
                 raise ValueError("cache_path must name a file, not a directory")
-        else:
-            path = blosc2.schunk.fsspec_cache_path(self._cache_identity(), cache_dir, ".b2nd")
+            return path
+        if urlpath is None:
+            urlpath = self._source.get("urlpath", self._source_identity())
+            storage_options = self._storage_options
+        if self._source_format == "zarr" and self._dataset:
+            parsed = urlsplit(urlpath)
+            urlpath = urlunsplit(parsed._replace(path=parsed.path.rstrip("/")[: -len(self._dataset) - 1]))
+        return fsspec_cache_path(
+            urlpath, cache_dir, ".b2nd", dataset=self._dataset, storage_options=storage_options
+        )
+
+    def _open_or_create_carrier(self, cache_dir, cache_path):
+        path = self._carrier_path(cache_dir, cache_path)
         if os.path.exists(path):
             kwargs = {"dparams": blosc2.DParams(nthreads=1)}
             carrier = blosc2.blosc2_ext.open(path, "a", 0, **kwargs)
@@ -633,15 +755,9 @@ class RemoteArray(blosc2.Operand):
                     "or choose a new cache_path"
                 )
             if self._source.get("kind") == "hdf5" and "hdf5-refs" not in carrier.schunk.vlmeta:
-                refs = getattr(self.src, "_refs", None)
-                if refs is not None:
-                    try:
-                        import ujson as json_mod
-                    except ImportError:
-                        import json as json_mod
-                    carrier.schunk.vlmeta["hdf5-refs"] = blosc2.compress(
-                        json_mod.dumps(refs).encode("utf-8"), typesize=1
-                    )
+                _store_hdf5_refs(carrier, getattr(self.src, "_refs", None))
+            if self._source.get("kind") == "zarr" and "zarr-metadata" not in carrier.schunk.vlmeta:
+                carrier.schunk.vlmeta["zarr-metadata"] = self.src._metadata
             stored = carrier.schunk.vlmeta.get("proxy-stamp")
             current = getattr(self.src, "stamp", None)
             status = (
@@ -922,6 +1038,7 @@ class RemoteArray(blosc2.Operand):
         assume_immutable: bool = True,
         dataset: str | None = None,
         refs=None,
+        seed=None,
         blocks=None,
         cparams=None,
     ):
@@ -969,6 +1086,7 @@ class RemoteArray(blosc2.Operand):
                 assume_immutable=assume_immutable,
                 dataset=dataset,
                 refs=refs,
+                seed=seed,
                 blocks=blocks,
                 cparams=cparams,
             )
@@ -1145,12 +1263,36 @@ class RemoteArray(blosc2.Operand):
         self._check_open()
         return InfoReporter(self)
 
+    def _display_source(self) -> dict:
+        """The source descriptor for display, masking runtime-only URLs."""
+        try:
+            return self.source
+        except ValueError:
+            # Local paths are useful for display; runtime URLs may contain credentials.
+            source = dict(self._source)
+            for key in ("urlpath", "urlbase"):
+                url = source.get(key)
+                if url is not None and (urlsplit(url).scheme or "::" in url):
+                    source[key] = "<runtime-only URL>"
+            return source
+
+    def _display_identity(self) -> str:
+        """`_source_identity` for display, without runtime-only credentials."""
+        source = self._display_source()
+        if source.get("kind") in {"hdf5", "b2z"}:
+            return f"{source['urlpath']}::{source['dataset']}"
+        if source.get("kind") in {"fsspec", "zarr"}:
+            return source["urlpath"]
+        return f"caterva2:{blosc2.c2array._server_url(source.get('urlbase'), source.get('path'))}"
+
     @property
     def info_items(self) -> list[tuple[str, object]]:
         """The fields shown by :attr:`info`."""
+        self._check_open()
+        source = self._display_source()
         return [
             ("type", type(self).__name__),
-            ("source", self.source),
+            ("source", source),
             ("shape", self.shape),
             ("chunks", self.chunks),
             ("blocks", self.blocks),
@@ -1442,17 +1584,21 @@ class RemoteArray(blosc2.Operand):
         if self._source.get("kind") == "hdf5":
             refs = getattr(self.src, "_refs", None)
             if refs is not None:
-                try:
-                    import ujson as json_mod
-                except ImportError:
-                    import json as json_mod
-                array.schunk.vlmeta["hdf5-refs"] = blosc2.compress(
-                    json_mod.dumps(refs).encode("utf-8"), typesize=1
-                )
+                _store_hdf5_refs(array, refs)
             elif self._carrier is not None:
                 carrier_schunk = getattr(self._carrier, "schunk", self._carrier)
                 if "hdf5-refs" in carrier_schunk.vlmeta:
                     array.schunk.vlmeta["hdf5-refs"] = carrier_schunk.vlmeta["hdf5-refs"]
+        elif self._source.get("kind") == "zarr":
+            array.schunk.vlmeta["zarr-metadata"] = self.src._metadata
+        elif self._source.get("kind") == "b2z":
+            seed = getattr(self.src, "_seed", None)
+            if seed is not None:
+                _store_b2z_seed(array, seed)
+            elif self._carrier is not None:
+                carrier_schunk = getattr(self._carrier, "schunk", self._carrier)
+                if "b2z-frame" in carrier_schunk.vlmeta:
+                    array.schunk.vlmeta["b2z-frame"] = carrier_schunk.vlmeta["b2z-frame"]
         return array
 
     def _export_carrier_with_policy(self, cache_policy, effective_mutable):
@@ -1574,15 +1720,7 @@ class RemoteArray(blosc2.Operand):
         expected = (carrier.shape, carrier.dtype, carrier.chunks, carrier.blocks)
         kwargs = {} if policy is blosc2.CachePolicy.NONE else {"max_cache_bytes": limit}
         carrier_arg = carrier if policy is blosc2.CachePolicy.DISK else None
-        refs = None
-        if source_kind == "hdf5" and carrier is not None:
-            raw_refs = getattr(carrier, "schunk", carrier).vlmeta.get("hdf5-refs")
-            if raw_refs is not None:
-                try:
-                    import ujson as json_mod
-                except ImportError:
-                    import json as json_mod
-                refs = json_mod.loads(blosc2.decompress(raw_refs).decode("utf-8"))
+        refs = _hdf5_refs_from_carrier(carrier) if source_kind == "hdf5" else None
         carrier_mode = getattr(carrier.schunk, "mode", "r") if carrier is not None else "r"
         is_disk_file = carrier is not None and bool(getattr(carrier.schunk, "urlpath", None))
         is_runtime_mutable = mutable and (carrier_mode != "r" if is_disk_file else True)
@@ -1622,4 +1760,4 @@ class RemoteArray(blosc2.Operand):
         return False
 
     def __str__(self):
-        return f"RemoteArray({self._source_identity()!r}, cache_policy={self.cache_policy.name})"
+        return f"RemoteArray({self._display_identity()!r}, cache_policy={self.cache_policy.name})"

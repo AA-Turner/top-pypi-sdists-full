@@ -12,11 +12,16 @@ from functools import partial
 from typing import Any, Callable, Optional, Set, cast
 
 from .const import OPUS_PAYLOAD_TYPE
+from .error import RtpError, VoipError
 from .rtp_audio import RtpOpusInput, RtpOpusOutput
 from .sip import CallInfo, SdpInfo, SipDatagramProtocol
+from .util import is_ipv4_address
 
 _LOGGER = logging.getLogger(__name__)
 _RTCP_BYE = 203
+
+# Consecutive RTP/RTCP port pairs to try before giving up on a call.
+_RTP_PORT_ATTEMPTS = 100
 
 
 @dataclass
@@ -77,12 +82,19 @@ class VoipDatagramProtocol(SipDatagramProtocol):
             _LOGGER.debug("Call rejected: %s", call_info)
             return
 
+        # An outgoing call we placed already carries the RTP port we advertised
+        # in our INVITE, and the remote party is the one that answered it.
+        is_outgoing_call = call_info.local_rtp_port is not None
+
         rtp_ip = ""
         if call_info.local_rtp_port is None:
             # Find free RTP/RTCP ports
             rtp_port = 0
 
-            while True:
+            # Bounded: this runs on the event loop, so an unbounded search
+            # under port pressure would stall every other call rather than
+            # failing just this one.
+            for _ in range(_RTP_PORT_ATTEMPTS):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 sock.setblocking(False)
 
@@ -105,7 +117,12 @@ class VoipDatagramProtocol(SipDatagramProtocol):
                     break
                 except OSError:
                     # RTCP port is taken
-                    pass
+                    sock.close()
+            else:
+                raise VoipError(
+                    "No free RTP/RTCP port pair found after "
+                    f"{_RTP_PORT_ATTEMPTS} attempts"
+                )
 
         else:
             rtp_ip = call_info.local_rtp_ip if call_info.local_rtp_ip else ""
@@ -125,8 +142,12 @@ class VoipDatagramProtocol(SipDatagramProtocol):
         self._tasks.add(rtp_task)
         rtp_task.add_done_callback(self._tasks.remove)
 
-        # Tell caller to start sending/receiving RTP audio
-        self.answer(call_info, rtp_port)
+        if not is_outgoing_call:
+            # Tell caller to start sending/receiving RTP audio.
+            # Only incoming calls are answered here: replying to our own
+            # outgoing call with a 200 OK would restart the INVITE exchange at
+            # the remote end.
+            self.answer(call_info, rtp_port)
 
     def on_hangup(self, call_info: CallInfo):
         """Handle the end of a call."""
@@ -166,6 +187,21 @@ class VoipDatagramProtocol(SipDatagramProtocol):
         )
         self._rtp_protocol = cast(RtpDatagramProtocol, rtp_protocol)
 
+        if (
+            call_info.local_rtp_port is not None
+            and call_info.server_ip
+            and is_ipv4_address(call_info.server_ip)
+            and call_info.caller_rtp_port
+        ):
+            # For an outgoing call the remote SDP already told us where to send
+            # media, so take the address from there. Otherwise datagram_received()
+            # is the only thing that ever sets it, and we cannot transmit -- not
+            # even the silence frames that keep the RTP stream alive -- until the
+            # remote party sends to us first. A callee that only listens, such as
+            # a PSTN gateway playing a one-way announcement, never does.
+            self._rtp_protocol.addr = (call_info.server_ip, call_info.caller_rtp_port)
+            _LOGGER.debug("Sending RTP to %s", self._rtp_protocol.addr)
+
 
 class RtpDatagramProtocol(asyncio.DatagramProtocol, ABC):
     """Handle RTP audio input/output for a VoIP call."""
@@ -192,7 +228,9 @@ class RtpDatagramProtocol(asyncio.DatagramProtocol, ABC):
         self.channels = channels
 
         self.transport = None
-        self.addr = None
+        # Destination for outgoing RTP. Matches the "addr" argument of
+        # send_audio(), so it is kept loosely typed.
+        self.addr: Any = None
 
         self._audio_queue: "asyncio.Queue[bytes]" = asyncio.Queue()
         self._rtp_input = RtpOpusInput(opus_payload_type=opus_payload_type)
@@ -210,6 +248,21 @@ class RtpDatagramProtocol(asyncio.DatagramProtocol, ABC):
             _LOGGER.debug("Closing RTP transport")
             self.transport.close()
             self.transport = None
+
+        # Fix for https://github.com/home-assistant/core/issues/175718:
+        # cancel a still-running sender task synchronously instead of
+        # relying on it to notice self._is_connected went False on its own
+        # ~20ms loop tick and clear itself via the done-callback later. If a
+        # protocol object is reused across calls (as the VoIP assist
+        # satellite does) and a new call's connection_made() runs before
+        # that done-callback fires, connection_made() sees a stale,
+        # not-yet-None _sender_task and never starts a fresh output loop -
+        # so queued audio is queued forever and every send_audio() call
+        # times out, even though inbound audio keeps working fine.
+        if self._sender_task is not None and not self._sender_task.done():
+            _LOGGER.debug("Cancelling still-running sender task on disconnect")
+            self._sender_task.cancel()
+
         for event in self._pending_audio_events:
             event.set()
 
@@ -223,7 +276,11 @@ class RtpDatagramProtocol(asyncio.DatagramProtocol, ABC):
         """Server is ready."""
         self.transport = transport
         self._is_connected = True
-        if self._sender_task is None:
+        # See the fix note in disconnect() above: also treat an already-
+        # finished (but not yet None) sender task as needing a fresh output
+        # loop, in case disconnect()'s cancellation above raced with this
+        # connection_made() call for a newly reused protocol object.
+        if self._sender_task is None or self._sender_task.done():
             _LOGGER.debug("Starting output loop")
             self._sender_task = self._create_task(self._output_loop())
             self._sender_task.add_done_callback(self._output_finished)
@@ -245,6 +302,11 @@ class RtpDatagramProtocol(asyncio.DatagramProtocol, ABC):
             )
 
             self.on_chunk(audio_bytes)
+        except RtpError:
+            # Drop packets we can't decode instead of ending the call. Our own
+            # SDP offers telephone-event payload types alongside OPUS, so a
+            # phone sending DTMF is expected rather than exceptional.
+            _LOGGER.debug("Ignoring RTP packet from %s", addr, exc_info=True)
         except Exception as err:
             self.disconnect()
             raise err

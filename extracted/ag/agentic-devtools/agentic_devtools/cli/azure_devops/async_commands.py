@@ -527,6 +527,17 @@ def get_pull_request_details_async() -> None:
     print_task_tracking_info(task, "Getting pull request details")
 
 
+def get_pull_request_details_async_cli() -> None:
+    """Parse help for PR details before dispatching the asynchronous command."""
+    parser = argparse.ArgumentParser(
+        description="Get pull request details asynchronously in the background.",
+        epilog="Requires the pull_request_id state value.",
+        allow_abbrev=False,
+    )
+    parser.parse_args()
+    get_pull_request_details_async()
+
+
 # =============================================================================
 # Pipeline Commands (Async)
 # =============================================================================

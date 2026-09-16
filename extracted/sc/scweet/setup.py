@@ -76,7 +76,7 @@ setup(
     ],
     packages=find_packages(include=("Scweet", "Scweet.*")),
     include_package_data=True,
-    package_data={"Scweet": ["default_manifest.json"]},
+    package_data={"Scweet": ["default_manifest.json", "py.typed"]},
     install_requires=read_requirements(ROOT / "requirements.txt"),
     entry_points={
         "console_scripts": ["scweet=Scweet.cli:main"],
@@ -94,5 +94,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
 )

@@ -13,6 +13,7 @@ class AddCheckInstanceResultWhiteListRequest(DaraModel):
         check_group_id: str = None,
         check_id: int = None,
         client_token: str = None,
+        dry_run: bool = None,
         instance_ids: List[str] = None,
         instance_list: List[main_models.AddCheckInstanceResultWhiteListRequestInstanceList] = None,
         remark: str = None,
@@ -25,6 +26,8 @@ class AddCheckInstanceResultWhiteListRequest(DaraModel):
         self.check_id = check_id
         # The client token that is used to ensure the idempotence of the request. Different requests should use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
+        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        self.dry_run = dry_run
         # The collection of asset instance IDs.
         self.instance_ids = instance_ids
         # The collection of asset instance information.
@@ -55,6 +58,9 @@ class AddCheckInstanceResultWhiteListRequest(DaraModel):
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
+
         if self.instance_ids is not None:
             result['InstanceIds'] = self.instance_ids
 
@@ -81,6 +87,9 @@ class AddCheckInstanceResultWhiteListRequest(DaraModel):
 
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
 
         if m.get('InstanceIds') is not None:
             self.instance_ids = m.get('InstanceIds')

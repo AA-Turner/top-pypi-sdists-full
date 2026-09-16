@@ -9,6 +9,8 @@ from agentic_devtools.cli.ci.resolution.protocols import ResolutionContext
 class MockContext:
     diff_text: str = "diff content"
     head_commit_oid: str = "head123"
+    post_review_copilot_comments: tuple = ()
+    post_review_session_summaries: tuple = ()
 
 
 def test_resolution_context_protocol() -> None:

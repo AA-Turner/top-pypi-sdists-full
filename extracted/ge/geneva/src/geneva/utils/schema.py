@@ -121,6 +121,16 @@ def format_field_path(segments: list[str] | tuple[str, ...]) -> str:
     return ".".join(formatted)
 
 
+def field_path_covers(root: str, path: str) -> bool:
+    """True if path is root or a nested field under it."""
+    try:
+        root_segments = parse_field_path(root)
+        path_segments = parse_field_path(path)
+    except ValueError:
+        return False
+    return path_segments[: len(root_segments)] == root_segments
+
+
 def _field_index_case_insensitive(
     names: list[str], segment: str, full_path: str
 ) -> int:

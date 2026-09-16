@@ -23,7 +23,7 @@ from arelle.XbrlConst import (ixbrlAll, dtrNoDecimalsItemTypes, dtrPrefixedConte
 from arelle.XhtmlInlineUtil import ixMsgCode
 from arelle.XmlValidateConst import VALID
 from collections import defaultdict
-from arelle.oim.Validate import validateOIM
+from arelle.oim.Validate import validateOIM, validateTableConstraints
 from arelle.typing import TypeGetText
 from arelle.utils.PluginData import PluginData
 from arelle.ModelRelationshipSet import ModelRelationshipSet
@@ -66,7 +66,8 @@ class ValidateXbrl:
     hasExtensionPre: bool
     hasExtensionSchema: bool
     ixdsDocs: list[ModelDocument]
-    ixdsFootnotes: dict[str, Any]
+    ixdsFootnotes: dict[str, ModelObject]
+    ixdsFootnotesById: dict[str, list[ModelObject]]
     ixdsHeaderCount: int
     ixdsReferences: dict[str, Any]
     ixdsRelationships: list[ModelObject]
@@ -117,6 +118,9 @@ class ValidateXbrl:
             self.testModelXbrl = testModelXbrl
 
     def validate(self, modelXbrl: ModelXbrl, parameters: dict[Any, Any] | None = None) -> None:
+        if modelXbrl.tableConstraintsSkipLoading:
+            validateTableConstraints(modelXbrl)
+            return
         self.parameters = parameters
         self.precisionPattern = re.compile("^([0-9]+|INF)$")
         self.decimalsPattern = re.compile("^(-?[0-9]+|INF)$")
@@ -520,7 +524,7 @@ class ValidateXbrl:
                         _("Instance facts missing schema concept definition: %(elements)s"),
                         modelObject=undefinedFacts, elements=", ".join(sorted(set(str(f.qname) for f in undefinedFacts))))
             del undefinedFacts # dereference facts
-            for _id, objs in self.ixdsFootnotes.items():
+            for _id, objs in self.ixdsFootnotesById.items():
                 if len(objs) > 1:
                     modelXbrl.error(ixMsgCode("uniqueFootnoteId", ns=_ixNS, name="footnote", sect="validation"),
                         _("Inline XBRL footnote id is not unique in the IXDS: %(id)s"),

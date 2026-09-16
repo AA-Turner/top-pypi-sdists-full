@@ -532,6 +532,14 @@ class Geocif:
             self.gsa_params["n_estimators"] = self.parser.getint(
                 "ML", "tabfm_gsa_n_estimators"
             )
+        # tabicl_gsa's inner-ensemble width lands under a DISTINCT key so a
+        # single config can carry both tabfm_gsa_n_estimators and
+        # tabicl_gsa_n_estimators; each *_gsa trainer branch picks its own and
+        # pops the other, so neither silently inherits the other's width.
+        if self.parser.has_option("ML", "tabicl_gsa_n_estimators"):
+            self.gsa_params["tabicl_n_estimators"] = self.parser.getint(
+                "ML", "tabicl_gsa_n_estimators"
+            )
         # Optional BNN (model='bnn', Ma et al. 2021 RSE) overrides. Absent
         # keys keep trainers' defaults (epochs=700, kl_weight=0.05 -- NOT the
         # paper's 1.0, which collapses the sigma head to a constant). Keys
@@ -578,6 +586,38 @@ class Geocif:
         ):
             if self.parser.has_option("ML", _opt):
                 self.mitra_params[_opt.replace("mitra_", "")] = _cast("ML", _opt)
+        # Optional TabPFN overrides; keys map tabpfn_<x> -> <x>. Both are read
+        # as STRINGS because both accept a non-numeric literal:
+        #   tabpfn_n_estimators  = 8 (geocif's long-standing default) | "auto",
+        #     where "auto" defers to the count the checkpoint declares for
+        #     itself (tabpfn 9.0.0's InferenceConfig.N_ESTIMATORS). An explicit
+        #     int always wins over the checkpoint, so leaving this unset keeps
+        #     every pre-9.0.0 result reproducible.
+        #   tabpfn_model_version = v2 | v2.5 | v2.6 | v3 | v3.5 | v3.5-fast,
+        #     or "default" to follow the installed tabpfn. Unset means
+        #     trainers.DEFAULT_TABPFN_MODEL_VERSION, currently **v3** -- geocif
+        #     pins the checkpoint rather than inheriting the library's, which
+        #     moved to v3.5 in tabpfn 9.0.0 and would otherwise have changed
+        #     every archived result in place on upgrade.
+        self.tabpfn_params: dict = {}
+        for _opt in ("tabpfn_n_estimators", "tabpfn_model_version"):
+            if self.parser.has_option("ML", _opt):
+                self.tabpfn_params[_opt.replace("tabpfn_", "")] = self.parser.get(
+                    "ML", _opt
+                )
+        # Optional Causilo (model='causilo') overrides; causilo_<x> -> <x>.
+        # Absent keys keep the trainer's defaults (n_estimators=8, device auto).
+        # random_state is NOT harvested: it is geocif's fold seed, set in the
+        # trainer so causilo permutes in step with every other model.
+        self.causilo_params: dict = {}
+        for _opt, _cast in (
+            ("causilo_n_estimators", self.parser.getint),
+            ("causilo_device", self.parser.get),
+            ("causilo_use_kv_cache", self.parser.getboolean),
+            ("causilo_retain_preprocessing", self.parser.getboolean),
+        ):
+            if self.parser.has_option("ML", _opt):
+                self.causilo_params[_opt.replace("causilo_", "")] = _cast("ML", _opt)
 
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
@@ -772,14 +812,15 @@ class Geocif:
             raise ValueError("Model type is regression but classify_target is True")
         elif self.model_type == "CLASSIFICATION" and not self.classify_target:
             raise ValueError("Model type is classification but classify_target is False")
-        # pygrf / tabpfn_gsa consume region centroids from the lat/lon
-        # feature columns. Without the flag, every region's fit raises
-        # inside loop_ml's per-region catch and the run "succeeds" with
-        # zero stored predictions — fail here instead, at setup time.
+        # pygrf / tabpfn_gsa / tabfm_gsa / tabicl_gsa consume region
+        # centroids from the lat/lon feature columns. Without the flag,
+        # every region's fit raises inside loop_ml's per-region catch and
+        # the run "succeeds" with zero stored predictions — fail here
+        # instead, at setup time.
         # dispatch_name (not model_name) so curated_/top<N>_/auto_
         # wrappers of these algos are covered too.
         if (
-            self.dispatch_name in ("pygrf", "tabpfn_gsa", "tabfm_gsa")
+            self.dispatch_name in ("pygrf", "tabpfn_gsa", "tabfm_gsa", "tabicl_gsa")
             and not self.include_lat_lon_as_feature
         ):
             raise ValueError(
@@ -858,7 +899,7 @@ class Geocif:
             self._setup_simple_regression_flags()
         elif self.model_name.startswith("cumulative_"):
             self._setup_cumulative_flags()
-        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft", "tabfm", "exaone", "tabpfn_gsa", "tabfm_gsa", "mitra", "mitra_ft", "tabpfn_v3"]:
+        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft", "tabfm", "exaone", "tabpfn_gsa", "tabfm_gsa", "tabicl_gsa", "mitra", "mitra_ft", "tabpfn_v3"]:
             self._setup_tabular_flags()
         elif self.dispatch_name in ["oblique", "ydf", "pygrf"]:
             self._setup_tree_flags()
@@ -925,7 +966,7 @@ class Geocif:
         # permutation path would refit local TabPFN ensembles per grid cell
         # per permutation (prohibitively slow) while dropping the Region
         # column GSAModel requires at predict.
-        if self.do_xai and self.dispatch_name in ("tabpfn_gsa", "tabfm_gsa"):
+        if self.do_xai and self.dispatch_name in ("tabpfn_gsa", "tabfm_gsa", "tabicl_gsa"):
             self.logger.warning(
                 f"[ML] do_xai = True is not supported for {self.model_name}; "
                 f"disabling XAI for this model (no SHAP explainer path for GSAModel)"
@@ -5647,6 +5688,8 @@ class Geocif:
             return self._predict_bnn_with_ci(X_test)
         elif self.dispatch_name in ("mitra", "mitra_ft"):
             return self._predict_mitra_with_ci(X_test)
+        elif self.dispatch_name == "causilo":
+            return self._predict_causilo_with_ci(X_test)
         elif self.dispatch_name in ["logistic", "catboost"] and self.model_type == "CLASSIFICATION":
             return self._predict_classification_with_proba(X_test)
         else:
@@ -5734,6 +5777,58 @@ class Geocif:
         y_pred = np.asarray(y_pred, dtype=float).ravel()
         bounds = np.asarray(bounds, dtype=float)
         lower, upper = bounds[:, 0], bounds[:, 1]
+        y_pred_ci = np.stack([lower, upper], axis=1)[:, :, np.newaxis]
+
+        try:
+            best_hyperparameters = self.model.get_params().copy()
+        except AttributeError:
+            best_hyperparameters = {}
+
+        return y_pred, y_pred_ci, best_hyperparameters
+
+    def _predict_causilo_with_ci(self, X_test: pd.DataFrame) -> Tuple:
+        """Causilo native predictive interval.
+
+        The regression head carries 999 native quantiles, so one
+        ``predict(output_type="quantiles")`` call returns the lower bound, the
+        median and the upper bound together -- no second forward pass and no
+        conformal wrapper (trainers.estimate_ci leaves causilo unwrapped, like
+        mitra/bnn).
+
+        Point estimate: the MEDIAN, not causilo's default mean. Same reasoning
+        as _predict_tabpfn_with_quantiles -- the median comes off the same
+        quantile vector as the bounds, so a skewed posterior can never put the
+        prediction outside its own interval. Note this makes CI runs differ
+        slightly from non-CI runs, which call predict() and get the mean.
+
+        Emits the (n, 2, 1) CI shape the tabpfn/tabicl/bnn/mitra paths use --
+        _retrend_predictions and _re_add_region_mean_to_predictions index
+        y_pred_ci[ri, 0, 0] / [ri, 1, 0], so the ngboost (n, 3) layout must
+        NOT be copied here.
+        """
+        lower_q = self.alpha / 2
+        upper_q = 1.0 - self.alpha / 2
+
+        try:
+            q = self.model.predict(
+                X_test, output_type="quantiles", quantiles=[lower_q, 0.5, upper_q]
+            )
+            q = np.asarray(q, dtype=float)
+            if q.ndim != 2 or q.shape[1] != 3:
+                raise ValueError(f"expected (n, 3) quantiles, got {q.shape}")
+        except Exception as exc:
+            self.logger.warning(
+                f"  Causilo quantile head unavailable "
+                f"({type(exc).__name__}: {exc}); emitting point estimates "
+                f"without intervals"
+            )
+            return (
+                np.asarray(self.model.predict(X_test), dtype=float).ravel(),
+                None,
+                {},
+            )
+
+        lower, y_pred, upper = q[:, 0], q[:, 1], q[:, 2]
         y_pred_ci = np.stack([lower, upper], axis=1)[:, :, np.newaxis]
 
         try:
@@ -6603,7 +6698,7 @@ class Geocif:
         lowercased, so an underscored Country or renamed admin never
         matches) and it is invisible in the metrics.
         """
-        if self.dispatch_name not in ("pygrf", "tabpfn_gsa", "tabfm_gsa"):
+        if self.dispatch_name not in ("pygrf", "tabpfn_gsa", "tabfm_gsa", "tabicl_gsa"):
             return
         # Once per (country, crop, model) — the check is per-region-per-fold
         # but the geodata join is not, so repeating it would spam the log.
@@ -7133,6 +7228,8 @@ class ModelTrainer:
             gsa_params=getattr(self.obj, "gsa_params", None),
             bnn_params=getattr(self.obj, "bnn_params", None),
             mitra_params=getattr(self.obj, "mitra_params", None),
+            tabpfn_params=getattr(self.obj, "tabpfn_params", None),
+            causilo_params=getattr(self.obj, "causilo_params", None),
         )
 
     def _add_confidence_intervals_if_needed(self, X_train=None):
@@ -7201,6 +7298,13 @@ class ModelTrainer:
             # tabfm_gsa: same GSAModel geometry with TabFM local models —
             # identical plain .fit(X, y) surface, same fitter path.
             "tabfm_gsa": TabPFNFitter(self.obj),
+            # tabicl_gsa: same plain .fit(X, y) surface, but TabICL needs
+            # sklearn's transform_output pinned to "default" — that is the
+            # whole reason TabICLFitter exists. Routing it to TabPFNFitter
+            # (or letting it fall through to DefaultFitter) drops the pin and
+            # every local fit raises once anything upstream sets pandas
+            # output. Use the TabICL fitter, not the TabPFN one.
+            "tabicl_gsa": TabICLFitter(self.obj),
             # mitra / mitra_ft (Mitra-v2): MitraYieldRegressor takes the raw
             # feature DataFrame and does its own categorical encoding, so the
             # TabPFNFitter path (DataFrame in, y ravel'd) fits exactly. Unlike

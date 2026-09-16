@@ -13,6 +13,7 @@ import ray
 from google.protobuf.json_format import MessageToDict
 from ray.core.generated import common_pb2
 
+from geneva.errors import FatalWorkerHardwareError
 from geneva.runners.ray import actor_pool as actor_pool_mod
 from geneva.runners.ray.actor_pool import (
     ActorLostError,
@@ -138,6 +139,7 @@ def test_actor_pool_shutdown_clears_all_actor_states_once(
     busy_actor = object()
     starting_actor = object()
     shared_actor = object()
+    parked_actor = object()
     busy_future = object()
     shared_future = object()
     starting_future = object()
@@ -155,6 +157,7 @@ def test_actor_pool_shutdown_clears_all_actor_states_once(
         duplicate_starting_future: shared_actor,
     }
     pool._index_to_future = {0: busy_future, 1: shared_future}
+    pool._parked_actors = [parked_actor]
     pool._pending_submits = [(object(), "pending-task")]
     pool._future_to_task = {
         busy_future: (object(), "busy-task"),
@@ -181,9 +184,16 @@ def test_actor_pool_shutdown_clears_all_actor_states_once(
     pool.shutdown()
     pool.shutdown()
 
-    assert killed == [idle_actor, shared_actor, busy_actor, starting_actor]
-    assert metric_updates == [("test-workers", -4)]
+    assert killed == [
+        idle_actor,
+        shared_actor,
+        busy_actor,
+        starting_actor,
+        parked_actor,
+    ]
+    assert metric_updates == [("test-workers", -5)]
     assert pool._idle_actors == []
+    assert pool._parked_actors == []
     assert pool._ready_fut_to_actor == {}
     assert pool._future_to_actor == {}
     assert pool._index_to_future == {}
@@ -979,6 +989,76 @@ def test_actor_pool_wraps_memory_monitor_oom_as_task_error(
     assert killed == [actor]
     assert queued_replacements == [True]
     assert resubmitted == []
+
+
+def _pool_with_one_busy_actor(
+    monkeypatch: pytest.MonkeyPatch, error: Exception, *, num_gpus: float | None
+) -> tuple[ActorPool, object, object, list[object], list[bool]]:
+    pool = object.__new__(ActorPool)
+    future = object()
+    actor = SimpleNamespace(name="actor-gpu")
+    queued_replacements: list[bool] = []
+    killed: list[object] = []
+
+    pool._future_to_actor = {future: (0, actor)}
+    pool._index_to_future = {0: future}
+    pool._future_to_task = {future: (lambda _actor, _task: None, "task-gpu")}
+    pool._future_to_actor_id = {future: "actor-gpu"}
+    pool.resubmit_on_actor_failure = False
+    pool._actor_num_gpus = num_gpus
+    pool._parked_actors = []
+    pool.last_hardware_fault = None
+    pool._queue_actor_startup = lambda: queued_replacements.append(True)
+    pool.submit = lambda _fn, _task: pytest.fail("must not resubmit")
+
+    def _raise(_future: object) -> None:
+        raise error
+
+    monkeypatch.setattr(ray, "wait", lambda futures, **_kwargs: ([future], []))
+    monkeypatch.setattr(ray, "get", _raise)
+    monkeypatch.setattr(ray, "kill", lambda a: killed.append(a))
+    return pool, future, actor, killed, queued_replacements
+
+
+def test_actor_pool_parks_whole_gpu_actor_after_hardware_fault(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A parked actor stays alive so its GPU allocation is never handed to
+    the replacement; the task still surfaces for driver-managed recovery."""
+    fault = FatalWorkerHardwareError("GPU 0 requires reset")
+    pool, future, actor, killed, queued = _pool_with_one_busy_actor(
+        monkeypatch, fault, num_gpus=1.0
+    )
+
+    with pytest.raises(ActorPoolTaskError) as exc_info:
+        pool._get_next_by_fut([future])
+
+    assert exc_info.value.cause is fault
+    assert exc_info.value.task == "task-gpu"
+    assert killed == []
+    assert pool._parked_actors == [actor]
+    assert pool.last_hardware_fault is fault
+    assert queued == [True]
+
+
+def test_actor_pool_kills_shared_gpu_actor_after_hardware_fault(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without a whole-GPU allocation there is nothing to withhold, so the
+    actor is retired the ordinary way."""
+    fault = FatalWorkerHardwareError("GPU 0 requires reset")
+    pool, future, actor, killed, queued = _pool_with_one_busy_actor(
+        monkeypatch, fault, num_gpus=0.5
+    )
+
+    with pytest.raises(ActorPoolTaskError) as exc_info:
+        pool._get_next_by_fut([future])
+
+    assert exc_info.value.cause is fault
+    assert killed == [actor]
+    assert pool._parked_actors == []
+    assert pool.last_hardware_fault is fault
+    assert queued == [True]
 
 
 # ---------------------------------------------------------------------------

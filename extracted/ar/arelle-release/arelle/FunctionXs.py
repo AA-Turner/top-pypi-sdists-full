@@ -514,8 +514,8 @@ def hexBinary(xc: XPathContext.XPathContext, p: FormulaToken | None, source: Any
     raise xsFunctionNotAvailable()
 
 
-def anyURI(xc: XPathContext.XPathContext, p: FormulaToken | None, source: Any) -> ModelValue.AnyURI | None:
-    return ModelValue.anyURI(source, castException=FORG0001)  # type: ignore[arg-type]
+def anyURI(xc: XPathContext.XPathContext, p: FormulaToken | None, source: Any) -> ModelValue.AnyURI:
+    return ModelValue.anyURI(source, castException=FORG0001)
 
 
 def QName(xc: XPathContext.XPathContext, p: FormulaToken | None, source: Any) -> ModelValue.QName | None:
@@ -525,7 +525,7 @@ def QName(xc: XPathContext.XPathContext, p: FormulaToken | None, source: Any) ->
         element = xc.progHeader.element
     else:
         element = xc.sourceElement
-    return ModelValue.qname(element, source, castException=FORG0001, prefixException=FONS0004)  # type: ignore[call-overload,no-any-return]
+    return ModelValue.qname(element, source, castException=FORG0001, prefixException=FONS0004)
 
 
 def NOTATION(xc: XPathContext.XPathContext, p: FormulaToken | None, source: Any) -> NoReturn:

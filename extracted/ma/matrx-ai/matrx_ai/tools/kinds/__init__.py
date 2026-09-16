@@ -134,6 +134,7 @@ from matrx_ai.tools.kinds.tooling import ToolBundleListing  # noqa: E402
 from matrx_ai.tools.kinds.udt_content import WorkbookResult  # noqa: E402
 from matrx_ai.tools.kinds.user_secrets import UserSecretReceipt  # noqa: E402
 from matrx_ai.tools.kinds.value_store import ValueStoreResult  # noqa: E402
+from matrx_ai.tools.kinds.topical_map import TopicalMapResult  # noqa: E402
 from matrx_ai.tools.kinds.weather import WeatherHistoryReading  # noqa: E402
 from matrx_ai.tools.kinds.wheel import WheelSpinResult  # noqa: E402
 from matrx_ai.tools.kinds.workbench import (  # noqa: E402
@@ -188,6 +189,9 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     # workflow node — `weather.history.lookup` and `web.factcheck.search` — the
     # media_forensics precedent, not a node kind plus a twin tool kind.
     "weather_history": WeatherHistoryReading,
+    # topical_map (aidream/tools/topical_map_tool.py): ONE union kind across
+    # every action — the RPC's JSON passed through under the contract's keys.
+    "topical_map": TopicalMapResult,
     "factcheck_search": FactCheckReviewSet,
     # widget_* — ONE implementation, MANY names (lead-w2d). Every widget tool
     # forwards to ctx_write.context_patch / ctx_create and returns its receipt,

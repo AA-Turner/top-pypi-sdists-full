@@ -59,6 +59,14 @@ class IMAGE_FH_drop_handler(_bpy_types.FileHandler):
         :return: The class or default when not found.
         """
 
+    def label_with_extensions(self, *args, **kwargs) -> None:
+        """FileHandler.label_with_extensions(idname)
+        Return the label of the file handler with the given ID, with its file extensions
+
+                :param args:
+                :param kwargs:
+        """
+
     @classmethod
     def poll_drop(cls, context) -> None:
         """

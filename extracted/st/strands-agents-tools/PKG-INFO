@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents-tools
-Version: 0.8.8
+Version: 0.8.9
 Summary: A collection of specialized tools for Strands Agents
 Project-URL: Homepage, https://github.com/strands-agents/tools
 Project-URL: Bug Tracker, https://github.com/strands-agents/tools/issues
@@ -204,13 +204,13 @@ Below is a comprehensive table of all available tools, how to use them with an a
 | file_write | `agent.tool.file_write(path="path/to/file.txt", content="file content")` | Writing results to files, creating new files, saving output data |
 | editor ⚠️ | `agent.tool.editor(command="view", path="path/to/file.py")` | Advanced file operations like syntax highlighting, pattern replacement, and multi-file edits <br> **Deprecated — see [Deprecations](#deprecations)** |
 | shell* ⚠️ | `agent.tool.shell(command="ls -la")` | Executing shell commands, interacting with the operating system, running scripts <br> **Deprecated — see [Deprecations](#deprecations)** |
-| http_request | `agent.tool.http_request(method="GET", url="https://api.example.com/data")` | Making API calls, fetching web data, sending data to external services |
-| tavily_search | `agent.tool.tavily_search(query="What is artificial intelligence?", search_depth="advanced")` | Real-time web search optimized for AI agents with a variety of custom parameters |
-| tavily_extract | `agent.tool.tavily_extract(urls=["www.tavily.com"], extract_depth="advanced")` | Extract clean, structured content from web pages with advanced processing and noise removal |
-| tavily_crawl | `agent.tool.tavily_crawl(url="www.tavily.com", max_depth=2, instructions="Find API docs")` | Crawl websites intelligently starting from a base URL with filtering and extraction |
-| tavily_map | `agent.tool.tavily_map(url="www.tavily.com", max_depth=2, instructions="Find all pages")` | Map website structure and discover URLs starting from a base URL without content extraction |
-| exa_search | `agent.tool.exa_search(query="Best project management tools", text=True)` | Intelligent web search with auto mode (default) for optimal results, plus fast and deep search modes |
-| exa_get_contents | `agent.tool.exa_get_contents(urls=["https://example.com/article"], text=True, summary={"query": "key points"})` | Extract full content and summaries from specific URLs with live crawling fallback |
+| http_request ⚠️ | `agent.tool.http_request(method="GET", url="https://api.example.com/data")` | Making API calls, fetching web data, sending data to external services <br> **Deprecated — see [Deprecations](#deprecations)** |
+| tavily_search ⚠️ | `agent.tool.tavily_search(query="What is artificial intelligence?", search_depth="advanced")` | Real-time web search optimized for AI agents with a variety of custom parameters <br> **Deprecated — see [Deprecations](#deprecations)** |
+| tavily_extract ⚠️ | `agent.tool.tavily_extract(urls=["www.tavily.com"], extract_depth="advanced")` | Extract clean, structured content from web pages with advanced processing and noise removal <br> **Deprecated — see [Deprecations](#deprecations)** |
+| tavily_crawl ⚠️ | `agent.tool.tavily_crawl(url="www.tavily.com", max_depth=2, instructions="Find API docs")` | Crawl websites intelligently starting from a base URL with filtering and extraction <br> **Deprecated — see [Deprecations](#deprecations)** |
+| tavily_map ⚠️ | `agent.tool.tavily_map(url="www.tavily.com", max_depth=2, instructions="Find all pages")` | Map website structure and discover URLs starting from a base URL without content extraction <br> **Deprecated — see [Deprecations](#deprecations)** |
+| exa_search ⚠️ | `agent.tool.exa_search(query="Best project management tools", text=True)` | Intelligent web search with auto mode (default) for optimal results, plus fast and deep search modes <br> **Deprecated — see [Deprecations](#deprecations)** |
+| exa_get_contents ⚠️ | `agent.tool.exa_get_contents(urls=["https://example.com/article"], text=True, summary={"query": "key points"})` | Extract full content and summaries from specific URLs with live crawling fallback <br> **Deprecated — see [Deprecations](#deprecations)** |
 | python_repl* | `agent.tool.python_repl(code="import pandas as pd\ndf = pd.read_csv('data.csv')\nprint(df.head())")` | Running Python code snippets, data analysis, executing complex logic with user confirmation for security |
 | calculator ⚠️ | `agent.tool.calculator(expression="2 * sin(pi/4) + log(e**2)")` | Performing mathematical operations, symbolic math, equation solving <br> **Deprecated — see [Deprecations](#deprecations)** |
 | code_interpreter | `code_interpreter = AgentCoreCodeInterpreter(region="us-west-2"); agent = Agent(tools=[code_interpreter.code_interpreter])` | Execute code in isolated sandbox environments with multi-language support (Python, JavaScript, TypeScript), persistent sessions, and file operations |
@@ -219,13 +219,13 @@ Below is a comprehensive table of all available tools, how to use them with an a
 | nova_reels | `agent.tool.nova_reels(action="create", text="A cinematic shot of mountains", s3_bucket="my-bucket")` | Create high-quality videos using Amazon Bedrock Nova Reel with configurable parameters via environment variables |
 | agent_core_memory | `agent.tool.agent_core_memory(action="record", content="Hello, I like vegetarian food")` | Store and retrieve memories with Amazon Bedrock Agent Core Memory service |
 | mem0_memory | `agent.tool.mem0_memory(action="store", content="Remember I like to play tennis")` | Store user and agent memories across agent runs to provide personalized experience (tenant identity configured via `Mem0MemoryTool` or environment variables) |
-| bright_data | `agent.tool.bright_data(action="scrape_as_markdown", url="https://example.com")` | Web scraping, search queries, screenshot capture, and structured data extraction from websites and different data feeds|
+| bright_data ⚠️ | `agent.tool.bright_data(action="scrape_as_markdown", url="https://example.com")` | Web scraping, search queries, screenshot capture, and structured data extraction from websites and different data feeds <br> **Deprecated — see [Deprecations](#deprecations)** |
 | memory ⚠️ | `agent.tool.memory(action="retrieve", query="product features")` | Store, retrieve, list, and manage documents in Amazon Bedrock Knowledge Bases with configurable parameters via environment variables <br> **Deprecated — see [Deprecations](#deprecations)** |
 | environment ⚠️ | `agent.tool.environment(action="list", prefix="AWS_")` | Managing environment variables, configuration management <br> **Deprecated — see [Deprecations](#deprecations)** |
 | generate_image_stability | `agent.tool.generate_image_stability(prompt="A tranquil pool")` | Creating images using Stability AI models |
 | generate_image | `agent.tool.generate_image(prompt="A sunset over mountains")` | Creating AI-generated images for various applications |
 | image_reader | `agent.tool.image_reader(image_path="path/to/image.jpg")` | Processing and reading image files for AI analysis |
-| journal | `agent.tool.journal(action="write", content="Today's progress notes")` | Creating structured logs, maintaining documentation |
+| journal ⚠️ | `agent.tool.journal(action="write", content="Today's progress notes")` | Creating structured logs, maintaining documentation <br> **Deprecated — see [Deprecations](#deprecations)** |
 | think ⚠️ | `agent.tool.think(thought="Complex problem to analyze", cycle_count=3)` | Advanced reasoning, multi-step thinking processes <br> **Deprecated — see [Deprecations](#deprecations)** |
 | load_tool | `agent.tool.load_tool(path="path/to/custom_tool.py", name="custom_tool")` | Dynamically loading custom tools and extensions |
 | swarm | `agent.tool.swarm(task="Analyze this problem", swarm_size=3, coordination_pattern="collaborative")` | Coordinating multiple AI agents to solve complex problems through collective intelligence |
@@ -247,8 +247,8 @@ Below is a comprehensive table of all available tools, how to use them with an a
 | diagram ⚠️ | `agent.tool.diagram(diagram_type="cloud", nodes=[{"id": "s3", "type": "S3"}], edges=[])` | Create AWS cloud architecture diagrams, network diagrams, graphs, and UML diagrams (all 14 types) <br> **Deprecated — see [Deprecations](#deprecations)** |
 | rss ⚠️ | `agent.tool.rss(action="subscribe", url="https://example.com/feed.xml", feed_id="tech_news")` | Manage RSS feeds: subscribe, fetch, read, search, and update content from various sources <br> **Deprecated — see [Deprecations](#deprecations)** |
 | use_computer | `agent.tool.use_computer(action="click", x=100, y=200, app_name="Chrome") ` | Desktop automation, GUI interaction, screen capture |
-| search_video | `agent.tool.search_video(query="people discussing AI")` | Semantic video search using TwelveLabs' Marengo model |
-| chat_video | `agent.tool.chat_video(prompt="What are the main topics?", video_id="video_123")` | Interactive video analysis using TwelveLabs' Pegasus model |
+| search_video ⚠️ | `agent.tool.search_video(query="people discussing AI")` | Semantic video search using TwelveLabs' Marengo model <br> **Deprecated — see [Deprecations](#deprecations)** |
+| chat_video ⚠️ | `agent.tool.chat_video(prompt="What are the main topics?", video_id="video_123")` | Interactive video analysis using TwelveLabs' Pegasus model <br> **Deprecated — see [Deprecations](#deprecations)** |
 | mongodb_memory | `agent.tool.mongodb_memory(action="record", content="User prefers vegetarian pizza")` | Store and retrieve memories using MongoDB Atlas with semantic search via AWS Bedrock Titan embeddings (connection and namespace configured via `MongoDBMemoryTool` or environment variables) |
 | elasticsearch_memory | `agent.tool.elasticsearch_memory(action="record", content="User prefers dark mode")` | Store and retrieve memories using Elasticsearch with semantic search via AWS Bedrock Titan embeddings (connection and namespace configured via `ElasticsearchMemoryTool` or environment variables) |
 
@@ -269,9 +269,9 @@ More tools will follow as their capabilities land elsewhere, and this repository
 archived. Nothing breaks suddenly — but migrating when a tool is first deprecated is easier than
 moving several at once later.
 
-Deprecated tools keep working. Each one logs a warning when invoked starting in **v0.8.6**,
-and that warning becomes an error log in **v0.9.0** — a louder signal for anyone who has not
-migrated, not a behavior change.
+Deprecated tools keep working. Each one logs a warning when invoked starting in the release
+shown below, and that warning becomes an error log in **v0.9.0** — a louder signal for anyone
+who has not migrated, not a behavior change.
 
 They are also marked with `@typing_extensions.deprecated`, so type checkers and IDEs flag
 usage before you run anything. To list what you still need to migrate, run
@@ -279,7 +279,7 @@ usage before you run anything. To list what you still need to migrate, run
 `from strands_tools import ...` line for each deprecated tool, without invoking any of them.
 Prefer mypy here: pyright, with `reportDeprecated` enabled, reports direct calls such as
 `calculator(expression=...)` but not `agent.tool.calculator(...)`, and it reaches the import
-line for only the three tools whose marker is not wrapped by `@tool`. Note that Python
+line for only the tools whose marker is not wrapped by `@tool`. Note that Python
 suppresses the resulting `DeprecationWarning` at runtime when the agent invokes a tool, which
 is why the log message exists as well.
 
@@ -287,18 +287,25 @@ is why the log message exists as well.
 |------|-----------------------|---------|-----------|
 | `sleep` | `from strands.vended_tools import sleep` | v0.8.6 | v0.9.0 |
 | `editor` | `from strands.vended_tools import file_editor` | v0.8.6 | v0.9.0 |
-| `shell` | `from strands.vended_tools import bash` | v0.8.6 | v0.9.0 |
+| `shell` | `from strands.vended_tools import shell` | v0.8.6 | v0.9.0 |
 | `batch` | none needed — concurrent tool execution is the SDK default ([docs](https://strandsagents.com/docs/user-guide/concepts/tools/executors/)) | v0.8.6 | v0.9.0 |
 | `think` | native extended thinking via model reasoning config ([docs](https://strandsagents.com/docs/user-guide/concepts/model-providers/amazon-bedrock/)) | v0.8.6 | v0.9.0 |
 | `current_time` | `ContextInjector` ([docs](https://strandsagents.com/docs/user-guide/concepts/plugins/context-injector/)) | v0.8.6 | v0.9.0 |
 | `memory` | `MemoryManager` + `BedrockKnowledgeBaseStore` ([docs](https://strandsagents.com/docs/user-guide/concepts/memory/bedrock-knowledge-base/)) | v0.8.6 | v0.9.0 |
 | `retrieve` | `MemoryManager` + `BedrockKnowledgeBaseStore(writable=False)` ([docs](https://strandsagents.com/docs/user-guide/concepts/memory/overview/)) | v0.8.6 | v0.9.0 |
-| `calculator` | `from strands.vended_tools import bash` (run `python3 -c` with sympy) | v0.8.6 | v0.9.0 |
-| `cron` | `from strands.vended_tools import bash` (manage `crontab`), or Amazon EventBridge Scheduler | v0.8.6 | v0.9.0 |
-| `environment` | `from strands.vended_tools import bash` (inspect only, see notes) | v0.8.6 | v0.9.0 |
+| `calculator` | `from strands.vended_tools import shell` (run `python3 -c` with sympy) | v0.8.6 | v0.9.0 |
+| `cron` | `from strands.vended_tools import shell` (manage `crontab`), or Amazon EventBridge Scheduler | v0.8.6 | v0.9.0 |
+| `environment` | `from strands.vended_tools import shell` (inspect only, see notes) | v0.8.6 | v0.9.0 |
+| `bright_data` | [Bright Data's official MCP server](https://docs.brightdata.com/ai/mcp-server/overview) | v0.8.9 | v0.9.0 |
+| `http_request` | `from strands.vended_tools import http_request, web_fetch` (http_request for APIs, web_fetch for web pages)| v0.8.9 | v0.9.0 |
 | `slack` | [official Slack MCP server](https://docs.slack.dev/ai/mcp-server/); `slack_bolt` for Socket Mode | v0.8.6 | v0.9.0 |
 | `diagram` | no replacement — have the model write graphviz/mermaid/`diagrams` code directly | v0.8.6 | v0.9.0 |
 | `rss` | no replacement — parse feeds directly with `feedparser` | v0.8.6 | v0.9.0 |
+| `tavily` (`tavily_search`, `tavily_extract`, `tavily_crawl`, `tavily_map`) | [official Tavily MCP server](https://docs.tavily.com/documentation/mcp) | v0.8.9 | v0.9.0 |
+| `exa` (`exa_search`, `exa_get_contents`) | [official Exa MCP server](https://exa.ai/docs/reference/exa-mcp) | v0.8.9 | v0.9.0 |
+| `search_video` | [official TwelveLabs MCP servers](https://docs.twelvelabs.io/docs/advanced/model-context-protocol) | v0.8.9 | v0.9.0 |
+| `chat_video` | [official TwelveLabs MCP servers](https://docs.twelvelabs.io/docs/advanced/model-context-protocol) | v0.8.9 | v0.9.0 |
+| `journal` | `from strands.vended_tools import notebook` | v0.8.9 | v0.9.0 |
 
 ```python
 # Before
@@ -309,16 +316,16 @@ agent = Agent(tools=[editor, shell, sleep])
 
 # After
 from strands import Agent
-from strands.vended_tools import bash, file_editor, sleep
+from strands.vended_tools import file_editor, shell, sleep
 
-agent = Agent(tools=[bash, file_editor, sleep])
+agent = Agent(tools=[file_editor, shell, sleep])
 ```
 
 #### Behavior differences
 
 The replacements are not drop-in equivalents. Check these before migrating:
 
-- **`shell` → `bash`**: the SDK tool routes commands through the agent's configured
+- **`strands_tools.shell` → `strands.vended_tools.shell`**: the SDK tool routes commands through the agent's configured
   sandbox and is stateless — each call runs in a fresh shell, so variables and the working
   directory do not persist between calls. It does not provide PTY support or batched
   parallel/sequential command execution.
@@ -362,6 +369,16 @@ The replacements are not drop-in equivalents. Check these before migrating:
   child shell cannot change the agent's own process environment, so variables need to be set where the
   agent is launched, or passed per call. If you were leaning on `PROTECTED_VARS` or secret masking,
   that guarding moves to your side.
+- **`bright_data` → Bright Data's official MCP server** — the vendor-maintained server covers search,
+  scraping, structured extraction, and browser automation. Its tool names and response shapes are not
+  drop-in equivalents, so follow Bright Data's
+  [setup and migration documentation](https://docs.brightdata.com/ai/mcp-server/overview).
+- **`http_request` → `http_request` / `web_fetch`** — the tool splits by intent: raw API calls move to
+  the vended `http_request`, while fetching and reading a page moves to `web_fetch`. Authentication and
+  endpoint scoping now live in an `httpx.AsyncClient` you pass via `make_http_request(client=...)`.
+  `web_fetch` defaults to an agentic mode that summarizes a page before it enters the main context;
+  pass `mode="markdown"` to the `web_fetch` factory for the full page as markdown, replacing
+  `convert_to_markdown=True`.
 - **`slack` → Slack's official MCP server** — Slack maintains it, so it tracks their API directly, and
   it uses OAuth rather than long-lived tokens. It exposes a curated tool set rather than this tool's
   passthrough to any Web API method, and being request/response it does not cover Socket Mode or
@@ -373,6 +390,19 @@ The replacements are not drop-in equivalents. Check these before migrating:
 - **`rss`** — no direct replacement. Fetching and parsing a feed is a few lines of `feedparser`, and
   the subscription list was a JSON file. If you were using feed HTTP Basic auth or the stored
   subscriptions, those move into your code.
+- **`tavily` → Tavily MCP server** — Auth moves from `TAVILY_API_KEY` to OAuth, a key in the server URL, or a header. A handful of parameters have no MCP equivalent:
+  `auto_parameters`, `chunks_per_source`, `days`, `include_answer`, `categories`, `exclude_paths`,
+  and the `"markdown"/"text"` literals for `include_raw_content` (the MCP accepts a boolean only). If you need these parameters, call the [Tavily REST API](https://docs.tavily.com/documentation/api-reference/introduction) directly.
+- **`exa` → Exa MCP server** — the MCP renames the tools: `exa_search` becomes `web_search_exa` and
+  `exa_get_contents` becomes `web_fetch_exa`. For the full parameter surface of `exa_search`, opt in
+  to `web_search_advanced_exa` via the `tools` URL parameter. Auth moves from `EXA_API_KEY` to OAuth, a key in
+  the server URL, or a header.
+- **`search_video` / `chat_video` → TwelveLabs MCP servers** — Jockey adds cross-video reasoning, while single-video search and analysis continue
+  at `mcp-alpic.twelvelabs.io`. Jockey requires publicly accessible URLs and has no equivalent for `chat_video`'s local-file upload nor
+  `search_video`'s `group_by`, `threshold`, and `search_options` parameters.
+- **`journal` → `notebook`** — `notebook` keeps notes in `agent.state` instead of `./journal/<date>.md`, so persistence follows your session
+  manager. There is no `add_task` equivalent and no per-day entry, so tasks and dated entries become plain note text. If you need the entries as
+  files on disk, use `file_editor`.
 
 ## 💻 Usage Examples
 

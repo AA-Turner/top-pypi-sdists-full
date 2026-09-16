@@ -34,9 +34,21 @@ class ActionResult:
             deduplication or cycle limit was hit.  Used by
             ``_determine_exit_code`` to return EXIT_GUARD_BLOCKED without
             relying on free-form text matching.
-        invalidates_snapshot: True when the action changes PR HEAD and the
-            remaining pipeline decisions must wait for a fresh snapshot on the
-            next run.
+        invalidates_snapshot: True when the action changed PR HEAD, or may
+            already have changed it before failing, and the remaining pipeline
+            decisions must wait for a fresh snapshot.
+        preserves_diff_fingerprint: True when an invalidating action is
+            expected to preserve the pull request patch fingerprint across the
+            refresh that follows it.
+        intentional_noop: True when an invalidating action intentionally
+            produces an empty-to-empty diff transition that should be accepted
+            as a documented no-op.
+        definitive_no_mutation: True when a failed mutation attempt is known
+            not to have changed the remote PR state.
+        allows_file_removal: True only when the action explicitly confirms that
+            removing a baseline file is intentional.
+        allowed_removed_files: Baseline files that may be removed by this action.
+
     """
 
     name: str
@@ -45,7 +57,14 @@ class ActionResult:
     details: str = ""
     error: str = ""
     limit_reached: bool = False
+    dedup_limit_reached: bool = False
+    cycle_limit_reached: bool = False
     invalidates_snapshot: bool = False
+    preserves_diff_fingerprint: bool = False
+    intentional_noop: bool = False
+    definitive_no_mutation: bool = False
+    allows_file_removal: bool = False
+    allowed_removed_files: tuple[str, ...] = ()
 
 
 @dataclass

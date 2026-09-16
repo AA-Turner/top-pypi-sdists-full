@@ -57,6 +57,16 @@ def test_valid_client_host_combination_passes():
     )
 
 
+def test_async_get_jwt_is_a_valid_client_host_seam():
+    async def current_token() -> str | None:
+        return "jwt-token"
+
+    validate_client_host_config(
+        get_jwt=current_token,
+        server_url="https://server.example.com",
+    )
+
+
 def test_seams_are_individually_optional():
     # Key resolver alone is a legitimate configuration.
     validate_client_host_config(api_key_resolver=lambda name: None)

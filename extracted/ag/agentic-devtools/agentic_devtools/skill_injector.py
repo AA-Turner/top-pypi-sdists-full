@@ -8,9 +8,10 @@ Three kinds are mirrored:
   name into the filename (e.g. ``sub/foo.agent.md`` → ``agdt.sub.foo.agent.md``).
 * ``skills`` mirrors the canonical ``.agents/skills/`` tree **verbatim**: one
   directory per skill, carrying its ``SKILL.md`` entry file and any one-level
-  deep bundled resources.  Skill directory names are never flattened, because
-  a skill name must match ``^[a-z0-9](-?[a-z0-9])*$`` and a name containing a
-  dot makes the skill silently fail to load.
+  deep bundled resources, plus explicitly supported shared resources at the
+  tree root.  Skill directory names are never flattened, because a skill name
+  must match ``^[a-z0-9](-?[a-z0-9])*$`` and a name containing a dot makes the
+  skill silently fail to load.
 
 Each target directory carries a managed ``agdt.README.md`` manifest.
 """
@@ -40,6 +41,7 @@ _ALPHA_ONLY_RE = re.compile(r"[^a-zA-Z]")
 # The directory-shaped kind: mirrored verbatim from ``.agents/skills/``.
 _SKILLS_KIND = "skills"
 _SKILL_ENTRY_FILE = "SKILL.md"
+_SHARED_SKILL_RESOURCES = frozenset({"fingerprint.py"})
 _KINDS: tuple[str, ...] = ("agents", "prompts", _SKILLS_KIND)
 _SKILLS_MANIFEST_MARKER = "<!-- agdt:managed-skills-manifest:v1 -->"
 
@@ -113,10 +115,12 @@ def _is_supported_skill_resource_name(name: str) -> bool:
 
 
 def _is_managed_skill_relative_path(path: str) -> bool:
-    """Return whether *path* has managed shape ``<skill-name>/<resource>``."""
+    """Return whether *path* is a managed skill or shared-resource path."""
     rel = PurePosixPath(path)
-    if rel.is_absolute() or len(rel.parts) != 2:
+    if rel.is_absolute() or len(rel.parts) not in {1, 2}:
         return False
+    if len(rel.parts) == 1:
+        return rel.parts[0] in _SHARED_SKILL_RESOURCES
     skill_name, resource = rel.parts
     return bool(_SKILL_NAME_RE.fullmatch(skill_name)) and _is_supported_skill_resource_name(resource)
 
@@ -301,9 +305,10 @@ def _select_skill_sources(
 
     A skill is a non-hidden directory directly under *source_dir* that holds a
     ``SKILL.md`` entry file.  Its entry file plus every non-hidden file one
-    level deep inside it are mirrored.  Directory names are preserved verbatim
-    — never flattened — because a dot in a skill name makes the skill silently
-    fail to load.
+    level deep inside it are mirrored.  Explicitly supported shared resources
+    at the source root are mirrored as well.  Directory names are preserved
+    verbatim — never flattened — because a dot in a skill name makes the skill
+    silently fail to load.
 
     The classification filter runs over each skill's ``SKILL.md`` exactly as it
     runs over the flat kinds, and prunes the **whole** skill (entry file and
@@ -377,6 +382,11 @@ def _select_skill_sources(
             continue
         for src in (entry, *resources):
             origins[src.relative_to(source_dir).as_posix()] = src
+
+    for resource_name in sorted(_SHARED_SKILL_RESOURCES):
+        resource = source_dir / resource_name
+        if resource.is_file():
+            origins[resource_name] = resource
 
     return origins, fm_cache, pruned
 
@@ -975,6 +985,7 @@ def inject_skills_with_summary(
         when:
         - ``git_root`` is ``None``,
         - a source directory for a required kind cannot be resolved,
+        - a shared skill resource collides with a consumer-authored file,
         - deletions are pending without *assume_yes*,
         - a ``UnicodeDecodeError`` occurs while reading source files (non-UTF8
           content), or
@@ -1016,6 +1027,7 @@ def inject_skills_with_summary(
         overall_success = True
         plans: list[InjectionPlan] = []
         plans_tuple: tuple[InjectionPlan, ...] = ()
+        shared_resource_collision = False
         # (plan, target_dir, flat_name_origins, fm_cache) per planned kind,
         # carried from the planning phase into the execution phase.
         pending: list[tuple[InjectionPlan, Path, dict[str, Path], dict[Path, dict[str, object]]]] = []
@@ -1046,10 +1058,17 @@ def inject_skills_with_summary(
                 # earlier (for collision detection).
                 _validate_skills_target_dir(target_dir)
                 managed_before = _read_managed_skill_manifest(target_dir)
-                managed_skills = {PurePosixPath(name).parts[0] for name in managed_before}
+                managed_skills = {
+                    PurePosixPath(name).parts[0] for name in managed_before if len(PurePosixPath(name).parts) == 2
+                }
                 managed_before_casefolds = {name.casefold(): name for name in managed_before}
                 colliding_skills: set[str] = set()
                 for name in skill_origins:
+                    if len(PurePosixPath(name).parts) == 1:
+                        dest = _resolve_skill_target_path(target_dir, name)
+                        if name not in managed_before and dest.exists():
+                            colliding_skills.add(name)
+                        continue
                     skill_name = PurePosixPath(name).parts[0]
                     dest = _resolve_skill_target_path(target_dir, name)
                     # File-level collision: dest exists but is not in the managed manifest.
@@ -1072,31 +1091,45 @@ def inject_skills_with_summary(
                         not_in_manifest and dest.exists()
                     ):
                         colliding_skills.add(skill_name)
+                selected_skill_names = {
+                    PurePosixPath(name).parts[0] for name, src in skill_origins.items() if src.name == _SKILL_ENTRY_FILE
+                }
                 if colliding_skills:
-                    warnings.warn(
-                        "agentic-devtools: skipping bundled skills that collide with "
-                        "consumer-authored files not listed in the previous managed "
-                        f"manifest: {', '.join(sorted(colliding_skills))}",
-                        RuntimeWarning,
-                    )
-                    skill_origins = {
-                        name: src
-                        for name, src in skill_origins.items()
-                        if PurePosixPath(name).parts[0] not in colliding_skills
-                    }
-                    selected_skill_names = {
-                        PurePosixPath(name).parts[0]
-                        for name, src in skill_origins.items()
-                        if src.name == _SKILL_ENTRY_FILE
-                    }
-                    allowed_sources = set(skill_origins.values())
-                    skill_fm_cache = {src: fm for src, fm in skill_fm_cache.items() if src in allowed_sources}
-                    for managed_name in sorted(managed_before):
-                        if PurePosixPath(managed_name).parts[0] not in colliding_skills:
-                            continue
-                        managed_dest = _resolve_skill_target_path(target_dir, managed_name)
-                        if managed_dest.is_file():
-                            skill_origins[managed_name] = managed_dest
+                    shared_collisions = colliding_skills & _SHARED_SKILL_RESOURCES
+                    if shared_collisions and any(len(PurePosixPath(name).parts) > 1 for name in skill_origins):
+                        warnings.warn(
+                            "agentic-devtools: refusing to inject bundled skills because "
+                            "a shared resource collides with a consumer-authored file: "
+                            f"{', '.join(sorted(shared_collisions))}",
+                            RuntimeWarning,
+                        )
+                        overall_success = False
+                        shared_resource_collision = True
+                    else:
+                        warnings.warn(
+                            "agentic-devtools: skipping bundled skills that collide with "
+                            "consumer-authored files not listed in the previous managed "
+                            f"manifest: {', '.join(sorted(colliding_skills))}",
+                            RuntimeWarning,
+                        )
+                        skill_origins = {
+                            name: src
+                            for name, src in skill_origins.items()
+                            if PurePosixPath(name).parts[0] not in colliding_skills
+                        }
+                        selected_skill_names = {
+                            PurePosixPath(name).parts[0]
+                            for name, src in skill_origins.items()
+                            if src.name == _SKILL_ENTRY_FILE
+                        }
+                        allowed_sources = set(skill_origins.values())
+                        skill_fm_cache = {src: fm for src, fm in skill_fm_cache.items() if src in allowed_sources}
+                        for managed_name in sorted(managed_before):
+                            if PurePosixPath(managed_name).parts[0] not in colliding_skills:
+                                continue
+                            managed_dest = _resolve_skill_target_path(target_dir, managed_name)
+                            if managed_dest.is_file():
+                                skill_origins[managed_name] = managed_dest
                 else:
                     selected_skill_names = {
                         PurePosixPath(name).parts[0]
@@ -1215,6 +1248,13 @@ def inject_skills_with_summary(
         if dry_run:
             # Nothing has been written, copied or unlinked up to this point.
             return overall_success, InjectionSummary(
+                injected=injected_total,
+                pruned=pruned_total,
+                plans=plans_tuple,
+            )
+
+        if shared_resource_collision:
+            return False, InjectionSummary(
                 injected=injected_total,
                 pruned=pruned_total,
                 plans=plans_tuple,

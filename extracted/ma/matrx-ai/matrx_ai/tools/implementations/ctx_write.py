@@ -924,6 +924,14 @@ async def _emit_context_changed(
 
 CONTEXT_WRITEBACK_UNDELIVERABLE_KIND = "context_writeback_undeliverable"
 
+#: Appended ONLY when the underlying reason does not already carry its own
+#: remedy. Two remedies in one sentence read as two instructions.
+_GENERIC_REMEDY = (
+    " Remedy: the change is live for the rest of this conversation only — tell the user it "
+    "was not saved, and do not repeat the edit (repeating it would apply it twice in memory "
+    "and still not save it)."
+)
+
 #: Persist modes that ask for NO durable server-side write. ``never`` is a
 #: scratch/in-request artifact; ``client`` means the client owns persistence
 #: end-to-end. Neither can suffer a lost write-back, so neither announces.
@@ -1028,9 +1036,7 @@ async def _schedule_writeback(ctx: ToolContext, obj: Any, *, command: str) -> Wr
             f"The edit to context object '{key}' was applied for this request but NOT saved: "
             "this host did not configure a context write-back dispatcher "
             "('schedule_context_writeback' is absent from the matrx-ai extension registry), "
-            "so there is nowhere to persist it. Remedy: the change is live for the rest of "
-            "this conversation only — tell the user it was not saved, and do not repeat the "
-            "edit (repeating it would apply it twice in memory and still not save it)."
+            "so there is nowhere to persist it." + _GENERIC_REMEDY
         )
         await _capture_writeback_undeliverable(ctx, obj, command=command, message=message)
         return WritebackDelivery(durable=True, error=message)
@@ -1044,12 +1050,17 @@ async def _schedule_writeback(ctx: ToolContext, obj: Any, *, command: str) -> Wr
             command=command,
         )
     except Exception as exc:
+        # A dispatcher that already explained itself (ContextWritebackUndeliverable
+        # states what/why/remedy) must not be given a SECOND "Remedy:" clause —
+        # a doubled remedy reads like two different instructions and buries the
+        # specific one under the generic one. Observed live on 2026-09-15.
+        reason = str(exc).rstrip().rstrip(".")
         message = (
             f"The edit to context object '{key}' was applied for this request but NOT saved: "
-            f"{exc}. Remedy: the change is live for the rest of this conversation only — tell "
-            "the user it was not saved, and do not repeat the edit (repeating it would apply "
-            "it twice in memory and still not save it)."
+            f"{reason}."
         )
+        if "Remedy" not in reason:
+            message += _GENERIC_REMEDY
         logger.error("[ctx_write] write-back undeliverable for key=%s: %s", key, exc)
         await _capture_writeback_undeliverable(ctx, obj, command=command, message=message)
         return WritebackDelivery(durable=True, error=message)

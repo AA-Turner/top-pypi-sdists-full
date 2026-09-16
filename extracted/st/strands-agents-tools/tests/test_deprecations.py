@@ -11,6 +11,7 @@ import os
 import pathlib
 import re
 import types
+import warnings
 
 import pytest
 
@@ -19,19 +20,30 @@ import strands_tools
 # (module, attribute) for every tool carrying @deprecated.
 DEPRECATED_TOOLS = [
     ("batch", "batch"),
+    ("bright_data", "bright_data"),
     ("calculator", "calculator"),
+    ("chat_video", "chat_video"),
     ("cron", "cron"),
     ("current_time", "current_time"),
     ("diagram", "diagram"),
     ("editor", "editor"),
     ("environment", "environment"),
+    ("http_request", "http_request"),
+    ("exa", "exa_get_contents"),
+    ("exa", "exa_search"),
+    ("journal", "journal"),
     ("memory", "memory"),
     ("retrieve", "retrieve"),
     ("rss", "rss"),
+    ("search_video", "search_video"),
     ("shell", "shell"),
     ("slack", "slack"),
     ("slack", "slack_send_message"),
     ("sleep", "sleep"),
+    ("tavily", "tavily_crawl"),
+    ("tavily", "tavily_extract"),
+    ("tavily", "tavily_map"),
+    ("tavily", "tavily_search"),
     ("think", "think"),
 ]
 
@@ -41,8 +53,9 @@ REEXPORTED_TOOLS = [(module_name, attr) for module_name, attr in DEPRECATED_TOOL
 
 SRC = pathlib.Path(strands_tools.__file__).parent
 
-# ``from strands.vended_tools import bash`` inside a migration message.
-MIGRATION_IMPORT = re.compile(r"from ([\w.]+) import (\w+)")
+# Imports such as ``from strands.vended_tools import shell`` or
+# ``from strands.vended_tools import http_request, web_fetch`` inside migration messages.
+MIGRATION_IMPORT = re.compile(r"from ([\w.]+) import ([\w., ]+)")
 
 # shell pulls in termios/pty, which do not exist on Windows. Same stance as
 # test_shell.py: skipped there until issue #17 is resolved.
@@ -154,7 +167,7 @@ def test_deprecation_message_is_a_literal_in_the_decorator(module_name, attr):
     decorators = [
         decorator
         for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == attr
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == attr
         for decorator in node.decorator_list
         if isinstance(decorator, ast.Call) and getattr(decorator.func, "id", None) == "deprecated"
     ]
@@ -177,16 +190,20 @@ def test_decorator_literal_matches_the_logged_message(module_name, attr):
 
 @pytest.mark.parametrize("module_name, attr", DEPRECATED_TOOLS)
 def test_migration_import_resolves(module_name, attr):
-    """Every import a message spells out must actually work on the installed SDK.
+    """Every migration import must resolve without another deprecation warning.
 
-    The per-tool tests assert these messages by substring, which cannot tell a real
-    symbol from a plausible one: the messages shipped ``from strands.vended_tools import
-    shell`` for four tools, and no released SDK exports it.
+    Compatibility aliases can still exist while warning users to migrate again.
+    Check attribute access separately from module import so unrelated dependency
+    warnings are not mistaken for a deprecated replacement.
     """
     message = _import_tool_module(module_name)._DEPRECATION_MESSAGE
 
-    for module_path, symbol in MIGRATION_IMPORT.findall(message):
-        assert hasattr(importlib.import_module(module_path), symbol)
+    for module_path, symbols in MIGRATION_IMPORT.findall(message):
+        module = importlib.import_module(module_path)
+        for symbol in re.split(r"\s*,\s*", symbols):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", DeprecationWarning)
+                assert hasattr(module, symbol)
 
 
 def test_py_typed_marker_ships_with_the_package():

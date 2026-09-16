@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfactory
-Version: 3.1.0
+Version: 3.2.1
 Summary: KLayout API implementation of gdsfactory
 Author-email: gdsfactory community <contact@gdsfactory.com>
 Classifier: Operating System :: OS Independent
@@ -12,15 +12,15 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aenum<4,>=3.1.17
-Requires-Dist: cachetools<7.2,>=7.1.7
-Requires-Dist: kfnetlist>=0.2.2
-Requires-Dist: klayout<0.31,>=0.30.11
+Requires-Dist: cachetools<7.2,>=7.1.8
+Requires-Dist: kfnetlist>=0.3
+Requires-Dist: klayout<0.31,>=0.30.12
 Requires-Dist: loguru<0.8,>=0.7.3
-Requires-Dist: pydantic<2.14,>=2.13.4
+Requires-Dist: pydantic<2.14,>=2.13.5
 Requires-Dist: pydantic-extra-types<2.12,>=2.11.1
 Requires-Dist: pydantic-settings<3,>=2.15
-Requires-Dist: pygit2<2,>=1.20
-Requires-Dist: rapidfuzz<4,>=3.14.5
+Requires-Dist: pygit2<2,>=1.20.1
+Requires-Dist: rapidfuzz<4,>=3.14.6
 Requires-Dist: rectangle-packer<3,>=2.1
 Requires-Dist: requests<3,>=2.34.2
 Requires-Dist: ruamel-yaml<0.20,>=0.19.1
@@ -28,29 +28,29 @@ Requires-Dist: ruamel-yaml-string<0.2,>=0.1.1
 Requires-Dist: scipy<2,>=1.18.1
 Requires-Dist: semver<4,>=3.0.4
 Requires-Dist: toolz<2,>=1.1
-Requires-Dist: typer~=0.27.1
+Requires-Dist: typer~=0.27.2
 Provides-Extra: ci
 Requires-Dist: pytest<9.2,>=9.1.1; extra == "ci"
 Requires-Dist: pytest-cov<7.2,>=7.1; extra == "ci"
 Requires-Dist: pytest-datadir<1.9,>=1.8; extra == "ci"
-Requires-Dist: pytest-randomly<4.2,>=4.1; extra == "ci"
+Requires-Dist: pytest-randomly<5.1,>=5; extra == "ci"
 Requires-Dist: pytest-regressions<2.12,>=2.11; extra == "ci"
 Requires-Dist: pytest-xdist<3.9,>=3.8; extra == "ci"
 Requires-Dist: types-cachetools<7.1,>=7.0.0.20260713; extra == "ci"
-Requires-Dist: types-requests<2.34,>=2.33.0.20260712; extra == "ci"
-Requires-Dist: uv<0.13,>=0.12.6; extra == "ci"
+Requires-Dist: types-requests<2.34,>=2.33.0.20260906; extra == "ci"
+Requires-Dist: uv<0.13,>=0.12.13; extra == "ci"
 Provides-Extra: dev
 Requires-Dist: kfactory[ci]; extra == "dev"
 Requires-Dist: pre-commit<4.7,>=4.6.2; extra == "dev"
-Requires-Dist: ruff~=0.16.4; extra == "dev"
+Requires-Dist: ruff~=0.16.7; extra == "dev"
 Requires-Dist: rust-just~=1.58.0; extra == "dev"
 Requires-Dist: scipy-stubs<1.19,>=1.18.1; extra == "dev"
 Requires-Dist: tbump<6.12,>=6.11; extra == "dev"
-Requires-Dist: ty<0.1,>=0.0.74; extra == "dev"
+Requires-Dist: ty<0.1,>=0.0.80; extra == "dev"
 Requires-Dist: types-cachetools<7.1,>=7.0.0.20260713; extra == "dev"
-Requires-Dist: types-docutils<0.23,>=0.22.3.20260724; extra == "dev"
+Requires-Dist: types-docutils<0.24,>=0.23.0.20260911; extra == "dev"
 Requires-Dist: types-pygments<2.22,>=2.21.0.20260819; extra == "dev"
-Requires-Dist: types-requests<2.34,>=2.33.0.20260712; extra == "dev"
+Requires-Dist: types-requests<2.34,>=2.33.0.20260906; extra == "dev"
 Requires-Dist: types-setuptools<84.1,>=84.0.0.20260812; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: erdantic<1.3,>=1.2.1; extra == "docs"
@@ -59,14 +59,12 @@ Requires-Dist: griffe-pydantic<1.4,>=1.3.1; extra == "docs"
 Requires-Dist: griffe-warnings-deprecated<1.2,>=1.1.1; extra == "docs"
 Requires-Dist: kfactory[docs]; extra == "docs"
 Requires-Dist: kfactory[notebooks]; extra == "docs"
-Requires-Dist: mkdocs-literate-nav<0.7,>=0.6.3; extra == "docs"
-Requires-Dist: mkdocs-video<1.6,>=1.5; extra == "docs"
 Requires-Dist: mkdocstrings[python]<1.1,>=1.0.6; extra == "docs"
 Requires-Dist: pymdown-extensions<11.1,>=11.0.2; extra == "docs"
-Requires-Dist: zensical<0.1,>=0.0.57; extra == "docs"
+Requires-Dist: zensical<0.1,>=0.0.61; extra == "docs"
 Provides-Extra: ipy
 Requires-Dist: ipyevents<2.1,>=2.0.4; extra == "ipy"
-Requires-Dist: ipython<9.17,>=9.16.1; extra == "ipy"
+Requires-Dist: ipython<9.18,>=9.17.1; extra == "ipy"
 Requires-Dist: ipytree<0.3,>=0.2.2; extra == "ipy"
 Requires-Dist: ipywidgets<8.2,>=8.1.9; extra == "ipy"
 Provides-Extra: notebooks
@@ -76,7 +74,7 @@ Requires-Dist: kfactory[ipy]; extra == "notebooks"
 Requires-Dist: nbconvert<7.18,>=7.17.1; extra == "notebooks"
 Dynamic: license-file
 
-# KFactory 3.1.0
+# KFactory 3.2.1
 
 [![codecov](https://codecov.io/gh/gdsfactory/kfactory/graph/badge.svg?token=dArcfnQE4w)](https://codecov.io/gh/gdsfactory/kfactory)
 

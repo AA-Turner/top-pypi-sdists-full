@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.12.271
+Version: 1.12.273
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -43,7 +43,7 @@ Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: abxbus==2.5.56
 Requires-Dist: abxpkg==1.12.117
-Requires-Dist: abx-plugins==1.12.234
+Requires-Dist: abx-plugins==1.12.235
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
@@ -388,6 +388,7 @@ The normal runtime flow after dependency preflight is:
 - `SnapshotCleanupEvent` / `CrawlCleanupEvent`
 
 Hook output contract:
+- `EXTRA_CONTEXT` is opaque correlation data reflected into output records only. Hooks must never inspect it. Snapshot hooks receive `--url`, `--snapshot-id`, and `--depth` as explicit arguments; archived titles/tags stay in filesystem data. Embedders provide `download(snapshot=Snapshot(...))` for an existing snapshot, not identity or depth hidden in configuration.
 - binary preflight is driven by plugin `required_binaries` and handled by `abxpkg`, not by plugin hooks
 - `on_CrawlSetup__*` background hooks emit a first stdout readiness line, but no stdout JSONL records
 - `on_Snapshot__*` background hooks emit a first stdout readiness line; hook JSONL records after that are only `ArchiveResult`, `Snapshot`, and `Tag`

@@ -84,7 +84,7 @@ def configure(
             api_key_resolver=secret_store.get,          # provider keys
             conversation_store=SqliteConversationStore(),  # persistence
             model_catalog=ServerModelCatalog(),         # model lookup+routing
-            get_jwt=lambda: auth.current_token,         # user identity
+            get_jwt=auth.current_token,                 # sync or async user identity
             server_url=os.environ["AIDREAM_SERVER_URL_LIVE"],
             source_app="matrx_local",
         )
@@ -146,8 +146,9 @@ def configure(
             ``Agent.from_agent`` consume complete canonical definitions rather
             than reconstructing agents from listing metadata.
         get_jwt: Optional zero-argument callable returning the current user's
-            JWT (str | None). Called at request time, never cached — token
-            refreshes are picked up automatically. Requires ``server_url``.
+            JWT (``str | None``) or an awaitable of that value. Called at each
+            authenticated request boundary, never cached — token refreshes are
+            picked up automatically. Requires ``server_url``.
             Used by the derived server-backed tool source (above) and any
             future authenticated server reads.
         server_url: Optional AIDream server base URL for server-backed

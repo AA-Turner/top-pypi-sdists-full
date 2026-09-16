@@ -93,7 +93,7 @@ class AutomationRecord:
 
 
 @dataclass(frozen=True)
-class FederationAppRecord:
+class FederationAppRecord:  # pylint: disable=too-many-instance-attributes
     """Record containing a federation app and its association metadata."""
 
     federation_id: str
@@ -103,6 +103,7 @@ class FederationAppRecord:
     is_hub_app: bool
     added_by: str
     added_at: datetime
+    updated_at: datetime
 
 
 @dataclass
@@ -338,7 +339,7 @@ class InMemoryCoreState(
         added_by: str,
         is_hub_app: bool = False,
     ) -> str:
-        """Atomically store a FAB and associate its app with a federation."""
+        """Store a FAB and associate its app with a federation."""
         if not all((federation_id, app_id, app_type, added_by)):
             raise ValueError(
                 "Federation ID, app ID, app type, and added by are required"
@@ -349,6 +350,7 @@ class InMemoryCoreState(
                 f"FAB hash mismatch: provided {fab.hash_str}, computed {fab_hash}"
             )
         key = (federation_id, app_id)
+        current_time = now()
         with self.lock_fab_store, self.lock_federation_app_store:
             # Keep launch behavior: last write wins for metadata under the same
             # content hash.
@@ -365,7 +367,8 @@ class InMemoryCoreState(
                 app_type=app_type,
                 is_hub_app=is_hub_app,
                 added_by=existing.added_by if existing else added_by,
-                added_at=existing.added_at if existing else now(),
+                added_at=existing.added_at if existing else current_time,
+                updated_at=current_time,
             )
         return fab_hash
 
@@ -396,6 +399,44 @@ class InMemoryCoreState(
                 content=fab.content,
                 verifications=dict(fab.verifications),
             )
+
+    def get_hub_app(
+        self, federation_id: str, app_id: str
+    ) -> tuple[Fab, datetime] | None:
+        """Return the cached Hub FAB and its last update time, if present."""
+        with self.lock_fab_store, self.lock_federation_app_store:
+            app = self.federation_app_store.get((federation_id, app_id))
+            fab = self.fab_store.get(app.fab_hash) if app else None
+            if app is None or not app.is_hub_app or fab is None:
+                return None
+            return (
+                Fab(fab.hash_str, fab.content, dict(fab.verifications)),
+                app.updated_at,
+            )
+
+    def update_hub_app(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        federation_id: str,
+        app_id: str,
+        previous_fab_hash: str,
+        fab_hash: str,
+        app_type: str,
+    ) -> bool:
+        """Update a Hub app if it still points to the previous FAB."""
+        key = (federation_id, app_id)
+        with self.lock_fab_store, self.lock_federation_app_store:
+            app = self.federation_app_store.get(key)
+            if (
+                app is None
+                or not app.is_hub_app
+                or app.fab_hash != previous_fab_hash
+                or fab_hash not in self.fab_store
+            ):
+                return False
+            self.federation_app_store[key] = replace(
+                app, fab_hash=fab_hash, app_type=app_type, updated_at=now()
+            )
+            return True
 
     def list_apps(
         self, federation_id: str, limit: int | None = None
@@ -599,6 +640,17 @@ class InMemoryCoreState(
             if limit is not None:
                 run_series = run_series[:limit]
             return list(run_series)
+
+    def set_run_series_description(self, series_id: int, description: str) -> None:
+        """Set the description of an existing RunSeries."""
+        normalized = description.strip()
+        if not normalized:
+            return
+        with self.lock_run_series_store:
+            run_series = self.run_series_store.get(series_id)
+            if run_series is None:
+                return
+            run_series.description = normalized
 
     def get_run_series_context(self, series_id: int) -> Context | None:
         """Return the shared Context for the specified RunSeries, if present."""
@@ -1155,7 +1207,7 @@ class InMemoryCoreState(
     ) -> bool:
         """Store one task-addressed Message."""
         message_id = message.metadata.message_id
-        if validate_task_message(message):
+        if validate_task_message(message, self.get_node_id()):
             return False
         src_task_id = cast(int, message.metadata.src_task_id)
         dst_task_id = cast(int, message.metadata.dst_task_id)
@@ -1277,28 +1329,38 @@ class InMemoryCoreState(
     def get_task_events(
         self,
         *,
-        run_id: int | None = None,
+        run_ids: Sequence[int] | None = None,
         task_ids: Sequence[int] | None = None,
         after_task_event_id: int | None = None,
     ) -> Sequence[TaskEvent]:
         """Return task-produced run events after the cursor."""
         cursor = after_task_event_id if after_task_event_id is not None else 0
         with self.lock_task_event_store:
-            if run_id is None:
+            if run_ids is not None and not run_ids:
+                return []
+
+            run_id_set = set(run_ids) if run_ids is not None else None
+            if run_id_set is not None:
+                events = [
+                    event
+                    for requested_run_id in run_id_set
+                    for event in self.task_event_store.get(requested_run_id, [])
+                ]
+            else:
                 events = [
                     event
                     for task_events in self.task_event_store.values()
                     for event in task_events
                 ]
-            else:
-                events = list(self.task_event_store.get(run_id, []))
-            task_id_set = set(task_ids) if task_ids is not None else None
-            return [
-                event
-                for event in sorted(events, key=lambda event: event.id)
-                if event.id > cursor
-                and (task_id_set is None or event.task_id in task_id_set)
-            ]
+
+        task_id_set = set(task_ids) if task_ids is not None else None
+        return [
+            event
+            for event in sorted(events, key=lambda event: event.id)
+            if event.id > cursor
+            and (run_id_set is None or event.run_id in run_id_set)
+            and (task_id_set is None or event.task_id in task_id_set)
+        ]
 
     def _cleanup_expired_task_tokens_locked(self) -> None:
         """Remove expired task tokens.

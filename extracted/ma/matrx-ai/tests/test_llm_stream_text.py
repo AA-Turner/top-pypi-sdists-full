@@ -22,6 +22,32 @@ from matrx_ai.graph_nodes import _strict_json
 from matrx_ai.graph_nodes._strict_json import _DeltaEmitter, llm_stream_text
 
 
+class _StubResult:
+    """What ``_run_completion_measured`` returns: the text AND what it cost.
+
+    The runner is measured now (the strict-JSON funnel has to be able to tell a
+    caller what a call cost), so a double that returned a bare ``(text, finish)``
+    tuple would be doubling a function that no longer exists.
+    """
+
+    class _Usage:
+        input_tokens = 100
+        output_tokens = 20
+        cost_usd = 0.001
+
+    def __init__(self, text: str, finish: str | None = "stop") -> None:
+        self.final_text = text
+        self.finish_reason = finish
+        self.usage = _StubResult._Usage()
+        self.duration_ms = 10
+
+    def model_copy(self, *, update: dict | None = None) -> "_StubResult":
+        clone = _StubResult(self.final_text, self.finish_reason)
+        for key, value in (update or {}).items():
+            setattr(clone, key, value)
+        return clone
+
+
 class _RecordingEmitter:
     """Stands in for the real StreamEmitter on the AppContext."""
 
@@ -59,9 +85,9 @@ async def test_deltas_reach_callback_and_never_leak_to_the_emitter(monkeypatch):
             await emitter.send_chunk(piece)
         await emitter.send_reasoning_chunk("<thinking>")
         await emitter.send_data({"kind": "passthrough"})
-        return "Hello world", "stop"
+        return _StubResult("Hello world", "stop")
 
-    monkeypatch.setattr(_strict_json, "_run_completion", _fake_run_completion)
+    monkeypatch.setattr(_strict_json, "_run_completion_measured", _fake_run_completion)
 
     _install_ctx(monkeypatch, base)
 
@@ -91,7 +117,7 @@ async def test_context_restored_even_when_the_call_raises(monkeypatch):
     async def _boom(messages, system_text, **kwargs):
         raise RuntimeError("provider exploded")
 
-    monkeypatch.setattr(_strict_json, "_run_completion", _boom)
+    monkeypatch.setattr(_strict_json, "_run_completion_measured", _boom)
     _install_ctx(monkeypatch, base)
 
     async def _on_delta(text: str) -> None:  # pragma: no cover - never called
@@ -115,9 +141,9 @@ async def test_falls_back_to_accumulated_tokens_when_final_text_is_empty(monkeyp
 
         emitter = get_app_context().emitter
         await emitter.send_chunk("recovered")
-        return "", "stop"  # provider reported no final text
+        return _StubResult("", "stop")  # provider reported no final text
 
-    monkeypatch.setattr(_strict_json, "_run_completion", _empty_final)
+    monkeypatch.setattr(_strict_json, "_run_completion_measured", _empty_final)
     _install_ctx(monkeypatch, base)
 
     async def _on_delta(text: str) -> None:
@@ -142,9 +168,9 @@ async def test_reasoning_is_split_out_of_the_answer(monkeypatch):
         await e.send_chunk("Let me think... {\"not\": \"json\"}")
         await e.send_chunk("\n</reasoning>\n")
         await e.send_chunk("The real answer.")
-        return "", "stop"  # force the drain fallback so we test the RETURNED text
+        return _StubResult("", "stop")  # force the drain fallback so we test the RETURNED text
 
-    monkeypatch.setattr(_strict_json, "_run_completion", _thinking_provider)
+    monkeypatch.setattr(_strict_json, "_run_completion_measured", _thinking_provider)
     _install_ctx(monkeypatch, base)
 
     async def _on_delta(text: str) -> None:
@@ -168,9 +194,9 @@ async def test_on_delta_none_suppresses_the_stream(monkeypatch):
         from matrx_connect.context.app_context import get_app_context
 
         await get_app_context().emitter.send_chunk("secret judge JSON")
-        return "secret judge JSON", "stop"
+        return _StubResult("secret judge JSON", "stop")
 
-    monkeypatch.setattr(_strict_json, "_run_completion", _run)
+    monkeypatch.setattr(_strict_json, "_run_completion_measured", _run)
     _install_ctx(monkeypatch, base)
 
     out = await llm_stream_text(model="m", system="s", user="u", on_delta=None)
@@ -190,9 +216,9 @@ async def test_restore_preserves_context_written_during_the_call(monkeypatch):
 
         ctx = get_app_context()
         set_app_context(ctx.with_overrides(conversation_id="conv-123"))
-        return "ok", "stop"
+        return _StubResult("ok", "stop")
 
-    monkeypatch.setattr(_strict_json, "_run_completion", _writes_ctx)
+    monkeypatch.setattr(_strict_json, "_run_completion_measured", _writes_ctx)
     _install_ctx(monkeypatch, base)
 
     await llm_stream_text(model="m", system="s", user="u", on_delta=None)

@@ -10,22 +10,38 @@
 # an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
+import functools
+import logging
+from urllib.parse import urlparse
 
-import threading
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
-
-from .Tube import SocketTubePool
 from .DaxClient import DaxClient
 from .DaxError import DaxClientError, DaxErrorCode, DaxValidationError
-from .Router import SCHEMES_TO_DEFAULT_PORTS, EndpointRouter
+from .EndpointRefresher import EndpointRefresher
+from .Tube import SocketTubePool
+from .router.RouterWithCB import RouterWithCB
 
-import logging
+
 logger = logging.getLogger(__name__)
 
-class Cluster(object):
+SCHEMES_TO_DEFAULT_PORTS = {'dax': 8111, 'daxs': 9111}
+
+
+class ClusterDefaults:
+    # All time intervals are in seconds to match time.time.
+    CLUSTER_UPDATE_INTERVAL = 4.0
+    HEALTH_CHECK_INTERVAL = 5.0
+    IDLE_CONNECTION_REAP_DELAY = 30.0
+    HEALTH_CHECK_RETRY_DELAY = 0.5
+    # Attempts for the node health check mechanism, including the first attempt.
+    HEALTH_CHECK_MAX_ATTEMPTS = 3
+
+
+class Cluster(ClusterDefaults):
+    '''
+    Manages DAX cluster discovery, routing, and client creation.
+
+    Topology discovery is delegated to EndpointRefresher.
+    '''
     def __init__(self, region_name, discovery_endpoints, credentials, user_agent=None, user_agent_extra=None, connect_timeout=None,
                  read_timeout=None, skip_hostname_verification=None, router_factory=None, client_factory=None, ip_discovery=None):
         self._region_name = region_name
@@ -35,30 +51,48 @@ class Cluster(object):
         self._user_agent_extra = user_agent_extra
         self._connect_timeout = connect_timeout
         self._read_timeout = read_timeout
-        self._client_factory = client_factory or self._new_client
         self._skip_hostname_verification = skip_hostname_verification
         self._ip_discovery = ip_discovery
 
-        _router_factory = router_factory or EndpointRouter
+        self._router_factory = router_factory or RouterWithCB
 
         self._closed = False
 
-        # All time intervals are in seconds to match time.time
-        self._cluster_update_interval = 4.0
-        self._health_check_interval = 5.0
-        self._idle_connection_reap_delay = 30.0
+        self._cluster_update_interval = self.CLUSTER_UPDATE_INTERVAL
+        self._health_check_interval = self.HEALTH_CHECK_INTERVAL
+        self._idle_connection_reap_delay = self.IDLE_CONNECTION_REAP_DELAY
 
-        self._router = _router_factory(self._client_factory,
-                                       self._discovery_endpoints,
-                                       self._cluster_update_interval,
-                                       self._health_check_interval,
-                                       ip_discovery=self._ip_discovery)
+        # _client_factory: callable(scheme, hostname, addrport, ip_version, **kwargs) -> client
+        self._client_factory = client_factory or self._new_client
 
-        self._lock = threading.Lock()
+        if len({scheme for scheme, _, _ in self._discovery_endpoints}) > 1:
+            raise DaxValidationError('All endpoints must have the same scheme')
+        scheme = self._discovery_endpoints[0][0]
+
+        self._router = self._router_factory(
+            client_factory=functools.partial(self._client_factory, scheme),
+            health_check_interval=self._health_check_interval,
+            health_check_retry_delay=self.HEALTH_CHECK_RETRY_DELAY,
+            health_check_max_attempts=self.HEALTH_CHECK_MAX_ATTEMPTS,
+        )
+
+        self._refresher = EndpointRefresher(
+            client_factory=functools.partial(self._client_factory, scheme),
+            discovery_endpoints=self._discovery_endpoints,
+            update_interval=self._cluster_update_interval,
+            ip_discovery=ip_discovery,
+            on_endpoints=self._router.update,
+        )
 
     def start(self, min_healthy=1):
-        self._router.start()
-        self.wait_for_routes(min_healthy=min_healthy, leader_min=1, timeout=self._connect_timeout)
+        '''Start the refresher'''
+        try:
+            self._refresher.start()
+            self._router.start()
+            self.wait_for_routes(min_healthy=min_healthy, leader_min=1, timeout=self._connect_timeout)
+        except Exception:
+            self.close()
+            raise
 
     def close(self):
         if self._closed:
@@ -67,9 +101,16 @@ class Cluster(object):
         self._closed = True
 
         try:
+            self._refresher.close()
+        except Exception: # pylint: disable=broad-except
+            logger.warning('Failed closing endpoint refresher', exc_info=True)
+        finally:
+            self._refresher = None
+
+        try:
             self._router.close()
-        except Exception as e: # pylint: disable=broad-except
-            logger.warning('Failed closing router', exec_info=e)
+        except Exception: # pylint: disable=broad-except
+            logger.warning('Failed closing router', exc_info=True)
         finally:
             self._router = None
 
@@ -98,21 +139,27 @@ class Cluster(object):
     def wait_for_routes(self, min_healthy=1, leader_min=1, timeout=None):
         return self._router.wait_for_routes(min_healthy=min_healthy, leader_min=leader_min, timeout=timeout)
 
-    def _new_client(self, scheme, hostname, sockaddr, ip_version):
+    def _new_client(self, scheme, hostname, sockaddr, ip_version,
+                    on_operation_success=None, on_operation_failure=None):
         ''' Create a new client.
 
         Caller is responsible for closing the client.
         '''
         tube_pool = SocketTubePool(
-                scheme, hostname, sockaddr, ip_version,
-                lambda: self._credentials,
-                self._region_name,
-                self._user_agent,
-                self._user_agent_extra,
-                self._connect_timeout,
-                self._read_timeout,
-                self._skip_hostname_verification)
-        return DaxClient(tube_pool)
+            scheme, hostname, sockaddr, ip_version,
+            lambda: self._credentials,
+            self._region_name,
+            self._user_agent,
+            self._user_agent_extra,
+            self._connect_timeout,
+            self._read_timeout,
+            self._skip_hostname_verification,
+        )
+        return DaxClient(
+            tube_pool,
+            on_operation_success=on_operation_success,
+            on_operation_failure=on_operation_failure,
+        )
 
 def _parse_host_ports(endpoint):
     # We accept endpoints in the form hostname:port. We also call these

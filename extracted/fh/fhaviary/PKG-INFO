@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhaviary
-Version: 0.36.0
+Version: 0.37.0
 Summary: Gymnasium framework for training language model agents on constructive tasks
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License
@@ -581,6 +581,10 @@ We will define a single tool that prints a story. Tools may optionally take a fi
 `state` which is the environment state. This argument will not be
 exposed to the agent as a parameter but will be injected by the environment
 (if part of the function signature).
+
+A tool may also declare a `tool_call_id: str` argument. The environment injects the ID of
+the tool call being executed, so a tool can key its work by call. Like `state`, this
+argument stays hidden from the agent.
 
 ```py
 def print_story(story: str, state: ExampleState):

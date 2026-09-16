@@ -739,9 +739,16 @@ def run_scheduler(provider: CIPlatformProvider, *, dry_run: bool = False) -> Sch
     else:
         for pr_number in batch:
             try:
+                head_sha = provider.get_pr_metadata(pr_number).head_sha
+                if not isinstance(head_sha, str) or not head_sha.strip():
+                    raise RuntimeError(f"PR #{pr_number} has no head SHA")
                 provider.dispatch_workflow(
                     workflow="ai-pr-loop.yml",
-                    inputs={"pr_number": str(pr_number), "trigger_reason": "scheduler_round_robin"},
+                    inputs={
+                        "pr_number": str(pr_number),
+                        "head_sha": head_sha,
+                        "trigger_reason": "scheduler_round_robin",
+                    },
                 )
                 dispatched.append(pr_number)
                 logger.info("Dispatched ai-pr-loop for PR #%d", pr_number)

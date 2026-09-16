@@ -60,6 +60,53 @@ class TestPullRequestNode:
             assert result["error"] is None
             assert result["pr_url"] == "https://github.com/org/repo/pull/99"
 
+    def test_phase0_branch_adds_reviewer_checklist_to_pr_description(self):
+        captured = {}
+
+        def fake_create(title, description, source_branch):
+            captured["description"] = description
+            return {"url": "https://github.com/org/repo/pull/100"}
+
+        with patch(
+            "agentic_devtools.orchestration.nodes.pull_request._create_github_pr",
+            side_effect=fake_create,
+        ):
+            result = pull_request_node(
+                {
+                    "issue_key": "#42",
+                    "issue_provider": "github",
+                    "plan": "",
+                    "source_branch": "speckit/42/phase-0-normalize",
+                }
+            )
+
+        assert result["pr_created"] is True
+        assert captured["description"].count("## Phase 0 Review Checklist") == 1
+        assert "- [ ] Title matches the authoritative source" in captured["description"]
+
+    def test_non_speckit_phase0_branch_does_not_add_reviewer_checklist(self):
+        captured = {}
+
+        def fake_create(title, description, source_branch):
+            captured["description"] = description
+            return {"url": "https://github.com/org/repo/pull/101"}
+
+        with patch(
+            "agentic_devtools.orchestration.nodes.pull_request._create_github_pr",
+            side_effect=fake_create,
+        ):
+            result = pull_request_node(
+                {
+                    "issue_key": "#42",
+                    "issue_provider": "github",
+                    "plan": "",
+                    "source_branch": "feature/phase-0-normalize",
+                }
+            )
+
+        assert result["pr_created"] is True
+        assert "## Phase 0 Review Checklist" not in captured["description"]
+
     def test_fails_fast_when_source_branch_unavailable(self):
         """Without source_branch or setup_result the node must not attempt PR creation."""
         with patch("agentic_devtools.orchestration.nodes.pull_request._create_github_pr") as mock_create:
@@ -658,6 +705,16 @@ class TestGeneratePrDescription:
     def test_includes_plan_preview(self):
         desc = _generate_pr_description("T-1", "Do things step by step", {})
         assert "Do things" in desc
+
+    def test_phase0_includes_checklist_once(self):
+        desc = _generate_pr_description("T-1", "", {}, phase=0)
+        assert desc.count("## Phase 0 Review Checklist") == 1
+        assert "- [ ] Template compliance has been verified" in desc
+
+    def test_non_phase0_does_not_include_checklist(self):
+        for phase in (None, 1, 2, 3, 4, 5):
+            desc = _generate_pr_description("T-1", "", {}, phase=phase)
+            assert "## Phase 0 Review Checklist" not in desc
 
     def test_non_dict_issue_data(self):
         desc = _generate_pr_description("T-1", "", None)

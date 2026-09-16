@@ -757,6 +757,30 @@ src/ffi/extra/structural_hash.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/structural_hash.cc.s
 .PHONY : src/ffi/extra/structural_hash.cc.s
 
+src/ffi/extra/structural_mutate.o: src/ffi/extra/structural_mutate.cc.o
+.PHONY : src/ffi/extra/structural_mutate.o
+
+# target to build an object file
+src/ffi/extra/structural_mutate.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/structural_mutate.cc.o
+.PHONY : src/ffi/extra/structural_mutate.cc.o
+
+src/ffi/extra/structural_mutate.i: src/ffi/extra/structural_mutate.cc.i
+.PHONY : src/ffi/extra/structural_mutate.i
+
+# target to preprocess a source file
+src/ffi/extra/structural_mutate.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/structural_mutate.cc.i
+.PHONY : src/ffi/extra/structural_mutate.cc.i
+
+src/ffi/extra/structural_mutate.s: src/ffi/extra/structural_mutate.cc.s
+.PHONY : src/ffi/extra/structural_mutate.s
+
+# target to generate assembly for a file
+src/ffi/extra/structural_mutate.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/structural_mutate.cc.s
+.PHONY : src/ffi/extra/structural_mutate.cc.s
+
 src/ffi/extra/structural_visit.o: src/ffi/extra/structural_visit.cc.o
 .PHONY : src/ffi/extra/structural_visit.o
 
@@ -1005,6 +1029,9 @@ help:
 	@echo "... src/ffi/extra/structural_hash.o"
 	@echo "... src/ffi/extra/structural_hash.i"
 	@echo "... src/ffi/extra/structural_hash.s"
+	@echo "... src/ffi/extra/structural_mutate.o"
+	@echo "... src/ffi/extra/structural_mutate.i"
+	@echo "... src/ffi/extra/structural_mutate.s"
 	@echo "... src/ffi/extra/structural_visit.o"
 	@echo "... src/ffi/extra/structural_visit.i"
 	@echo "... src/ffi/extra/structural_visit.s"

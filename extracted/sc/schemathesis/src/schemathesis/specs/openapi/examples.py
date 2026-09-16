@@ -315,6 +315,11 @@ def extract_top_level(
     for alternative in operation.body:
         body = cast(OpenApiBody, alternative)
         body_validator: jsonschema_rs.Validator | None = _make_example_validator(body.validation_schema)
+        # A value declared deeper in the schema still goes on the wire as the whole body, so it is
+        # checked against what the body declares; float32 narrowing stays the separate question below.
+        declared_validator: jsonschema_rs.Validator | None = _make_example_validator(
+            body.validation_schema, snap_float32=False
+        )
 
         if "schema" in body.definition:
             schema = body.definition["schema"]
@@ -342,9 +347,16 @@ def extract_top_level(
                     if (
                         _example_is_valid(value, body_validator)
                         if definition is body.definition
-                        else _example_survives_float32(value, definition)
+                        else _example_is_valid(value, declared_validator)
+                        and _example_survives_float32(value, definition)
                     ):
                         yield BodyExample(value=value, media_type=body.media_type)
+                    else:
+                        completed = _completed_body_example(
+                            value, body.validation_schema, declared_validator, operation
+                        )
+                        if completed is not None:
+                            yield BodyExample(value=completed, media_type=body.media_type)
         if body.adapter.examples_container_keyword in body.definition:
             for value in extract_inner_examples(
                 body.definition[body.adapter.examples_container_keyword], operation.schema
@@ -363,8 +375,16 @@ def extract_top_level(
             ):
                 if isinstance(expanded_schema, dict) and body.adapter.examples_container_keyword in expanded_schema:
                     for value in expanded_schema[body.adapter.examples_container_keyword]:
-                        if _example_survives_float32(value, expanded_schema):
+                        if _example_is_valid(value, declared_validator) and _example_survives_float32(
+                            value, expanded_schema
+                        ):
                             yield BodyExample(value=value, media_type=body.media_type)
+                        else:
+                            completed = _completed_body_example(
+                                value, body.validation_schema, declared_validator, operation
+                            )
+                            if completed is not None:
+                                yield BodyExample(value=completed, media_type=body.media_type)
 
 
 @overload
@@ -594,10 +614,7 @@ def extract_from_schemas(
             continue
         if isinstance(schema, bool):
             continue
-        try:
-            body_validator: jsonschema_rs.Validator | None = make_validator_for(schema)
-        except jsonschema_rs.ValidationError:
-            body_validator = None
+        body_validator: jsonschema_rs.Validator | None = _make_example_validator(schema, snap_float32=False)
         resolver = make_root_resolver(schema)
         bundle_storage = schema.get(BUNDLE_STORAGE_KEY)
         for example_keyword, examples_container_keyword in (("example", "examples"), ("x-example", "x-examples")):
@@ -616,13 +633,17 @@ def extract_from_schemas(
                     yield BodyExample(value=value, media_type=body.media_type)
 
 
-def _make_example_validator(schema: Any) -> jsonschema_rs.Validator | None:
+def _make_example_validator(schema: Any, *, snap_float32: bool = True) -> jsonschema_rs.Validator | None:
     # Float32-snap so spec examples that collapse once narrowed (e.g. `5e-324` under `exclusiveMinimum: 0`) are evicted.
     if not isinstance(schema, dict):
         return None
+    # The sample values a schema carries constrain nothing, and a YAML tag can put something in them
+    # that no validator can be built over (`!!binary` -> bytes).
+    if "example" in schema or "examples" in schema:
+        schema = {key: value for key, value in schema.items() if key not in ("example", "examples")}
     try:
-        return make_validator_for(snapped_float32_clone(schema))
-    except jsonschema_rs.ValidationError:
+        return make_validator_for(snapped_float32_clone(schema) if snap_float32 else schema)
+    except ValueError:
         return None
 
 
@@ -637,6 +658,54 @@ def _example_survives_float32(value: object, schema: Any) -> bool:
     except jsonschema_rs.ValidationError:
         return True
     return _example_is_valid(value, snapped_validator) or not _example_is_valid(value, declared_validator)
+
+
+def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+    """`overlay` wins at every leaf, so a value the spec declares is never replaced by a generated one."""
+    result = dict(base)
+    for key, value in overlay.items():
+        current = result.get(key)
+        result[key] = _deep_merge(current, value) if isinstance(current, dict) and isinstance(value, dict) else value
+    return result
+
+
+# Failures that adding an omitted value can clear; anything else stands however the rest is filled in.
+_COMPLETABLE_ERROR_KINDS = frozenset({"required", "anyOf", "oneOf"})
+
+
+def _completed_body_example(
+    value: object,
+    validation_schema: Any,
+    validator: jsonschema_rs.Validator | None,
+    operation: APIOperation,
+) -> dict[str, Any] | None:
+    """The example with the values it omits drawn from the schema, or `None` when that still does not conform."""
+    if not isinstance(value, dict) or validator is None or not isinstance(validation_schema, dict):
+        return None
+    # Drawing a whole body is expensive, so the cheap check for what cannot be salvaged comes first.
+    try:
+        if any(error.kind.name not in _COMPLETABLE_ERROR_KINDS for error in validator.iter_errors(value)):
+            return None
+    except ValueError:
+        # `is_valid` tolerates a value outside the JSON types, but listing its errors raises on one.
+        return None
+    config = operation.schema.config.generation_for(operation=operation, phase="examples")
+    try:
+        generated = _generate_single_example(
+            validation_schema, config, operation.schema.adapter.jsonschema_validator_cls
+        )
+    except (
+        InvalidArgument,
+        Unsatisfiable,
+        RefResolutionError,
+        jsonschema_rs.ValidationError,
+        jsonschema_rs.ReferencingError,
+    ):
+        return None
+    if not isinstance(generated, dict):
+        return None
+    merged = _deep_merge(generated, value)
+    return merged if _example_is_valid(merged, validator) else None
 
 
 def _example_is_valid(value: object, validator: jsonschema_rs.Validator | None) -> bool:

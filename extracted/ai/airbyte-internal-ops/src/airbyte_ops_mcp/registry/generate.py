@@ -161,8 +161,17 @@ class GenerateResult:
 # ---------------------------------------------------------------------------
 
 
+# The platform launcher sets both env vars on connector pods. Legacy Java and
+# Python CDKs read `DEPLOYMENT_MODE`; the bulk CDK (core-base >= 1.0.3) reads
+# `AIRBYTE_EDITION` instead.
+_AIRBYTE_EDITION_BY_MODE: dict[str, str] = {
+    "cloud": "CLOUD",
+    "oss": "COMMUNITY",
+}
+
+
 def _run_docker_spec(docker_image: str, deployment_mode: str) -> dict[str, Any]:
-    """Run `docker run --rm -e DEPLOYMENT_MODE=<mode> <image> spec`.
+    """Run `docker run --rm -e DEPLOYMENT_MODE=<mode> -e AIRBYTE_EDITION=<edition> <image> spec`.
 
     Args:
         docker_image: Fully qualified image (e.g. `airbyte/source-faker:1.2.3`).
@@ -180,6 +189,8 @@ def _run_docker_spec(docker_image: str, deployment_mode: str) -> dict[str, Any]:
         "--rm",
         "-e",
         f"DEPLOYMENT_MODE={deployment_mode}",
+        "-e",
+        f"AIRBYTE_EDITION={_AIRBYTE_EDITION_BY_MODE[deployment_mode]}",
         docker_image,
         "spec",
     ]

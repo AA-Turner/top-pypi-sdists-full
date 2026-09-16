@@ -5,15 +5,16 @@ Tests both sync and async variants to ensure API parity.
 
 import io
 
-import httpx
+import httpx2 as httpx
 import pytest
-import respx
+import vendor.respx as respx
 
 from vercel._internal.blob.core import decode_blob_response_json
 from vercel.blob import (
     AsyncBlobClient,
     BlobClient,
     BlobNotFoundError,
+    UploadProgressEvent,
     aioblob,
     copy,
     copy_async,
@@ -189,7 +190,7 @@ class TestBlobPut:
         from vercel.blob.multipart.uploader import DEFAULT_PART_SIZE
 
         completed_parts: list[dict[str, str | int]] = []
-        progress_events = []
+        progress_events: list[UploadProgressEvent] = []
 
         def mpu_handler(request: httpx.Request) -> httpx.Response:
             action = request.headers["x-mpu-action"]
@@ -301,7 +302,7 @@ class TestBlobPut:
         from vercel.blob.multipart.uploader import DEFAULT_PART_SIZE
 
         completed_parts: list[dict[str, str | int]] = []
-        progress_events = []
+        progress_events: list[UploadProgressEvent] = []
 
         def mpu_handler(request: httpx.Request) -> httpx.Response:
             action = request.headers["x-mpu-action"]

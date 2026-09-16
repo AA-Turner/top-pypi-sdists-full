@@ -30,7 +30,7 @@ class StorageConnectionListResponse(BaseModel):
     """
     Response envelope for listing storage connections.  Contains paginated results and metadata about the listing operation.
     """ # noqa: E501
-    results: List[StorageConnectionModel] = Field(description="List of storage connections matching the request filters. Results are paginated according to the pagination parameters. SECURITY: Sensitive credential fields are automatically redacted.")
+    results: List[StorageConnectionModel] = Field(description="List of storage connections matching the request filters. Results are paginated according to the pagination parameters. SECURITY: credential fields are not returned; only the credential type is.")
     pagination: PaginationResponse = Field(description="Pagination metadata including total count, page number, page size, and navigation links for next/previous pages.")
     total: Annotated[int, Field(strict=True, ge=0)] = Field(description="Total number of connections matching the filters (before pagination). Use this to calculate total pages and display pagination controls.")
     __properties: ClassVar[List[str]] = ["results", "pagination", "total"]

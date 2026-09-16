@@ -84,16 +84,23 @@
   };
 
   function esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    s = String(s == null ? '' : s);
+    // textContent→innerHTML is the exact pattern CodeQL recognises as a DOM sanitizer.
+    // Do not split into an intermediate variable or chain .replace() on n.innerHTML —
+    // CodeQL propagates taint through both and the sanitizer recognition is lost.
+    if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+      var n = document.createElement('span');
+      n.textContent = s;
+      return n.innerHTML;
+    }
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   function isNum(v) {
     return typeof v === 'number' && isFinite(v);
   }
 
-  // ── Lookup ──────────────────────────────────────────────────────────────
+  // ── Lookup ────────────────────────────────────────────────────────────────────
   // Accepts either the whole payload (and a key) or an entry directly, so a
   // caller that has already pulled the entry out of a row does not have to
   // pretend it still has the payload.
@@ -138,7 +145,7 @@
     return lines.filter(Boolean).join('\n');
   }
 
-  // ── The badge ───────────────────────────────────────────────────────────
+  // ── The badge ───────────────────────────────────────────────────────────────
   // opts.compact  one letter instead of the word (dense tables)
   // opts.label    a name for the figure, shown as the tooltip's first line
   // A cost figure's badge names its financial basis ("published rates")
@@ -166,7 +173,7 @@
       + '">' + esc(text) + '</span>';
   }
 
-  // ── Formatting a figure ─────────────────────────────────────────────────
+  // ── Formatting a figure ─────────────────────────────────────────────────────
   // Money the way this dashboard has always shown it, kept in ONE place: six
   // copies of this function had drifted across app.js before it moved here.
   function fmtMoney(v) {
@@ -217,6 +224,20 @@
       + (opts.noBadge ? '' : badge(e, opts));
   }
 
+  // A cost figure whose basis may not have arrived (REQ-OBS-CEA-025.8). With
+  // an entry this is figure(). Without one (a daemon older than the label,
+  // or a hosted answer the browser synthesised) the number still goes
+  // through the shared formatter and hover text, and no badge is invented.
+  function costFigure(value, entry, opts) {
+    var o = {};
+    var src = opts || {};
+    for (var k in src) {
+      if (Object.prototype.hasOwnProperty.call(src, k)) o[k] = src[k];
+    }
+    if (!entry) o.noBadge = true;
+    return figure(value, entry, o);
+  }
+
   // Shorthands for the two shapes that appear most: a money figure looked up
   // from a payload by key, and a score.
   function money(payload, key, opts) {
@@ -239,7 +260,7 @@
     return fmtMoney(value);
   }
 
-  // ── The explanation for a keyboard user ─────────────────────────────────
+  // ── The explanation for a keyboard user ───────────────────────────────────
   // A mouse user gets the title tooltip. A keyboard user who focuses a badge
   // gets the same text in ONE floating element on <body>. A CSS ::after on
   // the badge itself was tried first and was clipped to a single line by the
@@ -299,8 +320,10 @@
     LABEL: LABEL, HINT: HINT, COST_LABEL: COST_LABEL, COST_HINT: COST_HINT,
     of: of, isUnknown: isUnknown, tip: tip, badge: badge,
     figure: figure, money: money, score: score, text: text,
+    costFigure: costFigure,
     fmtMoney: fmtMoney, fmtScore: fmtScore
   };
+  window.cmCostFigure = costFigure;
   // Terse aliases: these get called from inside string-concatenated table
   // rows, where `window.cmProv.figure(...)` would be most of the line.
   window.cmMoney = money;

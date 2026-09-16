@@ -1355,8 +1355,9 @@ def generate_version_artifacts_cmd(
 ) -> None:
     """Generate version artifacts for a connector locally.
 
-    Runs the connector's docker image with DEPLOYMENT_MODE=cloud and
-    DEPLOYMENT_MODE=oss to obtain both spec variants, then generates
+    Runs the connector's docker image in cloud mode (`DEPLOYMENT_MODE=cloud`,
+    `AIRBYTE_EDITION=CLOUD`) and oss mode (`DEPLOYMENT_MODE=oss`,
+    `AIRBYTE_EDITION=COMMUNITY`) to obtain both spec variants, then generates
     the registry entries (cloud.json, oss.json) by applying
     registryOverrides from the metadata.
 

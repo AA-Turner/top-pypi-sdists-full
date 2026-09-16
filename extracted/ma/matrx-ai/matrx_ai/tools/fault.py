@@ -37,6 +37,7 @@ OK = "ok"
 _FAULT_BY_ERROR_TYPE: dict[str, str] = {
     # ── model's fault ──
     "invalid_arguments": MODEL_ERROR,   # NEW: pre-dispatch arg-model validation failed
+    "validation": MODEL_ERROR,          # tool returned a caller-correctable argument refusal
     "not_allowed": MODEL_ERROR,         # called a tool not in its allowed set
     "not_found": MODEL_ERROR,           # hallucinated a tool name
     "unknown_category": MODEL_ERROR,    # bad enum/category argument

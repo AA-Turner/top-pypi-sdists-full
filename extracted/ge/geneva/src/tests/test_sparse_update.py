@@ -779,20 +779,30 @@ def _patch_scripted_sparse_pool(
     monkeypatch: pytest.MonkeyPatch,
     script: Any,
 ) -> list[Any]:
-    """Replace Ray actors with deterministic, in-process sparse task waves."""
+    """Replace Ray actors with deterministic, in-process sparse task waves.
+
+    Each pool invokes its actor factory once and records the Ray options and
+    constructor args it carried (``actor_options`` / ``actor_args``)."""
     from geneva.runners.ray import sparse_pipeline
 
     pools: list[Any] = []
 
+    class _UnusedActorHandle:
+        def __init__(self, options: dict[str, Any]) -> None:
+            self.options = options
+
+        def remote(self, *args: Any) -> tuple[dict[str, Any], tuple[Any, ...]]:
+            return (self.options, args)
+
     class _UnusedActor:
         @staticmethod
-        def remote(_udf: Any) -> object:
-            return object()
+        def options(**options: Any) -> _UnusedActorHandle:
+            return _UnusedActorHandle(options)
 
     class _ScriptedPool:
         def __init__(
             self,
-            _actor_factory: Any,
+            actor_factory: Any,
             num_actors: int,
             *,
             job_tracker: Any = None,
@@ -802,6 +812,7 @@ def _patch_scripted_sparse_pool(
             self.num_actors = num_actors
             self.job_tracker = job_tracker
             self.resubmit_on_actor_failure = resubmit_on_actor_failure
+            self.actor_options, self.actor_args = actor_factory()
             self.tasks: list[Any] = []
             self.shutdown_called = False
             pools.append(self)
@@ -877,6 +888,145 @@ def _transient_pool_error(task: Any) -> Exception:
         task=task,
     )
     return ActorPoolTaskError(task=task, cause=cause)
+
+
+@udf(data_type=pa.int64(), num_cpus=0.25, num_gpus=0.5, memory=64 * 1024 * 1024)
+def _double_reserved(x: int) -> int:
+    return x * 2
+
+
+# --------------------------------------------------------------------------
+# distributed driver -- actor reservations
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("task_udf", "expected_options"),
+    [
+        pytest.param(_double, {"num_cpus": 1.0}, id="undeclared"),
+        pytest.param(
+            _double_reserved,
+            {"num_cpus": 0.25, "num_gpus": 0.5, "memory": 64 * 1024 * 1024},
+            id="declared",
+        ),
+    ],
+)
+def test_run_ray_sparse_actors_reserve_the_udf_declaration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    task_udf: Any,
+    expected_options: dict[str, Any],
+) -> None:
+    """No override: the actor asks Ray for exactly what the UDF declares."""
+    from geneva.runners.ray import sparse_pipeline
+
+    db = connect(str(tmp_path))
+    tbl = _fragmented(db, n=8, per_frag=8)
+
+    def script(_pool_index: int, tasks: list[Any]) -> Any:
+        for task in tasks:
+            yield _execute_sparse_task(task, task_udf)
+
+    pools = _patch_scripted_sparse_pool(monkeypatch, script)
+
+    result = sparse_pipeline.run_ray_sparse_update(
+        tbl.get_reference(),
+        task_udf,
+        "doubled IS NULL",
+        "doubled",
+        concurrency=1,
+    )
+
+    assert result.rows_matched == 8
+    assert [pool.actor_options for pool in pools] == [expected_options]
+    assert pools[0].actor_args[0] is task_udf
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [_oom_pool_error, _transient_pool_error],
+    ids=["oom", "transient-loss"],
+)
+def test_run_ray_sparse_recovery_waves_keep_actor_reservations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: Any,
+) -> None:
+    """Recovery pools reserve what the failed pool did; the UDF is untouched."""
+    from geneva.runners.ray import sparse_pipeline
+
+    db = connect(str(tmp_path))
+    tbl = _fragmented(db, n=8, per_frag=8)
+    before = (_double.num_cpus, _double.num_gpus, _double.memory)
+
+    def script(pool_index: int, tasks: list[Any]) -> Any:
+        assert len(tasks) == 1
+        task = tasks[0]
+        if pool_index == 0:
+            raise failure(task)
+        yield _execute_sparse_task(task, _double)
+
+    pools = _patch_scripted_sparse_pool(monkeypatch, script)
+    monkeypatch.setattr(
+        sparse_pipeline, "_estimate_batch_rows", lambda *_args, **_kwargs: 8
+    )
+
+    result = sparse_pipeline.run_ray_sparse_update(
+        tbl.get_reference(),
+        _double,
+        "doubled IS NULL",
+        "doubled",
+        concurrency=1,
+        num_cpus=0.5,
+        num_gpus=0.25,
+        memory=64 * 1024 * 1024,
+    )
+
+    expected = {"num_cpus": 0.5, "num_gpus": 0.25, "memory": 64 * 1024 * 1024}
+    assert len(pools) == 2
+    assert [pool.actor_options for pool in pools] == [expected, expected]
+    assert all(pool.actor_args == pools[0].actor_args for pool in pools)
+    assert pools[0].actor_args[0] is _double
+    assert (_double.num_cpus, _double.num_gpus, _double.memory) == before
+    assert result.rows_matched == 8
+
+
+@pytest.mark.ray
+@pytest.mark.timeout(180)
+def test_run_ray_sparse_completes_when_only_some_actors_fit(
+    tmp_path: Path,
+    local_ray_context: None,  # noqa: ARG001
+) -> None:
+    """Request more actors than fit at once; the pool must still drain every
+    range with the actors that did start."""
+    import ray
+
+    from geneva.runners.ray.sparse_pipeline import run_ray_sparse_update
+
+    db = connect(str(tmp_path))
+    tbl = _fragmented(db, n=8, per_frag=2)
+
+    # The pool's own JobTracker requests no memory, so the actors are the only
+    # memory reservations. Precondition: one actor fits, two do not.
+    avail = ray.available_resources()["memory"]
+    mem = int(avail * 0.6)
+    assert mem <= avail < 2 * mem
+
+    result = run_ray_sparse_update(
+        tbl.get_reference(),
+        _double,
+        "doubled IS NULL",
+        "doubled",
+        concurrency=4,
+        commit_granularity=1,
+        memory=mem,
+    )
+
+    assert result.rows_matched == 8
+    out = lance.dataset(tbl.to_lance().uri).to_table(columns=["id", "doubled"])
+    rows = out.to_pylist()
+    assert sorted(r["id"] for r in rows) == list(range(8))
+    assert all(r["doubled"] == r["id"] * 2 for r in rows)
 
 
 # --------------------------------------------------------------------------
@@ -1554,8 +1704,10 @@ def test_sparse_range_task_serializes_and_executes(tmp_path: Path) -> None:
         output_column="doubled",
         version=ds.version,
         batch_rows=256,
+        is_generated_resume_filter=True,
     )
     roundtripped = cloudpickle.loads(cloudpickle.dumps(task))
+    assert roundtripped.is_generated_resume_filter is True
     assert roundtripped.checkpoint_key() == task.checkpoint_key()
     with pytest.raises(NotImplementedError):
         list(roundtripped.to_batches())  # not a read-pipeline task
@@ -1570,6 +1722,7 @@ def test_sparse_range_task_serializes_and_executes(tmp_path: Path) -> None:
         roundtripped.where,
         roundtripped.output_column,
         roundtripped.batch_rows,
+        is_generated_resume_filter=roundtripped.is_generated_resume_filter,
     )
     assert res.rows_matched == ds.count_rows(filter="doubled IS NULL")
     assert sorted(res.touched_frag_ids) == frag_ids

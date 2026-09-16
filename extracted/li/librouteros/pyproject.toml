@@ -1,6 +1,6 @@
 [project]
 name = "librouteros"
-version = "4.2.1"
+version = "4.2.2"
 description = "Python implementation of MikroTik RouterOS API"
 license = "GPL-2.0-or-later"
 readme = "README.rst"
@@ -37,7 +37,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.8.18,<0.12.0"]
+requires = ["uv_build==0.12.*"]
 build-backend = "uv_build"
 
 [tool.uv]

@@ -13,8 +13,10 @@ class CreateAgentlessScanTaskRequest(DaraModel):
         asset_selection_type: str = None,
         auto_delete_days: int = None,
         client_token: str = None,
+        from_: str = None,
         region_id: str = None,
         release_after_scan: bool = None,
+        resource_region_id: str = None,
         scan_data_disk: bool = None,
         target_type: int = None,
         targets: List[main_models.CreateAgentlessScanTaskRequestTargets] = None,
@@ -26,16 +28,17 @@ class CreateAgentlessScanTaskRequest(DaraModel):
         self.auto_delete_days = auto_delete_days
         # The idempotency key.
         self.client_token = client_token
-        # The region ID of the instance to query. Valid values:
-        # 
-        # - **cn-hangzhou** (default): China.
-        # - **ap-southeast-1**: outside China.
+        # The source of the API call, which is used to collect statistics on scan task volume and scan data volume by source. If this parameter is not specified, the value is empty.
+        self.from_ = from_
+        # The region ID, which is usually automatically populated by the gateway.
         self.region_id = region_id
         # Specifies whether to enable the cost-saving mode. Valid values:
         # 
         # - **true**: Enabled.
         # - **false**: Disabled.
         self.release_after_scan = release_after_scan
+        # The region ID of the resource to be detected, such as cn-hangzhou.
+        self.resource_region_id = resource_region_id
         # Specifies whether to detect data cloud disks. Valid values:
         # 
         # - **true**: Detected.
@@ -77,11 +80,17 @@ class CreateAgentlessScanTaskRequest(DaraModel):
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
+        if self.from_ is not None:
+            result['From'] = self.from_
+
         if self.region_id is not None:
             result['RegionId'] = self.region_id
 
         if self.release_after_scan is not None:
             result['ReleaseAfterScan'] = self.release_after_scan
+
+        if self.resource_region_id is not None:
+            result['ResourceRegionId'] = self.resource_region_id
 
         if self.scan_data_disk is not None:
             result['ScanDataDisk'] = self.scan_data_disk
@@ -110,11 +119,17 @@ class CreateAgentlessScanTaskRequest(DaraModel):
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
 
+        if m.get('From') is not None:
+            self.from_ = m.get('From')
+
         if m.get('RegionId') is not None:
             self.region_id = m.get('RegionId')
 
         if m.get('ReleaseAfterScan') is not None:
             self.release_after_scan = m.get('ReleaseAfterScan')
+
+        if m.get('ResourceRegionId') is not None:
+            self.resource_region_id = m.get('ResourceRegionId')
 
         if m.get('ScanDataDisk') is not None:
             self.scan_data_disk = m.get('ScanDataDisk')
@@ -150,7 +165,7 @@ class CreateAgentlessScanTaskRequestTargets(DaraModel):
         self.output_image_name = output_image_name
         # The region ID of the source image to be remediated, such as cn-hangzhou.
         self.region_id = region_id
-        # The list of vulnerability identifiers to be fixed. At least one vulnerability identifier must be specified. Each identifier must be unique and non-empty.
+        # The list of vulnerability identifiers to be fixed. At least one vulnerability identifier must be specified, and each identifier must be unique and non-empty.
         self.vulnerability_ids = vulnerability_ids
 
     def validate(self):

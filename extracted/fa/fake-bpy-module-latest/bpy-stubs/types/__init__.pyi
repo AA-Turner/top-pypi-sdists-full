@@ -29226,28 +29226,28 @@ class Context(bpy_struct):
     edit_movieclip: MovieClip | None
     edit_mask: Mask | None
     active_file: FileSelectEntry | None
-    selected_files: collections.abc.Sequence[FileSelectEntry] | None
+    selected_files: list[FileSelectEntry]
     asset_library_reference: AssetLibraryReference | None
-    selected_assets: collections.abc.Sequence[AssetRepresentation] | None
+    selected_assets: list[AssetRepresentation]
     id: ID | None
-    selected_ids: collections.abc.Sequence[ID] | None
+    selected_ids: list[ID]
     edit_image: Image | None
-    selected_nodes: collections.abc.Sequence[Node] | None
+    selected_nodes: list[Node]
     active_node: Node | None
-    visible_objects: collections.abc.Sequence[Object] | None
-    selectable_objects: collections.abc.Sequence[Object] | None
-    selected_objects: collections.abc.Sequence[Object] | None
-    editable_objects: collections.abc.Sequence[Object] | None
-    selected_editable_objects: collections.abc.Sequence[Object] | None
-    objects_in_mode: collections.abc.Sequence[Object] | None
-    objects_in_mode_unique_data: collections.abc.Sequence[Object] | None
-    visible_bones: collections.abc.Sequence[EditBone] | None
-    editable_bones: collections.abc.Sequence[EditBone] | None
-    selected_bones: collections.abc.Sequence[EditBone] | None
-    selected_editable_bones: collections.abc.Sequence[EditBone] | None
-    visible_pose_bones: collections.abc.Sequence[PoseBone] | None
-    selected_pose_bones: collections.abc.Sequence[PoseBone] | None
-    selected_pose_bones_from_active_object: collections.abc.Sequence[PoseBone] | None
+    visible_objects: list[Object]
+    selectable_objects: list[Object]
+    selected_objects: list[Object]
+    editable_objects: list[Object]
+    selected_editable_objects: list[Object]
+    objects_in_mode: list[Object]
+    objects_in_mode_unique_data: list[Object]
+    visible_bones: list[EditBone]
+    editable_bones: list[EditBone]
+    selected_bones: list[EditBone]
+    selected_editable_bones: list[EditBone]
+    visible_pose_bones: list[PoseBone]
+    selected_pose_bones: list[PoseBone]
+    selected_pose_bones_from_active_object: list[PoseBone]
     active_bone: Bone | EditBone | None
     active_pose_bone: PoseBone | None
     active_object: Object | None
@@ -29260,33 +29260,33 @@ class Context(bpy_struct):
     pose_object: Object | None
     active_nla_track: NlaTrack | None
     active_nla_strip: NlaStrip | None
-    selected_nla_strips: collections.abc.Sequence[NlaStrip] | None
-    selected_movieclip_tracks: collections.abc.Sequence[MovieTrackingTrack] | None
+    selected_nla_strips: list[NlaStrip]
+    selected_movieclip_tracks: list[MovieTrackingTrack]
     annotation_data: GreasePencil | None
     annotation_data_owner: ID | None
     active_annotation_layer: AnnotationLayer | None
     active_operator: Operator | None
     active_action: Action | None
-    selected_visible_actions: collections.abc.Sequence[Action] | None
-    selected_editable_actions: collections.abc.Sequence[Action] | None
-    visible_fcurves: collections.abc.Sequence[FCurve] | None
-    editable_fcurves: collections.abc.Sequence[FCurve] | None
-    selected_visible_fcurves: collections.abc.Sequence[FCurve] | None
-    selected_editable_fcurves: collections.abc.Sequence[FCurve] | None
+    selected_visible_actions: list[Action]
+    selected_editable_actions: list[Action]
+    visible_fcurves: list[FCurve]
+    editable_fcurves: list[FCurve]
+    selected_visible_fcurves: list[FCurve]
+    selected_editable_fcurves: list[FCurve]
     active_editable_fcurve: FCurve | None
-    selected_editable_keyframes: collections.abc.Sequence[Keyframe] | None
+    selected_editable_keyframes: list[Keyframe]
     ui_list: UIList | None
     property: typing.Any | None
     """ Get the property associated with a hovered button.
 Returns a tuple of the data-block, data path to the property, and array index."""
 
     active_strip: Strip | None
-    strips: collections.abc.Sequence[Strip] | None
-    selected_strips: collections.abc.Sequence[Strip] | None
-    selected_editable_strips: collections.abc.Sequence[Strip] | None
+    strips: list[Strip]
+    selected_strips: list[Strip]
+    selected_editable_strips: list[Strip]
     sequencer_scene: Scene | None
-    markers: collections.abc.Sequence[TimelineMarker] | None
-    selected_markers: collections.abc.Sequence[TimelineMarker] | None
+    markers: list[TimelineMarker]
+    selected_markers: list[TimelineMarker]
     edit_text: Text | None
     context: typing_extensions.Self
     """ Access to the current window-manager and data context."""
@@ -34194,6 +34194,14 @@ For Example: ".blend;.ble"(default "", never None)"""
 
         :param context: The context
         :return:
+        """
+
+    @classmethod
+    def label_with_extensions(cls, idname: str) -> str:
+        """Return the label of the file handler with the given ID, with its file extensions
+
+        :param idname: (never None)
+        :return: result, (never None)
         """
 
     @classmethod
@@ -150972,6 +150980,10 @@ VIEW3D_MT_object_track: bl_ui.space_view3d.VIEW3D_MT_object_track
 VIEW3D_MT_orientations_pie: bl_ui.space_view3d.VIEW3D_MT_orientations_pie
 
 VIEW3D_MT_paint_grease_pencil: bl_ui.space_view3d.VIEW3D_MT_paint_grease_pencil
+
+VIEW3D_MT_paint_grease_pencil_stroke: (
+    bl_ui.space_view3d.VIEW3D_MT_paint_grease_pencil_stroke
+)
 
 VIEW3D_MT_paint_vertex: bl_ui.space_view3d.VIEW3D_MT_paint_vertex
 

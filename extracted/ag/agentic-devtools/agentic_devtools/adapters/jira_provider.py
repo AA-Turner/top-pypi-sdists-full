@@ -22,6 +22,7 @@ from agentic_devtools.adapters.dry_run_manifest import build_dry_run_manifest
 from agentic_devtools.adapters.exceptions import AdapterValidationError
 from agentic_devtools.adapters.issue_provider import (
     VALID_ISSUE_TYPES,
+    DefinitiveCreationFailure,
     ProviderIssueResult,
     ProviderLinkResult,
     check_hierarchy_pair,
@@ -281,13 +282,13 @@ class JiraProvider:
             ``"existing"``, or ``"dry-run"``.
 
         Raises:
-            ValueError: If title is empty, issue_type is unsupported, or
+            DefinitiveCreationFailure: If title is empty, issue_type is unsupported, or
                 parent_id is provided but empty.
         """
-        if not title or not title.strip():
-            raise ValueError("title must be non-empty.")
-        if parent_id is not None and not parent_id.strip():
-            raise ValueError("parent_id must be a non-empty string when provided.")
+        if not isinstance(title, str) or not title.strip():
+            raise DefinitiveCreationFailure("title must be non-empty.")
+        if parent_id is not None and (not isinstance(parent_id, str) or not parent_id.strip()):
+            raise DefinitiveCreationFailure("parent_id must be a non-empty string when provided.")
         if parent_id is not None:
             parent_id = parent_id.strip()
         if idempotency_key is not None:
@@ -793,9 +794,13 @@ class JiraProvider:
         Validates against ``VALID_ISSUE_TYPES`` and raises ``ValueError``
         with sorted valid types for unknown types.
         """
+        if not isinstance(issue_type, str) or not issue_type.strip():
+            raise DefinitiveCreationFailure("issue_type must be a non-empty string")
         type_lower = issue_type.lower().strip()
         if type_lower not in VALID_ISSUE_TYPES:
-            raise ValueError(f"Unsupported issue type '{issue_type}'. Valid types: {sorted(VALID_ISSUE_TYPES)}")
+            raise DefinitiveCreationFailure(
+                f"Unsupported issue type '{issue_type}'. Valid types: {sorted(VALID_ISSUE_TYPES)}"
+            )
         return self._effective_type_map[type_lower]
 
     def _find_by_orchestration_key(self, orch_key: str) -> ProviderIssueResult | None:

@@ -106,8 +106,10 @@ _ENV_ASSIGNMENT_PATTERN = re.compile(
 )
 
 
-def _sanitize_command_for_logs(command: str) -> str:
-    """Redact sensitive env values before logging SSH commands."""
+def redact_env_assignments(text: str) -> str:
+    """Redact the value of every ``KEY=value`` assignment whose key looks
+    sensitive (token/secret/password/...) — for SSH command lines and for
+    agent output that echoes its environment before surfacing it."""
 
     def _replace(match: re.Match[str]) -> str:
         prefix = match.group("prefix") or ""
@@ -117,7 +119,12 @@ def _sanitize_command_for_logs(command: str) -> str:
             return f"{prefix}{key}=<redacted>"
         return f"{prefix}{key}={value}"
 
-    return _ENV_ASSIGNMENT_PATTERN.sub(_replace, command)
+    return _ENV_ASSIGNMENT_PATTERN.sub(_replace, text)
+
+
+def _sanitize_command_for_logs(command: str) -> str:
+    """Redact sensitive env values before logging SSH commands."""
+    return redact_env_assignments(command)
 
 
 async def run_local(command: str, timeout: int = 60) -> tuple[int, str, str]:

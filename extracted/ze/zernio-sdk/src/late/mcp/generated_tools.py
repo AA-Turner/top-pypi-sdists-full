@@ -652,6 +652,29 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Search TikTok location tags",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_search_tik_tok_locations(account_id: str, query: str) -> str:
+        """Search TikTok location tags
+
+        Args:
+            account_id: The TikTok account ID (required)
+            query: Place name to search, for example a city, a venue or an address (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.search_tik_tok_locations(
+                account_id=account_id, query=query
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get TikTok creator info",
             readOnlyHint=True,
             destructiveHint=False,
@@ -3399,7 +3422,7 @@ def register_generated_tools(mcp, _get_client):
         goal: str,
         is_skadnetwork_attribution: bool | None = None,
         promoted_object: dict[str, Any] | None = None,
-        buying_type: str = "AUCTION",
+        buying_type: str | None = None,
         validate_only: bool | None = None,
         special_ad_categories: list[str] | None = None,
         budget_amount: float | None = None,
@@ -3419,7 +3442,7 @@ def register_generated_tools(mcp, _get_client):
             goal: Mapped to the ODAX objective (same mapping as POST /v1/ads/create). (required)
             is_skadnetwork_attribution: Meta app promotion only. Immutable campaign flag. Set true for iOS 14+ SKAdNetwork campaigns and supply promotedObject.applicationId plus promotedObject.objectStoreUrl. The campaign receives promotedObject only when this flag is true. Cannot be changed on an existing campaign.
             promoted_object
-            buying_type: Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. SKAdNetwork app promotion requires AUCTION.
+            buying_type: Every platform buys at auction by default, so this only needs sending on Meta, and only to choose RESERVED. `AUCTION` is accepted on every platform and changes nothing. `RESERVED` (Reach & Frequency) is Meta-only and is rejected with a 400 elsewhere. SKAdNetwork app promotion requires AUCTION.
             validate_only: Meta only. Runs campaign validation without creating or persisting a campaign; Idempotency-Key storage is bypassed. Returns HTTP 200 with validateOnly true and status VALIDATED.
             special_ad_categories
             budget_amount: Campaign-level (CBO) budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Requires budgetType.
@@ -4770,6 +4793,7 @@ def register_generated_tools(mcp, _get_client):
         link_url: str | None = None,
         call_to_action: str | None = None,
         spark_auth_code: str | None = None,
+        promoted_object: dict[str, Any] | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
         lead_gen_form_id: str | None = None,
@@ -4876,6 +4900,18 @@ def register_generated_tools(mcp, _get_client):
         account running the ads (same-BC creators only). The creator generates the
         code in their TikTok app's Promote settings and shares it with the
         advertiser. Maps to `auth_code` on the creative entry of /v2/ad/create/.
+                promoted_object: TikTok-only on this endpoint. The pixel a Website Conversion ad group
+        optimizes toward, so a Spark Ad built from an existing organic post can
+        optimize for a conversion instead of only engagement or traffic.
+
+        Required when `goal` is `conversions`, and BOTH fields are required:
+        TikTok refuses a conversion ad group with no pixel ("Please select a
+        pixel") and equally one that has a pixel but no event ("Select a pixel
+        event."), because the event is what the ad group optimizes toward. Ignored
+        on every other goal, since only a WEB_CONVERSIONS ad group accepts them.
+
+        Combine freely with `platformPostId` + `sparkAuthCode`: the pixel lives on
+        the ad group and the Spark item on the creative, so they never conflict.
                 dsa_beneficiary: Legal entity that benefits from the ad. Required when targeting EU users
         (EU DSA, Article 26). Optional if the ad account has a default beneficiary:
         set it once via `PATCH /v1/ads/accounts` or in Meta Ads Manager, and Meta
@@ -4926,6 +4962,7 @@ def register_generated_tools(mcp, _get_client):
                 link_url=link_url,
                 call_to_action=call_to_action,
                 spark_auth_code=spark_auth_code,
+                promoted_object=promoted_object,
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
                 lead_gen_form_id=lead_gen_form_id,
@@ -16954,6 +16991,7 @@ def register_generated_tools(mcp, _get_client):
         reuse_option_id: str | None = None,
         reuse_from: str | None = None,
         area_code: str | None = None,
+        pre_order: bool | None = None,
         end_user_first_name: str | None = None,
         end_user_last_name: str | None = None,
         values: dict[str, Any] | None = None,
@@ -16971,6 +17009,7 @@ def register_generated_tools(mcp, _get_client):
             reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.
             reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.
             area_code: Area code (NDC) the number must be in. Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area. Omit for any area. Options come from GET /v1/phone-numbers/availability (areaOptions); the purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.
+            pre_order: With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area.
             end_user_first_name: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement.
             end_user_last_name: End user's legal last name. Same condition as endUserFirstName.
             values: requirementId → textual value
@@ -16987,6 +17026,7 @@ def register_generated_tools(mcp, _get_client):
                 reuse_option_id=reuse_option_id,
                 reuse_from=reuse_from,
                 area_code=area_code,
+                pre_order=pre_order,
                 end_user_first_name=end_user_first_name,
                 end_user_last_name=end_user_last_name,
                 values=values,
@@ -17450,17 +17490,18 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def phone_numbers_create_phone_number_stock_watch(
-        country: str, number_type: str | None = None
+        country: str, number_type: str | None = None, area_code: str | None = None
     ) -> str:
         """Watch an out-of-stock country
 
         Args:
             country: ISO 3166-1 alpha-2 code of a country listed by GET /v1/phone-numbers/countries. (required)
-            number_type: Narrow the watch to one number type. Omit to be notified when any type in the country is back."""
+            number_type: Narrow the watch to one number type. Omit to be notified when any type in the country is back.
+            area_code: Narrow the watch to one area code (NDC). Requires numberType."""
         client = _get_client()
         try:
             response = client.phone_numbers.create_phone_number_stock_watch(
-                country=country, number_type=number_type
+                country=country, number_type=number_type, area_code=area_code
             )
             return _format_response(response)
         except Exception as e:
@@ -23290,6 +23331,7 @@ def register_generated_tools(mcp, _get_client):
         reuse_option_id: str | None = None,
         reuse_from: str | None = None,
         area_code: str | None = None,
+        pre_order: bool | None = None,
         end_user_first_name: str | None = None,
         end_user_last_name: str | None = None,
         values: dict[str, Any] | None = None,
@@ -23307,6 +23349,7 @@ def register_generated_tools(mcp, _get_client):
             reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.
             reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.
             area_code: Area code (NDC) the number must be in. Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area. Omit for any area. Options come from GET /v1/phone-numbers/availability (areaOptions); the purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.
+            pre_order: With areaCode: pre-order that area when it has no stock (an area listed in soldOutAreas with preOrderable true) instead of failing with AREA_CODE_UNAVAILABLE. The carrier sources a number in that area.
             end_user_first_name: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement.
             end_user_last_name: End user's legal last name. Same condition as endUserFirstName.
             values: requirementId → textual value
@@ -23323,6 +23366,7 @@ def register_generated_tools(mcp, _get_client):
                 reuse_option_id=reuse_option_id,
                 reuse_from=reuse_from,
                 area_code=area_code,
+                pre_order=pre_order,
                 end_user_first_name=end_user_first_name,
                 end_user_last_name=end_user_last_name,
                 values=values,

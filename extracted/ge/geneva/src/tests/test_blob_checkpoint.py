@@ -212,6 +212,41 @@ def test_prepare_blob_v2_checkpoint_batch_replaces_nested_blob_with_descriptors(
     assert payload.field("data").to_pylist() == [None, None]
 
 
+def test_prepare_blob_v2_checkpoint_batch_accepts_v1_blob_marker_bytes(
+    tmp_path,
+) -> None:
+    packed = bytes((idx * 17) % 256 for idx in range(_IMAGE_SIZE_BYTES + 32))
+    batch = pa.record_batch(
+        [
+            pa.array([0, 1], type=pa.uint64()),
+            pa.array([packed, None], type=pa.large_binary()),
+        ],
+        schema=pa.schema(
+            [
+                pa.field("_rowaddr", pa.uint64()),
+                pa.field(
+                    "image_bytes",
+                    pa.large_binary(),
+                    metadata={"lance-encoding:blob": "true"},
+                ),
+            ]
+        ),
+    )
+
+    prepared = prepare_blob_v2_checkpoint_batch(
+        batch,
+        data_dir=str(tmp_path / "data"),
+        data_file_name="v1-marker.lance",
+        range_start=0,
+    )
+
+    field = prepared.schema.field("image_bytes")
+    assert field.metadata[b"ARROW:extension:name"] == b"lance.blob.v2"
+    kinds = prepared.column("image_bytes").field("kind").to_pylist()
+    assert kinds[0] == 1
+    assert kinds[1] is None
+
+
 def test_checkpointing_applier_writes_descriptor_checkpoint_with_normal_key(
     tmp_path,
 ) -> None:

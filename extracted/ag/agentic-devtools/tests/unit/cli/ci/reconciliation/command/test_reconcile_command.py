@@ -38,6 +38,11 @@ from agentic_devtools.cli.ci.reconciliation.queue_store import InMemoryBackingSt
 class TestReconcileCommand:
     """Tests for reconcile_command() CLI entry point."""
 
+    def test_rejects_unsupported_workflow_id(self) -> None:
+        """Rejects workflow IDs outside the reconciliation allowlist."""
+        with pytest.raises(SystemExit):
+            reconcile_command(["--workflow-id", "arbitrary.yml"])
+
     @pytest.mark.parametrize("recovery_token", [None, "corrupt-sha"])
     @patch("agentic_devtools.cli.ci.reconciliation.command.rehydrate_state")
     @patch("agentic_devtools.cli.ci.reconciliation.command.QueueStore")
@@ -53,7 +58,7 @@ class TestReconcileCommand:
         mock_store_cls.return_value = mock_store
         mock_rehydrate.return_value = state
 
-        reconcile_command(["--workflow-id", "ci.yml", "--repo", "owner/repo"])
+        reconcile_command(["--workflow-id", "ai-pr-loop.yml", "--repo", "owner/repo"])
 
         mock_rehydrate.assert_called_once()
         if recovery_token is None:
@@ -79,7 +84,7 @@ class TestReconcileCommand:
         mock_store_cls.return_value = mock_store
         mock_rehydrate.return_value = state
 
-        reconcile_command(["--workflow-id", "ci.yml", "--repo", "owner/repo"])
+        reconcile_command(["--workflow-id", "ai-pr-loop.yml", "--repo", "owner/repo"])
 
         mock_rehydrate.assert_called_once()
 
@@ -116,7 +121,7 @@ class TestReconcileCommand:
             state=mock_store.load.return_value,
         )
 
-        exit_code = reconcile_command(["--workflow-id", "ci.yml"])
+        exit_code = reconcile_command(["--workflow-id", "ai-pr-loop.yml"])
 
         assert exit_code == 0
         mock_create.assert_called_once_with("github", "")
@@ -140,6 +145,7 @@ class TestReconcileCommand:
         mock_store = MagicMock()
         mock_store.load.return_value = QueueState(repo="owner/repo", revision=1, items={}, records=[], quarantines=[])
         mock_store_cls.return_value = mock_store
+        mock_create.return_value.get_pr_metadata.return_value.head_sha = "a" * 40
         mock_dispatch.return_value = DispatchResult(
             DispatchEligibility(42, "owner/repo", True, "eligible", lease.acquired_at, True, "due"),
             operation_id="operation-1",
@@ -147,7 +153,7 @@ class TestReconcileCommand:
             state=mock_store.load.return_value,
         )
 
-        reconcile_command(["--workflow-id", "ci.yml", "--json-output"])
+        reconcile_command(["--workflow-id", "ai-pr-loop.yml", "--json-output"])
 
         output = json.loads(capsys.readouterr().out)
         assert output["action"] == ReconciliationAction.RETRIED.value
@@ -212,7 +218,7 @@ class TestReconcileCommand:
             state=state,
         )
 
-        reconcile_command(["--workflow-id", "ci.yml", "--repo", "owner/repo"])
+        reconcile_command(["--workflow-id", "ai-pr-loop.yml", "--repo", "owner/repo"])
 
         assert mock_store.save.call_count == 1
         saved_state = mock_store.save.call_args.args[0]
@@ -232,7 +238,7 @@ class TestReconcileCommand:
             CooldownRecord(resume_at=2_000_000_000, updated_at=1_000_000_000),
         )
 
-        exit_code = reconcile_command(["--workflow-id", "ci.yml", "--json-output", "--repo", "owner/repo"])
+        exit_code = reconcile_command(["--workflow-id", "ai-pr-loop.yml", "--json-output", "--repo", "owner/repo"])
 
         assert exit_code == 0
         assert json.loads(capsys.readouterr().out)["message"] == "Reconciliation blocked by provider cooldown."
@@ -246,7 +252,7 @@ class TestReconcileCommand:
     @patch("agentic_devtools.cli.ci.reconciliation.command._create_provider", return_value=MagicMock())
     def test_active_cooldown_plain_output(self, _mock_create, _mock_active_cooldown, capsys) -> None:
         """Reports a blocked reconciliation in plain-text mode."""
-        assert reconcile_command(["--workflow-id", "ci.yml", "--repo", "owner/repo"]) == 0
+        assert reconcile_command(["--workflow-id", "ai-pr-loop.yml", "--repo", "owner/repo"]) == 0
         assert capsys.readouterr().out.strip() == "Reconciliation blocked by provider cooldown."
 
     @patch("agentic_devtools.cli.ci.reconciliation.command.dispatch_due_work")
@@ -266,7 +272,7 @@ class TestReconcileCommand:
         reconcile_command(
             [
                 "--workflow-id",
-                "speckit.yml",
+                "ai-pr-loop.yml",
                 "--max-attempts",
                 "5",
                 "--window-hours",
@@ -296,7 +302,7 @@ class TestReconcileCommand:
             state=state,
         )
 
-        assert reconcile_command(["--workflow-id", "ci.yml", "--repo", "owner/repo"]) == 0
+        assert reconcile_command(["--workflow-id", "ai-pr-loop.yml", "--repo", "owner/repo"]) == 0
 
         provider.list_eligible_prs.assert_not_called()
 
@@ -314,7 +320,7 @@ class TestReconcileCommand:
             state=state,
         )
 
-        exit_code = reconcile_command(["--workflow-id", "ci.yml", "--verbose"])
+        exit_code = reconcile_command(["--workflow-id", "ai-pr-loop.yml", "--verbose"])
 
         assert exit_code == 0
         mock_create.assert_called_once_with("github", "")
@@ -333,7 +339,7 @@ class TestReconcileCommand:
             state=state,
         )
 
-        assert reconcile_command(["--workflow-id", "ci.yml"]) == 0
+        assert reconcile_command(["--workflow-id", "ai-pr-loop.yml"]) == 0
 
         saved_state = mock_store.save.call_args_list[-1].args[0]
         assert saved_state.records[-1].provider_status == "unknown"
@@ -349,7 +355,7 @@ class TestReconcileCommand:
         mock_store.load.return_value = QueueState(repo="owner/repo", revision=0, items={}, records=[], quarantines=[])
         mock_store_cls.return_value = mock_store
 
-        exit_code = reconcile_command(["--workflow-id", "ci.yml"])
+        exit_code = reconcile_command(["--workflow-id", "ai-pr-loop.yml"])
 
         assert exit_code == 1
         mock_create.assert_called_once_with("github", "")
@@ -366,14 +372,14 @@ class TestReconcileCommand:
         mock_store.load.return_value = QueueState(repo="owner/repo", revision=0, items={}, records=[], quarantines=[])
         mock_store_cls.return_value = mock_store
 
-        exit_code = reconcile_command(["--workflow-id", "ci.yml"])
+        exit_code = reconcile_command(["--workflow-id", "ai-pr-loop.yml"])
 
         assert exit_code == 1
         mock_create.assert_called_once_with("github", "")
 
     def test_ado_provider_returns_1(self) -> None:
         """Returns 1 immediately when provider is 'ado' (unsupported persistence)."""
-        exit_code = reconcile_command(["--workflow-id", "ci.yml", "--provider", "ado"])
+        exit_code = reconcile_command(["--workflow-id", "ai-pr-loop.yml", "--provider", "ado"])
 
         assert exit_code == 1
 
@@ -382,7 +388,7 @@ class TestReconcileCommand:
         """Disabled reconciliation skips provider creation and reports no_action."""
         monkeypatch.setattr(cfg, "ENABLE_RECONCILIATION", False)
 
-        exit_code = reconcile_command(["--workflow-id", "ci.yml", "--json-output"])
+        exit_code = reconcile_command(["--workflow-id", "ai-pr-loop.yml", "--json-output"])
 
         assert exit_code == 0
         mock_create.assert_not_called()
@@ -395,7 +401,7 @@ class TestReconcileCommand:
         """Disabled reconciliation also covers the plain-text output path."""
         monkeypatch.setattr(cfg, "ENABLE_RECONCILIATION", False)
 
-        exit_code = reconcile_command(["--workflow-id", "ci.yml"])
+        exit_code = reconcile_command(["--workflow-id", "ai-pr-loop.yml"])
 
         assert exit_code == 0
         mock_create.assert_not_called()

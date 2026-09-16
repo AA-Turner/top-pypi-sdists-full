@@ -51,6 +51,8 @@ import asyncio
 import copy
 import json
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 # Shared Content IR primitives live in matrx-graph (matrx-ai depends on
@@ -71,6 +73,43 @@ from matrx_ai.processing.blocks.kind_catalog import (
 logger = logging.getLogger(__name__)
 
 IR_ENGINE = "py-block-detector"
+
+
+@dataclass(frozen=True)
+class BlockEnvelopeContractFailure:
+    """Safe diagnostics for a complete block rejected by its declared kind."""
+
+    block_type: str
+    kind: str
+    reason: str
+    errors: tuple[str, ...] = ()
+
+
+def _safe_schema_diagnostics(errors: list[str]) -> tuple[str, ...]:
+    """Return stable validator codes without copying rejected instance values."""
+    codes: list[str] = []
+    for error in errors[:5]:
+        if "is a required property" in error:
+            code = "value:required"
+        elif "is not of type" in error:
+            code = "value:type"
+        elif "is not one of" in error:
+            code = "value:enum"
+        elif "Additional properties are not allowed" in error:
+            code = "value:additional_properties"
+        elif "is too short" in error:
+            code = "value:min_length"
+        elif "is too long" in error:
+            code = "value:max_length"
+        elif "is less than" in error:
+            code = "value:minimum"
+        elif "is greater than" in error:
+            code = "value:maximum"
+        else:
+            code = "value:validation_failed"
+        if code not in codes:
+            codes.append(code)
+    return tuple(sorted(codes))
 
 
 # ---------------------------------------------------------------------------
@@ -790,6 +829,7 @@ def envelope_for_block(
     *,
     source_text: str,
     language: str | None = None,
+    on_contract_failure: Callable[[BlockEnvelopeContractFailure], None] | None = None,
 ) -> dict[str, Any] | None:
     """Build the envelope for a COMPLETE block, or None when it must not stamp.
 
@@ -824,6 +864,10 @@ def envelope_for_block(
                 f"emitted_json_schema — NO __ir envelope stamped (the block still renders "
                 f"via the frontend parser). Fix the kind's registration.",
             )
+            if on_contract_failure is not None:
+                on_contract_failure(BlockEnvelopeContractFailure(
+                    block_type=block_type, kind=slug, reason="missing_emitted_schema"
+                ))
             return None
     else:
         slug = BLOCK_KIND_MAP.get(block_type)
@@ -858,6 +902,11 @@ def envelope_for_block(
             f"unknown to the schema, so the envelope's value would render EMPTY. "
             f"NO __ir envelope stamped. This is parser/kind contract drift.",
         )
+        if on_contract_failure is not None:
+            on_contract_failure(BlockEnvelopeContractFailure(
+                block_type=block_type, kind=slug,
+                reason="parser_schema_vocabulary_drift", errors=("value:vocabulary_drift",),
+            ))
         return None
 
     from matrx_graph.executor.schema_validation import validate_instance
@@ -865,13 +914,21 @@ def envelope_for_block(
 
     errors = validate_instance(schema, clean)
     if errors:
+        diagnostics = _safe_schema_diagnostics(errors)
         _log_once(
             f"invalid:{slug}",
             f"block envelope: '{block_type}' parser output does not satisfy kind "
             f"'{slug}' emitted_json_schema even after residue partition — NO __ir "
             f"envelope stamped (the block still renders via the frontend parser). "
-            f"This is a parser/kind contract drift, not user input. errors={errors[:5]}",
+            f"This is a parser/kind contract drift, not user input. "
+            f"diagnostics={diagnostics}",
         )
+        if on_contract_failure is not None:
+            on_contract_failure(BlockEnvelopeContractFailure(
+                block_type=block_type, kind=slug,
+                reason="emitted_schema_validation_failed",
+                errors=diagnostics,
+            ))
         return None
 
     return _assemble(

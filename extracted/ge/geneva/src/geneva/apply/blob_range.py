@@ -1,19 +1,13 @@
 # SPDX-License-Identifier: PROPRIETARY
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
-"""Range-based materialization for Lance blob columns.
-
-The legacy Lance path materializes blobs one logical value at a time. This
-module scans Lance blob descriptors, groups the underlying data-file byte
-ranges by batch, and fetches them as ranged reads through the dataset's own
-``LanceFileSession`` -- the same object store, storage options, and credential
-provider the dataset itself reads with.
-"""
+"""Lance blob materialization helpers."""
 
 from __future__ import annotations
 
 import logging
 import os
+import re
 from array import array
 from itertools import pairwise
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -25,10 +19,18 @@ from lance.blob import BlobFile
 
 from geneva.transformer import BACKFILL_SELECTED
 from geneva.utils.parse_rust_debug import extract_field_ids
-from geneva.utils.schema import format_field_path, resolve_arrow_field
+from geneva.utils.schema import (
+    canonical_field_path,
+    field_path_covers,
+    format_field_path,
+    parse_field_path,
+    resolve_arrow_field,
+)
 
 _LOG = logging.getLogger(__name__)
 _ROW_ID_COLUMN = "_rowid"
+_ROW_ADDRESS_COLUMN = "_rowaddr"
+_BLOB_KIND_EXTERNAL = 3
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -41,6 +43,7 @@ BlobReadStrategy = Literal["auto", "legacy", "range"]
 BLOB_ENCODING_METADATA_KEY = b"lance-encoding:blob"
 BLOB_ENCODING_METADATA_VALUE = b"true"
 BLOB_V2_EXTENSION_METADATA_KEY = b"ARROW:extension:name"
+BLOB_V2_EXTENSION_METADATA_PAYLOAD_KEY = b"ARROW:extension:metadata"
 BLOB_V2_EXTENSION_NAME = b"lance.blob.v2"
 DEFAULT_RANGE_BLOB_READ_BUFFER_SIZE = 128 * 1024 * 1024
 # Deprecated raw env var. The blob read buffer now reads the JobConfig knob
@@ -61,6 +64,14 @@ def _close_iterator(iterator: object) -> None:
 
 class RangeBlobReadUnsupportedError(RuntimeError):
     """Raised when the range reader cannot preserve existing storage semantics."""
+
+
+class ExternalBlobUnsupportedError(RuntimeError):
+    """Raised when a blob v2 descriptor points at an external URI."""
+
+
+class UnsupportedBlobLayoutError(ValueError):
+    """Blob-in-list or a blob nested deeper than one struct."""
 
 
 def normalize_blob_read_strategy(value: str | None) -> BlobReadStrategy:
@@ -90,19 +101,120 @@ def resolve_blob_read_buffer_size(value: int | None) -> int:
     return value
 
 
-def is_blob_field(field: pa.Field) -> bool:
+def is_blob_v2_field(field: pa.Field) -> bool:
     if isinstance(field.type, pa.ExtensionType):
         return field.type.extension_name == BLOB_V2_EXTENSION_NAME.decode("utf-8")
     metadata = field.metadata or {}
-    if metadata.get(BLOB_V2_EXTENSION_METADATA_KEY) == BLOB_V2_EXTENSION_NAME:
+    return metadata.get(BLOB_V2_EXTENSION_METADATA_KEY) == BLOB_V2_EXTENSION_NAME
+
+
+def is_blob_field(field: pa.Field) -> bool:
+    if is_blob_v2_field(field):
         return True
     # Newer Lance tables write the namespaced metadata key. Older tables use
     # the generic lance-encoding marker, so range reads accept both forms.
+    metadata = field.metadata or {}
     value = metadata.get(BLOB_ENCODING_METADATA_KEY)
     if value is not None:
         return value.lower() == BLOB_ENCODING_METADATA_VALUE
     legacy_value = metadata.get(b"lance-encoding")
     return bool(legacy_value and legacy_value.lower() == b"blob")
+
+
+def _as_utf8_bytes(value: bytes | str) -> bytes:
+    return value if isinstance(value, bytes) else str(value).encode("utf-8")
+
+
+def _is_legacy_blob_metadata_entry(key: bytes | str, value: bytes | str) -> bool:
+    """True only for the v1 blob marker, not the rest of ``lance-encoding:*``."""
+    key_bytes = _as_utf8_bytes(key)
+    if key_bytes == BLOB_ENCODING_METADATA_KEY:
+        return True
+    return key_bytes == b"lance-encoding" and _as_utf8_bytes(value).lower() == b"blob"
+
+
+def without_legacy_blob_metadata(
+    metadata: dict[Any, Any] | None,
+) -> dict[Any, Any]:
+    if not metadata:
+        return {}
+    return {
+        k: v for k, v in metadata.items() if not _is_legacy_blob_metadata_entry(k, v)
+    }
+
+
+def _without_blob_v2_extension(
+    metadata: dict[bytes, bytes] | None,
+) -> dict[bytes, bytes] | None:
+    if not metadata:
+        return None
+    cleaned = dict(metadata)
+    cleaned.pop(BLOB_V2_EXTENSION_METADATA_KEY, None)
+    cleaned.pop(BLOB_V2_EXTENSION_METADATA_PAYLOAD_KEY, None)
+    return cleaned or None
+
+
+def rewrite_blob_fields_for_storage(
+    field: pa.Field, *, use_blob_v2: bool, _depth: int = 0
+) -> pa.Field:
+    """Rewrite legacy blob fields for v2 storage."""
+    if not use_blob_v2:
+        return field
+
+    from lance.blob import BlobType
+
+    dtype = field.type
+    if is_blob_v2_field(field) or (
+        is_blob_field(field)
+        and (pa.types.is_binary(dtype) or pa.types.is_large_binary(dtype))
+    ):
+        if _depth > 1:
+            raise UnsupportedBlobLayoutError(
+                f"Blob field {field.name!r} is nested deeper than one struct. "
+                "Geneva supports top-level blobs or one-level leaves such as "
+                "image.image_bytes"
+            )
+        metadata = without_legacy_blob_metadata(field.metadata)
+        if is_blob_v2_field(field):
+            return pa.field(
+                field.name,
+                dtype,
+                nullable=field.nullable,
+                metadata=metadata or None,
+            )
+        metadata[BLOB_V2_EXTENSION_METADATA_KEY] = BLOB_V2_EXTENSION_NAME
+        return pa.field(
+            field.name,
+            BlobType(),
+            nullable=field.nullable,
+            metadata=metadata or None,
+        )
+    if pa.types.is_struct(dtype):
+        struct_type = cast("pa.StructType", dtype)
+        children = [
+            rewrite_blob_fields_for_storage(
+                struct_type.field(i), use_blob_v2=True, _depth=_depth + 1
+            )
+            for i in range(struct_type.num_fields)
+        ]
+        return pa.field(
+            field.name,
+            pa.struct(children),
+            nullable=field.nullable,
+            metadata=field.metadata,
+        )
+    if (
+        pa.types.is_list(dtype)
+        or pa.types.is_large_list(dtype)
+        or pa.types.is_fixed_size_list(dtype)
+    ):
+        list_type = cast("pa.ListType", dtype)
+        if _field_contains_blob(list_type.value_field):
+            raise UnsupportedBlobLayoutError(
+                f"Blob-in-list field {field.name!r} is not supported"
+            )
+        return field
+    return field
 
 
 def resolve_field_path(schema: pa.Schema, name: str) -> pa.Field | None:
@@ -113,6 +225,203 @@ def resolve_field_path(schema: pa.Schema, name: str) -> pa.Field | None:
     """
 
     return resolve_arrow_field(schema, name)
+
+
+def blob_v2_field_paths(schema: pa.Schema) -> frozenset[str]:
+    paths: list[str] = []
+
+    def walk(field: pa.Field, prefix: list[str], depth: int) -> None:
+        segments = [*prefix, field.name]
+        name = format_field_path(segments)
+        if is_blob_v2_field(field):
+            if depth <= 1:
+                paths.append(name)
+            return
+        dtype = field.type
+        if pa.types.is_struct(dtype) and depth < 1:
+            struct_type = cast("pa.StructType", dtype)
+            for idx in range(struct_type.num_fields):
+                walk(struct_type.field(idx), segments, depth + 1)
+
+    for field in schema:
+        walk(field, [], 0)
+    return frozenset(paths)
+
+
+def blob_v2_paths_for_inputs(
+    schema: pa.Schema, input_columns: Sequence[str] | None
+) -> frozenset[str]:
+    """Select v2 leaves for inputs. None selects all; [] selects none.
+
+    A struct name includes its nested leaves.
+    """
+    all_v2 = blob_v2_field_paths(schema)
+    if not all_v2:
+        return frozenset()
+    if input_columns is None:
+        return all_v2
+    input_leaf_paths: set[str] = set()
+    for input_column in input_columns:
+        if input_column in schema.names:
+            canonical = format_field_path([input_column])
+        else:
+            canonical = canonical_field_path(schema, input_column)
+        input_leaf_paths.update(
+            path for path in all_v2 if field_path_covers(canonical, path)
+        )
+    return frozenset(input_leaf_paths)
+
+
+def referenced_v2_paths(where: str | None, schema: pa.Schema) -> frozenset[str]:
+    if not where:
+        return frozenset()
+    return frozenset(
+        path
+        for path in blob_v2_field_paths(schema)
+        if re.search(
+            rf"(?<![\w.]){re.escape(path)}(?![\w])",
+            where,
+            re.IGNORECASE,
+        )
+    )
+
+
+def where_references_blob_v2(where: str | None, schema: pa.Schema) -> bool:
+    return bool(referenced_v2_paths(where, schema))
+
+
+def empty_blob_v2_predicate(path: str) -> str:
+    """Match Arrow-null and size-0 v2 descriptors."""
+    return f"({path} IS NULL OR {path}.size = 0)"
+
+
+def expand_exact_blob_v2_null_filter(
+    where: str | None, schema: pa.Schema
+) -> str | None:
+    """Rewrite a whole-filter ``IS NULL`` to the resume empty predicate."""
+    if where is None:
+        return None
+    compact = " ".join(where.split())
+    lowered = compact.lower()
+    for path in blob_v2_field_paths(schema):
+        if lowered == f"{path} is null".lower():
+            return empty_blob_v2_predicate(path)
+        if lowered == f"{path} is not null".lower():
+            return f"{path}.size > 0"
+    return where
+
+
+def default_resume_predicate(column: str, field: pa.Field) -> str:
+    """Filter Geneva generates when the caller did not pass ``where``."""
+    if is_blob_v2_field(field):
+        return empty_blob_v2_predicate(column)
+    return f"{column} IS NULL"
+
+
+def has_nested_v1_blob(fields: Sequence[pa.Field]) -> bool:
+    """Return whether the schema has a nested v1 blob."""
+
+    def walk(field: pa.Field, depth: int) -> bool:
+        if is_blob_v2_field(field):
+            return False
+        if depth > 0 and is_blob_field(field):
+            return True
+        if pa.types.is_struct(field.type):
+            return any(
+                walk(field.type.field(i), depth + 1)
+                for i in range(field.type.num_fields)
+            )
+        return False
+
+    return any(walk(field, 0) for field in fields)
+
+
+def field_with_blob_v2_as_bytes(field: pa.Field, *, _depth: int = 0) -> pa.Field:
+    if is_blob_v2_field(field):
+        metadata = _without_blob_v2_extension(field.metadata)
+        return pa.field(
+            field.name,
+            pa.large_binary(),
+            nullable=True,
+            metadata=metadata,
+        )
+    dtype = field.type
+    if pa.types.is_struct(dtype) and _depth < 1:
+        struct_type = cast("pa.StructType", dtype)
+        children = [
+            field_with_blob_v2_as_bytes(struct_type.field(i), _depth=_depth + 1)
+            for i in range(struct_type.num_fields)
+        ]
+        return pa.field(
+            field.name,
+            pa.struct(children),
+            nullable=field.nullable,
+            metadata=field.metadata,
+        )
+    return field
+
+
+def encode_blob_v2_storage_array(field: pa.Field, array: pa.Array) -> pa.Array:
+    if is_blob_v2_field(field):
+        if pa.types.is_binary(array.type) or pa.types.is_large_binary(array.type):
+            if not isinstance(field.type, pa.ExtensionType):
+                raise TypeError(
+                    f"Blob v2 field {field.name!r} needs an extension type to encode, "
+                    f"got {field.type}"
+                )
+            return _blob_v2_array_from_payloads(field.type, array)
+        if isinstance(field.type, pa.ExtensionType) and isinstance(
+            array.type, pa.ExtensionType
+        ):
+            return pa.ExtensionArray.from_storage(
+                field.type, cast("pa.ExtensionArray", array).storage
+            )
+        if isinstance(field.type, pa.ExtensionType) and _is_v2_blob_descriptor(array):
+            return pa.ExtensionArray.from_storage(field.type, array)
+        return array
+
+    dtype = field.type
+    if pa.types.is_struct(dtype) and pa.types.is_struct(array.type):
+        struct_type = cast("pa.StructType", dtype)
+        struct_array = cast("pa.StructArray", array)
+        child_fields: list[pa.Field] = []
+        child_arrays: list[pa.Array] = []
+        for idx in range(struct_type.num_fields):
+            child_field = struct_type.field(idx)
+            child_arrays.append(
+                encode_blob_v2_storage_array(child_field, struct_array.field(idx))
+            )
+            child_fields.append(child_field)
+        mask = struct_array.is_null() if struct_array.null_count else None
+        return pa.StructArray.from_arrays(
+            child_arrays,
+            fields=child_fields,
+            mask=mask,
+        )
+    return array
+
+
+def _blob_v2_array_from_payloads(
+    blob_type: pa.ExtensionType, payloads: pa.Array
+) -> pa.Array:
+    # Keep the Arrow payload buffer. to_pylist copies every byte into Python.
+    storage_type = cast("pa.StructType", blob_type.storage_type)
+    data_field = storage_type.field(storage_type.get_field_index("data"))
+    data = payloads
+    if not data.type.equals(data_field.type):
+        data = data.cast(data_field.type)
+    n = len(data)
+    children = [
+        data if storage_field.name == "data" else pa.nulls(n, storage_field.type)
+        for storage_field in storage_type
+    ]
+    mask = data.is_null() if data.null_count else None
+    storage = pa.StructArray.from_arrays(
+        children,
+        fields=list(storage_type),
+        mask=mask,
+    )
+    return pa.ExtensionArray.from_storage(blob_type, storage)
 
 
 def blob_columns_in_schema(schema: pa.Schema, columns: Sequence[str]) -> frozenset[str]:
@@ -468,19 +777,474 @@ def _get_blob_data_file_path(
     )
 
 
+def _descriptor_struct_storage(array: pa.Array) -> pa.Array:
+    if isinstance(array, pa.ChunkedArray):
+        array = array.combine_chunks()
+    storage = getattr(array, "storage", array)
+    return array if storage is None else storage
+
+
+def _blob_v2_descriptor_storage(array: pa.Array) -> pa.StructArray:
+    storage = _descriptor_struct_storage(array)
+    if not pa.types.is_struct(storage.type):
+        raise RuntimeError(f"Expected a blob v2 descriptor struct, got {array.type}")
+    return cast("pa.StructArray", storage)
+
+
+def _is_v2_blob_descriptor(array: pa.Array) -> bool:
+    storage = _descriptor_struct_storage(array)
+    if not pa.types.is_struct(storage.type):
+        return False
+    names = {field.name for field in storage.type}
+    if "kind" in names:
+        return True
+    return "data" in names and "uri" in names
+
+
 def _blob_descriptor_arrays(array: pa.Array) -> tuple[pa.Array, pa.Array]:
-    if not pa.types.is_struct(array.type):
+    if _is_v2_blob_descriptor(array):
+        raise RuntimeError(
+            "Blob v2 descriptors cannot be range-read from the fragment data "
+            "file; packed and dedicated payloads live in sidecars"
+        )
+    storage = _descriptor_struct_storage(array)
+    if not pa.types.is_struct(storage.type):
         raise RangeBlobReadUnsupportedError(
             f"Expected Lance blob descriptor struct, got {array.type}"
         )
-    struct_arr = cast("pa.StructArray", array)
-    field_names = {field.name for field in array.type}
+    struct_arr = cast("pa.StructArray", storage)
+    field_names = {field.name for field in storage.type}
     if "position" not in field_names or "size" not in field_names:
         raise RangeBlobReadUnsupportedError(
             "Expected Lance blob descriptor struct with position and size fields, "
             f"got {array.type}"
         )
     return struct_arr.field("position"), struct_arr.field("size")
+
+
+def _reject_null_required_v2_fields(column: str, struct_arr: pa.StructArray) -> None:
+    names = {field.name for field in struct_arr.type}
+    valid = struct_arr.is_valid()
+    for name in ("kind", "size"):
+        if name not in names:
+            raise RuntimeError(f"Blob column {column!r} descriptor is missing {name}")
+        values = struct_arr.field(name)
+        for idx in range(len(struct_arr)):
+            if not valid[idx].as_py():
+                continue
+            if not values[idx].is_valid:
+                raise RuntimeError(
+                    f"Blob column {column!r} has a descriptor with a null {name}"
+                )
+
+
+def _reject_external_blob_v2(column: str, descriptors: pa.Array) -> None:
+    if not _is_v2_blob_descriptor(descriptors):
+        return
+    struct_arr = _blob_v2_descriptor_storage(descriptors)
+    names = {field.name for field in struct_arr.type}
+    if "kind" in names:
+        _reject_null_required_v2_fields(column, struct_arr)
+        kinds = struct_arr.field("kind")
+        for idx in range(len(struct_arr)):
+            if not struct_arr[idx].is_valid:
+                continue
+            if int(kinds[idx].as_py()) == _BLOB_KIND_EXTERNAL:
+                raise ExternalBlobUnsupportedError(
+                    f"Blob column {column!r} contains an external blob. "
+                    "Geneva does not support external blob v2 payloads"
+                )
+        return
+    if "uri" not in names:
+        return
+    uris = struct_arr.field("uri")
+    for idx in range(len(struct_arr)):
+        if not struct_arr[idx].is_valid or not uris[idx].is_valid:
+            continue
+        uri = uris[idx].as_py()
+        if uri:
+            raise ExternalBlobUnsupportedError(
+                f"Blob column {column!r} contains an external blob. "
+                "Geneva does not support external blob v2 payloads"
+            )
+
+
+def _materialize_v2_blob_columns(
+    dataset: lance.LanceDataset,
+    batch: pa.RecordBatch,
+    v2_fields: dict[str, pa.Field],
+    *,
+    selected_only_blob_columns: frozenset[str] | None,
+    io_buffer_size: int | None,
+) -> pa.RecordBatch:
+    if _ROW_ADDRESS_COLUMN not in batch.schema.names:
+        raise RuntimeError(
+            "Blob v2 materialization requires _rowaddr on the scanned batch"
+        )
+    addresses = batch[_ROW_ADDRESS_COLUMN]
+    selected_mask = (
+        batch[BACKFILL_SELECTED] if BACKFILL_SELECTED in batch.schema.names else None
+    )
+    columns = list(batch.columns)
+    fields = list(batch.schema)
+    index_by_name = {name: idx for idx, name in enumerate(batch.schema.names)}
+
+    for column, field in v2_fields.items():
+        idx = index_by_name[column]
+        _reject_external_blob_v2(column, columns[idx])
+        is_selected_only = (
+            selected_only_blob_columns is not None
+            and column in selected_only_blob_columns
+        )
+        columns[idx] = _read_v2_blob_values(
+            dataset,
+            column,
+            addresses,
+            columns[idx],
+            selected_only=is_selected_only,
+            selected_mask=selected_mask,
+            io_buffer_size=io_buffer_size,
+        )
+        metadata = dict(field.metadata or {})
+        metadata[BLOB_V2_EXTENSION_METADATA_KEY] = BLOB_V2_EXTENSION_NAME
+        fields[idx] = pa.field(
+            column,
+            pa.large_binary(),
+            nullable=field.nullable or (is_selected_only and selected_mask is not None),
+            metadata=metadata,
+        )
+
+    return pa.RecordBatch.from_arrays(columns, schema=pa.schema(fields))
+
+
+@attrs.define(frozen=True)
+class BlobV2Materialization:
+    """Map a projected blob path to its physical Lance path."""
+
+    batch_path: str
+    dataset_path: str
+
+
+def _descriptor_array_at_path(batch: pa.RecordBatch, path: str) -> pa.Array | None:
+    if path in batch.schema.names:
+        return batch[path]
+    try:
+        parts = parse_field_path(path)
+    except ValueError:
+        return None
+    if len(parts) != 2 or parts[0] not in batch.schema.names:
+        return None
+    root = batch[parts[0]]
+    if not pa.types.is_struct(root.type):
+        return None
+    struct_array = cast("pa.StructArray", root)
+    child_names = [root.type.field(i).name for i in range(root.type.num_fields)]
+    if parts[1] not in child_names:
+        return None
+    return struct_array.field(parts[1])
+
+
+def materialize_blob_v2_paths(
+    dataset: lance.LanceDataset,
+    batch: pa.RecordBatch,
+    materializations: Sequence[BlobV2Materialization],
+    *,
+    io_buffer_size: int | None = None,
+) -> pa.RecordBatch:
+    if not materializations:
+        return batch
+    if _ROW_ADDRESS_COLUMN not in batch.schema.names:
+        raise RuntimeError(
+            "Blob v2 materialization requires _rowaddr on the scanned batch"
+        )
+    addresses = batch[_ROW_ADDRESS_COLUMN]
+    columns = list(batch.columns)
+    fields = list(batch.schema)
+    index_by_name = {name: idx for idx, name in enumerate(batch.schema.names)}
+    for materialization in materializations:
+        batch_path = materialization.batch_path
+        descriptors = _descriptor_array_at_path(batch, batch_path)
+        if descriptors is None:
+            raise RuntimeError(
+                f"Cannot materialize blob v2 path {batch_path!r} without "
+                f"descriptors on the batch"
+            )
+        _reject_external_blob_v2(materialization.dataset_path, descriptors)
+        payloads = _read_v2_blob_values(
+            dataset,
+            materialization.dataset_path,
+            addresses,
+            descriptors,
+            selected_only=False,
+            selected_mask=None,
+            io_buffer_size=io_buffer_size,
+        )
+        if batch_path in index_by_name:
+            idx = index_by_name[batch_path]
+            columns[idx] = payloads
+            fields[idx] = pa.field(
+                batch_path,
+                pa.large_binary(),
+                nullable=True,
+                metadata=_without_blob_v2_extension(fields[idx].metadata),
+            )
+            continue
+        try:
+            parts = parse_field_path(batch_path)
+        except ValueError as exc:
+            raise RuntimeError(
+                f"Cannot materialize blob v2 path {batch_path!r} from batch "
+                f"columns {list(index_by_name)}"
+            ) from exc
+        if len(parts) != 2 or parts[0] not in index_by_name:
+            raise RuntimeError(
+                f"Cannot materialize blob v2 path {batch_path!r} from batch "
+                f"columns {list(index_by_name)}"
+            )
+        root, child = parts
+        idx = index_by_name[root]
+        struct_array = cast("pa.StructArray", columns[idx])
+        struct_type = fields[idx].type
+        child_fields: list[pa.Field] = []
+        child_arrays: list[pa.Array] = []
+        for child_idx in range(struct_type.num_fields):
+            child_field = struct_type.field(child_idx)
+            if child_field.name == child:
+                child_fields.append(
+                    pa.field(
+                        child,
+                        pa.large_binary(),
+                        nullable=True,
+                        metadata=_without_blob_v2_extension(child_field.metadata),
+                    )
+                )
+                child_arrays.append(payloads)
+            else:
+                child_fields.append(child_field)
+                child_arrays.append(struct_array.field(child_idx))
+        mask = struct_array.is_null() if struct_array.null_count else None
+        columns[idx] = pa.StructArray.from_arrays(
+            child_arrays,
+            fields=child_fields,
+            mask=mask,
+        )
+        fields[idx] = pa.field(
+            fields[idx].name,
+            pa.struct(child_fields),
+            nullable=fields[idx].nullable,
+            metadata=fields[idx].metadata,
+        )
+    return pa.RecordBatch.from_arrays(columns, schema=pa.schema(fields))
+
+
+def iter_blob_v2_payload_batches(
+    dataset: lance.LanceDataset,
+    batch: pa.RecordBatch,
+    materializations: Sequence[BlobV2Materialization],
+    *,
+    byte_budget: int | None = None,
+    io_buffer_size: int | None = None,
+) -> Iterator[pa.RecordBatch]:
+    if not materializations:
+        yield batch
+        return
+    budget = resolve_blob_read_buffer_size(byte_budget)
+    extra_row_bytes = _v2_row_payload_bytes(
+        batch,
+        [materialization.batch_path for materialization in materializations],
+        selected_only_blob_columns=None,
+    )
+    row_ranges: list[list[tuple[str, int, int]]] = [[] for _ in range(batch.num_rows)]
+    for row_slice in _iter_row_budget_slices(
+        row_ranges, budget, extra_row_bytes=extra_row_bytes
+    ):
+        start = int(row_slice.start or 0)
+        stop = int(row_slice.stop or start)
+        yield materialize_blob_v2_paths(
+            dataset,
+            batch.slice(start, stop - start),
+            materializations,
+            io_buffer_size=io_buffer_size,
+        )
+
+
+def materialize_top_level_v1_blob_bytes(
+    dataset: lance.LanceDataset,
+    batch: pa.RecordBatch,
+    columns: Sequence[str],
+) -> pa.RecordBatch:
+    if not columns:
+        return batch
+    if _ROW_ID_COLUMN not in batch.schema.names:
+        raise RuntimeError("v1 blob take_blobs requires _rowid on the scanned batch")
+    row_ids = [
+        None if value is None else int(value)
+        for value in batch[_ROW_ID_COLUMN].to_pylist()
+    ]
+    out_columns = list(batch.columns)
+    out_fields = list(batch.schema)
+    index_by_name = {name: idx for idx, name in enumerate(batch.schema.names)}
+    for column in columns:
+        idx = index_by_name[column]
+        array = out_columns[idx]
+        if pa.types.is_binary(array.type) or pa.types.is_large_binary(array.type):
+            continue
+        if _is_v2_blob_descriptor(array):
+            continue
+        ids: list[int] = []
+        slots: list[int] = []
+        for row_idx, row_id in enumerate(row_ids):
+            if row_id is None:
+                continue
+            if array[row_idx].is_valid:
+                ids.append(row_id)
+                slots.append(row_idx)
+        fetched: list[bytes | None] = [None] * len(array)
+        if ids:
+            blobs = dataset.take_blobs(column, ids=ids)
+            for slot, blob in zip(slots, blobs, strict=True):
+                if blob is None:
+                    continue
+                read = getattr(blob, "readall", None) or getattr(blob, "read", None)
+                raw = read() if callable(read) else None
+                if isinstance(raw, (bytes, bytearray, memoryview)):
+                    fetched[slot] = bytes(raw)
+        field = out_fields[idx]
+        out_columns[idx] = pa.array(fetched, type=pa.large_binary())
+        out_fields[idx] = pa.field(
+            column,
+            pa.large_binary(),
+            nullable=True,
+            metadata=field.metadata,
+        )
+    return pa.RecordBatch.from_arrays(out_columns, schema=pa.schema(out_fields))
+
+
+def _v2_descriptor_payload_sizes(
+    column: str, descriptors: pa.Array
+) -> list[int | None]:
+    struct_arr = _blob_v2_descriptor_storage(descriptors)
+    names = {field.name for field in struct_arr.type}
+    if "kind" in names:
+        _reject_null_required_v2_fields(column, struct_arr)
+    elif "size" not in names:
+        raise RuntimeError(f"Blob column {column!r} descriptor is missing size")
+    sizes = struct_arr.field("size").to_pylist()
+    valid = struct_arr.is_valid().to_pylist()
+    payload_sizes: list[int | None] = []
+    for is_valid, size in zip(valid, sizes, strict=True):
+        if not is_valid or size is None:
+            payload_sizes.append(None)
+            continue
+        payload_sizes.append(int(size))
+    return payload_sizes
+
+
+def _v2_row_payload_bytes(
+    batch: pa.RecordBatch,
+    columns: Sequence[str],
+    *,
+    selected_only_blob_columns: frozenset[str] | None,
+) -> list[int]:
+    totals = [0] * batch.num_rows
+    selected_mask = (
+        batch[BACKFILL_SELECTED] if BACKFILL_SELECTED in batch.schema.names else None
+    )
+    for column in columns:
+        descriptors = _descriptor_array_at_path(batch, column)
+        if descriptors is None:
+            continue
+        is_selected_only = (
+            selected_only_blob_columns is not None
+            and column in selected_only_blob_columns
+        )
+        sizes = _v2_descriptor_payload_sizes(column, descriptors)
+        for idx, size in enumerate(sizes):
+            if (
+                is_selected_only
+                and selected_mask is not None
+                and not selected_mask[idx].as_py()
+            ):
+                continue
+            if size is not None and size > 0:
+                totals[idx] += size
+    return totals
+
+
+def _read_v2_blob_values(
+    dataset: lance.LanceDataset,
+    column: str,
+    addresses: pa.Array,
+    descriptors: pa.Array,
+    *,
+    selected_only: bool,
+    selected_mask: pa.Array | None,
+    io_buffer_size: int | None,
+) -> pa.Array:
+    address_list = addresses.to_pylist()
+    sizes = _v2_descriptor_payload_sizes(column, descriptors)
+    if len(sizes) != len(address_list):
+        raise RuntimeError(
+            f"Blob column {column!r} descriptor count {len(sizes)} does not "
+            f"match row address count {len(address_list)}"
+        )
+
+    requested: list[int] = []
+    seen: set[int] = set()
+    for idx, address in enumerate(address_list):
+        if address is None:
+            continue
+        if (
+            selected_only
+            and selected_mask is not None
+            and not selected_mask[idx].as_py()
+        ):
+            continue
+        size = sizes[idx]
+        if size is None or size <= 0:
+            continue
+        row_addr = int(address)
+        if row_addr in seen:
+            continue
+        seen.add(row_addr)
+        requested.append(row_addr)
+
+    fetched: dict[int, bytes] = {}
+    if requested:
+        kwargs: dict[str, Any] = {"preserve_order": False}
+        if io_buffer_size is not None:
+            kwargs["io_buffer_size"] = io_buffer_size
+        for row_addr, payload in dataset.read_blobs(
+            column, addresses=requested, **kwargs
+        ):
+            if payload is None:
+                continue
+            fetched[int(row_addr)] = payload
+    for row_addr in requested:
+        payload = fetched.get(row_addr)
+        if payload is None:
+            raise RuntimeError(
+                f"Blob column {column!r} is missing a payload for row "
+                f"address {row_addr}"
+            )
+
+    values: list[bytes | None] = []
+    for idx, address in enumerate(address_list):
+        if (
+            selected_only
+            and selected_mask is not None
+            and not selected_mask[idx].as_py()
+        ):
+            values.append(None)
+            continue
+        if address is None or sizes[idx] is None:
+            values.append(None)
+            continue
+        if sizes[idx] == 0:
+            values.append(b"")
+            continue
+        values.append(fetched[int(address)])
+    return pa.array(values, type=pa.large_binary())
 
 
 def materialized_column_bytes(
@@ -692,12 +1456,15 @@ class _CoalescedRangeBudget:
 
 
 def _iter_row_budget_slices(
-    row_ranges: Sequence[Sequence[tuple[str, int, int]]], byte_budget: int
+    row_ranges: Sequence[Sequence[tuple[str, int, int]]],
+    byte_budget: int,
+    extra_row_bytes: Sequence[int] | None = None,
 ) -> Iterator[slice]:
     """Yield row slices whose coalesced blob reads stay near ``byte_budget``.
 
     A single row can exceed the budget, but rows are never split because UDF
-    inputs must stay row-complete.
+    inputs must stay row-complete. ``extra_row_bytes`` charges payload sizes
+    that are not data-file ranges.
     """
 
     if not row_ranges:
@@ -705,13 +1472,17 @@ def _iter_row_budget_slices(
 
     start = 0
     current_budget = _CoalescedRangeBudget(byte_budget)
+    extra_acc = 0
     for idx, ranges in enumerate(row_ranges):
+        extra = extra_row_bytes[idx] if extra_row_bytes is not None else 0
         current_budget.add_ranges(ranges)
-        if idx > start and current_budget.size > byte_budget:
+        extra_acc += extra
+        if idx > start and current_budget.size + extra_acc > byte_budget:
             yield slice(start, idx)
             start = idx
             current_budget = _CoalescedRangeBudget(byte_budget)
             current_budget.add_ranges(ranges)
+            extra_acc = extra
 
     if start < len(row_ranges):
         yield slice(start, len(row_ranges))
@@ -827,6 +1598,8 @@ def _materialize_blob_slice(
     byte_budget: int,
     selected_only_blob_columns: frozenset[str] | None,
 ) -> pa.RecordBatch:
+    if not plans:
+        return batch
     flat_ranges = [r for ranges in row_ranges for r in ranges]
     data_file_ranges = _coalesce_blob_ranges(flat_ranges, byte_budget)
     data_file_buffers = _read_data_file_ranges(file_reads, data_file_ranges)
@@ -1038,8 +1811,13 @@ def _matching_row_ids_for_where(
     if row_id_filter is None:
         return set()
 
+    schema = dataset.schema
+    scan_columns = [_ROW_ID_COLUMN]
+    # Lance needs v2 descriptor fields projected when filtering on them.
+    scan_columns.extend(sorted(referenced_v2_paths(where, schema)))
+
     id_scan = dataset.scanner(
-        columns=[_ROW_ID_COLUMN],
+        columns=scan_columns,
         with_row_id=True,
         filter=f"({where}) AND ({row_id_filter})",
         fragments=[fragment],
@@ -1157,6 +1935,7 @@ def range_blob_batches(
         return
 
     blob_plans = []
+    v2_fields: dict[str, pa.Field] = {}
     missing_blob_fields: dict[str, pa.Field] = {}
     # Resolve the Lance data file that stores each requested blob column before
     # scanning row batches. Missing files are handled per-column below.
@@ -1168,6 +1947,9 @@ def range_blob_batches(
             raise RangeBlobReadUnsupportedError(
                 f"Could not resolve blob column path {col!r} in schema"
             )
+        if is_blob_v2_field(field):
+            v2_fields[col] = field
+            continue
         try:
             data_file_path, data_file_base_id = _get_blob_data_file_path(
                 dataset, fragment, col
@@ -1196,7 +1978,8 @@ def range_blob_batches(
 
     scanner_kwargs: dict[str, Any] = {
         "columns": list(columns),
-        "with_row_address": with_row_address,
+        # Needed if a planned v1 column is actually v2.
+        "with_row_address": True,
         "fragments": [fragment],
         "offset": int(offset),
         "batch_size": int(batch_size) if batch_size and batch_size > 0 else None,
@@ -1261,13 +2044,37 @@ def range_blob_batches(
                 )
                 batch = _add_backfill_selected_mask(batch, matching_row_ids)
                 batch = _drop_internal_row_id(batch, requested_columns)
-            # Blob descriptor structs provide the byte spans each row needs.
+            # V2 position/size are not necessarily data-file offsets.
+            remaining_v1: list[_BlobColumnPlan] = []
+            for plan in blob_plans:
+                descriptors = batch.column(plan.name)
+                if _is_v2_blob_descriptor(descriptors):
+                    v2_fields[plan.name] = plan.field
+                    _reject_external_blob_v2(plan.name, descriptors)
+                else:
+                    remaining_v1.append(plan)
+            blob_plans = remaining_v1
+            if v2_fields:
+                for column in v2_fields:
+                    if column in batch.schema.names:
+                        _reject_external_blob_v2(column, batch[column])
             row_ranges = _row_blob_ranges(
                 batch,
                 blob_plans,
                 selected_only_blob_columns=selected_only_blob_columns,
             )
-            for row_slice in _iter_row_budget_slices(row_ranges, byte_budget):
+            extra_row_bytes = (
+                _v2_row_payload_bytes(
+                    batch,
+                    list(v2_fields),
+                    selected_only_blob_columns=selected_only_blob_columns,
+                )
+                if v2_fields
+                else None
+            )
+            for row_slice in _iter_row_budget_slices(
+                row_ranges, byte_budget, extra_row_bytes=extra_row_bytes
+            ):
                 start = int(row_slice.start or 0)
                 stop = int(row_slice.stop or start)
                 sliced = batch.slice(start, stop - start)
@@ -1279,6 +2086,19 @@ def range_blob_batches(
                     byte_budget,
                     selected_only_blob_columns,
                 )
+                if v2_fields:
+                    materialized = _materialize_v2_blob_columns(
+                        dataset,
+                        materialized,
+                        v2_fields,
+                        selected_only_blob_columns=selected_only_blob_columns,
+                        io_buffer_size=blob_read_buffer_size,
+                    )
+                if (
+                    not with_row_address
+                    and _ROW_ADDRESS_COLUMN in materialized.schema.names
+                ):
+                    materialized = materialized.drop_columns([_ROW_ADDRESS_COLUMN])
                 if decomps:
                     materialized = _reassemble_struct_columns(
                         materialized, decomps, requested_struct_columns

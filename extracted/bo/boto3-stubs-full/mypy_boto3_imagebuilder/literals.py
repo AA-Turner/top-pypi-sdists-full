@@ -31,6 +31,7 @@ __all__ = (
     "ContainerTypeType",
     "DiskImageFormatType",
     "EbsVolumeTypeType",
+    "ImageConfigurationStepType",
     "ImageScanStatusType",
     "ImageSourceType",
     "ImageStatusType",
@@ -73,6 +74,7 @@ __all__ = (
     "PipelineStatusType",
     "PlatformType",
     "ProductCodeTypeType",
+    "RegionFailureStatusType",
     "ResourceServiceName",
     "ResourceStatusType",
     "ServiceName",
@@ -95,6 +97,13 @@ ContainerRepositoryServiceType = Literal["ECR"]
 ContainerTypeType = Literal["DOCKER"]
 DiskImageFormatType = Literal["RAW", "VHD", "VMDK"]
 EbsVolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
+ImageConfigurationStepType = Literal[
+    "ASSOCIATE_LICENSES",
+    "EXPORT_AMI",
+    "PUT_SSM_PARAMETERS",
+    "UPDATE_FAST_LAUNCH_CONFIGURATIONS",
+    "UPDATE_LAUNCH_TEMPLATES",
+]
 ImageScanStatusType = Literal[
     "ABANDONED", "COLLECTING", "COMPLETED", "FAILED", "PENDING", "SCANNING", "TIMED_OUT"
 ]
@@ -154,6 +163,7 @@ PipelineExecutionStartConditionType = Literal[
 PipelineStatusType = Literal["DISABLED", "ENABLED"]
 PlatformType = Literal["Linux", "Windows", "macOS"]
 ProductCodeTypeType = Literal["marketplace"]
+RegionFailureStatusType = Literal["CANCELLED", "FAILED", "TIMED_OUT"]
 ResourceStatusType = Literal["AVAILABLE", "DELETED", "DEPRECATED", "DISABLED"]
 SsmParameterDataTypeType = Literal["aws:ec2:image", "text"]
 TenancyTypeType = Literal["dedicated", "default", "host"]

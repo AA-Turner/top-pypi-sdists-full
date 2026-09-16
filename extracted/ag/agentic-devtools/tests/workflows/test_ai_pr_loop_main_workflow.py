@@ -97,8 +97,8 @@ class TestAiPrLoopMainWorkflow:
         assert "dispatch-pr" in gated_ids, "Resolve PR head ref step must be gated on cooldown-gate"
         assert "run-loop" in gated_ids, "Run AI PR loop orchestrator step must be gated on cooldown-gate"
 
-    def test_redispatch_step_always_runs(self) -> None:
-        """Redispatch fires even when the cooldown gate blocks provider work."""
+    def test_redispatch_step_gated_on_actions_executed(self) -> None:
+        """Redispatch is gated on actions_executed == 'true' to prevent no-op redispatch loops."""
         parsed = yaml.safe_load(AI_PR_LOOP.read_text(encoding="utf-8"))
         steps = parsed["jobs"]["ai-pr-loop"]["steps"]
         dispatch_step = next(
@@ -106,7 +106,8 @@ class TestAiPrLoopMainWorkflow:
             None,
         )
         assert dispatch_step is not None
-        assert (dispatch_step.get("if") or "").strip() == "always()"
+        expected_if = "always() && steps.run-loop.outputs.actions_executed == 'true'"
+        assert (dispatch_step.get("if") or "").strip() == expected_if
 
     def test_redispatch_uses_default_workflow_pat(self) -> None:
         """Redispatch uses the default workflow PAT without cross-role fallback."""
@@ -127,3 +128,27 @@ class TestAiPrLoopMainWorkflow:
         """A loop run for one PR must not replace a pending run for another PR."""
         parsed = yaml.safe_load(AI_PR_LOOP.read_text(encoding="utf-8"))
         assert parsed["concurrency"]["group"] == "ai-pr-loop-${{ inputs.pr_number }}"
+
+    def test_pr_dependency_install_is_resilient_and_editable(self) -> None:
+        """PR dependency install must be resilient and editable so broken PRs do not crash the orchestrator."""
+        parsed = yaml.safe_load(AI_PR_LOOP.read_text(encoding="utf-8"))
+        steps = parsed["jobs"]["ai-pr-loop"]["steps"]
+        install_step = next(
+            s
+            for s in steps
+            if "pip install" in s.get("run", "")
+            and s.get("id") != "cooldown-bootstrap"
+            and s.get("name") != "Run live reconciliation preflight"
+        )
+        assert install_step.get("continue-on-error") is True
+        assert "-e ." in install_step["run"]
+
+    def test_closed_or_merged_prs_are_skipped_before_checkout(self) -> None:
+        """Closed or merged PRs must set pr_open=false and skip checkout/loop execution."""
+        parsed = yaml.safe_load(AI_PR_LOOP.read_text(encoding="utf-8"))
+        steps = parsed["jobs"]["ai-pr-loop"]["steps"]
+        dispatch_step = next(s for s in steps if s.get("id") == "dispatch-pr")
+        assert "pr_state" in dispatch_step["run"]
+        assert "pr_open=false" in dispatch_step["run"]
+        checkout_step = next(s for s in steps if "steps.dispatch-pr.outputs.head_ref" in str(s.get("with", {})))
+        assert "steps.dispatch-pr.outputs.pr_open == 'true'" in checkout_step["if"]

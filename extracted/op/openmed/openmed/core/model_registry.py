@@ -6,7 +6,7 @@ import importlib.util
 import json
 import math
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import chain
 from pathlib import Path
 from types import MappingProxyType
@@ -14,7 +14,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from . import labels as label_taxonomy
 from .manifest_schema import LANGUAGE_SCRIPT_TARGETS
-from .registry_service import (
+from .registry_slots import (
     load_registry_state,
     pointer_targets,
     semantic_version,
@@ -1076,12 +1076,28 @@ def _add_pointer_aliases(
     registry_state: Mapping[str, Any],
 ) -> None:
     by_repo_id = {model.model_id: model for model in registry.values()}
-    for family, pointers in pointer_targets(registry_state).items():
+    slots = registry_state.get("slots", {})
+    pointer_sets = pointer_targets(registry_state)
+    family_counts: dict[str, int] = {}
+    for key in pointer_sets:
+        family = key.split("::", 1)[0]
+        family_counts[family] = family_counts.get(family, 0) + 1
+    for slot, pointers in pointer_sets.items():
+        checkpoints = slots.get(slot, {}).get("checkpoints", {})
         for pointer_name, repo_id in pointers.items():
             if repo_id is None:
                 continue
             model = by_repo_id.get(repo_id)
-            if model is not None:
+            if model is None:
+                continue
+            # Pointer aliases carry the slot's assigned registry version, not
+            # the display version parsed from the repo name.
+            assigned = checkpoints.get(repo_id)
+            if isinstance(assigned, str) and assigned:
+                model = replace(model, semantic_version=assigned)
+            registry[_slug(f"{slot}_{pointer_name}")] = model
+            family = slot.split("::", 1)[0]
+            if family_counts[family] == 1:
                 registry[_slug(f"{family}_{pointer_name}")] = model
 
 

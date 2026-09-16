@@ -6,7 +6,12 @@ explanations for reviewers.
 
 from __future__ import annotations
 
-from agentic_devtools.cli.ci.resolution.models import ResolutionReply, ResolutionVerdict, TierResult
+from agentic_devtools.cli.ci.resolution.models import (
+    ResolutionBasis,
+    ResolutionReply,
+    ResolutionVerdict,
+    TierResult,
+)
 
 
 class ReplyFormatter:
@@ -30,7 +35,10 @@ class ReplyFormatter:
         Returns:
             A ResolutionReply with HTML marker and human text.
         """
+        basis = result.resolution_basis.value if result.resolution_basis else "unspecified"
         html_marker = f"<!-- agdt:resolution-tier:{result.tier_name} -->"
+        if result.resolution_basis:
+            html_marker += f"\n<!-- agdt:resolution-basis:{basis} -->"
 
         # Build human-readable text
         verdict_emoji = self._verdict_emoji(result.verdict)
@@ -46,6 +54,7 @@ class ReplyFormatter:
             f"{verdict_emoji} **{status_text}** {confidence_indicator}",
             "",
             f"**Tier**: {result.tier_name}",
+            f"**Basis**: {basis}",
             f"**Rationale**: {result.explanation}",
         ]
 
@@ -62,12 +71,14 @@ class ReplyFormatter:
             html_marker=html_marker,
             human_text=human_text,
             model_id=model_id,
+            resolution_basis=result.resolution_basis,
         )
 
     def format_unconfirmed_commit_change_reply(
         self,
         tier_result: TierResult,
         model_id: str | None = None,
+        resolution_basis: ResolutionBasis | None = None,
     ) -> str:
         """Format a reply for threads resolved by default due to HEAD change.
 
@@ -79,14 +90,20 @@ class ReplyFormatter:
             tier_result: The tier result carrying the actual tier name,
                 confidence, and explanation to include in the reply.
             model_id: Optional model identifier (for SDK tier).
+            resolution_basis: Optional structured basis for the resolution.
         """
+        basis = resolution_basis or tier_result.resolution_basis
+        marker = "<!-- agdt:resolution-tier:unconfirmed-commit-change -->"
         parts: list[str] = [
-            "<!-- agdt:resolution-tier:unconfirmed-commit-change -->",
+            marker,
             f"🔄 **Thread resolved** (unconfirmed) [{tier_result.confidence}]",
             "",
             f"**Tier**: {tier_result.tier_name}",
-            f"**Rationale**: {tier_result.explanation}",
         ]
+        if basis is not None:
+            parts.insert(1, f"<!-- agdt:resolution-basis:{basis.value} -->")
+            parts.append(f"**Basis**: {basis.value}")
+        parts.append(f"**Rationale**: {tier_result.explanation}")
         if model_id:
             parts.append(f"**Model**: {model_id}")
         parts.append("")

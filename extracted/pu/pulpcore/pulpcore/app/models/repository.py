@@ -18,6 +18,7 @@ from django.db.models import F, Func, Q, Value
 from django_lifecycle import AFTER_UPDATE, BEFORE_CREATE, BEFORE_DELETE, hook
 from rest_framework.exceptions import APIException
 
+from pulpcore.app.loggers import deprecation_logger
 from pulpcore.app.util import (
     batch_qs,
     cache_key,
@@ -908,6 +909,37 @@ class RepositoryVersionQuerySet(models.QuerySet):
         return self.filter(content_ids__overlap=content_pks)
 
 
+class RepositoryVersionManager(models.Manager):
+    # `RepositoryVersionQuerySet.as_manager()` does not allow us to redefine `get_queryset`.
+    # Sadly, we have to replicate the filtering amenities too.
+    #
+    def get_queryset(self):
+        # Prevent the content_ids to be automatically hydrated.
+        return RepositoryVersionQuerySet(self.model, using=self._db).defer("content_ids")
+
+    def complete(self):
+        return self.get_queryset().filter(complete=True)
+
+    def with_content(self, content):
+        """
+        Filters repository versions that contain the provided content units.
+
+        Args:
+            content (django.db.models.QuerySet or list): Content queryset or list of PKs
+
+        Returns:
+            django.db.models.QuerySet: Repository versions which contains content.
+        """
+        if isinstance(content, models.QuerySet):
+            content_pks = content.values_list("pk", flat=True)
+        elif not content:
+            return self.none()
+        else:
+            content_pks = content
+
+        return self.get_queryset().filter(content_ids__overlap=content_pks)
+
+
 class RepositoryVersion(BaseModel):
     """
     A version of a repository's content set.
@@ -936,7 +968,7 @@ class RepositoryVersion(BaseModel):
         base_version (models.ForeignKey): The repository version this was created from.
     """
 
-    objects = RepositoryVersionQuerySet.as_manager()
+    objects = RepositoryVersionManager()
 
     repository = models.ForeignKey(Repository, on_delete=models.CASCADE)
     number = models.PositiveIntegerField(db_index=True)
@@ -997,15 +1029,24 @@ class RepositoryVersion(BaseModel):
         if content_qs is None:
             content_qs = Content.objects
 
-        content_ids = self.content_ids
-        if len(content_ids) >= 65535:
-            # Workaround for PostgreSQL's limit on the number of parameters in a query
-            content_ids = (
-                RepositoryVersion.objects.filter(pk=self.pk)
-                .annotate(cids=Func(F("content_ids"), function="unnest"))
-                .values_list("cids", flat=True)
-            )
-        return content_qs.filter(pk__in=content_ids)
+        return content_qs.filter(pk__in=self.content_ids_subquery())
+
+    def content_ids_subquery(self):
+        """
+        Return this version's ``content_ids`` as a database-side ``unnest`` subquery.
+
+        Using a subquery keeps the content unit UUIDs inside PostgreSQL instead of loading the
+        whole array into Python and passing each UUID as a bound query parameter. This avoids the
+        per-query parameter limit and the memory/serialization cost for large repository versions.
+
+        Returns:
+            django.db.models.QuerySet: A values queryset yielding the content unit UUIDs.
+        """
+        return (
+            RepositoryVersion.objects.filter(pk=self.pk)
+            .annotate(cids=Func(F("content_ids"), function="unnest"))
+            .values_list("cids", flat=True)
+        )
 
     @property
     def content(self):
@@ -1031,55 +1072,20 @@ class RepositoryVersion(BaseModel):
 
     def content_batch_qs(self, content_qs=None, order_by_params=("pk",), batch_size=1000):
         """
-        Generate content batches to efficiently iterate over all content.
+        DEPRECATED: Don't use this method
 
-        Generates query sets that span the `content_qs` content of the repository
-        version. Each yielded query set evaluates to at most `batch_size` content records.
-        This is useful to limit the memory footprint when iterating over all content of
-        a repository version.
-
-        .. note::
-
-            * This generator is not safe against changes (i.e. add/remove content) during
-              the iteration!
-
-            * As the method uses slices internally, the queryset must be ordered to yield
-              stable results. By default, it is ordered by primary key.
-
-        Args:
-            content_qs (django.db.models.QuerySet) The queryset for Content that will be
-                restricted further to the content present in this repository version. If not given,
-                `Content.objects.all()` is used (to iterate over all content present in the
-                repository version). A plugin may want to use a specific subclass of
-                [pulpcore.plugin.models.Content][] or use e.g. `filter()` to select
-                a subset of the repository version's content.
-            order_by_params (tuple of str): The parameters for the `order_by` clause
-                for the content. The Default is `("pk",)`. This needs to
-                specify a stable order. For example, if you want to iterate by
-                decreasing creation time stamps use `("-pulp_created", "pk")` to
-                ensure that content records are still sorted by primary key even
-                if their creation timestamp happens to be equal.
-            batch_size (int): The maximum batch size.
-
-        Yields:
-            [django.db.models.QuerySet][]: A QuerySet representing a slice of the content.
-
-        Example:
-            The following code could be used to loop over all `FileContent` in
-            `repository_version`. It prefetches the related
-            [pulpcore.plugin.models.ContentArtifact][] instances for every batch::
-
-                repository_version = ...
-
-                batch_generator = repository_version.content_batch_qs(
-                    content_class=FileContent.objects.all()
-                )
-                for content_batch_qs in batch_generator:
-                    content_batch_qs.prefetch_related("contentartifact_set")
-                    for content in content_batch_qs:
-                        ...
-
+        Instead use this:
+            >>> content = version.get_content(
+            >>>     FileContent.objects.prefetch_related("contentartifact_set")
+            >>> ).order_by("pk")
+            >>>
+            >>> for item in content.iterator(chunk_size=1000):
+            >>>     ...
         """
+        deprecation_logger.warning(
+            "content_batch_qs is deprecated and will be removed in pulpcore 3.130. "
+            "Please use get_content with .iterator() instead."
+        )
         version_content_qs = self.get_content(content_qs).order_by(*order_by_params)
         yield from batch_qs(version_content_qs, batch_size=batch_size)
 
@@ -1119,8 +1125,8 @@ class RepositoryVersion(BaseModel):
         if not base_version:
             return Content.objects.filter(version_memberships__version_added=self)
 
-        return Content.objects.filter(pk__in=self.content_ids).exclude(
-            pk__in=base_version.content_ids
+        return Content.objects.filter(pk__in=self.content_ids_subquery()).exclude(
+            pk__in=base_version.content_ids_subquery()
         )
 
     def removed(self, base_version=None):
@@ -1134,8 +1140,8 @@ class RepositoryVersion(BaseModel):
         if not base_version:
             return Content.objects.filter(version_memberships__version_removed=self)
 
-        return Content.objects.filter(pk__in=base_version.content_ids).exclude(
-            pk__in=self.content_ids
+        return Content.objects.filter(pk__in=base_version.content_ids_subquery()).exclude(
+            pk__in=self.content_ids_subquery()
         )
 
     def contains(self, content):
@@ -1145,7 +1151,10 @@ class RepositoryVersion(BaseModel):
         Returns:
             bool: True if the repository version contains the content, False otherwise
         """
-        return content.pk in self.content_ids
+        return RepositoryVersion.objects.filter(
+            pk=self.pk,
+            content_ids__contains=[content.pk],
+        ).exists()
 
     def add_content(self, content):
         """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-motion-planning
-Version: 2.0.1
+Version: 2.1
 Summary: Motion planning algorithms for Python
 Maintainer-email: Wu Maojia <omige@mail.nwpu.edu.cn>, Yang Haodong <913982779@qq.com>
 License: GNU GENERAL PUBLIC LICENSE
@@ -681,7 +681,7 @@ Project-URL: Repository, https://github.com/ai-winter/python_motion_planning
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy

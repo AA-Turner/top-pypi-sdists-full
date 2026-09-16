@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: PROPRIETARY
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
+import logging
 from collections.abc import Iterator
 
 import pyarrow as pa
@@ -89,6 +90,195 @@ def test_adaptive_checkpoint_sizer_clamps_size() -> None:
 
     sizer.record(duration_seconds=1000.0, rows=1)
     assert sizer.current_size == 1
+
+
+def test_unconfigured_backfill_sizer_starts_above_floor() -> None:
+    """An unconfigured UDF must not start in the one-row absorbing state."""
+
+    @udf(data_type=pa.int32())
+    def _identity(a: int) -> int:
+        return a
+
+    task = BackfillUDFTask(udfs={"b": _identity})
+    applier = CheckpointingApplier(checkpoint_uri="memory", map_task=task)
+
+    sizer = applier._get_or_create_sizer()
+
+    assert sizer.current_size == min(sizer.min_size + 1, sizer.max_size)
+    assert 1 < sizer.current_size <= sizer.max_size
+
+
+def test_slow_udf_periodically_probes_back_to_initial_size() -> None:
+    """A 30 s/row UDF must escape the floor without probing past its seed."""
+
+    initial_size = 4
+    sizer = AdaptiveCheckpointSizer(
+        max_size=9,
+        min_size=1,
+        initial_size=initial_size,
+        target_seconds=10.0,
+    )
+
+    def record_slow_batch() -> None:
+        rows = sizer.current_size
+        sizer.record(duration_seconds=30.0 * rows, rows=rows)
+
+    def wait_for_probe() -> int:
+        for _ in range(16):
+            record_slow_batch()
+            if sizer.current_size > sizer.min_size:
+                return sizer.current_size
+        raise AssertionError("slow UDF remained pinned at one row after 16 samples")
+
+    # The first slow batch collapses from the configured seed to the floor.
+    record_slow_batch()
+    assert sizer.current_size == 1
+
+    # Failed probes return to the floor, but the next probe keeps advancing
+    # toward the effective initial seed instead of restarting at two rows.
+    probes = [wait_for_probe()]
+    while probes[-1] < initial_size:
+        record_slow_batch()
+        assert sizer.current_size == 1
+        probes.append(wait_for_probe())
+
+    assert probes == [2, 3, initial_size]
+    assert all(sizer.min_size < size <= initial_size for size in probes)
+    assert all(size <= sizer.max_size for size in probes)
+
+
+def test_invalid_measurements_do_not_advance_floor_probe() -> None:
+    sizer = AdaptiveCheckpointSizer(
+        max_size=4,
+        min_size=1,
+        initial_size=2,
+        target_seconds=10.0,
+    )
+
+    for _ in range(15):
+        sizer.record(duration_seconds=30.0, rows=1)
+    assert sizer.current_size == 1
+
+    for duration in (float("nan"), float("inf"), 0.0, -1.0):
+        sizer.record(duration_seconds=duration, rows=1)
+        assert sizer.current_size == 1
+    sizer.record(duration_seconds=30.0, rows=0)
+    sizer.record(duration_seconds=30.0, rows=-1)
+    assert sizer.current_size == 1
+
+    sizer.record(duration_seconds=30.0, rows=1)
+    assert sizer.current_size == 2
+
+
+def test_exact_floor_measurements_trigger_probe_on_sixteenth_sample() -> None:
+    sizer = AdaptiveCheckpointSizer(
+        max_size=4,
+        min_size=1,
+        initial_size=2,
+        target_seconds=10.0,
+    )
+
+    for _ in range(15):
+        sizer.record(duration_seconds=10.0, rows=1)
+    assert sizer.current_size == 1
+
+    sizer.record(duration_seconds=10.0, rows=1)
+    assert sizer.current_size == 2
+
+
+def test_fixed_range_never_probes_or_logs(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="geneva.apply.adaptive")
+    sizer = AdaptiveCheckpointSizer(
+        max_size=3,
+        min_size=3,
+        initial_size=3,
+        target_seconds=10.0,
+    )
+
+    for _ in range(32):
+        sizer.record(duration_seconds=30.0, rows=1)
+
+    assert sizer.current_size == 3
+    assert not [
+        record for record in caplog.records if record.name == "geneva.apply.adaptive"
+    ]
+
+
+def test_explicit_initial_size_is_authoritative_and_clamped() -> None:
+    within_bounds = AdaptiveCheckpointSizer(max_size=5, min_size=1, initial_size=3)
+    above_max = AdaptiveCheckpointSizer(max_size=5, min_size=1, initial_size=9)
+    below_min = AdaptiveCheckpointSizer(max_size=5, min_size=1, initial_size=0)
+
+    assert within_bounds.current_size == 3
+    assert above_max.current_size == 5
+    assert below_min.current_size == 1
+
+
+def test_floor_probe_can_exceed_explicit_initial_at_minimum() -> None:
+    sizer = AdaptiveCheckpointSizer(
+        max_size=5,
+        min_size=1,
+        initial_size=1,
+        target_seconds=10.0,
+    )
+    assert sizer.current_size == 1
+
+    probes = []
+    for _ in range(48):
+        rows = sizer.current_size
+        sizer.record(duration_seconds=30.0 * rows, rows=rows)
+        if sizer.current_size > sizer.min_size:
+            probes.append(sizer.current_size)
+
+    assert probes == [2, 2, 2]
+
+
+def test_adaptive_checkpoint_size_transitions_are_logged(
+    caplog,
+) -> None:
+    """Every actual size transition exposes its inputs and decision at INFO."""
+
+    caplog.set_level(logging.INFO, logger="geneva.apply.adaptive")
+    sizer = AdaptiveCheckpointSizer(
+        max_size=4,
+        min_size=1,
+        initial_size=2,
+        target_seconds=10.0,
+    )
+
+    # Exercise all measurement clamp outcomes.
+    sizer.record(duration_seconds=1.0, rows=2)  # 2 -> 4 (max)
+    sizer.record(duration_seconds=20.0, rows=4)  # 4 -> 2 (none)
+    sizer.record(duration_seconds=100.0, rows=2)  # 2 -> 1 (min)
+    # The transition to the floor is the first of 16 consecutive floor-clamped
+    # measurements. Fifteen more must emit exactly one floor probe transition.
+    for _ in range(15):
+        sizer.record(duration_seconds=30.0, rows=1)
+
+    records = [
+        record
+        for record in caplog.records
+        if record.name == "geneva.apply.adaptive" and record.levelno == logging.INFO
+    ]
+    assert len(records) == 4
+
+    expected = [
+        (2, 1.0, 2, 4, "max", "measurement"),
+        (4, 20.0, 4, 2, "none", "measurement"),
+        (2, 100.0, 2, 1, "min", "measurement"),
+        (1, 30.0, 1, 2, "min", "floor_probe"),
+    ]
+    for record, (rows, duration, old_size, new_size, clamp, reason) in zip(
+        records, expected, strict=True
+    ):
+        message = record.getMessage()
+        assert f"rows={rows}" in message
+        assert "duration_seconds=" in message
+        assert str(duration) in message
+        assert f"old_size={old_size}" in message
+        assert f"new_size={new_size}" in message
+        assert f"clamped_by={clamp}" in message
+        assert f"reason={reason}" in message
 
 
 def test_adaptive_read_task_honors_caller_scan_batch_size() -> None:
@@ -228,6 +418,40 @@ def test_checkpointing_applier_adapts_batch_sizes(monkeypatch) -> None:
         applier.checkpoint_store[checkpoint.checkpoint_key].num_rows
         for checkpoint in checkpoints
     ] == [3, 3, 2]
+
+
+def test_table_backfill_exercises_adaptive_checkpoint_sizes(
+    db, local_ray_context
+) -> None:
+    """A real backfill with unequal bounds must use more than one batch size."""
+
+    del local_ray_context
+
+    @udf(data_type=pa.int32(), num_cpus=1)
+    def _report_batch_size(batch: pa.RecordBatch) -> pa.Array:
+        return pa.array([batch.num_rows] * batch.num_rows, type=pa.int32())
+
+    table = db.create_table(
+        "adaptive_checkpoint_sizes",
+        pa.table({"a": pa.array(range(24), type=pa.int32())}),
+    )
+    table.add_columns({"observed_batch_size": _report_batch_size})
+
+    table.backfill(
+        "observed_batch_size",
+        concurrency=1,
+        checkpoint_size=4,
+        min_checkpoint_size=2,
+        max_checkpoint_size=8,
+        task_size=24,
+        batch_checkpoint_flush_interval_seconds=0,
+    )
+
+    table.checkout_latest()
+    observed = table.to_arrow().column("observed_batch_size").to_pylist()
+    assert observed[:4] == [4] * 4
+    assert 8 in observed
+    assert all(size in {4, 8} for size in observed)
 
 
 def test_backfill_task_overrides_adaptive_bounds() -> None:

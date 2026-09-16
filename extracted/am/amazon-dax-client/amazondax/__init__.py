@@ -11,7 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-__version__ = '2.0.6'
+__version__ = '2.1.0'
 
 from .AmazonDaxClient import AmazonDaxClient
 import logging

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbsl
-Version: 0.109.0
+Version: 0.110.0
 Summary: The XBSL (1C:Element) toolkit: a linter with autofixes, LSP, MCP server, documentation search, project index, metadata scaffolding, translation into English spellings, and a VS Code extension
 Author: xbsl contributors
 License-Expression: MIT
@@ -105,7 +105,7 @@ works are all in the [guide](https://github.com/keyfire/xbsl/blob/main/docs/lint
 
 ## What it does
 
-**Rules.** 229 rules in the base set, in four tiers. **A** covers structure and the yaml schema.
+**Rules.** 235 rules in the base set, in four tiers. **A** covers structure and the yaml schema.
 **B** covers text and typography conventions. **C** covers code structure: blocks, brackets,
 unused locals, the `style/` conventions. **D** covers semantics against the platform data and the
 project itself: every type position in code and yaml, enumeration values, `Query{...}` block
@@ -115,8 +115,9 @@ severities and documentation links is in
 prints it on the spot. What tier D verifies in depth is in
 [the guide](https://github.com/keyfire/xbsl/blob/main/docs/linting.md#rules-in-depth).
 
-**Autofixes.** `--fix` repairs the mechanical findings in place: trailing whitespace, typography
-characters, mixed newlines. Anything that needs judgment it leaves alone.
+**Autofixes.** `--fix` applies available edits for the selected rules, including code fixes,
+then reports remaining findings. With `--baseline`, accepted occurrences are protected and the
+baseline file is not rewritten. Ambiguous or overlapping edits stay for manual review.
 
 **Baseline.** You can adopt a rule on an old codebase without cleaning all of it first. Freeze
 the current findings once, and only new code answers to the rule. The same file records point

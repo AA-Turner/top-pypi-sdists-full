@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.66
+Version: 0.0.68
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -48,6 +48,70 @@ raindrop.track_ai(
     convo_id="conv-456",
 )
 ```
+
+## Application Git provenance
+
+The SDK reports the application-under-test commit on events and owning spans
+as `raindrop.app.commit_sha`. When known it also reports
+`raindrop.app.commit_dirty`; branch reporting is opt-in. This is application
+Git metadata, not the `raindrop-ai` package version, and it does not rewrite
+release or SDK identity fields.
+
+By default, explicit Raindrop environment values are read once at client
+initialization and a local Git lookup is attempted once on a bounded daemon
+thread. Event and span calls never run Git or wait for discovery; an operation
+that starts before discovery finishes keeps an empty metadata snapshot.
+
+Automatic sources are selected without combining identities. A nonempty
+`source_directory` or `RAINDROP_GIT_SOURCE_DIRECTORY` explicitly names the
+application repository and takes priority over ambient deployment and CI
+metadata, with no fallback if that repository cannot be read. Otherwise,
+marked Vercel, Railway, or Heroku deployment metadata is preferred, then the
+current directory's local Git repository, then marked CI metadata from GitHub
+Actions, GitLab CI, Buildkite, or CircleCI. Generic unmarked CI variables are
+ignored. Source directories are resolved to an absolute path when the client
+is initialized. Automatic SHAs must be full 40- or 64-character hex; dirty
+state and branch are omitted unless a bounded final HEAD check confirms they
+describe the reported commit.
+
+Local Git lookup requires nonblocking pipe support and is skipped on Windows
+with Python earlier than 3.12. Explicit `app_git` values and supported
+deployment or CI environment sources remain available on those runtimes.
+
+```python
+from raindrop import AppGitOptions, Raindrop
+
+git_options: AppGitOptions = {
+    "source_directory": "/srv/my-application",
+    "detect_branch": True,
+}
+rd = Raindrop(api_key="...", app_git=git_options)
+
+# Disable all application-Git enrichment.
+rd_without_git = Raindrop(api_key="...", app_git=False)
+```
+
+The same `app_git` option is accepted by `raindrop.analytics.init()`. Explicit
+`commit_sha`, `commit_dirty`, and `branch` values may be supplied in the
+mapping. Existing canonical operation properties always win, including null,
+empty, or invalid values:
+
+```python
+rd.track_ai(
+    user_id="user-123",
+    event="chat-completion",
+    input="hello",
+    properties={"raindrop.app.commit_sha": supplied_revision},
+)
+```
+
+Git contexts are bounded by `max_queue_size` (10,000 by default). Completed
+operations free their entries. If simultaneously active partial operations
+overflow that bound, new IDs omit client/default Git context until the client
+is recreated; explicit per-operation properties still work. Small custom queue
+limits reach this boundary sooner. This fail-closed behavior prevents an
+overflowed operation from acquiring a different revision midway through its
+lifetime and does not block or fail the agent's execution.
 
 Track a plain, non-AI event through the same local queue and batched
 `events/track` transport:
@@ -380,6 +444,7 @@ raindrop.max_queue_size = 500
 |---|---|
 | `init(api_key, tracing_enabled=False, auto_instrument=True)` | Initialize the SDK (module-level default client) |
 | `init(..., project_id="my-project")` | Route events to a named project via the `X-Raindrop-Project-Id` header |
+| `init(..., app_git=True)` | Configure application Git provenance; pass `False` to opt out or an `AppGitOptions` mapping to override values/discovery |
 | `Raindrop(api_key, project_id=..., ...)` | Independent client instance; multiple projects per process |
 | `rd.as_current()` | Scope auto-instrumented spans in a `with` block to that instance's project |
 | `set_debug_logs(True)` | Enable debug logging |
@@ -393,6 +458,12 @@ raindrop.max_queue_size = 500
 |---|---|
 | `TRACELOOP_TRACE_CONTENT` | Enable/disable content capture (default: `"true"`) |
 | `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` | Max span attribute value length |
+| `RAINDROP_COMMIT_SHA` | Explicit application commit SHA |
+| `RAINDROP_COMMIT_DIRTY` | Explicit application dirty state (`true` or `false`) |
+| `RAINDROP_BRANCH` | Explicit application branch |
+| `RAINDROP_GIT_AUTO_DETECT` | Set to `false` to disable automatic sources (explicit config/environment still applies) |
+| `RAINDROP_GIT_DETECT_BRANCH` | Set to `true` to opt into automatic branch discovery |
+| `RAINDROP_GIT_SOURCE_DIRECTORY` | Application source directory used for the one background Git lookup |
 
 ## Development
 

@@ -1538,9 +1538,10 @@ class TestDefaultActorMemoryBoundaries:
         assert CopyTableTask.resolve_memory(view, floor) == 512 * 1024 * 1024
 
     def test_a_sparse_update_is_priced_without_the_floor(self, tmp_path) -> None:  # noqa: ANN001
-        """``update_mode="sparse"`` routes to its own pipeline, whose actor
-        requests no Ray resources at all -- so pricing the floor here would
-        warn about memory the job never asks for.
+        """``update_mode="sparse"`` routes to its own pipeline, whose actors
+        reserve only what the call or the UDF declares and take no default
+        floor -- so pricing one here would warn about memory the job never
+        asks for.
 
         Spied at ``validate_admission`` rather than run end to end: the
         assertion is about what admission is told, and the routing that makes

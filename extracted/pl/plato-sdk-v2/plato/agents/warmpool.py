@@ -909,6 +909,12 @@ class RuntimeLease:
         # a reuse may skip install/env setup only when this matches. Read by
         # the run path after checkout(); only meaningful for the checked-out VM.
         self.last_fingerprint: str | None = None
+        # Held across a whole checkout → bind window — by a run for the turn,
+        # by a warm for the acquire + install — and by a release. Without it
+        # a run overlapping a warm finds the lease empty and queues on the
+        # pool for the slot the warm holds and will bind, not return: a
+        # deadlock on the default one-slot pool, a dropped VM on a larger one.
+        self.turn_lock = asyncio.Lock()
 
     async def checkout(self) -> PooledVM | None:
         """Take the bound VM for a run (cancelling the idle timer), or None."""
@@ -916,6 +922,30 @@ class RuntimeLease:
             self._cancel_timer()
             pooled, self._pooled = self._pooled, None
             return pooled
+
+    async def checkout_healthy(self, workspace_paths: list[str]) -> PooledVM | None:
+        """Check the bound VM out and probe it: the VM when it answers, else None.
+
+        A VM that fails the probe is destroyed here, so the caller acquires
+        fresh. From checkout until the caller binds or releases, the VM
+        belongs to nobody — checked out of the lease yet counted in use by
+        the pool — so a cancellation landing on the probe destroys it too;
+        otherwise it would pin a pool slot forever.
+        """
+        pooled = await self.checkout()
+        if pooled is None:
+            return None
+        try:
+            healthy = await self._pool.health_check(pooled)
+        except BaseException:
+            with contextlib.suppress(Exception):
+                await asyncio.shield(self._pool.release(pooled, workspace_paths=workspace_paths, destroy=True))
+            raise
+        if healthy:
+            return pooled
+        logger.warning("Leased runtime %s failed its health check; destroying it", pooled.alias)
+        await asyncio.shield(self._pool.release(pooled, workspace_paths=workspace_paths, destroy=True))
+        return None
 
     async def bind(
         self,

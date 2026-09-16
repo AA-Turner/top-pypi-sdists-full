@@ -3047,6 +3047,29 @@ class VIEW3D_MT_paint_grease_pencil(_bpy_types.Menu):
         :param _context:
         """
 
+class VIEW3D_MT_paint_grease_pencil_stroke(_bpy_types.Menu):
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
 class VIEW3D_MT_paint_vertex(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any

@@ -9,6 +9,7 @@ class CreateAssetSelectionConfigRequest(DaraModel):
         self,
         business_type: str = None,
         client_token: str = None,
+        dry_run: bool = None,
         platform: str = None,
         target_type: str = None,
     ):
@@ -24,6 +25,8 @@ class CreateAssetSelectionConfigRequest(DaraModel):
         self.business_type = business_type
         # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
+        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        self.dry_run = dry_run
         # The operating system of the target asset. Valid values:
         # 
         # - **all**: all operating systems.
@@ -60,6 +63,9 @@ class CreateAssetSelectionConfigRequest(DaraModel):
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
+
         if self.platform is not None:
             result['Platform'] = self.platform
 
@@ -75,6 +81,9 @@ class CreateAssetSelectionConfigRequest(DaraModel):
 
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
 
         if m.get('Platform') is not None:
             self.platform = m.get('Platform')

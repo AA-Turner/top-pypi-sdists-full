@@ -13,6 +13,7 @@ from agentic_devtools.adapters.exceptions import (
 )
 from agentic_devtools.adapters.github_provider import GitHubProvider
 from agentic_devtools.adapters.issue_provider import (
+    DefinitiveCreationFailure,
     IssueTypeMappingError,
     ProviderIssueResult,
 )
@@ -163,25 +164,25 @@ class TestGitHubProviderCreateIssue:
     def test_create_issue_empty_type_raises(self):
         """create_issue rejects empty issue_type values."""
         provider = GitHubProvider(owner_repo="org/repo", run_command=_make_run_mock())
-        with pytest.raises(ValueError, match="issue_type must be a non-empty string"):
+        with pytest.raises(DefinitiveCreationFailure, match="issue_type must be a non-empty string"):
             provider.create_issue("Title", "Body", "", dry_run=False)
 
     def test_create_issue_unsupported_type_raises(self):
         """create_issue with sub-task type raises IssueTypeMappingError."""
         provider = GitHubProvider(owner_repo="org/repo", run_command=_make_run_mock())
-        with pytest.raises(IssueTypeMappingError, match="sub-task"):
+        with pytest.raises(DefinitiveCreationFailure, match="sub-task"):
             provider.create_issue("Title", "Body", "sub-task", dry_run=False)
 
     def test_create_issue_unknown_type_raises(self):
         """create_issue with unknown type raises IssueTypeMappingError."""
         provider = GitHubProvider(owner_repo="org/repo", run_command=_make_run_mock())
-        with pytest.raises(IssueTypeMappingError, match="no GitHub label mapping"):
+        with pytest.raises(DefinitiveCreationFailure, match="no GitHub label mapping"):
             provider.create_issue("Title", "Body", "story", dry_run=False)
 
     def test_create_issue_dry_run_unknown_type_raises(self):
         """create_issue dry-run validates unknown type mappings."""
         provider = GitHubProvider(owner_repo="org/repo", run_command=_make_run_mock())
-        with pytest.raises(IssueTypeMappingError, match="no GitHub label mapping"):
+        with pytest.raises(DefinitiveCreationFailure, match="no GitHub label mapping"):
             provider.create_issue("Title", "Body", "story", dry_run=True)
 
     def test_create_issue_orch_key_search_returns_empty(self):
@@ -205,12 +206,12 @@ class TestGitHubProviderCreateIssue:
 
     def test_create_issue_empty_title_raises(self):
         provider = GitHubProvider(owner_repo="org/repo", run_command=_make_run_mock())
-        with pytest.raises(ValueError, match="title must be a non-empty string"):
+        with pytest.raises(DefinitiveCreationFailure, match="title must be a non-empty string"):
             provider.create_issue("  ", "Body", "task", dry_run=False)
 
     def test_create_issue_empty_parent_id_raises(self):
         provider = GitHubProvider(owner_repo="org/repo", run_command=_make_run_mock())
-        with pytest.raises(ValueError, match="parent_id must be a non-empty string"):
+        with pytest.raises(DefinitiveCreationFailure, match="parent_id must be a non-empty string"):
             provider.create_issue("Title", "Body", "task", parent_id="  ", dry_run=False)
 
     def test_create_issue_malformed_parent_id_raises_before_create(self):
@@ -222,7 +223,7 @@ class TestGitHubProviderCreateIssue:
             return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="{}", stderr="")
 
         provider = GitHubProvider(owner_repo="org/repo", run_command=mock_run)
-        with pytest.raises(ValueError, match="parent_id must be a numeric GitHub issue number"):
+        with pytest.raises(DefinitiveCreationFailure, match="parent_id must be a numeric GitHub issue number"):
             provider.create_issue("Title", "Body", "task", parent_id="1/comments", dry_run=False)
         assert calls == [], "No provider call should be issued when parent_id is invalid"
 

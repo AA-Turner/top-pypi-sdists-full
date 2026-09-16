@@ -26,6 +26,7 @@ ZERO ``DBNotConfiguredError`` from the tool system.
 
 from __future__ import annotations
 
+import inspect
 from typing import Any, Protocol, runtime_checkable
 
 from matrx_utils import vcprint
@@ -97,33 +98,24 @@ class ServerToolSource:
 
         return f"{self._base}/ai-tools/app/{quote(self._source_app, safe='')}/all"
 
-    def _headers(self) -> dict[str, str]:
+    async def _headers(self) -> dict[str, str]:
         headers: dict[str, str] = {"Accept": "application/json"}
-        if callable(self._get_jwt):
-            try:
-                token = self._get_jwt()
-            except Exception as exc:  # noqa: BLE001 — an expired token cache must not kill the fetch
-                vcprint(
-                    f"[ServerToolSource] get_jwt() raised ({exc!r}); fetching without auth",
-                    color="yellow",
-                )
-                token = None
-            import inspect
-
-            if inspect.iscoroutine(token):
-                # An async get_jwt slipped past validation — never send
-                # "Bearer <coroutine ...>". Close it (silences the
-                # never-awaited warning) and fetch anonymously.
-                token.close()
-                vcprint(
-                    "[ServerToolSource] get_jwt is async (returned a coroutine) — "
-                    "the seam requires a SYNC zero-arg callable. Fetching without "
-                    "auth; fix the host's configure(get_jwt=...).",
-                    color="red",
-                )
-                token = None
-            if token:
-                headers["Authorization"] = f"Bearer {token}"
+        # This route is public when no provider is configured. Once a host
+        # configures one, however, silently dropping a failed user credential
+        # can fetch a different catalog, so it must fail loudly instead.
+        if self._get_jwt is None:
+            return headers
+        if not callable(self._get_jwt):
+            raise ToolSourceFetchError("JWT provider is not callable; refusing an anonymous tool fetch")
+        try:
+            token = self._get_jwt()
+            if inspect.isawaitable(token):
+                token = await token
+        except Exception:  # noqa: BLE001 — never expose provider values in fetch errors
+            raise ToolSourceFetchError("JWT provider failed; refusing an anonymous tool fetch") from None
+        if not isinstance(token, str) or not token:
+            raise ToolSourceFetchError("no usable JWT available; refusing an anonymous tool fetch")
+        headers["Authorization"] = f"Bearer {token}"
         return headers
 
     async def list_tools(self) -> list[dict[str, Any]]:
@@ -133,7 +125,7 @@ class ServerToolSource:
             async with httpx.AsyncClient(
                 timeout=self._timeout, follow_redirects=True
             ) as client:
-                resp = await client.get(self.url, headers=self._headers())
+                resp = await client.get(self.url, headers=await self._headers())
         except httpx.HTTPError as exc:
             raise ToolSourceFetchError(
                 f"tool registry fetch failed: GET {self.url} → {type(exc).__name__}: {exc}"

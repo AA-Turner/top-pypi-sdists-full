@@ -300,6 +300,15 @@ class WorkflowRunStatus:
         )
 
 
+def format_failed_jobs(run_status: WorkflowRunStatus) -> list[str]:
+    """Return formatted names and IDs for non-successful jobs."""
+    return [
+        f"{job.name} (job_id={job.job_id})"
+        for job in run_status.jobs or []
+        if job.conclusion not in {None, "success", "skipped", "neutral"}
+    ]
+
+
 def wait_for_workflow_completion(
     owner: str,
     repo: str,

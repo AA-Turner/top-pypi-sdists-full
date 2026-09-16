@@ -30,7 +30,7 @@ class DescribeVSwitchAttributesResponseBody(DaraModel):
         vpc_id: str = None,
         zone_id: str = None,
     ):
-        # The number of active IP addresses.
+        # The active IP address count.
         self.available_ip_address_count = available_ip_address_count
         # The private network address range of the vSwitch.
         self.cidr_block = cidr_block

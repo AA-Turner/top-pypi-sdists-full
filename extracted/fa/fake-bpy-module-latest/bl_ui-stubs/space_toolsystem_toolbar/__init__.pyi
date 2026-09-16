@@ -183,7 +183,9 @@ class _defs_grease_pencil_edit:
 class _defs_grease_pencil_paint:
     arc: typing.Any
     box: typing.Any
+    box_select: typing.Any
     circle: typing.Any
+    circle_select: typing.Any
     curve: typing.Any
     erase: typing.Any
     eyedropper: typing.Any
@@ -192,6 +194,7 @@ class _defs_grease_pencil_paint:
     lasso_select: typing.Any
     line: typing.Any
     polyline: typing.Any
+    select: typing.Any
     trim: typing.Any
 
     @staticmethod

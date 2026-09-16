@@ -61,6 +61,50 @@ def _cx_error_text(error: Any) -> str:
     return json.dumps(error, sort_keys=True, separators=(",", ":"), default=str)
 
 
+def human_error_sentence(error: Any, *, fallback: str) -> str:
+    """The sentence a PERSON reads for a failed turn. Never a dict repr.
+
+    THE DEFECT (independent review, production, 2026-09-15): a failed turn
+    rendered this in the visible thread body, directly above the honest red
+    notice with its Retry control::
+
+        {'error_type': 'message_sanitization_error', 'message': 'This request
+        ends with an assistant response and has no new user or tool turn to
+        send...'}
+
+    That is Python's ``str(dict)``. ``CompletedRequest._structured_error()``
+    deliberately promotes ``error`` to a dict for the structured column, and
+    the reserved-message closer then wrote ``str(_err_raw)`` straight into the
+    message CONTENT — the one place whose only audience is a human being. The
+    structured column right beside it already special-cased the dict; the text
+    never did.
+
+    THE RULE: the raw structure belongs in the error column, the snapshot and
+    the debug inspector — the thread gets a sentence. Anything that is not a
+    plain string is read for the human field it carries (``message`` /
+    ``user_message`` / ``detail``) and only falls back to the supplied sentence
+    when it has none. We never widen this into ``str()`` again: a dict repr in
+    the thread is duplicate leakage of what the notice already says, in the
+    ugliest possible form.
+    """
+
+    if isinstance(error, str):
+        return error or fallback
+    if isinstance(error, dict):
+        for key in ("user_message", "message", "detail", "error"):
+            value = error.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+        return fallback
+    if error is None:
+        return fallback
+    text = str(error)
+    # A repr of a container is never a sentence.
+    if text.startswith(("{", "[", "(", "<")):
+        return fallback
+    return text or fallback
+
+
 def try_get_execution_state():
     from matrx_ai.orchestrator.execution_state import (
         try_get_execution_state as _tges,
@@ -279,9 +323,12 @@ def _build_cx_request_error(ur_data: dict[str, Any]) -> dict[str, Any]:
     """
     import re as _re
 
-    msg = ur_data.get("error") or ""
-    payload: dict[str, Any] = {"message": str(msg)}
-    m = _re.search(r"Error code:\s*(\d{3})", str(msg))
+    raw = ur_data.get("error") or ""
+    # `message` is the human half of this payload — a dict repr there is the
+    # same leak as in the thread, one surface removed. See human_error_sentence.
+    msg = human_error_sentence(raw, fallback="This response failed to generate.")
+    payload: dict[str, Any] = {"message": msg}
+    m = _re.search(r"Error code:\s*(\d{3})", str(raw))
     if m:
         payload["status_code"] = int(m.group(1))
     fr = ur_data.get("finish_reason")
@@ -1032,7 +1079,11 @@ async def persist_completed_request(
                     # normal error message in history. The error text is the
                     # message content so the FE renders it like any other turn.
                     _err_raw = ur_data.get("error")
-                    _err_text = _err_raw or "This response failed to generate."
+                    # The THREAD gets a sentence; the raw structure stays in the
+                    # error column below (and in the snapshot / inspector).
+                    _err_text = human_error_sentence(
+                        _err_raw, fallback="This response failed to generate."
+                    )
                     # Structured error column (presence => failed). Replaces the old
                     # metadata.{failed,error} smuggling. Pass a dict straight through
                     # (already-structured upstream error); wrap a bare string.
@@ -1044,7 +1095,7 @@ async def persist_completed_request(
                     _fail_fields: dict[str, Any] = {
                         "status": "failed",
                         "is_visible_to_model": False,
-                        "content": [{"type": "text", "text": str(_err_text)}],
+                        "content": [{"type": "text", "text": _err_text}],
                         "error": _err_struct,
                     }
                     try:

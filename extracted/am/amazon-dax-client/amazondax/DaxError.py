@@ -11,6 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
+import socket
 from collections import defaultdict
 
 from botocore.exceptions import ClientError as BotoClientError
@@ -36,6 +37,7 @@ class DaxErrorCode(object):
     AccessDenied = 'AccessDeniedException'
     TransactionCanceledException = 'TransactionCanceledException'
     RequestLimitExceededException = 'RequestLimitExceededException'
+    ConnectionException = 'ConnectionException'
 
 
 class DaxClientError(BotoClientError):
@@ -83,6 +85,7 @@ class DaxServiceError(BotoClientError):
 
         dse = DaxServiceError(
             operation_name, "remote socket is closed", (), None, None, 408)
+        dse.code = DaxErrorCode.ConnectionException
         dse.__cause__ = exc
         dse.wait_for_recovery_before_retry = True
         return dse
@@ -173,6 +176,31 @@ def is_retryable_with_backoff(exc):
 
     return exc.code in RETRYABLE_ERRORS_WITH_THROTTLE \
         or exc.http_status == 429
+
+
+def is_io_exception(exc):
+    """
+        The Dax client will backoff and jitter a retry event if it is a throttling exception.
+        This function is modeled after the functionality in the Java Client: https://github.com/aws/aws-sdk-java/blob/master/aws-java-sdk-core/src/main/java/com/amazonaws/retry/RetryUtils.java#L98
+    """
+
+    io_exceptions = (
+        TimeoutError,
+        socket.error,
+    )
+    if isinstance(exc, io_exceptions):
+        return True
+
+    io_error_codes = (
+        DaxErrorCode.ConnectionException,
+        DaxErrorCode.EndOfStream,
+        DaxErrorCode.NoRoute,
+        DaxErrorCode.Decoder,
+    )
+    if hasattr(exc, 'code') and exc.code in io_error_codes:
+        return True
+
+    return False
 
 
 ERROR_MAP = {

@@ -37,6 +37,7 @@ from plato.rpc.protocol import CAP_AGENT_JOB_START, CAP_ENV_SETUP, CAP_EXEC_RUN
 from plato.runtimes.base import RuntimeInfo, VMMetadata
 from plato.utils.subprocess import (
     VM_PATH_EXPORT,
+    redact_env_assignments,
     run_local,
     run_ssh,
     run_ssh_streaming,
@@ -59,6 +60,43 @@ _SIGTERM = 15
 # Per-stream cap on the spool tail logged when an agent job fails. The SSH
 # path logged the full merged output block; this bounds it deliberately.
 _AGENT_FAIL_TAIL_BYTES = 65_536
+# The slice of each stream that rides on the exception itself. The full
+# 64 KiB tails go to the log; the run record (platform2's task-run ``error``,
+# the studio's run card) gets the last few lines, which is where a harness
+# prints why it quit ("API Error: ...", "model not found", a traceback).
+_AGENT_ERROR_TAIL_LINES = 40
+_AGENT_ERROR_TAIL_BYTES = 4_096
+
+
+class AgentExitError(RuntimeError):
+    """The agent process exited non-zero. ``str()`` carries the bounded,
+    redacted tail of each stream so the reason reaches whoever stored the
+    error string, not only whoever can read the harbor child's log."""
+
+    def __init__(self, rc: int | None, *, stdout_tail: str = "", stderr_tail: str = "") -> None:
+        self.rc = rc
+        self.stdout_tail = stdout_tail
+        self.stderr_tail = stderr_tail
+        message = f"Agent failed with exit code {rc}"
+        for name, tail in (("stderr", stderr_tail), ("stdout", stdout_tail)):
+            if tail:
+                message += f"\n--- {name} tail ---\n{tail}"
+        super().__init__(message)
+
+
+def _error_tail(raw: bytes) -> str:
+    """The last non-blank lines of a stream tail, bounded by lines and bytes,
+    with env-style secrets redacted."""
+    lines = [line.rstrip() for line in raw.decode(errors="replace").splitlines() if line.strip()]
+    kept = lines[-_AGENT_ERROR_TAIL_LINES:]
+    text = "\n".join(kept)
+    if len(text) > _AGENT_ERROR_TAIL_BYTES:
+        text = text[-_AGENT_ERROR_TAIL_BYTES:]
+        # Never start on a partial line — drop it unless it is all we have.
+        _, sep, rest = text.partition("\n")
+        if sep:
+            text = rest
+    return redact_env_assignments(text)
 
 
 async def _run_probe_ssh(
@@ -420,7 +458,7 @@ async def _execute_agent_rpc(
     if plato_api_key:
         env["PLATO_API_KEY"] = plato_api_key
 
-    agent_name = parse_package_string(ctx.package)[0] if ctx.package else ""
+    agent_name = ctx.runner_agent_name
     argv = [runner_path, ctx.command]
     if agent_name:
         argv += ["--agent-package", agent_name]
@@ -509,6 +547,7 @@ async def _execute_agent_rpc(
         # failures with no world-side record of what the agent actually did.
         # Deliberate divergence: SSH logged the block unbounded; each stream
         # is capped at the last _AGENT_FAIL_TAIL_BYTES here.
+        tails: dict[str, str] = {}
         for stream in ("stdout", "stderr"):
             try:
                 tail = await FilesStub(client).pull_tail(
@@ -516,6 +555,7 @@ async def _execute_agent_rpc(
                 )
                 if tail:
                     logger.error("Agent job %s %s tail:\n%s", agent_job_id, stream, tail.decode(errors="replace"))
+                    tails[stream] = _error_tail(tail)
             except Exception:  # noqa: BLE001 - diagnostics only
                 pass
         if status.state == "signaled":
@@ -537,7 +577,7 @@ async def _execute_agent_rpc(
             except Exception:  # noqa: BLE001 - diagnostics only
                 pass
             raise RuntimeError(f"Agent killed by signal {status.term_signal}")
-        raise RuntimeError(f"Agent failed with exit code {status.rc}")
+        raise AgentExitError(status.rc, stdout_tail=tails.get("stdout", ""), stderr_tail=tails.get("stderr", ""))
 
     return last_execution_span_id
 
@@ -604,8 +644,8 @@ async def _execute_agent_ssh(
         scp_content_to_vm(ssh_key, hostname, env_file, env_file_content.encode(), extra_opts=_VM_SSH_EXTRA_OPTS),
     )
 
-    # Pass only the package name (without version) to the agent runner
-    agent_name = parse_package_string(ctx.package)[0] if ctx.package else ""
+    # The requested agent name, else the package name without its version
+    agent_name = ctx.runner_agent_name
     package_arg = f" --agent-package {shlex.quote(agent_name)}" if agent_name else ""
 
     tracer = trace.get_tracer(__name__)

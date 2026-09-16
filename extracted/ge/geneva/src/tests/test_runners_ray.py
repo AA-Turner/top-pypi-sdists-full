@@ -67,6 +67,11 @@ from geneva.runners.ray.pipeline import (
     validate_backfill_args,
 )
 from geneva.table import Table, TableReference
+from geneva.utils.ray import (
+    CPU_ONLY_NODE,
+    GENEVA_AUTOSCALING_RESOURCE,
+    cpu_only_pool_resources,
+)
 
 _LOG = logging.getLogger(__name__)
 _LOG.setLevel(logging.DEBUG)
@@ -3521,3 +3526,121 @@ def test_setup_actor_prefers_an_explicit_udf_memory(tmp_path: Path) -> None:
         job_tracker=None,
     )
     assert _captured_actor_options(job)["memory"] == declared_bytes
+
+
+def _cpu_only_pool_job(tbl: Table, one: Any) -> "ColumnAddPipelineJob":
+    """A job with ``use_cpu_only_pool`` set, for setup_actor assertions."""
+    return ColumnAddPipelineJob(
+        map_task=BackfillUDFTask(udfs={"b": one}),
+        checkpoint_store=CheckpointStore.from_uri("memory"),
+        error_store=None,
+        config=JobConfig.get(),
+        dst=tbl.get_reference(),
+        input_plan=iter([]),
+        job_id="job-cpu-only-pool",
+        job_tracker=None,
+        use_cpu_only_pool=True,
+    )
+
+
+def test_setup_actor_cpu_only_pool_requests_resource_after_preflight(
+    tmp_path: Path,
+) -> None:
+    """GEN-951: the pin is requested only after the cluster check passes."""
+    db = connect(tmp_path)
+    tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3], "b": [None, None, None]}))
+
+    @udf(data_type=pa.int32())
+    def one(x: int) -> int:
+        return x + 1
+
+    job = _cpu_only_pool_job(tbl, one)
+    with mock.patch.object(
+        pipeline_mod, "cpu_only_pool_resources", return_value={CPU_ONLY_NODE: 1}
+    ) as preflight:
+        captured = _captured_actor_options(job)
+
+    preflight.assert_called_once_with()
+    assert captured["resources"] == {CPU_ONLY_NODE: 1}
+
+
+def test_setup_actor_cpu_only_pool_fails_fast_when_resource_unavailable(
+    tmp_path: Path,
+) -> None:
+    """GEN-951: an unadvertised resource errors instead of pending forever."""
+    db = connect(tmp_path)
+    tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3], "b": [None, None, None]}))
+
+    @udf(data_type=pa.int32())
+    def one(x: int) -> int:
+        return x + 1
+
+    job = _cpu_only_pool_job(tbl, one)
+    with (
+        mock.patch.object(
+            pipeline_mod,
+            "cpu_only_pool_resources",
+            side_effect=ValueError("no node reports it"),
+        ),
+        pytest.raises(ValueError, match="no node reports it"),
+    ):
+        job.setup_actor()
+
+
+def test_setup_actor_cpu_only_pool_warns_and_defers_to_gpu_udf(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """GEN-951: a GPU-declaring UDF wins the placement, but the conflict is said.
+
+    Silently dropping the explicitly requested pool is how a GPU UDF ended up
+    on GPU workers with no signal the flag ever applied.
+    """
+    db = connect(tmp_path)
+    tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3], "b": [None, None, None]}))
+
+    @udf(data_type=pa.int32(), num_gpus=1)
+    def one(x: int) -> int:
+        return x + 1
+
+    job = _cpu_only_pool_job(tbl, one)
+    with caplog.at_level(logging.WARNING):
+        captured = _captured_actor_options(job)
+
+    assert captured["num_gpus"] == 1
+    assert "resources" not in captured
+    assert "use_cpu_only_pool=True is ignored" in caplog.text
+
+
+def test_cpu_only_pool_resources_passes_when_advertised() -> None:
+    """A live node advertising the resource satisfies the pin."""
+    with mock.patch(
+        "ray.cluster_resources", return_value={CPU_ONLY_NODE: 100.0, "CPU": 8.0}
+    ):
+        assert cpu_only_pool_resources() == {CPU_ONLY_NODE: 1}
+
+
+def test_cpu_only_pool_resources_fails_fast_on_cluster_without_resource() -> None:
+    """Anything else would leave the applier pending indefinitely."""
+    with (
+        mock.patch("ray.cluster_resources", return_value={"CPU": 8.0, "GPU": 4.0}),
+        pytest.raises(ValueError, match="rayStartParams"),
+    ):
+        cpu_only_pool_resources()
+
+
+def test_cpu_only_pool_resources_fails_fast_on_gpu_only_geneva_cluster() -> None:
+    """Being a Geneva-managed cluster is not enough.
+
+    Every Geneva head advertises ``GENEVA_AUTOSCALING_RESOURCE`` while a
+    GPU-only topology (or a CPU group scaled to zero) advertises the pin
+    nowhere, so only a live ``cpu-only`` advertisement counts -- otherwise
+    the applier pends forever on a cluster that can never place it.
+    """
+    with (
+        mock.patch(
+            "ray.cluster_resources",
+            return_value={GENEVA_AUTOSCALING_RESOURCE: 1.0, "CPU": 4.0, "GPU": 1.0},
+        ),
+        pytest.raises(ValueError, match="minReplicas >= 1"),
+    ):
+        cpu_only_pool_resources()

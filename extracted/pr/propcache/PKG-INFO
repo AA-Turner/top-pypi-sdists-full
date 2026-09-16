@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: propcache
-Version: 0.5.2
+Version: 0.5.4
 Summary: Accelerated property cache
 Home-page: https://github.com/aio-libs/propcache
 Author: Andrew Svetlov
@@ -20,7 +20,6 @@ Project-URL: GitHub: repo, https://github.com/aio-libs/propcache
 Keywords: cython,cext,propcache
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -121,7 +120,7 @@ or have some suggestion in order to improve the library.
 Discussion list
 ---------------
 
-*aio-libs* google group: https://groups.google.com/forum/#!forum/aio-libs
+*aio-libs* GitHub Discussions: https://github.com/aio-libs/propcache/discussions
 
 Feel free to post your questions and ideas here.
 
@@ -151,6 +150,222 @@ Changelog
     WARNING: Don't drop the next directive!
 
 .. towncrier release notes start
+
+0.5.4
+=====
+
+*(2026-09-15)*
+
+
+Packaging updates and notes for downstreams
+-------------------------------------------
+
+- Fixed the release wheels being compiled without optimization since
+  version 0.5.0. The build backend set ``CFLAGS`` to add
+  ``-ffile-prefix-map``, which replaced the interpreter's own compiler
+  flags instead of extending them, so ``-O3`` and ``-DNDEBUG`` were
+  dropped; the extra flags now go through ``CPPFLAGS``, which is
+  appended. Cached property reads are about 1.5x faster than in 0.5.3
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#244 <https://github.com/aio-libs/propcache/issues/244>`__, `#302 <https://github.com/aio-libs/propcache/issues/302>`__.
+
+
+----
+
+
+0.5.3
+=====
+
+*(2026-09-15)*
+
+
+Bug fixes
+---------
+
+- Fixed a possible crash in the C implementation of ``cached_property``
+  and ``under_cached_property`` on free-threaded Python, where a cached
+  value could be freed by another thread while it was being read; errors
+  raised while looking up the cache are now propagated on all builds,
+  and the computed value is no longer leaked if storing it fails
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#297 <https://github.com/aio-libs/propcache/issues/297>`__.
+
+
+Removals and backward incompatible breaking changes
+---------------------------------------------------
+
+- Dropped support for free-threaded Python 3.13 -- by `@Vizonex <https://github.com/sponsors/Vizonex>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#223 <https://github.com/aio-libs/propcache/issues/223>`__.
+
+
+Improved documentation
+----------------------
+
+- Updated discussion links from the defunct Google Groups forum to
+  GitHub Discussions
+  -- by `@gundalow <https://github.com/sponsors/gundalow>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#217 <https://github.com/aio-libs/propcache/issues/217>`__.
+
+
+Packaging updates and notes for downstreams
+-------------------------------------------
+
+- The ``setuptools`` build dependency lower bound has been restored to be
+  ``>= 47`` after an incorrect automated increase in `PR #207 <https://github.com/aio-libs/propcache/pull/207>`__
+  -- by `@bbhtt <https://github.com/sponsors/bbhtt>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#207 <https://github.com/aio-libs/propcache/issues/207>`__.
+
+- Dropped support for free-threaded Python 3.13 -- by `@Vizonex <https://github.com/sponsors/Vizonex>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#223 <https://github.com/aio-libs/propcache/issues/223>`__.
+
+- Dropped the deprecated ``License :: OSI Approved :: Apache Software
+  License`` classifier; ``setuptools`` 84 warns about it and the dist
+  build treats warnings as errors, so releases could no longer be built
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#299 <https://github.com/aio-libs/propcache/issues/299>`__.
+
+
+Contributor-facing changes
+--------------------------
+
+- Dependabot has been restricted to the ``requirements`` subdirectory to
+  avoid unintended updates outside dependency requirement files
+  -- by `@bbhtt <https://github.com/sponsors/bbhtt>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#207 <https://github.com/aio-libs/propcache/issues/207>`__.
+
+- Added an ``AGENTS.md`` file with contributor guidance for AI
+  coding agents, adapted from the ``yarl`` equivalent
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#231 <https://github.com/aio-libs/propcache/issues/231>`__.
+
+- Migrated from standalone ``black`` and ``isort`` pre-commit hooks
+  to ``ruff format`` and the ruff ``I`` lint rule, sharing a new
+  ``[tool.ruff]`` config in ``pyproject.toml``. ``ruff-check`` runs
+  with ``--fix`` so import-order fixes apply on commit, and the
+  orphan ``[isort]`` block in ``setup.cfg`` was removed
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#232 <https://github.com/aio-libs/propcache/issues/232>`__.
+
+- Switched the ``cibuildwheel`` build frontend to ``build[uv]`` so
+  that ``uv`` provisions every build and test virtual environment
+  in the wheel matrix. Test-dependency installation in particular
+  drops from a multi-second ``pip install`` per ABI to a roughly
+  sub-second ``uv`` resolve
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#234 <https://github.com/aio-libs/propcache/issues/234>`__.
+
+- Dropped the ``libffi-devel`` install from the ``cibuildwheel``
+  Linux ``before-all`` step. It was added in `PR #75 <https://github.com/aio-libs/propcache/pull/75>`__ so
+  ``cffi`` could build from source during wheel testing; the
+  current wheel-test chain no longer pulls in ``cffi``, so the
+  header package is dead weight
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#236 <https://github.com/aio-libs/propcache/issues/236>`__.
+
+- The type preciseness coverage report generated by `MyPy
+  <https://mypy-lang.org>`__ is now uploaded to `Coveralls
+  <https://coveralls.io/github/aio-libs/propcache>`__ and
+  will not be included in the `Codecov views
+  <https://app.codecov.io/gh/aio-libs/propcache>`__ going forward
+  -- by `@aiolibsbot <https://github.com/sponsors/aiolibsbot>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#239 <https://github.com/aio-libs/propcache/issues/239>`__.
+
+- Switched CI/CD to ``tox-dev/workflow``'s ``reusable-tox.yml``
+  driven by an in-tree ``tox.ini``. The ``build``,
+  ``metadata-validation`` and ``lint`` (``pre-commit``,
+  ``spellcheck-docs``) jobs all run through the reusable workflow;
+  ``mypy`` coverage uploads to Coveralls from a ``post-tox-job``
+  hook
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#243 <https://github.com/aio-libs/propcache/issues/243>`__.
+
+- Overrode ``CIBW_BUILD_FRONTEND=build`` for the QEMU-emulated
+  odd-arch wheel matrix, since the pypa odd-arch container images
+  do not ship ``uv`` preinstalled and the project's
+  ``pyproject.toml`` sets ``build-frontend = "build[uv]"``
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#246 <https://github.com/aio-libs/propcache/issues/246>`__.
+
+- Allowed re-running the deploy job after a partial release failure: the
+  ``Make Release`` step now skips when the GitHub Release already exists,
+  and the PyPI publish step uses ``skip-existing`` so dists that were
+  already uploaded on a prior attempt do not break the retry
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#247 <https://github.com/aio-libs/propcache/issues/247>`__.
+
+- Switched the aarch64 and armv7l wheel builds to GitHub's native ARM
+  runners. The aarch64 wheels now build without QEMU emulation, and
+  armv7l runs on aarch64 hosts so its 32-bit ARM execution is far
+  cheaper than the previous aarch64-on-x86_64 path
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#248 <https://github.com/aio-libs/propcache/issues/248>`__.
+
+- Added ``UV_CONSTRAINT`` and ``UV_BUILD_CONSTRAINT`` alongside
+  ``PIP_CONSTRAINT`` and ``PIP_BUILD_CONSTRAINT`` in the
+  ``cibuildwheel`` environment so the ``requirements/cython.txt``
+  pin is honored under the ``build[uv]`` frontend; ``uv pip``
+  ignores the ``PIP_`` variables and reads only the ``UV_`` ones,
+  while the ``PIP_`` variants are kept for the pip fallback path
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#249 <https://github.com/aio-libs/propcache/issues/249>`__.
+
+- Fixed coverage for testing benchmarks when codspeed is not installed
+  -- by `@Vizonex <https://github.com/sponsors/Vizonex>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#251 <https://github.com/aio-libs/propcache/issues/251>`__.
+
+- Stopped running the test suite inside the wheel build jobs outside of
+  release builds, since the test matrix installs and tests the same
+  wheels, and added Python 3.15 and 3.15t to the test matrix so those
+  wheels stay covered. Off-tag macOS builds are now limited to the
+  architecture the test matrix runs on. Release builds still build every
+  architecture and test every wheel, and all release checks in the CI
+  workflow now use ``github.ref_type``
+  -- by `@bdraco <https://github.com/sponsors/bdraco>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#300 <https://github.com/aio-libs/propcache/issues/300>`__.
+
+
+----
+
 
 0.5.2
 =====

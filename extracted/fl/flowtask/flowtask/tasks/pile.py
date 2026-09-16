@@ -1,14 +1,21 @@
 """
 TaskPîle.
 """
-from numbers import Number
-from typing import Any
 from collections.abc import Callable
 from functools import partial
+from numbers import Number
+from typing import Any
+
 import networkx as nx
 from navconfig.logging import logging
-from ..components import getComponent, GroupComponent
-from ..exceptions import TaskDefinition, ComponentError
+
+from ..components import GroupComponent, getComponent
+from ..exceptions import ComponentError, TaskDefinition
+from .chain import Continuation  # FEAT-555 — chain.py is a leaf; no import cycle
+
+#: Literal step name reserved as a continuation instead of being executed (FEAT-555).
+NEXTTASK_STEP: str = "NextTask"
+
 
 logging.getLogger("matplotlib").setLevel(logging.CRITICAL)
 logging.getLogger("PIL").setLevel(logging.CRITICAL)
@@ -21,7 +28,7 @@ class Step:
     """
 
     def __init__(
-        self, step_name: str, step_id: int, params: dict, program: str = None
+        self, step_name: str, step_id: int, params: dict, program: str | None = None
     ) -> None:
         try:
             self._component = getComponent(step_name, program=program)
@@ -60,7 +67,7 @@ class Step:
 
 class GroupStep(Step):
     def __init__(
-        self, step_name: str, step_id: int, params: dict, program: str = None
+        self, step_name: str, step_id: int, params: dict, program: str | None = None
     ) -> None:
         try:
             self._component = GroupComponent
@@ -131,7 +138,7 @@ class TaskPile:
         Compiles the task steps into a sequence of components and creates the dependency graph.
     """
 
-    def __init__(self, task: dict, program: str = None):
+    def __init__(self, task: dict, program: str | None = None):
         self._size: int = 0
         self._n = 0
         self.task: dict = task
@@ -144,8 +151,74 @@ class TaskPile:
         except KeyError as e:
             raise TaskDefinition("Task Error: This task has no Steps.") from e
         self._step = None
+        # FEAT-555: NextTask steps reserved out of the DAG at build time.
+        self.continuations: list[Continuation] = []
         self._graph = nx.DiGraph(task=self.__name__)  # creates an empty Graph
         self.build()
+
+    def _reserve_continuation(self, step_name: str, counter: int, params: dict) -> None:
+        """Reserve a NextTask step instead of adding it to the executable pile.
+
+        The Step object is still constructed so ``getComponent("NextTask")``
+        resolves (mirroring the generic branch at pile.py:233-238) and then
+        discarded. ``self._task`` and ``self._graph`` are deliberately untouched.
+
+        Args:
+            step_name: Always ``"NextTask"``.
+            counter: The id counter this step consumes.
+            params: The step's YAML params mapping.
+
+        Raises:
+            TaskDefinition: The params failed Continuation validation.
+            ComponentError: The NextTask component could not be loaded.
+        """
+        try:
+            _ = Step(step_name, counter, params, program=self._program)
+        except Exception as e:
+            raise ComponentError(
+                f"Task Error: Error loading Component: {e}"
+            ) from e
+
+        from pydantic import ValidationError
+        try:
+            continuation = Continuation.from_step(f"{step_name}_{counter}", params)
+        except ValidationError as e:
+            raise TaskDefinition(
+                f"Task Error: Invalid NextTask parameters at step '{step_name}_{counter}': {e}"
+            ) from e
+
+        self.continuations.append(continuation)
+
+    def _validate_jump_targets(self) -> None:
+        """Reject Goto/OnError targets that point at a reserved NextTask step.
+
+        Raises:
+            TaskDefinition: A step jumps to a reserved (non-existent) step.
+        """
+        reserved_ids = {c.step_name for c in self.continuations}
+        reserved_ids.add(NEXTTASK_STEP)
+
+        for entry in self._task:
+            step = entry["step"]
+            # Step might be a GroupStep or a regular Step.
+            # Let's check if it has params.
+            step_params = {}
+            if hasattr(step, "params"):
+                if callable(step.params):
+                    step_params = step.params()
+                else:
+                    step_params = step.params
+            elif hasattr(step, "_params"):
+                step_params = step._params
+
+            for key in ("Goto", "OnError"):
+                if key in step_params:
+                    target = step_params[key]
+                    if target in reserved_ids:
+                        raise TaskDefinition(
+                            f"Task Error: Step '{step.name}' has a '{key}' target "
+                            f"pointing to reserved step '{target}'."
+                        )
 
     def _build_group(self, group: GroupStep, group_name: str, counter: int, params: dict):
         """Builds the group of steps.
@@ -158,6 +231,13 @@ class TaskPile:
                 continue  # Skip if this step is already added to another group
             for step_name, step_params in inner_step.items():
                 if step_params.get("Group") == group_name:
+                    # FEAT-555: a reserved step cannot be part of a group — the
+                    # group iterates and executes its members.
+                    if step_name == NEXTTASK_STEP:
+                        raise TaskDefinition(
+                            f"Task Error: NextTask cannot be part of a Group "
+                            f"('{group_name}')."
+                        )
                     # create the step:
                     sp = Step(
                         step_name,
@@ -200,6 +280,11 @@ class TaskPile:
                 next_component = None
 
                 # Check if this step is a Parent Group:
+                if step_name == NEXTTASK_STEP:
+                    self._reserve_continuation(step_name, counter, params)
+                    counter += 1
+                    continue
+
                 if "to_group" in params:
                     # Create the Group:
                     group_name = params["to_group"]
@@ -259,6 +344,13 @@ class TaskPile:
                     pass
         # size of the Pile of Components
         self._size = len(self._task)
+        # FEAT-555: a task made only of reserved steps has nothing to run;
+        # TaskPile.__iter__ (pile.py:277) would raise IndexError at run time.
+        if not self._task:
+            raise TaskDefinition(
+                f"Task Error: Task '{self.__name__}' has no executable steps."
+            )
+        self._validate_jump_targets()
         # check if Task is a DAG:
         if nx.is_directed_acyclic_graph(self._graph) is False:
             raise TaskDefinition(
@@ -423,7 +515,7 @@ class TaskPile:
                     component = obj["step"]
                     return component.job
 
-    def plot_task(self, filename: str = None):
+    def plot_task(self, filename: str | None = None):
         import matplotlib.pyplot as plt  # lazy: only needed for visualization
         plt.figure(figsize=(24, 16))
 
@@ -495,7 +587,7 @@ class TaskPile:
     def from_task_pile(
         task_pile: list,
         name: str = "Generated TaskPile",
-        program: str = None
+        program: str | None = None
     ) -> "TaskPile":
         """
         Creates a TaskPile instance from a pre-defined task_pile list.

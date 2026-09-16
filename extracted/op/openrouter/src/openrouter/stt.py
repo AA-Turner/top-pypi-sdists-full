@@ -29,6 +29,10 @@ class STT(BaseSDK):
         timestamp_granularities: Optional[
             Iterable[components.STTTimestampGranularity]
         ] = None,
+        trace: Optional[
+            Union[components.TraceConfig, components.TraceConfigTypedDict]
+        ] = None,
+        user: Optional[str] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -52,6 +56,8 @@ class STT(BaseSDK):
         :param response_format: Output format. \"json\" (default) returns { text, usage }. \"verbose_json\" additionally returns task, language, duration, and segment-level timestamps; only supported by OpenAI-compatible providers.
         :param temperature: Sampling temperature for transcription
         :param timestamp_granularities: Timestamp detail levels to include when response_format is \"verbose_json\". \"segment\" returns segment-level timestamps; \"word\" additionally returns word-level timestamps in the words array. Ignored unless response_format is \"verbose_json\".
+        :param trace: Metadata for observability and tracing. Known keys (trace_id, trace_name, span_name, generation_name, parent_span_id) have special handling. Additional keys are passed through as custom metadata to configured broadcast destinations.
+        :param user: A unique identifier representing your end-user. Forwarded to Broadcast and private logging as the end-user id; never sent to the provider.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -86,6 +92,8 @@ class STT(BaseSDK):
                     timestamp_granularities,
                     Optional[List[components.STTTimestampGranularity]],
                 ),
+                trace=utils.get_pydantic_model(trace, Optional[components.TraceConfig]),
+                user=user,
             ),
         )
 
@@ -196,6 +204,11 @@ class STT(BaseSDK):
                 errors.ServiceUnavailableResponseErrorData, http_res
             )
             raise errors.ServiceUnavailableResponseError(response_data, http_res)
+        if utils.match_response(http_res, "504", "application/json"):
+            response_data = unmarshal_json_response(
+                errors.GatewayTimeoutResponseErrorData, http_res
+            )
+            raise errors.GatewayTimeoutResponseError(response_data, http_res)
         if utils.match_response(http_res, "524", "application/json"):
             response_data = unmarshal_json_response(
                 errors.EdgeNetworkTimeoutResponseErrorData, http_res
@@ -236,6 +249,10 @@ class STT(BaseSDK):
         timestamp_granularities: Optional[
             Iterable[components.STTTimestampGranularity]
         ] = None,
+        trace: Optional[
+            Union[components.TraceConfig, components.TraceConfigTypedDict]
+        ] = None,
+        user: Optional[str] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -259,6 +276,8 @@ class STT(BaseSDK):
         :param response_format: Output format. \"json\" (default) returns { text, usage }. \"verbose_json\" additionally returns task, language, duration, and segment-level timestamps; only supported by OpenAI-compatible providers.
         :param temperature: Sampling temperature for transcription
         :param timestamp_granularities: Timestamp detail levels to include when response_format is \"verbose_json\". \"segment\" returns segment-level timestamps; \"word\" additionally returns word-level timestamps in the words array. Ignored unless response_format is \"verbose_json\".
+        :param trace: Metadata for observability and tracing. Known keys (trace_id, trace_name, span_name, generation_name, parent_span_id) have special handling. Additional keys are passed through as custom metadata to configured broadcast destinations.
+        :param user: A unique identifier representing your end-user. Forwarded to Broadcast and private logging as the end-user id; never sent to the provider.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -293,6 +312,8 @@ class STT(BaseSDK):
                     timestamp_granularities,
                     Optional[List[components.STTTimestampGranularity]],
                 ),
+                trace=utils.get_pydantic_model(trace, Optional[components.TraceConfig]),
+                user=user,
             ),
         )
 
@@ -403,6 +424,11 @@ class STT(BaseSDK):
                 errors.ServiceUnavailableResponseErrorData, http_res
             )
             raise errors.ServiceUnavailableResponseError(response_data, http_res)
+        if utils.match_response(http_res, "504", "application/json"):
+            response_data = unmarshal_json_response(
+                errors.GatewayTimeoutResponseErrorData, http_res
+            )
+            raise errors.GatewayTimeoutResponseError(response_data, http_res)
         if utils.match_response(http_res, "524", "application/json"):
             response_data = unmarshal_json_response(
                 errors.EdgeNetworkTimeoutResponseErrorData, http_res
@@ -610,6 +636,11 @@ class STT(BaseSDK):
                 errors.ServiceUnavailableResponseErrorData, http_res
             )
             raise errors.ServiceUnavailableResponseError(response_data, http_res)
+        if utils.match_response(http_res, "504", "application/json"):
+            response_data = unmarshal_json_response(
+                errors.GatewayTimeoutResponseErrorData, http_res
+            )
+            raise errors.GatewayTimeoutResponseError(response_data, http_res)
         if utils.match_response(http_res, "524", "application/json"):
             response_data = unmarshal_json_response(
                 errors.EdgeNetworkTimeoutResponseErrorData, http_res
@@ -817,6 +848,11 @@ class STT(BaseSDK):
                 errors.ServiceUnavailableResponseErrorData, http_res
             )
             raise errors.ServiceUnavailableResponseError(response_data, http_res)
+        if utils.match_response(http_res, "504", "application/json"):
+            response_data = unmarshal_json_response(
+                errors.GatewayTimeoutResponseErrorData, http_res
+            )
+            raise errors.GatewayTimeoutResponseError(response_data, http_res)
         if utils.match_response(http_res, "524", "application/json"):
             response_data = unmarshal_json_response(
                 errors.EdgeNetworkTimeoutResponseErrorData, http_res

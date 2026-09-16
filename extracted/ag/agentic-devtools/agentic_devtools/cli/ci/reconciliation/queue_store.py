@@ -7,7 +7,7 @@ import hashlib
 import json
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
@@ -20,6 +20,8 @@ from agentic_devtools.cli.ci.reconciliation import config
 from agentic_devtools.cli.ci.reconciliation.models import (
     QuarantineRecord,
     QueueState,
+    _history_digest,
+    _legacy_digest,
     queue_state_from_dict,
     validate_queue_state,
 )
@@ -27,6 +29,21 @@ from agentic_devtools.state import deserialize_queue_document, serialize_queue_d
 
 logger = logging.getLogger(__name__)
 _HTTP_STATUS_TOKEN_TEMPLATE = r"(?<!\d){code}(?!\d)"
+
+
+def _decode_queue_document(raw: bytes) -> dict[str, Any]:
+    """Reject duplicate keys before the legacy decoder can discard history."""
+
+    def unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"Duplicate queue-document key: {key}")
+            result[key] = value
+        return result
+
+    json.loads(raw, object_pairs_hook=unique_pairs)
+    return deserialize_queue_document(raw)
 
 
 def _state_to_dict(state: QueueState) -> dict[str, Any]:
@@ -72,6 +89,10 @@ class StateTooLargeError(QueueStoreError):
 
 class StateTooStaleError(QueueStoreError):
     """Raised when state is older than MAX_STATE_AGE_SECONDS."""
+
+
+class MigrationRequiredError(QueueStoreError):
+    """Raised when a write crosses an unproved activation boundary."""
 
 
 class QuarantineActiveError(QueueStoreError):
@@ -145,7 +166,7 @@ class GitHubVariableBackingStore:
         method: str = "GET",
         body: dict[str, Any] | None = None,
     ) -> str:
-        """Call GitHub with the default repository workflow credential."""
+        """Call GitHub with the dedicated state-writer credential when configured."""
         from agentic_devtools.cli.ci.github_provider import _gh_api
 
         token = require_default_repo_workflow_token("access AI PR loop queue-state repository contents")
@@ -167,7 +188,7 @@ class GitHubVariableBackingStore:
             raw = base64.b64decode(encoded, validate=True)
             if len(raw) > config.MAX_STATE_SIZE_BYTES:
                 raise StateTooLargeError(f"State size exceeds {config.MAX_STATE_SIZE_BYTES} bytes")
-            data = queue_state_from_dict(deserialize_queue_document(raw))
+            data = queue_state_from_dict(_decode_queue_document(raw))
         except (TypeError, ValueError, KeyError) as exc:
             raise StateDecodeError(f"Failed to decode queue state from GitHub ref {state_ref!r}: {exc}") from exc
         if not isinstance(metadata.get("sha"), str) or not metadata["sha"]:
@@ -193,7 +214,7 @@ class GitHubVariableBackingStore:
                 raw = base64.b64decode(metadata["content"].replace("\n", ""), validate=True)
                 if len(raw) > config.MAX_STATE_SIZE_BYTES:
                     raise StateTooLargeError(f"State size exceeds {config.MAX_STATE_SIZE_BYTES} bytes")
-                current_revision = queue_state_from_dict(deserialize_queue_document(raw)).revision
+                current_revision = queue_state_from_dict(_decode_queue_document(raw)).revision
                 sha = metadata["sha"]
             except (TypeError, ValueError, KeyError) as exc:
                 raise StateDecodeError(f"Failed to decode queue state from GitHub ref {state_ref!r}: {exc}") from exc
@@ -337,6 +358,10 @@ class QueueStore:
         )
         if self.is_quarantined(state):
             raise QuarantineActiveError("State is quarantined; mutations are blocked")
+        current = self.load()
+        if current.revision != expected_revision or state.revision != expected_revision:
+            raise ConcurrentModificationError("Queue revision changed before transition")
+        self._validate_transition(current, state)
         updated = _replace_state(
             state,
             revision=expected_revision + 1,
@@ -351,6 +376,367 @@ class QueueStore:
         self._backing.save_entry(self._key(), expected_revision, updated)
         return deepcopy(updated)
 
+    @staticmethod
+    def _validate_transition(current: QueueState, updated: QueueState) -> None:
+        """Protect activation and append-only authority even for legacy save callers."""
+        old_mode, new_mode = current.migration_status, updated.migration_status
+        if old_mode == "preactivation":
+            if new_mode == "preactivation":
+                return
+            migration = updated.migration
+            history = replace(
+                updated,
+                evidence={
+                    key: value
+                    for key, value in updated.evidence.items()
+                    if migration is None or key != migration.evidence_id
+                },
+            )
+            if (
+                new_mode != "prepared"
+                or migration is None
+                or migration.source_revision != current.revision
+                or migration.source_digest != _legacy_digest(current)
+                or _legacy_digest(updated) != _legacy_digest(current)
+                or migration.history_digest != _history_digest(history)
+            ):
+                raise MigrationRequiredError("migration must bind the exact legacy source and full history")
+            return
+        if current.migration != updated.migration:
+            raise MigrationRequiredError("migration provenance is immutable")
+        if old_mode == "prepared":
+            if new_mode == "prepared":
+                # Legacy reconciliation remains available, but makes activation stale.
+                for name in ("pr_envelopes", "obligations", "findings", "rounds", "attempts", "evidence"):
+                    if getattr(current, name) != getattr(updated, name):
+                        raise MigrationRequiredError("prepared history is immutable")
+                return
+            migration = current.migration
+            assert migration is not None
+            if (
+                new_mode != "active"
+                or current.revision != migration.prepared_revision
+                or _legacy_digest(current) != migration.source_digest
+                or replace(updated, migration_status="prepared") != current
+            ):
+                raise MigrationRequiredError("activation requires unchanged persisted preparation")
+            return
+        if new_mode != "active" or current.control_epoch != updated.control_epoch:
+            raise MigrationRequiredError("active foundation cannot revert or change epoch through a legacy save")
+        if _legacy_digest(current) != _legacy_digest(updated):
+            raise MigrationRequiredError("legacy writes are disabled only after explicit activation")
+        for name in ("evidence", "findings"):
+            for key, value in getattr(current, name).items():
+                if getattr(updated, name).get(key) != value:
+                    raise ValueError(f"immutable {name} history changed")
+        for pr, envelope in current.pr_envelopes.items():
+            new = updated.pr_envelopes.get(pr)
+            if (
+                new is None
+                or new.round_ids[: len(envelope.round_ids)] != envelope.round_ids
+                or new.obligation_ids[: len(envelope.obligation_ids)] != envelope.obligation_ids
+                or new.history_evidence_id != envelope.history_evidence_id
+            ):
+                raise ValueError("PR lifetime ownership/history cannot reset")
+        for key, obligation in current.obligations.items():
+            new_obligation = updated.obligations.get(key)
+            if (
+                new_obligation is None
+                or new_obligation.problem_hash != obligation.problem_hash
+                or new_obligation.pr_number != obligation.pr_number
+                or new_obligation.finding_ids[: len(obligation.finding_ids)] != obligation.finding_ids
+                or new_obligation.attempt_ids[: len(obligation.attempt_ids)] != obligation.attempt_ids
+                or (
+                    obligation.remediation_id is not None and new_obligation.remediation_id != obligation.remediation_id
+                )
+            ):
+                raise ValueError("semantic problem history cannot reset")
+        for key, batch in current.rounds.items():
+            new_batch = updated.rounds.get(key)
+            if (
+                new_batch is None
+                or replace(
+                    new_batch,
+                    phase=batch.phase,
+                    publication_id=batch.publication_id,
+                    review_id=batch.review_id,
+                )
+                != batch
+            ):
+                raise ValueError("immutable batch identity changed")
+            transitions = {
+                "prepublication": {"prepublication", "published", "invalidated"},
+                "published": {"published", "reviewed", "invalidated"},
+                "reviewed": {"reviewed"},
+                "invalidated": {"invalidated"},
+            }
+            if (
+                new_batch.phase not in transitions[batch.phase]
+                or (batch.publication_id is not None and new_batch.publication_id != batch.publication_id)
+                or (batch.review_id is not None and new_batch.review_id != batch.review_id)
+            ):
+                raise ValueError("batch boundary cannot rewind")
+        for key, attempt in current.attempts.items():
+            new_attempt = updated.attempts.get(key)
+            if (
+                new_attempt is None
+                or replace(
+                    new_attempt,
+                    batch_id=attempt.batch_id,
+                    observation_id=attempt.observation_id,
+                    status=attempt.status,
+                    acceptance_id=attempt.acceptance_id,
+                    outcome_id=attempt.outcome_id,
+                )
+                != attempt
+            ):
+                raise ValueError("immutable attempt identity changed")
+            if (new_attempt.batch_id, new_attempt.observation_id) != (attempt.batch_id, attempt.observation_id):
+                old_envelope = current.pr_envelopes[attempt.pr_number]
+                envelope = updated.pr_envelopes[attempt.pr_number]
+                old_batch = current.rounds[attempt.batch_id]
+                new_batch = updated.rounds[new_attempt.batch_id]
+                old_input = current.evidence[attempt.observation_id]
+                authority = updated.evidence[new_attempt.observation_id]
+                if (
+                    attempt.status != "authorized"
+                    or new_attempt.status != "authorized"
+                    or attempt.acceptance_id is not None
+                    or old_envelope.active_batch_id != attempt.batch_id
+                    or envelope.active_batch_id != new_attempt.batch_id
+                    or old_envelope.observation_id != new_attempt.observation_id
+                    or envelope.observation_id != new_attempt.observation_id
+                    or old_envelope.hold != "none"
+                    or envelope.hold != "none"
+                    or new_batch.phase != "prepublication"
+                    or authority.observed_at < old_input.observed_at
+                    or current.obligations[attempt.obligation_id].attempt_ids[-1] != key
+                ):
+                    raise ValueError("only unaccepted authorized work can be rebound")
+                same_scope = (old_input.head_sha, old_input.base_sha, old_input.policy_version) == (
+                    authority.head_sha,
+                    authority.base_sha,
+                    authority.policy_version,
+                )
+                if new_attempt.batch_id == attempt.batch_id:
+                    if old_batch.phase != "prepublication" or not same_scope:
+                        raise ValueError("renewal requires active unchanged prepublication input")
+                elif (
+                    old_batch.phase != "invalidated"
+                    or same_scope
+                    or new_batch.batch_id in current.rounds
+                    or new_batch.reason != "replan"
+                    or new_batch.authorization_id != old_batch.batch_id
+                    or new_batch.round_number != old_envelope.rounds_used + 1
+                ):
+                    raise ValueError("replan requires a new bounded batch replacing invalidated input")
+            transitions = {
+                "authorized": {"authorized", "unknown"},
+                "unknown": {"unknown", "authorized", "accepted"},
+                "accepted": {"accepted", "failed", "succeeded"},
+                "failed": {"failed"},
+                "succeeded": {"succeeded"},
+            }
+            if (
+                new_attempt.status not in transitions[attempt.status]
+                or (attempt.acceptance_id is not None and new_attempt.acceptance_id != attempt.acceptance_id)
+                or (attempt.outcome_id is not None and new_attempt.outcome_id != attempt.outcome_id)
+            ):
+                raise ValueError("accepted work/outcome cannot rewind")
+            if attempt.status == "unknown" and new_attempt.status == "authorized":
+                if not any(
+                    proof.kind == "absence"
+                    and proof.subject == key
+                    and proof.pr_number == attempt.pr_number
+                    and proof.related_id == attempt.observation_id
+                    and proof.after == "not_accepted"
+                    and proof.evidence_id not in current.evidence
+                    for proof in updated.evidence.values()
+                ):
+                    raise ValueError("dispatch uncertainty requires new independently verified absence")
+        for key, attempt in updated.attempts.items():
+            if key not in current.attempts and attempt.status != "authorized":
+                raise ValueError("persist attempt authorization before acceptance")
+        for key, batch in updated.rounds.items():
+            if key not in current.rounds and (
+                batch.phase != "prepublication" or batch.publication_id or batch.review_id
+            ):
+                raise ValueError("persist round admission before publication/review")
+            if key not in current.rounds and batch.reason == "replan":
+                if not any(
+                    attempt_id in current.attempts
+                    and current.attempts[attempt_id].batch_id == batch.authorization_id
+                    and attempt.batch_id == key
+                    for attempt_id, attempt in updated.attempts.items()
+                ):
+                    raise ValueError("replan requires retained known-unaccepted work")
+        if updated.global_epoch not in {current.global_epoch, current.global_epoch + 1}:
+            raise ValueError("global admission epoch cannot revert or skip")
+        if updated.global_epoch == current.global_epoch + 1:
+            if f"epoch:{updated.global_epoch}" not in updated.audit_refs:
+                raise ValueError("global admission epoch requires advance_epoch")
+            for pr, controller in current.controllers.items():
+                replacement = updated.controllers.get(pr)
+                if replacement is None or replacement.global_epoch != updated.global_epoch:
+                    raise ValueError("epoch advancement must refresh controller projections")
+        if not set(current.permit_requests).issubset(updated.permit_requests):
+            raise ValueError("permit request history cannot be deleted")
+        for key, request in current.permit_requests.items():
+            new_request = updated.permit_requests.get(key)
+            if new_request is None or (
+                new_request.request_id,
+                new_request.repo,
+                new_request.pr_number,
+                new_request.obligation_id,
+                new_request.batch_id,
+                new_request.worker_id,
+                new_request.provider,
+                new_request.model,
+                new_request.owner_epoch,
+                new_request.queue_position,
+                new_request.requested_at,
+                new_request.deadline_at,
+            ) != (
+                request.request_id,
+                request.repo,
+                request.pr_number,
+                request.obligation_id,
+                request.batch_id,
+                request.worker_id,
+                request.provider,
+                request.model,
+                request.owner_epoch,
+                request.queue_position,
+                request.requested_at,
+                request.deadline_at,
+            ):
+                raise ValueError("immutable permit request identity changed")
+            transitions = {
+                "queued": {"queued", "reserved", "cancelled"},
+                "reserved": {"reserved", "unknown", "cancelled"},
+                "unknown": {"unknown", "accepted", "released"},
+                "accepted": {"accepted", "released"},
+                "released": {"released"},
+                "cancelled": {"cancelled"},
+            }
+            if new_request.status not in transitions[request.status]:
+                raise ValueError("permit request cannot rewind")
+            if (
+                request.terminal_evidence_id is not None
+                and new_request.terminal_evidence_id != request.terminal_evidence_id
+            ):
+                raise ValueError("request terminal evidence is immutable")
+            if new_request.status == "released":
+                if (
+                    new_request.terminal_evidence_id is None
+                    or new_request.terminal_evidence_id not in updated.evidence
+                    or new_request.permit_id is None
+                    or new_request.permit_id not in updated.active_permits
+                    or new_request.terminal_evidence_id
+                    != updated.active_permits[new_request.permit_id].terminal_evidence_id
+                ):
+                    raise ValueError("released request requires authoritative terminal evidence")
+        for key, request in updated.permit_requests.items():
+            if key not in current.permit_requests and request.status != "queued":
+                raise ValueError("new permit request must be queued before admission")
+        for key, permit in current.active_permits.items():
+            new_permit = updated.active_permits.get(key)
+            if new_permit is None or replace(
+                new_permit,
+                status=permit.status,
+                remote_task_id=permit.remote_task_id,
+                remote_session_id=permit.remote_session_id,
+                acceptance_evidence_id=None,
+                terminal_evidence_id=None,
+            ) != replace(
+                permit,
+                status=permit.status,
+                remote_task_id=permit.remote_task_id,
+                remote_session_id=permit.remote_session_id,
+                acceptance_evidence_id=None,
+                terminal_evidence_id=None,
+            ):
+                raise ValueError("immutable permit identity changed")
+            transitions = {
+                "reserved": {"reserved", "unknown", "cancelled"},
+                "unknown": {"unknown", "accepted", "released"},
+                "accepted": {"accepted", "released"},
+                "released": {"released"},
+                "cancelled": {"cancelled"},
+            }
+            if new_permit.status not in transitions[permit.status]:
+                raise ValueError("permit cannot rewind")
+            if permit.remote_task_id is not None and new_permit.remote_task_id != permit.remote_task_id:
+                raise ValueError("accepted remote task identity changed")
+            if permit.remote_session_id is not None and new_permit.remote_session_id != permit.remote_session_id:
+                raise ValueError("accepted remote session identity changed")
+            if (
+                permit.acceptance_evidence_id is not None
+                and new_permit.acceptance_evidence_id != permit.acceptance_evidence_id
+            ):
+                raise ValueError("acceptance evidence is immutable")
+            if (
+                permit.terminal_evidence_id is not None
+                and new_permit.terminal_evidence_id != permit.terminal_evidence_id
+            ):
+                raise ValueError("permit terminal evidence is immutable")
+            if new_permit.status == "accepted" and (
+                new_permit.acceptance_evidence_id is None
+                or new_permit.acceptance_evidence_id not in updated.evidence
+                or updated.evidence[new_permit.acceptance_evidence_id].kind != "acceptance"
+                or updated.evidence[new_permit.acceptance_evidence_id].after != permit.model
+            ):
+                raise ValueError("accepted permit requires authoritative acceptance evidence")
+            if new_permit.status == "released":
+                if new_permit.terminal_evidence_id is None or new_permit.terminal_evidence_id not in updated.evidence:
+                    raise ValueError("released permit requires authoritative terminal evidence")
+                evidence = updated.evidence[new_permit.terminal_evidence_id]
+                if (
+                    evidence.subject != permit.request_id
+                    or evidence.related_id != permit.permit_id
+                    or (permit.status == "unknown" and (evidence.kind != "absence" or evidence.after != "not_accepted"))
+                    or (
+                        permit.status == "accepted"
+                        and (evidence.kind not in {"failure", "success"} or evidence.before != "terminal")
+                    )
+                ):
+                    raise ValueError("released permit requires bound terminal evidence")
+        for key, permit in updated.active_permits.items():
+            if key not in current.active_permits and permit.status != "reserved":
+                raise ValueError("persist reservation before worker acceptance")
+        if not set(current.effects).issubset(updated.effects):
+            raise ValueError("effect history cannot be deleted")
+        for key, effect in current.effects.items():
+            new_effect = updated.effects.get(key)
+            if new_effect is None or (
+                new_effect.repo,
+                new_effect.pr_number,
+                new_effect.kind,
+                new_effect.payload_digest,
+            ) != (effect.repo, effect.pr_number, effect.kind, effect.payload_digest):
+                raise ValueError("immutable effect intent changed")
+            if effect.status != new_effect.status and effect.status != "intent":
+                raise ValueError("effect history cannot rewind")
+        for key, effect in updated.effects.items():
+            if key not in current.effects and effect.status != "intent":
+                raise ValueError("persist effect intent before settlement")
+
+    def transact(
+        self,
+        transition: Callable[[QueueState], QueueState],
+        *,
+        expected_revision: int | None = None,
+    ) -> QueueState:
+        """Apply one deterministic transition through the single-document CAS boundary."""
+        state = self.load()
+        revision = state.revision if expected_revision is None else expected_revision
+        if revision != state.revision:
+            raise ConcurrentModificationError(f"Revision mismatch: expected {revision}, got {state.revision}")
+        updated = transition(deepcopy(state))
+        if not isinstance(updated, QueueState):
+            raise TypeError(f"Queue transition must return QueueState, got {type(updated).__name__}")
+        return self.save(updated, expected_revision=revision)
+
     def recovery_token(self) -> str | None:
         """Return an opaque CAS token without decoding persisted state."""
         return self._backing.recovery_token(self._key())
@@ -358,6 +744,14 @@ class QueueStore:
     def save_recovery(self, state: QueueState, expected_token: str) -> QueueState:
         """Persist an authoritative replacement while retaining corruption evidence."""
         validate_queue_state(state, expected_repo=self._repo, expected_state_ref=self._state_ref)
+        if state.migration_status != "preactivation":
+            raise MigrationRequiredError("corrupt recovery cannot assert known new-mode budgets")
+        try:
+            existing = self._backing.load_entry(self._key())
+        except (StateDecodeError, StateTooLargeError):
+            existing = None
+        if existing is not None and existing[1].migration_status != "preactivation":
+            raise MigrationRequiredError("legacy recovery cannot erase a readable foundation history")
         updated = _replace_state(state, last_updated_at=datetime.now(UTC))
         self._check_size(updated)
         self._backing.save_recovery_entry(self._key(), expected_token, updated)
@@ -375,6 +769,10 @@ class QueueStore:
             expected_repo=self._repo,
             expected_state_ref=self._state_ref,
         )
+        current = self.load()
+        if current.revision != state.revision:
+            raise ConcurrentModificationError("Queue state changed before quarantine")
+        self._validate_transition(current, state)
         record = QuarantineRecord(
             quarantine_id=str(uuid4()),
             repo=self._repo,

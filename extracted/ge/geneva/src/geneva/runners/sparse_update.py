@@ -39,7 +39,9 @@ import pyarrow as pa
 
 from geneva.committer import get_committer
 from geneva.errors import FatalWorkerOOMError
+from geneva.transformer import UDFArgType
 from geneva.utils.commit_conflict import is_retryable_commit_conflict
+from geneva.utils.schema import field_path_covers, format_field_path
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterator
@@ -206,8 +208,9 @@ class RangeSparseResult:
 
 
 def _field_has_blob(field: pa.Field) -> bool:
-    """True if the field (incl. struct/list leaves) is lance blob-encoded."""
-    if b"lance-encoding:blob" in (field.metadata or {}):
+    from geneva.apply.blob_range import is_blob_field
+
+    if is_blob_field(field):
         return True
     t = field.type
     if pa.types.is_struct(t):
@@ -296,6 +299,7 @@ def sparse_update_range(
     batch_rows: int,
     *,
     dv_concurrency: int = 8,
+    is_generated_resume_filter: bool = False,
 ) -> RangeSparseResult:
     """Batched sparse update for a RANGE of fragments, without committing.
 
@@ -322,7 +326,58 @@ def sparse_update_range(
         return RangeSparseResult([], 0, [], [], [], source_frag_ids=source_ids)
     names = list(ds.schema.names)
     blob_cols = _blob_columns(ds.schema)
-    blob_handling = "all_binary" if blob_cols else None
+    from geneva.apply.blob_range import (
+        BlobV2Materialization,
+        blob_v2_field_paths,
+        blob_v2_paths_for_inputs,
+        encode_blob_v2_storage_array,
+        expand_exact_blob_v2_null_filter,
+        has_nested_v1_blob,
+        is_blob_field,
+        is_blob_v2_field,
+        iter_blob_v2_payload_batches,
+        materialize_top_level_v1_blob_bytes,
+    )
+
+    v2_paths = blob_v2_field_paths(ds.schema)
+    if has_nested_v1_blob(list(ds.schema)) and v2_paths:
+        raise SparseScopeError(
+            "sparse update cannot mix nested blob v1 columns with blob v2 "
+            "on the same table"
+        )
+    if is_generated_resume_filter:
+        where = expand_exact_blob_v2_null_filter(where, ds.schema) or where
+    # all_binary supports nested v1, not v2.
+    use_all_binary = bool(blob_cols) and not v2_paths
+    blob_handling = "all_binary" if use_all_binary else None
+    udf_input_columns = udf.input_columns
+    # RecordBatch UDFs use [] for whole-batch input, including after namespace restore.
+    if udf.arg_type == UDFArgType.RECORD_BATCH and not udf_input_columns:
+        udf_input_columns = None
+    v2_input_paths = blob_v2_paths_for_inputs(ds.schema, udf_input_columns)
+    canonical_output = format_field_path([output_column])
+    v2_carry_paths = frozenset(
+        path for path in v2_paths if not field_path_covers(canonical_output, path)
+    )
+    # Carried blobs need bytes for the new fragment. Packed descriptors
+    # refer to the source fragment's sidecar.
+    v2_materialize_paths = v2_input_paths | v2_carry_paths
+    v1_top_level = [
+        field.name
+        for field in ds.schema
+        if is_blob_field(field)
+        and not is_blob_v2_field(field)
+        and not pa.types.is_struct(field.type)
+        and (
+            field.name != output_column
+            or udf_input_columns is None
+            or field.name in udf_input_columns
+        )
+    ]
+    need_row_id = bool(v1_top_level) and not use_all_binary
+    v2_materializations = [
+        BlobV2Materialization(path, path) for path in sorted(v2_materialize_paths)
+    ]
     addr_chunks: list[pa.Array] = []
     counter = {"n": 0}
     classified_oom: FatalWorkerOOMError | None = None
@@ -338,35 +393,50 @@ def sparse_update_range(
             "blob_handling": blob_handling,
             "with_row_address": True,
         }
-        if blob_cols:
+        if need_row_id:
+            scanner_kwargs["with_row_id"] = True
+        if blob_cols and blob_handling == "all_binary":
             # all_binary alone materializes every scanned row's payload before
             # the filter; forcing blobs late defers it to matched rows only.
             scanner_kwargs["late_materialization"] = blob_cols
         scanner = ds.scanner(**scanner_kwargs)
         for batch in scanner.to_batches():
-            addr_col = batch.column(batch.schema.get_field_index("_rowaddr"))
-            addr_chunks.append(addr_col)
-            core = batch.select(names)
-            counter["n"] += core.num_rows
-            try:
-                udf_out = udf(core, use_applier=True)
-            except FatalWorkerOOMError as exc:
-                # ``write_fragments`` consumes this generator through Arrow's C
-                # Data interface, which wraps Python exceptions in ``OSError``.
-                # Retain the exact classified failure so the actor can send its
-                # type to the driver instead of treating it as an ordinary range
-                # error. Other UDF exceptions keep their existing semantics.
-                classified_oom = exc
-                raise
-            if isinstance(udf_out, pa.ChunkedArray):
-                udf_out = udf_out.combine_chunks()
-            yield pa.record_batch(
-                [
-                    udf_out if f.name == output_column else core.column(f.name)
-                    for f in ds.schema
-                ],
-                schema=ds.schema,
-            )
+            for payload_batch in iter_blob_v2_payload_batches(
+                ds, batch, v2_materializations
+            ):
+                if need_row_id:
+                    payload_batch = materialize_top_level_v1_blob_bytes(
+                        ds, payload_batch, v1_top_level
+                    )
+                addr_col = payload_batch.column(
+                    payload_batch.schema.get_field_index("_rowaddr")
+                )
+                addr_chunks.append(addr_col)
+                core = payload_batch.select(names)
+                counter["n"] += core.num_rows
+                try:
+                    udf_out = udf(core, use_applier=True)
+                except FatalWorkerOOMError as exc:
+                    # ``write_fragments`` consumes this generator through Arrow's C
+                    # Data interface, which wraps Python exceptions in ``OSError``.
+                    # Retain the exact classified failure so the actor can send its
+                    # type to the driver instead of treating it as an ordinary range
+                    # error. Other UDF exceptions keep their existing semantics.
+                    classified_oom = exc
+                    raise
+                if isinstance(udf_out, pa.ChunkedArray):
+                    udf_out = udf_out.combine_chunks()
+                columns = [
+                    udf_out if field.name == output_column else core.column(field.name)
+                    for field in ds.schema
+                ]
+                yield pa.RecordBatch.from_arrays(
+                    [
+                        encode_blob_v2_storage_array(field, column)
+                        for field, column in zip(ds.schema, columns, strict=True)
+                    ],
+                    schema=ds.schema,
+                )
 
     # Cap appended fragments at this range's largest source fragment (by rows and
     # bytes), not lance's larger defaults -- else a deliberately small-fragmented

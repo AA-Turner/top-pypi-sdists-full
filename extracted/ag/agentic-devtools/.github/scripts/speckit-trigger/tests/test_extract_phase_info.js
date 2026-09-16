@@ -80,6 +80,22 @@ function createMockGithub(changedFiles, contentByPath, issueComments = []) {
   };
 }
 
+function createReconcileGithub(issueComments, issueData = { labels: [{ name: 'feature' }] }) {
+  const mutations = { added: [], removed: [] };
+  return {
+    mutations,
+    paginate: async () => issueComments,
+    rest: {
+      issues: {
+        listComments: async () => ({ data: issueComments }),
+        get: async () => ({ data: issueData }),
+        addLabels: async params => { mutations.added.push(params); },
+        removeLabel: async params => { mutations.removed.push(params); },
+      },
+    },
+  };
+}
+
 console.log('=== Testing analyzeChangedFiles ===');
 {
   const result = extractPhaseInfo.analyzeChangedFiles([
@@ -167,12 +183,28 @@ console.log('=== Testing extractIssueNumberFromPr ===');
     })
   );
   assertEqual(
+    'extracts issue number from Closes reference on a Copilot branch',
+    457,
+    extractPhaseInfo.extractIssueNumberFromPr({
+      head: { ref: 'copilot/fix-457' },
+      body: 'Closes #457',
+    })
+  );
+  assertEqual(
     'returns null when non-speckit branch has no Relates-to reference',
     null,
     extractPhaseInfo.extractIssueNumberFromPr({
       head: { ref: 'copilot/fix-no-relates' },
       body: cloudMarker,
     })
+  );
+}
+{
+  const unsupportedMarker = '<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=999 phase=4 hierarchy=feature correlation_id=11111111-1111-4111-8111-dddddddddddd -->';
+  assertEqual(
+    'rejects Cloud Agent markers above phase 3',
+    null,
+    extractPhaseInfo.parseCloudAgentMarker(unsupportedMarker)
   );
 }
 
@@ -798,6 +830,39 @@ console.log('=== Testing workflow_dispatch path ===');
     assertEqual('phase-1 without level label routes to next phase', '2', core.outputs.next_phase);
   }
   {
+    const core = createMockCore();
+    await extractPhaseInfo.run({
+      github: createMockGithub([], {}, [
+        {
+          author_association: 'BOT',
+          body: '<!-- speckit:agent-pr-normalizer pr=23 correlation_id=none -->',
+          user: { login: 'github-actions[bot]' },
+        },
+      ]),
+      context: {
+        eventName: 'pull_request',
+        payload: {
+          pull_request: {
+            number: 23,
+            labels: [{ name: 'speckit:phase-2' }, { name: 'speckit:level-feature' }],
+            base: { ref: 'speckit/792/phase-1-specify' },
+            head: { ref: 'copilot/implement-792' },
+            body: 'Closes #792',
+            merge_commit_sha: 'copilot123',
+            html_url: 'https://example.test/pr/23',
+          },
+        },
+        repo: { owner: 'swai-factory', repo: 'agentic-devtools' },
+      },
+      core,
+      workflowDispatchPhase: '',
+      workflowDispatchIssueNumber: '',
+    });
+    assertEqual('normalized Copilot branch uses the validated phase label', '2', core.outputs.completed_phase);
+    assertEqual('normalized Copilot branch uses the PR issue reference', '792', core.outputs.issue_number);
+    assertEqual('normalized Copilot branch advances phase progression', '3', core.outputs.next_phase);
+  }
+  {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extract-phase-info-pr-'));
     try {
       fs.mkdirSync(path.join(tempRoot, 'specs', '790'), { recursive: true });
@@ -956,6 +1021,57 @@ console.log('=== Testing workflow_dispatch path ===');
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
+  }
+
+  console.log('=== Testing reconcileMergedPr mutation paths ===');
+  {
+    const marker = '<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=901 phase=2 hierarchy=feature correlation_id=11111111-1111-4111-8111-aaaaaaaaaaaa -->';
+    const github = createReconcileGithub([{
+      author_association: 'MEMBER',
+      body: marker,
+      created_at: '2026-01-01T00:00:00Z',
+    }]);
+    const core = createMockCore();
+    await extractPhaseInfo.reconcileMergedPr({
+      github,
+      context: { repo: { owner: 'swai-factory', repo: 'agentic-devtools' } },
+      core,
+      pr: {
+        number: 90,
+        body: marker,
+        labels: [{ name: 'speckit:phase-2' }, { name: 'speckit:phase-1' }, { name: 'speckit:level-feature' }],
+      },
+    });
+    assertEqual('reconcile adds canonical labels', ['speckit:phase-2', 'speckit:level-feature', 'speckit:spec'], github.mutations.added[0].labels);
+    assertEqual('reconcile removes stale phase labels', 'speckit:phase-1', github.mutations.removed[0].name);
+  }
+  {
+    const github = createReconcileGithub([]);
+    github.rest.issues.get = async () => {
+      throw Object.assign(new Error('Service unavailable'), { status: 503 });
+    };
+    await extractPhaseInfo.reconcileMergedPr({
+      github,
+      context: { repo: { owner: 'swai-factory', repo: 'agentic-devtools' } },
+      core: createMockCore(),
+      pr: { number: 91, body: 'Relates to #902', labels: [{ name: 'speckit:phase-2' }] },
+    });
+    assertEqual('reconcile does not mutate labels when issue API fails', 0, github.mutations.added.length);
+  }
+  {
+    const olderMarker = '<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=903 phase=2 hierarchy=feature correlation_id=33333333-3333-4333-8333-cccccccccccc -->';
+    const newerMarker = '<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=903 phase=2 hierarchy=feature correlation_id=44444444-4444-4444-8444-dddddddddddd -->';
+    const github = createReconcileGithub([
+      { author_association: 'MEMBER', body: olderMarker, created_at: '2026-01-01T00:00:00Z' },
+      { author_association: 'MEMBER', body: newerMarker, created_at: '2026-01-02T00:00:00Z' },
+    ]);
+    await extractPhaseInfo.reconcileMergedPr({
+      github,
+      context: { repo: { owner: 'swai-factory', repo: 'agentic-devtools' } },
+      core: createMockCore(),
+      pr: { number: 92, body: olderMarker, labels: [] },
+    });
+    assertEqual('reconcile rejects an older trusted marker for the same issue and phase', 0, github.mutations.added.length);
   }
 
   console.log('');

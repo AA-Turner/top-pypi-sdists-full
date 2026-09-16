@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.686"
+__version__ = "1.3.701"
 
 # Define package exports
 __all__ = [
@@ -1293,6 +1293,7 @@ __all__ = [
     "TextSplitStrategy",
     "ThemeConfig",
     "TicketResponse",
+    "TierAuditInfo",
     "TierDiagnostic",
     "TierLimits",
     "TierTaskInfo",
@@ -2693,6 +2694,7 @@ from mixpeek.models.text_index_params import TextIndexParams as TextIndexParams
 from mixpeek.models.text_split_strategy import TextSplitStrategy as TextSplitStrategy
 from mixpeek.models.theme_config import ThemeConfig as ThemeConfig
 from mixpeek.models.ticket_response import TicketResponse as TicketResponse
+from mixpeek.models.tier_audit_info import TierAuditInfo as TierAuditInfo
 from mixpeek.models.tier_diagnostic import TierDiagnostic as TierDiagnostic
 from mixpeek.models.tier_limits import TierLimits as TierLimits
 from mixpeek.models.tier_task_info import TierTaskInfo as TierTaskInfo

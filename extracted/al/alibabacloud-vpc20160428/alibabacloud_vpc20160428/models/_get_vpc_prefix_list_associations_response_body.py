@@ -93,6 +93,7 @@ class GetVpcPrefixListAssociationsResponseBodyPrefixListAssociation(DaraModel):
         resource_type: str = None,
         resource_uid: str = None,
         status: str = None,
+        suppressed_list: str = None,
     ):
         # The list of CIDR blocks in the prefix list that are effective for the associated resource.
         self.cidr_list = cidr_list
@@ -122,6 +123,8 @@ class GetVpcPrefixListAssociationsResponseBodyPrefixListAssociation(DaraModel):
         # - **Deleting**: Being deleted.
         # - **Deleted**: Deleted.
         self.status = status
+        # The list of CIDR blocks in the prefix list that are not effective for the associated resource.
+        self.suppressed_list = suppressed_list
 
     def validate(self):
         pass
@@ -158,6 +161,9 @@ class GetVpcPrefixListAssociationsResponseBodyPrefixListAssociation(DaraModel):
         if self.status is not None:
             result['Status'] = self.status
 
+        if self.suppressed_list is not None:
+            result['SuppressedList'] = self.suppressed_list
+
         return result
 
     def from_map(self, m: dict = None):
@@ -188,6 +194,9 @@ class GetVpcPrefixListAssociationsResponseBodyPrefixListAssociation(DaraModel):
 
         if m.get('Status') is not None:
             self.status = m.get('Status')
+
+        if m.get('SuppressedList') is not None:
+            self.suppressed_list = m.get('SuppressedList')
 
         return self
 

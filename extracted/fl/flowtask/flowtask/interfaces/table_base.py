@@ -83,7 +83,7 @@ class TableBase(TemplateSupport, FlowComponent):
         else:
             raise FileError(f"Table: Missing SQL File: {file}")
 
-    def column_info(self, tablename):
+    async def column_info(self, tablename):
         if self.flavor == "postgres":
             discover = f"""SELECT attname AS column_name, atttypid::regtype AS data_type, attnotnull::boolean as notnull
                     FROM pg_attribute WHERE attrelid = '{tablename}'::regclass AND attnum > 0
@@ -101,7 +101,9 @@ class TableBase(TemplateSupport, FlowComponent):
             # return {item['column_name']: item['data_type'] for item in rows}
             return {row["column_name"]: row["data_type"] for row in rows}
         else:
-            model = open_model(self.tablename, self.program)
+            model = await open_model(
+                self.tablename, self.program, path=self._taskstore.get_path()
+            )
             if model:
                 fields = model["fields"]
                 return {field: fields[field]["data_type"] for field in fields}
@@ -123,13 +125,17 @@ class TableBase(TemplateSupport, FlowComponent):
                 schema = self.schema
                 if self.flavor == "postgres":
                     tablename = f"{schema}.{tablename}"
-                colinfo = self.column_info(tablename)
+                colinfo = await self.column_info(tablename)
             except KeyError:
                 if hasattr(self, "map"):
                     mapping = self.map["map"]
-                    colinfo = open_map(mapping, self.program)
+                    colinfo = await open_map(
+                        mapping, self.program, path=self._taskstore.get_path()
+                    )
                 if not colinfo:
-                    colinfo = open_map(tablename, self.program)
+                    colinfo = await open_map(
+                        tablename, self.program, path=self._taskstore.get_path()
+                    )
             if colinfo:
                 try:
                     ignore = self.map["ignore"]

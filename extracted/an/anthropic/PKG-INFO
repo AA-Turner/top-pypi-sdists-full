@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: anthropic
-Version: 1.5.0
+Version: 1.6.0
 Summary: The official Python library for the anthropic API
 Project-URL: Homepage, https://github.com/anthropics/anthropic-sdk-python
 Project-URL: Repository, https://github.com/anthropics/anthropic-sdk-python
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: anyio<5,>=3.5.0
+Requires-Dist: anyio<5,>=4.1.0
 Requires-Dist: docstring-parser<1,>=0.15
 Requires-Dist: httpx2<3,>=2.0.0
 Requires-Dist: jiter<1,>=0.4.0

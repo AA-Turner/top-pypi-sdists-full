@@ -16,11 +16,12 @@ All error handling logic is centralized here to eliminate branching in appliers.
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from typing import Any
 
 import attrs
 import pyarrow as pa
-from tenacity import Retrying
+from tenacity import Retrying, retry_if_exception
 
 from geneva.apply.task import BackfillUDFTask, CopyTableTask, MapTask, ReadTask
 from geneva.debug.error_store import (
@@ -30,6 +31,7 @@ from geneva.debug.error_store import (
     make_error_record_from_exception,
 )
 from geneva.debug.logger import ErrorLogger
+from geneva.errors import FatalWorkerHardwareError
 from geneva.transformer import BACKFILL_SELECTED
 from geneva.utils import make_null_array
 
@@ -48,10 +50,53 @@ def get_max_attempts(retry_config) -> int:
     return 1
 
 
+def iter_exception_chain(exc: BaseException) -> Iterator[BaseException]:
+    """Yield ``exc`` and its nested causes/contexts without looping."""
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        yield current
+        current = current.__cause__ or current.__context__
+
+
+def exception_chain_message(exc: BaseException) -> str:
+    """Flatten an exception chain into one ``type: message`` string."""
+    return " | caused by ".join(
+        f"{type(candidate).__module__}.{type(candidate).__name__}: {candidate}"
+        for candidate in iter_exception_chain(exc)
+    )
+
+
+def has_hardware_fault(exc: BaseException) -> bool:
+    """Whether ``exc`` or any cause in its chain is a ``FatalWorkerHardwareError``."""
+    return any(
+        isinstance(candidate, FatalWorkerHardwareError)
+        for candidate in iter_exception_chain(exc)
+    )
+
+
+def promote_hardware_fault(exc: BaseException) -> FatalWorkerHardwareError:
+    """Return ``exc`` as a canonical ``FatalWorkerHardwareError``."""
+    if isinstance(exc, FatalWorkerHardwareError):
+        return exc
+    return FatalWorkerHardwareError(exception_chain_message(exc))
+
+
+def _raise_if_hardware_fault(exc: Exception) -> None:
+    """Let a hardware fault escape local retry, bisection, and null-fill."""
+    if not has_hardware_fault(exc):
+        return
+    if isinstance(exc, FatalWorkerHardwareError):
+        raise exc
+    raise promote_hardware_fault(exc) from exc
+
+
 def build_retry_kwargs(retry_config, reraise: bool | None = None) -> dict:
     """Build tenacity Retrying kwargs from RetryConfig"""
     kwargs = {
-        "retry": retry_config.retry,
+        "retry": retry_config.retry
+        & retry_if_exception(lambda e: not has_hardware_fault(e)),
         "stop": retry_config.stop,
         "wait": retry_config.wait,
         "reraise": reraise if reraise is not None else retry_config.reraise,
@@ -404,18 +449,21 @@ class FailFastStrategy(BatchStrategy):
             result = self.map_task.apply(batch)
             return (result, [], 0)
         except Exception as e:
+            err: Exception = promote_hardware_fault(e) if has_hardware_fault(e) else e
             # Log error if error_logger is provided (either explicitly configured
             # via error_config.log_errors or just passed in)
             if self.error_logger and (
                 not self.ctx.error_config or self.ctx.error_config.log_errors
             ):
                 error_record = self.ctx.create_error_record(
-                    exception=e,
+                    exception=err,
                     row_address=None,
                     attempt=1,
                     max_attempts=1,
                 )
                 self.error_logger.log_error(error_record)
+            if err is not e:
+                raise err from e
             raise
 
 
@@ -450,6 +498,12 @@ class BatchRetryStrategy(BatchStrategy):
                     return (result, [], 0)
 
                 except Exception as e:
+                    if has_hardware_fault(e):
+                        promoted = promote_hardware_fault(e)
+                        self._log_retry_failure(promoted, max_attempts, max_attempts)
+                        if promoted is e:
+                            raise
+                        raise promoted from e
                     self._log_retry_failure(
                         e, attempt.retry_state.attempt_number, max_attempts
                     )
@@ -513,6 +567,7 @@ class SkipRowsStrategy(BatchStrategy):
         try:
             return (self.map_task.apply(batch), [], 0)
         except Exception as e:
+            _raise_if_hardware_fault(e)
             _LOG.warning(
                 f"Batch {self.ctx.seq} ({len(batch)} rows) failed: {e}; "
                 "bisecting to isolate the failing rows"
@@ -566,7 +621,8 @@ class SkipRowsStrategy(BatchStrategy):
             if length > 1:
                 try:
                     pieces.append(self.map_task.apply(segment))
-                except Exception:
+                except Exception as e:
+                    _raise_if_hardware_fault(e)
                     half = length // 2
                     stack.append((offset + half, length - half))
                     stack.append((offset, half))
@@ -641,6 +697,7 @@ class SkipRowsStrategy(BatchStrategy):
         try:
             return (self.map_task.apply(row_batch), None, False)
         except Exception as e:
+            _raise_if_hardware_fault(e)
             error_record = None
             if self.ctx.error_config and self.ctx.error_config.log_errors:
                 error_record = self.ctx.create_error_record(
@@ -690,6 +747,7 @@ class SkipRowsStrategy(BatchStrategy):
                         return (result_batch, None, False)
 
                     except Exception as e:
+                        _raise_if_hardware_fault(e)
                         last_exception = e
                         if attempt.retry_state.attempt_number > 1:
                             _LOG.warning(
@@ -698,7 +756,8 @@ class SkipRowsStrategy(BatchStrategy):
                             )
                         raise
 
-        except Exception:
+        except Exception as e:
+            _raise_if_hardware_fault(e)
             # Retries exhausted - skip this row
             _LOG.warning(
                 f"Skipping row {row_address} in batch {self.ctx.seq} after "

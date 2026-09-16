@@ -58,6 +58,11 @@ STATE_FIELDS = (
     "_shutdown_deadline",
     "INTERACTION_TRACE_ID_REGISTRY",
     "INTERACTION_EVENT_ID_REGISTRY",
+    "_app_git_snapshot",
+    "_app_git_generation",
+    "_partial_app_git_snapshots",
+    "_partial_app_git_inference_disabled",
+    "_partial_app_git_lock",
 )
 
 
@@ -97,6 +102,13 @@ class ClientState:
         self.INTERACTION_EVENT_ID_REGISTRY: "weakref.WeakValueDictionary[str, Any]" = (
             weakref.WeakValueDictionary()
         )
+        from raindrop.app_git import EMPTY_SNAPSHOT
+
+        self._app_git_snapshot = EMPTY_SNAPSHOT
+        self._app_git_generation: int = 0
+        self._partial_app_git_snapshots: dict[str, Any] = {}
+        self._partial_app_git_inference_disabled: bool = False
+        self._partial_app_git_lock = threading.Lock()
         # Non-reversible identity of this client's write key (first 8 hex
         # chars of its SHA-256). Stamped on spans produced in this client's
         # context so the export guard can drop spans that would otherwise

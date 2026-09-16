@@ -32,7 +32,7 @@ from .errors import (
     ValidationReportEntry,
     VersionMismatchError,
 )
-from .loader import load_epic_tree
+from .loader import load_epic_tree, migrate_schema_v1_to_v2
 from .models import EpicNode, EpicTree, FeatureNode, IssueNode, SubtaskNode
 from .normalization_models import (
     EpicTreeHierarchyLevel,
@@ -80,6 +80,7 @@ __all__ = [
     "detect_cycles",
     "get_sibling_position",
     "load_epic_tree",
+    "migrate_schema_v1_to_v2",
     "load_epic_tree_config",
     "load_schema",
     "normalize_tree",

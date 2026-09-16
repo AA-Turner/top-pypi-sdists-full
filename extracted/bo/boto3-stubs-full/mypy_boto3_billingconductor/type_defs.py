@@ -76,6 +76,7 @@ __all__ = (
     "CustomLineItemListElementTypeDef",
     "CustomLineItemPercentageChargeDetailsTypeDef",
     "CustomLineItemVersionListElementTypeDef",
+    "CustomTierTypeDef",
     "DeleteBillingGroupInputTypeDef",
     "DeleteBillingGroupOutputTypeDef",
     "DeleteCustomLineItemInputTypeDef",
@@ -163,7 +164,9 @@ __all__ = (
     "UpdatePricingPlanOutputTypeDef",
     "UpdatePricingRuleInputTypeDef",
     "UpdatePricingRuleOutputTypeDef",
+    "UpdateTieringInputOutputTypeDef",
     "UpdateTieringInputTypeDef",
+    "UpdateTieringInputUnionTypeDef",
 )
 
 
@@ -250,6 +253,12 @@ class CreatePricingPlanInputTypeDef(TypedDict):
     Description: NotRequired[str]
     PricingRuleArns: NotRequired[Sequence[str]]
     Tags: NotRequired[Mapping[str, str]]
+
+
+class CustomTierTypeDef(TypedDict):
+    BeginRangeInclusive: float
+    RateValue: float
+    EndRangeExclusive: NotRequired[float]
 
 
 class CustomLineItemFlatChargeDetailsTypeDef(TypedDict):
@@ -593,11 +602,13 @@ class GetBillingGroupCostReportInputTypeDef(TypedDict):
 
 
 class CreateTieringInputTypeDef(TypedDict):
-    FreeTier: CreateFreeTierConfigTypeDef
+    FreeTier: NotRequired[CreateFreeTierConfigTypeDef]
+    CustomTiers: NotRequired[Sequence[CustomTierTypeDef]]
 
 
 class TieringTypeDef(TypedDict):
-    FreeTier: FreeTierConfigTypeDef
+    FreeTier: NotRequired[FreeTierConfigTypeDef]
+    CustomTiers: NotRequired[list[CustomTierTypeDef]]
 
 
 LineItemFilterUnionTypeDef = Union[LineItemFilterTypeDef, LineItemFilterOutputTypeDef]
@@ -757,8 +768,14 @@ class UpdateBillingGroupOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateTieringInputOutputTypeDef(TypedDict):
+    FreeTier: NotRequired[UpdateFreeTierConfigTypeDef]
+    CustomTiers: NotRequired[list[CustomTierTypeDef]]
+
+
 class UpdateTieringInputTypeDef(TypedDict):
-    FreeTier: UpdateFreeTierConfigTypeDef
+    FreeTier: NotRequired[UpdateFreeTierConfigTypeDef]
+    CustomTiers: NotRequired[Sequence[CustomTierTypeDef]]
 
 
 class BatchAssociateResourcesToCustomLineItemOutputTypeDef(TypedDict):
@@ -910,17 +927,6 @@ class ListCustomLineItemVersionsInputTypeDef(TypedDict):
     Filters: NotRequired[ListCustomLineItemVersionsFilterTypeDef]
 
 
-UpdatePricingRuleInputTypeDef = TypedDict(
-    "UpdatePricingRuleInputTypeDef",
-    {
-        "Arn": str,
-        "Name": NotRequired[str],
-        "Description": NotRequired[str],
-        "Type": NotRequired[PricingRuleTypeType],
-        "ModifierPercentage": NotRequired[float],
-        "Tiering": NotRequired[UpdateTieringInputTypeDef],
-    },
-)
 UpdatePricingRuleOutputTypeDef = TypedDict(
     "UpdatePricingRuleOutputTypeDef",
     {
@@ -934,12 +940,13 @@ UpdatePricingRuleOutputTypeDef = TypedDict(
         "AssociatedPricingPlanCount": int,
         "LastModifiedTime": int,
         "BillingEntity": str,
-        "Tiering": UpdateTieringInputTypeDef,
+        "Tiering": UpdateTieringInputOutputTypeDef,
         "UsageType": str,
         "Operation": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+UpdateTieringInputUnionTypeDef = Union[UpdateTieringInputTypeDef, UpdateTieringInputOutputTypeDef]
 
 
 class ListPricingRulesOutputTypeDef(TypedDict):
@@ -980,3 +987,16 @@ class ListCustomLineItemVersionsOutputTypeDef(TypedDict):
     CustomLineItemVersions: list[CustomLineItemVersionListElementTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+UpdatePricingRuleInputTypeDef = TypedDict(
+    "UpdatePricingRuleInputTypeDef",
+    {
+        "Arn": str,
+        "Name": NotRequired[str],
+        "Description": NotRequired[str],
+        "Type": NotRequired[PricingRuleTypeType],
+        "ModifierPercentage": NotRequired[float],
+        "Tiering": NotRequired[UpdateTieringInputUnionTypeDef],
+    },
+)

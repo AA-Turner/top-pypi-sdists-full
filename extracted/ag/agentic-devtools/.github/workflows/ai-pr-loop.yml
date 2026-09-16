@@ -8,6 +8,9 @@ on:
       pr_number:
         required: true
         type: string
+      head_sha:
+        required: false
+        type: string
       trigger_reason:
         required: false
       operation_id:
@@ -36,9 +39,7 @@ jobs:
         with: {fetch-depth: 0, token: '${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}', persist-credentials: false}
       - name: Set up Python for cooldown gate
         uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
+        with: {python-version: '3.12', cache: 'pip'}
       - name: Bootstrap package for cooldown gate
         id: cooldown-bootstrap
         run: python -m pip install --disable-pip-version-check -q .
@@ -62,36 +63,38 @@ jobs:
           DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           PR_NUMBER_INPUT: ${{ github.event.inputs.pr_number }}
+          HEAD_SHA_INPUT: ${{ github.event.inputs.head_sha }}
         run: |
           set -euo pipefail
           pr_number="$PR_NUMBER_INPUT"
           [[ "$pr_number" =~ ^[0-9]+$ ]] || { echo "::error::workflow_dispatch input pr_number must be a numeric pull request number"; exit 1; }
-          echo "head_ref=$(gh pr view "$pr_number" --repo "${{ github.repository }}" --json headRefName --jq .headRefName)" >> "$GITHUB_OUTPUT"
-      - if: steps.cooldown-gate.outputs.cooldown_active != 'true'
+          pr_json="$(gh pr view "$pr_number" --repo "${{ github.repository }}" --json headRefName,headRefOid,state)"
+          pr_state="$(jq -r .state <<<"$pr_json")"
+          if [[ "$pr_state" != "OPEN" ]]; then
+            echo "::notice::PR #$pr_number is $pr_state; skipping loop execution."
+            echo "pr_open=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "pr_open=true" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$(jq -r .headRefName <<<"$pr_json")" >> "$GITHUB_OUTPUT"
+          live_head_sha="$(jq -r .headRefOid <<<"$pr_json")"
+          if [[ -n "$HEAD_SHA_INPUT" && "$HEAD_SHA_INPUT" != "$live_head_sha" ]]; then
+            echo "::warning::Dispatch head_sha $HEAD_SHA_INPUT is stale; using live PR head $live_head_sha"
+          fi
+          echo "head_sha=$live_head_sha" >> "$GITHUB_OUTPUT"
+      - if: steps.cooldown-gate.outputs.cooldown_active != 'true' && steps.dispatch-pr.outputs.pr_open == 'true'
         uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.dispatch-pr.outputs.head_ref }}
-          fetch-depth: 0
-          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
-      - if: steps.cooldown-gate.outputs.cooldown_active != 'true'
-        run: |
-          git config user.name "AMARSNIK_swica"
-          git config user.email "AMARSNIK_swica@users.noreply.github.com"
-      - if: steps.cooldown-gate.outputs.cooldown_active != 'true'
+        with: {ref: '${{ steps.dispatch-pr.outputs.head_ref }}', fetch-depth: 0, token: '${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}'}
+      - if: steps.cooldown-gate.outputs.cooldown_active != 'true' && steps.dispatch-pr.outputs.pr_open == 'true'
+        run: git config user.name "AMARSNIK_swica" && git config user.email "AMARSNIK_swica@users.noreply.github.com"
+      - if: steps.cooldown-gate.outputs.cooldown_active != 'true' && steps.dispatch-pr.outputs.pr_open == 'true'
         uses: astral-sh/setup-uv@v4
         continue-on-error: true
-        with:
-          version: "0.7 - 0.11"
-          enable-cache: true
-          cache-dependency-glob: 'pyproject.toml'
-      - if: steps.cooldown-gate.outputs.cooldown_active != 'true'
-        run: |
-          if command -v uv >/dev/null 2>&1; then
-            uv pip install --system .
-          else
-            python -m pip install --upgrade pip && python -m pip install .
-          fi
-      - if: steps.cooldown-gate.outputs.cooldown_active != 'true'
+        with: {version: "0.7 - 0.11", enable-cache: true, cache-dependency-glob: 'pyproject.toml'}
+      - if: steps.cooldown-gate.outputs.cooldown_active != 'true' && steps.dispatch-pr.outputs.pr_open == 'true'
+        continue-on-error: true
+        run: if command -v uv >/dev/null 2>&1; then uv pip install --system -e . || true; else python -m pip install -e . || true; fi
+      - if: steps.cooldown-gate.outputs.cooldown_active != 'true' && steps.dispatch-pr.outputs.pr_open == 'true'
         id: run-loop
         env:
           GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
@@ -104,11 +107,9 @@ jobs:
           AGDT_OPERATION_ID: ${{ inputs.operation_id }}
           TRIGGER_REASON: ${{ inputs.trigger_reason }}
         run: |
-          exit_code=0
-          set +e
+          exit_code=0; set +e
           agdt-ai-pr-loop
-          exit_code=$?
-          set -e
+          exit_code=$?; set -e
           echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
           if [[ "$exit_code" -eq 1 || "$exit_code" -eq 5 || "$exit_code" -eq 6 ]]; then
             echo "::notice::ai-pr-loop exited with control-flow code ${exit_code}; treating as non-fatal."
@@ -116,7 +117,7 @@ jobs:
           fi
           exit "$exit_code"
       - name: Dispatch AI PR Loop Redispatch
-        if: always()
+        if: always() && steps.run-loop.outputs.actions_executed == 'true'
         env:
           GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
@@ -130,16 +131,13 @@ jobs:
   scheduled-reconciliation:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with: {ref: '${{ github.event.repository.default_branch }}', token: '${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}', persist-credentials: false}
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+        with: {python-version: '3.12'}
       - run: python -m pip install .
-      -
-        run: agdt-ci-reconcile --workflow-id ai-pr-loop.yml --provider github --repo "${{ github.repository }}" --json-output
+      - run: agdt-ci-reconcile --workflow-id ai-pr-loop.yml --provider github --repo "${{ github.repository }}" --json-output
         env:
           GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}

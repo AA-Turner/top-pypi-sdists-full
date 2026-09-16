@@ -4,10 +4,14 @@ const fs = require('fs');
 const path = require('path');
 
 const SUPPORTED_LEVELS = new Set(['epic', 'feature', 'task']);
+const SUPPORTED_CLOUD_PHASES = new Set([1, 2, 3]);
 const HIERARCHY_LEVEL_PATTERN = /^level:[ \t]*(?:"([^"]*)"|'([^']*)'|([^#\n]*?))(?:[ \t]+#.*)?[ \t]*$/;
-const CLOUD_MARKER_PATTERN = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=(\d+) hierarchy=([^\s]+) correlation_id=([0-9a-fA-F-]+)\s*-->/;
+const CLOUD_MARKER_PATTERN = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=([1-3]) hierarchy=(epic|feature|task) correlation_id=([0-9a-fA-F-]+)\s*-->/;
 const CLOUD_AGENT_LOGINS = new Set(['copilot-swe-agent', 'copilot-swe-agent[bot]']);
 const TRUSTED_MARKER_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+const PHASE_LABEL_PATTERN = /^speckit:phase-([1-5])$/;
+const HIERARCHY_LABEL_PATTERN = /^speckit:level-(epic|feature|task)$/;
+const NORMALIZER_SUCCESS_PATTERN = /<!--\s*speckit:agent-pr-normalizer pr=(\d+) correlation_id=([0-9a-fA-F-]+|none)\s*-->/;
 function isCloudAgentLogin(login) {
   return typeof login === 'string' && CLOUD_AGENT_LOGINS.has(login.toLowerCase());
 }
@@ -19,6 +23,37 @@ function expectedCloudBaseRef(issueNumber, phase, hierarchyLevel) {
     return `speckit/${issueNumber}/phase-2-clarify`;
   }
   return 'main';
+}
+
+function parseCloudAgentMarker(body) {
+  return (body || '').match(CLOUD_MARKER_PATTERN);
+}
+
+function parsePhaseLabel(labels) {
+  return findFirstLabelMatch(labels, PHASE_LABEL_PATTERN);
+}
+
+function parseHierarchyLabels(labels) {
+  const matches = labels.map(label => label.match(HIERARCHY_LABEL_PATTERN)).filter(Boolean);
+  const levels = [...new Set(matches.map(match => match[1]))];
+  return levels.length === 1 ? levels[0] : '';
+}
+
+function getSuccessfulNormalization(comments, prNumber) {
+  const successMarker = comments.map(comment => {
+    const body = comment.body || '';
+    const match = body.match(NORMALIZER_SUCCESS_PATTERN);
+    return match
+      && Number(match[1]) === prNumber
+      && (comment.user?.login === 'github-actions[bot]' || comment.author_association === 'BOT')
+      ? { comment, phase: Number(body.match(/^- Phase: ([1-5])$/m)?.[1] || 0) }
+      : null;
+  }).find(Boolean);
+  return successMarker || null;
+}
+
+function hasSuccessfulNormalization(comments, prNumber) {
+  return Boolean(getSuccessfulNormalization(comments, prNumber));
 }
 
 function analyzeChangedFiles(changedFiles, labeledLevel, core) {
@@ -231,7 +266,7 @@ function extractIssueNumberFromPr(pr) {
     return parseInt(branchMatch[1], 10);
   }
   const body = pr.body || '';
-  const issueMatch = body.match(/Relates to #(\d+)/);
+  const issueMatch = body.match(/(?:Relates to|Closes) #(\d+)/i);
   return issueMatch ? parseInt(issueMatch[1], 10) : null;
 }
 
@@ -249,6 +284,83 @@ async function loadTrustedIssueMarkers(github, context, issueNumber) {
       return TRUSTED_MARKER_ASSOCIATIONS.has(entry.comment?.author_association || '');
     })
     .sort((a, b) => new Date(b.comment.created_at) - new Date(a.comment.created_at));
+}
+
+async function reconcileMergedPr({ github, context, core, pr }) {
+  const markerMatch = parseCloudAgentMarker(pr.body);
+  const labels = (pr.labels || []).map(label => label.name || '');
+  const phaseMatch = parsePhaseLabel(labels);
+  const issueReferenceMatch = (pr.body || '').match(/(?:Relates to|Closes) #(\d+)/i);
+  const branchMatch = (pr.head?.ref || '').match(/^speckit\/(\d+)\/phase-\d+-/);
+  const issueNumber = Number(markerMatch?.[1] || branchMatch?.[1] || issueReferenceMatch?.[1] || 0);
+  let phase = Number(markerMatch?.[2] || phaseMatch?.[1] || 0);
+  let level = (markerMatch?.[3] || parseHierarchyLabels(labels)).toLowerCase();
+  if (!phase) {
+    const comments = await github.paginate(github.rest.issues.listComments, {
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: pr.number,
+      per_page: 100,
+    });
+    phase = getSuccessfulNormalization(comments, pr.number)?.phase || 0;
+  }
+  if (!SUPPORTED_CLOUD_PHASES.has(phase)) {
+    core.warning(`Skipping label reconciliation for PR #${pr.number}: unsupported Cloud Agent phase ${phase}`);
+    return;
+  }
+
+  if (markerMatch) {
+    const trustedMarkers = await loadTrustedIssueMarkers(github, context, issueNumber);
+    const newestMarker = trustedMarkers.find(entry =>
+      Number(entry.match[1]) === issueNumber && Number(entry.match[2]) === phase
+    );
+    if (!newestMarker || newestMarker.match[0] !== markerMatch[0]) {
+      core.warning(`Skipping label reconciliation for PR #${pr.number}: cloud-agent marker is not authoritative`);
+      return;
+    }
+  }
+
+  if (issueNumber && !level) {
+    try {
+      const authoritative = await getAuthoritativeIssueLevel(github, context, issueNumber);
+      level = authoritative.level;
+    } catch (error) {
+      core.warning(`Could not resolve authoritative level for issue #${issueNumber}: ${error.message}`);
+    }
+  }
+
+  if (!issueNumber || !phase || !level) {
+    core.info(`No complete authoritative phase/level metadata to reconcile on PR #${pr.number}`);
+    return;
+  }
+
+  const requiredLabels = [`speckit:phase-${phase}`, `speckit:level-${level}`, 'speckit:spec'];
+  await github.rest.issues.addLabels({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    issue_number: pr.number,
+    labels: requiredLabels,
+  });
+  if (markerMatch) {
+    for (const label of labels) {
+      if (
+        (/^speckit:phase-\d+$/.test(label) && label !== `speckit:phase-${phase}`)
+        || (/^speckit:level-(epic|feature|task)$/.test(label) && label !== `speckit:level-${level}`)
+      ) {
+        try {
+          await github.rest.issues.removeLabel({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: pr.number,
+            name: label,
+          });
+        } catch (error) {
+          if (error.status !== 404) core.warning(`Could not remove stale label ${label}: ${error.message}`);
+        }
+      }
+    }
+  }
+  core.info(`Reconciled phase and level labels on merged PR #${pr.number}`);
 }
 
 function collectSpecDirectoriesForIssue(specsRoot, issueNumberText) {
@@ -350,9 +462,16 @@ async function run({ github, context, core, workflowDispatchPhase, workflowDispa
     return;
   }
 
-  const pr = context.payload.pull_request;
-  const labels = pr.labels.map(label => label.name);
-  const cloudMarkerMatch = (pr.body || '').match(CLOUD_MARKER_PATTERN);
+  let pr = context.payload.pull_request;
+  if (github.rest.pulls?.get && pr?.number) {
+    pr = (await github.rest.pulls.get({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: pr.number,
+    })).data;
+  }
+  const labels = (pr.labels || []).map(label => label.name);
+  const cloudMarkerMatch = parseCloudAgentMarker(pr.body);
   let trustedCloudMarker = null;
   if (cloudMarkerMatch && isCloudAgentLogin(pr.user?.login)) {
     const markerIssue = parseInt(cloudMarkerMatch[1], 10);
@@ -386,22 +505,32 @@ async function run({ github, context, core, workflowDispatchPhase, workflowDispa
     }
   }
   const completedPhaseMatch = findFirstLabelMatch(labels, /^speckit:phase-(\d+)$/);
+  let normalizationSuccess = null;
+  if (!completedPhaseMatch && /^copilot\/.+/.test(pr.head?.ref || '') && pr.number) {
+    const comments = await github.paginate(github.rest.issues.listComments, {
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: pr.number,
+      per_page: 100,
+    });
+    normalizationSuccess = getSuccessfulNormalization(comments, pr.number);
+  }
   let completedPhase = 0;
   if (completedPhaseMatch) {
     completedPhase = parseInt(completedPhaseMatch[1], 10);
   } else if (trustedCloudMarker) {
     completedPhase = trustedCloudMarker.phase;
     core.info(`No speckit:phase-N label found; using validated cloud-agent marker phase ${completedPhase}`);
+  } else if (normalizationSuccess?.phase) {
+    completedPhase = normalizationSuccess.phase;
+    core.info(`No speckit:phase-N label found; using successful normalizer phase ${completedPhase}`);
   } else {
     core.setFailed('Could not extract phase number from PR labels or cloud-agent marker');
     return;
   }
   const nextPhase = completedPhase + 1;
-  const hierarchyLabelMatches = labels
-    .map(l => l.match(/^speckit:level-(epic|feature|task)$/))
-    .filter(Boolean);
-  const distinctHierarchyLevels = [...new Set(hierarchyLabelMatches.map(m => m[1]))];
-  const labeledLevel = distinctHierarchyLevels.length === 1 ? distinctHierarchyLevels[0] : '';
+  const hierarchyLabelMatches = labels;
+  const labeledLevel = parseHierarchyLabels(hierarchyLabelMatches);
   const issueNumberFromBranchOrBody = trustedCloudMarker ? trustedCloudMarker.issueNumber : extractIssueNumberFromPr(pr);
   const { level: authoritativeLevel, succeeded: authReadSucceeded } = await getAuthoritativeIssueLevel(
     github,
@@ -533,11 +662,40 @@ async function run({ github, context, core, workflowDispatchPhase, workflowDispa
 
   const headRef = pr.head.ref || '';
   const speckitBranchPattern = /^speckit\/\d+\/phase-\d+-/;
+  const normalizedCopilotBranch = /^copilot\/.+/.test(headRef);
+  const hasIssueMetadata = Number.isInteger(issueNumberFromBranchOrBody) && issueNumberFromBranchOrBody > 0;
   let issueNumber;
   if (!speckitBranchPattern.test(headRef)) {
     if (trustedCloudMarker) {
       issueNumber = trustedCloudMarker.issueNumber;
       core.info(`Using validated cloud-agent marker for issue #${issueNumber} from non-speckit head '${headRef}'`);
+    } else if (
+      normalizedCopilotBranch
+      && completedPhase > 0
+      && hasIssueMetadata
+      && pr.base?.ref === expectedCloudBaseRef(issueNumberFromBranchOrBody, completedPhase, labeledLevel)
+    ) {
+      const comments = normalizationSuccess
+        ? [normalizationSuccess.comment]
+        : await github.paginate(github.rest.issues.listComments, {
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: pr.number,
+          per_page: 100,
+        });
+      const hasFailedLabel = labels.includes('speckit:failed');
+      if (!hasFailedLabel && hasSuccessfulNormalization(comments, pr.number)) {
+        issueNumber = issueNumberFromBranchOrBody;
+        core.info(`Using normalized Copilot branch '${headRef}' for issue #${issueNumber}`);
+      } else {
+        core.warning(`Skipping Copilot fallback for PR #${pr.number}: normalization did not succeed`);
+        core.setOutput('next_phase', '0');
+        core.setOutput('issue_number', '0');
+        core.setOutput('completed_phase', '0');
+        core.setOutput('next_phase_name', '');
+        core.setOutput('merged_pr_url', '');
+        return;
+      }
     } else {
       core.warning(
         `Branch '${headRef}' does not match expected speckit/<issue>/phase-<N>-* pattern. ` +
@@ -562,7 +720,7 @@ async function run({ github, context, core, workflowDispatchPhase, workflowDispa
       core.info(`Extracted issue number from validated cloud-agent marker: ${issueNumber}`);
     } else {
       const body = pr.body || '';
-      const issueMatch = body.match(/Relates to #(\d+)/);
+      const issueMatch = body.match(/(?:Relates to|Closes) #(\d+)/i);
       if (!issueMatch) {
         core.setFailed('Could not extract issue number from branch name or PR body');
         return;
@@ -598,5 +756,11 @@ module.exports = {
   parseHierarchyLevel,
   resolveValidatedHierarchyLevel,
   resolveHierarchyLevelFromWorkspace,
+  hasSuccessfulNormalization,
+  getSuccessfulNormalization,
+  parseCloudAgentMarker,
+  parseHierarchyLabels,
+  parsePhaseLabel,
+  reconcileMergedPr,
   run,
 };

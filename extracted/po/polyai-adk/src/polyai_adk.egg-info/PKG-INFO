@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polyai-adk
-Version: 0.57.0
+Version: 0.59.0
 Summary: Agent Development Kit (ADK) — a CLI for managing Agent Studio projects locally
 License: Apache-2.0
 Requires-Python: >=3.14.0
@@ -60,6 +60,7 @@ Once installed, use the `poly` command to manage your projects:
 
 ```bash
 poly setup      # Set up everything: account, API key, AI skills, and a project
+poly apikey --region studio     # Get an API key for the PolyAI APIs / Dialog RSN
 poly init       # Initialize a project
 poly project    # Manage poly projects
 poly pull       # Pull latest configuration

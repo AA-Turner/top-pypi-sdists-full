@@ -64,6 +64,9 @@ class SquashAction:
     Idempotency: Already 1 commit → skip.
     """
 
+    may_invalidate_snapshot = True
+    preserves_diff_fingerprint = True
+
     @property
     def name(self) -> str:
         return "squash"
@@ -177,6 +180,8 @@ class SquashAction:
             )
         except Exception as exc:
             if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
+                setattr(exc, "invalidates_snapshot", True)
+                setattr(exc, "preserves_diff_fingerprint", True)
                 raise
             logger.error("PR #%d: Squash failed: %s", snapshot.pr_number, exc)
             return ActionResult(
@@ -184,6 +189,8 @@ class SquashAction:
                 decision=ActionDecision.FAILED,
                 error=str(exc),
                 details="squash_post_repair failed",
+                invalidates_snapshot=True,
+                preserves_diff_fingerprint=True,
             )
 
         logger.info("PR #%d: Squashed commits", snapshot.pr_number)
@@ -222,4 +229,5 @@ class SquashAction:
             decision=ActionDecision.EXECUTE,
             details=f"Squashed {snapshot.commit_count} commits into 1",
             invalidates_snapshot=True,
+            preserves_diff_fingerprint=True,
         )

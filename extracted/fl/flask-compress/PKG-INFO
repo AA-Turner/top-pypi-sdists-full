@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-Compress
-Version: 1.24
+Version: 1.25
 Summary: Compress responses in your Flask app with gzip, deflate, brotli or zstandard.
 Home-page: https://github.com/colour-science/flask-compress
 Author: Thomas Mansencal
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content

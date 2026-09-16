@@ -13,6 +13,8 @@
 
 import decimal
 import six
+from enum import Enum
+
 
 STRING_TYPES = (six.text_type,)
 BINARY_TYPES = (bytes, bytearray)
@@ -181,10 +183,20 @@ SDK_DEFAULT_BASE_DELAY_MS = 100
 SDK_DEFAULT_THROTTLED_BASE_DELAY_MS = 500
 
 
-class IpDiscoveryValues:
+class IpDiscovery(Enum):
     NONE = None
     IPV4 = 'ipv4'
     IPV6 = 'ipv6'
 
 
-VALID_IP_DISCOVERY_VALUES = [IpDiscoveryValues.NONE, IpDiscoveryValues.IPV4, IpDiscoveryValues.IPV6]
+VALID_IP_DISCOVERY_VALUES = [member.value for member in IpDiscovery]
+
+
+class OperationType(str, Enum):
+    READ = 'READ'
+    WRITE = 'WRITE'
+
+
+class Role(int, Enum):
+    LEADER = 1
+    REPLICA = 2

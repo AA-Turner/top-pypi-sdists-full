@@ -1,17 +1,17 @@
 Metadata-Version: 2.5
 Name: vercel-queue
-Version: 0.8.1
+Version: 0.9.0
 Summary: Vercel Queue client for Python
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4.0.0
-Requires-Dist: httpx[http2]>=0.27.0
+Requires-Dist: httpx2[http2]>=2
 Requires-Dist: python-multipart>=0.0.20
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: vercel-headers>=0.7.2
-Requires-Dist: vercel-internal-core<0.2.0,>=0.1.3
-Requires-Dist: vercel-oidc>=0.8.1
+Requires-Dist: vercel-internal-core<0.3.0,>=0.2.0
+Requires-Dist: vercel-oidc>=0.9.0
 Provides-Extra: devserver
 Requires-Dist: uvicorn; extra == 'devserver'
 Provides-Extra: trio
@@ -324,6 +324,8 @@ custom queue service URLs, create a `QueueClient` explicitly:
 
 ```python
 # explicit_client.py
+import httpx2
+
 from vercel.queue import ALL_DEPLOYMENTS, QueueClient
 
 queue = QueueClient(
@@ -337,6 +339,12 @@ queue = QueueClient(
 
 await queue.send("my-topic", {"message": "Hello world"})
 ```
+
+HTTPX2 is the default and the only HTTPX family installed by the SDK. For
+migration, an application that explicitly installs legacy `httpx` may return a
+complete `httpx.Client` or `httpx.AsyncClient` from `http_client_factory`.
+Legacy transport objects must remain inside a legacy client; they cannot be
+mounted in an `httpx2.Client`.
 
 By default queue clients send requests to `https://<region>.vercel-queue.com/`. A custom endpoint
 can be configured by passing a `base_url` keyword argument to the client constructor. The value

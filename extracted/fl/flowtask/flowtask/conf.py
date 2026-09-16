@@ -264,6 +264,13 @@ ERROR_CHANNEL = config.get("ERROR_CHANNEL", fallback="FLOWTASK:FAILED:TASKS")
 
 # Executor configuration:
 DEFAULT_EXECUTOR = config.get("DEFAULT_EXECUTOR", fallback="local")
+# NextTask continuations (FEAT-555):
+# Maximum number of entries allowed in a chain lineage before a hop is refused.
+NEXTTASK_MAX_DEPTH: int = config.getint("NEXTTASK_MAX_DEPTH", fallback=10)
+# Seconds a staged chain payload survives in Redis before it expires.
+NEXTTASK_EXCHANGE_TTL: int = config.getint("NEXTTASK_EXCHANGE_TTL", fallback=3600)
+# Key namespace for staged chain payloads: <prefix>:<origin_task_id>:<hop_index>
+NEXTTASK_EXCHANGE_PREFIX: str = config.get("NEXTTASK_EXCHANGE_PREFIX", fallback="flowtask:chain")
 DOCKER_IMAGE = config.get("DOCKER_IMAGE", fallback="flowtask:latest")
 K8S_NAMESPACE = config.get("K8S_NAMESPACE", fallback="default")
 ALLOW_RESCHEDULE = config.getboolean("ALLOW_RESCHEDULE", fallback=False)

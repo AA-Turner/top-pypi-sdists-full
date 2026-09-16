@@ -25,6 +25,7 @@
 #include <tvm/ffi/container/map.h>
 #include <tvm/ffi/device.h>
 #include <tvm/ffi/dtype.h>
+#include <tvm/ffi/extra/structural_mutate.h>
 #include <tvm/ffi/extra/structural_visit.h>
 #include <tvm/ffi/memory.h>
 #include <tvm/ffi/object.h>
@@ -234,6 +235,61 @@ class TPair : public ObjectRef {
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NULLABLE(TPair, ObjectRef, TPairObj);
 };
 
+class TMutatePairObj : public Object {
+ public:
+  ObjectRef lhs;
+  ObjectRef rhs;
+
+  TMutatePairObj(ObjectRef lhs, ObjectRef rhs) : lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+  explicit TMutatePairObj(UnsafeInit) {}
+
+  // Every test that reads this process-global counter must reset it first.
+  static int& StructuralMutateCallCount() {
+    static int count = 0;
+    return count;
+  }
+
+  static TVMFFIAny StructuralMutate(StructuralMutatorObj* mutator, AnyView value) noexcept {
+    ++StructuralMutateCallCount();
+    const TMutatePairObj* self =
+        details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TMutatePairObj>(value);
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(UnchangedOr<ObjectRef>, lhs,
+                                      mutator->MutateExpected(self->lhs));
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(UnchangedOr<ObjectRef>, rhs,
+                                      mutator->MutateExpected(self->rhs));
+    if (lhs.UnchangedOrSameAs(self->lhs) && rhs.UnchangedOrSameAs(self->rhs)) {
+      return Unchanged().CopyToTVMFFIAny();
+    }
+    ObjectPtr<TMutatePairObj> copy = make_object<TMutatePairObj>(*self);
+    copy->lhs = std::move(lhs).ValueOrUnchanged(std::move(copy->lhs));
+    copy->rhs = std::move(rhs).ValueOrUnchanged(std::move(copy->rhs));
+    return details::AnyUnsafe::MoveAnyToTVMFFIAny(Any(std::move(copy)));
+  }
+
+  static void RegisterReflection() {
+    namespace refl = tvm::ffi::reflection;
+    refl::ObjectDef<TMutatePairObj>()
+        .def_ro("lhs", &TMutatePairObj::lhs)
+        .def_ro("rhs", &TMutatePairObj::rhs);
+    refl::EnsureTypeAttrColumn(refl::type_attr::kStructuralMutate);
+    refl::TypeAttrDef<TMutatePairObj>().attr(
+        refl::type_attr::kStructuralMutate,
+        reinterpret_cast<void*>(static_cast<FStructuralMutate>(&TMutatePairObj::StructuralMutate)));
+  }
+
+  static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.MutatePair", TMutatePairObj, Object);
+};
+
+class TMutatePair : public ObjectRef {
+ public:
+  TMutatePair(ObjectRef lhs, ObjectRef rhs) {
+    data_ = make_object<TMutatePairObj>(std::move(lhs), std::move(rhs));
+  }
+
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NULLABLE(TMutatePair, ObjectRef, TMutatePairObj);
+};
+
 class TObjectPtrHolderObj : public Object {
  public:
   Arc<TIntObj> value;
@@ -272,7 +328,7 @@ class TObjectPtrHolder : public ObjectRef {
 // FreeVar test object that has a sub-field referencing another FreeVar.
 // This models the "var with nested vars" case (analogous to a relax::Var
 // whose struct_info contains tir shape vars). It is used to exercise the
-// difference between SEqHashDefRecursive and SEqHashDefNonRecursive at the
+// difference between SEqHashDefPattern and SEqHashDefSimple at the
 // FFI layer: under recursive semantics the nested ``dep`` var rebinds
 // transitively; under non-recursive semantics it is treated as a use of an
 // outer-scope binding and equality fails when no such outer binding exists.
@@ -326,9 +382,9 @@ class TDefHolderObj : public Object {
     namespace refl = tvm::ffi::reflection;
     refl::ObjectDef<TDefHolderObj>()
         .def_ro("def_recursive", &TDefHolderObj::def_recursive,
-                refl::AttachFieldFlag::SEqHashDefRecursive())
+                refl::AttachFieldFlag::SEqHashDefPattern())
         .def_ro("def_non_recursive", &TDefHolderObj::def_non_recursive,
-                refl::AttachFieldFlag::SEqHashDefNonRecursive());
+                refl::AttachFieldFlag::SEqHashDefSimple());
   }
 
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
@@ -359,15 +415,17 @@ class TFuncObj : public Object {
     const auto* self = value.cast<const TFuncObj*>();
 
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->WithDefRegionKind(
-        kTVMFFIDefRegionKindRecursive, [&]() { return visitor->VisitExpected(self->params); }));
+        kTVMFFIDefRegionKindPattern, [&]() { return visitor->VisitExpected(self->params); }));
 
-    return details::ExpectedUnsafe::MoveToTVMFFIAny(visitor->VisitExpected(self->body));
+    auto body_result = visitor->VisitExpected(self->body);
+    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(body_result);
+    return details::ExpectedUnsafe::MoveToTVMFFIAny(std::move(body_result));
   }
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
     refl::ObjectDef<TFuncObj>()
-        .def_ro("params", &TFuncObj::params, refl::AttachFieldFlag::SEqHashDefRecursive())
+        .def_ro("params", &TFuncObj::params, refl::AttachFieldFlag::SEqHashDefPattern())
         .def_ro("body", &TFuncObj::body)
         .def_ro("comment", &TFuncObj::comment, refl::AttachFieldFlag::SEqHashIgnore());
     refl::EnsureTypeAttrColumn(refl::type_attr::kStructuralVisit);

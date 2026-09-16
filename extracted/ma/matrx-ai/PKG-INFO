@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: matrx-ai
-Version: 0.5.311
+Version: 0.5.326
 Summary: Unified multi-provider AI client, orchestration, and tool system
 Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
 Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
@@ -31,13 +31,13 @@ Requires-Dist: google-genai>=1.75.0
 Requires-Dist: groq>=1.2.0
 Requires-Dist: httpx
 Requires-Dist: json-repair
-Requires-Dist: matrx-assignment>=0.1.19
-Requires-Dist: matrx-connect>=0.1.102
-Requires-Dist: matrx-files>=0.2.163
-Requires-Dist: matrx-graph>=0.2.163
-Requires-Dist: matrx-runtime>=0.0.99
-Requires-Dist: matrx-scraper[browser]>=0.2.205
-Requires-Dist: matrx-utils>=2.0.41
+Requires-Dist: matrx-assignment>=0.1.20
+Requires-Dist: matrx-connect>=0.1.108
+Requires-Dist: matrx-files>=0.2.169
+Requires-Dist: matrx-graph>=0.2.168
+Requires-Dist: matrx-runtime>=0.0.103
+Requires-Dist: matrx-scraper[browser]>=0.2.214
+Requires-Dist: matrx-utils>=2.0.42
 Requires-Dist: numpy>=2.0
 Requires-Dist: openai>=2.35.1
 Requires-Dist: pathspec>=1.0.0
@@ -156,6 +156,8 @@ matrx_ai.configure(
 ```
 
 This is the reference implementation of the "capability-within, injection-without" pattern used throughout the Matrx family — the package stores injected values in a module-level `_ext` registry; feature code retrieves them at call time via `get_ext("…")`. `import matrx_ai` always works in a minimal environment; only features that need a specific injection will raise if it's missing.
+
+For a client host, `get_jwt` may be a synchronous or asynchronous zero-argument provider. `matrx-ai` resolves it at each authenticated server request and does not cache its result. Once a host configures that provider, a failure or missing token refuses the authenticated request instead of falling back to anonymous access. Without a provider, the public tool-catalog fetch remains unauthenticated.
 
 ## Dependency posture
 

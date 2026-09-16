@@ -10,12 +10,7 @@
 # an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-
 import logging
-
-from .Cluster import Cluster
-from .RequestValidator import RequestValidator
-from .RetryHandler import RetryHandler
 
 import botocore.session
 from botocore.client import Config, ClientMeta
@@ -23,8 +18,15 @@ from botocore.credentials import Credentials
 from botocore.model import ServiceModel
 from botocore.exceptions import PartialCredentialsError
 from botocore.hooks import first_non_none_response
-from .Constants import VALID_IP_DISCOVERY_VALUES, PY_TO_OP_NAME
-from .DaxError import DaxValidationError
+
+from .Cluster import Cluster
+from .Constants import PY_TO_OP_NAME, VALID_IP_DISCOVERY_VALUES, OperationType
+from .DaxError import is_io_exception, DaxValidationError
+from .RequestValidator import RequestValidator
+from .RetryHandler import RetryHandler
+from .router.Router import Router
+from .router.RouterWithCB import RouterWithCB
+
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +105,8 @@ class AmazonDaxClient(object):
                  use_ssl=None, verify=None, endpoint_url=None,
                  aws_access_key_id=None, aws_secret_access_key=None,
                  aws_session_token=None, config=None, endpoints=None,
-                 skip_hostname_verification=None, ip_discovery=None):
+                 skip_hostname_verification=None, ip_discovery=None,
+                 is_route_manager_enabled=True):
         if session is None:
             session = botocore.session.get_session()
         else:
@@ -178,6 +181,11 @@ class AmazonDaxClient(object):
             )
         self._ip_discovery = ip_discovery
 
+        # Get router factory and retryable request method
+        self._router_factory = RouterWithCB if is_route_manager_enabled else Router
+        self._retryable_request = self._retryable_request_circuit_breaker if is_route_manager_enabled \
+            else self._retryable_request_standard
+
         # Fake out the meta information as much as possible
         loader = session.get_component('data_loader')
         json_model = loader.load_service_model(
@@ -202,7 +210,8 @@ class AmazonDaxClient(object):
                                 self._client_config.connect_timeout,
                                 self._client_config.read_timeout,
                                 self._skip_hostname_verification,
-                                ip_discovery=self._ip_discovery)
+                                ip_discovery=self._ip_discovery,
+                                router_factory=self._router_factory)
         self._cluster.start()
 
     def close(self):
@@ -262,15 +271,51 @@ class AmazonDaxClient(object):
     # vvv Internal Methods vvv
 
     def _read_request(self, op_name, **kwargs):
-        rclient = self._cluster.read_client()
-        return self._retryable_request(rclient, op_name, **kwargs)
+        client_factory = self._cluster.read_client
+        return self._retryable_request(
+            client_factory, op_name, op_type=OperationType.READ, **kwargs,
+        )
 
     def _write_request(self, op_name, **kwargs):
-        wclient = self._cluster.write_client()
-        return self._retryable_request(wclient, op_name, **kwargs)
+        client_factory = self._cluster.write_client
+        return self._retryable_request(client_factory, op_name, **kwargs)
 
-    def _retryable_request(self, client, op_name, **kwargs):
-        action = getattr(client, op_name)
+    def _retryable_request_circuit_breaker(self, client_factory, op_name, **kwargs):
+        ''' Attempts executing a request using a retry handler based on
+        the values from the client configuration.
+
+        Calls client success and failure handles (only for I/O exceptions)
+        if route manager is enabled.
+        '''
+        retryer = RetryHandler(self._client_config, self._cluster)
+        op_type = kwargs.pop('op_type', None)
+        while True:
+            dax_client = client_factory()
+            action = getattr(dax_client, op_name)
+
+            try:
+                response = self._do_request(action, op_name, **kwargs)
+            except Exception as e: # pylint: disable=broad-except
+                if op_type == OperationType.READ and is_io_exception(e):
+                    dax_client.on_operation_failure()
+                if retryer.can_retry(e):
+                    retryer.pause_before_retry(e)
+                    continue
+
+                raise e
+
+            if op_type == OperationType.READ:
+                dax_client.on_operation_success()
+
+            return response
+
+    def _retryable_request_standard(self, client_factory, op_name, **kwargs):
+        ''' Attempts executing a request using a retry handler based on
+        the values from the client configuration.
+        '''
+        dax_client = client_factory()
+        kwargs.pop('op_type', None)
+        action = getattr(dax_client, op_name)
         retryer = RetryHandler(self._client_config, self._cluster)
         while True:
             response = None

@@ -32,11 +32,18 @@ from geneva.db import Connection, dataset_uses_stable_row_ids
 from geneva.packager import UDFPackager, UDFSpec
 from geneva.transformer import BACKFILL_SELECTED, UDF
 from geneva.utils.arrow import batch_add_column
-from geneva.utils.schema import canonical_field_paths, resolve_arrow_field_path
+from geneva.utils.schema import (
+    canonical_field_paths,
+    format_field_path,
+    parse_field_path,
+    resolve_arrow_field_path,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
     from lancedb.expr import Expr
+
+    from geneva.apply.blob_range import BlobV2Materialization
 
     # The shapes lancedb accepts for ``Query.columns``.
     QueryColumns: TypeAlias = (
@@ -45,6 +52,7 @@ if TYPE_CHECKING:
 
 _INTERNAL_ROW_ID_SCAN_BATCH_SIZE = 4096
 _VIRTUAL_COLUMN_META_FLAG = "virtual_column"
+_FILTER_BLOB_COLUMN_PREFIX = "__geneva_filter_blob_"
 
 
 def _close_iterator(iterator: object) -> None:
@@ -87,20 +95,13 @@ def _columns_to_str_dict(
 
 
 def _has_nested_blob(fields: "Iterator[pa.Field] | list[pa.Field]") -> bool:
-    """Return True if any field has ``lance-encoding:blob`` metadata below
-    the top level (e.g. on a struct child).
-
-    The top-level blob path uses :meth:`LanceDataset.take_blobs`, which only
-    accepts top-level column names. Nested blob fields must instead be
-    materialized inline by the scanner via ``blob_handling="all_binary"``.
-    """
+    """Return whether the schema has a nested v1 blob."""
+    from geneva.apply.blob_range import is_blob_field, is_blob_v2_field
 
     def walk(field: pa.Field, depth: int) -> bool:
-        if (
-            depth > 0
-            and field.metadata
-            and field.metadata.get(b"lance-encoding:blob") == b"true"
-        ):
+        if is_blob_v2_field(field):
+            return False
+        if depth > 0 and is_blob_field(field):
             return True
         if pa.types.is_struct(field.type):
             return any(
@@ -110,6 +111,73 @@ def _has_nested_blob(fields: "Iterator[pa.Field] | list[pa.Field]") -> bool:
         return False
 
     return any(walk(f, 0) for f in fields)
+
+
+def _scan_projection_covers_path(
+    columns: list[str] | dict[str, str] | None, path: str
+) -> bool:
+    if columns is None:
+        return True
+    names = columns if isinstance(columns, list) else list(columns.values())
+    if path in names:
+        return True
+    want = _try_parse_field_path(path)
+    if want is None:
+        return False
+    for name in names:
+        have = _try_parse_field_path(name)
+        if have is not None and want[: len(have)] == have:
+            return True
+    return False
+
+
+def _extra_filter_v2_scan_columns(
+    columns: list[str] | dict[str, str] | None,
+    where: str | None,
+    schema: pa.Schema,
+) -> list[str]:
+    from geneva.apply.blob_range import referenced_v2_paths
+
+    return [
+        path
+        for path in sorted(referenced_v2_paths(where, schema))
+        if not _scan_projection_covers_path(columns, path)
+    ]
+
+
+def _next_filter_blob_alias(columns: dict[str, str], start: int) -> str:
+    index = start
+    while True:
+        alias = f"{_FILTER_BLOB_COLUMN_PREFIX}{index}"
+        if alias not in columns:
+            return alias
+        index += 1
+
+
+def _append_filter_v2_scan_columns(
+    columns: list[str] | dict[str, str],
+    paths: list[str],
+) -> tuple[list[str] | dict[str, str], list[str]]:
+    """Add filter-only v2 fields without colliding with user aliases."""
+    if isinstance(columns, list):
+        extra = [path for path in paths if path not in columns]
+        return columns + extra, extra
+    extra_names: list[str] = []
+    out = dict(columns)
+    for path in paths:
+        if path in columns.values():
+            continue
+        alias = _next_filter_blob_alias(out, len(extra_names))
+        out[alias] = path
+        extra_names.append(alias)
+    return out, extra_names
+
+
+def _drop_named_columns(batch: pa.RecordBatch, names: list[str]) -> pa.RecordBatch:
+    for name in names:
+        if name in batch.schema.names:
+            batch = batch.remove_column(batch.schema.get_field_index(name))
+    return batch
 
 
 def _resolve_field(schema: pa.Schema, name: str) -> pa.Field:
@@ -672,6 +740,10 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
         else:
             fields = list(schema)
 
+        from geneva.apply.blob_range import field_with_blob_v2_as_bytes
+
+        fields = [field_with_blob_v2_as_bytes(field) for field in fields]
+
         if self._column_udfs is not None:
             for output_name, (udf, output_index) in self._column_udfs.items():
                 fields.insert(
@@ -708,22 +780,34 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
     ) -> pa.RecordBatchReader:
         schema_no_meta = self._schema_for_query(include_metacols=False)
 
-        # Collect top-level blob columns. These are materialized via
-        # ``dataset.take_blobs`` so UDFs receive ``BlobFile`` objects.
+        from geneva.apply.blob_range import (
+            blob_v2_field_paths,
+            is_blob_field,
+            is_blob_v2_field,
+            iter_blob_v2_payload_batches,
+            referenced_v2_paths,
+        )
+
+        projected_fields = list(schema_no_meta)
+        v2_paths = blob_v2_field_paths(pa.schema(projected_fields))
+        nested_v2_set = {path for path in v2_paths if len(parse_field_path(path)) > 1}
+        v2_top_level = [
+            path for path in sorted(v2_paths) if len(parse_field_path(path)) == 1
+        ]
         blob_columns: dict[str, int] = {
             f.name: idx
-            for idx, f in enumerate(schema_no_meta)
-            if f.metadata and f.metadata.get(b"lance-encoding:blob") == b"true"
+            for idx, f in enumerate(projected_fields)
+            if is_blob_field(f)
+            and not is_blob_v2_field(f)
+            and f.name not in nested_v2_set
+            and f.name not in v2_top_level
         }
-        # Nested blob fields (e.g. ``image.image_bytes``) are not addressable
-        # by ``take_blobs`` in current Lance. Ask the scanner to inline them
-        # as ``large_binary`` so the in-memory schema matches the declared
-        # schema and downstream carry-forward merges succeed.
-        nested_blob = _has_nested_blob(list(schema_no_meta))
+        nested_blob = _has_nested_blob(projected_fields)
 
         base_query = super().to_query_object()
         base_query.columns = normalize_query_columns(base_query.columns)
         orig_filter = base_query.filter
+        filter_sql = None if orig_filter is None else _expr_to_str(orig_filter)
 
         # Enforce row_id if we need blobs or where-as-column
         if blob_columns or (self._with_where_as_bool_column and orig_filter):
@@ -771,6 +855,18 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
         dataset: LanceDataset = open_read_dataset(
             self._table, version=self._read_version
         )
+        scan_columns = _columns_to_str_dict(base_query.columns)
+        v2_materializations = _plan_blob_v2_materializations(
+            scan_columns, dataset.schema
+        )
+        extra_filter_v2_columns = _extra_filter_v2_scan_columns(
+            scan_columns, filter_sql, dataset.schema
+        )
+        filter_projection_aliases: list[str] = []
+        if extra_filter_v2_columns and scan_columns is not None:
+            scan_columns, filter_projection_aliases = _append_filter_v2_scan_columns(
+                scan_columns, extra_filter_v2_columns
+            )
         fragments = (
             [dataset.get_fragment(fid) for fid in self._fragment_ids]
             if self._fragment_ids
@@ -812,8 +908,12 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
                 frag_ids: set[int] | None = None
                 if self._with_where_as_bool_column and orig_filter:
                     frag_ids = set()
+                    id_columns = [
+                        "_rowid",
+                        *sorted(referenced_v2_paths(filter_sql, dataset.schema)),
+                    ]
                     id_scan = dataset.scanner(
-                        columns=["_rowid"],
+                        columns=id_columns,
                         with_row_id=True,
                         filter=orig_filter,
                         fragments=[frag],
@@ -857,9 +957,10 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
                 # above for the rationale). Multi-fragment queries leave
                 # them off and apply offset/limit below.
                 scanner_kwargs: dict[str, Any] = {
-                    "columns": _columns_to_str_dict(base_query.columns),
+                    "columns": scan_columns,
                     "with_row_id": base_query.with_row_id,
-                    "with_row_address": self._with_row_address,
+                    "with_row_address": self._with_row_address
+                    or bool(v2_materializations),
                     "filter": scan_filter,
                     "batch_size": batch_size,
                     "fragments": [frag],
@@ -874,122 +975,152 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
                 main_batches = main_scan.to_batches()
                 try:
                     for batch in main_batches:
-                        # blob injection. Skipped when ``blob_handling="all_binary"``
-                        # is active: Lance has already materialized every blob in
-                        # the projection inline as ``large_binary``, so calling
-                        # ``take_blobs`` would overwrite real bytes with
-                        # ``BlobFile`` handles.
-                        if blob_columns and not nested_blob:
-                            rowid_list = batch["_rowid"].to_pylist()  # type: ignore[index]
-                            ids = [int(rid) for rid in rowid_list if rid is not None]
-                            for col_name in blob_columns:
-                                if hasattr(batch, "to_pylist"):
-                                    rows = cast(
-                                        "list[dict[str, Any]]",
-                                        batch.to_pylist(),  # type: ignore[attr-defined]
+                        for payload_batch in iter_blob_v2_payload_batches(
+                            dataset, batch, v2_materializations
+                        ):
+                            if (
+                                v2_materializations
+                                and not self._with_row_address
+                                and "_rowaddr" in payload_batch.schema.names
+                            ):
+                                payload_batch = payload_batch.remove_column(
+                                    payload_batch.schema.get_field_index("_rowaddr")
+                                )
+                            if filter_projection_aliases and isinstance(
+                                payload_batch, pa.RecordBatch
+                            ):
+                                payload_batch = _drop_named_columns(
+                                    payload_batch, filter_projection_aliases
+                                )
+                            # blob injection. Skipped when
+                            # ``blob_handling="all_binary"`` is active: Lance has
+                            # already materialized every blob in the projection
+                            # inline as ``large_binary``, so calling
+                            # ``take_blobs`` would overwrite real bytes with
+                            # ``BlobFile`` handles.
+                            if blob_columns and not nested_blob:
+                                rowid_list = payload_batch["_rowid"].to_pylist()  # type: ignore[index]
+                                ids = [
+                                    int(rid) for rid in rowid_list if rid is not None
+                                ]
+                                for col_name in blob_columns:
+                                    if hasattr(payload_batch, "to_pylist"):
+                                        rows = cast(
+                                            "list[dict[str, Any]]",
+                                            payload_batch.to_pylist(),  # type: ignore[attr-defined]
+                                        )
+                                    else:
+                                        rows = cast(
+                                            "list[dict[str, Any]]", payload_batch
+                                        )
+                                    try:
+                                        blob_files = dataset.take_blobs(
+                                            col_name, ids=ids
+                                        )
+                                        for elem, blob in zip(
+                                            rows, blob_files, strict=True
+                                        ):
+                                            elem[col_name] = blob  # type: ignore[index]
+                                    except ValueError:
+                                        # not blobfile? (maybe because null?)
+                                        # return Null.
+                                        for elem in rows:
+                                            elem[col_name] = None  # type: ignore[index]
+                                    payload_batch = rows
+                            # UDFs and drop UDF-only columns
+                            if self._column_udfs:
+                                for col_name, (
+                                    udf,
+                                    insert_idx,
+                                ) in self._column_udfs.items():
+                                    arr = udf(payload_batch)
+                                    if isinstance(payload_batch, pa.RecordBatch):
+                                        payload_batch = batch_add_column(
+                                            payload_batch,
+                                            insert_idx,
+                                            pa.field(col_name, arr.type),
+                                            arr,
+                                        )
+                                    # else: batch is a list (blob case)
+                                    # UDFs not supported
+                                # remove the extra_columns we only pulled for UDF inputs
+                                for drop_idx in reversed(added_columns):
+                                    if hasattr(payload_batch, "remove_column"):
+                                        payload_batch = payload_batch.remove_column(  # type: ignore[attr-defined]
+                                            drop_idx + len(self._column_udfs)
+                                        )
+
+                            # where-as-column mask
+                            if frag_ids is not None:
+                                if isinstance(payload_batch, list):
+                                    # blob case -- a list of dicts
+                                    ids = [row["_rowid"] for row in payload_batch]
+                                    mask = pa.array(
+                                        [rid in frag_ids for rid in ids], pa.bool_()
                                     )
+                                    for i, _row in enumerate(payload_batch):
+                                        payload_batch[i][BACKFILL_SELECTED] = mask[i]
+
                                 else:
-                                    rows = cast("list[dict[str, Any]]", batch)
-                                try:
-                                    blob_files = dataset.take_blobs(col_name, ids=ids)
-                                    for elem, blob in zip(
-                                        rows, blob_files, strict=True
-                                    ):
-                                        elem[col_name] = blob  # type: ignore[index]
-                                except ValueError:
-                                    # not blobfile? (maybe because null?) return Null.
-                                    for elem in rows:
-                                        elem[col_name] = None  # type: ignore[index]
-                                batch = rows
-                        # UDFs and drop UDF-only columns
-                        if self._column_udfs:
-                            for col_name, (
-                                udf,
-                                insert_idx,
-                            ) in self._column_udfs.items():
-                                arr = udf(batch)
-                                if isinstance(batch, pa.RecordBatch):
-                                    batch = batch_add_column(
-                                        batch,
-                                        insert_idx,
-                                        pa.field(col_name, arr.type),
-                                        arr,
+                                    # normal case - pa.RecordBatch
+                                    ids = payload_batch["_rowid"].to_pylist()
+                                    mask = pa.array(
+                                        [rid in frag_ids for rid in ids], pa.bool_()
                                     )
-                                # else: batch is a list (blob case) - UDFs not supported
-                            # remove the extra_columns we only pulled for UDF inputs
-                            for drop_idx in reversed(added_columns):
-                                if hasattr(batch, "remove_column"):
-                                    batch = batch.remove_column(  # type: ignore[attr-defined]
-                                        drop_idx + len(self._column_udfs)
+                                    field = pa.field(BACKFILL_SELECTED, pa.bool_())
+                                    payload_batch = batch_add_column(
+                                        payload_batch,
+                                        payload_batch.num_columns,
+                                        field,
+                                        mask,
                                     )
-                                else:
-                                    # Handle case where batch is a list
-                                    pass
 
-                        # where-as-column mask
-                        if frag_ids is not None:
-                            if isinstance(batch, list):
-                                # blob case -- a list of dicts
-                                ids = [row["_rowid"] for row in batch]
-                                mask = pa.array(
-                                    [rid in frag_ids for rid in ids], pa.bool_()
-                                )
-                                for i, _row in enumerate(batch):
-                                    batch[i][BACKFILL_SELECTED] = mask[i]
-
-                            else:
-                                # normal case - pa.RecordBatch
-                                ids = batch["_rowid"].to_pylist()
-                                mask = pa.array(
-                                    [rid in frag_ids for rid in ids], pa.bool_()
-                                )
-                                field = pa.field(BACKFILL_SELECTED, pa.bool_())
-                                batch = batch_add_column(
-                                    batch, batch.num_columns, field, mask
-                                )
-
-                        # Apply global offset/limit
-                        batch_len = (
-                            len(batch) if isinstance(batch, list) else batch.num_rows
-                        )
-
-                        # Handle offset until we've skipped global_offset rows.
-                        if rows_skipped < global_offset:
-                            skip_in_batch = min(batch_len, global_offset - rows_skipped)
-                            rows_skipped += skip_in_batch
-                            if skip_in_batch >= batch_len:
-                                # Skip entire batch
-                                continue
-                            # Slice batch to skip the first skip_in_batch rows
-                            if isinstance(batch, list):
-                                batch = batch[skip_in_batch:]
-                            else:
-                                batch = batch.slice(skip_in_batch)
                             batch_len = (
-                                len(batch)
-                                if isinstance(batch, list)
-                                else batch.num_rows
+                                len(payload_batch)
+                                if isinstance(payload_batch, list)
+                                else payload_batch.num_rows
                             )
 
-                        # Skip empty batches (can happen after offset slicing)
-                        if batch_len == 0:
-                            continue
-
-                        # Handle limit: only emit up to global_limit rows total
-                        if global_limit is not None:
-                            remaining = global_limit - rows_emitted
-                            if remaining <= 0:
-                                break
-                            if batch_len > remaining:
-                                # Slice batch to only emit remaining rows
-                                if isinstance(batch, list):
-                                    batch = batch[:remaining]
+                            if rows_skipped < global_offset:
+                                skip_in_batch = min(
+                                    batch_len, global_offset - rows_skipped
+                                )
+                                rows_skipped += skip_in_batch
+                                if skip_in_batch >= batch_len:
+                                    continue
+                                if isinstance(payload_batch, list):
+                                    payload_batch = payload_batch[skip_in_batch:]
                                 else:
-                                    batch = batch.slice(0, remaining)
-                                batch_len = remaining
+                                    payload_batch = payload_batch.slice(skip_in_batch)
+                                batch_len = (
+                                    len(payload_batch)
+                                    if isinstance(payload_batch, list)
+                                    else payload_batch.num_rows
+                                )
 
-                        rows_emitted += batch_len
-                        yield batch  # type: ignore[misc]
+                            if batch_len == 0:
+                                continue
+
+                            if global_limit is not None:
+                                remaining = global_limit - rows_emitted
+                                if remaining <= 0:
+                                    break
+                                if batch_len > remaining:
+                                    if isinstance(payload_batch, list):
+                                        payload_batch = payload_batch[:remaining]
+                                    else:
+                                        payload_batch = payload_batch.slice(
+                                            0, remaining
+                                        )
+                                    batch_len = remaining
+
+                            rows_emitted += batch_len
+                            yield payload_batch  # type: ignore[misc]
+                            if (
+                                global_limit is not None
+                                and rows_emitted >= global_limit
+                            ):
+                                break
                         if global_limit is not None and rows_emitted >= global_limit:
                             break
                 finally:
@@ -1060,24 +1191,21 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
         # change; the SRID-G06/G07 checks deliberately pin only the validator.
         source_has_stable_row_ids = dataset_uses_stable_row_ids(source_lance_ds)
 
+        # Pinned into MATVIEW_META_BASE_VERSION below; read once so the warning
+        # names exactly the version the refresh guard will accept.
+        base_version = source_tbl.version
+
         if not source_has_stable_row_ids:
             warnings.warn(
-                f"Creating materialized view from table '{source_tbl.name}' "
-                "without stable row IDs enabled.\n\n"
-                "Without stable row IDs, you can only refresh the materialized view "
-                "to the SAME source version it was created from. Attempting to refresh "
-                "to a different version will fail because compaction operations may "
-                "have changed row IDs.\n\n"
-                "For full incremental refresh support across all versions, create the "
-                "source table with stable row IDs enabled:\n"
-                "  db.create_table(\n"
-                "      name='table_name',\n"
-                "      data=data,\n"
-                "      storage_options={'new_table_enable_stable_row_ids': 'true'}\n"
-                "  )\n\n"
-                "Note: Both 'true' (string) and True (boolean) are accepted.\n\n"
-                "Stable row IDs is a Lance feature (added in 0.21.0) exposed via "
-                "lancedb's new_table_enable_stable_row_ids option (added in 0.25.4b3).",
+                f"Materialized view '{view_name}' is pinned to source version "
+                f"{base_version}.\n\n"
+                "Refresh only works against that version. Once "
+                f"'{source_tbl.name}' moves past it -- any append, update, "
+                "delete or compaction -- a plain refresh() fails, because it "
+                "targets the latest source version; call "
+                f"refresh(src_version={base_version}) instead.\n\n"
+                "Either way the view will not pick up rows written to "
+                f"'{source_tbl.name}' after version {base_version}.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -1108,7 +1236,7 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
             MATVIEW_META_QUERY: query.model_dump_json(),
             MATVIEW_META_BASE_TABLE: source_tbl.name,
             MATVIEW_META_BASE_DBURI: db_uri,
-            MATVIEW_META_BASE_VERSION: str(source_tbl.version),
+            MATVIEW_META_BASE_VERSION: str(base_version),
             # Store materialized view format version.
             # Version 1: fragment+offset encoding (fragment_id << 32 | offset)
             #   - Used for v0.7.x and earlier (always)
@@ -1159,11 +1287,14 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
             names=["__source_row_id", "__is_set"],
         )
 
-        # Create the MV table with system-backed schema. Every backend honours
-        # the stable-row-ID create option today (GEN-839); see
-        # _supports_stable_row_ids_on_create for how each one gets there.
+        # Create the MV table with system-backed schema.
+        # Mirror the source: a view over a source without stable row IDs is
+        # created without them too, so Geneva never introduces a stable-row-ID
+        # table into a deployment that does not already use them (GEN-952).
+        # The backend capability check still applies -- see
+        # _supports_stable_row_ids_on_create (GEN-839).
         storage_options: dict[str, str] = {}
-        if conn._supports_stable_row_ids_on_create():
+        if source_has_stable_row_ids and conn._supports_stable_row_ids_on_create():
             storage_options["new_table_enable_stable_row_ids"] = "true"
 
         view_table = conn.create_table(
@@ -1212,3 +1343,48 @@ class AliasColumn(Column):
     def apply(self, batch: pa.RecordBatch) -> tuple[str, pa.Array]:
         _, arr = self.col.apply(batch)
         return (self._alias, arr)
+
+
+def _try_parse_field_path(path: str) -> list[str] | None:
+    try:
+        return parse_field_path(path)
+    except ValueError:
+        return None
+
+
+def _batch_paths_for_blob_v2(
+    dataset_path: str,
+    columns: list[str] | dict[str, str] | None,
+) -> list[str]:
+    if not isinstance(columns, dict):
+        return [dataset_path]
+    dataset_segments = _try_parse_field_path(dataset_path)
+    if dataset_segments is None:
+        return [dataset_path]
+    paths: list[str] = []
+    for alias, expr in columns.items():
+        if expr == dataset_path:
+            paths.append(alias)
+            continue
+        expr_segments = _try_parse_field_path(expr)
+        if expr_segments is None:
+            continue
+        if dataset_segments[: len(expr_segments)] == expr_segments:
+            paths.append(
+                format_field_path([alias, *dataset_segments[len(expr_segments) :]])
+            )
+    return paths or [dataset_path]
+
+
+def _plan_blob_v2_materializations(
+    columns: list[str] | dict[str, str] | None,
+    schema: pa.Schema,
+) -> list["BlobV2Materialization"]:
+    from geneva.apply.blob_range import BlobV2Materialization, blob_v2_field_paths
+
+    return [
+        BlobV2Materialization(batch_path=batch_path, dataset_path=dataset_path)
+        for dataset_path in sorted(blob_v2_field_paths(schema))
+        if _scan_projection_covers_path(columns, dataset_path)
+        for batch_path in _batch_paths_for_blob_v2(dataset_path, columns)
+    ]

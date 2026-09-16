@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import builtins
+import gc
 import io
+import json
 from pathlib import Path
 
 import numpy as np
@@ -106,6 +108,101 @@ def test_hdf5_source_through_proxy(tmp_path):
     np.testing.assert_array_equal(cached[:], data)
     del cached
     np.testing.assert_array_equal(blosc2.open(cache_path)[:], data)
+
+
+@pytest.mark.parametrize("layout", ["contiguous", "gzip"])
+@pytest.mark.parametrize("syntax", ["path", "slash", "separator", "file_url"])
+def test_local_hdf5_without_remote_dependencies(tmp_path, monkeypatch, layout, syntax):
+    path = tmp_path / "native.h5"
+    data = np.arange(110, dtype=">i4").reshape(10, 11)
+    options = {} if layout == "contiguous" else {"chunks": (3, 4), "compression": "gzip"}
+    with h5py.File(path, "w") as file:
+        array = file.create_dataset("d0/a2", data=data, **options)
+        array.attrs["description"] = "native hdf5"
+        array.attrs["sampling_rate"] = 250
+        array.attrs["_ARRAY_DIMENSIONS"] = ["x", "y"]
+
+    real_import = builtins.__import__
+
+    def blocked_import(name, *args, **kwargs):
+        if name.split(".")[0] in {"kerchunk", "zarr", "fsspec"}:
+            raise AssertionError(f"Local HDF5 must not import {name}")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", blocked_import)
+    if syntax == "path":
+        proxy = blosc2.open(path, dataset="d0/a2")
+    else:
+        target = path.as_uri() + "::/d0/a2" if syntax == "file_url" else str(path)
+        if syntax != "file_url":
+            target += "/d0/a2" if syntax == "slash" else "::/d0/a2"
+        proxy = blosc2.open(target)
+    assert isinstance(proxy.src.array, h5py.Dataset)
+    assert proxy.src._refs is None
+    assert proxy.dtype == data.dtype
+    if layout == "gzip":
+        assert proxy.chunks == (3, 4)
+    assert "native.h5" in repr(proxy.info)
+    assert proxy.attrs["description"] == "native hdf5"
+    assert proxy.attrs["sampling_rate"] == 250
+    np.testing.assert_array_equal(proxy.attrs["_ARRAY_DIMENSIONS"], ["x", "y"])
+    np.testing.assert_array_equal(proxy[2:8:2, 3:10:2], data[2:8:2, 3:10:2])
+    np.testing.assert_array_equal(proxy[:], data)
+    np.testing.assert_array_equal((proxy + 2)[:], data + 2)
+    assert blosc2.available_datasets(path) == ["d0/a2"]
+    file_id = proxy.src.array.file.id
+    del proxy
+    gc.collect()
+    assert not file_id.valid
+
+
+def test_local_hdf5_special_datasets_and_errors(tmp_path, monkeypatch):
+    path = tmp_path / "special.h5"
+    with h5py.File(path, "w") as file:
+        file.create_dataset("scalar", data=42)
+        file.create_dataset("empty", shape=(0, 5), dtype="f8")
+        file.create_dataset("fill", shape=(10,), chunks=(3,), dtype="i4", fillvalue=-999)
+        file["fill"][:2] = [10, 20]
+        file.create_dataset("null", dtype="i4")
+        file.create_dataset("variable", data=["hello", "world"])
+        file.create_group("group")
+    assert blosc2.open(path, dataset="scalar")[()] == 42
+    np.testing.assert_array_equal(blosc2.open(path, dataset="empty")[:], np.empty((0, 5)))
+    np.testing.assert_array_equal(blosc2.open(path, dataset="fill")[:], [10, 20] + [-999] * 8)
+
+    opened = []
+    original = h5py.File
+
+    def track_file(*args, **kwargs):
+        file = original(*args, **kwargs)
+        opened.append(file.id)
+        return file
+
+    monkeypatch.setattr(h5py, "File", track_file)
+    for dataset, error, message in [
+        ("missing", ValueError, "not found"),
+        ("group", ValueError, "is an HDF5 group"),
+        ("/", ValueError, "is an HDF5 group"),
+        ("null", TypeError, "null datasets"),
+        ("variable", TypeError, "fixed-size dtypes"),
+    ]:
+        with pytest.raises(error, match=message):
+            blosc2.HDF5NDSource(path, dataset)
+        assert not opened[-1].valid
+
+
+def test_local_hdf5_explicit_refs(tmp_path):
+    from blosc2.hdf5_source import scan_hdf5_refs
+
+    path = tmp_path / "explicit.h5"
+    data = np.arange(20, dtype=np.int32)
+    with h5py.File(path, "w") as file:
+        file.create_dataset("data", data=data, chunks=(5,))
+    refs = scan_hdf5_refs(str(path))
+    proxy = blosc2.open(path, dataset="data", refs=refs)
+    assert isinstance(proxy.src.array, zarr.Array)
+    assert proxy.src._refs is refs
+    np.testing.assert_array_equal(proxy[:], data)
 
 
 @pytest.mark.parametrize(
@@ -294,10 +391,11 @@ def test_hdf5_requires_lazy(tmp_path):
     path = str(tmp_path / "not_lazy.h5")
     with h5py.File(path, "w") as f:
         f.create_dataset("data", data=[1, 2, 3])
-    with pytest.raises(ValueError, match="HDF5 sources require lazy=True"):
-        blosc2.open(path, lazy=False)
-    with pytest.raises(ValueError, match="dataset requires lazy=True"):
-        blosc2.open(path, lazy=False, dataset="data")
+    # lazy=True is auto-inferred for HDF5 sources when omitted.
+    proxy = blosc2.open(path, dataset="data")
+    np.testing.assert_array_equal(proxy[:], [1, 2, 3])
+    with pytest.raises(NotImplementedError, match="requires lazy=True"):
+        blosc2.open(path, dataset="data", lazy=False)
 
 
 def test_hdf5_rejects_mutable():
@@ -339,6 +437,92 @@ def test_hdf5_disk_cache(tmp_path):
     assert isinstance(reopened, blosc2.RemoteArray)
     assert reopened.dataset == "data"
     np.testing.assert_array_equal(reopened[:], data)
+
+
+def test_hdf5_disk_cache_reuses_refs(tmp_path, monkeypatch):
+    import blosc2.hdf5_source as hdf5_source
+
+    data = np.arange(40, dtype=np.int32)
+    url = make_memory_h5("reuse_refs.h5", data=(data, (10,)))
+    cache_dir = tmp_path / "cache"
+    scans = []
+    original = hdf5_source.scan_hdf5_refs
+
+    def counting_scan(*args, **kwargs):
+        scans.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(hdf5_source, "scan_hdf5_refs", counting_scan)
+
+    first = blosc2.open(url, lazy=True, dataset="data", cache_dir=cache_dir)
+    np.testing.assert_array_equal(first[:10], data[:10])
+    assert len(scans) == 1
+
+    second = blosc2.open(url, lazy=True, dataset="data", cache_dir=cache_dir)
+    assert second._cache_status == "reused"
+    assert len(scans) == 1  # the cached kerchunk snapshot replaced the rescan
+    np.testing.assert_array_equal(second[:10], data[:10])
+
+
+def test_publish_hdf5_refs_skips_carriers_without_a_snapshot(tmp_path):
+    """Local h5py readers (e.g. Windows drive-letter paths) have no refs to share."""
+    from blosc2.remote_array import _publish_hdf5_refs
+
+    carrier = blosc2.empty((4,), dtype="i4", cparams=blosc2.CParams(nthreads=1))
+    path = tmp_path / "shared.hdf5-refs.b2"
+    _publish_hdf5_refs(path, carrier, scanned=True)
+    assert not path.exists()
+
+
+@pytest.mark.parametrize("snapshot", ["new", "legacy", "damaged"])
+def test_hdf5_disk_cache_shares_refs_between_leaves(tmp_path, monkeypatch, snapshot):
+    import blosc2.hdf5_source as hdf5_source
+
+    data = np.arange(40, dtype=np.int32)
+    url = make_memory_h5("sibling_refs.h5", a=(data, (10,)), b=(data + 1, (10,)))
+    scans = []
+    original = hdf5_source.scan_hdf5_refs
+
+    def counting_scan(*args, **kwargs):
+        scans.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(hdf5_source, "scan_hdf5_refs", counting_scan)
+    with blosc2.open(url + "::a", cache_dir=tmp_path) as first:
+        np.testing.assert_array_equal(first[:], data)
+    shared = next(tmp_path.rglob("*.hdf5-refs.b2"))
+    if snapshot == "legacy":
+        shared.unlink()
+        with blosc2.open(url + "::a", cache_dir=tmp_path):
+            pass
+        assert shared.exists()
+    elif snapshot == "damaged":
+        shared.write_bytes(b"broken")
+    with blosc2.open(url + "::b", cache_dir=tmp_path) as sibling:
+        np.testing.assert_array_equal(sibling[:], data + 1)
+    assert len(scans) == (2 if snapshot == "damaged" else 1)
+    assert "b/.zarray" in json.loads(blosc2.decompress(shared.read_bytes()))["refs"]
+
+    # Different access configurations must not share a container snapshot.
+    with blosc2.open(url + "::b", cache_dir=tmp_path, storage_options={"skip_instance_cache": True}):
+        pass
+    assert len(scans) == (3 if snapshot == "damaged" else 2)
+
+
+def test_hdf5_blosc2_filter_codec_decodes_super_chunk():
+    import numcodecs
+
+    from blosc2.hdf5_source import _ensure_blosc2_filter_registered
+
+    _ensure_blosc2_filter_registered()
+    data = np.arange(100, dtype=np.int32)
+    schunk = blosc2.SChunk(chunksize=200)
+    schunk.append_data(data[:50].tobytes())
+    schunk.append_data(data[50:].tobytes())
+    # blosc2.decompress() rejects a multi-chunk super-chunk frame, so the Blosc2
+    # HDF5 filter codec must fall back to from_cframe().
+    decoded = numcodecs.Blosc2().decode(schunk.to_cframe())
+    assert bytes(decoded) == data.tobytes()
 
 
 def test_hdf5_traffic_accounting():
@@ -632,11 +816,12 @@ def test_hdf5_vlmeta(tmp_path):
     assert src.vlmeta["description"] == "hdf5 dataset"
     assert src.vlmeta["sampling_rate"] == 250
     assert "_ARRAY_DIMENSIONS" not in src.vlmeta
-    assert "_ARRAY_DIMENSIONS" in src.array.attrs
+    assert isinstance(src.array, h5py.Dataset)
 
     url = "memory://test_attrs.h5"
     fsspec.filesystem("memory").pipe_file(url, Path(path).read_bytes())
     proxy = blosc2.RemoteArray(url, source_format="hdf5", dataset="d0/data")
+    assert "_ARRAY_DIMENSIONS" in proxy.src.array.attrs
     assert proxy.attrs is proxy.vlmeta
     assert proxy.attrs[:] == {"description": "hdf5 dataset", "sampling_rate": 250}
 

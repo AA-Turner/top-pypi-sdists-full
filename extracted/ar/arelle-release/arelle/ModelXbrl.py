@@ -301,6 +301,7 @@ class ModelXbrl:
     qnameDimensionContextElement: dict[QName, str]
     xbrlCsvLoadingContext: XbrlCsvLoadingContext | None
     watchRss: WatchRss
+    rssItemResults: dict[str | None, dict[str, Any]]
     _factsByDimQname: dict[QName, dict[QName | str | None, set[ModelFact]]]
     _factsByQname: dict[QName, set[ModelFact]]
     _factsByDatatype: dict[bool | tuple[bool, QName], set[ModelFact]]
@@ -361,6 +362,7 @@ class ModelXbrl:
         self.loadedFromOIM = False
         self.loadedFromOimErrorCount = 0
         self.xbrlCsvLoadingContext = None
+        self.tableConstraintsSkipLoading: bool = False
         self.formulaOutputInstance: ModelXbrl | None = None
         self.logger: logging.Logger | None = self.modelManager.cntlr.logger
         self.logRefObjectProperties: bool = getattr(self.logger, "logRefObjectProperties", False)

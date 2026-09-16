@@ -88,6 +88,13 @@ class IssueTypeMappingError(ValueError):
     """
 
 
+class DefinitiveCreationFailure(ValueError):
+    """A create request was rejected by validation.
+
+    The exception means no provider call was issued.
+    """
+
+
 # ---------------------------------------------------------------------------
 # Result dataclasses
 # ---------------------------------------------------------------------------
@@ -229,8 +236,8 @@ class IssueProvider(Protocol):
             ``"existing"``, or ``"dry-run"``.
 
         Raises:
-            ValueError: If title is empty, issue_type is unsupported, or
-                parent_id is provided but empty.
+            DefinitiveCreationFailure: If validation rejects the request before
+                a provider call is issued.
         """
         ...  # pragma: no cover
 
@@ -554,11 +561,13 @@ class InMemoryIssueProvider:
         See :meth:`IssueProvider.create_issue` for full contract.
         """
         if not title or not title.strip():
-            raise ValueError("title must be a non-empty string")
+            raise DefinitiveCreationFailure("title must be a non-empty string")
         if issue_type not in VALID_ISSUE_TYPES:
-            raise ValueError(f"Unsupported issue_type {issue_type!r}. Valid types: {sorted(VALID_ISSUE_TYPES)}")
+            raise DefinitiveCreationFailure(
+                f"Unsupported issue_type {issue_type!r}. Valid types: {sorted(VALID_ISSUE_TYPES)}"
+            )
         if parent_id is not None and (not parent_id or not parent_id.strip()):
-            raise ValueError("parent_id must be a non-empty string when provided")
+            raise DefinitiveCreationFailure("parent_id must be a non-empty string when provided")
 
         if dry_run:
             return ProviderIssueResult(identifier="", url="", status="dry-run")

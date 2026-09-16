@@ -35,6 +35,10 @@ class TTS(BaseSDK):
         ] = None,
         response_format: Optional[components.SpeechRequestResponseFormat] = "pcm",
         speed: Optional[float] = None,
+        trace: Optional[
+            Union[components.TraceConfig, components.TraceConfigTypedDict]
+        ] = None,
+        user: Optional[str] = None,
         voice: Optional[str] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
@@ -58,6 +62,8 @@ class TTS(BaseSDK):
         :param provider: Provider-specific passthrough configuration
         :param response_format: Audio output format
         :param speed: Playback speed multiplier. Only used by models that support it (e.g. OpenAI TTS). Ignored by other providers.
+        :param trace: Metadata for observability and tracing. Known keys (trace_id, trace_name, span_name, generation_name, parent_span_id) have special handling. Additional keys are passed through as custom metadata to configured broadcast destinations.
+        :param user: A unique identifier representing your end-user. Forwarded to Broadcast and private logging as the end-user id; never sent to the provider.
         :param voice: Voice identifier (provider-specific).
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -89,6 +95,8 @@ class TTS(BaseSDK):
                 ),
                 response_format=response_format,
                 speed=speed,
+                trace=utils.get_pydantic_model(trace, Optional[components.TraceConfig]),
+                user=user,
                 voice=voice,
             ),
         )
@@ -277,6 +285,10 @@ class TTS(BaseSDK):
         ] = None,
         response_format: Optional[components.SpeechRequestResponseFormat] = "pcm",
         speed: Optional[float] = None,
+        trace: Optional[
+            Union[components.TraceConfig, components.TraceConfigTypedDict]
+        ] = None,
+        user: Optional[str] = None,
         voice: Optional[str] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
@@ -300,6 +312,8 @@ class TTS(BaseSDK):
         :param provider: Provider-specific passthrough configuration
         :param response_format: Audio output format
         :param speed: Playback speed multiplier. Only used by models that support it (e.g. OpenAI TTS). Ignored by other providers.
+        :param trace: Metadata for observability and tracing. Known keys (trace_id, trace_name, span_name, generation_name, parent_span_id) have special handling. Additional keys are passed through as custom metadata to configured broadcast destinations.
+        :param user: A unique identifier representing your end-user. Forwarded to Broadcast and private logging as the end-user id; never sent to the provider.
         :param voice: Voice identifier (provider-specific).
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -331,6 +345,8 @@ class TTS(BaseSDK):
                 ),
                 response_format=response_format,
                 speed=speed,
+                trace=utils.get_pydantic_model(trace, Optional[components.TraceConfig]),
+                user=user,
                 voice=voice,
             ),
         )

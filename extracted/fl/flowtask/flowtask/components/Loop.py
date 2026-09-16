@@ -1,17 +1,22 @@
-from collections.abc import Callable, Awaitable
 import asyncio
+from collections.abc import Callable
 from typing import Any
+
+from asyncdb.exceptions import NoDataFound, ProviderError
 from pandas import DataFrame
-from asyncdb.exceptions import NoDataFound, ProviderError, DriverError
+
+from ..exceptions import ComponentError, DataNotFound, FileNotFound, NotSupported
 from ..interfaces.flow import FlowComponent
-from ..exceptions import (
-    ComponentError,
-    DataNotFound,
-    NotSupported,
-    FileNotFound
+from ..interfaces.skip_policy import (
+    DEFAULT_MAX_CONSECUTIVE_FAILURES,
+    SKIPPED_ITERATION,
+    ConsecutiveFailureTracker,
+    Disposition,
+    ErrorFamily,
+    classify,
+    resolve_skip,
 )
 from ..utils.stats import StepMonitor
-from ..interfaces.log import SkipErrors
 
 
 class Loop(FlowComponent):
@@ -42,6 +47,9 @@ class Loop(FlowComponent):
           # attributes here
         ```
     """
+    #: Umbral de fallos CONSECUTIVOS (spec §2 D2). 0/None lo desactivan.
+    #: Declarado aqui porque Loop NO hereda de IteratorBase (§7 #2).
+    max_consecutive_failures: int = DEFAULT_MAX_CONSECUTIVE_FAILURES
     _version = "1.0.0"
     def __init__(
         self,
@@ -57,7 +65,7 @@ class Loop(FlowComponent):
         self._done: bool = False  # Flag to indicate if iteration is complete
         # Component to be executed when finished.
         self._ondone: str = kwargs.get("onDone", None)
-        super(Loop, self).__init__(loop=loop, job=job, stat=stat, **kwargs)
+        super().__init__(loop=loop, job=job, stat=stat, **kwargs)
 
     async def start(self, **kwargs):
         """
@@ -170,26 +178,55 @@ class Loop(FlowComponent):
                 f"Component Error on {target}: {err}"
             ) from err
 
-    async def exec_component(self, job, step_name):
-        start = getattr(job, "start", None)
-        if callable(start):
-            try:
-                if asyncio.iscoroutinefunction(start):
-                    st = await job.start()
-                else:
-                    st = job.start()
-                self._logger.debug(f"STARTED: {st}")
-            except (NoDataFound, DataNotFound) as err:
-                raise DataNotFound(f"{err!s}") from err
-            except (ProviderError, ComponentError, NotSupported) as err:
-                raise ComponentError(
-                    f"Error running Start Function on {step_name}, error: {err}"
-                ) from err
+    def _dispatch_error(self, job, err, step_name):
+        """Decide que hacer con una excepcion de iteracion (gemelo del de IteratorBase).
+
+        D3: la familia de datos es INCONDICIONAL — no consulta `skipError`,
+        para que el call-site (`run()`) la atrape con su propio
+        `except (NoDataFound, DataNotFound, ...): continue` sin que pase
+        nunca por el tracker de fallos consecutivos (spec §2).
+        """
+        family = classify(err)
+        if family is ErrorFamily.DATA:
+            raise DataNotFound(f"{err!s}") from err
+        if resolve_skip(job, err, logger=self._logger, step_name=step_name) is Disposition.RETURN:
+            return SKIPPED_ITERATION
+        if family is ErrorFamily.COMPONENT:
+            raise err
         else:
             raise ComponentError(
-                f"Error running Function on {step_name}"
-            )
+                f"Iterator Error on {step_name}, error: {err}"
+            ) from err
+
+    async def exec_component(self, job, step_name):
+        """Idem contrato de `IteratorBase.async_job` tras FEAT-554.
+
+        `Loop` duplica esta logica en vez de heredarla; la deduplicacion queda
+        como deuda declarada (spec §7 #7), por decision explicita de acotar el
+        blast radius.
+
+        Returns:
+            El resultado del componente, o `SKIPPED_ITERATION` si se salto.
+        """
         try:
+            start = getattr(job, "start", None)
+            if callable(start):
+                try:
+                    if asyncio.iscoroutinefunction(start):
+                        st = await job.start()
+                    else:
+                        st = job.start()
+                    self._logger.debug(f"STARTED: {st}")
+                except (NoDataFound, DataNotFound) as err:
+                    raise DataNotFound(f"{err!s}") from err
+                except (ProviderError, ComponentError, NotSupported) as err:
+                    raise ComponentError(
+                        f"Error running Start Function on {step_name}, error: {err}"
+                    ) from err
+            else:
+                raise ComponentError(
+                    f"Error running Function on {step_name}"
+                )
             run = getattr(job, "run", None)
             if asyncio.iscoroutinefunction(run):
                 result = await job.run()
@@ -197,33 +234,8 @@ class Loop(FlowComponent):
                 result = job.run()
             self._result = result
             return self._result
-        except (NoDataFound, DataNotFound, FileNotFound) as err:
-            try:
-                if job.skipError == SkipErrors.SKIP:
-                    self._logger.warning(
-                        f"Component {job!s} was Skipped, error: {err}"
-                    )
-                    self._result = self.data
-                    return self._result
-                elif job.skipError == SkipErrors.ENFORCE:
-                    # Enforcing to Raise Error:
-                    raise DataNotFound(f"{err!s}") from err
-                else:
-                    # Log Only
-                    self._logger.error(
-                        f"Component {job!s} was Skipped, error: {err}"
-                    )
-            except AttributeError:
-                raise DataNotFound(f"{err!s}") from err
-        except (ProviderError, ComponentError, NotSupported) as err:
-            raise NotSupported(
-                f"Error running Component {step_name}, error: {err}"
-            ) from err
         except Exception as err:
-            self._logger.exception(err, exc_info=True)
-            raise ComponentError(
-                f"Iterator Error on {step_name}, error: {err}"
-            ) from err
+            return self._dispatch_error(job, err, step_name)
         finally:
             try:
                 close = getattr(job, "close", None)
@@ -242,6 +254,7 @@ class Loop(FlowComponent):
         step_name = step.name
         i = 0
         results = []
+        tracker = ConsecutiveFailureTracker(self.max_consecutive_failures)
         while True:
             try:
                 # Get the next item from the iterator
@@ -250,15 +263,32 @@ class Loop(FlowComponent):
                 cp = self.create_component(target, item, **params)
                 try:
                     result = await self.exec_component(cp, step_name)
-                    results.append(result)
+                    if result is SKIPPED_ITERATION:
+                        # It was skipped/logged
+                        if tracker.record_skip(ComponentError("Skipped iteration")):
+                            tracker.publish(self)
+                            if tracker.last_error:
+                                raise tracker.last_error
+                            else:
+                                raise ComponentError(f"Loop: Max consecutive failures reached ({self.max_consecutive_failures})")
+                    else:
+                        tracker.record_success()
+                        results.append(result)
                     i += 1
-                except (NoDataFound, DataNotFound) as err:
-                    # its a data component a no data was found
+                except (NoDataFound, DataNotFound, FileNotFound) as err:
+                    # D3: continue INCONDICIONAL; no cuenta para el umbral.
                     self._logger.notice(
                         f"Data not Found over {step_name} at {i} iteration, got: {err}"
                     )
                     i += 1
                     continue
+                except (ProviderError, ComponentError, NotSupported):
+                    # NUEVA rama: hoy no existe y la excepcion escapa de run().
+                    raise
+                except Exception as err:
+                    raise ComponentError(
+                        f"Loop: Component Error on {step_name} at {i}, error: {err}"
+                    ) from err
             except StopIteration:
                 self._done = True
                 break  # Exit loop when iteration is complete
@@ -268,5 +298,6 @@ class Loop(FlowComponent):
             stat = StepMonitor(name=step_name, parent=parent_stat)
             parent_stat.add_step(stat)
             stat.add_metric('ITERATIONS', i)
+            tracker.publish(stat)
         self._result = results
         return self._result
