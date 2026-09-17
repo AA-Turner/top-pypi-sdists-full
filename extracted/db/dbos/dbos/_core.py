@@ -34,9 +34,8 @@ from typing import (
 )
 
 from dbos._outcome import DeferredResult, Immediate, NoResult, Outcome, Pending
-from dbos._utils import GlobalParams, retriable_postgres_exception
+from dbos._utils import GlobalParams
 
-from ._app_db import ApplicationDatabase, TransactionResultInternal
 from ._context import (
     OTEL_CARRIER_ATTRIBUTE,
     DBOSAssumeRole,
@@ -44,9 +43,7 @@ from ._context import (
     DBOSContextSetAuth,
     DuplicationPolicy,
     EnterDBOSStepCtx,
-    EnterDBOSTransaction,
     EnterDBOSWorkflow,
-    OperationType,
     SetEnqueueOptions,
     SetWorkflowID,
     TracedAttributes,
@@ -72,7 +69,6 @@ from ._error import (
     DBOSStepTimeoutError,
     DBOSStreamNondeterminismError,
     DBOSStreamTimeoutError,
-    DBOSUnexpectedStepError,
     DBOSWorkflowCancelledError,
     DBOSWorkflowConflictIDError,
     DBOSWorkflowFunctionNotFoundError,
@@ -92,7 +88,6 @@ from ._registrations import (
     get_or_create_func_info,
     set_dbos_func_name,
     set_func_info,
-    set_temp_workflow_type,
 )
 from ._roles import check_required_roles
 from ._serialization import (
@@ -130,21 +125,13 @@ if TYPE_CHECKING:
 
     from opentelemetry.context import Context as OtelContext
 
-    from ._dbos import (
-        DBOS,
-        WorkflowHandle,
-        WorkflowHandleAsync,
-        DBOSRegistry,
-        IsolationLevel,
-    )
+    from ._dbos import DBOS, DBOSRegistry, WorkflowHandle, WorkflowHandleAsync
 
-from sqlalchemy.exc import DBAPIError, InvalidRequestError
 
 P = ParamSpec("P")  # A generic type for workflow parameters
 R = TypeVar("R", covariant=True)  # A generic type for workflow return values
 F = TypeVar("F", bound=Callable[..., Any])
 
-TEMP_SEND_WF_NAME = "<temp>.temp_send_workflow"
 DEFAULT_POLLING_INTERVAL = 1.0
 
 
@@ -287,7 +274,8 @@ class WorkflowHandleAsyncTask(Generic[R]):
         start_time = int(time.time() * 1000)
         try:
             try:
-                r = await self.task
+                # A cancelled waiter must not cancel the shared result future.
+                r = await asyncio.shield(self.task)
             # If the handle was cancelled, check the database
             except (DBOSWorkflowCancelledError, DBOSAwaitedWorkflowCancelledError):
                 r = await self.dbos._sys_db.await_workflow_result_async(
@@ -522,8 +510,6 @@ def _assemble_workflow_status(
         "name": wf_name,
         "class_name": class_name,
         "config_name": config_name,
-        "output": None,
-        "error": None,
         "app_id": ctx.app_id,
         "app_version": (
             enqueue_options["app_version"]
@@ -569,7 +555,6 @@ def _assemble_workflow_status(
             ctx.parent_workflow_id if len(ctx.parent_workflow_id) > 0 else None
         ),
         "started_at_epoch_ms": None,
-        "owner_xid": None,
         "serialization": serialization,
         "delay_until_epoch_ms": (
             enqueue_options["delay_until_epoch_ms"]
@@ -1055,7 +1040,7 @@ def _execute_workflow_wthread(
 ) -> R:
     attributes: TracedAttributes = {
         "name": get_dbos_func_name(func),
-        "operationType": OperationType.WORKFLOW.value,
+        "operationType": "workflow",
         "queueName": status.get("queue_name"),
     }
     fi = get_func_info(func)
@@ -1121,7 +1106,7 @@ async def _execute_workflow_async(
 ) -> R:
     attributes: TracedAttributes = {
         "name": get_dbos_func_name(func),
-        "operationType": OperationType.WORKFLOW.value,
+        "operationType": "workflow",
         "queueName": status.get("queue_name"),
     }
     fi = get_func_info(func)
@@ -1924,7 +1909,7 @@ def workflow_wrapper(
         rr: Optional[str] = check_required_roles(func, fi)
         attributes: TracedAttributes = {
             "name": get_dbos_func_name(func),
-            "operationType": OperationType.WORKFLOW.value,
+            "operationType": "workflow",
         }
         inputs: WorkflowInputs = {
             "args": args,
@@ -2103,268 +2088,10 @@ def decorate_workflow(
         func_name = name if name is not None else func.__qualname__
         set_dbos_func_name(func, func_name)
         set_dbos_func_name(wrapped_func, func_name)
-        reg.register_wf_function(func_name, wrapped_func, "workflow")
+        reg.register_wf_function(func_name, wrapped_func)
         return wrapped_func
 
     return _workflow_decorator
-
-
-def decorate_transaction(
-    dbosreg: "DBOSRegistry", name: Optional[str], isolation_level: "IsolationLevel"
-) -> Callable[[F], F]:
-    def decorator(func: F) -> F:
-
-        transaction_name = name if name is not None else func.__qualname__
-
-        def invoke_tx(*args: Any, **kwargs: Any) -> Any:
-            if dbosreg.dbos is None:
-                raise DBOSException(
-                    f"Function {transaction_name} invoked before DBOS initialized"
-                )
-            dbos = dbosreg.dbos
-
-            try:
-                asyncio.get_running_loop()
-            except RuntimeError:
-                pass
-            else:
-                dbosreg.dbos.logger.warning(
-                    f"Transaction {transaction_name} was called while an event loop is running. Invoke transactions from an async context using asyncio.to_thread to avoid blocking the event loop."
-                )
-
-            assert (
-                dbos._app_db
-            ), "Transactions can only be used if DBOS is configured with an application_database_url"
-            with dbos._app_db.sessionmaker() as session:
-                attributes: TracedAttributes = {
-                    "name": transaction_name,
-                    "operationType": OperationType.TRANSACTION.value,
-                }
-                with EnterDBOSTransaction(session, attributes=attributes):
-                    ctx = assert_current_dbos_context()
-                    step_start_time = int(time.time() * 1000)
-                    # Check if the step record for this transaction exists
-                    recorded_step_output = dbos._sys_db.check_operation_execution(
-                        ctx.workflow_id, ctx.function_id, transaction_name
-                    )
-                    if recorded_step_output:
-                        dbos.logger.debug(
-                            f"Replaying transaction, id: {ctx.function_id}, name: {attributes['name']}"
-                        )
-                        if recorded_step_output["error"]:
-                            step_error: Exception = deserialize_exception(
-                                recorded_step_output["error"],
-                                recorded_step_output["serialization"],
-                                dbos._serializer,
-                            )
-                            raise step_error
-                        elif recorded_step_output["output"]:
-                            return deserialize_value(
-                                recorded_step_output["output"],
-                                recorded_step_output["child_workflow_id"],
-                                dbos._serializer,
-                            )
-                        else:
-                            raise Exception("Output and error are both None")
-
-                    txn_output: TransactionResultInternal = {
-                        "workflow_uuid": ctx.workflow_id,
-                        "function_id": ctx.function_id,
-                        "output": None,
-                        "error": None,
-                        "serialization": None,
-                        "txn_snapshot": "",  # TODO: add actual snapshot
-                        "executor_id": None,
-                        "txn_id": None,
-                        "function_name": transaction_name,
-                    }
-                    step_output: OperationResultInternal = {
-                        "workflow_uuid": ctx.workflow_id,
-                        "function_id": ctx.function_id,
-                        "function_name": transaction_name,
-                        "output": None,
-                        "error": None,
-                        "serialization": None,
-                        "started_at_epoch_ms": step_start_time,
-                    }
-                    retry_wait_seconds = 0.001
-                    backoff_factor = 1.5
-                    max_retry_wait_seconds = 2.0
-                    while True:
-                        has_recorded_error = False
-                        txn_error: Optional[Exception] = None
-                        try:
-                            with session.begin():
-                                # This must be the first statement in the transaction!
-                                session.connection(
-                                    execution_options={
-                                        "isolation_level": isolation_level
-                                    }
-                                )
-                                # Check recorded output for OAOO
-                                recorded_output = (
-                                    ApplicationDatabase.check_transaction_execution(
-                                        session,
-                                        ctx.workflow_id,
-                                        ctx.function_id,
-                                        transaction_name,
-                                    )
-                                )
-                                if recorded_output:
-                                    dbos.logger.debug(
-                                        f"Replaying transaction, id: {ctx.function_id}, name: {attributes['name']}"
-                                    )
-                                    if recorded_output["error"]:
-                                        deserialized_error: Exception = (
-                                            deserialize_exception(
-                                                recorded_output["error"],
-                                                recorded_output["serialization"],
-                                                dbos._serializer,
-                                            )
-                                        )
-                                        has_recorded_error = True
-                                        step_output["error"] = recorded_output["error"]
-                                        step_output["serialization"] = recorded_output[
-                                            "serialization"
-                                        ]
-                                        dbos._sys_db.record_operation_result(
-                                            step_output
-                                        )
-                                        raise deserialized_error
-                                    elif recorded_output["output"]:
-                                        step_output["output"] = recorded_output[
-                                            "output"
-                                        ]
-                                        step_output["serialization"] = recorded_output[
-                                            "serialization"
-                                        ]
-                                        dbos._sys_db.record_operation_result(
-                                            step_output
-                                        )
-                                        return deserialize_value(
-                                            recorded_output["output"],
-                                            recorded_output["serialization"],
-                                            dbos._serializer,
-                                        )
-                                    else:
-                                        raise Exception(
-                                            "Output and error are both None"
-                                        )
-                                else:
-                                    dbos.logger.debug(
-                                        f"Running transaction, id: {ctx.function_id}, name: {attributes['name']}"
-                                    )
-
-                                output = func(*args, **kwargs)
-                                serialized_r, serialization = serialize_value(
-                                    output, None, dbos._serializer
-                                )
-                                txn_output["output"] = serialized_r
-                                txn_output["serialization"] = serialization
-                                assert (
-                                    ctx.sql_session is not None
-                                ), "Cannot find a database connection"
-                                dbos._app_db.record_transaction_output(
-                                    ctx.sql_session, txn_output
-                                )
-                                break
-                        except DBAPIError as dbapi_error:
-                            if retriable_postgres_exception(
-                                dbapi_error
-                            ) or dbos._app_db._is_serialization_error(dbapi_error):
-                                # Retry on serialization failure
-                                span = ctx.get_current_dbos_span()
-                                if span:
-                                    span.add_event(
-                                        "Transaction Failure",
-                                        {"retry_wait_seconds": retry_wait_seconds},
-                                    )
-                                time.sleep(retry_wait_seconds)
-                                retry_wait_seconds = min(
-                                    retry_wait_seconds * backoff_factor,
-                                    max_retry_wait_seconds,
-                                )
-                                continue
-                            txn_error = dbapi_error
-                            raise
-                        except InvalidRequestError as invalid_request_error:
-                            dbos.logger.error(
-                                f"InvalidRequestError in transaction {transaction_name} \033[1m Hint: Do not call commit() or rollback() within a DBOS transaction.\033[0m"
-                            )
-                            txn_error = invalid_request_error
-                            raise
-                        except DBOSUnexpectedStepError:
-                            raise
-                        except Exception as error:
-                            txn_error = error
-                            raise
-                        finally:
-                            # Don't record the error if it was already recorded
-                            if txn_error and not has_recorded_error:
-                                serialized_e, serialization = serialize_exception(
-                                    txn_error, None, dbos._serializer
-                                )
-                                step_output["error"] = txn_output["error"] = (
-                                    serialized_e
-                                )
-                                step_output["serialization"] = txn_output[
-                                    "serialization"
-                                ] = serialization
-                                dbos._app_db.record_transaction_error(txn_output)
-                                dbos._sys_db.record_operation_result(step_output)
-            serialized_r, serialization = serialize_value(
-                output, None, dbos._serializer
-            )
-            step_output["output"] = serialized_r
-            step_output["serialization"] = serialization
-            dbos._sys_db.record_operation_result(step_output)
-            return output
-
-        if inspect.iscoroutinefunction(func):
-            raise DBOSException(
-                f"Function {transaction_name} is a coroutine function, but DBOS.transaction does not support coroutine functions"
-            )
-
-        fi = get_or_create_func_info(func)
-
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            rr: Optional[str] = check_required_roles(func, fi)
-            # Entering transaction is allowed:
-            #  In a workflow (that is not in a step already)
-            #  Not in a workflow (we will start the single op workflow)
-            ctx = get_local_dbos_context()
-            if ctx and ctx.is_within_workflow():
-                assert (
-                    ctx.is_workflow()
-                ), "Transactions must be called from within workflows"
-                with DBOSAssumeRole(rr):
-                    return invoke_tx(*args, **kwargs)
-            else:
-                tempwf = dbosreg.workflow_info_map.get("<temp>." + transaction_name)
-                assert tempwf
-                return tempwf(*args, **kwargs)
-
-        set_dbos_func_name(func, transaction_name)
-        set_dbos_func_name(wrapper, transaction_name)
-
-        def temp_wf(*args: Any, **kwargs: Any) -> Any:
-            return wrapper(*args, **kwargs)
-
-        wrapped_wf = workflow_wrapper(dbosreg, temp_wf)
-        set_dbos_func_name(temp_wf, "<temp>." + transaction_name)
-        set_dbos_func_name(wrapped_wf, "<temp>." + transaction_name)
-        set_temp_workflow_type(temp_wf, "transaction")
-        dbosreg.register_wf_function(
-            get_dbos_func_name(temp_wf), wrapped_wf, "transaction"
-        )
-        wrapper.__orig_func = temp_wf  # type: ignore
-        set_func_info(wrapped_wf, get_or_create_func_info(func))
-        set_func_info(temp_wf, get_or_create_func_info(func))
-
-        return cast(F, wrapper)
-
-    return decorator
 
 
 _PREEMPTIBLE_POLL_INTERVAL_SEC = 1.0
@@ -2508,7 +2235,7 @@ def invoke_step(
 
     attributes: TracedAttributes = {
         "name": step_name,
-        "operationType": OperationType.STEP.value,
+        "operationType": "step",
     }
 
     step_start_time = int(time.time() * 1000)
@@ -2812,11 +2539,10 @@ def decorate_step(
         wrapped_wf = workflow_wrapper(dbosreg, temp_wf)
         set_dbos_func_name(temp_wf, "<temp>." + step_name)
         set_dbos_func_name(wrapped_wf, "<temp>." + step_name)
-        set_temp_workflow_type(temp_wf, "step")
-        dbosreg.register_wf_function(get_dbos_func_name(temp_wf), wrapped_wf, "step")
+        dbosreg.register_wf_function(get_dbos_func_name(temp_wf), wrapped_wf)
         wrapper.__orig_func = temp_wf  # type: ignore
-        set_func_info(wrapped_wf, get_or_create_func_info(func))
-        set_func_info(temp_wf, get_or_create_func_info(func))
+        set_func_info(wrapped_wf, fi)
+        set_func_info(temp_wf, fi)
 
         return cast(Callable[P, R], wrapper)
 

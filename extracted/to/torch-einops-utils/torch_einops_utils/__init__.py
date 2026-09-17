@@ -83,11 +83,16 @@ from torch_einops_utils.device import (
 )
 
 from torch_einops_utils.statistics import (
-    z_score
+    z_score,
+    ZScoreStats
 )
 
 from torch_einops_utils.torch_einops_utils import (
     cast_tensor,
     cast_item,
     clamp
+)
+
+from torch_einops_utils.python_utils import (
+    maybe_return
 )

@@ -8,6 +8,10 @@ import bl_ui.properties_paint_common
 import bl_ui.utils
 import bpy.types
 
+class GreasePencilSculptPanel:
+    bl_category: typing.Any
+    bl_context: typing.Any
+
 class GreasePencilV3PaintPanel:
     bl_category: typing.Any
     bl_context: typing.Any
@@ -834,6 +838,32 @@ class VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover(
         :param context:
         """
 
+class VIEW3D_PT_tools_grease_pencil_sculpt_select(
+    GreasePencilSculptPanel,
+    View3DPanel,
+    _bpy_types.Panel,
+    bl_ui.properties_paint_common.BrushSelectPanel,
+):
+    bl_category: typing.Any
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
 class VIEW3D_PT_tools_grease_pencil_v3_brush_advanced(View3DPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_context: typing.Any
@@ -1607,6 +1637,35 @@ class VIEW3D_PT_tools_weightpaint_symmetry_for_topbar(_bpy_types.Panel):
         :return: The class or default when not found.
         """
 
+class VIEW3D_PT_tools_grease_pencil_sculpt_settings(
+    View3DPanel, _bpy_types.Panel, GreasePencilSculptPanel
+):
+    bl_category: typing.Any
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
 class VIEW3D_PT_tools_grease_pencil_v3_brush_settings(
     View3DPanel, _bpy_types.Panel, GreasePencilV3PaintPanel
 ):
@@ -2032,6 +2091,40 @@ class VIEW3D_PT_tools_brush_texture(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :param context:
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
+class VIEW3D_PT_tools_grease_pencil_brush_sculpt_falloff(
+    _bpy_types.Panel,
+    bl_ui.properties_grease_pencil_common.GreasePencilBrushFalloff,
+    View3DPaintPanel,
+):
+    bl_category: typing.Any
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_parent_id: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
         """
 
     @classmethod

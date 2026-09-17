@@ -12,9 +12,14 @@ PyText_AsStringAndSize(PyObject *obj, char **buffer, Py_ssize_t *length, PyObjec
         return PyBytes_AsStringAndSize(obj, buffer, length);
     } else {
         int rv;
-        assert(PyUnicode_Check(obj));
         *encoded_obj = PyUnicode_AsEncodedString(obj, "ascii", "strict");
         if (*encoded_obj == NULL) {
+            if (PyErr_ExceptionMatches(PyExc_TypeError)) {
+                PyErr_Clear();
+                PyErr_Format(PyExc_TypeError,
+                    "expected bytes or an ASCII string, got %.200s",
+                    Py_TYPE(obj)->tp_name);
+            }
             return -1;
         }
         rv = PyBytes_AsStringAndSize(*encoded_obj, buffer, length);
@@ -52,6 +57,33 @@ PYCURL_INTERNAL int
 PyText_Check(PyObject *o)
 {
     return PyUnicode_Check(o) || PyBytes_Check(o);
+}
+
+/* Accepts text or any buffer object. On success the caller must release
+   *view when *view_active is set, and decref *encoded_obj. */
+PYCURL_INTERNAL int
+PyText_OrBuffer_AsStringAndSize(PyObject *obj, char **buffer, Py_ssize_t *length,
+    PyObject **encoded_obj, Py_buffer *view, int *view_active, const char *what)
+{
+    if (PyObject_CheckBuffer(obj)) {
+        if (PyObject_GetBuffer(obj, view, PyBUF_SIMPLE) != 0) {
+            return -1;
+        }
+
+        *view_active = 1;
+        *buffer = (char *)view->buf;
+        *length = view->len;
+        return 0;
+    }
+
+    if (PyText_Check(obj)) {
+        return PyText_AsStringAndSize(obj, buffer, length, encoded_obj);
+    }
+
+    PyErr_Format(PyExc_TypeError,
+        "%s must be a byte string, ASCII-only Unicode string, or a buffer object",
+        what);
+    return -1;
 }
 
 PYCURL_INTERNAL PyObject *

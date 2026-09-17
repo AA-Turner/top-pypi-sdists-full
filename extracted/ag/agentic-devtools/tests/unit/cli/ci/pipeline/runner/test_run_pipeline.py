@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import logging
+import os
 import zlib
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, call, patch
@@ -1281,6 +1282,152 @@ class TestRunPipeline:
             1,
             "<!-- agdt:diff-preservation-blocker-cleared:feedbeef -->",
         )
+
+    @patch.dict(os.environ, {"GITHUB_ACTOR": "github-actions[bot]"}, clear=False)
+    def test_persist_diff_preservation_blocker_updates_active_summary_comment(self) -> None:
+        """When an active summary comment exists, the blocker is embedded in it."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=500,
+                author="github-actions[bot]",
+                body="<!-- agdt:ai-pr-loop-summary -->\n#### 🤖 AI PR Loop Run\nDetails",
+            )
+        ]
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="pre-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        class _InvalidatingAction:
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                error = ProviderRateLimitError(provider="github", credential_identity="SPECKIT_PR_TOKEN")
+                setattr(error, "invalidates_snapshot", True)
+                setattr(error, "preserves_diff_fingerprint", True)
+                raise error
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            side_effect=RuntimeError("refresh failed"),
+        ):
+            with pytest.raises(ProviderRateLimitError):
+                run_pipeline(provider, snapshot, [_InvalidatingAction()])
+
+        provider.update_comment.assert_called_once()
+        assert provider.update_comment.call_args.args[0] == 500
+        assert "<!-- agdt:diff-preservation-blocker:" in provider.update_comment.call_args.args[1]
+        provider.post_comment_as_pr_token.assert_not_called()
+
+    @patch.dict(os.environ, {"GITHUB_ACTOR": "github-actions[bot]"}, clear=False)
+    def test_persist_diff_preservation_blocker_replaces_existing_marker_in_summary(self) -> None:
+        """When an existing blocker marker is already present in summary, it is replaced."""
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value.head_sha = "oldsha"
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=500,
+                author="github-actions[bot]",
+                body=(
+                    "<!-- agdt:ai-pr-loop-summary -->\n"
+                    "#### 🤖 AI PR Loop Run\n"
+                    "<!-- agdt:diff-preservation-blocker:bm90LWpzb24 -->"
+                ),
+            )
+        ]
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="oldsha",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="pre-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        class _InvalidatingAction:
+            @property
+            def name(self):
+                return "publish"
+
+            def evaluate(self, snapshot, derived) -> ActionResult:
+                return ActionResult(name="publish", decision=ActionDecision.EXECUTE)
+
+            def execute(self, provider, snapshot, derived) -> ActionResult:
+                error = ProviderRateLimitError(provider="github", credential_identity="SPECKIT_PR_TOKEN")
+                setattr(error, "invalidates_snapshot", True)
+                setattr(error, "preserves_diff_fingerprint", True)
+                raise error
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.runner.build_pr_state_snapshot",
+            side_effect=RuntimeError("refresh failed"),
+        ):
+            with pytest.raises(ProviderRateLimitError):
+                run_pipeline(provider, snapshot, [_InvalidatingAction()])
+
+        provider.update_comment.assert_called_once()
+        assert provider.update_comment.call_args.args[0] == 500
+        assert "<!-- agdt:diff-preservation-blocker:bm90LWpzb24 -->" not in provider.update_comment.call_args.args[1]
+
+    @patch.dict(os.environ, {"GITHUB_ACTOR": "trusted-bot"}, clear=False)
+    def test_clear_diff_preservation_blocker_strips_summary_and_deletes_standalone(self) -> None:
+        """Clearing removes the blocker from summary and deletes legacy standalone comments."""
+        provider = MagicMock()
+        provider.get_pr_token_login.return_value = "trusted-bot"
+        blocker_body = _diff_preservation_blocker_comment(
+            {
+                "baseline_head": "prehead",
+                "baseline_files": ["fix.py"],
+                "baseline_hash": "same-hash",
+                "baseline_hash_available": True,
+                "fingerprint_supported": True,
+                "allow_file_removal": False,
+                "allowed_removed_files": [],
+                "intentional_noop": False,
+            }
+        )
+        provider.list_issue_comments.return_value = [
+            IssueCommentInfo(
+                id=500,
+                author="trusted-bot",
+                body=f"<!-- agdt:ai-pr-loop-summary -->\n#### 🤖 AI PR Loop Run\n{blocker_body}",
+            ),
+            IssueCommentInfo(
+                id=501,
+                author="trusted-bot",
+                body=blocker_body,
+            ),
+        ]
+        provider.get_pr_metadata.return_value.head_sha = "feedbeef"
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            head_sha="feedbeef",
+            base_branch="main",
+            files=["fix.py"],
+            diff_hash="same-hash",
+            diff_hash_supported=True,
+            diff_hash_available=True,
+        )
+
+        summary = run_pipeline(provider, snapshot, [_MockAction("guards", ActionDecision.SKIP)])
+
+        assert summary.results[0].decision == ActionDecision.SKIP
+        provider.update_comment.assert_called_once()
+        assert "<!-- agdt:diff-preservation-blocker:" not in provider.update_comment.call_args.args[1]
+        provider.delete_comment.assert_called_once_with(501)
 
     def test_definitive_no_mutation_clears_blocker_after_concurrent_push(self) -> None:
         """A rejected mutation does not block a later concurrent HEAD."""
@@ -4068,6 +4215,46 @@ class TestRunPipeline:
         # Subsequent action is halted by exec_failed_by gate (before evaluate)
         assert summary.results[1].decision == ActionDecision.SKIP
         assert "halted" in summary.results[1].details.lower()
+
+    def test_recovery_action_runs_after_prior_failure(self) -> None:
+        """Recovery actions evaluate and execute while ordinary actions remain halted."""
+        provider = MagicMock()
+        snapshot = PRStateSnapshot(pr_number=1)
+        assert DispatchRepairAction.runs_on_prior_failure is True
+
+        class _TrackingAction(_MockAction):
+            def __init__(self, name, eval_decision, exec_decision, *, runs_on_prior_failure=False):
+                super().__init__(name, eval_decision, exec_decision)
+                self.runs_on_prior_failure = runs_on_prior_failure
+                self.evaluate_calls = 0
+                self.execute_calls = 0
+
+            def evaluate(self, snapshot, derived):
+                self.evaluate_calls += 1
+                return super().evaluate(snapshot, derived)
+
+            def execute(self, provider, snapshot, derived):
+                self.execute_calls += 1
+                return super().execute(provider, snapshot, derived)
+
+        failing = _TrackingAction("takeover", ActionDecision.EXECUTE, ActionDecision.FAILED)
+        recovery = _TrackingAction(
+            "dispatch_repair",
+            ActionDecision.EXECUTE,
+            ActionDecision.EXECUTE,
+            runs_on_prior_failure=True,
+        )
+        halted = _TrackingAction("request_review", ActionDecision.EXECUTE, ActionDecision.EXECUTE)
+
+        summary = run_pipeline(provider, snapshot, [failing, recovery, halted])
+
+        assert summary.results[0].decision == ActionDecision.FAILED
+        assert summary.results[1].decision == ActionDecision.EXECUTE
+        assert recovery.evaluate_calls == 1
+        assert recovery.execute_calls == 1
+        assert summary.results[2].decision == ActionDecision.SKIP
+        assert halted.evaluate_calls == 0
+        assert halted.execute_calls == 0
 
     def test_summary_has_run_url_and_timestamp(self, monkeypatch) -> None:
         """Summary includes run_url and timestamp."""

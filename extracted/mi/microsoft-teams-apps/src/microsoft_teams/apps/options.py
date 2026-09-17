@@ -8,15 +8,18 @@ from __future__ import annotations
 import os
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, List, Optional, TypedDict, Union, cast
+from typing import Any, List, Literal, Optional, TypedDict, Union, cast
 
 from microsoft_teams.api import ApiClientSettings
 from microsoft_teams.api.auth.cloud_environment import CloudEnvironment
+from microsoft_teams.api.auth.credentials import TokenProvider
 from microsoft_teams.common import Client, ClientOptions, Storage
 from typing_extensions import Unpack
 
+from .diagnostics import Agent365BaggageOptions
 from .http.adapter import HttpServerAdapter
 from .plugins import PluginBase
+from .state import StateOptions
 
 DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS_ENV_VAR = "DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS"
 _TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
@@ -47,6 +50,12 @@ def _warn_skip_auth_deprecated() -> None:
     )
 
 
+class AppTelemetryOptions(TypedDict, total=False):
+    """Telemetry options applied across SDK-owned app flows."""
+
+    agent365: Agent365BaggageOptions | Literal[False]
+
+
 class AppOptions(TypedDict, total=False):
     """Configuration options for the Teams App."""
 
@@ -60,7 +69,7 @@ class AppOptions(TypedDict, total=False):
     """Application ID URI from the Azure portal. Used for user authentication.
     Matches webApplicationInfo.resource in the app manifest."""
     # Custom token provider function
-    token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]]
+    token: Optional[TokenProvider]
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
 
     # Managed identity configuration (used when client_id provided without client_secret or token)
@@ -80,6 +89,20 @@ class AppOptions(TypedDict, total=False):
     # Infrastructure
     storage: Optional[Storage[str, Any]]
     plugins: Optional[List[PluginBase]]
+    state: Optional[Union[bool, StateOptions]]
+    """Per-turn state opt-in. Off by default (``None``/``False``).
+
+    ``state=True`` enables state on the app's shared ``storage`` (in-memory by
+    default). Pass a ``StateOptions`` to configure the
+    key prefix or a dedicated ``Storage`` backend. When enabled, handlers
+    read/write ``ctx.state.conversation`` and ``ctx.state.user``; when off,
+    ``ctx.state`` is ``None``.
+
+    Omitting this option leaves the decision open: registering an OAuth flow with
+    ``add_oauth_flow`` then enables state automatically, because connection-less
+    ``signin/verifyState`` and ``signin/failure`` callbacks need durable pending
+    attribution to reach the right flow. Pass ``state=False`` to opt out
+    explicitly — an explicit value is never overridden."""
     dangerously_allow_unauthenticated_requests: Optional[bool]
     """
     Whether to accept incoming requests without JWT validation.
@@ -97,7 +120,14 @@ class AppOptions(TypedDict, total=False):
 
     # OAuth
     default_connection_name: Optional[str]
-    """The OAuth connection name to use for authentication. Defaults to 'graph'."""
+    """The OAuth connection name to use for authentication. Defaults to 'graph'.
+
+    .. deprecated::
+        Names a single connection for the whole app, which does not generalize
+        past one. Register each connection with ``app.add_oauth_flow(name)`` and
+        hold on to the returned ``OAuthFlow`` instead. Still honoured as the
+        default for the deprecated ``ctx.sign_in`` / ``ctx.sign_out`` /
+        ``ctx.get_user_token`` surface."""
 
     fetch_user_token: Optional[bool]
     """Whether to eagerly look up the user's OAuth token on every inbound activity.
@@ -128,6 +158,8 @@ class AppOptions(TypedDict, total=False):
     Valid env var values: "Public", "USGov", "USGovDoD", "China".
     Defaults to PUBLIC (commercial cloud).
     """
+    telemetry: Optional[AppTelemetryOptions]
+    """Telemetry configuration. Agent365 baggage is enabled by default; pass False to disable it."""
 
 
 @dataclass
@@ -138,7 +170,10 @@ class InternalAppOptions:
     dangerously_allow_unauthenticated_requests: bool = False
     """Whether to accept incoming requests without JWT validation."""
     default_connection_name: str = "graph"
-    """The OAuth connection name to use for authentication."""
+    """The OAuth connection name to use for authentication.
+
+    .. deprecated::
+        Use ``app.add_oauth_flow(name)`` and the returned ``OAuthFlow``."""
     fetch_user_token: bool = False
     """When True, eagerly looks up the user's OAuth token on every inbound activity.
     The token is used to compute ``ctx.is_signed_in`` and ``ctx.user_token``, and to authenticate
@@ -163,7 +198,7 @@ class InternalAppOptions:
     application_id_uri: Optional[str] = None
     """Application ID URI from the Azure portal. Used for user authentication.
     Matches webApplicationInfo.resource in the app manifest."""
-    token: Optional[Callable[[Union[str, list[str]], Optional[str]], Union[str, Awaitable[str]]]] = None
+    token: Optional[TokenProvider] = None
     """Custom token provider function. If provided with client_id (no client_secret), uses TokenCredentials."""
     managed_identity_client_id: Optional[str] = None
     """
@@ -173,6 +208,13 @@ class InternalAppOptions:
     If not set or equals client_id, uses direct managed identity (no federation).
     """
     storage: Optional[Storage[str, Any]] = None
+    state: Optional[Union[bool, StateOptions]] = None
+    """Per-turn state opt-in. ``None``/``False`` disables it; ``True`` enables it on
+    the app's shared storage; a ``StateOptions`` configures the key prefix or backend.
+
+    ``None`` means "unset" rather than "off": registering an OAuth flow with
+    ``add_oauth_flow`` turns state on, since connection-less callbacks need durable
+    pending attribution. ``False`` is an explicit opt-out and is never overridden."""
     service_url: Optional[str] = None
     """
     Base Service URL for BotBackend.
@@ -185,6 +227,8 @@ class InternalAppOptions:
     """URL path for the Teams messaging endpoint. Defaults to '/api/messages'."""
     cloud: Optional[CloudEnvironment] = None
     """Cloud environment for sovereign cloud support."""
+    telemetry: Optional[AppTelemetryOptions] = None
+    """Telemetry configuration."""
 
     @classmethod
     def from_typeddict(cls, options: AppOptions) -> "InternalAppOptions":

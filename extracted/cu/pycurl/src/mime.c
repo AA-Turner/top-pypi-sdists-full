@@ -324,6 +324,9 @@ curlmimepart_read_callback(char *ptr, size_t size, size_t nmemb, void *arg)
     }
     else if (PyLong_Check(result)) {
         long long_res = PyLong_AsLong(result);
+        if (long_res == -1 && PyErr_Occurred()) {
+            goto verbose_error;
+        }
         if (long_res != CURL_READFUNC_ABORT && long_res != CURL_READFUNC_PAUSE) {
             PyErr_SetString(ErrorObject, "mime read callback must return a buffer object, an ASCII-only Unicode string, READFUNC_ABORT, or READFUNC_PAUSE");
             goto verbose_error;
@@ -401,8 +404,9 @@ curlmimepart_seek_callback(void *arg, curl_off_t offset, int origin)
         ret = CURL_SEEKFUNC_OK;
     }
     else if (PyLong_Check(result)) {
-        int ret_code = (int)PyLong_AsLong(result);
-        if (PyErr_Occurred()) {
+        int ret_code;
+
+        if (callback_return_value_to_int(result, "mime seek", &ret_code) != 0) {
             goto verbose_error;
         }
         if (ret_code < CURL_SEEKFUNC_OK || ret_code > CURL_SEEKFUNC_CANTSEEK) {
@@ -783,34 +787,6 @@ static PyObject *do_curlmimepart_headers(CurlMimePartObject *self, PyObject *arg
 static PyObject *do_curlmimepart_subparts(CurlMimePartObject *self, PyObject *arg);
 
 static int
-curlmimepart_data_as_string_or_buffer(PyObject *arg,
-    char **data,
-    Py_ssize_t *data_len,
-    PyObject **encoded_obj,
-    Py_buffer *view,
-    int *view_active)
-{
-    if (PyObject_CheckBuffer(arg)) {
-        if (PyObject_GetBuffer(arg, view, PyBUF_SIMPLE) != 0) {
-            return -1;
-        }
-
-        *view_active = 1;
-        *data = (char *)view->buf;
-        *data_len = view->len;
-        return 0;
-    }
-
-    if (PyBytes_Check(arg) || PyUnicode_Check(arg)) {
-        return PyText_AsStringAndSize(arg, data, data_len, encoded_obj);
-    }
-
-    PyErr_SetString(PyExc_TypeError,
-        "data() argument must be a byte string, ASCII-only Unicode string, or a buffer object");
-    return -1;
-}
-
-static int
 curlmime_validate_text_arg(PyObject *obj, const char *name)
 {
     char *value;
@@ -847,8 +823,8 @@ curlmime_validate_data_arg(PyObject *obj)
         return 0;
     }
 
-    if (curlmimepart_data_as_string_or_buffer(obj, &data, &data_len,
-            &encoded_obj, &view, &view_active) != 0)
+    if (PyText_OrBuffer_AsStringAndSize(obj, &data, &data_len,
+            &encoded_obj, &view, &view_active, "data() argument") != 0)
     {
         return -1;
     }
@@ -1453,8 +1429,8 @@ do_curlmimepart_data(CurlMimePartObject *self, PyObject *arg)
         return NULL;
     }
 
-    if (curlmimepart_data_as_string_or_buffer(arg, &data, &data_len,
-            &encoded_obj, &view, &view_active) != 0)
+    if (PyText_OrBuffer_AsStringAndSize(arg, &data, &data_len,
+            &encoded_obj, &view, &view_active, "data() argument") != 0)
     {
         return NULL;
     }

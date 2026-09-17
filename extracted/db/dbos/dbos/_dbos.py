@@ -23,7 +23,6 @@ from typing import (
     Generator,
     Generic,
     List,
-    Literal,
     Optional,
     Protocol,
     Sequence,
@@ -52,7 +51,6 @@ from dbos._workflow_commands import fork_workflow
 from ._classproperty import classproperty
 from ._core import (
     DEFAULT_POLLING_INTERVAL,
-    TEMP_SEND_WF_NAME,
     ActiveWorkflowById,
     StepOptions,
     WorkflowHandleAsyncPolling,
@@ -60,7 +58,6 @@ from ._core import (
     _validate_enqueue_only_options,
     close_stream,
     decorate_step,
-    decorate_transaction,
     decorate_workflow,
     enqueue_workflow_with_options,
     enqueue_workflow_with_options_async,
@@ -80,6 +77,7 @@ from ._core import (
 from ._croniter import croniter  # type: ignore
 from ._enqueue_options import EnqueueOptions
 from ._queue import (
+    _INTERNAL_QUEUE_CONSTRUCTION,
     Queue,
     QueueConflictResolution,
     QueueRateLimit,
@@ -104,7 +102,6 @@ from ._scheduler import (
     dynamic_scheduler_loop,
     trigger_schedule,
 )
-from ._scheduler_decorator import DecoratedScheduledWorkflow, scheduled
 from ._sys_db import (
     DEFAULT_NOTIFICATION_COALESCE_SEC,
     GetEventWorkflowContext,
@@ -118,21 +115,15 @@ from ._sys_db import (
 from ._tracer import DBOSTracer, dbos_tracer
 
 if TYPE_CHECKING:
-    from fastapi import FastAPI
     from ._kafka import (
         KafkaConsumerRegistration,
         KafkaOrdering,
         _KafkaConsumerWorkflow,
     )
-    from flask import Flask
     from opentelemetry.trace import Span
 
 from typing import ParamSpec
 
-from sqlalchemy.orm import Session
-
-from ._admin_server import AdminServer
-from ._app_db import ApplicationDatabase
 from ._context import (
     DBOSContext,
     EnterDBOSStepCtx,
@@ -145,13 +136,11 @@ from ._context import (
 from ._dbos_config import (
     ConfigFile,
     DBOSConfig,
-    get_system_database_url,
     overwrite_config,
     process_config,
     translate_dbos_config_to_config_file,
 )
 from ._error import (
-    DBOSConflictingRegistrationError,
     DBOSException,
     DBOSNonExistentWorkflowError,
     DBOSPatchNondeterminismError,
@@ -176,12 +165,6 @@ P = ParamSpec("P")  # A generic type for workflow parameters
 R = TypeVar("R", covariant=True)  # A generic type for workflow return values
 
 T = TypeVar("T")
-
-IsolationLevel = Literal[
-    "SERIALIZABLE",
-    "REPEATABLE READ",
-    "READ COMMITTED",
-]
 
 _dbos_global_instance: Optional[DBOS] = None
 _dbos_global_registry: Optional[DBOSRegistry] = None
@@ -222,30 +205,53 @@ RegisteredJob = Tuple[
 class DBOSRegistry:
     def __init__(self) -> None:
         self.workflow_info_map: dict[str, Callable[..., Any]] = {}
-        self.function_type_map: dict[str, str] = {}
         self.class_info_map: dict[str, type] = {}
         self.instance_info_map: dict[str, object] = {}
-        self.queue_info_map: dict[str, Queue] = {}
+        # DBOS's own in-memory queues (the internal queue, the Kafka queues).
+        # User queues are database-backed and live in the queues table.
+        self.internal_queue_map: dict[str, Queue] = {}
         self.pollers: list[RegisteredJob] = []
         self.dbos: Optional[DBOS] = None
         # Kafka consumer registrations, for cross-consumer validation
         self.kafka_registrations: list[KafkaConsumerRegistration] = []
-        # Queues fed by this process's pollers (e.g. Kafka); always polled, regardless of any listen_queues filter, so this process executes what it enqueues.
-        self.poller_queue_names: set[str] = set()
         # Polling interval for the internal Kafka queues, from DBOSConfig; None keeps the Queue default.
         self.kafka_queue_polling_interval_sec: Optional[float] = None
 
-    def register_wf_function(self, name: str, wrapped_func: F, functype: str) -> None:
-        if name in self.function_type_map:
-            if self.function_type_map[name] != functype:
-                raise DBOSConflictingRegistrationError(name)
-            if name != TEMP_SEND_WF_NAME:
-                # Remove the `<temp>` prefix from the function name to avoid confusion
-                truncated_name = name.replace("<temp>.", "")
-                dbos_logger.warning(
-                    f"Duplicate registration of function '{truncated_name}'. A function named '{truncated_name}' has already been registered with DBOS. All functions registered with DBOS must have unique names."
-                )
-        self.function_type_map[name] = functype
+    def register_wf_function(self, name: str, wrapped_func: F) -> None:
+        if name in self.workflow_info_map:
+            # Error if a workflow is registered with the same name in different modules.
+            if not name.startswith("<temp>."):
+
+                def code_origin(fn: Any) -> Optional[Tuple[str, str]]:
+                    """Where a function came from, as (module, real source path)."""
+                    try:
+                        fn = inspect.unwrap(fn)
+                    except ValueError:
+                        return None
+                    code = getattr(fn, "__code__", None)
+                    module = getattr(fn, "__module__", None)
+                    if code is None or module is None:
+                        return None
+                    return (module, os.path.realpath(code.co_filename))
+
+                previous = code_origin(self.workflow_info_map.get(name))
+                current = code_origin(wrapped_func)
+                if (
+                    previous is not None
+                    and current is not None
+                    and previous[0] != current[0]
+                    and previous[1] != current[1]
+                ):
+                    raise DBOSException(
+                        f"Operation (Name: {name}) is registered by two different "
+                        f"functions, {previous[0]} at {previous[1]} and "
+                        f"{current[0]} at {current[1]}."
+                    )
+            # Remove the `<temp>` prefix from the function name to avoid confusion
+            truncated_name = name.replace("<temp>.", "")
+            dbos_logger.warning(
+                f"Duplicate registration of function '{truncated_name}'. A function named '{truncated_name}' has already been registered with DBOS. All functions registered with DBOS must have unique names."
+            )
         self.workflow_info_map[name] = wrapped_func
 
     def register_class(self, cls: type, ci: DBOSClassInfo) -> None:
@@ -269,7 +275,7 @@ class DBOSRegistry:
         if self.dbos and self.dbos._launched:
             # Run on a tracked daemon thread (like the pre-launch pollers), not the
             # executor, so destroy() joins it and the consumer doesn't leak between runs.
-            self.dbos.poller_stop_events.append(evt)
+            self.dbos.background_thread_stop_events.append(evt)
             poller_thread = threading.Thread(
                 target=func, args=args, kwargs=kwargs, daemon=True
             )
@@ -321,12 +327,27 @@ class DBOSRegistry:
             hasher.update(source.encode("utf-8"))
         return hasher.hexdigest()
 
+    def _register_internal_queue(self, name: str, **limits: Any) -> Queue:
+        """Get or create a DBOS-internal, in-memory queue. Internal only: user
+        queues are database-backed, registered with DBOS.register_queue."""
+        queue = self.internal_queue_map.get(name)
+        if queue is None:
+            queue = Queue(name, token=_INTERNAL_QUEUE_CONSTRUCTION, **limits)
+            self.internal_queue_map[name] = queue
+        return queue
+
+    def internal_queues(self) -> list[Queue]:
+        """DBOS's own queues: the internal queue plus the Kafka queues this
+        process's consumers need."""
+        # Snapshot: a consumer registered after launch may add to the map.
+        return list(self.internal_queue_map.values())
+
     def get_internal_queue(self) -> Queue:
         """
         Get or create the internal queue used for the DBOS scheduler, for Kafka, and for
         programmatic resuming and restarting of workflows.
         """
-        return Queue(INTERNAL_QUEUE_NAME)
+        return self._register_internal_queue(INTERNAL_QUEUE_NAME)
 
 
 class ScheduleInput(TypedDict, total=False):
@@ -372,8 +393,6 @@ class DBOS:
         cls: Type[DBOS],
         *,
         config: DBOSConfig,
-        fastapi: Optional["FastAPI"] = None,
-        flask: Optional["Flask"] = None,
         conductor_url: Optional[str] = None,
         conductor_key: Optional[str] = None,
     ) -> DBOS:
@@ -381,7 +400,7 @@ class DBOS:
         global _dbos_global_registry
         if _dbos_global_instance is None:
             _dbos_global_instance = super().__new__(cls)
-            _dbos_global_instance.__init__(fastapi=fastapi, config=config, flask=flask, conductor_url=conductor_url, conductor_key=conductor_key)  # type: ignore
+            _dbos_global_instance.__init__(config=config, conductor_url=conductor_url, conductor_key=conductor_key)  # type: ignore
         return _dbos_global_instance
 
     @classmethod
@@ -400,18 +419,12 @@ class DBOS:
         if destroy_registry:
             global _dbos_global_registry
             _dbos_global_registry = None
-        GlobalParams.app_version = os.environ.get("DBOS__APPVERSION", "")
-        GlobalParams.executor_id = os.environ.get("DBOS__VMID", "local")
-        # Set at launch from the config, so a relaunch under another name must not inherit this one.
-        GlobalParams.app_name = None
         dbos_logger.info("DBOS successfully shut down")
 
     def __init__(
         self,
         *,
         config: DBOSConfig,
-        fastapi: Optional["FastAPI"] = None,
-        flask: Optional["Flask"] = None,
         conductor_url: Optional[str] = None,
         conductor_key: Optional[str] = None,
     ) -> None:
@@ -422,17 +435,11 @@ class DBOS:
 
         self._launched: bool = False
         self._sys_db_field: Optional[SystemDatabase] = None
-        self._app_db_field: Optional[ApplicationDatabase] = None
         self._registry: DBOSRegistry = _get_or_create_dbos_registry()
         self._registry.dbos = self
         self._listening_queues: Optional[List[str]] = None
-        self._admin_server_field: Optional[AdminServer] = None
-        # Stop internal background threads (queue thread, timeout threads, etc.)
+        # Stop background threads (queue thread, pollers like the scheduler and Kafka, etc.)
         self.background_thread_stop_events: List[threading.Event] = []
-        # Stop pollers (event receivers) that can create new workflows (scheduler, Kafka)
-        self.poller_stop_events: List[threading.Event] = []
-        self.fastapi: Optional["FastAPI"] = fastapi
-        self.flask: Optional["Flask"] = flask
         self._executor_field: Optional[ThreadPoolExecutor] = None
         self._background_threads: List[threading.Thread] = []
         self._timeout_tasks: set[asyncio.Task[None]] = set()
@@ -465,9 +472,11 @@ class DBOS:
                     f"conductor_executor_metadata must be JSON-serializable: {e}"
                 )
 
-        # Globally set the application version and executor ID.
+        # Reset global configuration. If reconfigured, it is set at launch.
+        GlobalParams.app_version = os.environ.get("DBOS__APPVERSION", "")
+        GlobalParams.executor_id = os.environ.get("DBOS__VMID") or "local"
         # In DBOS Cloud, instead use the values supplied through environment variables.
-        if not os.environ.get("DBOS__CLOUD") == "true":
+        if not GlobalParams.dbos_cloud:
             if self.enable_patching:
                 GlobalParams.app_version = "PATCHING_ENABLED"
             if (
@@ -482,7 +491,7 @@ class DBOS:
 
         # Translate user provided config to an internal format
         unvalidated_config = translate_dbos_config_to_config_file(config)
-        if os.environ.get("DBOS__CLOUD") == "true":
+        if GlobalParams.dbos_cloud:
             unvalidated_config = overwrite_config(unvalidated_config)
 
         if unvalidated_config is not None:
@@ -498,27 +507,6 @@ class DBOS:
         config_logger(self._config)
         dbos_tracer.config(self._config)
         dbos_logger.info(f"Initializing DBOS (v{GlobalParams.dbos_version})")
-
-        # If using FastAPI, set up middleware and lifecycle events
-        if self.fastapi is not None:
-            from ._fastapi import setup_fastapi_middleware
-
-            setup_fastapi_middleware(self.fastapi, _get_dbos_instance())
-
-        # If using Flask, set up middleware
-        if self.flask is not None:
-            from ._flask import setup_flask_middleware
-
-            setup_flask_middleware(self.flask)
-
-        # Register send_temp_workflow for backwards compatibility only.
-        # Old workflow_status rows may reference TEMP_SEND_WF_NAME.
-        def send_temp_workflow(
-            destination_id: str, message: Any, topic: Optional[str]
-        ) -> None:
-            self.send(destination_id, message, topic)
-
-        decorate_workflow(self._registry, TEMP_SEND_WF_NAME, None)(send_temp_workflow)
 
         for handler in dbos_logger.handlers:
             handler.flush()
@@ -537,21 +525,13 @@ class DBOS:
         rv: SystemDatabase = self._sys_db_field
         return rv
 
-    @property
-    def _app_db(self) -> ApplicationDatabase | None:
-        return self._app_db_field
-
-    @property
-    def _admin_server(self) -> AdminServer:
-        if self._admin_server_field is None:
-            raise DBOSException("Admin server accessed before DBOS was launched")
-        rv: AdminServer = self._admin_server_field
-        return rv
-
     @classmethod
     def launch(cls) -> None:
-        if _dbos_global_instance is not None:
-            _dbos_global_instance._launch()
+        if _dbos_global_instance is None:
+            raise DBOSException(
+                "DBOS.launch() was called without a DBOS instance. Construct DBOS(config=...) first; DBOS.destroy() discards the instance."
+            )
+        _dbos_global_instance._launch()
 
     def _launch(self) -> None:
         try:
@@ -564,7 +544,7 @@ class DBOS:
                 GlobalParams.app_version = self._registry.compute_app_version(
                     GlobalParams.app_name
                 )
-            if self.conductor_key is not None:
+            if self.conductor_key is not None and not GlobalParams.dbos_cloud:
                 GlobalParams.executor_id = generate_uuid()
             dbos_logger.info(f"Executor ID: {GlobalParams.executor_id}")
             dbos_logger.info(f"Application version: {GlobalParams.app_version}")
@@ -593,8 +573,10 @@ class DBOS:
                 self._config.get("runtimeConfig", {}).get("notification_coalesce_sec")
                 or DEFAULT_NOTIFICATION_COALESCE_SEC
             )
+            system_database_url = self._config["system_database_url"]
+            assert system_database_url is not None
             self._sys_db_field = SystemDatabase.create(
-                system_database_url=get_system_database_url(self._config),
+                system_database_url=system_database_url,
                 engine_kwargs=self._config["database"]["sys_db_engine_kwargs"],
                 engine=self._config["system_database_engine"],
                 schema=schema,
@@ -607,18 +589,12 @@ class DBOS:
                     "sys_db_polling_concurrency"
                 ),
                 app_name=GlobalParams.app_name,
+                observability_query_timeout_sec=self._config.get(
+                    "runtimeConfig", {}
+                ).get("observability_query_timeout_sec"),
             )
-            assert self._config["database"]["db_engine_kwargs"] is not None
-            if self._config["database_url"]:
-                dbos_logger.debug("Creating application database")
-                self._app_db_field = ApplicationDatabase.create(
-                    database_url=self._config["database_url"],
-                    engine_kwargs=self._config["database"]["db_engine_kwargs"],
-                    schema=schema,
-                    serializer=self._serializer,
-                )
 
-            # Run migrations for the system and application databases
+            # Run migrations for the system database
             if self._config.get("run_migrations", True):
                 dbos_logger.debug("Running system database migrations")
                 self._sys_db.run_migrations()
@@ -627,9 +603,6 @@ class DBOS:
                 # be allowed to run DDL, but it still requires an up-to-date schema.
                 dbos_logger.debug("Verifying system database migrations")
                 self._sys_db.verify_migrations()
-            if self._app_db:
-                dbos_logger.debug("Running application database migrations")
-                self._app_db.run_migrations()
 
             # Register the current application version
             self._sys_db.create_application_version(GlobalParams.app_version)
@@ -646,19 +619,6 @@ class DBOS:
 
                 validate_kafka_consumers(self)
                 configure_kafka_queues(self)
-
-            admin_port = self._config.get("runtimeConfig", {}).get("admin_port")
-            if admin_port is None:
-                admin_port = 3001
-            run_admin_server = self._config.get("runtimeConfig", {}).get(
-                "run_admin_server"
-            )
-            if run_admin_server:
-                try:
-                    dbos_logger.debug("Starting admin server")
-                    self._admin_server_field = AdminServer(dbos=self, port=admin_port)
-                except Exception as e:
-                    dbos_logger.warning(f"Failed to start admin server: {e}")
 
             # Recover local workflows if not using a recovery service
             if not self.conductor_key and not GlobalParams.dbos_cloud:
@@ -747,7 +707,7 @@ class DBOS:
             # Grab any pollers that were deferred and start them
             dbos_logger.debug("Starting event receivers")
             for evt, func, args, kwargs in self._registry.pollers:
-                self.poller_stop_events.append(evt)
+                self.background_thread_stop_events.append(evt)
                 poller_thread = threading.Thread(
                     target=func, args=args, kwargs=kwargs, daemon=True
                 )
@@ -763,7 +723,7 @@ class DBOS:
                 or 30.0
             )
             scheduler_evt = threading.Event()
-            self.poller_stop_events.append(scheduler_evt)
+            self.background_thread_stop_events.append(scheduler_evt)
             scheduler_thread = threading.Thread(
                 target=dynamic_scheduler_loop,
                 args=(scheduler_evt, scheduler_polling_interval_sec),
@@ -774,7 +734,7 @@ class DBOS:
 
             dbos_logger.info("DBOS launched!")
 
-            if self.conductor_key is None and os.environ.get("DBOS__CLOUD") != "true":
+            if self.conductor_key is None and not GlobalParams.dbos_cloud:
                 # Hint the user to open the URL to register and set up Conductor
                 app_name = self._config["name"]
                 conductor_registration_url = (
@@ -839,11 +799,13 @@ class DBOS:
             not self._launched
         ), "The system database cannot be reset after DBOS is launched. Resetting the system database is a destructive operation that should only be used in a test environment."
 
+        configured_url = self._config["system_database_url"]
+        assert configured_url is not None
         SystemDatabase.reset_system_database(
             (
                 system_database_url
                 if system_database_url is not None
-                else get_system_database_url(self._config)
+                else configured_url
             ),
             truncate=truncate,
             schema=(
@@ -853,8 +815,6 @@ class DBOS:
 
     def _destroy(self, *, workflow_completion_timeout_sec: int) -> None:
         self._initialized = False
-        for event in self.poller_stop_events:
-            event.set()
         for event in self.background_thread_stop_events:
             event.set()
         if workflow_completion_timeout_sec > 0:
@@ -909,9 +869,6 @@ class DBOS:
                 except RuntimeError as e:
                     dbos_logger.warning(f"Exception cancelling timeout tasks: {e}")
         self._background_event_loop.stop()
-        if self._admin_server_field is not None:
-            self._admin_server_field.stop()
-            self._admin_server_field = None
         if self._executor_field is not None:
             self._executor_field.shutdown(wait=False, cancel_futures=True)
             self._executor_field = None
@@ -927,13 +884,6 @@ class DBOS:
         if self._sys_db_field is not None:
             self._sys_db_field.destroy()
             self._sys_db_field = None
-        if self._app_db_field is not None:
-            self._app_db_field.destroy()
-            self._app_db_field = None
-
-    @classmethod
-    def register_instance(cls, inst: object) -> None:
-        return _get_or_create_dbos_registry().register_instance(inst)
 
     @classmethod
     def register_queue(
@@ -950,8 +900,6 @@ class DBOS:
         on_conflict: QueueConflictResolution = "update_if_latest_version",
         # Deprecated, retained for backwards compatibility
         concurrency: Optional[int] = None,
-        priority_enabled: bool = False,
-        partition_queue: bool = False,
     ) -> Queue:
         """
         Register a queue and persist its configuration to the system database.
@@ -997,20 +945,18 @@ class DBOS:
             mode: the name is its address, so a collision is not ours to resolve.
 
         :param concurrency: Deprecated. Use ``global_concurrency``.
-        :param priority_enabled: Deprecated. Priority is always enabled.
-        :param partition_queue: Deprecated. Use the ``partition_*`` limits.
 
         :returns: A :class:`Queue` reflecting the persisted configuration.
         """
         check_async("register_queue")
         Queue._validate_queue(
+            name=name,
             concurrency=concurrency,
             worker_concurrency=worker_concurrency,
             global_concurrency=global_concurrency,
             partition_concurrency=partition_concurrency,
             partition_worker_concurrency=partition_worker_concurrency,
             partition_limiter=partition_limiter,
-            partition_queue=partition_queue,
             polling_interval_sec=polling_interval_sec,
             limiter=limiter,
         )
@@ -1032,8 +978,6 @@ class DBOS:
             worker_concurrency=worker_concurrency,
             rate_limit_max=limiter["limit"] if limiter else None,
             rate_limit_period_sec=limiter["period"] if limiter else None,
-            priority_enabled=priority_enabled,
-            partition_queue=partition_queue,
             partition_concurrency=partition_concurrency,
             partition_worker_concurrency=partition_worker_concurrency,
             partition_rate_limit_max=(
@@ -1071,8 +1015,6 @@ class DBOS:
         on_conflict: QueueConflictResolution = "update_if_latest_version",
         # Deprecated, retained for backwards compatibility
         concurrency: Optional[int] = None,
-        priority_enabled: bool = False,
-        partition_queue: bool = False,
     ) -> Queue:
         """Async version of :meth:`register_queue`."""
         await cls._configure_asyncio_thread_pool()
@@ -1088,19 +1030,16 @@ class DBOS:
                 polling_interval_sec=polling_interval_sec,
                 on_conflict=on_conflict,
                 concurrency=concurrency,
-                priority_enabled=priority_enabled,
-                partition_queue=partition_queue,
             )
         )
 
     @classmethod
     def retrieve_queue(cls, name: str) -> Optional[Queue]:
         """
-        Retrieve a database-backed queue by name.
+        Retrieve a queue by name.
 
         Returns None if no queue with the given name has been registered in the
-        system database. The returned Queue is not added to the in-memory queue
-        registry.
+        system database.
         """
         check_async("retrieve_queue")
         return _get_dbos_instance()._sys_db.get_queue(name)
@@ -1113,7 +1052,7 @@ class DBOS:
 
     @classmethod
     def delete_queue(cls, name: str) -> None:
-        """Delete a database-backed queue. Pending workflows on it are unrecoverable."""
+        """Delete a queue. Pending workflows on it are unrecoverable."""
         check_async("delete_queue")
         _get_dbos_instance()._sys_db.delete_queue(name)
 
@@ -1128,7 +1067,7 @@ class DBOS:
         cls, *, application_name: Optional[Union[str, List[str]]] = None
     ) -> List[Queue]:
         """
-        List database-backed queues registered in the system database.
+        List the queues registered in the system database.
 
         :param application_name: List only queues owned by these applications.
             By default, only list this application's queues.
@@ -1165,24 +1104,6 @@ class DBOS:
             max_recovery_attempts,
             serialization_type=serialization_type,
             validate_args=validate_args,
-        )
-
-    @classmethod
-    def transaction(
-        cls,
-        isolation_level: IsolationLevel = "SERIALIZABLE",
-        *,
-        name: Optional[str] = None,
-    ) -> Callable[[F], F]:
-        """
-        Decorate a function for use as a DBOS transaction.
-
-        Args:
-            isolation_level(IsolationLevel): Transaction isolation level
-
-        """
-        return decorate_transaction(
-            _get_or_create_dbos_registry(), name, isolation_level
         )
 
     @classmethod
@@ -1283,19 +1204,10 @@ class DBOS:
         return required_roles(roles)
 
     @classmethod
-    def scheduled(
-        cls, cron: str
-    ) -> Callable[[DecoratedScheduledWorkflow], DecoratedScheduledWorkflow]:
-        """Decorate a workflow function with its invocation schedule."""
-
-        return scheduled(_get_or_create_dbos_registry(), cron)
-
-    @classmethod
     def kafka_consumer(
         cls,
         config: dict[str, Any],
         topics: list[str],
-        in_order: bool = False,
         *,
         ordering: Optional[KafkaOrdering] = None,
         batch_size: int = 250,
@@ -1306,7 +1218,6 @@ class DBOS:
         Args:
             config: confluent-kafka consumer configuration.
             topics: Topics (or ^-prefixed regexes) to subscribe to.
-            in_order: Deprecated alias for ordering="topic".
             ordering: "none" (default) processes messages in parallel;
                 "partition" processes them serially per topic partition
                 (Kafka's delivery-order guarantee) and in parallel across
@@ -1329,7 +1240,6 @@ class DBOS:
                 _get_or_create_dbos_registry(),
                 config,
                 topics,
-                in_order,
                 ordering=ordering,
                 batch_size=batch_size,
                 queue_name=queue_name,
@@ -1375,8 +1285,10 @@ class DBOS:
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> WorkflowHandle[R]:
-        """Enqueue a workflow on a database-backed queue, returning a handle to the ongoing execution."""
-        queue = Queue(queue_name, database_backed_queue=True)
+        """Enqueue a workflow on a queue, returning a handle to the ongoing execution."""
+        queue = Queue(
+            queue_name, database_backed_queue=True, token=_INTERNAL_QUEUE_CONSTRUCTION
+        )
         return queue.enqueue(func, *args, **kwargs)
 
     @classmethod
@@ -1389,7 +1301,9 @@ class DBOS:
     ) -> WorkflowHandleAsync[R]:
         """Async version of :meth:`enqueue_workflow`."""
         await cls._configure_asyncio_thread_pool()
-        queue = Queue(queue_name, database_backed_queue=True)
+        queue = Queue(
+            queue_name, database_backed_queue=True, token=_INTERNAL_QUEUE_CONSTRUCTION
+        )
         return await queue.enqueue_async(func, *args, **kwargs)
 
     @classmethod
@@ -2895,7 +2809,7 @@ class DBOS:
         dbos = _get_dbos_instance()
         if (
             queue_name is not None
-            and queue_name not in dbos._registry.queue_info_map
+            and queue_name not in dbos._registry.internal_queue_map
             and dbos._sys_db.get_queue(queue_name) is None
         ):
             raise DBOSException(
@@ -3186,7 +3100,7 @@ class DBOS:
             entry_queue_name = entry.get("queue_name")
             if (
                 entry_queue_name is not None
-                and entry_queue_name not in dbos._registry.queue_info_map
+                and entry_queue_name not in dbos._registry.internal_queue_map
                 and dbos._sys_db.get_queue(entry_queue_name) is None
             ):
                 raise DBOSException(
@@ -3344,15 +3258,6 @@ class DBOS:
         return dbos_logger  # TODO get from context if appropriate...
 
     @classproperty
-    def sql_session(cls) -> Session:
-        """Return the SQLAlchemy `Session` for the current context, which must be within a transaction function."""
-        ctx = assert_current_dbos_context()
-        assert ctx.is_transaction(), "db is only available within a transaction."
-        rv = ctx.sql_session
-        assert rv
-        return rv
-
-    @classproperty
     def workflow_id(cls) -> Optional[str]:
         """Return the ID of the currently executing workflow. If a workflow is not executing, return None."""
         ctx = get_local_dbos_context()
@@ -3365,7 +3270,7 @@ class DBOS:
     def step_id(cls) -> Optional[int]:
         """Return the step ID for the currently executing step. This is a unique identifier of the current step within the workflow. If a step is not currently executing, return None."""
         ctx = get_local_dbos_context()
-        if ctx and (ctx.is_step() or ctx.is_transaction()):
+        if ctx and ctx.is_step():
             return ctx.function_id
         else:
             return None
@@ -3780,19 +3685,22 @@ class DBOS:
         return dbos_tracer
 
     @classmethod
-    def listen_queues(cls, queues: Sequence[Union[Queue, str]]) -> None:
+    def listen_queues(cls, queues: Sequence[str]) -> None:
         """
         Configure this DBOS process to only listen to (dequeue workflows from) specific queues.
 
+        Must be called before launch, so queues are named rather than passed as
+        objects: registering a queue requires a launched DBOS.
+
         Args:
-            queues: The queues to listen to, either as ``Queue`` objects or as queue names.
+            queues: The names of the queues to listen to.
         """
         dbos = _get_dbos_instance()
         if dbos._launched:
             raise DBOSException("listen_queues called after DBOS is launched")
         if dbos._listening_queues is not None:
             raise DBOSException("listen_queues called more than once")
-        dbos._listening_queues = [q if isinstance(q, str) else q.name for q in queues]
+        dbos._listening_queues = list(queues)
 
     @classmethod
     def alert_handler(
@@ -3906,4 +3814,4 @@ class DBOSConfiguredInstance:
 
     def __init__(self, config_name: str) -> None:
         self.config_name = config_name
-        DBOS.register_instance(self)
+        _get_or_create_dbos_registry().register_instance(self)

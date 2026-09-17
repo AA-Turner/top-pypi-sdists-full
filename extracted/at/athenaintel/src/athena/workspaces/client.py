@@ -5,6 +5,8 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.default_visibility import DefaultVisibility
+from ..types.presence_resolve_response_out import PresenceResolveResponseOut
+from ..types.presence_token_response_out import PresenceTokenResponseOut
 from ..types.update_workspace_disclaimer_in import UpdateWorkspaceDisclaimerIn
 from ..types.update_workspace_tool_registry_tool_in import UpdateWorkspaceToolRegistryToolIn
 from ..types.workspace_configuration_response_out import WorkspaceConfigurationResponseOut
@@ -100,6 +102,108 @@ class WorkspacesClient:
         """
         _response = self._raw_client.update_configuration(
             workspace_id, workspace_disclaimer=workspace_disclaimer, request_options=request_options
+        )
+        return _response.data
+
+    def create_presence_token(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> PresenceTokenResponseOut:
+        """
+        Admin only. Mint a short-lived, read-only Keryx token for a workspace's live presence feed (the awareness room the People page renders). The token is bound to the calling user, so Keryx narrows every frame to the documents that user may open; it can never publish presence or write document content. Requires the presence roster to be enabled for the deployment and opted in for the workspace. Computer-asset sandbox credentials are refused: call with the viewing user's own token.
+
+        Parameters
+        ----------
+        workspace_id : str
+            The workspace whose presence feed to read.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PresenceTokenResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.workspaces.create_presence_token(
+            workspace_id="workspace_9ec609ea-ee1a-48b6-9e61-d73d9dfbb651",
+        )
+        """
+        _response = self._raw_client.create_presence_token(workspace_id, request_options=request_options)
+        return _response.data
+
+    def resolve_presence(
+        self,
+        workspace_id: str,
+        *,
+        asset_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        include_members: typing.Optional[bool] = OMIT,
+        include_projects: typing.Optional[bool] = OMIT,
+        project_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        session_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PresenceResolveResponseOut:
+        """
+        Admin only. Resolve the guids a presence feed carries into display titles, asset kinds, and project membership, and optionally list the projects and members of the workspace. Every id is checked against the calling user's own read permission as an ordinary member; anything the caller could not open is omitted rather than reported. Same gates as the presence-token mint.
+
+        Parameters
+        ----------
+        workspace_id : str
+            The workspace whose presence feed to read.
+
+        asset_ids : typing.Optional[typing.Sequence[str]]
+            Asset guids from presence contexts of type asset.
+
+        include_members : typing.Optional[bool]
+            Also list the workspace's members (name, email, avatar) so the app can name people by their attested user id rather than the self-reported slot.
+
+        include_projects : typing.Optional[bool]
+            Also list every project the caller may open in this workspace, each with the linked documents the caller may open.
+
+        project_ids : typing.Optional[typing.Sequence[str]]
+            Project guids from coarse presence contexts or from a visible context's projects annotation.
+
+        session_ids : typing.Optional[typing.Sequence[str]]
+            Thread ids from presence contexts of type session (what an open chat publishes). Each resolves to the workspace's session asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PresenceResolveResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.workspaces.resolve_presence(
+            workspace_id="workspace_9ec609ea-ee1a-48b6-9e61-d73d9dfbb651",
+            asset_ids=["asset_1f9b6b2e-4c1d-4a0a-9c1e-2b7d1a0f3c44"],
+            include_members=True,
+            include_projects=True,
+            project_ids=["asset_7c2d1e0f-3a4b-4c5d-8e6f-1a2b3c4d5e6f"],
+            session_ids=["thread_3f0a9c2e-6b1d-4d8e-8a2f-5c7e9b1d2a30"],
+        )
+        """
+        _response = self._raw_client.resolve_presence(
+            workspace_id,
+            asset_ids=asset_ids,
+            include_members=include_members,
+            include_projects=include_projects,
+            project_ids=project_ids,
+            session_ids=session_ids,
+            request_options=request_options,
         )
         return _response.data
 
@@ -286,6 +390,124 @@ class AsyncWorkspacesClient:
         """
         _response = await self._raw_client.update_configuration(
             workspace_id, workspace_disclaimer=workspace_disclaimer, request_options=request_options
+        )
+        return _response.data
+
+    async def create_presence_token(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> PresenceTokenResponseOut:
+        """
+        Admin only. Mint a short-lived, read-only Keryx token for a workspace's live presence feed (the awareness room the People page renders). The token is bound to the calling user, so Keryx narrows every frame to the documents that user may open; it can never publish presence or write document content. Requires the presence roster to be enabled for the deployment and opted in for the workspace. Computer-asset sandbox credentials are refused: call with the viewing user's own token.
+
+        Parameters
+        ----------
+        workspace_id : str
+            The workspace whose presence feed to read.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PresenceTokenResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.create_presence_token(
+                workspace_id="workspace_9ec609ea-ee1a-48b6-9e61-d73d9dfbb651",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_presence_token(workspace_id, request_options=request_options)
+        return _response.data
+
+    async def resolve_presence(
+        self,
+        workspace_id: str,
+        *,
+        asset_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        include_members: typing.Optional[bool] = OMIT,
+        include_projects: typing.Optional[bool] = OMIT,
+        project_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        session_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PresenceResolveResponseOut:
+        """
+        Admin only. Resolve the guids a presence feed carries into display titles, asset kinds, and project membership, and optionally list the projects and members of the workspace. Every id is checked against the calling user's own read permission as an ordinary member; anything the caller could not open is omitted rather than reported. Same gates as the presence-token mint.
+
+        Parameters
+        ----------
+        workspace_id : str
+            The workspace whose presence feed to read.
+
+        asset_ids : typing.Optional[typing.Sequence[str]]
+            Asset guids from presence contexts of type asset.
+
+        include_members : typing.Optional[bool]
+            Also list the workspace's members (name, email, avatar) so the app can name people by their attested user id rather than the self-reported slot.
+
+        include_projects : typing.Optional[bool]
+            Also list every project the caller may open in this workspace, each with the linked documents the caller may open.
+
+        project_ids : typing.Optional[typing.Sequence[str]]
+            Project guids from coarse presence contexts or from a visible context's projects annotation.
+
+        session_ids : typing.Optional[typing.Sequence[str]]
+            Thread ids from presence contexts of type session (what an open chat publishes). Each resolves to the workspace's session asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PresenceResolveResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.resolve_presence(
+                workspace_id="workspace_9ec609ea-ee1a-48b6-9e61-d73d9dfbb651",
+                asset_ids=["asset_1f9b6b2e-4c1d-4a0a-9c1e-2b7d1a0f3c44"],
+                include_members=True,
+                include_projects=True,
+                project_ids=["asset_7c2d1e0f-3a4b-4c5d-8e6f-1a2b3c4d5e6f"],
+                session_ids=["thread_3f0a9c2e-6b1d-4d8e-8a2f-5c7e9b1d2a30"],
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.resolve_presence(
+            workspace_id,
+            asset_ids=asset_ids,
+            include_members=include_members,
+            include_projects=include_projects,
+            project_ids=project_ids,
+            session_ids=session_ids,
+            request_options=request_options,
         )
         return _response.data
 

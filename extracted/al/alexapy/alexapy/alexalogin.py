@@ -481,9 +481,7 @@ class AlexaLogin:
         self.uuid = (
             uuid if uuid else uuid4().hex.upper()
         )  # needed to be unique but repeateable for device registration
-        self.deviceid: str = (
-            self.uuid.encode() + b"23413249564c5635564d32573831"
-        ).hex()
+        self.deviceid: str = self.uuid.encode().hex() + "23413249564c5635564d32573831"
         self.code_verifier: str = oauth.get(
             "code_verifier",
             base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode(),
@@ -651,7 +649,9 @@ class AlexaLogin:
         _LOGGER.debug("Unable to generate OTP; 2FA app key not configured")
         return ""
 
-    async def load_cookie(self, cookies_txt: str = "") -> dict[str, str] | None:  # noqa: PLR0915
+    async def load_cookie(  # noqa: PLR0915
+        self, cookies_txt: str = ""
+    ) -> dict[str, str] | None:
         """Load persisted cookies.
 
         The preferred format is alexapy's versioned JSON .cookies file.
@@ -1129,7 +1129,7 @@ class AlexaLogin:
                 _LOGGER.debug("Found link selection %s in %s ", digit, datum)
                 assert self._links is not None
                 if self._links.get(digit):
-                    (text, site) = self._links[digit]
+                    text, site = self._links[digit]
                     data[datum] = None
                     _LOGGER.debug("Going to link with text: %s href: %s ", text, site)
                     _LOGGER.debug("%s reset to %s ", datum, data[datum])
@@ -1762,7 +1762,11 @@ class AlexaLogin:
                 "https://api.amazon.com/auth/token",
                 data=data,
             )
-        _LOGGER.debug("refresh response %s with \n%s", response, dumps(data))
+        _redacted = {
+            **data,
+            "source_token": "[REDACTED]" if data.get("source_token") else "",
+        }
+        _LOGGER.debug("refresh response %s with \n%s", response, dumps(_redacted))
         if response.status != 200:
             if self._debug:
                 _LOGGER.debug("Failed to refresh access token: %s", response)

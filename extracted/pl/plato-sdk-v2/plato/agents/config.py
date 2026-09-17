@@ -18,8 +18,9 @@ Example:
 from __future__ import annotations
 
 import os
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from plato.agents.schema import get_agent_config_schema, get_field_secrets
@@ -77,6 +78,56 @@ class AgentConfig(BaseSettings):
     inject it automatically when unset. Required when
     ``computer_use_mcp_enabled`` is True; an alias that no world resolves fails
     loudly at agent startup."""
+
+    computer_use_ssh_host: str | None = None
+    """Mesh address of the remote desktop VM for the ``computer`` server's
+    ``bash`` / ``read_file`` / ``write_file`` / ``edit_file`` tools. When set
+    (with ``computer_use_ssh_key``), those tools run over one persistent ssh
+    session on the session mesh instead of the desktop agent's HTTP API; the
+    screen tools keep using ``computer_use_vm_url``. Worlds fill it from the
+    env's ``get_mesh_ip()``."""
+
+    computer_use_ssh_key: Annotated[str | None, Secret(description="Private key authorized on the desktop VM")] = None
+    """Private key for ``computer_use_ssh_host`` — a per-run key the world
+    generates and authorizes on the desktop VM only (never the world's own
+    runner key, which also opens the world VM)."""
+
+    computer_use_ssh_user: str = "root"
+
+    sandbox_tools_only: bool = False
+    """Opt-in flag: when True, the harness's own shell and file tools are
+    removed from the model, so every command and file operation goes through
+    the ``computer`` MCP server and runs on the remote ubuntu-vm sandbox. The
+    agent VM (which holds the run's credentials) is then unreachable from the
+    model's tools. Turns on ``computer_use_mcp_enabled`` by itself (an explicit
+    ``false`` alongside it is rejected); the world still supplies
+    ``computer_use_vm_url``. Benchmarks set this for the task agent; validators
+    that write reports to a mounted workspace on their own VM leave it off."""
+
+    sandbox_extra_builtin_tools: list[str] = []
+    """Harness built-ins to keep alongside the sandbox tools under
+    ``sandbox_tools_only``. The allow-list is empty of work tools by design - a
+    built-in acts on the agent VM, where the run's credentials live - but a tool
+    that touches neither that filesystem nor its shell cannot leak them, so
+    web search and fetch, a todo list and the like are safe to name here. Names
+    are the harness's own (e.g. ``WebSearch``); an unknown one is ignored rather
+    than opening anything.
+
+    Claude Code only. Codex reaches the sandbox through an exec-server
+    environment with ``include_local = false``, so it has no local built-in set
+    to widen and this field does nothing there."""
+
+    @model_validator(mode="after")
+    def _sandbox_tools_only_enables_computer_use(self) -> AgentConfig:
+        """The ``computer`` server is all a sandbox_tools_only agent has, so the flag turns it on."""
+        if self.sandbox_tools_only:
+            if "computer_use_mcp_enabled" in self.model_fields_set and not self.computer_use_mcp_enabled:
+                raise ValueError(
+                    "sandbox_tools_only requires the computer server; remove computer_use_mcp_enabled: false "
+                    "(the flag turns the server on by itself)"
+                )
+            self.computer_use_mcp_enabled = True
+        return self
 
     @classmethod
     def get_field_secrets(cls) -> dict[str, Secret]:

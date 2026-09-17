@@ -61312,7 +61312,7 @@ class ID(bpy_struct):
     def update_tag(
         self, *, refresh: set[typing.Literal["OBJECT", "DATA", "TIME"]] | None = set()
     ) -> None:
-        """Tag the ID to update its display data, e.g. when calling `bpy.types.Scene.update`
+        """Tag the ID to update its display data, e.g. when calling `bpy.types.ViewLayer.update`
 
         :param refresh: Type of updates to perform (optional)
         """
@@ -91138,6 +91138,9 @@ class RenderEngine(bpy_struct):
     bl_use_stereo_viewport: bool
     """ Support rendering stereo 3D viewport (default False)"""
 
+    bl_write_viewport_depth: bool
+    """ The render engine writes depth to the viewport framebuffer which should be used as is instead of doing an internal depth pass (default False)"""
+
     @property
     def camera_override(self) -> None | Object | None:
         """(readonly)"""
@@ -119065,7 +119068,7 @@ class View3DShading(bpy_struct):
     """ Method to display/shade objects in the 3D View (default 'SOLID')"""
 
     use_compositor: typing.Literal["DISABLED", "CAMERA", "ALWAYS"]
-    """ When to preview the compositor output inside the viewport (default 'ALWAYS')"""
+    """ When to preview the compositor output inside the viewport (default 'DISABLED')"""
 
     use_dof: bool
     """ Use depth of field on viewport using the values from the active camera (default False)"""
@@ -150389,6 +150392,8 @@ TOPBAR_MT_file_recover: bl_ui.space_topbar.TOPBAR_MT_file_recover
 
 TOPBAR_MT_help: bl_ui.space_topbar.TOPBAR_MT_help
 
+TOPBAR_MT_project: bl_ui.space_topbar.TOPBAR_MT_project
+
 TOPBAR_MT_render: bl_ui.space_topbar.TOPBAR_MT_render
 
 TOPBAR_MT_templates_more: bl_ui.space_topbar.TOPBAR_MT_templates_more
@@ -151419,6 +151424,10 @@ VIEW3D_PT_tools_brush_swatches: (
 
 VIEW3D_PT_tools_brush_texture: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_texture
 
+VIEW3D_PT_tools_grease_pencil_brush_sculpt_falloff: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_brush_sculpt_falloff
+)
+
 VIEW3D_PT_tools_grease_pencil_brush_vertex_color: (
     bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_brush_vertex_color
 )
@@ -151445,6 +151454,14 @@ VIEW3D_PT_tools_grease_pencil_sculpt_appearance: (
 
 VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover: (
     bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover
+)
+
+VIEW3D_PT_tools_grease_pencil_sculpt_select: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_sculpt_select
+)
+
+VIEW3D_PT_tools_grease_pencil_sculpt_settings: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_sculpt_settings
 )
 
 VIEW3D_PT_tools_grease_pencil_v3_brush_advanced: (

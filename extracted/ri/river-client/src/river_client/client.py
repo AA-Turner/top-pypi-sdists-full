@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import concurrent.futures
 import datetime
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass
 import json as _json
 import logging
+import math
 import os
 import threading
+import tempfile
 import time
 import uuid
 import warnings
@@ -26,16 +29,28 @@ from river_client import __version__
 from river_client._nested_codec import from_bytes as _nested_from_bytes
 from river_client._nested_codec import to_bytes as _nested_to_bytes
 from river_client._proto import pb2, pb2_grpc
+from river_client.images import (
+    Image,
+    ImageHandle,
+    ImageUploads,
+    ImageStore,
+    image_handles,
+    map_images,
+)
+from river_client.sampling import PendingSamplingBatch, submit_batch
 from river_client.tokenizers import load_tokenizer
 from river_client.types import (
     AuthenticationError,
     ChatCompleteResult,
     Checkpoint,
+    Deployment,
+    DeploymentReplicas,
     ExpertRouting,
     ForwardResult,
     LoraConfig,
     ModelNotFoundError,
     OptimStepResult,
+    PolicyVersion,
     PendingOp,
     PendingSample,
     PromotedStreamingReplica,
@@ -44,6 +59,7 @@ from river_client.types import (
     RiverTimeoutError,
     Sample,
     SessionHeartbeatError,
+    ServerCapabilities,
     TrainingDataArtifact,
     TrainingDataAttestation,
     AttestedTrainingDataArtifact,
@@ -125,6 +141,10 @@ _FORWARD_BACKWARD_SUM_METRIC_KEYS = frozenset(
 _FORWARD_BACKWARD_MAX_METRIC_KEYS = frozenset({"moe/expert_capping_ratio_max"})
 
 
+class _ForwardBackwardNeedsSubBatches(RiverError):
+    """Preflight rejection: no RPC or sequence ID has been submitted."""
+
+
 @dataclass(frozen=True)
 class _ForwardBackwardRequestPlan:
     """Exact and conservative request sizes plus per-datum wire sizes."""
@@ -191,7 +211,10 @@ def _forward_backward_request_size(
     the input without ``data``; ``datum_field_size`` includes the data field's
     tag and length prefix for every included datum.
     """
-    envelope = pb2.ForwardBackwardRequest(model_id=request.model_id)
+    envelope = pb2.ForwardBackwardRequest()
+    envelope.CopyFrom(request)
+    envelope.ClearField("forward_backward_input")
+    envelope.ClearField("upload_id")
     if maximum_sequence_id_size:
         envelope.seq_id = (1 << 63) - 1
     elif request.HasField("seq_id"):
@@ -641,17 +664,17 @@ def _optional_top_logprobs(
 
 def _normalize_per_prompt_images(
     prompts: list[str],
-    images: list[bytes] | list[list[bytes]] | None,
-) -> list[list[bytes]]:
+    images: list[Image] | list[list[Image]] | None,
+) -> list[list[Image]]:
     """Coerce ``images`` to per-prompt list-of-lists shape.
 
     Three accepted forms:
 
     * ``None`` → empty image list per prompt (text-only).
-    * ``list[bytes]`` (flat) → applies to every prompt (i.e. broadcast
+    * ``list[Image]`` (flat) → applies to every prompt (i.e. broadcast
       the same image set to all prompts in the batch). Useful when
       sending a single prompt with a single image.
-    * ``list[list[bytes]]`` (nested) → per-prompt explicit; outer
+    * ``list[list[Image]]`` (nested) → per-prompt explicit; outer
       length must match ``len(prompts)``.
 
     Raises ``ValueError`` on mismatched lengths or wrong types.
@@ -662,25 +685,22 @@ def _normalize_per_prompt_images(
         raise ValueError(f"images must be a list, got {type(images).__name__}")
     if len(images) == 0:
         return [[] for _ in prompts]
-    first = images[0]
-    if isinstance(first, (bytes, bytearray)):
-        # Flat form: same image set for every prompt.
-        flat = [bytes(b) for b in images]  # type: ignore[arg-type]
-        return [list(flat) for _ in prompts]
-    if isinstance(first, list):
+
+    def normalize(image):
+        if isinstance(image, ImageHandle):
+            return image
+        if isinstance(image, (bytes, bytearray, memoryview)):
+            return bytes(image)
+        raise ValueError("images entries must be bytes or ImageHandle")
+
+    if isinstance(images[0], list):
         if len(images) != len(prompts):
-            raise ValueError(
-                f"images length ({len(images)}) does not match prompts length "
-                f"({len(prompts)}); pass a flat list[bytes] to broadcast a "
-                "single image set to every prompt."
-            )
-        return [
-            [bytes(b) for b in per_prompt]  # type: ignore[union-attr]
-            for per_prompt in images
-        ]
-    raise ValueError(
-        f"images entries must be bytes or list[bytes], got {type(first).__name__}"
-    )
+            raise ValueError("images length does not match prompts length")
+        if not all(isinstance(part, list) for part in images):
+            raise ValueError("per-prompt images must all be lists")
+        return [[normalize(image) for image in part] for part in images]
+    flat = [normalize(image) for image in images]
+    return [list(flat) for _ in prompts]
 
 
 def _normalize_prompt_token_ids(
@@ -717,11 +737,11 @@ def _normalize_prompt_token_ids(
 
 
 # Placeholder token strings per multimodal family (mirrors
-# ``renderers.qwen3_vl.IMAGE_PAD`` / ``renderers.kimi.MEDIA_PAD``;
+# Qwen image_pad, Kimi media_pad, and GLM image;
 # duplicated here to keep client.py free of renderer imports).
 # ``_lower_model_input_chunks`` resolves them through the caller's
 # tokenizer — a given vocabulary exposes exactly one of these.
-_IMAGE_PAD_TOKEN_CANDIDATES = ("<|image_pad|>", "<|media_pad|>")
+_IMAGE_PAD_TOKEN_CANDIDATES = ("<|image_pad|>", "<|media_pad|>", "<|image|>")
 
 
 def _image_placeholder_token_id(tokenizer: Any) -> int:
@@ -751,7 +771,7 @@ def _lower_model_input_chunks(
     model_input: list[dict] | list[list[dict]],
     *,
     image_placeholder_token_id: int,
-) -> tuple[list[list[int]], list[list[bytes]]]:
+) -> tuple[list[list[int]], list[list[Image]]]:
     """Lower training-style ``model_input`` chunk lists to the token-form
     sampling representation.
 
@@ -788,10 +808,10 @@ def _lower_model_input_chunks(
         per_prompt_chunks = [list(chunks) for chunks in model_input]  # type: ignore[arg-type]
 
     prompt_token_ids: list[list[int]] = []
-    per_prompt_images: list[list[bytes]] = []
+    per_prompt_images: list[list[Image]] = []
     for pidx, chunks in enumerate(per_prompt_chunks):
         ids: list[int] = []
-        images: list[bytes] = []
+        images: list[Image] = []
         for cidx, chunk in enumerate(chunks):
             if not isinstance(chunk, dict) or "type" not in chunk:
                 raise ValueError(
@@ -808,7 +828,9 @@ def _lower_model_input_chunks(
                 ids.extend(int(t) for t in tokens)
             elif ctype == "image":
                 data = chunk.get("data")
-                if isinstance(data, (bytes, bytearray, memoryview)):
+                if isinstance(data, ImageHandle):
+                    data_bytes = data
+                elif isinstance(data, (bytes, bytearray, memoryview)):
                     data_bytes = bytes(data)
                 elif isinstance(data, np.ndarray) and data.dtype == np.uint8:
                     data_bytes = data.tobytes()
@@ -848,12 +870,12 @@ def _resolve_model_input(
     *,
     prompts: str | list[str] | None,
     prompt_token_ids: list[int] | list[list[int]] | None,
-    images: list[bytes] | list[list[bytes]] | None,
+    images: list[Image] | list[list[Image]] | None,
     tokenizer: Any,
 ) -> tuple[
     str | list[str] | None,
     list[int] | list[list[int]] | None,
-    list[bytes] | list[list[bytes]] | None,
+    list[Image] | list[list[Image]] | None,
 ]:
     """Fold an optional ``model_input`` into ``(prompts, prompt_token_ids,
     images)``. No-op when ``model_input`` is None."""
@@ -885,7 +907,7 @@ def _build_sample_prompt_dicts(
     return_prompt_logprobs: bool,
     logprobs: int | None,
     seeds: list[int] | None = None,
-    images: list[bytes] | list[list[bytes]] | None = None,
+    images: list[Image] | list[list[Image]] | None = None,
     return_expert_routing: bool = False,
     prompt_token_ids: list[int] | list[list[int]] | None = None,
 ) -> tuple[list[str] | list[list[int]], list[dict]]:
@@ -986,8 +1008,15 @@ def _group_sample_dicts(
                     tokens=tokens,
                     text=r["text"],
                     logprobs=token_lps,
+                    token_data_is_exact=bool(r.get("token_ids"))
+                    and len(r.get("token_logprobs") or []) == len(r["token_ids"]),
                     stop_reason=stop_reason,
                     model_step=model_step,
+                    policy_version=r.get("policy_version"),
+                    retained_kv=r.get("retained_kv", False),
+                    kv_cache_policy_version=r.get("kv_cache_policy_version"),
+                    cached_prompt_tokens=r.get("cached_prompt_tokens", 0),
+                    prompt_tokens=r.get("prompt_tokens", 0),
                     prompt_logprobs=_optional_prompt_logprobs(
                         r, return_prompt_logprobs
                     ),
@@ -1105,6 +1134,65 @@ def _promoted_streaming_replica_from_raw(
     )
 
 
+def _deployment_from_raw(raw: dict[str, Any]) -> Deployment:
+    replicas_raw = raw.get("replicas")
+    if not isinstance(replicas_raw, dict):
+        raise RiverConnectionError(
+            "Deployment response missing object field 'replicas'"
+        )
+    replicas: dict[str, DeploymentReplicas] = {}
+    for role, counts in replicas_raw.items():
+        if not isinstance(counts, dict):
+            raise RiverConnectionError(
+                f"Deployment response has non-object replicas entry {role!r}"
+            )
+        replicas[str(role)] = DeploymentReplicas(
+            desired=int(counts.get("desired", 0)),
+            allocated=int(counts.get("allocated", 0)),
+            ready=int(counts.get("ready", 0)),
+            pending=int(counts.get("pending", 0)),
+        )
+    return Deployment(
+        id=_required_str_field(raw, "id"),
+        model=_required_str_field(raw, "model"),
+        base_url=_required_str_field(raw, "base_url"),
+        checkpoint=_required_str_field(raw, "checkpoint"),
+        base_model=_required_str_field(raw, "base_model"),
+        topology=_required_str_field(raw, "topology"),
+        replicas=replicas,
+        phase=_required_str_field(raw, "phase"),
+        created_at=_required_str_field(raw, "created_at"),
+        updated_at=_required_str_field(raw, "updated_at"),
+        phase_reason=_optional_str_field(raw, "phase_reason"),
+        operation_id=_optional_str_field(raw, "operation_id"),
+        deleted_at=_optional_str_field(raw, "deleted_at"),
+    )
+
+
+def _deployment_counts_body(
+    unified_replicas: int | None,
+    prefill_replicas: int | None,
+    decode_replicas: int | None,
+) -> dict[str, int]:
+    """Only supplied counts go on the wire, so omitted and zero stay distinct.
+
+    Booleans are refused up front: ``True`` is an ``int`` in Python and would
+    otherwise serialize as ``1``.
+    """
+    body: dict[str, int] = {}
+    for name, value in (
+        ("unified_replicas", unified_replicas),
+        ("prefill_replicas", prefill_replicas),
+        ("decode_replicas", decode_replicas),
+    ):
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{name} must be an integer, got {value!r}")
+        body[name] = value
+    return body
+
+
 def _stream_chunk_from_blocking_response(response: dict[str, Any]) -> dict[str, Any]:
     """Convert a non-streaming OpenAI chat response into one stream-shaped chunk."""
     choices = []
@@ -1172,7 +1260,9 @@ def _iter_sse_payloads(response) -> Iterator[str]:
     """Yield SSE data payloads from a file-like HTTP response."""
     buffer = bytearray()
     while True:
-        chunk = response.read(4096)
+        chunk = (
+            response.read1(4096) if hasattr(response, "read1") else response.read(4096)
+        )
         if not chunk:
             break
         buffer.extend(chunk)
@@ -1239,6 +1329,10 @@ class Model:
         return self._model_id
 
     @property
+    def base_model(self) -> str:
+        return self._base_model
+
+    @property
     def training_run_id(self) -> str:
         return self._training_run_id
 
@@ -1252,6 +1346,22 @@ class Model:
         """
         return self._step
 
+    def get_server_capabilities(self) -> ServerCapabilities:
+        """Read the endpoint's public protocol support (used by RL preflight)."""
+        return self._session._client.get_server_capabilities(model_name=self.base_model)
+
+    def get_policy_version(self) -> PolicyVersion | None:
+        """Read the last server-committed policy; legacy servers return None."""
+        response = self._session._client._rpc_with_retry(
+            lambda: self._session._live_stub.GetInfo(
+                pb2.GetInfoRequest(model_id=self._model_id),
+                metadata=self._session._live_metadata,
+            ),
+            context="Reading committed policy",
+            heartbeat_check=self._session._check_heartbeat_health,
+        )
+        return PolicyVersion.from_proto(response.policy_version)
+
     def _next_seq_id(self) -> int:
         self._seq_id += 1
         return self._seq_id
@@ -1263,6 +1373,7 @@ class Model:
         data: list[dict],
         loss_fn: str = "cross_entropy",
         timeout: float = _DEFAULT_TIMEOUT_SECS,
+        expected_policy_id: str | None = None,
         **loss_config: float,
     ) -> ForwardResult:
         """Forward pass only (compute loss, no gradients).
@@ -1283,6 +1394,11 @@ class Model:
             loss_fn=loss_fn,
             loss_config=loss_config,
             timeout=timeout,
+            **(
+                {"expected_policy_id": expected_policy_id}
+                if expected_policy_id is not None
+                else {}
+            ),
         )
 
     def forward_backward(
@@ -1294,6 +1410,7 @@ class Model:
         zero_out: bool = True,
         compute_expert_flip_metric: bool = False,
         force_routing_replay: bool = False,
+        expected_policy_id: str | None = None,
         **loss_config: float,
     ) -> ForwardResult:
         """Forward + backward pass (compute gradients).
@@ -1342,6 +1459,7 @@ class Model:
         _warn_return_logprobs_ignored(return_logprobs)
         request, plan = self._new_forward_backward_request(
             data=data,
+            expected_policy_id=expected_policy_id,
             loss_fn=loss_fn,
             loss_config=dict(loss_config),
             gradient_accumulation=True,
@@ -1375,6 +1493,9 @@ class Model:
         weight_decay: float = 0.0,
         grad_clip_norm: float | None = None,
         timeout: float = _DEFAULT_TIMEOUT_SECS,
+        expected_policy_id: str | None = None,
+        idempotency_key: str | None = None,
+        gradient_scale: float | None = None,
     ) -> OptimStepResult:
         """Apply gradients with Adam optimizer.
 
@@ -1385,6 +1506,7 @@ class Model:
             eps: Adam epsilon
             weight_decay: Weight decay
             grad_clip_norm: Gradient clipping norm (None to disable)
+            gradient_scale: Multiply accumulated gradients before clipping/Adam.
             timeout: Timeout in seconds
 
         Returns:
@@ -1397,6 +1519,19 @@ class Model:
             eps=eps,
             weight_decay=weight_decay,
             grad_clip_norm=grad_clip_norm,
+            **(
+                {"gradient_scale": gradient_scale} if gradient_scale is not None else {}
+            ),
+            **(
+                {"idempotency_key": idempotency_key}
+                if idempotency_key is not None
+                else {}
+            ),
+            **(
+                {"expected_policy_id": expected_policy_id}
+                if expected_policy_id is not None
+                else {}
+            ),
             timeout=timeout,
         ).result()
         # PendingOp.result() is typed as the union of op results; this
@@ -1511,6 +1646,7 @@ class Model:
         zero_out: bool = True,
         compute_expert_flip_metric: bool = False,
         force_routing_replay: bool = False,
+        expected_policy_id: str | None = None,
         **loss_config: float,
     ) -> PendingOp:
         """Submit forward+backward without blocking. Returns a PendingOp.
@@ -1533,6 +1669,7 @@ class Model:
         _warn_return_logprobs_ignored(return_logprobs)
         request, plan = self._new_forward_backward_request(
             data=data,
+            expected_policy_id=expected_policy_id,
             loss_fn=loss_fn,
             loss_config=dict(loss_config),
             gradient_accumulation=True,
@@ -1541,7 +1678,7 @@ class Model:
             force_routing_replay=force_routing_replay,
         )
         if plan.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
-            raise RiverError(
+            raise _ForwardBackwardNeedsSubBatches(
                 "forward_backward batch exceeds the 1 GiB upload limit; use "
                 "forward_backward() so the client can submit accumulated "
                 "sub-batches sequentially"
@@ -1558,6 +1695,7 @@ class Model:
         self,
         *,
         data: list[dict],
+        expected_policy_id: str | None = None,
         loss_fn: str,
         loss_config: dict[str, float],
         gradient_accumulation: bool,
@@ -1577,6 +1715,8 @@ class Model:
             compute_expert_flip_metric=compute_expert_flip_metric,
             force_routing_replay=force_routing_replay,
         )
+        if expected_policy_id is not None:
+            request.expected_policy_id = expected_policy_id
         return request, self._session._plan_forward_backward_request(request, data)
 
     def _submit_forward_backward_request(
@@ -1649,6 +1789,9 @@ class Model:
         weight_decay: float = 0.0,
         grad_clip_norm: float | None = None,
         timeout: float = _DEFAULT_TIMEOUT_SECS,
+        expected_policy_id: str | None = None,
+        idempotency_key: str | None = None,
+        gradient_scale: float | None = None,
     ) -> PendingOp:
         """Submit optimizer step without blocking. Returns a PendingOp.
 
@@ -1665,6 +1808,19 @@ class Model:
             eps=eps,
             weight_decay=weight_decay,
             grad_clip_norm=grad_clip_norm,
+            **(
+                {"gradient_scale": gradient_scale} if gradient_scale is not None else {}
+            ),
+            **(
+                {"idempotency_key": idempotency_key}
+                if idempotency_key is not None
+                else {}
+            ),
+            **(
+                {"expected_policy_id": expected_policy_id}
+                if expected_policy_id is not None
+                else {}
+            ),
         )
         self._step += 1
         return PendingOp(
@@ -1795,7 +1951,7 @@ class Model:
         seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
         logprobs: int | None = None,
-        images: list[bytes] | list[list[bytes]] | None = None,
+        images: list[Image] | list[list[Image]] | None = None,
         return_expert_routing: bool = False,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
         model_input: list[dict] | list[list[dict]] | None = None,
@@ -1828,9 +1984,9 @@ class Model:
                 Off by default — enabling it roughly halves server
                 throughput for small serialization gain, so it's opt-in.
             images: Optional raw image bytes (PNG / JPEG) for
-                multimodal sampling. Accepts ``list[bytes]`` (broadcast
+                multimodal sampling. Accepts ``list[Image]`` (broadcast
                 the same image set to every prompt) or
-                ``list[list[bytes]]`` (per-prompt explicit). Bytes
+                ``list[list[Image]]`` (per-prompt explicit). Bytes
                 are sent to the inference backend as image data.
                 Most ergonomic source: ``**Qwen35VLRenderer.build_sample_prompt(messages).to_kwargs()``,
                 which emits ``{"prompt", "images"}``. The image format is
@@ -1907,6 +2063,85 @@ class Model:
             poll_interval=poll_interval,
         ).result()
 
+    def submit_sampling_batch(
+        self,
+        prompts: str | list[str] | None = None,
+        *,
+        num_samples: int = 1,
+        max_tokens: int = 256,
+        temperature: float = 1.0,
+        top_p: float = 1.0,
+        top_k: int = -1,
+        stop: list[str] | None = None,
+        seed: int | None = None,
+        seeds: list[int] | None = None,
+        return_prompt_logprobs: bool = False,
+        return_prompt_token_ids: bool = False,
+        logprobs: int | None = None,
+        images: list[Image] | list[list[Image]] | None = None,
+        return_expert_routing: bool = False,
+        prompt_token_ids: list[int] | list[list[int]] | None = None,
+        model_input: list[dict] | list[list[dict]] | None = None,
+        idempotency_key: str | None = None,
+        pinned_policy_id: str | None = None,
+        policy_selection: str = "ordered",
+        retained_kv_groups: list[str] | None = None,
+        kv_cache_policy: dict | None = None,
+        metrics_type: str = "",
+        timeout: float = _DEFAULT_TIMEOUT_SECS,
+        poll_interval: float = 0.1,
+    ) -> PendingSamplingBatch:
+        """Submit up to 128 independent samples in one RPC.
+
+        Uses the new sampling transport; requires server support. Consume
+        ``pending.as_completed()`` to receive individual successes/failures.
+        ``policy_selection="ordered"`` preserves training-queue ordering.
+        ``policy_selection="latest_snapshot"`` samples the newest available
+        immutable committed snapshot without waiting for queued training work.
+        Publish one with ``save_weights(mode="inference", immutable=True)`` first;
+        missing snapshots fail explicitly. This mode may lag the committed head.
+        ``pinned_policy_id`` continues a previously returned policy snapshot and
+        cannot be combined with ``latest_snapshot``.
+        Alternatively, ``retained_kv_groups`` supplies one trajectory UUID per
+        independent sample (including the num_samples expansion) and permits
+        earlier-policy KV within ``kv_cache_policy``: max_staleness (updates),
+        anchor_policy_id, previous_policy_id, and refill_on_limit (bool).
+        Continuations echo the prior result's cache origin and sampling policy.
+        Check Sample.retained_kv for worker acknowledgement.
+        ``return_prompt_token_ids`` echoes canonical IDs without requesting
+        prompt logprobs, preserving prefix-cache eligibility.
+        Other arguments match ``sample``. Existing ``submit_sample`` retains
+        its whole-batch future behavior.
+        """
+        return _submit_independent_samples(
+            self._session,
+            prompts,
+            num_samples=num_samples,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            stop=stop,
+            seed=seed,
+            seeds=seeds,
+            return_prompt_logprobs=return_prompt_logprobs,
+            return_prompt_token_ids=return_prompt_token_ids,
+            logprobs=logprobs,
+            images=images,
+            return_expert_routing=return_expert_routing,
+            prompt_token_ids=prompt_token_ids,
+            model_input=model_input,
+            idempotency_key=idempotency_key,
+            pinned_policy_id=pinned_policy_id,
+            policy_selection=policy_selection,
+            retained_kv_groups=retained_kv_groups,
+            kv_cache_policy=kv_cache_policy,
+            metrics_type=metrics_type,
+            timeout=timeout,
+            poll_interval=poll_interval,
+            model=self,
+        )
+
     def submit_sample(
         self,
         prompts: str | list[str] | None = None,
@@ -1921,7 +2156,7 @@ class Model:
         seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
         logprobs: int | None = None,
-        images: list[bytes] | list[list[bytes]] | None = None,
+        images: list[Image] | list[list[Image]] | None = None,
         return_expert_routing: bool = False,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
         model_input: list[dict] | list[list[dict]] | None = None,
@@ -2038,6 +2273,8 @@ class Model:
         mode: str = "training",
         timeout: float = _DEFAULT_TIMEOUT_SECS,
         ttl: datetime.timedelta | None = None,
+        immutable: bool = False,
+        expected_policy_id: str | None = None,
     ) -> Checkpoint:
         """Save a checkpoint of the current model weights.
 
@@ -2075,6 +2312,12 @@ class Model:
             timeout=timeout,
             step=self._step,
             ttl_seconds=ttl_seconds,
+            **({"immutable": True} if immutable else {}),
+            **(
+                {"expected_policy_id": expected_policy_id}
+                if expected_policy_id is not None
+                else {}
+            ),
         )
 
     def promote_to_streaming(
@@ -2140,6 +2383,14 @@ class Model:
         )
 
 
+def _advance_future_poll(polls):
+    # StopIteration cannot propagate through an asyncio Future.
+    try:
+        return False, next(polls)
+    except StopIteration as completed:
+        return True, completed.value
+
+
 class Session:
     """A training session with GPU allocation."""
 
@@ -2163,6 +2414,117 @@ class Session:
         self._heartbeat_last_error: SessionHeartbeatError | None = None
         self._models: list[Model] = []
         self._model_seq_id = 0
+        self._sampling_capability_lock = threading.Lock()
+        self._sampling_capability_stub = None
+        self._image_scope_lock = threading.Lock()
+        self._image_scope_used = False
+        self._image_scope_closed = False
+
+    def _prepare_image_upload(self):
+        with self._image_scope_lock:
+            if self._image_scope_closed:
+                raise RuntimeError("session image scope is closed")
+            self._image_scope_used = True
+
+    def upload_image(
+        self,
+        data: bytes,
+        *,
+        idempotency_key: str | None = None,
+        timeout: float | None = None,
+    ) -> ImageHandle:
+        """Upload into this session; bytes remain recoverable in the local image cache."""
+        self._prepare_image_upload()
+        return self._client._upload_image(
+            data, self.session_id, idempotency_key, timeout, self._live_stub
+        )
+
+    async def upload_image_async(
+        self,
+        data: bytes,
+        *,
+        idempotency_key: str | None = None,
+        timeout: float | None = None,
+    ) -> ImageHandle:
+        """Bounded non-blocking upload, automatically released when this session ends."""
+
+        def upload(stub):
+            self._prepare_image_upload()
+            return self._client._upload_image(
+                data, self.session_id, idempotency_key, timeout, stub
+            )
+
+        return await self._client._image_uploads.run(upload)
+
+    def release_image(
+        self, image: ImageHandle | None = None, *, idempotency_key: str | None = None
+    ) -> None:
+        self._client._release_image(
+            self.session_id, image, idempotency_key, self._live_stub
+        )
+
+    async def release_image_async(
+        self, image: ImageHandle | None = None, *, idempotency_key: str | None = None
+    ) -> None:
+        await self._client._image_uploads.run(
+            lambda stub: self._client._release_image(
+                self.session_id, image, idempotency_key, stub
+            )
+        )
+
+    def _close_images(self):
+        with self._image_scope_lock:
+            self._image_scope_closed = True
+            used = self._image_scope_used
+        if used:
+            self._client._release_image(
+                self.session_id, None, None, self._live_stub, close_session=True
+            )
+
+    async def restore_images(self, value: Any, *, image_store: ImageStore) -> Any:
+        """Re-upload checkpoint references once per content hash and remap every occurrence."""
+        handles = {
+            image.sha256: image
+            for image in image_handles(value)
+            if image.session_id != self.session_id
+        }
+        restored = {}
+        for digest, image in handles.items():
+            source = (
+                image_store
+                if (image_store.directory / digest).exists()
+                else self._client._local_images
+            )
+            data = await asyncio.to_thread(source.read, image)
+            key = str(
+                uuid.uuid5(
+                    uuid.NAMESPACE_URL, f"river-image:{self.session_id}:{digest}"
+                )
+            )
+            uploaded = await self.upload_image_async(data, idempotency_key=key)
+            if (uploaded.byte_count, uploaded.width, uploaded.height) != (
+                image.byte_count,
+                image.width,
+                image.height,
+            ):
+                raise ValueError("restored image metadata changed")
+            restored[digest] = uploaded
+        return map_images(value, lambda image: restored.get(image.sha256, image))
+
+    def _require_latest_snapshot_sampling(self):
+        # One negotiation per channel, not an extra RPC for every sampling batch.
+        # Engine preflight still fetches capabilities afresh for each run.
+        with self._sampling_capability_lock:
+            stub = self._live_stub
+            if self._sampling_capability_stub is not stub:
+                self.get_server_capabilities().require("sampling_latest_snapshot_v1")
+                self._sampling_capability_stub = stub
+
+    def get_server_capabilities(
+        self, *, model_name: str | None = None
+    ) -> ServerCapabilities:
+        """Read protocol support, optionally for one authorized model."""
+        return self._client.get_server_capabilities(model_name=model_name)
 
     @property
     def _live_stub(self) -> pb2_grpc.RiverServiceStub:
@@ -2508,10 +2870,11 @@ class Session:
         top_k: int = -1,
         stop: list[str] | None = None,
         seed: int | None = None,
+        seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
         logprobs: int | None = None,
         return_expert_routing: bool = False,
-        images: list[bytes] | list[list[bytes]] | None = None,
+        images: list[Image] | list[list[Image]] | None = None,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
         model_input: list[dict] | list[list[dict]] | None = None,
         tokenizer: Any | None = None,
@@ -2537,6 +2900,7 @@ class Session:
             top_k: Top-k sampling (-1 = disabled).
             stop: Stop sequences.
             seed: Random seed (varied per sample automatically).
+            seeds: Exact per-prompt/sample seeds, mutually exclusive with seed.
             return_prompt_logprobs: Whether to return prompt token logprobs.
             logprobs: If set to ``K > 0``, request the top-K alternative
                 logprobs at each position. Off by default — enabling it
@@ -2572,6 +2936,7 @@ class Session:
             top_k=top_k,
             stop=stop,
             seed=seed,
+            seeds=seeds,
             return_prompt_logprobs=return_prompt_logprobs,
             logprobs=logprobs,
             return_expert_routing=return_expert_routing,
@@ -2582,6 +2947,65 @@ class Session:
             metrics_type=metrics_type,
             timeout=timeout,
         ).result()
+
+    def submit_sampling_batch(
+        self,
+        prompts: str | list[str] | None = None,
+        *,
+        base_model: str,
+        checkpoint: str | Checkpoint | None = None,
+        num_samples: int = 1,
+        max_tokens: int = 256,
+        temperature: float = 1.0,
+        top_p: float = 1.0,
+        top_k: int = -1,
+        stop: list[str] | None = None,
+        seed: int | None = None,
+        seeds: list[int] | None = None,
+        return_prompt_logprobs: bool = False,
+        return_prompt_token_ids: bool = False,
+        logprobs: int | None = None,
+        return_expert_routing: bool = False,
+        images: list[Image] | list[list[Image]] | None = None,
+        prompt_token_ids: list[int] | list[list[int]] | None = None,
+        model_input: list[dict] | list[list[dict]] | None = None,
+        tokenizer: Any | None = None,
+        idempotency_key: str | None = None,
+        metrics_type: str = "",
+        timeout: float = _DEFAULT_TIMEOUT_SECS,
+    ) -> PendingSamplingBatch:
+        """Submit up to 128 independent samples in one RPC.
+
+        Uses the new sampling transport; requires server support. Consume
+        ``pending.as_completed()`` to receive individual successes/failures.
+        Other arguments match ``sample``. Existing ``submit_sample`` retains
+        its whole-batch future behavior.
+        """
+        return _submit_independent_samples(
+            self,
+            prompts,
+            base_model=base_model,
+            checkpoint=checkpoint,
+            num_samples=num_samples,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            stop=stop,
+            seed=seed,
+            seeds=seeds,
+            return_prompt_logprobs=return_prompt_logprobs,
+            return_prompt_token_ids=return_prompt_token_ids,
+            logprobs=logprobs,
+            return_expert_routing=return_expert_routing,
+            images=images,
+            prompt_token_ids=prompt_token_ids,
+            model_input=model_input,
+            tokenizer=tokenizer,
+            idempotency_key=idempotency_key,
+            metrics_type=metrics_type,
+            timeout=timeout,
+        )
 
     def submit_sample(
         self,
@@ -2596,10 +3020,11 @@ class Session:
         top_k: int = -1,
         stop: list[str] | None = None,
         seed: int | None = None,
+        seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
         logprobs: int | None = None,
         return_expert_routing: bool = False,
-        images: list[bytes] | list[list[bytes]] | None = None,
+        images: list[Image] | list[list[Image]] | None = None,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
         model_input: list[dict] | list[list[dict]] | None = None,
         tokenizer: Any | None = None,
@@ -2637,6 +3062,7 @@ class Session:
             top_k=top_k,
             stop=stop,
             seed=seed,
+            seeds=seeds,
             return_prompt_logprobs=return_prompt_logprobs,
             logprobs=logprobs,
             return_expert_routing=return_expert_routing,
@@ -2700,14 +3126,75 @@ class Session:
         self,
         request_id: str,
         timeout: float = _DEFAULT_TIMEOUT_SECS,
-        poll_interval: float = 0.01,
+        poll_interval: float = 0.1,
         *,
         model_id: str | None = None,
         retry_connection_errors: bool = True,
         before_poll: Callable[[], None] | None = None,
     ) -> pb2.RetrieveFutureResponse:
-        """Poll for async operation result."""
-        deadline = time.monotonic() + timeout
+        """Block until an operation completes, using the shared polling state."""
+        polls = self._future_polls(
+            request_id,
+            timeout,
+            poll_interval,
+            model_id=model_id,
+            retry_connection_errors=retry_connection_errors,
+            before_poll=before_poll,
+        )
+        while True:
+            done, value = _advance_future_poll(polls)
+            if done:
+                return value
+            time.sleep(value)
+
+    async def _wait_for_future_async(
+        self,
+        request_id: str,
+        timeout: float = _DEFAULT_TIMEOUT_SECS,
+        poll_interval: float = 0.1,
+        *,
+        model_id: str | None = None,
+        retry_connection_errors: bool = True,
+        before_poll: Callable[[], None] | None = None,
+        executor: concurrent.futures.Executor | None = None,
+    ) -> pb2.RetrieveFutureResponse:
+        """Wait without occupying a worker between completion polls."""
+        polls = self._future_polls(
+            request_id,
+            timeout,
+            poll_interval,
+            model_id=model_id,
+            retry_connection_errors=retry_connection_errors,
+            before_poll=before_poll,
+            deadline=time.monotonic() + timeout,
+        )
+        loop = asyncio.get_running_loop()
+        while True:
+            done, value = await loop.run_in_executor(
+                executor, _advance_future_poll, polls
+            )
+            if done:
+                return value
+            await asyncio.sleep(value)
+
+    def _future_polls(
+        self,
+        request_id: str,
+        timeout: float = _DEFAULT_TIMEOUT_SECS,
+        poll_interval: float = 0.1,
+        *,
+        model_id: str | None = None,
+        retry_connection_errors: bool = True,
+        before_poll: Callable[[], None] | None = None,
+        deadline: float | None = None,
+    ) -> Generator[float, None, pb2.RetrieveFutureResponse]:
+        """Advance blocking RPCs, yielding only the delay until the next poll.
+
+        Both wait adapters use this state machine for retries and heartbeats.
+        The generator returns the completed response through StopIteration.
+        """
+        if deadline is None:
+            deadline = time.monotonic() + timeout
         next_heartbeat_poll = time.monotonic() + _HEARTBEAT_POLL_INTERVAL_SECS
         poll_retry_sleep = _POLL_RETRY_INITIAL_SLEEP_SECS
         poll_retries = 0
@@ -2758,7 +3245,7 @@ class Session:
                     poll_retries += 1
                     if poll_retries > _POLL_MAX_RETRIES:
                         raise
-                time.sleep(min(poll_retry_sleep, max(0.0, deadline - time.monotonic())))
+                yield min(poll_retry_sleep, max(0.0, deadline - time.monotonic()))
                 poll_retry_sleep = min(poll_retry_sleep * 2, _POLL_RETRY_MAX_SLEEP_SECS)
                 continue
             poll_retry_sleep = _POLL_RETRY_INITIAL_SLEEP_SECS
@@ -2767,7 +3254,7 @@ class Session:
             response_type = response.WhichOneof("response")
 
             if response_type == "try_again":
-                time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
+                yield min(poll_interval, max(0.0, deadline - time.monotonic()))
                 continue
             if response_type == "failed":
                 error = response.failed
@@ -2822,7 +3309,10 @@ class Session:
         """Parse a resolved optimizer-step future."""
         if raw.WhichOneof("response") != "optim_step":
             raise RiverError(f"Unexpected response type: {raw.WhichOneof('response')}")
-        return OptimStepResult(metrics=dict(raw.optim_step.metrics))
+        return OptimStepResult(
+            metrics=dict(raw.optim_step.metrics),
+            policy_version=PolicyVersion.from_proto(raw.optim_step.policy_version),
+        )
 
     def _encode_datum(self, sample: dict) -> pb2.Datum:
         """Encode a training sample to Datum protobuf.
@@ -2934,10 +3424,12 @@ class Session:
                 )
             elif ctype == "image":
                 data = chunk.get("data")
-                if isinstance(data, (bytes, bytearray)):
-                    data_arr = np.frombuffer(bytes(data), dtype=np.uint8)
+                if isinstance(data, ImageHandle):
+                    wire_data = {"image_handle": data.id}
+                elif isinstance(data, (bytes, bytearray)):
+                    wire_data = {"data": np.frombuffer(bytes(data), dtype=np.uint8)}
                 elif isinstance(data, np.ndarray) and data.dtype == np.uint8:
-                    data_arr = data
+                    wire_data = {"data": data}
                 else:
                     raise ValueError(
                         f"image chunk[{idx}] 'data' must be bytes or "
@@ -2948,7 +3440,7 @@ class Session:
                 wire_chunks.append(
                     {
                         "type": "image",
-                        "data": data_arr,
+                        **wire_data,
                         "format": str(fmt),
                         "expected_tokens": np.asarray(expected, dtype=np.int64),
                     }
@@ -2986,6 +3478,7 @@ class Session:
         loss_fn: str,
         loss_config: dict[str, float],
         timeout: float,
+        expected_policy_id: str | None = None,
     ) -> ForwardResult:
         """Execute forward pass."""
         if not self._models:
@@ -2994,6 +3487,7 @@ class Session:
         req = pb2.ForwardRequest(
             model_id=model_id,
             seq_id=seq_id,
+            expected_policy_id=expected_policy_id,
             forward_input=pb2.ForwardBackwardInput(
                 data=[self._encode_datum(d) for d in data],
                 loss_fn=loss_fn,
@@ -3155,6 +3649,8 @@ class Session:
                     source_input
                 ),
             )
+            if request.HasField("expected_policy_id"):
+                chunk.expected_policy_id = request.expected_policy_id
             if request.HasField("seq_id"):
                 chunk.seq_id = request.seq_id
             return chunk
@@ -3329,6 +3825,8 @@ class Session:
         thin = pb2.ForwardBackwardRequest(
             model_id=req.model_id, upload_id=created.upload_id
         )
+        if req.HasField("expected_policy_id"):
+            thin.expected_policy_id = req.expected_policy_id
         if req.HasField("seq_id"):
             thin.seq_id = req.seq_id
         return thin
@@ -3343,6 +3841,9 @@ class Session:
         eps: float,
         weight_decay: float,
         grad_clip_norm: float | None,
+        expected_policy_id: str | None = None,
+        idempotency_key: str | None = None,
+        gradient_scale: float | None = None,
     ) -> str:
         """Fire optim step RPC without waiting. Returns request_id."""
         adam_params = pb2.AdamParams(
@@ -3352,6 +3853,11 @@ class Session:
             eps=eps,
             weight_decay=weight_decay,
         )
+        if gradient_scale is not None:
+            if not math.isfinite(gradient_scale) or gradient_scale <= 0:
+                raise ValueError("gradient_scale must be finite and positive")
+            self._client.get_server_capabilities().require("gradient_scale_v1")
+            adam_params.gradient_scale = gradient_scale
         if grad_clip_norm is not None:
             adam_params.grad_clip_norm = grad_clip_norm
         req = pb2.OptimStepRequest(
@@ -3359,6 +3865,10 @@ class Session:
             seq_id=seq_id,
             adam_params=adam_params,
         )
+        if expected_policy_id is not None:
+            req.expected_policy_id = expected_policy_id
+        if idempotency_key is not None or expected_policy_id is not None:
+            req.idempotency_key = idempotency_key or str(uuid.uuid4())
         response = self._client._rpc_with_retry(
             lambda: self._live_stub.OptimStep(req, metadata=self._live_metadata),
             context="Optimizer step",
@@ -3375,6 +3885,8 @@ class Session:
         timeout: float,
         step: int,
         ttl_seconds: int | None = None,
+        immutable: bool = False,
+        expected_policy_id: str | None = None,
     ) -> Checkpoint:
         """Save checkpoint (training or inference mode)."""
         req = pb2.SaveWeightsRequest(
@@ -3382,6 +3894,8 @@ class Session:
             seq_id=seq_id,
             path=name,
             mode=mode,
+            immutable=immutable,
+            expected_policy_id=expected_policy_id,
         )
         if ttl_seconds is not None:
             req.ttl_seconds = ttl_seconds
@@ -3406,6 +3920,7 @@ class Session:
             path=result.save_weights.path,
             step=step,
             checkpoint_type=mode,
+            policy_version=PolicyVersion.from_proto(result.save_weights.policy_version),
         )
 
     def _load_weights(
@@ -3457,6 +3972,8 @@ class Session:
                 and p["return_prompt_logprobs"] is not None
             ):
                 proto.return_prompt_logprobs = p["return_prompt_logprobs"]
+            if p.get("return_prompt_token_ids"):
+                proto.return_prompt_token_ids = True
             if p.get("return_expert_routing"):
                 proto.return_expert_routing = True
             # Pre-tokenized prompt: `prompt` stays empty and the ids are sent
@@ -3466,8 +3983,17 @@ class Session:
             # Vision images ride through as raw bytes; preprocessing happens
             # server-side.
             if "images" in p and p["images"]:
-                for image in p["images"]:
-                    proto.images.append(bytes(image))
+                if any(isinstance(image, ImageHandle) for image in p["images"]):
+                    proto.image_inputs.extend(
+                        (
+                            pb2.ImageInput(image_handle=image.id)
+                            if isinstance(image, ImageHandle)
+                            else pb2.ImageInput(data=bytes(image))
+                        )
+                        for image in p["images"]
+                    )
+                else:
+                    proto.images.extend(bytes(image) for image in p["images"])
             result.append(proto)
         return result
 
@@ -3494,6 +4020,31 @@ class Session:
         return [
             {
                 "text": r.text,
+                **(
+                    {"kv_cache_policy_version": anchor}
+                    if (
+                        anchor := PolicyVersion.from_proto(
+                            getattr(r, "kv_cache_policy_version", None)
+                        )
+                    )
+                    is not None
+                    else {}
+                ),
+                **{
+                    name: value
+                    for name in ("retained_kv", "cached_prompt_tokens", "prompt_tokens")
+                    if (value := getattr(r, name, 0))
+                },
+                **(
+                    {"policy_version": policy}
+                    if (
+                        policy := PolicyVersion.from_proto(
+                            getattr(r, "policy_version", None)
+                        )
+                    )
+                    is not None
+                    else {}
+                ),
                 "token_logprobs": _optional_proto_list(r, "token_logprobs"),
                 "tokens": _optional_proto_list(r, "tokens"),
                 "prompt_token_logprobs": _optional_proto_list(
@@ -3780,6 +4331,10 @@ class SessionContext:
             self._session._stop_heartbeat()
         except BaseException as error:
             cleanup_errors.append(error)
+        try:
+            self._session._close_images()
+        except BaseException as error:
+            cleanup_errors.append(error)
         if not cleanup_errors and self._on_session_closed is not None:
             try:
                 self._on_session_closed()
@@ -3841,6 +4396,7 @@ class Client:
         timeout: float = _DEFAULT_TIMEOUT_SECS,
         use_ssl: bool = True,
         enable_retries: bool = True,
+        image_upload_concurrency: int = 4,
     ):
         """Create a River client.
 
@@ -3850,6 +4406,7 @@ class Client:
             port: API port
             timeout: Default timeout for operations
             use_ssl: Whether to use SSL
+            image_upload_concurrency: Maximum simultaneous async image RPCs (default 4).
             enable_retries: Whether submit RPCs and gRPC transport may retry
                 transient failures. Disable this for fail-closed evaluation
                 protocols that require one server submission per model turn.
@@ -3872,6 +4429,72 @@ class Client:
         self._upload_channels: list[grpc.Channel] = []
         self._upload_stubs: list[pb2_grpc.RiverServiceStub] = []
         self._chunked_upload_unsupported = False
+        self._image_uploads = ImageUploads(self, image_upload_concurrency)
+        self._image_cache = tempfile.TemporaryDirectory(prefix="river-images-")
+        self._local_images = ImageStore(self._image_cache.name)
+
+    def _upload_image(self, data, session_id, idempotency_key, timeout, stub):
+        if not isinstance(data, (bytes, bytearray, memoryview)) or not data:
+            raise ValueError("image data must be nonempty bytes")
+        key = (
+            str(uuid.UUID(idempotency_key))
+            if idempotency_key is not None
+            else str(uuid.uuid4())
+        )
+        # Freeze mutable buffers once so retries and local recovery use identical bytes.
+        data = bytes(data)
+        # Persist before starting the RPC, so every returned handle has recoverable bytes.
+        digest = self._local_images.put(data)
+        response = self._rpc_with_retry(
+            lambda: stub.UploadImage(
+                pb2.UploadImageRequest(
+                    idempotency_key=key, data=bytes(data), session_id=session_id
+                ),
+                metadata=self._get_metadata(),
+                timeout=self._timeout if timeout is None else timeout,
+            ),
+            context="Uploading image",
+        )
+        if (
+            response.sha256 != digest
+            or response.session_id != session_id
+            or response.byte_count != len(data)
+        ):
+            raise ValueError("uploaded image metadata does not match content/session")
+        return ImageHandle(
+            id=response.id,
+            sha256=response.sha256,
+            byte_count=response.byte_count,
+            width=response.width,
+            height=response.height,
+            session_id=response.session_id,
+        )
+
+    def _release_image(
+        self, session_id, image, idempotency_key, stub, *, close_session=False
+    ):
+        if not close_session and (image is None) == (idempotency_key is None):
+            raise ValueError("provide exactly one image handle or upload key")
+        if image is not None and image.session_id != session_id:
+            raise ValueError("image belongs to a different session")
+        request = pb2.ReleaseImageRequest(
+            session_id=session_id,
+            image_handle=image.id if image is not None else "",
+            idempotency_key=(
+                str(uuid.UUID(idempotency_key)) if idempotency_key is not None else ""
+            ),
+            close_session=close_session,
+        )
+        self._rpc_with_retry(
+            lambda: stub.ReleaseImage(
+                request, metadata=self._get_metadata(), timeout=self._timeout
+            ),
+            context="Releasing image",
+        )
+
+    async def aclose(self) -> None:
+        """Drain started image uploads and close connections off the event loop."""
+        await asyncio.to_thread(self.close)
 
     def _get_channel(self) -> grpc.Channel:
         """Get or create gRPC channel."""
@@ -4061,6 +4684,9 @@ class Client:
                 req,
                 metadata=self._get_metadata(),
                 timeout=remaining,
+                # Wait through connection loss/re-resolution before dispatch,
+                # without replaying a creation whose acknowledgement was lost.
+                wait_for_ready=True,
             )
 
         # A transport error may arrive after the server committed the session.
@@ -4122,7 +4748,7 @@ class Client:
         self,
         request_id: str,
         timeout: float = _DEFAULT_TIMEOUT_SECS,
-        poll_interval: float = 0.01,
+        poll_interval: float = 0.1,
         *,
         model_id: str | None = None,
         retry_connection_errors: bool = True,
@@ -4203,7 +4829,7 @@ class Client:
         seed: int | None = None,
         return_prompt_logprobs: bool = False,
         logprobs: int | None = None,
-        images: list[bytes] | list[list[bytes]] | None = None,
+        images: list[Image] | list[list[Image]] | None = None,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
         model_input: list[dict] | list[list[dict]] | None = None,
         tokenizer: Any | None = None,
@@ -4265,7 +4891,7 @@ class Client:
         )
 
         # Use the shared ``_build_sample_prompt_dicts`` helper so the
-        # images normalization (None / list[bytes] / list[list[bytes]])
+        # images normalization (None / list[Image] / list[list[Image]])
         # is consistent across Client.sample / Session.sample / Model.sample.
         _, prompt_dicts = _build_sample_prompt_dicts(
             prompts,
@@ -4313,6 +4939,8 @@ class Client:
                     tokens=tokens,
                     text=r["text"],
                     logprobs=token_lps,
+                    token_data_is_exact=bool(r.get("token_ids"))
+                    and len(r.get("token_logprobs") or []) == len(r["token_ids"]),
                     stop_reason=stop_reason,
                     model_step=0,
                     prompt_logprobs=_optional_prompt_logprobs(
@@ -4350,20 +4978,33 @@ class Client:
             return False
 
     def get_capabilities(self) -> list[str]:
-        """Get supported models.
+        """Get supported model names; preserves the original list-returning API."""
+        return list(self.get_server_capabilities().supported_models)
 
-        Returns:
-            List of supported model names
+    def get_server_capabilities(
+        self, *, model_name: str | None = None
+    ) -> ServerCapabilities:
+        """Read public feature contracts, optionally for one authorized model.
+
+        This checks protocol support, not current model capacity or queue state.
+        Results are fetched fresh so a new run detects an endpoint change.
         """
-        req = pb2.GetServerCapabilitiesRequest()
         response = self._rpc(
             lambda: self._get_stub().GetServerCapabilities(
-                req, metadata=self._get_metadata()
+                pb2.GetServerCapabilitiesRequest(model_name=model_name or ""),
+                metadata=self._get_metadata(),
+                timeout=self._timeout,
             ),
             context="Get capabilities",
         )
-
-        return [m.model_name for m in response.supported_models]
+        return ServerCapabilities(
+            tuple(model.model_name for model in response.supported_models),
+            frozenset(response.features),
+            {
+                model.model_name: frozenset(model.features)
+                for model in response.supported_models
+            },
+        )
 
     def get_streaming_replica(
         self,
@@ -4472,6 +5113,309 @@ class Client:
                 "Streaming replica promotion returned non-object JSON"
             )
         return _promoted_streaming_replica_from_raw(raw)
+
+    # ------------------------------------------------------------------
+    # Dedicated streaming deployments (gated; disabled by default)
+    # ------------------------------------------------------------------
+
+    def _deployments_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: dict[str, Any] | None,
+        context: str,
+        idempotency_key: str | None = None,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
+        read_timeout = timeout if timeout is not None else _STREAM_READ_TIMEOUT_SECS
+        headers = {
+            **self._http_authorization_headers(),
+            "Accept": "application/json",
+        }
+        data = None
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+            data = _json.dumps(body).encode("utf-8")
+        if method != "GET":
+            idempotency_key = idempotency_key or str(uuid.uuid4())
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
+        request = _UrlRequest(
+            f"{self._http_base_url()}{path}",
+            data=data,
+            headers=headers,
+            method=method,
+        )
+        # Lifecycle retries reuse the same per-call idempotency key.
+        # Inference uses the standard OpenAI SDK and its retry policy.
+        from http.client import HTTPException
+        import random
+
+        for attempt in range(9):
+            delay = min(8.0, 0.5 * 2**attempt) * random.uniform(0.75, 1.0)
+            try:
+                with _urlopen(request, timeout=read_timeout) as response:
+                    raw_body = response.read()
+                break
+            except HTTPError as error:
+                with error:
+                    raw_body = error.read()
+                if error.code not in {408, 429, 500, 502, 503, 504} or attempt == 8:
+                    raise _http_error(error.code, raw_body, context) from None
+                retry_after = error.headers.get("Retry-After")
+                if retry_after is not None:
+                    try:
+                        delay = min(60.0, max(0.0, float(retry_after)))
+                    except ValueError:
+                        pass
+            except (URLError, OSError, HTTPException) as error:
+                if attempt == 8:
+                    raise RiverConnectionError(
+                        f"{context} failed", original_error=error
+                    ) from error
+            time.sleep(delay)
+        try:
+            raw = _json.loads(raw_body.decode("utf-8"))
+        except (UnicodeDecodeError, _json.JSONDecodeError) as error:
+            raise RiverConnectionError(
+                f"{context} returned invalid JSON: {error}", original_error=error
+            ) from error
+        if not isinstance(raw, dict):
+            raise RiverConnectionError(f"{context} returned non-object JSON")
+        return raw
+
+    def create_deployment(
+        self,
+        checkpoint: str | Checkpoint,
+        *,
+        unified_replicas: int | None = None,
+        prefill_replicas: int | None = None,
+        decode_replicas: int | None = None,
+        idempotency_key: str | None = None,
+        wait: bool = False,
+        wait_timeout: float = 1800.0,
+        timeout: float | None = None,
+    ) -> Deployment:
+        """Create a dedicated streaming deployment of ``checkpoint``.
+
+        This is a gated feature, disabled by default. Contact River to enable
+        dedicated deployments for your team and the checkpoint's base model
+        before calling this method. Use a team API key with that access;
+        personal API keys cannot create deployments. Installing or upgrading
+        the client does not enable access. The server rejects creation when
+        the feature is disabled or the required team/model access is absent.
+
+        The checkpoint path may be republished with new weights. New or
+        restarted workers load the available weights; serving workers keep
+        their loaded adapter. Republishing does not automatically reload the
+        fleet or provide an atomic update, including across prefill/decode
+        workers. For a consistent update at the same URL, scale all roles to
+        zero, wait for workers to drain and stop, finish saving, then restore
+        the targets. Use a fresh checkpoint name and a new deployment when
+        the old deployment must keep serving during the update.
+
+        Supply exactly one capacity group: ``unified_replicas`` for unified
+        serving, or both ``prefill_replicas`` and ``decode_replicas`` for
+        prefill/decode disaggregated serving. The topology is inferred from
+        the group and is immutable afterwards. The backend selects the
+        hardware specification, placement and ports from the checkpoint's
+        base model.
+
+        Provisioning is asynchronous: the returned deployment is usually
+        ``phase="accepted"``. Use the standard OpenAI client with
+        ``base_url=deployment.base_url`` once it is ``ready``; the URL binds
+        the checkpoint, so the existing model argument can stay unchanged.
+        Pass ``wait=True`` to
+        block until it serves (or fails). An ``idempotency_key`` makes a
+        retried call return the same accepted deployment; each explicit call
+        without one creates a new deployment.
+        """
+        checkpoint_path = (
+            checkpoint.path if isinstance(checkpoint, Checkpoint) else checkpoint
+        )
+        body: dict[str, Any] = {"checkpoint": checkpoint_path}
+        body.update(
+            _deployment_counts_body(unified_replicas, prefill_replicas, decode_replicas)
+        )
+        key = idempotency_key or str(uuid.uuid4())
+        raw = self._deployments_request(
+            "POST",
+            "/api/v1/deployments",
+            body=body,
+            context="Deployment creation",
+            idempotency_key=key,
+            timeout=timeout,
+        )
+        deployment = _deployment_from_raw(raw)
+        if wait:
+            return self.wait_for_deployment(deployment.id, timeout=wait_timeout)
+        return deployment
+
+    def get_deployment(
+        self, deployment_id: str, *, timeout: float | None = None
+    ) -> Deployment:
+        """Fetch a deployment by id, including its tombstone after deletion.
+
+        Dedicated deployments are gated and disabled by default. See
+        ``create_deployment`` for access requirements.
+        """
+        raw = self._deployments_request(
+            "GET",
+            f"/api/v1/deployments/{deployment_id}",
+            body=None,
+            context="Deployment lookup",
+            timeout=timeout,
+        )
+        return _deployment_from_raw(raw)
+
+    def list_deployments(
+        self, *, include_deleted: bool = False, timeout: float | None = None
+    ) -> list[Deployment]:
+        """List the caller's deployments with their per-role replica counts.
+
+        Dedicated deployments are gated and disabled by default. See
+        ``create_deployment`` for access requirements.
+        """
+        query = "?include_deleted=true" if include_deleted else ""
+        raw = self._deployments_request(
+            "GET",
+            f"/api/v1/deployments{query}",
+            body=None,
+            context="Deployment listing",
+            timeout=timeout,
+        )
+        data = raw.get("data")
+        if not isinstance(data, list):
+            raise RiverConnectionError("Deployment listing returned no 'data' list")
+        return [_deployment_from_raw(item) for item in data if isinstance(item, dict)]
+
+    def scale_on_target(
+        self,
+        deployment_id: str,
+        *,
+        unified_replicas: int | None = None,
+        prefill_replicas: int | None = None,
+        decode_replicas: int | None = None,
+        idempotency_key: str | None = None,
+        timeout: float | None = None,
+    ) -> Deployment:
+        """Set the absolute desired count of each supplied role.
+
+        Dedicated deployments are gated and disabled by default. Increasing
+        capacity, including resuming from zero, requires active access for
+        your team and this deployment's base model; contact River to request
+        it. Reducing capacity remains available after that access is revoked.
+
+        Omitted roles keep their current target. A unified deployment accepts
+        only ``unified_replicas``; a prefill/decode deployment accepts
+        ``prefill_replicas`` and/or ``decode_replicas``, and a target with one
+        role at zero and the other positive is rejected — scale both to zero
+        together to stop, and both up to resume.
+        """
+        body = _deployment_counts_body(
+            unified_replicas, prefill_replicas, decode_replicas
+        )
+        if not body:
+            raise ValueError("supply at least one role count")
+        raw = self._deployments_request(
+            "POST",
+            f"/api/v1/deployments/{deployment_id}/scale",
+            body=body,
+            context="Deployment scale",
+            idempotency_key=idempotency_key,
+            timeout=timeout,
+        )
+        return _deployment_from_raw(raw)
+
+    def delete_deployment(
+        self,
+        deployment_id: str,
+        *,
+        idempotency_key: str | None = None,
+        wait: bool = False,
+        wait_timeout: float = 600.0,
+        timeout: float | None = None,
+    ) -> Deployment:
+        """Delete a deployment in any live state; repeating is a no-op success.
+
+        Dedicated deployments are gated and disabled by default. Deleting
+        an existing deployment remains available after your team's access
+        to create or increase capacity for its model is revoked.
+        """
+        raw = self._deployments_request(
+            "DELETE",
+            f"/api/v1/deployments/{deployment_id}",
+            body=None,
+            context="Deployment deletion",
+            idempotency_key=idempotency_key,
+            timeout=timeout,
+        )
+        deployment = _deployment_from_raw(raw)
+        if wait:
+            return self.wait_for_deployment(
+                deployment.id, timeout=wait_timeout, until=("deleted",)
+            )
+        return deployment
+
+    def get_deployment_usage(
+        self, deployment_id: str, *, timeout: float | None = None
+    ) -> dict[str, Any]:
+        """Requested replica/GPU-hours per role and accepted-operation history.
+
+        Dedicated deployments are gated and disabled by default. See
+        ``create_deployment`` for access requirements.
+        """
+        return self._deployments_request(
+            "GET",
+            f"/api/v1/deployments/{deployment_id}/usage",
+            body=None,
+            context="Deployment usage",
+            timeout=timeout,
+        )
+
+    def wait_for_deployment(
+        self,
+        deployment_id: str,
+        *,
+        timeout: float = 1800.0,
+        poll_interval: float = 5.0,
+        until: tuple[str, ...] = ("ready", "degraded"),
+    ) -> Deployment:
+        """Wait for a requested phase and its serving capacity (or failure).
+
+        Dedicated deployments are gated and disabled by default. See
+        ``create_deployment`` for access requirements.
+
+        The default accepts partially available capacity. Pass
+        ``until=("ready",)`` to wait for every requested replica to be ready.
+        """
+        deadline = time.monotonic() + timeout
+        while True:
+            deployment = self.get_deployment(deployment_id)
+            if deployment.phase in until:
+                if deployment.phase not in ("ready", "degraded"):
+                    return deployment
+                if deployment.is_serving and (
+                    deployment.phase == "degraded"
+                    or all(
+                        role.ready >= role.desired
+                        for role in deployment.replicas.values()
+                    )
+                ):
+                    return deployment
+            if deployment.phase == "failed" or (
+                deployment.phase == "deleted" and "deleted" not in until
+            ):
+                raise RiverError(
+                    f"deployment {deployment_id} is {deployment.phase}: "
+                    f"{deployment.phase_reason or 'no reason given'}"
+                )
+            if time.monotonic() >= deadline:
+                raise RiverTimeoutError(
+                    f"deployment {deployment_id} still {deployment.phase} after {timeout:.0f}s"
+                )
+            time.sleep(poll_interval)
 
     def chat_complete_stream(
         self,
@@ -4750,7 +5694,9 @@ class Client:
         )
 
     def close(self) -> None:
-        """Close the client connection."""
+        """Close connections after any started image uploads finish."""
+        self._image_uploads.close()
+        self._image_cache.cleanup()
         if self._session_channel is not None:
             self._session_channel.close()
             self._session_channel = None
@@ -4764,3 +5710,133 @@ class Client:
         self._upload_channels = []
         self._upload_stubs = []
         self._reset_heartbeat_channel()
+
+
+def _submit_independent_samples(
+    session,
+    prompts=None,
+    *,
+    model=None,
+    base_model=None,
+    checkpoint=None,
+    num_samples=1,
+    max_tokens=256,
+    temperature=1.0,
+    top_p=1.0,
+    top_k=-1,
+    stop=None,
+    seed=None,
+    seeds=None,
+    return_prompt_logprobs=False,
+    return_prompt_token_ids=False,
+    logprobs=None,
+    return_expert_routing=False,
+    images=None,
+    prompt_token_ids=None,
+    model_input=None,
+    tokenizer=None,
+    idempotency_key=None,
+    pinned_policy_id=None,
+    policy_selection="ordered",
+    retained_kv_groups=None,
+    kv_cache_policy=None,
+    metrics_type="",
+    timeout=_DEFAULT_TIMEOUT_SECS,
+    poll_interval=0.1,
+):
+    deadline = time.monotonic() + timeout
+    if not 0 < poll_interval < float("inf"):
+        raise ValueError("poll_interval must be finite and positive")
+    tokenizer = (
+        model._tokenizer
+        if model is not None
+        else load_tokenizer(tokenizer, base_model=base_model)
+    )
+    prompts, prompt_token_ids, images = _resolve_model_input(
+        model_input,
+        prompts=prompts,
+        prompt_token_ids=prompt_token_ids,
+        images=images,
+        tokenizer=tokenizer,
+    )
+    prompt_list, prompt_dicts = _build_sample_prompt_dicts(
+        prompts,
+        num_samples=num_samples,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        stop=stop,
+        seed=seed,
+        seeds=seeds,
+        return_prompt_logprobs=return_prompt_logprobs,
+        logprobs=logprobs,
+        images=images,
+        return_expert_routing=return_expert_routing,
+        prompt_token_ids=prompt_token_ids,
+    )
+    if len(prompt_dicts) != len(prompt_list) * num_samples:
+        raise ValueError("Invalid sample grid")
+    if return_prompt_token_ids:
+        for prompt in prompt_dicts:
+            prompt["return_prompt_token_ids"] = True
+    common = {
+        "prompts": session._prompts_to_proto(prompt_dicts),
+        "metrics_type": metrics_type,
+    }
+    if model is not None:
+        source = pb2.SampleFromTrainingRequest(model_id=model._model_id, **common)
+    elif checkpoint is not None:
+        path = checkpoint.path if isinstance(checkpoint, Checkpoint) else checkpoint
+        source = pb2.SampleFromCheckpointRequest(
+            checkpoint_path=path, base_model=base_model, **common
+        )
+    else:
+        source = pb2.InferenceGenerateRequest(base_model=base_model, **common)
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise RiverTimeoutError("Sampling timed out before submission")
+    request_ids = submit_batch(
+        session,
+        source,
+        timeout=remaining,
+        idempotency_key=idempotency_key,
+        pinned_policy_id=pinned_policy_id,
+        policy_selection=policy_selection,
+        retained_kv_groups=retained_kv_groups,
+        kv_cache_policy=kv_cache_policy,
+    )
+    # Keep the legacy local step estimate; Sample.policy_version carries the
+    # authoritative execution identity returned by the server.
+    model_step = (
+        model._step
+        if model is not None
+        else checkpoint.step
+        if isinstance(checkpoint, Checkpoint)
+        else 0
+    )
+
+    def parse_result(index, response):
+        return _group_sample_dicts(
+            session._inference_to_dicts(response),
+            num_prompts=1,
+            num_samples=1,
+            tokenizer=tokenizer,
+            max_tokens=max_tokens,
+            model_step=model_step,
+            request_id=request_ids[index],
+            return_prompt_logprobs=return_prompt_logprobs,
+            return_prompt_token_ids=return_prompt_token_ids
+            or return_prompt_logprobs
+            or return_expert_routing,
+        )[0][0]
+
+    return PendingSamplingBatch(
+        request_ids=request_ids,
+        _session=session,
+        _deadline=deadline,
+        _parse_result=parse_result,
+        _num_samples=num_samples,
+        _model_id=model._model_id if model is not None else None,
+        _poll_interval=poll_interval,
+    )

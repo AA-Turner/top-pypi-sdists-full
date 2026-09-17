@@ -1,5 +1,6 @@
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.common.v1 import online_query_pb2 as _online_query_pb2
+from chalk._gen.chalk.common.v1 import resources_pb2 as _resources_pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as _expression_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
 from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
@@ -15,6 +16,8 @@ from typing import (
     Optional as _Optional,
     Union as _Union,
 )
+from chalk._gen.chalk.common.v1.resources_pb2 import ResourceRequirements as ResourceRequirements
+from chalk._gen.chalk.common.v1.resources_pb2 import ResourceRequests as ResourceRequests
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -222,27 +225,6 @@ class OfflineQueryWriteTo(_message.Message):
     uri: str
     def __init__(self, uri: _Optional[str] = ...) -> None: ...
 
-class ResourceRequests(_message.Message):
-    __slots__ = ("cpu", "memory", "ephemeral_volume_size", "ephemeral_storage", "resource_group")
-    CPU_FIELD_NUMBER: _ClassVar[int]
-    MEMORY_FIELD_NUMBER: _ClassVar[int]
-    EPHEMERAL_VOLUME_SIZE_FIELD_NUMBER: _ClassVar[int]
-    EPHEMERAL_STORAGE_FIELD_NUMBER: _ClassVar[int]
-    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
-    cpu: str
-    memory: str
-    ephemeral_volume_size: str
-    ephemeral_storage: str
-    resource_group: str
-    def __init__(
-        self,
-        cpu: _Optional[str] = ...,
-        memory: _Optional[str] = ...,
-        ephemeral_volume_size: _Optional[str] = ...,
-        ephemeral_storage: _Optional[str] = ...,
-        resource_group: _Optional[str] = ...,
-    ) -> None: ...
-
 class OfflineQueryRequest(_message.Message):
     __slots__ = (
         "inputs",
@@ -381,7 +363,7 @@ class OfflineQueryRequest(_message.Message):
     overlay_graph: _graph_pb2.OverlayGraph
     query_name: str
     query_name_version: str
-    resources: ResourceRequests
+    resources: _resources_pb2.ResourceRequests
     unload_resolvers: _containers.RepeatedCompositeFieldContainer[UnloadResolverSpec]
     use_metaplanner: bool
     write_to: OfflineQueryWriteTo
@@ -420,7 +402,7 @@ class OfflineQueryRequest(_message.Message):
         overlay_graph: _Optional[_Union[_graph_pb2.OverlayGraph, _Mapping]] = ...,
         query_name: _Optional[str] = ...,
         query_name_version: _Optional[str] = ...,
-        resources: _Optional[_Union[ResourceRequests, _Mapping]] = ...,
+        resources: _Optional[_Union[_resources_pb2.ResourceRequests, _Mapping]] = ...,
         unload_resolvers: _Optional[_Iterable[_Union[UnloadResolverSpec, _Mapping]]] = ...,
         use_metaplanner: bool = ...,
         write_to: _Optional[_Union[OfflineQueryWriteTo, _Mapping]] = ...,

@@ -57,9 +57,13 @@ class RelatedProcess(RelatedAsset):
     is_pass_through: Union[bool, None, UnsetType] = UNSET
     """Whether this process represents a pass-through data flow where data is moved without transformation, as opposed to a flow where data is actively modified."""
 
+    process_derivation: Union[str, None, UnsetType] = UNSET
+    """How this lineage process was derived — statically from an asset definition, or from an operational data-processing run."""
+
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "Process"
+        if self.type_name is UNSET:
+            self.type_name = "Process"
 
 
 class RelatedBIProcess(RelatedProcess):
@@ -74,7 +78,8 @@ class RelatedBIProcess(RelatedProcess):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "BIProcess"
+        if self.type_name is UNSET:
+            self.type_name = "BIProcess"
 
 
 class RelatedColumnProcess(RelatedProcess):
@@ -89,7 +94,8 @@ class RelatedColumnProcess(RelatedProcess):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "ColumnProcess"
+        if self.type_name is UNSET:
+            self.type_name = "ColumnProcess"
 
 
 class RelatedConnectionProcess(RelatedProcess):
@@ -104,4 +110,5 @@ class RelatedConnectionProcess(RelatedProcess):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "ConnectionProcess"
+        if self.type_name is UNSET:
+            self.type_name = "ConnectionProcess"

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.0.4"
+  version: "1.8.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -232,6 +232,15 @@ tags:
       for Shopify accounts (scopes read_content and write_content). Blogs are
       the containers; articles are the posts inside them. All content lives on
       the platform; Zernio proxies it and stores nothing.
+  - name: Products
+    description: |
+      Read and edit the product catalog on connected accounts. Currently
+      supported for Shopify accounts (scopes read_products and write_products).
+      Products are listed with their variants, options and images; edits cover
+      the product's own fields (title, description, handle, tags, vendor, type,
+      status, SEO) and variant prices. No product creation, inventory or
+      orders. All data lives on the platform; Zernio proxies it and stores
+      nothing.
   - name: Users
     description: |
       Read the authenticated user and team members.
@@ -7992,6 +8001,17 @@ components:
         reelsSkipRate: { type: number, example: 48.8, description: 'Instagram Reels only: percentage (0-100) of initial views that skipped the reel within its first 3 seconds, as reported by Meta. Meta labels the metric estimated and in development, so it can move between syncs. 0 for non-Reels media and other platforms. When a post is published to several accounts, the aggregate is weighted by views.' }
         completionRate: { type: number, example: 0, description: 'TikTok accounts connected through the TikTok for Business app only: share of viewers who watched the video to the end, 0 to 1, as TikTok reports it (T+24-48h, only for posts active in the last 7 days). 0 for other platforms. When a post is published to several accounts, the aggregate is weighted by views.' }
         profileViews: { type: integer, example: 0, description: 'TikTok accounts connected through the TikTok for Business app only: profile views from users who reached the profile through this post (T+24-48h). 0 for other platforms.' }
+        websiteClicks: { type: integer, example: 0, description: 'TikTok accounts connected through the TikTok for Business app only: clicks on the profile website link attributed to this post (T+24-48h). Also counted inside `clicks`, which sums every profile-link type (website, phone, email, address, app download). 0 for other platforms.' }
+        impressionSources:
+          type: object
+          additionalProperties: { type: number }
+          example: { forYou: 0.84, follow: 0.05, search: 0.06, personalProfile: 0.03, sound: 0.01, directMessage: 0, other: 0.01 }
+          description: 'TikTok accounts connected through the TikTok for Business app only: share of views by surface, as fractions 0 to 1 (T+24-48h, only for posts active in the last 7 days). Keys: `forYou`, `follow`, `search`, `personalProfile`, `sound`, `directMessage`, `other`; a surface TikTok adds later appears under a camelCase key derived from its name. Empty object when TikTok reports nothing, and for other platforms. When a post is published to several accounts, each share is weighted by views.'
+        audienceTypes:
+          type: object
+          additionalProperties: { type: number }
+          example: { follower: 0.1, nonFollower: 0.9, newViewer: 0.99, returnViewer: 0.01 }
+          description: 'TikTok accounts connected through the TikTok for Business app only: two viewer splits as fractions 0 to 1 (T+24-48h). Each pair sums to 1 when present, `follower` + `nonFollower` and `newViewer` + `returnViewer`; TikTok can report one pair without the other. Empty object when TikTok reports nothing, and for other platforms. Views-weighted across accounts like impressionSources.'
         reposts: { type: integer, example: 0, description: 'Instagram accounts connected with Facebook Login only: reposts of the media by other users, minus deleted reposts, on feed posts, reels and stories. Meta does not expose this metric for accounts connected with Instagram Login, so those always report 0. 0 for other platforms, including Threads, where reposts are counted in shares instead.' }
         videoDurationSeconds: { type: [integer, "null"], example: 30, description: 'Video length in seconds. Currently Instagram Reels only; combine with igReelsAvgWatchTime (ms) to estimate retention. Null when unknown (other platforms, non-video media, or when Instagram does not expose the media URL, e.g. reels with copyrighted audio).' }
         engagementRate: { type: number, example: 6.59, description: 'Percentage, rounded to 2 decimals: (likes + comments + shares + saves) / (impressions or reach or views) * 100. Clicks and follows are never counted. The denominator is the FIRST of impressions, reach, views that is non-zero, so it is not the same basis on every post: a post with impressions divides by impressions, one without falls back to reach, then to views. If you need a single consistent basis (e.g. interactions / reach), compute it from the raw fields above. The engagementRate on the LinkedIn account endpoints is a different formula.' }
@@ -8195,7 +8215,7 @@ components:
         metrics:
           type: object
           description: 'Metrics a platform does not report are 0, not absent.'
-          required: [impressions, reach, likes, comments, shares, saves, sends, clicks, views, follows, igReelsAvgWatchTime, igReelsVideoViewTotalTime, reposts, reelsSkipRate, completionRate, profileViews]
+          required: [impressions, reach, likes, comments, shares, saves, sends, clicks, views, follows, igReelsAvgWatchTime, igReelsVideoViewTotalTime, reposts, reelsSkipRate, completionRate, profileViews, websiteClicks, impressionSources, audienceTypes]
           properties:
             impressions: { type: integer }
             reach: { type: integer }
@@ -8213,6 +8233,9 @@ components:
             reelsSkipRate: { type: number, description: 'Instagram Reels skip rate, 0 to 1' }
             completionRate: { type: number, description: 'TikTok business lane: share of viewers who watched to the end, 0 to 1' }
             profileViews: { type: integer, description: 'TikTok business lane: profile views attributed to the post' }
+            websiteClicks: { type: integer, description: 'TikTok business lane: website-link clicks attributed to the post (also inside clicks)' }
+            impressionSources: { type: object, additionalProperties: { type: number }, description: 'TikTok business lane: share of views by surface (forYou, follow, search, personalProfile, sound, directMessage, other), fractions 0 to 1. Empty object elsewhere.' }
+            audienceTypes: { type: object, additionalProperties: { type: number }, description: 'TikTok business lane: follower / nonFollower and newViewer / returnViewer shares, fractions 0 to 1. Empty object elsewhere.' }
     AnalyticsDeltaResponse:
       type: object
       required: [data, nextCursor, hasMore]
@@ -10564,6 +10587,73 @@ components:
         publishedAt: { type: [string, "null"], format: date-time, description: 'When the article was (or is scheduled to be) published; null for drafts.' }
         createdAt: { type: [string, "null"], format: date-time }
         updatedAt: { type: [string, "null"], format: date-time }
+    ProductImage:
+      type: object
+      properties:
+        url: { type: string }
+        altText: { type: [string, "null"] }
+    ProductVariant:
+      type: object
+      description: 'A purchasable variant of a product (one per option combination).'
+      properties:
+        id: { type: string, description: 'Platform-native variant id (numeric string for Shopify).' }
+        title: { type: string, description: 'Option combination label, e.g. "S / Blue".' }
+        sku: { type: [string, "null"] }
+        barcode: { type: [string, "null"] }
+        price: { type: string, description: 'Decimal amount in the store currency, e.g. "19.90".' }
+        compareAtPrice: { type: [string, "null"], description: 'Strike-through price; null when the variant is not on sale.' }
+        inventoryQuantity: { type: [integer, "null"], description: 'Units on hand across locations; null when inventory is not tracked.' }
+        availableForSale: { type: boolean }
+        selectedOptions:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              value: { type: string }
+    Product:
+      type: object
+      description: 'A product on the connected platform with its variants, options and images. All data lives on the platform; Zernio proxies it and stores nothing.'
+      properties:
+        id: { type: string, description: 'Platform-native product id (numeric string for Shopify).' }
+        platform: { type: string, enum: [shopify] }
+        title: { type: string }
+        handle: { type: string, description: 'URL slug of the product.' }
+        descriptionHtml: { type: [string, "null"], description: 'Product description as HTML.' }
+        vendor: { type: [string, "null"] }
+        productType: { type: [string, "null"], description: 'Free-text product type as set on the store.' }
+        tags: { type: array, items: { type: string } }
+        status: { type: string, enum: [active, draft, archived] }
+        featuredImage:
+          oneOf:
+            - $ref: '#/components/schemas/ProductImage'
+            - type: "null"
+        images:
+          type: array
+          description: 'First 20 images in the product media, in store order.'
+          items: { $ref: '#/components/schemas/ProductImage' }
+        options:
+          type: array
+          description: 'Option axes (e.g. Size, Color) and their values.'
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              values: { type: array, items: { type: string } }
+        variants:
+          type: array
+          description: 'First 100 variants.'
+          items: { $ref: '#/components/schemas/ProductVariant' }
+        seo:
+          type: object
+          properties:
+            title: { type: [string, "null"] }
+            description: { type: [string, "null"] }
+        totalInventory: { type: [integer, "null"] }
+        onlineStoreUrl: { type: [string, "null"], description: 'Public storefront URL; null while the product is not published to the online store.' }
+        createdAt: { type: [string, "null"], format: date-time }
+        updatedAt: { type: [string, "null"], format: date-time }
+        publishedAt: { type: [string, "null"], format: date-time }
     BusinessAgentSettings:
       type: object
       description: 'Meta Business Agent settings for one WhatsApp number, as Meta returns them.'
@@ -12524,8 +12614,8 @@ paths:
           description: Page number (default 1)
         - name: sortBy
           in: query
-          schema: { type: string, enum: [date, engagement, impressions, reach, likes, comments, shares, saves, clicks, views, follows, ig_reels_avg_watch_time, ig_reels_video_view_total_time, reposts, reels_skip_rate, completion_rate, profile_views], default: date }
-          description: 'Sort by date, engagement, or a specific metric. Platform-specific metrics (follows, reposts, reels_skip_rate, ig_reels_*, completion_rate, profile_views) sort a null value as 0.'
+          schema: { type: string, enum: [date, engagement, impressions, reach, likes, comments, shares, saves, clicks, views, follows, ig_reels_avg_watch_time, ig_reels_video_view_total_time, reposts, reels_skip_rate, completion_rate, profile_views, website_clicks], default: date }
+          description: 'Sort by date, engagement, or a specific metric. Platform-specific metrics (follows, reposts, reels_skip_rate, ig_reels_*, completion_rate, profile_views, website_clicks) sort a null value as 0.'
         - name: order
           in: query
           schema: { type: string, enum: [asc, desc], default: desc }
@@ -12837,6 +12927,9 @@ paths:
                           reelsSkipRate: 0
                           completionRate: 0
                           profileViews: 0
+                          websiteClicks: 0
+                          impressionSources: {}
+                          audienceTypes: {}
                     nextCursor: "v1.WyIyMDI2LTA5LTAxIDE3OjEyOjA0IiwiNjVmMWMwYTllMmI1YWYwMDEyYWIzNGNkIl0"
                     hasMore: true
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -14627,6 +14720,12 @@ paths:
                         saves: { type: integer, description: "Total saves on this date" }
                         clicks: { type: integer, description: "Total clicks on this date" }
                         views: { type: integer, description: "Total views on this date" }
+                        follows: { type: integer, description: "Follows attributed to the post on this date (Instagram feed and stories, TikTok business lane); 0 elsewhere" }
+                        completionRate: { type: number, description: "TikTok business lane: share of viewers who watched to the end on this date, 0 to 1; 0 elsewhere" }
+                        profileViews: { type: integer, description: "TikTok business lane: profile views attributed to the post on this date; 0 elsewhere" }
+                        websiteClicks: { type: integer, description: "TikTok business lane: website-link clicks attributed to the post on this date (also inside clicks); 0 elsewhere" }
+                        impressionSources: { type: object, additionalProperties: { type: number }, description: "TikTok business lane: share of views by surface on this date (forYou, follow, search, personalProfile, sound, directMessage, other), fractions 0 to 1; empty object elsewhere" }
+                        audienceTypes: { type: object, additionalProperties: { type: number }, description: "TikTok business lane: follower / nonFollower and newViewer / returnViewer shares on this date, fractions 0 to 1; empty object elsewhere" }
               examples:
                 single_platform:
                   summary: Single-platform post timeline
@@ -14644,6 +14743,12 @@ paths:
                         saves: 8
                         clicks: 25
                         views: 0
+                        follows: 2
+                        completionRate: 0
+                        profileViews: 0
+                        websiteClicks: 0
+                        impressionSources: {}
+                        audienceTypes: {}
                       - date: "2025-01-16"
                         platform: "instagram"
                         platformPostId: "17902345678901234"
@@ -14655,6 +14760,51 @@ paths:
                         saves: 15
                         clicks: 48
                         views: 0
+                        follows: 5
+                        completionRate: 0
+                        profileViews: 0
+                        websiteClicks: 0
+                        impressionSources: {}
+                        audienceTypes: {}
+                multi_platform:
+                  summary: One row per platform and day; the TikTok row comes from an account connected through the TikTok for Business app
+                  value:
+                    postId: "6507a1b2c3d4e5f6a7b8c9d0"
+                    timeline:
+                      - date: "2025-01-16"
+                        platform: "instagram"
+                        platformPostId: "17902345678901234"
+                        impressions: 2400
+                        reach: 1850
+                        likes: 92
+                        comments: 7
+                        shares: 21
+                        saves: 15
+                        clicks: 48
+                        views: 0
+                        follows: 5
+                        completionRate: 0
+                        profileViews: 0
+                        websiteClicks: 0
+                        impressionSources: {}
+                        audienceTypes: {}
+                      - date: "2025-01-16"
+                        platform: "tiktok"
+                        platformPostId: "7685731010461371662"
+                        impressions: 0
+                        reach: 1100
+                        likes: 60
+                        comments: 4
+                        shares: 9
+                        saves: 3
+                        clicks: 14
+                        views: 1320
+                        follows: 3
+                        completionRate: 0.18
+                        profileViews: 22
+                        websiteClicks: 6
+                        impressionSources: { forYou: 0.84, follow: 0.05, search: 0.06, personalProfile: 0.03, sound: 0.01, directMessage: 0, other: 0.01 }
+                        audienceTypes: { follower: 0.1, nonFollower: 0.9, newViewer: 0.99, returnViewer: 0.01 }
         '400':
           description: Missing required postId parameter
           content:
@@ -17992,7 +18142,7 @@ paths:
                 thumbnailUrl:
                   type: string
                   format: uri
-                  description: "Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 2 MB, recommended 1280x720). Works on any video you own, including existing videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails."
+                  description: "Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 50 MB, recommended 1280x720). Works on any video you own, including existing videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails."
                 madeForKids:
                   type: boolean
                   description: "COPPA compliance flag. Set true for child-directed content (restricts comments, notifications, ad targeting)."
@@ -20086,6 +20236,11 @@ paths:
           schema: { type: string, enum: [classic, business], default: classic }
           description: "Meta ads authorization mode. Business login is opt-in for Facebook and Instagram; classic preserves the posting-account flow."
           example: business
+        - name: permissionLevel
+          in: query
+          schema: { type: string, enum: [full, advertise], default: full }
+          description: "Business login only. Ad-account permission the connection's system user will hold. `full` asks the owner for Full control (MANAGE; required to create pixels and other account-level assets through Zernio). `advertise` asks for Manage campaigns (ADVERTISE), enough for campaigns, ad sets, creatives, ads, media and reporting, for owners who will not grant billing-level control to an integration. Either way Meta only lets a business admin complete the grant. 503 if the advertise configuration is not set up."
+          example: advertise
         - name: pageId
           in: query
           schema: { type: string, pattern: '^\d+$' }
@@ -20276,14 +20431,17 @@ paths:
       description: |
         Initiate the Shopify OAuth flow for a store. Shopify is a connect-only
         platform: the connected account does not publish social posts, it powers
-        the Blogs API (`/v1/accounts/{accountId}/blogs`). Returns an `authUrl`
+        the Blogs API (`/v1/accounts/{accountId}/blogs`) and the Products API
+        (`/v1/accounts/{accountId}/products`). Returns an `authUrl`
         to redirect the merchant to; after they approve the install, Shopify
         redirects their browser to Zernio's callback, the account is created on
         the profile (platform `shopify`), and the browser is redirected to
         `redirect_url` (or the Zernio dashboard when omitted). Requested scopes
-        are `read_content` and `write_content` (content only; no customer or
-        order data). Connecting the same profile to a store again refreshes the
-        stored token in place.
+        are `read_content`, `write_content`, `read_products` and
+        `write_products` (content and products only; no customer or order
+        data). Connecting the same profile to a store again refreshes the
+        stored token in place, and is how a store connected under the older
+        content-only grant picks up product access.
       security:
         - bearerAuth: []
       parameters:
@@ -20337,7 +20495,8 @@ paths:
         Token-paste alternative to the OAuth flow: connect a store using the
         Admin API access token of a custom app the merchant created in their
         own Shopify admin (Settings → Apps and sales channels → Develop apps,
-        with the `read_content`/`write_content` scopes). Use this when the
+        with the `read_content`, `write_content`, `read_products` and
+        `write_products` scopes). Use this when the
         one-click OAuth connect is unavailable or when your users prefer not
         to install a third-party app on their store. The token is validated
         against the store before anything is saved; custom-app tokens do not
@@ -35529,6 +35688,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { description: Carrier registry rejected a field; `param` names it when known. }
+        '409': { description: 'The brand already exists at the carrier and failed identity verification (a rejected registration of yours with the same EIN or legal name); the fix is applied to that brand on reply, a new registration would file and bill a second one.' }
     get:
       x-resource-group: "telephony"
       operationId: listSmsRegistrations
@@ -37193,6 +37353,15 @@ paths:
                 properties:
                   error: { type: string }
                   code: { type: string, enum: [PURCHASE_VELOCITY, AREA_CODE_UNAVAILABLE, PHONE_NUMBER_UNAVAILABLE] }
+        '503':
+          description: 'The carrier could not take the order just now (code CARRIER_UNAVAILABLE); the number is not taken, retry the same request in a minute.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string, enum: [CARRIER_UNAVAILABLE] }
         '202':
           description: Country requires end-user KYC before the number can be ordered.
           content:
@@ -37624,6 +37793,15 @@ paths:
                 properties:
                   error: { type: string }
                   code: { type: string, enum: [PURCHASE_VELOCITY, AREA_CODE_UNAVAILABLE, PHONE_NUMBER_UNAVAILABLE] }
+        '503':
+          description: 'The carrier could not take the order just now (code CARRIER_UNAVAILABLE); the number is not taken, retry the same request in a minute.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string, enum: [CARRIER_UNAVAILABLE] }
         '202':
           description: Country requires end-user KYC before the number can be ordered.
           content:
@@ -38125,6 +38303,13 @@ paths:
         a Zernio-hosted page; the number provisions under YOUR account once they
         submit. Only regulated (KYC) countries are valid: a country that does not
         require KYC returns 400.
+
+        Pass `numberType` (`local`, `mobile`, `national`, `toll_free`) to choose
+        which of the country's offered types the shared form collects KYC for and
+        eventually orders; omitted defaults to the country's default type (which
+        may be `national` and therefore have no inventory in a geographic area
+        code). Pass `areaCode` (NDC digits) to constrain the eventual order to a
+        specific area; it is validated against the chosen `numberType`.
 
         White-label the page with `branding` (your company name, logo, brand
         color). Supply `redirect_url` to send the end customer back to your own
@@ -49012,6 +49197,10 @@ paths:
                   type: string
                   enum: [OPT_IN, OPT_OUT]
                   description: "Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there."
+                aiDisclosure:
+                  type: string
+                  enum: [OPT_IN, OPT_OUT]
+                  description: "Meta only. Meta's \"Ad includes media created or edited with AI\" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision."
             example:
               accountId: '69fc524892b3d8e85f893e73'
               adAccountId: act_123456789
@@ -51549,8 +51738,10 @@ paths:
                 accountId: { type: string, description: Account ID }
                 adAccountId: { type: string, description: Platform ad account ID }
                 name: { type: string, maxLength: 255 }
+                campaignName: { type: string, maxLength: 255, description: "Exact name for the campaign this boost provisions. Omitted keeps the default `<name> - Campaign`. Every platform: on LinkedIn it names the campaign group. Ignored on the Meta attach shape (`adSetId`), which creates no campaign." }
+                adSetName: { type: string, maxLength: 255, description: "Exact name for the ad-group level this boost provisions. Omitted keeps the default `<name> - Ad Group`. Meta: ad set; TikTok, Pinterest, Google: ad group; X: line item; LinkedIn: the campaign under the campaign group. Ignored on the Meta attach shape." }
                 goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, conversions, app_promotion], description: "Available goals vary by platform. Meta (Facebook/Instagram) and TikTok support all 7. LinkedIn supports all except app_promotion. X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views." }
-                adSetId: { type: string, description: "Meta only. Attach the boosted post to this existing ad set instead of creating a campaign. The ad set then owns budget, schedule and targeting; sending those too is a 400." }
+                adSetId: { type: string, description: "Meta, or TikTok with `smartPlus: true`. Attach the boosted post to this existing ad set instead of creating a campaign. On TikTok the id is an existing Smart+ ad group: the post is added as one more Spark ad in it (up to 30 per ad group), under the identity its `sparkAuthCode` creates; goal and budget are inherited from the Smart+ campaign; a regular ad group is rejected with a 400. Meta: The ad set then owns budget, schedule and targeting; sending those too is a 400." }
                 budget:
                   type: object
                   description: "Required unless adSetId is set."
@@ -51775,6 +51966,7 @@ paths:
                     account running the ads (same-BC creators only). The creator generates the
                     code in their TikTok app's Promote settings and shares it with the
                     advertiser. Maps to `auth_code` on the creative entry of /v2/ad/create/.
+                smartPlus: { type: boolean, description: "TikTok only. Run the Spark post in a Smart+ campaign (goal `conversions` = Smart+ Web Conversions, `lead_generation` = Smart+ Lead Generation) instead of a regular campaign. Requires `sparkAuthCode` (the Smart+ ad runs the post under the identity that redeeming its Spark code creates; a Business Center-owned post is not accepted there) and `promotedObject.pixelId` + `customEventType`. `app_promotion` is not available on a Spark post. Rejected with a 400 on other platforms." }
                 promotedObject:
                   type: object
                   description: |
@@ -52020,6 +52212,10 @@ paths:
                   type: string
                   enum: [OPT_IN, OPT_OUT]
                   description: "Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there."
+                aiDisclosure:
+                  type: string
+                  enum: [OPT_IN, OPT_OUT]
+                  description: "Meta only. Meta's \"Ad includes media created or edited with AI\" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision."
                 validateOnly:
                   type: boolean
                   description: 'Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error.'
@@ -58605,6 +58801,169 @@ paths:
         '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
         '404': { description: 'Account not found or not accessible (code account_not_found), blog not found (code blog_not_found), or article not found (code blog_article_not_found).' }
         '405': { description: Platform does not support deleting an article. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+  /v1/accounts/{accountId}/products:
+    get:
+      x-resource-group: "publishing"
+      operationId: listProducts
+      tags: ["Products"]
+      x-platforms: ["shopify"]
+      summary: List products
+      description: |
+        Lists the products on the connected store in the platform's default
+        order, each with its variants, options and images. Cursor-paginated:
+        pass `limit` (1-50, default 20) and the `cursor` from a previous
+        response's `nextCursor`; `nextCursor` is null when there are no more
+        pages. Filter with `status` and/or `query` (the platform's product
+        search syntax, e.g. `title:*shirt* vendor:Acme tag:summer`).
+
+        Supported on Shopify (platform `shopify`); accounts on other
+        platforms return 400. A store connected before product access was
+        added answers 403 insufficient_permissions until the merchant
+        reconnects it through `GET /v1/connect/shopify`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 20 }, description: 'Page size (1-50).' }
+        - { name: cursor, in: query, required: false, schema: { type: string }, description: 'Opaque cursor from a previous response. Omit for the first page.' }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [active, draft, archived] }, description: 'Only products in this status.' }
+        - { name: query, in: query, required: false, schema: { type: string, maxLength: 500 }, description: 'Platform product search syntax, passed through verbatim (Shopify: title, vendor, product_type, tag, sku, handle, created_at, updated_at, ...).' }
+      responses:
+        '200':
+          description: Products listed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  products:
+                    type: array
+                    items: { $ref: '#/components/schemas/Product' }
+                  nextCursor: { type: [string, "null"], description: 'Cursor for the next page; null when there are no more pages.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions). The store lacks the product scopes or the token was revoked; reconnect the Shopify account.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found).' }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+  /v1/accounts/{accountId}/products/{productId}:
+    get:
+      x-resource-group: "publishing"
+      operationId: getProduct
+      tags: ["Products"]
+      x-platforms: ["shopify"]
+      summary: Get a product
+      description: |
+        Fetches a single product with its variants, options and images.
+        `productId` is the platform's numeric product id from
+        `GET /v1/accounts/{accountId}/products`, not a Zernio id.
+
+        Supported on Shopify (platform `shopify`); accounts on other
+        platforms return 400.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: productId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric product id. Non-numeric values return 400.' }
+      responses:
+        '200':
+          description: Product fetched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  product: { $ref: '#/components/schemas/Product' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions). The store lacks the product scopes or the token was revoked; reconnect the Shopify account.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found), or product not found (code product_not_found).' }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+    patch:
+      x-resource-group: "publishing"
+      operationId: updateProduct
+      tags: ["Products"]
+      x-platforms: ["shopify"]
+      summary: Update a product
+      description: |
+        Partial-updates a product. Send any subset of `title`,
+        `descriptionHtml`, `handle`, `vendor`, `productType`, `tags`, `status`,
+        `seo` and `variants`; at least one field is required (an empty body
+        returns 400). `tags` replaces the full tag list. `variants` updates
+        the price and compare-at price of the listed variant ids only; other
+        variants are untouched, and a variant id that does not belong to the
+        product is a 400. Responds with the product as it is after the update.
+
+        Supported on Shopify (platform `shopify`); accounts on other
+        platforms return 400. A store connected before product access was
+        added answers 403 insufficient_permissions until the merchant
+        reconnects it through `GET /v1/connect/shopify`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: productId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric product id. Non-numeric values return 400.' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 'At least one field is required.'
+              properties:
+                title: { type: string, minLength: 1 }
+                descriptionHtml: { type: string, description: 'Product description as HTML.' }
+                handle: { type: string, minLength: 1, description: 'URL slug of the product.' }
+                vendor: { type: string }
+                productType: { type: string }
+                tags: { type: array, items: { type: string }, description: 'Replaces the full tag list.' }
+                status: { type: string, enum: [active, draft, archived], description: 'archived hides the product everywhere; draft keeps it editable but unpublished.' }
+                seo:
+                  type: object
+                  description: 'Search-engine title and description overrides.'
+                  properties:
+                    title: { type: string }
+                    description: { type: string }
+                variants:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  description: 'Price changes per variant. Only the listed variants change.'
+                  items:
+                    type: object
+                    required: [id]
+                    properties:
+                      id: { type: string, pattern: '^\d+$', description: 'Variant id from the product response.' }
+                      price:
+                        oneOf:
+                          - { type: number, minimum: 0 }
+                          - { type: string, pattern: '^\d+(\.\d{1,2})?$' }
+                        description: 'Decimal amount in the store currency. Numbers are formatted to two decimals.'
+                      compareAtPrice:
+                        oneOf:
+                          - { type: number, minimum: 0 }
+                          - { type: string, pattern: '^\d+(\.\d{1,2})?$' }
+                          - { type: "null" }
+                        description: 'Strike-through price. Send null to remove it.'
+      responses:
+        '200':
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  product: { $ref: '#/components/schemas/Product' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions). The store lacks the product scopes or the token was revoked; reconnect the Shopify account.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found), or product not found (code product_not_found).' }
         '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
 
   /v1/verify/verifications:

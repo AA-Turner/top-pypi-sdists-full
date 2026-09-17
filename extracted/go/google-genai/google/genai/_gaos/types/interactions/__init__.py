@@ -107,6 +107,8 @@ if TYPE_CHECKING:
     from .dynamicagentconfig import DynamicAgentConfig, DynamicAgentConfigParam
     from .empty import Empty, EmptyTypedDict
     from .environment import (
+        Env,
+        EnvParam,
         Environment,
         EnvironmentParam,
         Network,
@@ -120,6 +122,7 @@ if TYPE_CHECKING:
         EnvironmentNetworkEgressAllowlist,
         EnvironmentNetworkEgressAllowlistParam,
     )
+    from .envvar import EnvVar, EnvVarParam
     from .error import Error, ErrorTypedDict
     from .errorevent import ErrorEvent, ErrorEventTypedDict
     from .exaaisearchconfig import ExaAISearchConfig, ExaAISearchConfigParam
@@ -319,17 +322,23 @@ if TYPE_CHECKING:
     from .retrieval import Retrieval, RetrievalParam, RetrievalRetrievalType
     from .retrievalcallarguments import (
         RetrievalCallArguments,
-        RetrievalCallArgumentsTypedDict,
+        RetrievalCallArgumentsParam,
     )
     from .retrievalcalldelta import (
         RetrievalCallDelta,
         RetrievalCallDeltaRetrievalType,
         RetrievalCallDeltaTypedDict,
     )
+    from .retrievalcallstep import (
+        RetrievalCallStep,
+        RetrievalCallStepParam,
+        RetrievalCallStepRetrievalType,
+    )
     from .retrievalresultdelta import (
         RetrievalResultDelta,
         RetrievalResultDeltaTypedDict,
     )
+    from .retrievalresultstep import RetrievalResultStep, RetrievalResultStepParam
     from .reviewsnippet import ReviewSnippet, ReviewSnippetParam
     from .safetysetting import Method, SafetySetting, SafetySettingParam, Threshold
     from .servicetier import ServiceTier
@@ -504,6 +513,10 @@ __all__ = [
     "DynamicAgentConfigParam",
     "Empty",
     "EmptyTypedDict",
+    "Env",
+    "EnvParam",
+    "EnvVar",
+    "EnvVarParam",
     "Environment",
     "EnvironmentEnum",
     "EnvironmentNetworkEgressAllowlist",
@@ -697,13 +710,18 @@ __all__ = [
     "ResponseModality",
     "Retrieval",
     "RetrievalCallArguments",
-    "RetrievalCallArgumentsTypedDict",
+    "RetrievalCallArgumentsParam",
     "RetrievalCallDelta",
     "RetrievalCallDeltaRetrievalType",
     "RetrievalCallDeltaTypedDict",
+    "RetrievalCallStep",
+    "RetrievalCallStepParam",
+    "RetrievalCallStepRetrievalType",
     "RetrievalParam",
     "RetrievalResultDelta",
     "RetrievalResultDeltaTypedDict",
+    "RetrievalResultStep",
+    "RetrievalResultStepParam",
     "RetrievalRetrievalType",
     "ReviewSnippet",
     "ReviewSnippetParam",
@@ -904,6 +922,8 @@ _dynamic_imports: dict[str, str] = {
     "DynamicAgentConfigParam": ".dynamicagentconfig",
     "Empty": ".empty",
     "EmptyTypedDict": ".empty",
+    "Env": ".environment",
+    "EnvParam": ".environment",
     "Environment": ".environment",
     "EnvironmentParam": ".environment",
     "Network": ".environment",
@@ -914,6 +934,8 @@ _dynamic_imports: dict[str, str] = {
     "Disabled": ".environmentnetworkegressallowlist",
     "EnvironmentNetworkEgressAllowlist": ".environmentnetworkegressallowlist",
     "EnvironmentNetworkEgressAllowlistParam": ".environmentnetworkegressallowlist",
+    "EnvVar": ".envvar",
+    "EnvVarParam": ".envvar",
     "Error": ".error",
     "ErrorTypedDict": ".error",
     "ErrorEvent": ".errorevent",
@@ -1102,12 +1124,17 @@ _dynamic_imports: dict[str, str] = {
     "RetrievalParam": ".retrieval",
     "RetrievalRetrievalType": ".retrieval",
     "RetrievalCallArguments": ".retrievalcallarguments",
-    "RetrievalCallArgumentsTypedDict": ".retrievalcallarguments",
+    "RetrievalCallArgumentsParam": ".retrievalcallarguments",
     "RetrievalCallDelta": ".retrievalcalldelta",
     "RetrievalCallDeltaRetrievalType": ".retrievalcalldelta",
     "RetrievalCallDeltaTypedDict": ".retrievalcalldelta",
+    "RetrievalCallStep": ".retrievalcallstep",
+    "RetrievalCallStepParam": ".retrievalcallstep",
+    "RetrievalCallStepRetrievalType": ".retrievalcallstep",
     "RetrievalResultDelta": ".retrievalresultdelta",
     "RetrievalResultDeltaTypedDict": ".retrievalresultdelta",
+    "RetrievalResultStep": ".retrievalresultstep",
+    "RetrievalResultStepParam": ".retrievalresultstep",
     "ReviewSnippet": ".reviewsnippet",
     "ReviewSnippetParam": ".reviewsnippet",
     "Method": ".safetysetting",

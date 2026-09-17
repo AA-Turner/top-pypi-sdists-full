@@ -23,6 +23,7 @@ from typing import Any
 
 from matrx_utils.ids import new_hex
 
+from matrx_ai.db.control_tokens import clean_assistant_content, merge_control_token_metadata
 from matrx_ai.db.message_positions import APPEND_MESSAGE_POSITION
 
 
@@ -53,14 +54,22 @@ class CxmConversationPersistence:
         self, *, conversation_id: str, execution_id: str, role: str, content: Any
     ) -> None:
         await self._ensure_conversation(conversation_id)
+        blocks = _to_content_blocks(content)
+        metadata: dict[str, Any] = {"execution_id": execution_id, "source": role}
+        if role == "assistant":
+            # A DECLARED control line never reaches the stored row — same
+            # registry the emitter strips the stream with, values kept as
+            # structured metadata (matrx_ai/db/control_tokens.py).
+            blocks, hits = clean_assistant_content(blocks)
+            metadata = merge_control_token_metadata(metadata, hits) or metadata
         self._queue_message(
             id=self._id(),
             conversation_id=conversation_id,
             role=role,
             position=APPEND_MESSAGE_POSITION,
             status="active",
-            content=_to_content_blocks(content),
-            metadata={"execution_id": execution_id, "source": role},
+            content=blocks,
+            metadata=metadata,
         )
 
     async def history(self, conversation_id: str) -> list[dict[str, Any]]:

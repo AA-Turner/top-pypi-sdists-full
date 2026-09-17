@@ -21,9 +21,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import io
 import os
 import shutil
 import subprocess
+import tarfile
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -44,6 +46,31 @@ from matrx_scraper.cloud_browser.worker import (  # noqa: E402
 from matrx_scraper.cloud_browser.worker import commands as C  # noqa: E402
 from matrx_scraper.cloud_browser.worker import models as M  # noqa: E402
 from matrx_scraper.cloud_browser.worker import runtime  # noqa: E402
+
+
+def test_worker_checkpoint_archive_excludes_regenerable_browser_caches(tmp_path) -> None:
+    profile = tmp_path / "profile"
+    keep = profile / "Default" / "IndexedDB"
+    cache = profile / "Default" / "Cache" / "Cache_Data"
+    service_cache = profile / "Default" / "Service Worker" / "CacheStorage" / "origin"
+    code_cache = profile / "Default" / "Code Cache" / "js"
+    keep.mkdir(parents=True)
+    cache.mkdir(parents=True)
+    service_cache.mkdir(parents=True)
+    code_cache.mkdir(parents=True)
+    (keep / "auth-state").write_bytes(b"keep")
+    (cache / "page-body").write_bytes(b"drop-cache")
+    (service_cache / "response").write_bytes(b"drop-service-cache")
+    (code_cache / "compiled").write_bytes(b"drop-code-cache")
+
+    archive = runtime._archive_dir(str(profile))
+
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as captured:
+        members = set(captured.getnames())
+    assert "profile/Default/IndexedDB/auth-state" in members
+    assert not any("/Default/Cache/" in f"/{name}/" for name in members)
+    assert not any("/Default/Service Worker/CacheStorage/" in f"/{name}/" for name in members)
+    assert not any("/Default/Code Cache/" in f"/{name}/" for name in members)
 from matrx_scraper.cloud_browser.worker.errors import WorkerProtocolError  # noqa: E402
 
 # Load the repo .env HERE, above the gate. The skip decision below reads

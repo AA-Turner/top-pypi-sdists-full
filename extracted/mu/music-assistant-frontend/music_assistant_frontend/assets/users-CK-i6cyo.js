@@ -1,1 +1,0 @@
-var e=e=>e.username===`homeassistant_system`;export{e as t};

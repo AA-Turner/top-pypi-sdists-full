@@ -8,9 +8,10 @@ Home Assistant automation configurations.
 import logging
 from typing import Annotated, Any, cast
 
-from fastmcp.exceptions import ToolError
-from fastmcp.tools import tool
 from pydantic import Field
+
+from ha_mcp._vendor.fastmcp.exceptions import ToolError
+from ha_mcp._vendor.fastmcp.tools import tool
 
 from ..client.rest_client import (
     HomeAssistantAPIError,
@@ -37,6 +38,11 @@ from .best_practice_checker import (
 )
 from .best_practice_checker import (
     check_automation_config as _check_best_practices,
+)
+from .blueprint_substitute import (
+    TakenControl,
+    take_control_config,
+    validate_write_modes,
 )
 from .component_config_reads import fetch_entity_lookup_via_component
 from .helpers import (
@@ -538,8 +544,9 @@ class AutomationConfigTools:
         identifier: Annotated[
             str | None,
             Field(
-                description="Automation entity_id or unique_id for updates. "
-                "Required for python_transform. Omit to create new automation with generated unique_id.",
+                description="Target automation entity_id or HA config 'id' (unique_id). "
+                "Omit for creation with a generated ID. Values such as 'new' are literal IDs, not placeholders. "
+                "Required for python_transform.",
                 default=None,
             ),
         ] = None,
@@ -562,9 +569,28 @@ class AutomationConfigTools:
             Field(
                 description="Config hash from ha_config_get_automation for optimistic locking. "
                 "REQUIRED for python_transform (validates automation unchanged). "
-                "Optional for config updates (validates before full replacement if provided).",
+                "Required when a config update changes an existing automation's alias. "
+                "Otherwise optional for config updates (validates before full replacement if provided).",
             ),
         ] = None,
+        take_control_of_blueprint: Annotated[
+            bool,
+            Field(
+                description="Convert a blueprint-backed automation into an editable "
+                'standalone one -- the UI\'s "Take control". Renders the blueprint '
+                "with its current inputs and saves the result over the same "
+                "automation, which then has its own triggers/conditions/actions and "
+                "no 'use_blueprint'. Requires identifier; mutually exclusive with "
+                "config and python_transform. Irreversible: the link to the "
+                "blueprint is gone afterwards, so edit inputs instead if you only "
+                "want to change a value. Does NOT free the blueprint: Home "
+                "Assistant keeps counting the converted automation as a user, so "
+                "deleting that blueprint stays refused until the automation is "
+                "removed. To preview the rendering without writing anything, use "
+                'ha_manage_blueprints(action="substitute").',
+                default=False,
+            ),
+        ] = False,
         category: Annotated[
             str | None,
             Field(
@@ -633,11 +659,14 @@ class AutomationConfigTools:
         - Stateful counter / timer / schedule / boolean / etc.
           -> ha_config_set_helper(helper_type='counter' | 'timer' | ...)
 
-        Supports two modes: full config replacement OR Python transformation.
+        Supports three modes: full config replacement, Python transformation,
+        or take_control_of_blueprint (see below).
 
         WHEN TO USE WHICH MODE:
         - python_transform: RECOMMENDED for edits to existing automations. Surgical updates.
         - config: Use for creating new automations or full restructures.
+        - take_control_of_blueprint: converts a blueprint-backed automation
+          into a standalone one. Takes no config of its own.
 
         IMPORTANT: python_transform requires 'identifier' and 'config_hash' from ha_config_get_automation().
 
@@ -647,7 +676,11 @@ class AutomationConfigTools:
         - Add trigger: python_transform="config['triggers'].append({'trigger': 'state', 'entity_id': 'binary_sensor.motion', 'to': 'on'})"
         - Remove last action: python_transform="config['actions'].pop()"
 
-        Creates a new automation (if identifier omitted) or updates existing automation with provided configuration.
+        Omit identifier and config['id'] to create a new automation with a generated ID.
+        A previously unused raw ID can also create an automation with that specific ID.
+        Reusing an identifier targets the same automation, even if the alias changes.
+        To intentionally rename or replace it, first read it with ha_config_get_automation
+        and pass its config_hash. A changed alias without that hash is rejected before writing.
 
         AUTOMATION TYPES:
 
@@ -706,8 +739,10 @@ class AutomationConfigTools:
         })
 
         Update existing automation:
+        current = ha_config_get_automation(identifier="automation.morning_routine")
         ha_config_set_automation(
             identifier="automation.morning_routine",
+            config_hash=current["config_hash"],
             config={
                 "alias": "Updated Morning Routine",
                 "triggers": [{"trigger": "time", "at": "06:30:00"}],
@@ -749,6 +784,37 @@ class AutomationConfigTools:
             }
         )
 
+        TAKE CONTROL OF A BLUEPRINT AUTOMATION:
+
+        take_control_of_blueprint=True converts a blueprint-backed automation
+        into a standalone one — the UI's "Take control". The blueprint is
+        rendered with the automation's CURRENT inputs and the result is saved
+        over the same automation, which keeps its entity_id, alias and
+        description but gains its own triggers/conditions/actions and loses
+        'use_blueprint'.
+
+        ha_config_set_automation(
+            identifier="automation.motion_light_kitchen",
+            take_control_of_blueprint=True,
+        )
+
+        This is one-way: the automation is no longer linked to the blueprint,
+        so later blueprint edits stop reaching it. To change an input value,
+        update 'use_blueprint.input' instead (see the example above) — that
+        keeps the link.
+
+        Taking control does NOT free the blueprint. Home Assistant goes on
+        counting a converted automation as a user of it, so deleting that
+        blueprint stays refused until the automation itself is removed
+        (verified against Home Assistant 2026.9; an automation reload does not
+        clear it either).
+
+        The response names the blueprint in `took_control_of_blueprint`. To see what the rendering looks like WITHOUT writing
+        anything, call ha_manage_blueprints(action="substitute", path=...,
+        input=...), which returns the config and leaves the automation alone.
+        ha_manage_blueprints also lists, imports, saves and deletes blueprints,
+        and action="get" reports which automations use one.
+
         TRIGGER TYPES: time, time_pattern, sun, state, numeric_state, event, device, zone, template, and more
         CONDITION TYPES: state, numeric_state, time, sun, template, device, zone, and more
         ACTION TYPES: action calls, delays, wait_for_trigger, wait_template, if/then/else, choose, repeat, parallel
@@ -784,20 +850,26 @@ class AutomationConfigTools:
                     ],
                     context={"action": "set"},
                 )
-            # Validate mutual exclusivity of config and python_transform
-            if config is not None and python_transform is not None:
-                raise_tool_error(
-                    create_error_response(
-                        ErrorCode.VALIDATION_INVALID_PARAMETER,
-                        "Cannot use both config and python_transform simultaneously",
-                        suggestions=[
-                            "Use only ONE of: config or python_transform",
-                            "config: Full replacement",
-                            "python_transform: Python-based edits (recommended for existing automations)",
-                        ],
-                        context={"action": "set", "identifier": identifier},
-                    )
-                )
+            validate_write_modes(
+                "automation",
+                "identifier",
+                identifier,
+                config,
+                python_transform,
+                take_control_of_blueprint,
+            )
+
+            detached_blueprint: str | None = None
+            if take_control_of_blueprint:
+                taken = await self._take_control_config(identifier)
+                config = taken.config
+                detached_blueprint = taken.blueprint_path
+                # Take control is a read-modify-write the TOOL performs, so it
+                # owns the consistency guarantee the caller could not supply:
+                # without this, an edit landing between that read and this
+                # write is silently overwritten. An explicit caller hash still
+                # wins, so it can still lock against a config it read itself.
+                config_hash = config_hash or taken.config_hash
 
             if python_transform is not None:
                 response, bp_warnings = await self._run_python_transform(
@@ -837,14 +909,17 @@ class AutomationConfigTools:
             # (trigger -> triggers, action -> actions, condition -> conditions).
             config_dict = _normalize_automation_config(config_dict)
 
-            # Optional hash check for full config updates. When it runs it
-            # resolves ``identifier`` to the storage key — thread that through so
-            # the upsert doesn't re-resolve (issue #1813 Phase 0). Stays None on
-            # the no-hash update path (raw identifier resolved once, in upsert).
+            # Both the hash check and alias guard read the resolved storage key.
+            # Reuse it for the write to avoid a second entity-ID lookup (#1813).
+            # Creation and responses without an id retain the existing fallback.
             resolved_id: str | None = None
             if identifier and config_hash:
                 _, resolved_id = await self._fetch_and_verify_hash(
                     identifier, config_hash, "set"
+                )
+            elif identifier:
+                resolved_id = await self._guard_alias_replacement(
+                    identifier, config_dict
                 )
 
             self._validate_required_fields(config_dict, identifier)
@@ -874,6 +949,7 @@ class AutomationConfigTools:
                 MandatoryBPS,
                 conflict_warnings,
                 resolved_id,
+                detached_blueprint,
             )
 
         except ToolError as te:
@@ -950,11 +1026,11 @@ class AutomationConfigTools:
         """Upsert, threading a pre-resolved unique_id when available.
 
         When ``resolved_id`` is set the caller already resolved ``identifier``
-        (via ``_fetch_and_verify_hash``); pass it with ``_resolved=True`` so the
+        (via the hash check or alias guard); pass it with ``_resolved=True`` so the
         REST client skips the redundant entity_id→unique_id lookup (issue #1813
         Phase 0). Otherwise fall back to the raw ``identifier`` and let the REST
-        client resolve — the create path (``identifier is None``) and the
-        no-hash update path both land here unchanged.
+        client resolve — creation and fetched configs without an id use this
+        fallback.
         """
         result: dict[str, Any]
         if resolved_id is not None:
@@ -964,6 +1040,43 @@ class AutomationConfigTools:
         else:
             result = await self._client.upsert_automation_config(config, identifier)
         return result
+
+    async def _take_control_config(self, identifier: str | None) -> TakenControl:
+        """Render a blueprint automation into the config that replaces it.
+
+        Returns ``(config, blueprint_path, config_hash)``. The hash is of the
+        config this read saw, so the caller can lock the write against it.
+        Deliberately produces a config
+        for the ordinary replacement path rather than writing it here: the
+        rendering is not exempt from the validation, best-practice checks or
+        skill-content attachment every other automation write goes through,
+        and routing it through one write tail is what keeps those guarantees
+        from drifting apart.
+        """
+        if not identifier:
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    "identifier is required for take_control_of_blueprint",
+                    suggestions=[
+                        "Provide the automation entity_id or unique_id to convert",
+                        "Use ha_search(domain_filter='automation') to find automations",
+                    ],
+                    context={"action": "take_control", "identifier": identifier},
+                )
+            )
+
+        # The caller need not supply a hash (unlike python_transform, whose
+        # expression is written against a config the caller already read), so
+        # this read's own hash is returned for the write to lock against.
+        current_config, fetched_hash = await self._get_automation_config_internal(
+            identifier
+        )
+
+        taken, blueprint_path = await take_control_config(
+            self._client, "automation", identifier, current_config
+        )
+        return TakenControl(taken, blueprint_path, fetched_hash)
 
     async def _run_python_transform(
         self,
@@ -1094,11 +1207,18 @@ class AutomationConfigTools:
         MandatoryBPS: bool,
         conflict_warnings: list[str] | None = None,
         resolved_id: str | None = None,
+        detached_blueprint: str | None = None,
     ) -> dict[str, Any]:
         """Execute config-replacement mode and return the tool response.
 
-        ``resolved_id`` (set only when the optional hash check pre-resolved
-        ``identifier``) is threaded to the upsert so it skips the redundant
+        ``detached_blueprint`` is set by take-control mode and names the
+        blueprint the automation's config no longer references. It is
+        reported on the response as ``took_control_of_blueprint`` and nothing
+        more: Home Assistant goes on counting the automation as a user of that
+        blueprint until it is removed, so there is no release to wait for.
+
+        ``resolved_id`` (set when the hash check or alias guard fetched an id)
+        is threaded to the upsert so it skips the redundant
         re-resolve; None falls back to resolving inside the REST client.
         """
         result = await self._upsert_automation(config_dict, identifier, resolved_id)
@@ -1159,6 +1279,8 @@ class AutomationConfigTools:
             **({"automation_id": automation_id} if automation_id else {}),
             **_strip_redundant_identifier_echo(result),
         }
+        if detached_blueprint:
+            response["took_control_of_blueprint"] = detached_blueprint
         # attach AFTER the outer dict is built so attach_skill_content's
         # reorder puts skill_content_hint at position 0 of the FINAL
         # response — building the outer dict via spread otherwise pushes
@@ -1198,6 +1320,44 @@ class AutomationConfigTools:
             and isinstance(entry.get("entity_id"), str)
             and entry["entity_id"].startswith("automation.")
         ][:10]
+
+    async def _guard_alias_replacement(
+        self, identifier: str, config: dict[str, Any]
+    ) -> str | None:
+        """Require a prior read before replacing a differently named automation.
+
+        Return the fetched storage id for reuse by the write, when available.
+        This catches sequential ID reuse. The REST read and write are separate
+        requests, so it does not provide atomic protection against other writers.
+        """
+        if "alias" not in config:
+            return None  # Required-field validation supplies the actionable error.
+        try:
+            current = await self._client.get_automation_config(identifier)
+        except HomeAssistantAPIError as exc:
+            if exc.status_code == 404 and not identifier.startswith("automation."):
+                return None  # Preserve intentional creation with a caller-chosen ID.
+            # Entity-ID resolution also maps lookup failures to 404. Never retry
+            # those as creation: a recovered lookup could overwrite an unchecked target.
+            raise
+        if current.get("alias") != config["alias"]:
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    f"Automation {identifier!r} already exists as {current.get('alias')!r}. "
+                    f"This write would replace it with {config['alias']!r}. Nothing was written.",
+                    context={"identifier": identifier, "parameter": "config_hash"},
+                    suggestions=[
+                        "Omit identifier and remove config['id'] to create a separate automation.",
+                        (
+                            "For an intentional rename or replacement, call ha_config_get_automation "
+                            "for this identifier, inspect its config, and resubmit with its config_hash."
+                        ),
+                    ],
+                )
+            )
+        raw_id = current.get("id")
+        return str(raw_id) if raw_id is not None else None
 
     async def _raise_automation_not_found(self, identifier: str) -> None:
         """Raise a structured RESOURCE_NOT_FOUND ToolError for a missing automation.
@@ -1365,8 +1525,10 @@ class AutomationConfigTools:
                             "Conditions use 'condition', not 'platform'."
                         ),
                         suggestions=[
-                            f"Replace 'platform' with 'condition': "
-                            f"{{'condition': '{cond['platform']}', ...}}",
+                            (
+                                f"Replace 'platform' with 'condition': "
+                                f"{{'condition': '{cond['platform']}', ...}}"
+                            ),
                             "Triggers use 'trigger'; conditions use 'condition'.",
                         ],
                         context={"condition_index": idx, "found_key": "platform"},

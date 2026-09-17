@@ -17,7 +17,6 @@ class DBOSException(Exception):
     def __init__(self, message: str, dbos_error_code: Optional[int] = None):
         self.message = message
         self.dbos_error_code = dbos_error_code
-        self.status_code: Optional[int] = None
         super().__init__(self.message)
 
     def __str__(self) -> str:
@@ -40,7 +39,6 @@ class DBOSBaseException(BaseException):
     def __init__(self, message: str, dbos_error_code: Optional[int] = None):
         self.message = message
         self.dbos_error_code = dbos_error_code
-        self.status_code: Optional[int] = None
         super().__init__(self.message)
 
     def __str__(self) -> str:
@@ -68,12 +66,26 @@ class DBOSErrorCode(Enum):
     StreamTimeout = 16
     StreamNondeterminism = 17
     StepTimeout = 18
-    ConflictingRegistrationError = 25
+    QueryTimeout = 26
 
 
 #######################################
 ## Exception
 #######################################
+
+
+class DBOSQueryTimeoutError(DBOSException):
+    """Exception raised when an observability query exceeds its statement timeout."""
+
+    def __init__(self, timeout_seconds: float):
+        self.timeout_seconds = timeout_seconds
+        super().__init__(
+            f"This query was cancelled after exceeding its {timeout_seconds:g}s statement timeout.",
+            dbos_error_code=DBOSErrorCode.QueryTimeout.value,
+        )
+
+    def __reduce__(self) -> Any:
+        return (self.__class__, (self.timeout_seconds,))
 
 
 class DBOSConflictingWorkflowError(DBOSException):
@@ -191,7 +203,6 @@ class DBOSNotAuthorizedError(DBOSException):
             msg,
             dbos_error_code=DBOSErrorCode.NotAuthorized.value,
         )
-        self.status_code = 403
 
     def __reduce__(self) -> Any:
         # Tell pickle how to reconstruct this object
@@ -231,16 +242,6 @@ class DBOSStepTimeoutError(DBOSException):
     def __reduce__(self) -> Any:
         # Tell pickle how to reconstruct this object
         return (self.__class__, (self.step_name, self.timeout_seconds))
-
-
-class DBOSConflictingRegistrationError(DBOSException):
-    """Exception raised when conflicting decorators are applied to the same function."""
-
-    def __init__(self, name: str) -> None:
-        super().__init__(
-            f"Operation (Name: {name}) is already registered with a conflicting function type",
-            dbos_error_code=DBOSErrorCode.ConflictingRegistrationError.value,
-        )
 
 
 class DBOSUnexpectedStepError(DBOSException):

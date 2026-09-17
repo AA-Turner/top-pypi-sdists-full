@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1f\x63halk/common/v1/resources.proto\x12\x0f\x63halk.common.v1"\xaa\x02\n\x14ResourceRequirements\x12O\n\x08requests\x18\x01 \x03(\x0b\x32\x33.chalk.common.v1.ResourceRequirements.RequestsEntryR\x08requests\x12I\n\x06limits\x18\x02 \x03(\x0b\x32\x31.chalk.common.v1.ResourceRequirements.LimitsEntryR\x06limits\x1a;\n\rRequestsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a\x39\n\x0bLimitsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x83\x01\n\x13\x63om.chalk.common.v1B\x0eResourcesProtoP\x01\xa2\x02\x03\x43\x43X\xaa\x02\x0f\x43halk.Common.V1\xca\x02\x0f\x43halk\\Common\\V1\xe2\x02\x1b\x43halk\\Common\\V1\\GPBMetadata\xea\x02\x11\x43halk::Common::V1b\x06proto3'
+    b'\n\x1f\x63halk/common/v1/resources.proto\x12\x0f\x63halk.common.v1"\xaa\x02\n\x14ResourceRequirements\x12O\n\x08requests\x18\x01 \x03(\x0b\x32\x33.chalk.common.v1.ResourceRequirements.RequestsEntryR\x08requests\x12I\n\x06limits\x18\x02 \x03(\x0b\x32\x31.chalk.common.v1.ResourceRequirements.LimitsEntryR\x06limits\x1a;\n\rRequestsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a\x39\n\x0bLimitsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\xb3\x02\n\x10ResourceRequests\x12\x15\n\x03\x63pu\x18\x01 \x01(\tH\x00R\x03\x63pu\x88\x01\x01\x12\x1b\n\x06memory\x18\x02 \x01(\tH\x01R\x06memory\x88\x01\x01\x12\x37\n\x15\x65phemeral_volume_size\x18\x03 \x01(\tH\x02R\x13\x65phemeralVolumeSize\x88\x01\x01\x12\x30\n\x11\x65phemeral_storage\x18\x04 \x01(\tH\x03R\x10\x65phemeralStorage\x88\x01\x01\x12*\n\x0eresource_group\x18\x05 \x01(\tH\x04R\rresourceGroup\x88\x01\x01\x42\x06\n\x04_cpuB\t\n\x07_memoryB\x18\n\x16_ephemeral_volume_sizeB\x14\n\x12_ephemeral_storageB\x11\n\x0f_resource_groupB\x83\x01\n\x13\x63om.chalk.common.v1B\x0eResourcesProtoP\x01\xa2\x02\x03\x43\x43X\xaa\x02\x0f\x43halk.Common.V1\xca\x02\x0f\x43halk\\Common\\V1\xe2\x02\x1b\x43halk\\Common\\V1\\GPBMetadata\xea\x02\x11\x43halk::Common::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -35,4 +35,6 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_RESOURCEREQUIREMENTS_REQUESTSENTRY"]._serialized_end = 292
     _globals["_RESOURCEREQUIREMENTS_LIMITSENTRY"]._serialized_start = 294
     _globals["_RESOURCEREQUIREMENTS_LIMITSENTRY"]._serialized_end = 351
+    _globals["_RESOURCEREQUESTS"]._serialized_start = 354
+    _globals["_RESOURCEREQUESTS"]._serialized_end = 661
 # @@protoc_insertion_point(module_scope)

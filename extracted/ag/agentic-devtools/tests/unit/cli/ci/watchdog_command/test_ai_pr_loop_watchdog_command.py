@@ -13,12 +13,37 @@ import pytest
 from agentic_devtools.cli.ci.cooldown import CooldownRecord
 from agentic_devtools.cli.ci.github_provider import GitHubActionsProvider
 from agentic_devtools.cli.ci.reconciliation.models import CooldownProbe, CooldownState, ProbeStatus, QueueState
+from agentic_devtools.cli.ci.reconciliation.queue_store import QueueStoreError
 from agentic_devtools.cli.ci.retry import ProviderRateLimitError, RetryableError
 from agentic_devtools.cli.ci.scheduler import EligiblePR
 
 
 class TestAiPrLoopWatchdogCommand:
     """CLI entry point for agdt-ai-pr-loop-watchdog."""
+
+    @pytest.fixture(autouse=True)
+    def _stub_review_follow_up_actions(self, request):
+        patches = [
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command.auto_approve_waiting_runs",
+                return_value=0,
+            ),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command.find_stalled_unaddressed_reviews",
+                return_value=[],
+            ),
+        ]
+        if "cooldown_state" not in request.node.name:
+            patches.append(
+                patch(
+                    "agentic_devtools.cli.ci.watchdog_command._load_cooldown_state",
+                    return_value=None,
+                )
+            )
+        with ExitStack() as stack:
+            for context in patches:
+                stack.enter_context(context)
+            yield
 
     @pytest.mark.parametrize(
         ("mode", "helper", "resolver", "workflow"),
@@ -99,6 +124,15 @@ class TestAiPrLoopWatchdogCommand:
         assert state.credential_identity == "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT"
         assert state.cooldown_generation_id == "throttler-123"
         assert state.resume_at == now - timedelta(seconds=30) + timedelta(seconds=60)
+
+    def test_load_cooldown_state_returns_none_when_store_is_unavailable(self) -> None:
+        from agentic_devtools.cli.ci.watchdog_command import _load_cooldown_state
+
+        with patch(
+            "agentic_devtools.cli.ci.watchdog_command.QueueStore",
+            side_effect=QueueStoreError("storage unavailable"),
+        ):
+            assert _load_cooldown_state("o/r") is None
 
     def test_dispatches_when_not_throttled_and_eligible(self, capsys) -> None:
         updated_at = "2026-07-27T10:00:00Z"
@@ -783,6 +817,38 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["availability_established"] is False
         assert payload["availability_reason"] == "cooldown_failed"
         mock_provider_cls.return_value.list_eligible_prs.assert_not_called()
+
+    def test_dispatches_for_stalled_unaddressed_reviews(self, capsys) -> None:
+        with (
+            patch.object(sys, "argv", ["agdt-ai-pr-loop-watchdog", "--repo", "o/r", "--default-branch", "main"]),
+            patch.dict(os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "workflow-token"}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command.run_due_probe_wakeup", return_value=0),
+            patch("agentic_devtools.cli.ci.watchdog_command._cooldown_availability", return_value=(True, "available")),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command._gh_api",
+                side_effect=[
+                    json.dumps({"workflow_runs": []}),
+                    "",
+                ],
+            ) as mock_gh_api,
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command.find_stalled_unaddressed_reviews",
+                return_value=[42],
+            ),
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        output = json.loads(capsys.readouterr().out.splitlines()[-1])
+        assert output["decision"] == "stalled_unaddressed_reviews"
+        assert output["stalled_prs"] == [42]
+        assert output["eligible_count"] == 1
+        assert output["dispatched"] is True
+        assert mock_gh_api.call_args_list[-1].kwargs["method"] == "POST"
 
     def test_blocks_dispatch_when_due_probe_wakeup_raises(self, capsys) -> None:
         with (

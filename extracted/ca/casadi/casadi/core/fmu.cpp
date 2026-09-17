@@ -733,6 +733,51 @@ std::string FmuInternal::dll_suffix() {
 #endif
 }
 
+std::string FmuInternal::fmi3_dll_infix() {
+  // Architecture
+  std::string arch;
+#if defined(__arm64__) || defined(__aarch64__)
+  // ARM 64-bit Architecture
+  arch = "aarch64";
+#elif __arm__
+  if (sizeof(void*) == 4) {
+    // ARM 32-bit Architecture
+    arch = "aarch32";
+  } else {
+    // ARM 64-bit Architecture
+    arch = "aarch64";
+  }
+#elif defined(__ppc64__) || defined(__powerpc64__)
+  // PowerPC 64-bit Architecture
+  arch = "ppc64";
+#elif defined(__ppc__) || defined(__powerpc__)
+  // PowerPC 32-bit Architecture
+  arch = "ppc";
+#else
+  if (sizeof(void*) == 4) {
+    // Intel/AMD x86 32-bit
+    arch = "x86";
+  } else {
+    // Intel/AMD x86 64-bit
+    arch = "x86_64";
+  }
+#endif
+  // Operating system
+  std::string sys;
+#if defined(_WIN32)
+  // Microsoft Windows
+  sys = "windows";
+#elif defined(__APPLE__)
+  // Darwin (macOS, iOS, watchOS, tvOS, audioOS)
+  sys = "darwin";
+#else
+  // Linux
+  sys = "linux";
+#endif
+  // Return platform tuple, according to Section 2.5.1.4.1. of the FMI 3 specification
+  return arch + "-" + sys;
+}
+
 Dict FmuInternal::compile_fmu(const std::string& name, const Dict& files, const Dict& opts) {
   // Options
   Dict compiler_opts;
@@ -778,7 +823,7 @@ Dict FmuInternal::compile_fmu(const std::string& name, const Dict& files, const 
   // Augment the file map with the compiled binary
   // (FMI-3 layout: binaries/<dll_infix>/<modelIdentifier><suffix>)
   Dict ret = files;
-  ret[dll] = "binaries/" + Fmu3::dll_infix() + "/" + name + dll_suffix();
+  ret[dll] = "binaries/" + fmi3_dll_infix() + "/" + name + dll_suffix();
   return ret;
 }
 
@@ -837,27 +882,31 @@ int FmuInternal::eval_adj(FmuMemory* m) const {
   // Quick return if nothing to be calculated
   if (m->id_in_.size() == 0) return 0;
   // Check if no seeds
+  int flag;
   if (m->id_out_.size() == 0) {
     // Sensitivities are zero, trivially
     std::fill(m->d_in_.begin(), m->d_in_.end(), 0);
+    flag = 0;
   } else {
     // Evaluate adjoint derivatives
-    if (get_adjoint_derivative(m->instance,
-        get_ptr(m->vr_out_), m->id_out_.size(),
-        get_ptr(m->vr_in_), m->id_in_.size(),
-        get_ptr(m->d_out_), m->id_out_.size(),
-        get_ptr(m->d_in_), m->id_in_.size())) {
-      casadi_warning("FMU adjoint derivative failed");
-      return 1;
-    }
+    m->n_get_adjoint++;
+    auto start = std::chrono::high_resolution_clock::now();
+    flag = get_adjoint_derivative(m->instance,
+      get_ptr(m->vr_out_), m->id_out_.size(), get_ptr(m->vr_in_), m->id_in_.size(),
+      get_ptr(m->d_out_), m->id_out_.size(), get_ptr(m->d_in_), m->id_in_.size());
+    auto stop = std::chrono::high_resolution_clock::now();
+    m->t_get_adjoint += std::chrono::duration_cast<std::chrono::microseconds>(
+      stop - start).count() / 1e6;
   }
   // Collect requested variables
-  auto it = m->d_in_.begin();
-  for (size_t id : m->id_in_) {
-    m->isens_[id] = *it++;
+  if (!flag) {
+    auto it = m->d_in_.begin();
+    for (size_t id : m->id_in_) {
+      m->isens_[id] = *it++;
+    }
   }
-  // Successful return
-  return 0;
+  // Return results of the evaluation
+  return flag;
 }
 
 int FmuInternal::eval_ad(FmuMemory* m) const {
@@ -877,21 +926,23 @@ int FmuInternal::eval_ad(FmuMemory* m) const {
     return 1;
   }
   // Evaluate directional derivatives
-  if (get_directional_derivative(m->instance,
-      get_ptr(m->vr_out_), n_unknown,
-      get_ptr(m->vr_in_), n_known,
-      get_ptr(m->d_in_), n_known,
-      get_ptr(m->d_out_), n_unknown)) {
-    casadi_warning("FMU directional derivative failed");
-    return 1;
-  }
+  m->n_get_directional++;
+  auto start = std::chrono::high_resolution_clock::now();
+  int flag = get_directional_derivative(m->instance,
+    get_ptr(m->vr_out_), n_unknown, get_ptr(m->vr_in_), n_known,
+    get_ptr(m->d_in_), n_known, get_ptr(m->d_out_), n_unknown);
+  auto stop = std::chrono::high_resolution_clock::now();
+  m->t_get_directional += std::chrono::duration_cast<std::chrono::microseconds>(
+    stop - start).count() / 1e6;
   // Collect requested variables
-  auto it = m->d_out_.begin();
-  for (size_t id : m->id_out_) {
-    m->osens_[id] = *it++;
+  if (!flag) {
+    auto it = m->d_out_.begin();
+    for (size_t id : m->id_out_) {
+      m->osens_[id] = *it++;
+    }
   }
-  // Successful return
-  return 0;
+  // Return result of the evaluation
+  return flag;
 }
 
 int FmuInternal::eval_fd(FmuMemory* m, bool independent_seeds) const {
@@ -1002,7 +1053,7 @@ int FmuInternal::eval_fd(FmuMemory* m, bool independent_seeds) const {
           if (m->id_in_[wrt_i] == wrt_id) break;
         }
         // Check if in bounds
-        if (m->in_bounds_.at(wrt_i) && (m->self.fd_flip_ || !m->flip_[i])) {
+        if (m->in_bounds_.at(wrt_i) && (m->self.fd_flip_ || !m->flip_[wrt_i])) {
           // Input was in bounds: Keep output, make dimensionless
           yk[i] /= nominal_out_[m->id_out_[i]];
         } else {
@@ -1350,12 +1401,14 @@ int FmuInternal::get_all(FmuMemory* m, double* values, size_t n_values) const {
   // Quick return if nothing to get
   if (n_values == 0) return 0;
   // Retrieve from FMU
-  if (get_real(m->instance, get_ptr(m->vr_out_), m->vr_out_.size(), values, n_values, m)) {
-    casadi_warning("Evaluation failed");
-    return 1;
-  }
-  // Successful return
-  return 0;
+  m->n_get_all++;
+  auto start = std::chrono::high_resolution_clock::now();
+  int flag = get_real(m->instance, get_ptr(m->vr_out_), m->vr_out_.size(), values, n_values, m);
+  auto stop = std::chrono::high_resolution_clock::now();
+  m->t_get_all += std::chrono::duration_cast<std::chrono::microseconds>(
+    stop - start).count() / 1e6;
+  // Return result of the evaluation
+  return flag;
 }
 
 int FmuInternal::eval(FmuMemory* m) const {
@@ -1602,9 +1655,9 @@ FmuInternal* FmuInternal::deserialize(DeserializingStream& s) {
 #endif // WITH_FMI2
   } else if (class_name=="Fmu3") {
 #ifdef WITH_FMI3
-return Fmu3::deserialize(s);
+    return Fmu3::deserialize(s);
 #else
-    casadi_error("CasADi was not compiled with WITH_FMI2=ON.");
+    casadi_error("CasADi was not compiled with WITH_FMI3=ON.");
 #endif // WITH_FMI3
   } else {
     casadi_error("Cannot deserialize type '" + class_name + "'");

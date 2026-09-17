@@ -49,7 +49,7 @@ class ManifestApi:
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
         dry_run: Annotated[Optional[StrictBool], Field(description="Validate only, don't create resources")] = None,
-        mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched.")] = None,
+        mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -71,7 +71,7 @@ class ManifestApi:
         :type manifest_file: str
         :param dry_run: Validate only, don't create resources
         :type dry_run: bool
-        :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched.
+        :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.
         :type mode: ApplyMode
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -130,7 +130,7 @@ class ManifestApi:
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
         dry_run: Annotated[Optional[StrictBool], Field(description="Validate only, don't create resources")] = None,
-        mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched.")] = None,
+        mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -152,7 +152,7 @@ class ManifestApi:
         :type manifest_file: str
         :param dry_run: Validate only, don't create resources
         :type dry_run: bool
-        :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched.
+        :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.
         :type mode: ApplyMode
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -211,7 +211,7 @@ class ManifestApi:
         self,
         manifest_file: Annotated[StrictStr, Field(description="YAML manifest file")],
         dry_run: Annotated[Optional[StrictBool], Field(description="Validate only, don't create resources")] = None,
-        mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched.")] = None,
+        mode: Annotated[Optional[ApplyMode], Field(description="create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -233,7 +233,7 @@ class ManifestApi:
         :type manifest_file: str
         :param dry_run: Validate only, don't create resources
         :type dry_run: bool
-        :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched.
+        :param mode: create_only (default): fail if any resource already exists. create_missing: create what is missing and leave what exists alone, which is what lets a manifest be applied to an EXISTING namespace. create_missing does not UPDATE anything — a resource that exists but differs from the manifest is reported as `exists` and left untouched. upsert: create what is missing AND patch what exists but differs, so re-applying a manifest brings the running resources back to what it declares. Each resource is patched only through its own update surface, so a field that surface does not accept, or refuses the value of, is reported in `refused` with the resource and the field named, and the rest of the manifest still applies. Explicit on purpose: this is the only mode that CHANGES resources that already exist.
         :type mode: ApplyMode
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request

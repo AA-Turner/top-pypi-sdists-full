@@ -627,6 +627,9 @@ from ._kill_spark_sqlengine_response import KillSparkSQLEngineResponse
 from ._list_aps_webhook_request import ListApsWebhookRequest
 from ._list_aps_webhook_response_body import ListApsWebhookResponseBody
 from ._list_aps_webhook_response import ListApsWebhookResponse
+from ._list_knowledge_files_request import ListKnowledgeFilesRequest
+from ._list_knowledge_files_response_body import ListKnowledgeFilesResponseBody
+from ._list_knowledge_files_response import ListKnowledgeFilesResponse
 from ._list_knowledge_tags_request import ListKnowledgeTagsRequest
 from ._list_knowledge_tags_response_body import ListKnowledgeTagsResponseBody
 from ._list_knowledge_tags_response import ListKnowledgeTagsResponse
@@ -1097,6 +1100,8 @@ from ._get_table_objects_response_body import GetTableObjectsResponseBodyData
 from ._get_view_objects_response_body import GetViewObjectsResponseBodyData
 from ._kill_spark_app_response_body import KillSparkAppResponseBodyData
 from ._list_aps_webhook_response_body import ListApsWebhookResponseBodyWebhook
+from ._list_knowledge_files_response_body import ListKnowledgeFilesResponseBodyDataFiles
+from ._list_knowledge_files_response_body import ListKnowledgeFilesResponseBodyData
 from ._list_knowledge_tags_response_body import ListKnowledgeTagsResponseBodyDataTags
 from ._list_knowledge_tags_response_body import ListKnowledgeTagsResponseBodyData
 from ._list_knowledge_upload_user_response_body import ListKnowledgeUploadUserResponseBodyData
@@ -1775,6 +1780,9 @@ __all__ = [
     ListApsWebhookRequest,
     ListApsWebhookResponseBody,
     ListApsWebhookResponse,
+    ListKnowledgeFilesRequest,
+    ListKnowledgeFilesResponseBody,
+    ListKnowledgeFilesResponse,
     ListKnowledgeTagsRequest,
     ListKnowledgeTagsResponseBody,
     ListKnowledgeTagsResponse,
@@ -2245,6 +2253,8 @@ __all__ = [
     GetViewObjectsResponseBodyData,
     KillSparkAppResponseBodyData,
     ListApsWebhookResponseBodyWebhook,
+    ListKnowledgeFilesResponseBodyDataFiles,
+    ListKnowledgeFilesResponseBodyData,
     ListKnowledgeTagsResponseBodyDataTags,
     ListKnowledgeTagsResponseBodyData,
     ListKnowledgeUploadUserResponseBodyData,

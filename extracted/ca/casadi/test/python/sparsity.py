@@ -27,7 +27,8 @@ import casadi as c
 import numpy
 import unittest
 from types import *
-from helpers import *
+from numpy import array
+from helpers import casadiTestCase, jacobian_old, memory_heavy
 import numpy
 import random
 
@@ -612,6 +613,18 @@ class Sparsitytests(casadiTestCase):
     # Diagonal of a 4x4: nonempty rows/cols both = {0..3} but nnz=4 != 16.
     sp_diag = ca.Sparsity.diag(4)
     self.assertFalse(sp_diag.is_compactible()[0])
+
+  def test_eq_foreign_operand(self):
+    # issue #4407: comparing against an unrelated type follows the Python data
+    # model (NotImplemented -> False) instead of raising NotImplementedError.
+    sp = ca.Sparsity.diag(3)
+    self.assertFalse(sp == 3)
+    self.assertTrue(sp != 3)
+    self.assertTrue(sp == ca.Sparsity.diag(3))
+    self.assertFalse(ca.Slice(1) == "s")
+    self.assertTrue(ca.Slice(1) != "s")
+    with self.assertRaises(TypeError):
+      _ = sp + 3  # expect-error: reportOperatorIssue
 
 
 if __name__ == '__main__':

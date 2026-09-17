@@ -2054,9 +2054,9 @@ fn load_audit_stock(path: &str) -> Result<std::collections::HashSet<String>> {
     Ok(bridge::parse_stock_text(&content))
 }
 
-/// `renkin audit-route <PATH> [--format auto|renkin|aizynthfinder|syntheseus|synplanner] [--stock <PATH>]
-/// [--private-stock <CSV|TSV>] [--stock-policy <JSON>] [--policy informational|standard|strict]
-/// [--chemical-review] [--interchange] [--output human|json]` --
+/// `renkin audit-route <PATH> [--format auto|renkin|interchange|aizynthfinder|syntheseus|synplanner] [--stock <PATH>]
+/// [--private-stock <CSV|TSV>] [--stock-policy <JSON>] [--route-metrics <JSON>] [--input-artifact <JSON>] [--audit-ranking <JSON>] [--mechanistic-evidence <JSON>] [--receipt-bindings <JSON>] [--policy informational|standard|strict]
+/// [--chemical-review] [--interchange] [--interchange-v2] [--output human|json]` --
 /// audits every route in a RENKIN `--format json`
 /// output file via `bridge::route_graph::normalize_renkin_route` +
 /// `bridge::audit::audit`. RENKIN-native input only: no AiZynthFinder
@@ -2147,16 +2147,126 @@ fn attach_private_stock_policy(
     Ok(())
 }
 
+fn attach_route_metrics(
+    report: &mut bridge::audit_route::AuditRouteReport,
+    args: &[String],
+) -> Result<()> {
+    let Some(path) = flag_value(args, "--route-metrics") else {
+        return Ok(());
+    };
+    let content = read_bounded_text_file(path, "--route-metrics")?;
+    let ledgers: Vec<bridge::ProcessMassLedger> = serde_json::from_str(&content)
+        .with_context(|| format!("failed to parse --route-metrics {path} as a JSON array"))?;
+    report.attach_route_metrics(&ledgers)?;
+    Ok(())
+}
+
+fn attach_route_metrics_sidecar(
+    report: &mut bridge::audit_route::AuditRouteReport,
+    args: &[String],
+) -> Result<()> {
+    let Some(path) = flag_value(args, "--route-metrics-sidecar") else {
+        return Ok(());
+    };
+    let content = read_bounded_text_file(path, "--route-metrics-sidecar")?;
+    let sidecar: bridge::RouteMetricsSidecarInput = serde_json::from_str(&content)
+        .with_context(|| format!("failed to parse --route-metrics-sidecar {path}"))?;
+    report.attach_route_metrics_sidecar(&sidecar)?;
+    Ok(())
+}
+
+fn attach_input_artifact(
+    report: &mut bridge::audit_route::AuditRouteReport,
+    args: &[String],
+) -> Result<()> {
+    let Some(path) = flag_value(args, "--input-artifact") else {
+        return Ok(());
+    };
+    let content = read_bounded_text_file(path, "--input-artifact")?;
+    let artifact: bridge::InputArtifactReceipt = serde_json::from_str(&content)
+        .with_context(|| format!("failed to parse --input-artifact {path}"))?;
+    report.attach_input_artifact(&artifact)?;
+    Ok(())
+}
+
+fn attach_pareto_ranking(
+    report: &mut bridge::audit_route::AuditRouteReport,
+    args: &[String],
+) -> Result<()> {
+    let Some(path) = flag_value(args, "--audit-ranking") else {
+        return Ok(());
+    };
+    let content = read_bounded_text_file(path, "--audit-ranking")?;
+    let candidates: Vec<bridge::RankingCandidate> = serde_json::from_str(&content)
+        .with_context(|| format!("failed to parse --audit-ranking {path} as a JSON array"))?;
+    report.attach_pareto_ranking(&candidates)?;
+    Ok(())
+}
+
+fn attach_weighted_ranking(
+    report: &mut bridge::audit_route::AuditRouteReport,
+    args: &[String],
+) -> Result<()> {
+    let Some(path) = flag_value(args, "--weighted-ranking") else {
+        return Ok(());
+    };
+    let content = read_bounded_text_file(path, "--weighted-ranking")?;
+    let input: bridge::WeightedRankingInput = serde_json::from_str(&content)
+        .with_context(|| format!("failed to parse --weighted-ranking {path}"))?;
+    report.attach_weighted_ranking(&input)?;
+    Ok(())
+}
+
+fn attach_mechanistic_evidence(
+    report: &mut bridge::audit_route::AuditRouteReport,
+    args: &[String],
+) -> Result<()> {
+    let Some(path) = flag_value(args, "--mechanistic-evidence") else {
+        return Ok(());
+    };
+    let content = read_bounded_text_file(path, "--mechanistic-evidence")?;
+    let evidence: Vec<bridge::MechanisticEvidenceReceipt> = serde_json::from_str(&content)
+        .with_context(|| {
+            format!("failed to parse --mechanistic-evidence {path} as a JSON array")
+        })?;
+    report.attach_mechanistic_evidence(&evidence)?;
+    Ok(())
+}
+
+fn attach_receipt_bindings(
+    report: &mut bridge::audit_route::AuditRouteReport,
+    args: &[String],
+    interchange_content: &str,
+    stock: Option<&std::collections::HashSet<String>>,
+    rules: &[chem_env::RetroRule],
+    policy: bridge::AuditPolicy,
+) -> Result<()> {
+    let Some(path) = flag_value(args, "--receipt-bindings") else {
+        return Ok(());
+    };
+    let stock = stock.context("renkin audit-route: --receipt-bindings requires --stock")?;
+    let content = read_bounded_text_file(path, "--receipt-bindings")?;
+    let bindings: Vec<bridge::ReceiptBindingInput> = serde_json::from_str(&content)
+        .with_context(|| format!("failed to parse --receipt-bindings {path} as a JSON array"))?;
+    let interchange: serde_json::Value = serde_json::from_str(interchange_content)
+        .context("receipt bindings require canonical interchange JSON input")?;
+    let verified = bridge::verify_evidence_chain_v1(&interchange, stock, rules, policy, &bindings)
+        .context("receipt binding verification failed")?;
+    report.attach_evidence_chain(verified);
+    Ok(())
+}
+
 fn run_audit_route(args: &[String]) -> Result<()> {
     let path = args
         .iter()
         .find(|a| !a.starts_with("--"))
         .cloned()
-        .context("renkin audit-route: <PATH> is required (usage: renkin audit-route <PATH> [--format auto|renkin|aizynthfinder|syntheseus|synplanner] [--stock <PATH>] [--private-stock <CSV|TSV>] [--stock-policy <JSON>] [--policy informational|standard|strict] [--chemical-review] [--interchange] [--output human|json])")?;
+        .context("renkin audit-route: <PATH> is required (usage: renkin audit-route <PATH> [--format auto|renkin|interchange|aizynthfinder|syntheseus|synplanner] [--stock <PATH>] [--private-stock <CSV|TSV>] [--stock-policy <JSON>] [--route-metrics <JSON>] [--input-artifact <JSON>] [--audit-ranking <JSON>] [--mechanistic-evidence <JSON>] [--receipt-bindings <JSON>] [--policy informational|standard|strict] [--chemical-review] [--interchange] [--interchange-v2] [--output human|json])")?;
     let format = flag_value(args, "--format").unwrap_or("auto");
     if ![
         "auto",
         "renkin",
+        "interchange",
         "aizynthfinder",
         "syntheseus",
         "synplanner",
@@ -2164,7 +2274,7 @@ fn run_audit_route(args: &[String]) -> Result<()> {
     .contains(&format)
     {
         bail!(
-            "renkin audit-route: unsupported --format {format:?} (only auto|renkin|aizynthfinder|syntheseus|synplanner supported)"
+            "renkin audit-route: unsupported --format {format:?} (only auto|renkin|interchange|aizynthfinder|syntheseus|synplanner supported)"
         );
     }
     let output_format = flag_value(args, "--output").unwrap_or("human");
@@ -2197,9 +2307,19 @@ fn run_audit_route(args: &[String]) -> Result<()> {
     .with_context(|| format!("{path}: audit input rejected"))?;
 
     attach_private_stock_policy(&mut out, args)?;
+    attach_route_metrics(&mut out, args)?;
+    attach_route_metrics_sidecar(&mut out, args)?;
+    attach_input_artifact(&mut out, args)?;
+    attach_pareto_ranking(&mut out, args)?;
+    attach_weighted_ranking(&mut out, args)?;
+    attach_mechanistic_evidence(&mut out, args)?;
+    attach_receipt_bindings(&mut out, args, &content, stock.as_ref(), &rules, policy)?;
 
     if args.iter().any(|a| a == "--interchange") {
         out.attach_interchange();
+    }
+    if args.iter().any(|a| a == "--interchange-v2") {
+        out.attach_interchange_v2()?;
     }
 
     if output_format == "json" {

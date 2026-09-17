@@ -18,6 +18,7 @@ from plato.agents.browser_tooling import (
 )
 from plato.agents.computer_use_mcp import (
     COMPUTER_USE_MCP_INSTRUCTIONS,
+    SANDBOX_FILE_TOOLS_INSTRUCTIONS,
     ComputerUseMcp,
 )
 from plato.agents.config import AgentConfig
@@ -168,13 +169,17 @@ class BaseAgent(ABC, Generic[ConfigT]):
 
         Returns ``prompt`` unchanged when ``config.computer_use_mcp_enabled``
         is False. When True, appends the shared block so the model knows the
-        ``computer`` MCP server drives a separate remote Ubuntu desktop VM.
+        ``computer`` MCP server drives a separate remote Ubuntu desktop VM,
+        plus the file-tool block when an ssh sandbox puts those tools on it.
         """
         if not self.config.computer_use_mcp_enabled:
             return prompt
+        block = COMPUTER_USE_MCP_INSTRUCTIONS
+        if self.config.computer_use_ssh_host:
+            block = f"{block}\n\n{SANDBOX_FILE_TOOLS_INSTRUCTIONS}"
         if not prompt:
-            return COMPUTER_USE_MCP_INSTRUCTIONS
-        return f"{prompt}\n\n{COMPUTER_USE_MCP_INSTRUCTIONS}"
+            return block
+        return f"{prompt}\n\n{block}"
 
     async def _start_computer_use_mcp(self):
         """Boot the local computer-use MCP server when opted in.

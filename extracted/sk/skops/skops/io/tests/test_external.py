@@ -19,6 +19,7 @@ from sklearn.datasets import make_classification, make_regression
 
 from skops.io import dumps, loads, visualize
 from skops.io.tests._utils import assert_method_outputs_equal, assert_params_equal
+from skops.utils._fixes import make_xgboost_random_forest
 
 # Default settings for generated data
 N_SAMPLES = 30
@@ -235,7 +236,9 @@ class TestXGBoost:
             # This parameter combination is not supported in XGBoost
             return
 
-        estimator = xgboost.XGBRFClassifier(booster=booster, tree_method=tree_method)
+        estimator = make_xgboost_random_forest(
+            xgboost, classifier=True, booster=booster, tree_method=tree_method
+        )
         loaded = loads(dumps(estimator), trusted=trusted)
         assert_params_equal(estimator.get_params(), loaded.get_params())
 
@@ -254,7 +257,9 @@ class TestXGBoost:
             # This parameter combination is not supported in XGBoost
             return
 
-        estimator = xgboost.XGBRFRegressor(booster=booster, tree_method=tree_method)
+        estimator = make_xgboost_random_forest(
+            xgboost, classifier=False, booster=booster, tree_method=tree_method
+        )
         loaded = loads(dumps(estimator), trusted=trusted)
         assert_params_equal(estimator.get_params(), loaded.get_params())
 
@@ -410,6 +415,9 @@ class TestQuantileForest:
             "quantile_forest._quantile_forest.RandomForestQuantileRegressor",
             "quantile_forest._quantile_forest.ExtraTreesQuantileRegressor",
             "quantile_forest._quantile_forest_fast.QuantileForest",
+            # each tree in the forest is a regular sklearn tree, which is not
+            # trusted by default
+            "sklearn.tree._tree.Tree",
         ]
 
     tree_methods = [

@@ -10,14 +10,15 @@ from river_client.renderers.base import (
     Message,
     ParsedResponse,
     Renderer,
+    SamplePrompt,
     TextPart,
     ThinkingPart,
-    ToolCall,
-    ToolSpec,
-    TrainOnWhat,
-    TrainingExample,
     Tokenizer,
+    ToolCall,
     ToolCallFunction,
+    ToolSpec,
+    TrainingExample,
+    TrainOnWhat,
     UnparsedToolCall,
 )
 
@@ -325,6 +326,9 @@ class Qwen35Renderer(Renderer):
             msgs = self._replace_or_prepend_system(msgs, tool_msg)
         msgs = self._apply_reasoning_effort(msgs)
 
+        return self._render_prompt_messages(msgs)
+
+    def _render_prompt_messages(self, msgs: list[Message]) -> str:
         last_user_index = self._last_user_index(msgs)
         parts: list[str] = []
         for idx, msg in enumerate(msgs):
@@ -343,6 +347,13 @@ class Qwen35Renderer(Renderer):
         prefix = "\n" if parts else ""
         parts.append(f"{prefix}{_IM_START}assistant\n{self._generation_think_prefix()}")
         return "".join(parts)
+
+    def build_continuation_prompt(
+        self, messages: list[Message], *, last_stop: str | None
+    ) -> SamplePrompt:
+        prefix = ("" if last_stop == _IM_END else _IM_END) + "\n"
+        # Bypass initial-system/reasoning-effort injection on later turns.
+        return SamplePrompt(prefix + self._render_prompt_messages(messages), [], [])
 
     def get_stop_strings(self) -> list[str]:
         return [_IM_END]
@@ -366,7 +377,9 @@ class Qwen35Renderer(Renderer):
 
     # ── Response parsing ─────────────────────────────────────────────
 
-    def parse_response(self, text: str) -> ParsedResponse:
+    def parse_response(
+        self, text: str, *, tools: list[ToolSpec] | None = None
+    ) -> ParsedResponse:
         """Parse sampled text into a structured assistant Message.
 
         Strips trailing <|im_end|> if present. Extracts <think> and

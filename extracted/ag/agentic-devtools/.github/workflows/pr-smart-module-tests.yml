@@ -30,6 +30,9 @@ jobs:
         )
       )
 
+    outputs:
+      coverage_generated: ${{ steps.coverage_check.outputs.exists }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -357,13 +360,14 @@ jobs:
 
           pytest "${TEST_PATHS[@]}" "${COV_FLAGS[@]}" \
             --cov-report=term-missing \
+            --cov-report=xml \
             --cov-fail-under=100 \
             '--override-ini=addopts='
 
       - name: Run full test suite (config changed)
         if: steps.filter.outputs.config == 'true'
         run: |
-          pytest --cov=agentic_devtools --cov-report=term-missing --cov-fail-under=100 --ignore=tests/workflows
+          pytest --cov=agentic_devtools --cov-report=term-missing --cov-report=xml --cov-fail-under=100 --ignore=tests/workflows
 
       - name: Run skill classification tests
         if: steps.filter.outputs.skill_classification == 'true' && steps.has-modules.outputs.result != 'true' && steps.filter.outputs.config != 'true'
@@ -374,6 +378,7 @@ jobs:
             --cov=agentic_devtools.cli.checks.skill_classification \
             --cov=agentic_devtools.cli.checks.commands \
             --cov-report=term-missing \
+            --cov-report=xml \
             --cov-fail-under=100 \
             '--override-ini=addopts='
 
@@ -390,6 +395,44 @@ jobs:
       - name: No modules changed
         if: steps.has-modules.outputs.result != 'true' && steps.filter.outputs.config != 'true'
         run: echo "No testable modules changed — skipping tests."
+
+      - name: Check coverage report exists
+        id: coverage_check
+        if: always()
+        run: |
+          if [ -f coverage.xml ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload coverage artifact
+        if: steps.coverage_check.outputs.exists == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-python
+          path: coverage.xml
+
+  upload-coverage-python:
+    name: Upload Python Coverage
+    needs: [smart-module-tests]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.smart-module-tests.result == 'success' && needs.smart-module-tests.outputs.coverage_generated == 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      code-quality: write
+      pull-requests: read
+    steps:
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report-python
+
+      - uses: actions/upload-code-coverage@v1
+        with:
+          file: coverage.xml
+          language: Python
+          label: code-coverage-agent
 
   smart-module-tests-gate:
     name: Smart Module Tests ✅

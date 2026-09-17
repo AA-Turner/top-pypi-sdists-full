@@ -280,8 +280,8 @@ class TestRequestReviewAction:
 
         assert result.decision == ActionDecision.SKIP
 
-    def test_execute_when_commented_review_does_not_prove_clean_gate(self) -> None:
-        """A COMMENTED review without a clean gate verdict does not suppress a request."""
+    def test_skip_when_commented_review_targets_head_without_repair_exhaustion(self) -> None:
+        """A COMMENTED review on HEAD suppresses review requests so repairs can proceed."""
         snapshot = PRStateSnapshot(
             pr_number=1,
             head_sha="head-sha",
@@ -297,8 +297,8 @@ class TestRequestReviewAction:
         with patch(_PATCH_DETECTOR, return_value=False):
             result = action.evaluate(snapshot, derived)
 
-        assert result.decision == ActionDecision.EXECUTE
-        assert result.preconditions["no_effective_review_on_head"] is True
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions["no_effective_review_on_head"] is False
 
     def test_skip_when_commented_review_has_clean_gate_verdict(self) -> None:
         """A clean gate verdict proves a COMMENTED review has no actionable feedback."""
@@ -574,7 +574,7 @@ class TestRequestReviewActionGateVerdictCarryOver:
         assert result.decision == ActionDecision.EXECUTE
         assert result.preconditions["no_effective_review_on_head"] is True
 
-    @pytest.mark.parametrize("review_state", ["CHANGES_REQUESTED", "APPROVED"])
+    @pytest.mark.parametrize("review_state", ["CHANGES_REQUESTED", "APPROVED", "COMMENTED"])
     def test_execute_when_repair_limit_reached_and_head_review_is_blocked(self, review_state: str) -> None:
         """A blocked head review must not suppress a fresh request after repair exhaustion."""
         verdict = CopilotGateVerdict(

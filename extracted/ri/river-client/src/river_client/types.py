@@ -2,8 +2,38 @@
 
 from __future__ import annotations
 
+import asyncio
+from concurrent.futures import Executor
 from dataclasses import dataclass, field
 from typing import Any, Callable
+
+
+@dataclass(frozen=True)
+class ServerCapabilities:
+    """Supported public protocols and model names, without server internals."""
+
+    supported_models: tuple[str, ...]
+    features: frozenset[str]
+    model_features: dict[str, frozenset[str]] = field(default_factory=dict)
+
+    def require_model(self, model: str, *features: str) -> None:
+        self.require(*features)
+        missing = sorted(set(features) - self.model_features.get(model, frozenset()))
+        if missing:
+            raise RiverError(
+                f"Model {model!r} does not support required features: "
+                + ", ".join(missing)
+                + ". Choose a compatible model or change the rollout configuration."
+            )
+
+    def require(self, *features: str) -> None:
+        missing = sorted(set(features) - self.features)
+        if missing:
+            raise RiverError(
+                "This API endpoint does not support required features: "
+                + ", ".join(missing)
+                + ". Use a compatible endpoint or contact River support."
+            )
 
 
 @dataclass
@@ -97,6 +127,22 @@ class ExpertRouting:
     handle: str = ""
 
 
+@dataclass(frozen=True)
+class PolicyVersion:
+    """Server identity of a committed logical weight state (not a byte hash)."""
+
+    id: str
+    lineage_id: str
+    step: int
+    parent_id: str | None = None
+
+    @classmethod
+    def from_proto(cls, value):
+        if value is None or not value.id:
+            return None
+        return cls(value.id, value.lineage_id, value.step, value.parent_id or None)
+
+
 @dataclass
 class Sample:
     """A generated sample.
@@ -119,7 +165,7 @@ class Sample:
     text: str
     logprobs: list[float]
     stop_reason: str  # "length", "stop", "eos"
-    model_step: int  # Training step this was sampled from (for off-policy tracking)
+    model_step: int  # Legacy submit-time estimate; use policy_version for RL.
     prompt_logprobs: list[float] | None = None
     request_id: str = ""  # River API operation ID for debugging
     prompt_token_ids: list[int] | None = None
@@ -131,6 +177,16 @@ class Sample:
     # Per-result scalar metrics (see class docstring). Empty dict when the
     # request carried no recognized ``metrics_type`` token.
     metrics: dict[str, float] = field(default_factory=dict)
+
+    # False when legacy sampling reconstructed ids or padded missing logprobs.
+    # High-level RL refuses these samples rather than training on token skew.
+    token_data_is_exact: bool = True
+    policy_version: PolicyVersion | None = None
+    # Acknowledges the retained-KV mode, including on a cold cache miss.
+    kv_cache_policy_version: PolicyVersion | None = None
+    retained_kv: bool = False
+    cached_prompt_tokens: int = 0
+    prompt_tokens: int = 0
 
     def routing_datum_keys(self, *, required: bool = False) -> dict[str, bytes | str]:
         """Return the per-datum keys to splat into a ``forward_backward``
@@ -186,6 +242,7 @@ class OptimStepResult:
     """Result of an optimizer step."""
 
     metrics: dict[str, float]  # e.g., {"step": 1, "lr": 1e-4, "grad_norm": 0.42}
+    policy_version: PolicyVersion | None = None
 
 
 @dataclass
@@ -254,6 +311,34 @@ class PendingSample:
             model_id=self._model_id,
             **kwargs,
         )
+        return self._decode_result(raw)
+
+    async def result_async(
+        self,
+        *,
+        executor: Executor | None = None,
+        retry_connection_errors: bool = True,
+        before_poll: Callable[[], None] | None = None,
+    ) -> list[list[Sample]]:
+        """Wait with bounded RPC workers, releasing them between polls.
+
+        Pass a shared executor to bound simultaneous RPCs and result decoding
+        independently from the number of outstanding sampling operations.
+        """
+        raw = await self._session._wait_for_future_async(
+            self.request_id,
+            timeout=self._timeout,
+            poll_interval=self._poll_interval,
+            model_id=self._model_id,
+            retry_connection_errors=retry_connection_errors,
+            before_poll=before_poll,
+            executor=executor,
+        )
+        return await asyncio.get_running_loop().run_in_executor(
+            executor, self._decode_result, raw
+        )
+
+    def _decode_result(self, raw):
         if raw.WhichOneof("response") != "inference":
             raise RiverError(f"Unexpected response type: {raw.WhichOneof('response')}")
         return self._parse_result(raw.inference)
@@ -282,12 +367,77 @@ class PromotedStreamingReplica:
 
 
 @dataclass
+class DeploymentReplicas:
+    """Desired, allocated, ready and pending counts for one role of a deployment.
+
+    ``pending`` are allocated replicas the cell cannot place yet (no capacity).
+    """
+
+    desired: int
+    allocated: int
+    ready: int
+    pending: int = 0
+
+
+@dataclass
+class Deployment:
+    """A dedicated streaming deployment: one checkpoint on its own engines.
+
+    Dedicated deployments are gated and disabled by default. Contact River
+    to enable access for your team and base model before creating capacity.
+
+    ``base_url`` binds the checkpoint when used with the standard OpenAI
+    client, so its existing model argument can stay unchanged. ``model`` is
+    the deployment identity (equal to ``id``), also accepted by global /v1.
+    ``replicas`` is keyed by role: ``unified`` for unified serving, ``prefill``
+    and ``decode`` for disaggregated serving. ``phase`` is one of
+    ``accepted``, ``provisioning``, ``ready``, ``degraded``, ``unavailable``,
+    ``scaled_to_zero``, ``failed``, ``deleting``, ``deleted``.
+    """
+
+    id: str
+    model: str
+    base_url: str
+    checkpoint: str
+    base_model: str
+    topology: str  # "unified" or "prefill_decode"
+    replicas: dict[str, DeploymentReplicas]
+    phase: str
+    created_at: str
+    updated_at: str
+    phase_reason: str | None = None
+    operation_id: str | None = None
+    deleted_at: str | None = None
+
+    @property
+    def is_serving(self) -> bool:
+        # A scale acceptance updates desired counts before reconciliation
+        # updates the observed phase. Zero targets close admission immediately.
+        return (
+            self.phase in ("ready", "degraded")
+            and bool(self.replicas)
+            and all(
+                role.desired > 0 and role.ready > 0 for role in self.replicas.values()
+            )
+        )
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.phase in ("deleted", "failed")
+
+
+@dataclass
 class Checkpoint:
     """A saved model checkpoint."""
 
     path: str  # river://run-id/weights/name
     step: int
     checkpoint_type: str  # "training" or "inference"
+    policy_version: PolicyVersion | None = None
+
+    def __post_init__(self):
+        if isinstance(self.policy_version, dict):
+            self.policy_version = PolicyVersion(**self.policy_version)
 
 
 class RiverError(Exception):
@@ -325,6 +475,8 @@ class RiverConnectionError(RiverError):
         status_code: gRPC status code name (e.g., "UNAVAILABLE", "DEADLINE_EXCEEDED")
         details: Additional error details from the server
         original_error: The original gRPC RpcError for debugging
+        error_code: Structured server reason, such as IMAGE_EXPIRED
+        image_id: Image requiring re-upload, when supplied by the server
     """
 
     def __init__(
@@ -339,6 +491,8 @@ class RiverConnectionError(RiverError):
         self.status_code = status_code
         self.details = details
         self.original_error = original_error
+        self.error_code: str | None = None
+        self.image_id: str | None = None
 
         # Build a clean error message
         parts = [message]
@@ -354,7 +508,7 @@ class RiverConnectionError(RiverError):
         cls,
         error: Exception,
         context: str = "API call",
-    ) -> "RiverConnectionError":
+    ) -> RiverConnectionError:
         """Create a RiverConnectionError from a gRPC RpcError."""
         import grpc
 
@@ -383,12 +537,20 @@ class RiverConnectionError(RiverError):
         base_message = code_messages.get(code, f"{context} failed")
         status_name = code.name if code else "UNKNOWN"
 
-        return cls(
+        result = cls(
             base_message,
             status_code=status_name,
             details=details,
             original_error=error,
         )
+        metadata = (
+            dict(error.trailing_metadata() or ())
+            if isinstance(error, grpc.Call)
+            else {}
+        )
+        result.error_code = metadata.get("river-error-code")
+        result.image_id = metadata.get("river-image-id")
+        return result
 
 
 class SessionHeartbeatError(RiverConnectionError):

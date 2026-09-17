@@ -10,10 +10,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal, cast
 
-from fastmcp import Context
-from fastmcp.exceptions import ToolError
-from fastmcp.tools import tool
 from pydantic import Field
+
+from ha_mcp._vendor.fastmcp import Context
+from ha_mcp._vendor.fastmcp.exceptions import ToolError
+from ha_mcp._vendor.fastmcp.tools import tool
 
 from ..client.rest_client import (
     HomeAssistantAPIError,
@@ -1177,7 +1178,7 @@ def _dashboard_split_serviceable(req: _ResolvedSearch, caps: Any) -> bool:
 class _DashboardLeg:
     """The dashboards surface's contribution to a component-served ha_search.
 
-    ``records`` are legacy-shaped (``dashboard_url`` / ``dashboard_title`` /
+    ``records`` are legacy-shaped (``url_path`` / ``title`` /
     ``score``), NOT component records — they never pass through
     ``_normalize_component_config_record``. ``failed`` is the leg's own
     "not scanned" count, reported with the deep path's wording. ``error`` is
@@ -1225,13 +1226,13 @@ def _merge_sort_key(record: dict[str, Any]) -> str:
     the wire records unchanged, so the merge reproduces the exact order that
     decided window membership. Dashboard records are outside the component
     corpus, so any deterministic key places them consistently across pages —
-    ``dashboard_url`` extends the same chain.
+    ``url_path`` extends the same chain.
     """
     return str(
         record.get("entity_id")
         or record.get("id")
         or record.get("name")
-        or record.get("dashboard_url")
+        or record.get("url_path")
         or ""
     )
 
@@ -1556,6 +1557,51 @@ class _OverviewSlices:
     config: dict[str, Any]
     notifications: dict[str, Any]
     repairs: dict[str, Any]
+
+
+# These disjoint sets partition every key documented by ha_get_overview's
+# fields parameter. Keep the manifest test in sync when the public schema changes.
+_OVERVIEW_INDEPENDENT_FIELDS = frozenset(
+    {
+        "success",
+        "system_info",
+        "notification_count",
+        "notifications",
+        "repair_count",
+        "dismissed_repair_count",
+        "repairs",
+        "repairs_error",
+        "tool_discovery",
+        "settings_url",
+        "settings_url_hint",
+        "read_only_mode",
+        "read_only_mode_hint",
+        "ha_mcp_update",
+    }
+)
+_OVERVIEW_NOTIFICATION_FIELDS = frozenset({"notification_count", "notifications"})
+_OVERVIEW_REPAIR_FIELDS = frozenset(
+    {
+        "repair_count",
+        "dismissed_repair_count",
+        "repairs",
+        "repairs_error",
+    }
+)
+_OVERVIEW_ENTITY_FIELDS = frozenset(
+    {
+        "system_summary",
+        "domain_stats",
+        "area_analysis",
+        "ai_insights",
+        "pagination",
+        "partial",
+        "warnings",
+        "device_types",
+        "service_availability",
+    }
+)
+_OVERVIEW_AVAILABLE_FIELDS = _OVERVIEW_INDEPENDENT_FIELDS | _OVERVIEW_ENTITY_FIELDS
 
 
 def _build_component_overview_request(inputs: _OverviewInputs) -> dict[str, Any]:
@@ -4045,7 +4091,7 @@ class SearchTools:
                 default=None,
                 description=(
                     "Return only the specified top-level response keys to reduce "
-                    'response size (e.g. ["system_info", "domains"]). '
+                    'response size (e.g. ["system_info", "domain_stats"]). '
                     "None = full response (default). "
                     "Available keys: success, system_summary, domain_stats, "
                     "area_analysis, ai_insights, pagination, partial, warnings, "
@@ -4078,6 +4124,14 @@ class SearchTools:
         Use fields= to project the response to only the keys you need — a
         significantly smaller payload when fetching a single sub-section (e.g.
         fields=["system_info"] returns just that section instead of the full overview).
+        Requests composed only of system_info, notification, repair, or server
+        metadata fields also skip the unrelated state, service, and registry reads.
+
+        Do not use this tool to inspect a known entity or a narrow set of entities.
+        Use ha_get_state for one entity, ha_get_entity for registry metadata, or
+        ha_search with a domain or area filter. An unprojected overview collects
+        system-wide state, service, and registry data and can be expensive on large
+        Home Assistant installations.
 
         When (and only when) the ha-mcp settings-UI sidecar is running
         (stdio mode, e.g. Claude Desktop / Claude Code), the response
@@ -4121,21 +4175,37 @@ class SearchTools:
         )
         include_dismissed_repairs_bool = bool(include_dismissed_repairs)
 
-        parsed_domains = parse_string_list_param(domains, "domains", allow_csv=True)
+        try:
+            parsed_domains = parse_string_list_param(domains, "domains", allow_csv=True)
+        except ValueError as exc:
+            raise_tool_error(create_validation_error(str(exc), parameter="domains"))
 
-        result = await self._collect_overview(
-            _OverviewInputs(
+        requested_fields = set(parsed_fields or [])
+        recognized_fields = requested_fields & _OVERVIEW_INDEPENDENT_FIELDS
+        use_independent_collectors = (
+            parsed_fields is not None and not requested_fields & _OVERVIEW_ENTITY_FIELDS
+        )
+        if use_independent_collectors:
+            result = await self._collect_independent_overview(
+                requested_fields=recognized_fields,
                 detail_level=detail_level,
-                max_entities_per_domain=max_entities_per_domain,
-                include_state=include_state_bool,
-                include_entity_id=include_entity_id_bool,
-                domains_filter=parsed_domains,
-                limit=limit,
-                offset=offset,
                 include_notifications=include_notifications_bool,
                 include_dismissed_repairs=include_dismissed_repairs_bool,
             )
-        )
+        else:
+            result = await self._collect_overview(
+                _OverviewInputs(
+                    detail_level=detail_level,
+                    max_entities_per_domain=max_entities_per_domain,
+                    include_state=include_state_bool,
+                    include_entity_id=include_entity_id_bool,
+                    domains_filter=parsed_domains,
+                    limit=limit,
+                    offset=offset,
+                    include_notifications=include_notifications_bool,
+                    include_dismissed_repairs=include_dismissed_repairs_bool,
+                )
+            )
 
         settings = get_global_settings()
         if settings.enable_tool_search:
@@ -4167,7 +4237,11 @@ class SearchTools:
         # (issue #863).
         from ..stdio_settings_sidecar import read_sidecar_url
 
-        projected = project_fields(result, parsed_fields)
+        projected = project_fields(
+            result,
+            parsed_fields,
+            available_fields=_OVERVIEW_AVAILABLE_FIELDS,
+        )
         sidecar_url = read_sidecar_url()
         if sidecar_url:
             projected["settings_url"] = sidecar_url
@@ -4192,15 +4266,15 @@ class SearchTools:
 
         # Surface Read Only Mode after projection so the flag survives any
         # fields= filter.
-        if get_global_settings().read_only_mode:
+        from ..read_only import is_read_only, read_only_remedy_hint
+
+        if is_read_only():
             projected["read_only_mode"] = True
             projected["read_only_mode_hint"] = (
                 "Read Only Mode is ON: write-capable tools are disabled and "
                 "all write or destructive operations are blocked "
-                "server-side. You can search, read, and analyze freely. To "
-                "allow changes, the user must turn off Read Only Mode in "
-                "the ha-mcp settings UI (Tools tab) or the add-on "
-                "configuration."
+                "server-side. You can search, read, and analyze freely. "
+                f"{read_only_remedy_hint()}"
             )
 
         # Surface the MCP server's own update status after projection.
@@ -4212,6 +4286,32 @@ class SearchTools:
 
         return projected
 
+    async def _collect_independent_overview(
+        self,
+        *,
+        requested_fields: set[str],
+        detail_level: str,
+        include_notifications: bool,
+        include_dismissed_repairs: bool,
+    ) -> dict[str, Any]:
+        """Collect requested independent sections with full-path error semantics."""
+        result: dict[str, Any] = {"success": True}
+        if "system_info" in requested_fields:
+            await self._fetch_system_info(result, detail_level)
+        if requested_fields & _OVERVIEW_NOTIFICATION_FIELDS:
+            if include_notifications:
+                await self._fetch_notifications(result)
+            else:
+                result.setdefault("warnings", []).append(
+                    "notifications omitted: include_notifications=False"
+                )
+        if requested_fields & _OVERVIEW_REPAIR_FIELDS:
+            await self._fetch_repairs(
+                result,
+                include_dismissed_repairs,
+            )
+        return result
+
     async def _fetch_system_info(
         self,
         result: dict[str, Any],
@@ -4219,7 +4319,7 @@ class SearchTools:
         *,
         prefetched_config: dict[str, Any] | None = None,
     ) -> None:
-        """Populate result['system_info'] from HA config; tolerates failure.
+        """Populate result['system_info'] from HA config, warning on failure.
 
         ``prefetched_config`` (the component's ``config`` slice, already the bare
         ``get_config()`` dict) is used verbatim when given, skipping the fetch.
@@ -4265,6 +4365,7 @@ class SearchTools:
             logger.warning(
                 "Failed to fetch system info for overview: %s", e, exc_info=True
             )
+            result.setdefault("warnings", []).append(f"system info unavailable: {e}")
             if "system_summary" in result:
                 result["system_summary"].setdefault("version", "unknown")
 
@@ -4274,7 +4375,7 @@ class SearchTools:
         *,
         prefetched_notifications: dict[str, Any] | None = None,
     ) -> None:
-        """Attach active persistent notifications to result.
+        """Attach active persistent notifications, warning on failure.
 
         ``prefetched_notifications`` (the component's ``notifications`` slice
         re-wrapped in the ``{success, result}`` envelope) is unwrapped by the same
@@ -4328,7 +4429,7 @@ class SearchTools:
         *,
         prefetched_repairs: dict[str, Any] | None = None,
     ) -> None:
-        """Attach active repairs issues to result.
+        """Attach active repairs issues, recording failures in repairs_error.
 
         ``prefetched_repairs`` (the component's ``repairs`` slice re-wrapped in the
         ``{success, result: {issues: [...]}}`` envelope) is unwrapped, filtered

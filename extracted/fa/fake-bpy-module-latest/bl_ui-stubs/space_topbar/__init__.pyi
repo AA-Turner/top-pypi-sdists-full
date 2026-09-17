@@ -414,6 +414,29 @@ class TOPBAR_MT_help(_bpy_types.Menu):
         :param context:
         """
 
+class TOPBAR_MT_project(_bpy_types.Menu):
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
 class TOPBAR_MT_render(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any

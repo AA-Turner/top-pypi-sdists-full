@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agnoctl
-Version: 0.2.0
+Version: 0.2.1
 Summary: The Agno CLI: connect and operate AgentOS from the terminal, built for humans and coding agents
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License

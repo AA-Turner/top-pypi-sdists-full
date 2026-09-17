@@ -341,6 +341,35 @@ def test_insert_blank_page():
 
 
 @pytest.mark.parametrize(
+    ("width", "height"),
+    [
+        pytest.param(72, 72, id="both"),
+        pytest.param(72, None, id="width-only"),
+        pytest.param(None, 72, id="height-only"),
+    ],
+)
+def test_insert_blank_page__no_pages_yet(width, height):
+    """A writer with no pages looked up the size of a page that does not exist."""
+    writer = PdfWriter()
+
+    if width is None or height is None:
+        with pytest.raises(PageSizeNotDefinedError):
+            writer.insert_blank_page(width=width, height=height)
+        return
+
+    page = writer.insert_blank_page(width=width, height=height)
+    assert len(writer.pages) == 1
+    assert page.mediabox.width == width
+    assert page.mediabox.height == height
+
+
+def test_insert_blank_page__no_pages_yet_and_no_size():
+    """Matches add_blank_page, which raises rather than an opaque IndexError."""
+    with pytest.raises(PageSizeNotDefinedError):
+        PdfWriter().insert_blank_page()
+
+
+@pytest.mark.parametrize(
     ("convert", "needs_cleanup"),
     [
         (str, True),
@@ -921,6 +950,13 @@ def test_add_uri(pdf_file_path):
         [100, 200, 150, 250],
         border=[0, 0, 0],
     )
+
+    # A string rect in the documented "[ xLL yLL xUR yUR ]" form must become a
+    # RectangleObject; it previously collapsed to a single NumberObject of 0.
+    string_rect = writer.pages[3]["/Annots"][0].get_object()["/Rect"]
+    assert list(string_rect) == [200, 300, 250, 350]
+    list_rect = writer.pages[3]["/Annots"][1].get_object()["/Rect"]
+    assert list(list_rect) == [100, 200, 150, 250]
 
     # write "output" to pypdf-output.pdf
     with open(pdf_file_path, "wb") as output_stream:
@@ -1603,10 +1639,8 @@ def test_attachments():
     writer.write(b)
     b.seek(0)
     reader = PdfReader(b)
-    b = None
     assert reader.attachments == {}
-    assert reader._list_attachments() == []
-    assert reader._get_attachments() == {}
+
     to_add = [
         ("foobar.txt", b"foobarcontent"),
         ("foobar2.txt", b"foobarcontent2"),
@@ -1619,27 +1653,18 @@ def test_attachments():
     writer.write(b)
     b.seek(0)
     reader = PdfReader(b)
-    b = None
     assert sorted(reader.attachments.keys()) == sorted({name for name, _ in to_add})
     assert str(reader.attachments) == "LazyDict(keys=['foobar.txt', 'foobar2.txt'])"
-    assert reader._list_attachments() == [name for name, _ in to_add]
 
     # We've added the same key twice - hence only 2 and not 3:
-    att = reader._get_attachments()
+    att = reader.attachments
     assert len(att) == 2  # we have 2 keys, but 3 attachments!
 
-    # The content for foobar.txt is clear and just a single value:
-    assert att["foobar.txt"] == b"foobarcontent"
+    # The content for foobar.txt is a single list value, as it only occurs once.
+    assert att["foobar.txt"] == [b"foobarcontent"]
 
-    # The content for foobar2.txt is a list!
-    att = reader._get_attachments("foobar2.txt")
-    assert len(att) == 1
+    # The content for foobar2.txt is a list with different values.
     assert att["foobar2.txt"] == [b"foobarcontent2", b"2nd_foobarcontent"]
-
-    # Let's do both cases with the public interface:
-    assert reader.attachments["foobar.txt"][0] == b"foobarcontent"
-    assert reader.attachments["foobar2.txt"][0] == b"foobarcontent2"
-    assert reader.attachments["foobar2.txt"][1] == b"2nd_foobarcontent"
 
 
 @pytest.mark.enable_socket

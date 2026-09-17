@@ -486,6 +486,8 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             path=path,
             tracked=tracked,
             mount_path=mount_path,
+            # An ad-hoc child of a pinned workspace lives on the same VM.
+            pin_to_agent_vm=parent_ws.pin_to_agent_vm,
         )
 
         # Derive transport from parent if available
@@ -732,6 +734,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 session_id=self.chronos.session_id if self.chronos else "",
                 commit_strategy=getattr(marker, "commit_strategy", "manifest"),
                 nfs_mount_options=getattr(marker, "nfs_mount_options", ""),
+                pin_to_agent_vm=getattr(marker, "pin_to_agent_vm", False),
             )
 
             await workspace.init()

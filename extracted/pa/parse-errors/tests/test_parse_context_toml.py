@@ -1,15 +1,17 @@
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib  # type: ignore[no-redef]
+import sys
 
-import pytest
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
 import msgspec
+import pytest
+from msgspec.toml import decode as decode_toml
 
 from parse_errors import ParseContext, ParseError
 
 from ._types import Config, Nested
-
 
 TOML_SOURCE = """\
 host = "localhost"
@@ -24,7 +26,7 @@ port = "not-an-int"
 
 
 def test_passthrough_non_jsonspec():
-    with pytest.raises(ValueError, match="^foo$"):
+    with pytest.raises(ParseError, match=r"^config.toml: ValueError\('foo'\)$"):
         with ParseContext("config.toml", data=TOML_SOURCE):
             raise ValueError("foo")
 
@@ -80,3 +82,15 @@ def test_toml_fallback_to_parent():
                 "Expected `str`, got `int` - at `$.server.tls.cert`"
             )
     assert exc_info.value.line == 1
+
+
+INCOMPLETE_TOML = """\
+
+[foo
+"""
+
+
+def test_toml_decode_raises_decode_error():
+    with pytest.raises(ParseError, match="config.toml:2:5: Expected"):
+        with ParseContext("config.toml", data=INCOMPLETE_TOML):
+            decode_toml(INCOMPLETE_TOML, type=Config)

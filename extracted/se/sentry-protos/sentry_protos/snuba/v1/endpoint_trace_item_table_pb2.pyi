@@ -550,6 +550,13 @@ class TraceItemTableResponse(google.protobuf.message.Message):
     COLUMN_VALUES_FIELD_NUMBER: builtins.int
     PAGE_TOKEN_FIELD_NUMBER: builtins.int
     META_FIELD_NUMBER: builtins.int
+    ROUTING_HINT_FIELD_NUMBER: builtins.int
+    routing_hint: builtins.str
+    """opaque value identifying how this response was routed. Pass it as
+    TraceItemDetailsRequest.routing_hint when fetching details for any row in
+    this response so the lookup reads the same data. Clients should not
+    inspect, construct, or modify it.
+    """
     @property
     def column_values(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___TraceItemColumnValues]:
         """the rows"""
@@ -566,8 +573,9 @@ class TraceItemTableResponse(google.protobuf.message.Message):
         column_values: collections.abc.Iterable[global___TraceItemColumnValues] | None = ...,
         page_token: sentry_protos.snuba.v1.request_common_pb2.PageToken | None = ...,
         meta: sentry_protos.snuba.v1.request_common_pb2.ResponseMeta | None = ...,
+        routing_hint: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["meta", b"meta", "page_token", b"page_token"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["column_values", b"column_values", "meta", b"meta", "page_token", b"page_token"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["column_values", b"column_values", "meta", b"meta", "page_token", b"page_token", "routing_hint", b"routing_hint"]) -> None: ...
 
 global___TraceItemTableResponse = TraceItemTableResponse

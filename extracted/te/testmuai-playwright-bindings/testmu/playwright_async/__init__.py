@@ -6,16 +6,19 @@ Heal flow on Locator action timeout (inside testmu.step):
   Writes the remap into the per-step cache so subsequent actions on
   the same stale locator skip the API entirely.
 
+  On a hit, the retried call's return value goes back to the caller
+  (``evaluate`` and other value-returning methods keep their result).
+
   On miss (autoheal returned None or the retry on the fresh locator
   also failed), we write a None sentinel into the cache and return
-  False. The wrapper then re-raises the original Playwright
+  ``_NOT_HANDLED``. The wrapper then re-raises the original Playwright
   TimeoutError so the user sees PW's real call-log diagnostic.
 """
 import logging
 
 from testmu import _config
 from testmu._heal_cache import get_cache
-from testmu._heal_patch import install, _in_heal
+from testmu._heal_patch import install, _in_heal, _NOT_HANDLED
 
 _log = logging.getLogger("testmu")
 
@@ -24,6 +27,10 @@ HEAL_METHODS = [
     "hover", "check", "uncheck", "select_option",
     "set_input_files", "scroll_into_view_if_needed",
     "focus", "tap", "drag_to",
+    # Not a verb, but it auto-waits for the element and times out the same
+    # way when the element is gone. Generated scroll-into-view code calls it:
+    # locator.evaluate("el => el.scrollIntoView({block: 'center'})").
+    "evaluate",
 ]
 
 # Maps Playwright Locator method → autoheal API action_type enum
@@ -35,6 +42,9 @@ _METHOD_TO_ACTION_TYPE = {
     "fill": "type", "type": "type", "press": "type", "set_input_files": "type",
     "select_option": "select",
     "scroll_into_view_if_needed": "scroll",
+    # The heal API has no neutral value; "click" is the generic
+    # "find this element" hint. The retry still runs evaluate.
+    "evaluate": "click",
 }
 
 _RETRY_TIMEOUT_CAP_MS = 5_000
@@ -54,8 +64,13 @@ def _capped_retry_kwargs(kwargs):
 
 
 async def _default_heal(page, description, method_name, original_locator, *args, **kwargs):
+    """Re-locate the element and replay ``method_name`` on the fresh locator.
+
+    Returns the replayed call's return value, or ``_NOT_HANDLED`` when the
+    heal could not help (the wrapper then raises the original error).
+    """
     if not _config.smart:
-        return False
+        return _NOT_HANDLED
 
     # Variable-target re-probe signal from the heal-patch reprobe branch: the
     # recorded locator holds a PRIOR run's value, so its name is stale. Popped so
@@ -66,7 +81,7 @@ async def _default_heal(page, description, method_name, original_locator, *args,
     action_type = _METHOD_TO_ACTION_TYPE.get(method_name)
     if action_type is None:
         # method has no autoheal mapping (focus, drag_to) — nothing to try.
-        return False
+        return _NOT_HANDLED
 
     # AH2 gate is a GLOBAL binding config (mirror kane_version), not per-step:
     # set once via configure(auto_heal_version="AH2"), read here via _configure.get.
@@ -118,7 +133,7 @@ async def _default_heal(page, description, method_name, original_locator, *args,
         token = _in_heal.set(True)
         try:
             fresh = root.locator(selector)
-            await getattr(fresh, method_name)(*args, **_capped_retry_kwargs(kwargs))
+            result = await getattr(fresh, method_name)(*args, **_capped_retry_kwargs(kwargs))
         except Exception as e:
             _log.warning(
                 "[heal] retry on fresh locator %r failed: %s",
@@ -138,7 +153,7 @@ async def _default_heal(page, description, method_name, original_locator, *args,
                 "[heal] %s '%s' → fresh locator %s",
                 method_name, description, selector[:80],
             )
-            return True
+            return result
         finally:
             _in_heal.reset(token)
 
@@ -150,7 +165,7 @@ async def _default_heal(page, description, method_name, original_locator, *args,
         except TypeError:
             pass
 
-    return False
+    return _NOT_HANDLED
 
 
 def _install_long_press(Locator):

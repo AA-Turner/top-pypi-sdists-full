@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-
 # Matches a single step in a JSONPath: .key or [index] or ['key'] or ["key"]
 _STEP = re.compile(
     r"\.(?P<name>[^.\[]+)"  # .key
@@ -44,7 +43,9 @@ def jsonpath_to_pointer(jsonpath: str) -> str:
             raise ValueError(
                 f"Cannot parse JSONPath step at position {pos}: {tail[pos:]!r}"
             )
-        name = m.group("name") or m.group("sq") or m.group("dq") or m.group("idx")
+        for group in ("name", "sq", "dq", "idx"):
+            if (name := m.group(group)) is not None:
+                break
         parts.append(_escape(name))
         pos = m.end()
 

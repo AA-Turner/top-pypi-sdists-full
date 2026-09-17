@@ -177,6 +177,7 @@ __all__ = (
     "ResaleAuthorizationCreatedDateFilterTypeDef",
     "ResaleAuthorizationEntityIdFilterTypeDef",
     "ResaleAuthorizationFiltersTypeDef",
+    "ResaleAuthorizationIssuerAccountIdFilterTypeDef",
     "ResaleAuthorizationLastModifiedDateFilterDateRangeTypeDef",
     "ResaleAuthorizationLastModifiedDateFilterTypeDef",
     "ResaleAuthorizationManufacturerAccountIdFilterTypeDef",
@@ -189,6 +190,7 @@ __all__ = (
     "ResaleAuthorizationResellerLegalNameFilterTypeDef",
     "ResaleAuthorizationResellerRoleFilterTypeDef",
     "ResaleAuthorizationSortTypeDef",
+    "ResaleAuthorizationSourceAuthorizationFilterTypeDef",
     "ResaleAuthorizationStatusFilterTypeDef",
     "ResaleAuthorizationSummaryTypeDef",
     "ResponseMetadataTypeDef",
@@ -453,6 +455,8 @@ class ResaleAuthorizationSummaryTypeDef(TypedDict):
     CreatedDate: NotRequired[str]
     AvailabilityEndDate: NotRequired[str]
     ResellerRole: NotRequired[ResaleAuthorizationResellerRoleStringType]
+    SourceAuthorization: NotRequired[str]
+    IssuerAccountId: NotRequired[str]
 
 
 class SaaSProductSummaryTypeDef(TypedDict):
@@ -630,6 +634,10 @@ class ResaleAuthorizationEntityIdFilterTypeDef(TypedDict):
     ValueList: NotRequired[Sequence[str]]
 
 
+class ResaleAuthorizationIssuerAccountIdFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
+
+
 class ResaleAuthorizationManufacturerAccountIdFilterTypeDef(TypedDict):
     ValueList: NotRequired[Sequence[str]]
     WildCardValue: NotRequired[str]
@@ -671,6 +679,10 @@ class ResaleAuthorizationResellerLegalNameFilterTypeDef(TypedDict):
 
 class ResaleAuthorizationResellerRoleFilterTypeDef(TypedDict):
     ValueList: NotRequired[Sequence[ResaleAuthorizationResellerRoleStringType]]
+
+
+class ResaleAuthorizationSourceAuthorizationFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
 
 
 class ResaleAuthorizationStatusFilterTypeDef(TypedDict):
@@ -1029,6 +1041,8 @@ class ResaleAuthorizationFiltersTypeDef(TypedDict):
     OfferExtendedStatus: NotRequired[ResaleAuthorizationOfferExtendedStatusFilterTypeDef]
     LastModifiedDate: NotRequired[ResaleAuthorizationLastModifiedDateFilterTypeDef]
     ResellerRole: NotRequired[ResaleAuthorizationResellerRoleFilterTypeDef]
+    SourceAuthorization: NotRequired[ResaleAuthorizationSourceAuthorizationFilterTypeDef]
+    IssuerAccountId: NotRequired[ResaleAuthorizationIssuerAccountIdFilterTypeDef]
 
 
 class SaaSProductFiltersTypeDef(TypedDict):

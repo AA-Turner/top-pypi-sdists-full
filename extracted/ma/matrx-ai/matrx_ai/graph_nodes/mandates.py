@@ -192,7 +192,9 @@ async def hold_step(
     agent = None
     try:
         resolution = await resolve_mandate_by_key(
-            WORKFLOW_STEP_INTELLIGENCE_MANDATE, consumer=consumer
+            WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+            consumer=consumer,
+            report_failure=False,
         )
         if resolution.holder_type != "agent" or resolution.source is None:
             raise MandateResolutionUnavailable(

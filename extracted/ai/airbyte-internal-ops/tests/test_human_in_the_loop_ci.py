@@ -450,6 +450,7 @@ def test_newsletter_channel_resolution() -> None:
         "#daily-newsletters",
     )
     assert _NEWSLETTER_CHANNELS["AJ"] == ("C0BLUPJ0X0R", "#aj-release-notes")
+    assert _NEWSLETTER_CHANNELS["AJ WIP Tracker"] == ("C0C2PHD33RN", "#aj-wip-tracker")
     assert _NEWSLETTER_CHANNELS["DR"] == _NEWSLETTER_CHANNELS["Internal AI"]
 
 

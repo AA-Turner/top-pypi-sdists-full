@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wreq
-Version: 0.12.1
+Version: 0.12.2
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -41,7 +41,7 @@ Provides-Extra: bench
 Provides-Extra: docs
 Provides-Extra: test
 License-File: LICENSE
-Summary: An ergonomic Python HTTP Client with TLS fingerprint
+Summary: An ergonomic, privacy-aware Python HTTP Client
 Keywords: http,client,websocket,ja3,ja4
 Author-email: 0x676e67 <gngppz@gmail.com>
 License: Apache-2.0
@@ -101,10 +101,10 @@ from wreq import Client, Emulation
 
 async def main():
     # Build a client
-    client = Client(emulation=Emulation.Chrome149)
+    client = Client(emulation=Emulation.Chrome153)
 
     # Use the API you're already familiar with
-    resp = await client.get("https://tls.peet.ws/api/all")
+    resp = await client.get("https://pingly.us.kg/api/all")
     print(await resp.text())
 
 
@@ -176,6 +176,24 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 
 ## Sponsors
 
+<a href="https://go.nodemaven.com/wreqpythonGHaugust" target="_blank">
+  <img src="https://raw.githubusercontent.com/0x676e67/wreq-python/main/.github/assets/nodemaven.svg" width="165" height="47" alt="NodeMaven">
+</a>
+
+**[NodeMaven](https://go.nodemaven.com/wreqpythonGHaugust)** is the most efficient proxy provider for web scraping and automation, with the highest-quality IPs on the market.
+
+**[Why NodeMaven?](https://go.nodemaven.com/wreqpythonGHaugust)**
+
+**ZIP Targeting** • **99.9% Uptime** • **IP Filtering (Every Proxy Has a Fraud Score Below 97%)** • **No KYC**
+
+Unique free tools include the **Proxy Bandwidth Checker**, **Meta Tag Checker**, **IP Lookup**, and more.
+
+**Special discounts for wreq-python users:** `WREQ35` gives 35% off mobile and residential proxies • `WREQ40` gives 40% off ISP (static) proxies
+
+**[Dashboard](https://dashboard.nodemaven.com/accounts/login/)** | **[Docs](https://docs.nodemaven.com/en/)** | **[LinkedIn](https://www.linkedin.com/company/nodemaven/)**
+
+---
+
 <a href="https://scrape.do/?utm_source=github&utm_medium=rnet" target="_blank">
   <img src="https://raw.githubusercontent.com/0x676e67/wreq-python/main/.github/assets/scrapedo.svg" width="149" height="47">
 </a>
@@ -186,7 +204,7 @@ One line of code. Instant data access
 
 **Automatic Proxy Rotation** • **Bypass Anti-bot Solutions**  • **Seamless Web Scraping**
 
-**[Dashboard](https://dashboard.scrape.do/login)** | **[Linkedin](https://www.linkedin.com/company/scrape-do/)** | **[Docs](https://scrape.do/documentation)**
+**[Dashboard](https://dashboard.scrape.do/login)** | **[Docs](https://scrape.do/documentation)** | **[Linkedin](https://www.linkedin.com/company/scrape-do/)**
 
 ---
 

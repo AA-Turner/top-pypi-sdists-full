@@ -18,6 +18,11 @@ _FINALIZED_REVIEW_MARKER = re.compile(
     re.DOTALL,
 )
 
+FINALIZED_REVIEW_TRACKING_SENTINEL = "<!-- agdt:ai-pr-loop-tracking -->"
+FINALIZED_REVIEW_TRACKING_HEADER = (
+    "### 🤖 AI PR Loop State & Finalized Reviews\nAutomated review finalization and loop state tracking."
+)
+
 
 @dataclass(frozen=True)
 class FinalizedReviewKey:
@@ -88,10 +93,10 @@ class PRCommentFinalizationStateStore:
         for comment in reversed(comments):
             if trusted_author and comment.author.casefold() != trusted_author:
                 continue
-            parsed = _parse_finalized_review_marker(comment.body)
-            if parsed is None:
-                continue
-            terminal_keys.add(parsed)
+            for marker_match in _FINALIZED_REVIEW_MARKER.finditer(comment.body or ""):
+                parsed = _parse_finalized_review_payload(marker_match.group(1))
+                if parsed is not None:
+                    terminal_keys.add(parsed)
         self._set_cached_terminal_keys(key.pr_number, terminal_keys)
         return key in terminal_keys
 
@@ -103,9 +108,39 @@ class PRCommentFinalizationStateStore:
             "review_id": key.review_id,
             "reason": reason,
         }
-        body = f"<!-- ai-pr-loop:finalized-review {json.dumps(payload, sort_keys=True)} -->"
+        marker = f"<!-- ai-pr-loop:finalized-review {json.dumps(payload, sort_keys=True)} -->"
+
+        existing_comment = None
         try:
-            self._provider.post_comment_as_pr_token(key.pr_number, body)
+            get_login = getattr(self._provider, "get_pr_token_login", None)
+            trusted_author = (get_login() if callable(get_login) else "").casefold()
+            comments = self._provider.list_issue_comments(key.pr_number)
+            for c in reversed(comments):
+                if trusted_author and getattr(c, "author", "").casefold() != trusted_author:
+                    continue
+                c_body = getattr(c, "body", "") or ""
+                if FINALIZED_REVIEW_TRACKING_SENTINEL in c_body or _FINALIZED_REVIEW_MARKER.search(c_body):
+                    existing_comment = c
+                    break
+        except Exception as exc:
+            logger.warning(
+                "Failed to find tracking comment for PR #%d: %s",
+                key.pr_number,
+                exc,
+            )
+
+        try:
+            update_comment = getattr(self._provider, "update_comment", None)
+            if existing_comment is not None and callable(update_comment):
+                updated_body = f"{existing_comment.body}\n{marker}"
+                if FINALIZED_REVIEW_TRACKING_SENTINEL not in updated_body and not updated_body.startswith("#"):
+                    updated_body = (
+                        f"{FINALIZED_REVIEW_TRACKING_HEADER}\n{FINALIZED_REVIEW_TRACKING_SENTINEL}\n\n{updated_body}"
+                    )
+                update_comment(existing_comment.id, updated_body)
+            else:
+                new_body = f"{FINALIZED_REVIEW_TRACKING_HEADER}\n{FINALIZED_REVIEW_TRACKING_SENTINEL}\n\n{marker}"
+                self._provider.post_comment_as_pr_token(key.pr_number, new_body)
         except Exception as exc:
             logger.warning(
                 "Failed to persist finalized-review state for PR #%d review %d: %s",
@@ -114,6 +149,7 @@ class PRCommentFinalizationStateStore:
                 exc,
             )
             return
+
         terminal_keys = self._get_cached_terminal_keys(key.pr_number)
         if terminal_keys is None:
             terminal_keys = set()
@@ -121,15 +157,9 @@ class PRCommentFinalizationStateStore:
         self._set_cached_terminal_keys(key.pr_number, terminal_keys)
 
 
-def _parse_finalized_review_marker(body: str) -> FinalizedReviewKey | None:
-    """Parse one finalized-review marker body into a validated key."""
-    if not isinstance(body, str):
-        return None
-    match = _FINALIZED_REVIEW_MARKER.search(body)
-    if match is None:
-        return None
+def _parse_finalized_review_payload(raw_json: str) -> FinalizedReviewKey | None:
     try:
-        data = json.loads(match.group(1))
+        data = json.loads(raw_json)
     except json.JSONDecodeError:
         return None
     if not isinstance(data, dict):
@@ -147,4 +177,15 @@ def _parse_finalized_review_marker(body: str) -> FinalizedReviewKey | None:
         or review_id <= 0
     ):
         return None
+
     return FinalizedReviewKey(repository=repo, pr_number=pr, review_id=review_id)
+
+
+def _parse_finalized_review_marker(body: str) -> FinalizedReviewKey | None:
+    """Parse one finalized-review marker body into a validated key."""
+    if not isinstance(body, str):
+        return None
+    match = _FINALIZED_REVIEW_MARKER.search(body)
+    if match is None:
+        return None
+    return _parse_finalized_review_payload(match.group(1))

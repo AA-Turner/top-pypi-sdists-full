@@ -7,10 +7,19 @@ on:
   push:
     tags:
       - "v*"
+  # Rebuilding and republishing the snap for an already published release does
+  # not require redoing PyPI or Docker, so dispatch runs only the snap job.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build the snap from, e.g. v17.12.0"
+        required: true
+        type: string
 
 jobs:
   publish:
     name: Publish release
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
       name: release
@@ -81,9 +90,47 @@ jobs:
           # Upload signatures to the release
           gh release upload "$GITHUB_REF_NAME" dist/*.sigstore.json --clobber
 
+  snap_stable:
+    name: Build snap and publish to stable
+    needs: [publish]
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.publish.result == 'success') }}
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0 # snap version is derived from git describe
+
+      - uses: canonical/setup-lxd@v1
+        with:
+          channel: latest/stable
+
+      - name: Build snap
+        run: |
+          sudo snap install snapcraft --classic
+          snapcraft pack --output ocrmypdf.snap
+
+      # The tag's tree is what we build and test, but it may predate the smoke
+      # test script, so take that from the ref this workflow file came from.
+      - uses: actions/checkout@v7
+        with:
+          path: .workflow-ref
+          sparse-checkout: .github/scripts
+
+      - name: Smoke test snap
+        run: .workflow-ref/.github/scripts/smoke-test-snap.sh "${RELEASE_TAG#v}"
+
+      - name: Publish snap to stable
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: snapcraft upload --release=stable ocrmypdf.snap
+
   docker_tag:
     name: Tag Docker images with release version
     needs: [publish]
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Login to Docker Hub

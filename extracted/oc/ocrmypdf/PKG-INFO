@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ocrmypdf
-Version: 17.11.0
+Version: 17.12.1
 Summary: OCRmyPDF adds an OCR text layer to scanned PDF files, allowing them to be searched
 Project-URL: Documentation, https://ocrmypdf.readthedocs.io/
 Project-URL: Source, https://github.com/ocrmypdf/OCRmyPDF
@@ -29,8 +29,7 @@ Requires-Dist: fpdf2>=2.8.0
 Requires-Dist: img2pdf>=0.5
 Requires-Dist: packaging>=20
 Requires-Dist: pdfminer-six>=20260107
-Requires-Dist: pi-heif
-Requires-Dist: pikepdf>=10
+Requires-Dist: pikepdf>=10.2
 Requires-Dist: pillow>=12
 Requires-Dist: pluggy>=1
 Requires-Dist: pydantic>=2.12.5
@@ -38,6 +37,8 @@ Requires-Dist: pypdfium2>=5.0.0
 Requires-Dist: rich>=13
 Requires-Dist: typing-extensions>=4.12; python_version < '3.13'
 Requires-Dist: uharfbuzz>=0.53.2
+Provides-Extra: heic
+Requires-Dist: pillow-heif>=1.7.0; extra == 'heic'
 Provides-Extra: watcher
 Requires-Dist: cyclopts>=3; extra == 'watcher'
 Requires-Dist: python-dotenv; extra == 'watcher'

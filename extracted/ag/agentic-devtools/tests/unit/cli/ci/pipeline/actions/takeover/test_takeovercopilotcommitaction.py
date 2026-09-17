@@ -139,6 +139,20 @@ class TestTakeOverAutomationCommitAction:
         assert "concurrent update" in result.details.lower()
         assert result.error == "lease rejected"
 
+    def test_execute_head_sha_changed_returns_skip(self) -> None:
+        """execute() gracefully skips when HEAD changed concurrently before takeover."""
+        snapshot = self._make_snapshot()
+        provider = MagicMock()
+        provider.reclaim_copilot_commit.side_effect = RuntimeError(
+            "Head SHA changed before Copilot takeover (expected resolved aaa from input aaa, got bbb)."
+        )
+
+        result = TakeOverAutomationCommitAction().execute(provider, snapshot, DerivedState(snapshot))
+
+        assert result.decision == ActionDecision.SKIP
+        assert "branch head moved concurrently" in result.details.lower()
+        assert result.definitive_no_mutation is True
+
     def test_execute_generic_error_returns_failed(self) -> None:
         """execute() maps unexpected errors to FAILED."""
         snapshot = self._make_snapshot()

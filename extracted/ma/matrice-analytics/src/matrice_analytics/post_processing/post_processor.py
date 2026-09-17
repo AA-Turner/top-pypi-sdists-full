@@ -6,6 +6,15 @@ for all post-processing operations. It manages use cases, configurations, and
 provides both simple and advanced processing interfaces.
 """
 
+# PEP 563: the py3.8 Orin image cannot evaluate the PEP 604 ``X | Y`` unions this
+# module uses in argument annotations, and deferring annotation evaluation makes
+# all of them strings at runtime.  Pinned by TestPy38Compatibility in
+# analytics/tests/test_redis_publisher_config.py.  Nothing here introspects
+# annotations at runtime (no get_type_hints, no dataclass, no pydantic), so
+# deferring them changes no behaviour.
+from __future__ import annotations
+
+import functools
 import hashlib
 import json
 import logging
@@ -23,149 +32,59 @@ from .core.base import ProcessingContext, ProcessingResult, ProcessingStatus, re
 from .core.config import (
     AlertConfig,
     BaseConfig,
+    ConfigValidationError,
     TrackingConfig,
     ZoneConfig,
     config_manager,
 )
 from .core.config_utils import create_config_from_template
 
-# Face recognition with embeddings (from face_reg module)
-from .face_reg.face_recognition import FaceRecognitionEmbeddingUseCase
-from .usecases import (
-    AbandonedObjectDetectionUseCase,
-    AccidentDetectionUseCase,
-    AdvancedCustomerServiceUseCase,
-    AgeDetectionUseCase,
-    AgeGenderUseCase,
-    AnimalDetectionUseCase,
-    AntiSpoofingDetectionUseCase,
-    AreaUtilizationUseCase,
-    AssemblyLineUseCase,
-    BananaMonitoringUseCase,
-    # Put all IMAGE based usecases here
-    BloodCancerDetectionUseCase,
-    BottleDefectDetectionUseCase,
-    BottleDefectUseCase,
-    BurglaryDetectionUseCase,
-    CarDamageDetectionUseCase,
-    CardiomegalyUseCase,
-    CarPartSegmentationUseCase,
-    CellMicroscopyUseCase,
-    ChickenPoseDetectionUseCase,
-    ChildMonitoringUseCase,
-    ClaudePeopleCountingUsecaseUseCase,
-    ColorDetectionUseCase,
-    ConcreteCrackUseCase,
-    CropWeedDetectionUseCase,
-    CrowdDensityHeatMapsUseCase,
-    CrowdflowUseCase,
-    CustomerServiceUseCase,
-    DeepOCSortUseCase,
-    DistractedDriverUseCase,
-    DroneDetectionUseCase,
-    DroneTrafficMonitoringUsecase,
-    # FaceRecognitionUseCase,
-    DrowsyDriverUseCase,
-    DwellUseCase,
-    EmergencyVehicleUseCase,
-    FaceCoveringDetectionPoseUseCase,
-    FaceEmotionUseCase,
-    FallDetectionUseCase,
-    FashionDetectionUseCase,
-    FastPeopleCountingUseCase,
-    FenceClimbingDetectionUseCase,
-    FenceClimbingPoseGatedDetectionUseCase,
-    FenceClimbingWithZoneUseCase,
-    FieldMappingUseCase,
-    FireSmokeUseCase,
-    FlareAnalysisUseCase,
-    FloodDetectionUseCase,
-    FlowerUseCase,
-    FootFallUseCase,
-    GasLeakDetectionUseCase,
-    GenderDetectionUseCase,
-    GlovesBootsDetectionUseCase,
-    HazardZoneEntryUseCase,
-    HeatMapsUseCase,
-    HistopathologicalCancerDetectionUseCase,
-    HumanActivityUseCase,
-    IllegalParkingDetectionUseCase,
-    IntrusionUseCase,
-    LandslideDetectionUseCase,
-    LaneDetectionUseCase,
-    LeafDiseaseDetectionUseCase,
-    LeafUseCase,
-    LeakDetectionUseCase,
-    LicensePlateAccessControlUseCase,
-    LicensePlateMonitorUseCase,
-    LicensePlateSurveillanceUseCase,
-    LicensePlateUseCase,
-    LiquidLeakDetectionUseCase,
-    LitterDetectionUseCase,
-    LoiteringUseCase,
-    MaskDetectionUseCase,
-    MaskTypeDetectionUseCase,
-    NaturalDisasterUseCase,
-    OvercrowdingDetectionUseCase,
-    PackageDetectionUseCase,
-    ParkingLotAnalyticsUseCase,
-    ParkingSpaceUseCase,
-    ParkingUseCase,
-    PCBDefectUseCase,
-    PedestrianDetectionUseCase,
-    PeopleCountingInZoneUseCase,
-    PeopleCountingUseCase,
-    PeopleTrackingUseCase,
-    PhoneScreenDefectDetectionUseCase,
-    PipeCorrosionDetectionUseCase,
-    PipeGasLeakDetectionUseCase,
-    PipelineDetectionUseCase,
-    PlaqueSegmentationUseCase,
-    PotholeDetectionUseCase,
-    PotholeSegmentationUseCase,
-    PPEComplianceUseCase,
-    PriceTagUseCase,
-    ProximityUseCase,
-    RoadTrafficUseCase,
-    RoadViewSegmentationUseCase,
-    RunningDetectionUseCase,
-    ShelfInventoryUseCase,
-    ShopliftingDetectionUseCase,
-    ShoppingCartUseCase,
-    SkinCancerClassificationUseCase,
-    SmokerDetectionUseCase,
-    SolarPanelUseCase,
-    StoppedVehicleMonitoringUseCase,
-    StreetVendorDetectionUseCase,
-    SusActivityUseCase,
-    TailgatingDetectionUseCase,
-    TheftDetectionUseCase,
-    TrafficSignMonitoringUseCase,
-    UnauthorizedEncampmentDetectionUseCase,
-    UndergroundPipelineDefectUseCase,
-    UnderwaterPlasticUseCase,
-    UnwantedAnimalDetectionUseCase,
-    VegetableDetectionUseCase,
-    VehicleColorDetectionUseCase,
-    VehicleMonitoringDroneViewUseCase,
-    VehicleMonitoringParkingLotUseCase,
-    VehicleMonitoringUseCase,
-    VehicleMonitoringWrongWayUseCase,
-    VehicleSegmentationUseCase,
-    VehicleTypeClassificationUseCase,
-    ViolenceDetectionTestingUseCase,
-    ViolenceDetectionUseCase,
-    WarehouseObjectUseCase,
-    WaterBodyUseCase,
-    WeaponDetectionUseCase,
-    WeaponHumanDetectionUseCase,
-    WeldDefectUseCase,
-    WildLifeMonitoringUseCase,
-    WindmillMaintenanceUseCase,
-    WoundSegmentationUseCase,
-)
-from .usecases.fr_access_control import FaceRecognitionAccessControlUseCase
-from .usecases.fr_surveillance import FaceRecognitionSurveillanceUseCase
+
+@functools.lru_cache(maxsize=1)
+def _dispatch_classes() -> dict:
+    """The handful of use-case classes this module dispatches on, loaded once.
+
+    This module used to import 129 use-case classes at module level purely to feed
+    ``_register_use_cases``; only these nine were referenced anywhere else.  Since
+    ml-codebases imports ``post_processor`` directly, those imports were the real
+    cost of ``from matrice_analytics.post_processing.post_processor import
+    PostProcessor`` -- roughly 1,975 modules, ~49 s on the deployment image, paid
+    again by every spawned inference worker.  The registry itself is now served from
+    ``core/_usecase_table.py`` and needs no imports at all.
+
+    Cached because the two sets below were previously rebuilt on **every frame**.
+    """
+    from .face_reg.face_recognition import FaceRecognitionEmbeddingUseCase
+    from .usecases.age_gender_detection import AgeGenderUseCase
+    from .usecases.color_detection import ColorDetectionUseCase
+    from .usecases.flare_analysis import FlareAnalysisUseCase
+    from .usecases.license_plate_monitoring import LicensePlateMonitorUseCase
+    from .usecases.lpr_access_control import LicensePlateAccessControlUseCase
+    from .usecases.lpr_surveillance import LicensePlateSurveillanceUseCase
+    from .usecases.people_tracking import PeopleTrackingUseCase
+    from .usecases.vehicle_color_detection import VehicleColorDetectionUseCase
+
+    return {
+        "face_recognition": FaceRecognitionEmbeddingUseCase,
+        "license_plate_monitor": LicensePlateMonitorUseCase,
+        # Use cases whose process() takes input_bytes.
+        "with_bytes": frozenset(
+            {
+                ColorDetectionUseCase,
+                FlareAnalysisUseCase,
+                LicensePlateMonitorUseCase,
+                LicensePlateAccessControlUseCase,
+                LicensePlateSurveillanceUseCase,
+                AgeGenderUseCase,
+                PeopleTrackingUseCase,
+                FaceRecognitionEmbeddingUseCase,
+                VehicleColorDetectionUseCase,
+            }
+        ),
+        # Use cases whose process() is a coroutine.
+        "async": frozenset({FaceRecognitionEmbeddingUseCase, LicensePlateMonitorUseCase}),
+    }
+
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +99,10 @@ def _resolve_new_flow_manifest(app_name: str | None) -> str | None:
         from ..analytics.flow import resolve_manifest_for_app
 
         return resolve_manifest_for_app(app_name)
-    except Exception as e:  # ImportError on old layouts, or any resolver error
+    except (ImportError, AttributeError, KeyError, TypeError, ValueError, OSError) as e:
+        # ImportError on old layouts; the rest are what manifest resolution raises on a
+        # malformed or unreadable bundle. A resolver bug still surfaces rather than
+        # silently routing every app to legacy.
         logger.debug("New analytics flow unavailable for app '%s' (%s); using legacy", app_name, e)
         return None
 
@@ -218,7 +140,9 @@ _NON_USECASE_CONFIG_KEYS = (
 #: still reach ClickHouse as literal strings. Duplicated here rather than imported: ``post_processing/``
 #: does not otherwise import from ``engine/``, and a six-element frozenset is a cheaper dependency than
 #: a new layer crossing. Keep in step with that module if the vocabulary ever grows.
-_ANALYTICS_DOMAIN_LABELS = frozenset(("VOLUME", "SAFETY", "QUALITY", "INCIDENT", "IDENTITY", "SPECIAL"))
+_ANALYTICS_DOMAIN_LABELS = frozenset(
+    ("VOLUME", "SAFETY", "QUALITY", "INCIDENT", "IDENTITY", "SPECIAL")
+)
 
 
 def _reject_domain_label_categories(target_categories: Any, source: str) -> Any:
@@ -283,7 +207,9 @@ def _usecase_of(config: Any) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
-def _backfill_stream_resolution(data: Any, stream_info: Dict[str, Any] | None) -> Dict[str, Any] | None:
+def _backfill_stream_resolution(
+    data: Any, stream_info: Dict[str, Any] | None
+) -> Dict[str, Any] | None:
     """``stream_info`` with ``stream_resolution`` filled from the payload, when it was missing.
 
     Gap-fill only, and copied rather than mutated -- the caller's dict is theirs, and a value
@@ -380,7 +306,9 @@ class PostProcessor:
         self._init_pp_config_dict: Dict[str, Any] | None = None
         self.app_name = app_name
         self.index_to_category = index_to_category
-        self.target_categories = _reject_domain_label_categories(target_categories, "the PostProcessor constructor")
+        self.target_categories = _reject_domain_label_categories(
+            target_categories, "the PostProcessor constructor"
+        )
 
         # New analytics flow: if this app routes to a bundled AnalyticsEngine
         # manifest, process() dispatches to a per-stream AnalyticsEngineSession
@@ -420,7 +348,9 @@ class PostProcessor:
             )
             if isinstance(post_processing_config, dict):
                 self._init_pp_config_dict = dict(post_processing_config)
-            self.post_processing_config = self._parse_post_processing_config(post_processing_config, self.app_name)
+            self.post_processing_config = self._parse_post_processing_config(
+                post_processing_config, self.app_name
+            )
             if self.post_processing_config:
                 logging.info(
                     f"Successfully parsed post-processing config for usecase: {self.post_processing_config.usecase}"
@@ -459,10 +389,18 @@ class PostProcessor:
                     category = get_category_from_app_name(app_name)
                     if usecase and category:
                         try:
-                            config_kwargs = {k: v for k, v in config.items() if k not in _NON_USECASE_CONFIG_KEYS}
+                            config_kwargs = {
+                                k: v for k, v in config.items() if k not in _NON_USECASE_CONFIG_KEYS
+                            }
                             app_config = self.create_config(usecase, category, **config_kwargs)
                             return app_config
-                        except Exception as _cc_e:
+                        except (
+                            ConfigValidationError,
+                            AttributeError,
+                            KeyError,
+                            TypeError,
+                            ValueError,
+                        ) as _cc_e:
                             # Don't silently swallow — log so the user sees what
                             # made config creation fail. The fall-through to
                             # _load_config_from_app_name produces an empty
@@ -489,11 +427,20 @@ class PostProcessor:
 
             return parsed_config
 
-        except Exception as e:
+        except (
+            ConfigValidationError,
+            AttributeError,
+            KeyError,
+            TypeError,
+            ValueError,
+            OSError,
+        ) as e:
             logging.error(f"Failed to parse post-processing config: {str(e)}")
             return None
 
-    def _merge_config_into_app_config(self, app_config: BaseConfig, config_dict: Dict[str, Any]) -> BaseConfig:
+    def _merge_config_into_app_config(
+        self, app_config: BaseConfig, config_dict: Dict[str, Any]
+    ) -> BaseConfig:
         """Merge provided configuration dictionary into app-based config."""
         logging.debug("Merging provided config into app config")
         logging.debug(f"Provided config keys: {list(config_dict.keys())}")
@@ -529,15 +476,19 @@ class PostProcessor:
                     logging.debug(f"Merged nested dict for {key}: {merged_dict}")
                 else:
                     setattr(config, key, value)
-            except Exception:
-                # Fallback to direct assignment
+            except (AttributeError, TypeError, ValueError):
+                # The typed construction above did not fit this value; fall back to
+                # direct assignment. A missing attribute, a bad kwarg and a bad value
+                # are the three ways that happens.
                 setattr(config, key, value)
                 logging.debug(f"Applied config parameter {key}={value} (fallback)")
         else:
             setattr(config, key, value)
             logging.debug(f"Applied config parameter {key}={value}")
 
-    def _parse_config_by_type(self, config: Union[Dict[str, Any], BaseConfig, str]) -> BaseConfig | None:
+    def _parse_config_by_type(
+        self, config: Union[Dict[str, Any], BaseConfig, str]
+    ) -> BaseConfig | None:
         """Parse configuration based on its input type."""
         if isinstance(config, BaseConfig):
             return config
@@ -595,7 +546,10 @@ class PostProcessor:
                 config_params.pop("lpr_server_id", None)
 
         # Keep session and lpr_server_id only for use cases that need them
-        if usecase not in facial_recognition_usecases and usecase not in license_plate_monitoring_usecases:
+        if (
+            usecase not in facial_recognition_usecases
+            and usecase not in license_plate_monitoring_usecases
+        ):
             if "session" in config_params:
                 logging.debug(f"Removing session from {usecase} config")
                 config_params.pop("session", None)
@@ -612,9 +566,10 @@ class PostProcessor:
             if isinstance(config_params.get(key), dict):
                 try:
                     config_params[key] = config_class(**config_params[key])
-                except Exception:
-                    # Leave as dict; downstream create_config will handle it
-                    pass
+                except (TypeError, ValueError) as exc:
+                    # Leave as dict; downstream create_config will handle it. Logged
+                    # rather than passed so a malformed sub-config is not invisible.
+                    logging.debug("Could not build %s from dict (%s); leaving as dict", key, exc)
 
     def _apply_instance_config_overrides(self, config: BaseConfig) -> None:
         """Apply instance-level configuration overrides."""
@@ -631,7 +586,9 @@ class PostProcessor:
                 # Guarded on the way IN as well as out of the constructor: a platform config can
                 # carry a domain label directly, and this branch adopts the config's value as the
                 # processor's own, so an unguarded one would propagate to every later use case.
-                kept = _reject_domain_label_categories(config.target_categories, "the use-case config")
+                kept = _reject_domain_label_categories(
+                    config.target_categories, "the use-case config"
+                )
                 # `[]`, not None, on rejection: every consumer here does `in self.target_categories`
                 # or `if not target_categories`, so an empty list reads as "no filter" while None
                 # would raise TypeError inside the use case -- trading a wrong answer for a crash.
@@ -691,7 +648,15 @@ class PostProcessor:
                 return None
             self._config_client = client
             return client
-        except Exception as exc:
+        except (
+            ImportError,
+            AttributeError,
+            KeyError,
+            TypeError,
+            ValueError,
+            OSError,
+            RuntimeError,
+        ) as exc:
             logger.warning("PostProcessor: could not create PostProcessingConfigClient: %s", exc)
             self._config_client_unavailable = True
             return None
@@ -763,11 +728,7 @@ class PostProcessor:
             or ""
         )
         location = ""
-        for candidate in (
-            camera_info.get("location"),
-            si.get("location"),
-            meta.get("location"),
-        ):
+        for candidate in (camera_info.get("location"), si.get("location"), meta.get("location")):
             text = str(candidate or "").strip()
             if not text or is_null_object_id(text) or looks_like_object_id(text):
                 continue
@@ -788,14 +749,16 @@ class PostProcessor:
                 if is_resolvable_location_id(text):
                     location_id = text
                     break
-        if is_resolvable_location_id(location_id) and not location and hasattr(client, "fetch_location_name"):
+        if (
+            is_resolvable_location_id(location_id)
+            and not location
+            and hasattr(client, "fetch_location_name")
+        ):
             resolved = client.fetch_location_name(location_id)
             if resolved:
                 location = resolved
                 logger.info(
-                    "PostProcessor: resolved location=%r for location_id=%s",
-                    location,
-                    location_id,
+                    "PostProcessor: resolved location=%r for location_id=%s", location, location_id
                 )
 
         location_id = normalize_location_id(location_id)
@@ -959,201 +922,20 @@ class PostProcessor:
         return None
 
     def _register_use_cases(self) -> None:
-        """Register all available use cases."""
-        # Register people counting use case
-        registry.register_use_case("general", "people_counting", PeopleCountingUseCase)
-        registry.register_use_case("general", "fast_people_counting", FastPeopleCountingUseCase)
-        registry.register_use_case(
-            "general",
-            "claude_people_counting_usecase",
-            ClaudePeopleCountingUsecaseUseCase,
-        )
-        registry.register_use_case("general", "deep_oc_sort", DeepOCSortUseCase)
+        """Retained no-op: the catalogue is registered by ``core.base`` at import.
 
-        # Register intrusion detection use case
-        registry.register_use_case("security", "intrusion_detection", IntrusionUseCase)
+        This method used to carry 129 literal ``registry.register_use_case(...)``
+        rows, a second registration source that disagreed with the eager block in
+        ``post_processing/__init__.py`` -- ``engine/routing.py`` documents the
+        resulting absence of any authoritative legacy catalogue (PY-22).  Both are
+        now generated into ``core/_usecase_table.py`` and seeded as lazy specs when
+        ``core.base`` is imported, so there is exactly one source and constructing a
+        ``PostProcessor`` no longer has to import the whole use-case tree.
 
-        # Register proximity detection use case
-        registry.register_use_case("security", "proximity_detection", ProximityUseCase)
-
-        # Register customer service use case
-        registry.register_use_case("sales", "customer_service", CustomerServiceUseCase)
-
-        # Register advanced customer service use case
-        registry.register_use_case("sales", "advanced_customer_service", AdvancedCustomerServiceUseCase)
-
-        # Register license plate detection use case
-        registry.register_use_case("license_plate", "license_plate_detection", LicensePlateUseCase)
-
-        # Register color detection use case
-        registry.register_use_case("visual_appearance", "color_detection", ColorDetectionUseCase)
-
-        # Register video_color_classification as alias for color_detection
-        registry.register_use_case("visual_appearance", "video_color_classification", ColorDetectionUseCase)
-
-        # Register PPE compliance use case
-        registry.register_use_case("ppe", "ppe_compliance", PPEComplianceUseCase)
-        registry.register_use_case("infrastructure", "pothole_segmentation", PotholeSegmentationUseCase)
-        registry.register_use_case("safety", "pothole_detection", PotholeDetectionUseCase)
-        registry.register_use_case("car_damage", "car_damage_detection", CarDamageDetectionUseCase)
-
-        registry.register_use_case("traffic", "vehicle_monitoring", VehicleMonitoringUseCase)
-        registry.register_use_case("traffic", "fruit_monitoring", BananaMonitoringUseCase)
-        registry.register_use_case("security", "theft_detection", TheftDetectionUseCase)
-        registry.register_use_case("traffic", "traffic_sign_monitoring", TrafficSignMonitoringUseCase)
-        registry.register_use_case("traffic", "drone_traffic_monitoring", DroneTrafficMonitoringUsecase)
-        registry.register_use_case("security", "anti_spoofing_detection", AntiSpoofingDetectionUseCase)
-        registry.register_use_case("retail", "shelf_inventory", ShelfInventoryUseCase)
-        registry.register_use_case("traffic", "lane_detection", LaneDetectionUseCase)
-        registry.register_use_case("security", "abandoned_object_detection", AbandonedObjectDetectionUseCase)
-        registry.register_use_case("hazard", "fire_smoke_detection", FireSmokeUseCase)
-        registry.register_use_case("flare_detection", "flare_analysis", FlareAnalysisUseCase)
-        registry.register_use_case("general", "face_covering_detection_pose", FaceCoveringDetectionPoseUseCase)
-        registry.register_use_case("general", "face_emotion", FaceEmotionUseCase)
-        registry.register_use_case("parking_space", "parking_space_detection", ParkingSpaceUseCase)
-        registry.register_use_case("environmental", "underwater_pollution_detection", UnderwaterPlasticUseCase)
-        registry.register_use_case("pedestrian", "pedestrian_detection", PedestrianDetectionUseCase)
-        registry.register_use_case("general", "age_detection", AgeDetectionUseCase)
-        registry.register_use_case("weld", "weld_defect_detection", WeldDefectUseCase)
-        registry.register_use_case("price_tag", "price_tag_detection", PriceTagUseCase)
-        registry.register_use_case("mask_detection", "mask_detection", MaskDetectionUseCase)
-        registry.register_use_case("mask_type_detection", "mask_type_detection", MaskTypeDetectionUseCase)
-        registry.register_use_case("pipeline_detection", "pipeline_detection", PipelineDetectionUseCase)
-        registry.register_use_case("automobile", "distracted_driver_detection", DistractedDriverUseCase)
-        registry.register_use_case("traffic", "emergency_vehicle_detection", EmergencyVehicleUseCase)
-        registry.register_use_case("energy", "solar_panel", SolarPanelUseCase)
-        registry.register_use_case("agriculture", "chicken_pose_detection", ChickenPoseDetectionUseCase)
-        registry.register_use_case("agriculture", "crop_weed_detection", CropWeedDetectionUseCase)
-        registry.register_use_case("security", "child_monitoring", ChildMonitoringUseCase)
-        registry.register_use_case("general", "gender_detection", GenderDetectionUseCase)
-        registry.register_use_case("security", "weapon_detection", WeaponDetectionUseCase)
-        registry.register_use_case("security", "weapon_human_detection", WeaponHumanDetectionUseCase)
-        registry.register_use_case("security", "violence_detection", ViolenceDetectionUseCase)
-        registry.register_use_case(
-            "security",
-            "violence_detection_testing",
-            ViolenceDetectionTestingUseCase,
-        )
-        registry.register_use_case("general", "concrete_crack_detection", ConcreteCrackUseCase)
-        registry.register_use_case("retail", "fashion_detection", FashionDetectionUseCase)
-
-        registry.register_use_case("retail", "warehouse_object_segmentation", WarehouseObjectUseCase)
-        registry.register_use_case("retail", "shopping_cart_analysis", ShoppingCartUseCase)
-
-        registry.register_use_case("security", "shoplifting_detection", ShopliftingDetectionUseCase)
-        registry.register_use_case("retail", "defect_detection_products", BottleDefectUseCase)
-        registry.register_use_case("manufacturing", "assembly_line_detection", AssemblyLineUseCase)
-        registry.register_use_case("automobile", "car_part_segmentation", CarPartSegmentationUseCase)
-
-        registry.register_use_case("manufacturing", "windmill_maintenance", WindmillMaintenanceUseCase)
-
-        registry.register_use_case("infrastructure", "field_mapping", FieldMappingUseCase)
-        registry.register_use_case("medical", "wound_segmentation", WoundSegmentationUseCase)
-        registry.register_use_case("agriculture", "leaf_disease_detection", LeafDiseaseDetectionUseCase)
-        registry.register_use_case("agriculture", "flower_segmentation", FlowerUseCase)
-        registry.register_use_case("general", "parking_det", ParkingUseCase)
-        registry.register_use_case("agriculture", "leaf_det", LeafUseCase)
-        registry.register_use_case("general", "smoker_detection", SmokerDetectionUseCase)
-        registry.register_use_case("general", "road_traffic_density", RoadTrafficUseCase)
-        registry.register_use_case("automobile", "road_view_segmentation", RoadViewSegmentationUseCase)
-        # registry.register_use_case("security", "face_recognition", FaceRecognitionUseCase)
-        registry.register_use_case("security", "face_recognition", FaceRecognitionEmbeddingUseCase)
-        registry.register_use_case("security", "fr_access_control", FaceRecognitionAccessControlUseCase)
-        registry.register_use_case("security", "fr_surveillance", FaceRecognitionSurveillanceUseCase)
-        registry.register_use_case("automobile", "drowsy_driver_detection", DrowsyDriverUseCase)
-        registry.register_use_case("agriculture", "waterbody_segmentation", WaterBodyUseCase)
-        registry.register_use_case("litter_detection", "litter_detection", LitterDetectionUseCase)
-        registry.register_use_case("oil_gas", "leak_detection", LeakDetectionUseCase)
-        registry.register_use_case("general", "human_activity_recognition", HumanActivityUseCase)
-        registry.register_use_case("oil_gas", "gas_leak_detection", GasLeakDetectionUseCase)
-        registry.register_use_case("license_plate_monitor", "license_plate_monitor", LicensePlateMonitorUseCase)
-        registry.register_use_case("license_plate_monitor", "lpr_access_control", LicensePlateAccessControlUseCase)
-        registry.register_use_case("license_plate_monitor", "lpr_surveillance", LicensePlateSurveillanceUseCase)
-        registry.register_use_case("general", "dwell", DwellUseCase)
-        registry.register_use_case("age_gender_detection", "age_gender_detection", AgeGenderUseCase)
-        registry.register_use_case("general", "people_tracking", PeopleTrackingUseCase)
-        registry.register_use_case("environmental", "wildlife_monitoring", WildLifeMonitoringUseCase)
-        registry.register_use_case("manufacturing", "pcb_defect_detection", PCBDefectUseCase)
-        registry.register_use_case("general", "underground_pipeline_defect", UndergroundPipelineDefectUseCase)
-        registry.register_use_case("security", "suspicious_activity_detection", SusActivityUseCase)
-        registry.register_use_case("environmental", "natural_disaster_detection", NaturalDisasterUseCase)
-        registry.register_use_case("retail", "footfall", FootFallUseCase)
-        registry.register_use_case(
-            "traffic",
-            "vehicle_monitoring_parking_lot",
-            VehicleMonitoringParkingLotUseCase,
-        )
-        registry.register_use_case(
-            "traffic",
-            "vehicle_monitoring_drone_view",
-            VehicleMonitoringDroneViewUseCase,
-        )
-        registry.register_use_case("traffic", "parking_lot_analytics", ParkingLotAnalyticsUseCase)
-        registry.register_use_case("retail", "crowdflow", CrowdflowUseCase)
-        registry.register_use_case("retail", "heatmaps", HeatMapsUseCase)
-        registry.register_use_case("retail", "crowd_density_heatmaps", CrowdDensityHeatMapsUseCase)
-        registry.register_use_case("general", "hazard_zone_entry", HazardZoneEntryUseCase)
-        registry.register_use_case("general", "fence_climbing_detection", FenceClimbingDetectionUseCase)
-        registry.register_use_case("general", "fence_climbing_detection_pose", FenceClimbingPoseGatedDetectionUseCase)
-        registry.register_use_case("security", "fence_climbing_with_zone", FenceClimbingWithZoneUseCase)
-        registry.register_use_case("traffic", "vehicle_monitoring_wrong_way", VehicleMonitoringWrongWayUseCase)
-        registry.register_use_case("traffic", "stopped_vehicle_monitoring", StoppedVehicleMonitoringUseCase)
-        registry.register_use_case("traffic", "illegal_parking_detection", IllegalParkingDetectionUseCase)
-        registry.register_use_case("general", "area_utilization", AreaUtilizationUseCase)
-        registry.register_use_case("general", "loitering_detection", LoiteringUseCase)
-        registry.register_use_case("security", "tailgating_detection", TailgatingDetectionUseCase)
-        registry.register_use_case("traffic", "vehicle_color_detection", VehicleColorDetectionUseCase)
-        registry.register_use_case("traffic", "vehicle_segmentation", VehicleSegmentationUseCase)
-        registry.register_use_case("traffic", "vehicle_type_classification", VehicleTypeClassificationUseCase)
-        registry.register_use_case("general", "fall_detection", FallDetectionUseCase)
-        registry.register_use_case("security", "running_detection", RunningDetectionUseCase)
-        registry.register_use_case("security", "liquid_leak_detection", LiquidLeakDetectionUseCase)
-        registry.register_use_case("security", "pipe_gas_leak_detection", PipeGasLeakDetectionUseCase)
-        registry.register_use_case("general", "people_counting_in_zone", PeopleCountingInZoneUseCase)
-        registry.register_use_case("security", "pipe_corrosion_detection", PipeCorrosionDetectionUseCase)
-        registry.register_use_case("security", "overcrowding_detection", OvercrowdingDetectionUseCase)
-        registry.register_use_case("general", "animal_detection", AnimalDetectionUseCase)
-        registry.register_use_case("general", "unwanted_animal_detection", UnwantedAnimalDetectionUseCase)
-        registry.register_use_case("security", "gloves_boots_detection", GlovesBootsDetectionUseCase)
-        registry.register_use_case("security", "burglary_detection", BurglaryDetectionUseCase)
-        registry.register_use_case("traffic", "accident_detection", AccidentDetectionUseCase)
-        registry.register_use_case("environmental", "landslide_detection", LandslideDetectionUseCase)
-        registry.register_use_case("environmental", "flood_detection", FloodDetectionUseCase)
-        registry.register_use_case(
-            "security",
-            "unauthorized_encampment_detection",
-            UnauthorizedEncampmentDetectionUseCase,
-        )
-        registry.register_use_case("aerial", "drone_detection", DroneDetectionUseCase)
-        registry.register_use_case("general", "street_vendor_detection", StreetVendorDetectionUseCase)
-
-        # Put all IMAGE based usecases here
-        registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)
-        registry.register_use_case(
-            "healthcare",
-            "skincancer_img_classification",
-            SkinCancerClassificationUseCase,
-        )
-        registry.register_use_case("healthcare", "plaque_img_segmentation", PlaqueSegmentationUseCase)
-        registry.register_use_case("healthcare", "cardiomegaly_classification", CardiomegalyUseCase)
-        registry.register_use_case(
-            "healthcare",
-            "histopathological_cancer_detection",
-            HistopathologicalCancerDetectionUseCase,
-        )
-        registry.register_use_case("healthcare", "cell_microscopy_segmentation", CellMicroscopyUseCase)
-        registry.register_use_case("industrial", "bottle_defect_detection", BottleDefectDetectionUseCase)
-        registry.register_use_case(
-            "industrial",
-            "phone_screen_defect_detection",
-            PhoneScreenDefectDetectionUseCase,
-        )
-
-        registry.register_use_case("manufacturing", "package_detection", PackageDetectionUseCase)
-
-        registry.register_use_case("agriculture", "vegetable_detection", VegetableDetectionUseCase)
-
-        logger.debug("Registered use cases with registry")
+        Kept as a no-op rather than removed: it is referenced by name in
+        ``engine/routing.py`` and in tests, and this package is a library where an
+        exported symbol disappearing breaks consumers.
+        """
 
     def _generate_cache_key(self, config: BaseConfig, stream_key: str | None = None) -> str:
         """
@@ -1240,7 +1022,7 @@ class PostProcessor:
         if not use_case_class:
             raise ValueError(f"Use case '{config.category}/{config.usecase}' not found")
 
-        if issubclass(use_case_class, FaceRecognitionEmbeddingUseCase):
+        if issubclass(use_case_class, _dispatch_classes()["face_recognition"]):
             use_case = use_case_class(config=config)
             # Await async initialization for face recognition use case
             await use_case.initialize(config)
@@ -1268,21 +1050,11 @@ class PostProcessor:
 
         This method handles the different method signatures required by different use cases.
         """
-        # Use cases that require input_bytes parameter
-        use_cases_with_bytes = {
-            ColorDetectionUseCase,
-            FlareAnalysisUseCase,
-            LicensePlateMonitorUseCase,
-            LicensePlateAccessControlUseCase,
-            LicensePlateSurveillanceUseCase,
-            AgeGenderUseCase,
-            PeopleTrackingUseCase,
-            FaceRecognitionEmbeddingUseCase,
-            VehicleColorDetectionUseCase,
-        }
-
-        # Async use cases
-        async_use_cases = {FaceRecognitionEmbeddingUseCase, LicensePlateMonitorUseCase}
+        classes = _dispatch_classes()
+        use_cases_with_bytes = classes["with_bytes"]
+        async_use_cases = classes["async"]
+        FaceRecognitionEmbeddingUseCase = classes["face_recognition"]
+        LicensePlateMonitorUseCase = classes["license_plate_monitor"]
 
         # Determine the appropriate method signature and call
         use_case_type = type(use_case)
@@ -1405,10 +1177,14 @@ class PostProcessor:
             return None
         category = config.get("category")
         try:
-            kwargs = {k: v for k, v in config.items() if k not in _NON_USECASE_CONFIG_KEYS and v is not None}
+            kwargs = {
+                k: v
+                for k, v in config.items()
+                if k not in _NON_USECASE_CONFIG_KEYS and v is not None
+            }
             parsed = self.create_config(usecase, category, **kwargs)
             return self._extract_index_to_category_from_config(parsed)
-        except Exception:
+        except (ConfigValidationError, AttributeError, KeyError, TypeError, ValueError):
             return None
 
     @staticmethod
@@ -1463,7 +1239,7 @@ class PostProcessor:
                 try:
                     parsed = self._parse_config(cand)
                     cand_mapping = self._extract_index_to_category_from_config(parsed)
-                except Exception:
+                except (ConfigValidationError, AttributeError, KeyError, TypeError, ValueError):
                     cand_mapping = None
             if not cand_mapping:
                 continue
@@ -1485,7 +1261,10 @@ class PostProcessor:
         """Replace incomplete or COCO-like PPE maps with model defaults."""
         if config is None or getattr(config, "usecase", None) != "ppe_compliance":
             return
-        from ..analytics.engine_session import looks_like_wrong_ppe_index_to_category, normalize_index_to_category
+        from ..analytics.engine_session import (
+            looks_like_wrong_ppe_index_to_category,
+            normalize_index_to_category,
+        )
         from .usecases.ppe_compliance import PPEComplianceConfig
 
         default = normalize_index_to_category(PPEComplianceConfig().index_to_category)
@@ -1565,7 +1344,9 @@ class PostProcessor:
         if self.post_processing_config:
             candidates.append(self.post_processing_config)
         if self._new_flow_manifest:
-            legacy_map = self._legacy_default_index_to_category_for_manifest(self._new_flow_manifest)
+            legacy_map = self._legacy_default_index_to_category_for_manifest(
+                self._new_flow_manifest
+            )
             if legacy_map:
                 candidates.append({"index_to_category": legacy_map})
             manifest_map = load_manifest_index_to_category(self._new_flow_manifest)
@@ -1578,7 +1359,9 @@ class PostProcessor:
 
         manifest_default: Dict[int, str] | None = None
         if self._new_flow_manifest:
-            manifest_default = self._legacy_default_index_to_category_for_manifest(self._new_flow_manifest)
+            manifest_default = self._legacy_default_index_to_category_for_manifest(
+                self._new_flow_manifest
+            )
             if not manifest_default:
                 manifest_default = load_manifest_index_to_category(self._new_flow_manifest)
 
@@ -1691,8 +1474,10 @@ class PostProcessor:
         try:
             from ..engine.routing import RoutingError
             from ..runtime.backends import BackendError, select_engine_backend
-        except Exception:
-            logger.debug("PostProcessor: engine routing unavailable; staying on legacy", exc_info=True)
+        except (ImportError, AttributeError):
+            logger.debug(
+                "PostProcessor: engine routing unavailable; staying on legacy", exc_info=True
+            )
             return None
 
         try:
@@ -1715,13 +1500,25 @@ class PostProcessor:
             # `except Exception` below, logged at DEBUG, and returned None: the flag was a no-op on
             # this entry point while working correctly on `PostProcRunner`, so an operator could set
             # it, see a legacy run, and have nothing in the log to explain why.
-            self._engine_backend_error = f"routing refused this app under MATRICE_ANALYTICS_FLOW=new: {exc}"
+            self._engine_backend_error = (
+                f"routing refused this app under MATRICE_ANALYTICS_FLOW=new: {exc}"
+            )
             logger.error("PostProcessor: %s", self._engine_backend_error)
         except BackendError as exc:
             self._engine_backend_error = str(exc)
             logger.error("PostProcessor: %s", exc)
-        except Exception:
-            logger.debug("PostProcessor: engine routing unavailable; staying on legacy", exc_info=True)
+        except (
+            ImportError,
+            AttributeError,
+            KeyError,
+            TypeError,
+            ValueError,
+            OSError,
+            RuntimeError,
+        ):
+            logger.debug(
+                "PostProcessor: engine routing unavailable; staying on legacy", exc_info=True
+            )
         return self._engine_backend
 
     def _engine_failure_cameras(self) -> set:
@@ -1860,7 +1657,9 @@ class PostProcessor:
                     exc_info=True,
                 )
             else:
-                logger.debug("PostProcessor: analytics engine failed for camera %s: %s", camera_id, exc)
+                logger.debug(
+                    "PostProcessor: analytics engine failed for camera %s: %s", camera_id, exc
+                )
             result = ProcessingResult(data={}, usecase=engine.app_id)
             result.set_error(str(exc), error_type=type(exc).__name__)
             result.processing_time = time.monotonic() - start_time
@@ -1878,7 +1677,7 @@ class PostProcessor:
     async def process(
         self,
         data: Any,
-        config: Union[BaseConfig, Dict[str, Any], str, Path] = {},
+        config: Union[BaseConfig, Dict[str, Any], str, Path] | None = None,
         input_bytes: bytes | None = None,
         stream_key: str | None = "default_stream",
         stream_info: Dict[str, Any] | None = None,
@@ -1902,6 +1701,8 @@ class PostProcessor:
         Returns:
             ProcessingResult: Standardized result object
         """
+        if config is None:  # was a literal `{}` default: one dict shared by every call (B006)
+            config = {}
         start_time = time.monotonic()
 
         # Before any routing: recover the frame resolution from the payload itself when the
@@ -1929,7 +1730,9 @@ class PostProcessor:
             # Cost is one API fetch per camera per process: the helper caches by camera_id and
             # caches negatives too, so a camera that does not resolve is not retried per frame.
             stream_info = self._enrich_stream_info_camera_metadata(stream_info)
-            return await self._process_on_engine(engine, data, stream_key, stream_info, input_bytes, start_time)
+            return await self._process_on_engine(
+                engine, data, stream_key, stream_info, input_bytes, start_time
+            )
         if getattr(self, "_engine_backend_error", None):
             # A bundle was named and could not be loaded. Returning an ERROR result rather than
             # running legacy keeps the failure visible: the caller does not raise, but nor does it
@@ -1946,8 +1749,6 @@ class PostProcessor:
 
         self._ingest_legacy_index_to_category(config, stream_info)
 
-        logger.info("PostProcessor.process started")
-        logger.info("PostProcessor: incoming parameters received")
         # Avoid logging config objects or tainted-derived strings (CodeQL clear-text rules).
         logger.debug(
             "Config flags: has_inline=%s has_default_pp=%s has_custom_pp=%s",
@@ -1966,11 +1767,10 @@ class PostProcessor:
             if config:
                 try:
                     config = self._parse_config(config)
-                    logger.info("PostProcessor: configuration from input parsed")
                     logger.debug("Inline config parsed to BaseConfig successfully")
                 except Exception as e:
                     logger.error("Failed to parse config: %s", e, exc_info=True)
-                    raise ValueError(f"Failed to parse config: {e}")
+                    raise ValueError(f"Failed to parse config: {e}") from e
 
             parsed_config = self._resolve_parsed_config(config, stream_info)
             self._sanitize_ppe_index_to_category_on_config(parsed_config)
@@ -2008,11 +1808,7 @@ class PostProcessor:
             # Legacy Redis analytics (incident_res fallback + results-agg ~60s)
             if not self._new_flow_manifest:
                 self._publish_legacy_frame_analytics(
-                    parsed_config,
-                    result,
-                    stream_info,
-                    stream_key,
-                    context,
+                    parsed_config, result, stream_info, stream_key, context
                 )
 
             # Add processing time
@@ -2127,7 +1923,9 @@ class PostProcessor:
 
         except Exception as e:
             logger.error(f"Simple processing failed: {str(e)}", exc_info=True)
-            return self._create_error_result(str(e), type(e).__name__, usecase, category or "general", context)
+            return self._create_error_result(
+                str(e), type(e).__name__, usecase, category or "general", context
+            )
 
     async def process_from_file(
         self,
@@ -2190,7 +1988,8 @@ class PostProcessor:
         self._engine_backend = None
         try:
             backend.close()
-        except Exception:  # pragma: no cover - defensive; close must not raise on the way out
+        except (AttributeError, OSError, RuntimeError):
+            # pragma: no cover - defensive; close must not raise on the way out
             logger.warning("PostProcessor: engine backend close failed", exc_info=True)
 
     def create_config(self, usecase: str, category: str = "general", **kwargs) -> BaseConfig:
@@ -2263,7 +2062,9 @@ class PostProcessor:
         """Load configuration from file."""
         return config_manager.load_from_file(file_path)
 
-    def save_config(self, config: BaseConfig, file_path: Union[str, Path], fmt: str = "json") -> None:
+    def save_config(
+        self, config: BaseConfig, file_path: Union[str, Path], fmt: str = "json"
+    ) -> None:
         """Save configuration to file."""
         config_manager.save_to_file(config, file_path, fmt)
 
@@ -2321,7 +2122,7 @@ class PostProcessor:
             else:
                 return [f"Invalid configuration type: {type(config)}"]
 
-        except Exception as e:
+        except (ConfigValidationError, AttributeError, KeyError, TypeError, ValueError) as e:
             return [f"Configuration validation failed: {str(e)}"]
 
     def clear_use_case_cache(self) -> None:
@@ -2352,7 +2153,9 @@ class PostProcessor:
         if stats["total_processed"] > 0:
             stats["success_rate"] = stats["successful"] / stats["total_processed"]
             stats["failure_rate"] = stats["failed"] / stats["total_processed"]
-            stats["average_processing_time"] = stats["total_processing_time"] / stats["total_processed"]
+            stats["average_processing_time"] = (
+                stats["total_processing_time"] / stats["total_processed"]
+            )
         else:
             stats["success_rate"] = 0.0
             stats["failure_rate"] = 0.0
@@ -2452,7 +2255,9 @@ class PostProcessor:
 
 
 # Convenience functions for backward compatibility and simple usage
-async def process_simple(data: Any, usecase: str, category: str | None = None, **config) -> ProcessingResult:
+async def process_simple(
+    data: Any, usecase: str, category: str | None = None, **config
+) -> ProcessingResult:
     """
     Simple processing function for quick use cases.
 

@@ -229,12 +229,6 @@ To use this example you have to provide an image that should be displayed.
 This will create a new image with the given name.
 If it already exists, it will override the existing one.
 
-Currently almost all of the execution time is spent in the last line.
-In the future this will hopefully be solved by implementing the Python buffer protocol
-for gpu.types.Buffer and bpy.types.Image.pixels (aka bpy_prop_array
-
-).
-
 ```../examples/gpu.8.py```
 
 

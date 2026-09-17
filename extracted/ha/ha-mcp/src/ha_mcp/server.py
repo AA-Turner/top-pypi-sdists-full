@@ -14,13 +14,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 import yaml  # type: ignore[import-untyped]
-from fastmcp import FastMCP
-from mcp.types import Icon
 from pydantic import Field
+
+from ha_mcp._vendor.mcp.types import Icon
 
 from .config import _PACKAGE_VERSION, get_global_settings
 from .errors import ErrorCode, create_error_response
 from .hacs_auto_refresh import hacs_refresh_lifespan
+from .http_transport import HttpTransportFastMCP as FastMCP
 from .tools.helpers import raise_tool_error
 from .transforms import DEFAULT_PINNED_TOOLS
 
@@ -66,11 +67,11 @@ _SKILL_GUIDE_MANDATORYBPS_HINT = (
 SERVER_ICONS = [
     Icon(
         src="https://raw.githubusercontent.com/homeassistant-ai/ha-mcp/master/packaging/mcpb/icon.svg",
-        mimeType="image/svg+xml",
+        mime_type="image/svg+xml",
     ),
     Icon(
         src="https://raw.githubusercontent.com/homeassistant-ai/ha-mcp/master/packaging/mcpb/icon-128.png",
-        mimeType="image/png",
+        mime_type="image/png",
         sizes=["128x128"],
     ),
 ]
@@ -288,6 +289,15 @@ class HomeAssistantSmartMCPServer:
         # ENABLE_TOOL_SECURITY_POLICIES. Must come last so the middleware
         # wraps the final tool surface (including the search proxies).
         self._apply_tool_security_policies()
+
+        # Constrained installs can opt into cross-session tool queuing. This
+        # sits after approval gates so a call awaiting approval holds no slot.
+        if self.settings.ha_tool_concurrency:
+            from .ha_request_queue import HomeAssistantRequestQueueMiddleware
+
+            self.mcp.add_middleware(
+                HomeAssistantRequestQueueMiddleware(self.settings.ha_tool_concurrency)
+            )
 
         # Known-secret-value scrub (#2157) — registered just before the
         # visibility outbound half so that half stays innermost (its scan
@@ -637,10 +647,12 @@ class HomeAssistantSmartMCPServer:
         ),
         "ha_config_set_automation": (
             "create update modify edit automation triggers conditions actions "
-            "new automation write save"
+            "new automation write save take control blueprint detach "
+            "unlink standalone convert"
         ),
         "ha_config_set_script": (
-            "create update modify edit script sequence actions new script write save"
+            "create update modify edit script sequence actions new script write "
+            "save take control blueprint detach unlink standalone convert"
         ),
         "ha_config_set_yaml": (
             "edit yaml configuration.yaml packages template sensor "
@@ -667,6 +679,14 @@ class HomeAssistantSmartMCPServer:
             "cost costs kwh peak off-peak offpeak contract utility bill "
             "grid solar battery gas water consumption "
             "number_energy_price entity_energy_price stat_energy_from"
+        ),
+        # Old tool names from before the #2329 consolidation, plus the verbs
+        # the merged tool gained. An agent that still knows ha_get_blueprint /
+        # ha_import_blueprint routes to the replacement instead of failing
+        # tool lookup.
+        "ha_manage_blueprints": (
+            "blueprint blueprints import delete remove unused substitute "
+            "take-control list ha_get_blueprint ha_import_blueprint"
         ),
         # Old tool names from before #1134 consolidation. BM25 retrieval
         # on agents that still know the previous catalog ("call
@@ -702,11 +722,14 @@ class HomeAssistantSmartMCPServer:
         ),
         "ha_config_set_automation": (
             "Create or update a Home Assistant automation.\n\n"
-            "Supports two modes: full `config` replacement, or surgical "
+            "Supports three modes: full `config` replacement, surgical "
             "`python_transform` on an existing automation (requires "
             "`identifier` and `config_hash` from "
-            "ha_config_get_automation). Omit `identifier` to create a "
-            "new automation.\n\n"
+            "ha_config_get_automation), or `take_control_of_blueprint` "
+            "to convert a blueprint-backed automation into an editable "
+            "standalone one (the UI's Take control action). Omit "
+            "`identifier` to create a new automation. Reusing an identifier targets "
+            "the same automation; changing its alias requires config_hash from a prior read.\n\n"
             "For schema details, examples, and native-vs-template "
             "guidance, see ha_get_skill_guide or your locally "
             "installed skills."
@@ -721,10 +744,12 @@ class HomeAssistantSmartMCPServer:
         ),
         "ha_config_set_script": (
             "Create or update a Home Assistant script.\n\n"
-            "Supports two modes: full `config` replacement, or surgical "
+            "Supports three modes: full `config` replacement, surgical "
             "`python_transform` on an existing script (requires "
-            "`config_hash` from ha_config_get_script). `script_id` names "
-            "the script in both modes.\n\n"
+            "`config_hash` from ha_config_get_script), or "
+            "`take_control_of_blueprint` to convert a blueprint-backed "
+            "script into an editable standalone one. `script_id` names "
+            "the script in every mode.\n\n"
             "For schema details and examples, see "
             "ha_get_skill_guide or your locally installed skills."
         ),
@@ -783,18 +808,22 @@ class HomeAssistantSmartMCPServer:
             "matched cards surgically. (3) get — no search params "
             "returns the full Lovelace config plus a stable "
             "`config_hash`. Use `url_path='default'` for the main "
-            "dashboard.\n\n"
+            "dashboard. For known JSON Pointer paths, use "
+            "ha_config_set_dashboard(patch=..., config_hash=...).\n\n"
             "For card-type taxonomy and search workflow examples, see "
             "ha_get_skill_guide."
         ),
         "ha_config_set_dashboard": (
             "Create or update a Home Assistant dashboard.\n\n"
-            "Supports two modes: full `config` replacement (new "
-            "dashboards or full restructures), or surgical "
-            "`python_transform` on an existing dashboard (requires "
-            "`config_hash` from ha_config_get_dashboard; recommended "
-            "for edits). Use `url_path` of 'default' or 'lovelace' "
-            "to target the built-in dashboard.\n\n"
+            "Three modes: full `config` replacement for new dashboards or "
+            "restructures; `patch` for known JSON Pointer paths with literal "
+            "values (add/remove/replace/test, up to 100 operations; use `-` "
+            "to append to arrays); `python_transform` for loops and pattern-based "
+            "edits. Both edit modes require `config_hash` from "
+            "ha_config_get_dashboard. Choose one mode for content changes; "
+            "omit all three for metadata-only calls. With patch, change "
+            "sidebar metadata in a separate call. Use `url_path` of 'default' "
+            "or 'lovelace' for the built-in dashboard.\n\n"
             "For card types, layout patterns, and python_transform "
             "security rules, see "
             "ha_get_skill_guide or your locally installed skills."
@@ -1475,7 +1504,9 @@ class HomeAssistantSmartMCPServer:
             )
         else:
             try:
-                from fastmcp.server.providers.skills import SkillsDirectoryProvider
+                from ha_mcp._vendor.fastmcp.server.providers.skills import (
+                    SkillsDirectoryProvider,
+                )
             except ImportError:
                 logger.warning(
                     "SkillsDirectoryProvider not available in fastmcp; "

@@ -17,16 +17,24 @@ const AXE_KEYS: &[&str] = &[
     "lumberjack_log_temp_max_age_seconds",
     "lumberjack_restart_backoff_max_seconds",
     "verbose_lumberjack_diagnostics",
+    "routine_log_max_bytes",
+    "routine_log_temp_max_age_seconds",
+    "routine_restart_backoff_max_seconds",
+    "verbose_routine_diagnostics",
     "query",
     "chop_script_dirs",
+    "job_script_dirs",
     "lumberjacks",
+    "routines",
 ];
 const LUMBERJACK_KEYS: &[&str] = &[
     "description",
     "interval",
     "chop_timeout",
+    "job_timeout",
     "wait_runners",
     "chops",
+    "jobs",
     "env",
 ];
 const CHOP_KEYS: &[&str] = &[
@@ -190,6 +198,9 @@ pub fn validate_axe_config(
         "lumberjack_log_max_bytes",
         "lumberjack_log_temp_max_age_seconds",
         "lumberjack_restart_backoff_max_seconds",
+        "routine_log_max_bytes",
+        "routine_log_temp_max_age_seconds",
+        "routine_restart_backoff_max_seconds",
     ] {
         if let Some(value) = axe.get(key) {
             validate_positive_integer(
@@ -210,6 +221,14 @@ pub fn validate_axe_config(
     );
     validate_optional_type(
         request,
+        axe.get("verbose_routine_diagnostics"),
+        &child_path(base, "verbose_routine_diagnostics"),
+        "boolean",
+        Value::is_boolean,
+        &mut diagnostics,
+    );
+    validate_optional_type(
+        request,
         axe.get("query"),
         &child_path(base, "query"),
         "string",
@@ -224,11 +243,27 @@ pub fn validate_axe_config(
             &mut diagnostics,
         );
     }
+    if let Some(value) = axe.get("job_script_dirs") {
+        validate_string_array(
+            request,
+            value,
+            &child_path(base, "job_script_dirs"),
+            &mut diagnostics,
+        );
+    }
     if let Some(value) = axe.get("lumberjacks") {
         validate_lumberjacks(
             request,
             value,
             &child_path(base, "lumberjacks"),
+            &mut diagnostics,
+        );
+    }
+    if let Some(value) = axe.get("routines") {
+        validate_lumberjacks(
+            request,
+            value,
+            &child_path(base, "routines"),
             &mut diagnostics,
         );
     }
@@ -251,7 +286,7 @@ fn validate_lumberjacks(
             request,
             "type_mismatch",
             path,
-            "lumberjacks must be an object keyed by name",
+            "routines must be an object keyed by name",
         ));
         return;
     };
@@ -262,7 +297,7 @@ fn validate_lumberjacks(
                 request,
                 "blank_value",
                 &lumberjack_path,
-                "lumberjack name must not be blank",
+                "routine name must not be blank",
             ));
         }
         let Some(config) = config.as_object() else {
@@ -270,7 +305,7 @@ fn validate_lumberjacks(
                 request,
                 "type_mismatch",
                 &lumberjack_path,
-                "lumberjack config must be an object",
+                "routine config must be an object",
             ));
             continue;
         };
@@ -294,7 +329,7 @@ fn validate_lumberjacks(
                     "required_missing",
                     &child_path(&lumberjack_path, "description"),
                     &format!(
-                        "lumberjack `{name}` requires a non-empty `description`"
+                        "routine `{name}` requires a non-empty `description`"
                     ),
                 ));
             }
@@ -308,11 +343,14 @@ fn validate_lumberjacks(
                 diagnostics,
             );
         }
-        if let Some(timeout) = config.get("chop_timeout") {
+        for timeout_key in ["chop_timeout", "job_timeout"] {
+            let Some(timeout) = config.get(timeout_key) else {
+                continue;
+            };
             validate_duration(
                 request,
                 timeout,
-                &child_path(&lumberjack_path, "chop_timeout"),
+                &child_path(&lumberjack_path, timeout_key),
                 diagnostics,
             );
         }
@@ -332,11 +370,14 @@ fn validate_lumberjacks(
                 diagnostics,
             );
         }
-        if let Some(chops) = config.get("chops") {
+        for chops_key in ["chops", "jobs"] {
+            let Some(chops) = config.get(chops_key) else {
+                continue;
+            };
             validate_chops(
                 request,
                 chops,
-                &child_path(&lumberjack_path, "chops"),
+                &child_path(&lumberjack_path, chops_key),
                 diagnostics,
             );
         }
@@ -367,12 +408,9 @@ fn validate_chops(
                             diagnostics.push(diagnostic(
                                 request,
                                 "required_missing",
-                                &child_path(
-                                    &child_path(path, name),
-                                    "description",
-                                ),
+                                &child_path(&chop_path, "description"),
                                 &format!(
-                                    "chop `{name}` requires a non-empty `description`; list-form string entries cannot carry one, so use the map form"
+                                    "job `{name}` requires a non-empty `description`; list-form string entries cannot carry one, so use the map form"
                                 ),
                             ));
                         }
@@ -393,7 +431,7 @@ fn validate_chops(
                                 request,
                                 "required_missing",
                                 &child_path(&chop_path, "name"),
-                                "list-form chop objects require a string `name`",
+                                "list-form job objects require a string `name`",
                             ));
                         }
                         validate_chop_config(
@@ -408,7 +446,7 @@ fn validate_chops(
                         request,
                         "type_mismatch",
                         &chop_path,
-                        "list-form chops must be strings or objects",
+                        "list-form jobs must be strings or objects",
                     )),
                 }
             }
@@ -421,7 +459,7 @@ fn validate_chops(
                         request,
                         "blank_value",
                         &chop_path,
-                        "chop identity must not be blank",
+                        "job identity must not be blank",
                     ));
                 }
                 let Some(config) = config.as_object() else {
@@ -429,7 +467,7 @@ fn validate_chops(
                         request,
                         "type_mismatch",
                         &chop_path,
-                        "map-form chop config must be an object",
+                        "map-form job config must be an object",
                     ));
                     continue;
                 };
@@ -446,7 +484,7 @@ fn validate_chops(
             request,
             "type_mismatch",
             path,
-            "chops must be a list or a map keyed by chop name",
+            "jobs must be a list or a map keyed by job name",
         )),
     }
 }
@@ -463,14 +501,14 @@ fn validate_identity(
             request,
             "blank_value",
             path,
-            "chop identity must not be blank",
+            "job identity must not be blank",
         ));
     } else if !identities.insert(name.to_string()) {
         diagnostics.push(diagnostic(
             request,
             "duplicate_chop_identity",
             path,
-            &format!("duplicate chop identity `{name}`"),
+            &format!("duplicate job identity `{name}`"),
         ));
     }
 }
@@ -489,7 +527,7 @@ fn validate_chop_config(
                 "agent_chop_removed",
                 &child_path(path, migration_key),
                 &format!(
-                    "`{migration_key}` agent chops are no longer supported; use a script that writes structured `proposed_launches`"
+                    "`{migration_key}` agent jobs are no longer supported; use a script that writes structured `proposed_launches`"
                 ),
             ));
         }
@@ -508,7 +546,7 @@ fn validate_chop_config(
                 "chop_identity_mismatch",
                 &child_path(path, "name"),
                 &format!(
-                    "map-form chop name `{actual}` does not match key `{expected}`"
+                    "map-form job name `{actual}` does not match key `{expected}`"
                 ),
             ));
         }
@@ -538,9 +576,7 @@ fn validate_chop_config(
                 request,
                 "required_missing",
                 &child_path(path, "description"),
-                &format!(
-                    "chop `{name}` requires a non-empty `description`; list-form string entries cannot carry one, so use the map form"
-                ),
+                &format!("job `{name}` requires a non-empty `description`"),
             ));
         }
         None => {}

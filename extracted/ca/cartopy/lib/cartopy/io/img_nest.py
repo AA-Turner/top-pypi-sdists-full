@@ -13,7 +13,9 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-import shapely.geometry as sgeom
+import shapely
+
+from cartopy.io import _ensure_tile_form
 
 
 _img_class_attrs = ['filename', 'extent', 'origin', 'pixel_size']
@@ -67,14 +69,10 @@ class Img(collections.namedtuple('Img', _img_class_attrs)):
         return self.__dict__
 
     def bbox(self):
-        """
-        Return a :class:`~shapely.geometry.polygon.Polygon` instance for
-        this image's extents.
-
-        """
+        """Return a :class:`~shapely.Polygon` instance for this image's extents."""
         if self._bbox is None:
             x0, x1, y0, y1 = self.extent
-            self._bbox = sgeom.box(x0, y0, x1, y1)
+            self._bbox = shapely.box(x0, y0, x1, y1)
         return self._bbox
 
     @staticmethod
@@ -321,9 +319,8 @@ class NestedImageCollection:
         Parameters
         ----------
         target_domain
-            A :class:`~shapely.geometry.linestring.LineString`
-            instance that specifies the target location requiring image
-            coverage.
+            A :class:`~shapely.LineString` instance that specifies the target location
+            requiring image coverage.
         target_z
             The name of the target :class`~cartopy.io.img_nest.ImageCollection`
             which specifies the target zoom level (resolution) of the required
@@ -371,8 +368,8 @@ class NestedImageCollection:
         Parameters
         ----------
         target_domain
-            A :class:`~shapely.geometry.linestring.LineString` instance that
-            specifies the target location requiring image coverage.
+            A :class:`~shapely.LineString` instance that specifies the target location
+            requiring image coverage.
 
         target_z
             The name of the target
@@ -437,7 +434,7 @@ class NestedImageCollection:
         """
         return iter(self._ancestry.get(collection_image, []))
 
-    desired_tile_form = 'RGB'
+    desired_tile_form = None
 
     def get_image(self, collection_image):
         """
@@ -460,13 +457,13 @@ class NestedImageCollection:
         Note
         ----
           The format of the retrieved image file data is controlled by
-          :attr:`~cartopy.io.img_nest.NestedImageCollection.desired_tile_form`,
-          which defaults to 'RGB' format.
+          :attr:`~cartopy.io.img_nest.NestedImageCollection.desired_tile_form`.
+          Defaults to ``None``, which auto-detects 'RGB' vs 'RGBA'.
 
         """
         img = collection_image[1]
         img_data = Image.open(img.filename)
-        img_data = img_data.convert(self.desired_tile_form)
+        img_data = _ensure_tile_form(img_data, self.desired_tile_form)
         return img_data, img.extent, img.origin
 
     @classmethod

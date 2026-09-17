@@ -263,7 +263,7 @@ exclude = ["agentic_devtools/_bundled_skills/skills/**"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "--cov=agentic_devtools --cov-report=term-missing --cov-fail-under=100"
+addopts = "--cov=agentic_devtools --cov-report=term-missing --cov-report=xml --cov-fail-under=100"
 markers = [
     "windows_only: mark test to run only on Windows (msvcrt file locking)",
     "linux_only: mark test to run only on Linux/Unix (fcntl file locking)",
@@ -328,6 +328,9 @@ exclude_also = [
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
 
 [tool.mypy]
 python_version = "3.11"

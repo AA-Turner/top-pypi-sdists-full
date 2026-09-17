@@ -95,6 +95,7 @@ namespace casadi {
 
     /// Print instructions during evaluation
     bool print_instructions_;
+    bool dump_trace_ = false;
 
     /** \brief Constructor
 
@@ -113,6 +114,9 @@ namespace casadi {
 
         \identifier{24} */
     int eval(const double** arg, double** res, casadi_int* iw, double* w, void* mem) const override;
+
+    void trace_instruction(std::ostream& trace, casadi_int k, const double* w,
+      bool output) const;
 
     /** \brief  Print description
 
@@ -167,6 +171,14 @@ namespace casadi {
 
         \identifier{2d} */
     void codegen_body(CodeGenerator& g) const override;
+
+    /** \brief Work vector size of the generated code
+
+        Smaller than sz_w() when codegen elided copies: those work vector
+        elements are references and take no room in 'w'.
+
+        \identifier{2k0} */
+    size_t codegen_sz_w(const CodeGenerator& g) const override;
 
     /** \brief Serialize an object without type information
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: river-client
-Version: 0.9.1
+Version: 0.11.0
 Summary: Python client for River ML training API
 Project-URL: Homepage, https://river.ai
 Author-email: River AI <api@river.ai>
@@ -16,12 +16,17 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.12
 Requires-Dist: grpcio>=1.80.0
 Requires-Dist: huggingface-hub>=0.36.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: jsonschema>=4.26.0
 Requires-Dist: numpy>=2.0.0
 Requires-Dist: protobuf>=6.31.1
+Requires-Dist: referencing>=0.37.0
+Requires-Dist: tiktoken>=0.7.0
 Requires-Dist: transformers>=5.3.0
 Requires-Dist: xxhash>=3.0.0
 Provides-Extra: examples
 Requires-Dist: datasets>=2.14.0; extra == 'examples'
+Requires-Dist: pydantic<3,>=2.12; extra == 'examples'
 Requires-Dist: wandb>=0.28.0; extra == 'examples'
 Description-Content-Type: text/markdown
 
@@ -39,6 +44,11 @@ pip install river-client
 Requires Python 3.12+.
 
 ## Quick start
+
+River provides a low-level API for sampling, training, and checkpointing, plus
+an integrated [RL library](#reinforcement-learning) that manages rollouts and
+training from your environment and reward function. The example below uses the
+low-level API.
 
 ```python
 import river_client as river
@@ -68,13 +78,96 @@ with client.session() as session:
     sample_groups = model.sample("Continue:", max_tokens=100)
 ```
 
+## Reinforcement learning
+
+`river_client.rl` manages rollouts and training around your environment, tools,
+and reward function. It supports multi-turn conversations, images, KV-cache
+reuse, and synchronous or bounded asynchronous training.
+
+```python
+import operator
+import os
+from typing import Literal
+
+import river_client as river
+from river_client import rl
+from river_client.renderers import get_renderer, get_text_content
+
+# Tool schemas come from type hints and docstrings; execution stays in your code.
+@rl.tool
+async def calculator(a: float, operation: Literal["+", "-", "*", "/"], b: float) -> str:
+    """Calculate the result of an arithmetic operation on two numbers."""
+    operations = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.truediv}
+    return f"{operations[operation](a, b):g}"
+
+class AnswerEnv(rl.Env):
+    tools = [calculator]  # The engine runs tool calls and feeds results back.
+
+    async def reset(self, row):
+        return [{"role": "user", "content": (
+            row["question"] + " Use the calculator if helpful. Return only the answer."
+        )}]
+
+    async def reward(self, traj, row):
+        # Score the final answer, excluding the model's reasoning.
+        answer = get_text_content(traj.messages[-1]).strip()
+        return float(answer == row["answer"])
+
+# Replace this toy dataset and reward with your task.
+dataset = [
+    {"question": "What is 17 * 23?", "answer": "391"},
+    {"question": "What is 144 / 12?", "answer": "12"},
+]
+base_model = "zai-org/GLM-5.3-Flash"
+renderer = get_renderer(base_model)
+client = river.Client(api_key=os.environ["RIVER_API_KEY"], endpoint="api.river.ai")
+
+with client.session() as session:
+    model = session.create_model(
+        base_model=base_model,
+        tokenizer=renderer.tokenizer,
+        lora=river.LoraConfig(rank=16),
+    )
+    trainer = rl.AsyncTrainer(
+        engine=rl.RolloutEngine(
+            model, env=AnswerEnv, renderer=renderer,
+            budget=rl.Budget(max_turns=4, max_generated_tokens=2048),
+            # Sampling stays on one policy for the whole trajectory by default.
+        ),
+        optimizer=rl.Adam(lr=1e-5),
+        advantage=rl.GroupCentered(),  # Center rewards within each prompt group.
+        completion=rl.GroupCompletion(mode="wait"),
+        normalize="token",
+        groups_per_step=2, group_size=8,  # Two prompts, eight rollouts each.
+        max_staleness=0,  # Synchronous; >0 allows bounded sampling ahead.
+    )
+    rl.run(trainer, dataset, steps=10, on_step=lambda step: print(step.n, step.metrics))
+```
+
+See the [bundled agent skill](#ai-agent-skill) for image observations, cache
+policies, checkpoint/resume, and evaluation.
+
+## Dedicated streaming inference
+
+**Gated feature — disabled by default.** Contact River to enable dedicated
+deployments for your team and the checkpoint's base model before using these
+APIs. Use a team API key with that access; personal API keys cannot create
+deployments.
+
+`client.create_deployment(checkpoint, ...)` provisions capacity for a
+checkpoint and returns a base URL that the standard OpenAI client streams
+from unchanged; `list_deployments`, `get_deployment_usage`, `scale_on_target`
+and `delete_deployment` manage it from there. The bundled agent skill below
+carries the full workflow: replica roles, scale-to-zero and resume, streaming
+error handling, and usage accounting.
+
 ## AI agent skill
 
 The package bundles an agent skill — a `SKILL.md` that teaches AI coding
 agents (Claude Code and compatible tools) the current training API:
 `train_step` semantics, data formats, RL/SFT/distillation loop patterns,
-and fault-tolerant auto-recovery. Because it ships inside the wheel, the
-skill always matches the installed client version.
+image uploads and handles, and fault-tolerant auto-recovery. Because it ships
+inside the wheel, the skill always matches the installed client version.
 
 Install it into your agent's skills directory:
 

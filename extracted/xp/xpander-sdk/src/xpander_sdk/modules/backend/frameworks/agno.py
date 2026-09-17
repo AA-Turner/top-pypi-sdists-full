@@ -5422,6 +5422,9 @@ def _load_llm_model(
         from xpander_sdk.modules.backend.frameworks._bedrock_cache import (
             CachingAwsBedrock,
         )
+        from xpander_sdk.modules.backend.frameworks._bedrock_role import (
+            bedrock_auth_kwargs,
+        )
 
         del llm_args["extra_headers"]
         if (
@@ -5442,9 +5445,12 @@ def _load_llm_model(
             # agno's 8192 default truncates large tool-call JSON mid-stream,
             # dispatching tools with empty args (see truncated-call guard).
             max_tokens=LLM_MAX_OUTPUT_TOKENS,
-            # per-client bearer auth; a process-level os.environ write would leak
-            # one tenant's credential to every other task in a shared worker
-            aws_bearer_token=get_llm_key("AWS_BEARER_TOKEN_BEDROCK"),
+            # per-client auth (bearer token, or an assumed IAM role on a session); a
+            # process-level os.environ write would leak one tenant's credential to
+            # every other task in a shared worker
+            **bedrock_auth_kwargs(
+                get_llm_key("AWS_BEARER_TOKEN_BEDROCK"), region=getenv("AWS_REGION")
+            ),
             endpoint_url=bedrock_endpoint_url,
             **llm_args,
         )
@@ -5698,9 +5704,13 @@ def _load_compaction_model(agent: Agent, task: Optional[Task] = None) -> Optiona
             from xpander_sdk.modules.backend.frameworks._bedrock_cache import (
                 CachingAwsBedrock,
             )
+            from xpander_sdk.modules.backend.frameworks._bedrock_role import (
+                bedrock_auth_kwargs,
+            )
 
             # CachingAwsBedrock adds cachePoint injection (system + tools) and
-            # carries the bearer token per-client (never via os.environ).
+            # carries the credential per-client (never via os.environ): a bearer
+            # token, or an IAM role ARN assumed onto a session.
             # Reuse the agent's custom endpoint only when the agent itself runs
             # on bedrock (mirrors _load_llm_model's llm_api_base routing).
             bedrock_endpoint = (
@@ -5713,7 +5723,7 @@ def _load_compaction_model(agent: Agent, task: Optional[Task] = None) -> Optiona
                 temperature=0.0,
                 retries=3,
                 exponential_backoff=True,
-                aws_bearer_token=api_key,
+                **bedrock_auth_kwargs(api_key, region=getenv("AWS_REGION")),
                 endpoint_url=bedrock_endpoint or None,
             )
         elif provider == "anthropic":

@@ -130,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.440.0", "uqff_calculator.VERSION = 0.440.0 (FRONT 4 RE-SPECIFIED AND MEASURED SHIP: the equipartition identity named, eta(k) stated as the observable, and measured with the program's own MD - c_0 scale, c_inf excluded, coefficient not confirmed)")
+assert_that(C.VERSION == "0.442.0", "uqff_calculator.VERSION = 0.442.0 (Q-251 PRE-STATED TEST SHIP: LJ argon, two predictions committed before the run, measured k_c 7.17 +- 0.05 - neither; Q-251 closed negative; the cutoff tracks sigma in both liquids; Q-252 opened)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -15428,6 +15428,74 @@ assert_that(_b286g['status'].startswith('FRONT4_GRADED_B286') and _b286g['n'] ==
             and 'reaction-field' in _readfile('md_grade/md_engine.py').lower() and 'RATTLE' in _readfile('md_grade/md_engine.py')
             and 'front4_measured_roll_off' in _readfile('UNIFIED_REGISTRY.csv') and 'GRADED_2026-09-15' in _readfile('UNIFIED_REGISTRY.csv'),
             "B286b - FRONT 4 MEASURED (PAPER_2281 sec 5b): with the package index unreachable, the instrument was written from scratch - md_grade/md_engine.py, a rigid TIP4P/2005 water MD in numpy (RATTLE, virtual M site with redistributed force, O-O LJ + reaction-field Coulomb with a SITE-based 0.9 nm cutoff after a molecule-based cutoff was caught heating at +1.5 kJ/mol per molecule per 2 ps timestep-independently; the site cutoff conserves energy to -0.006 kJ/mol per molecule over 2 ps at 2 fs; forces equal -grad E to machine precision by finite differences; E/N -47.5 vs the model's published -47.4) - and run: 512 molecules, L 2.486 nm, 40 ps equilibration, 240 ps production, j_T(k,t) every 20 fs for 369 k-vectors in 26 shells to 13.8 nm^-1, eta(k) by the Green-Kubo integral rho/(k^2 int C_T dt) with four-block errors, every number recomputed here from md_grade/front4_eta_k.csv. RESULT: eta_0 1.05 mPa s (model literature 0.855; reaction field, small box); eta/eta_0 flat to k ~ 6 nm^-1 then rolling off to 1/e at 13.3-13.4 nm^-1; weighted log-linear Gaussian b = 0.0056 nm^2 -> MEASURED k_c = 7.8 nm^-1. Against the candidates: c_0 (5.31) SAME SCALE, factor 1.47 in k_c - NOT a precision match; c_inf (2.45) EXCLUDED by a factor 3.2 - the first fluid-side evidence on Q-247, pointing to c_0 = 1480 m/s; shape undecided (the weighted log-linear fit prefers Gaussian, an error-weighted nonlinear fit prefers Lorentzian); the second estimator (gmx-form fit, biased low in the oscillatory regime) gives k_c 4.4, so the c_0 candidate sits between the estimators. Per the falsifier stated before measurement this is NOT a pass of exp(-0.344 (k/k_c)^2): the roll-off exists, sits on the hydrodynamic sound-cone scale, and the coefficient 0.344 is not confirmed. NOT claimed: front 4 passed or closed; the model's third digit; anything beyond one run, one box, one seed, 240 ps, reaction field; the diffusion coefficient (not reliably extracted). The record run - 8 nm, 1-2 ns, PME - is the next instrument")
+
+
+# ---- B287 2026-09-17: FRONT 4 - THE RECORD RUN (SPME engine; 4 runs / 2 boxes / 3 seeds) and the three rulings folded ----
+_b287 = _b267.front4_record_grade()
+_b287r = _b267.front4_rulings()
+_b287B = _b287['boxes']['B_4.04nm_3seeds']; _b287C = _b287['boxes']['C_6.21nm']
+_b287p = _readfile('whitepapers/PAPER_2282_FRONT_4_THE_RECORD_RUN_SPME_ENGINE_FOUR_RUNS_TWO_BOXES_THREE_SEEDS_ETA_K_GAUSSIAN_KC_7_90_THREE_RULINGS_FOLDED_UQFF_LANDMARK.md')
+_b287s = _b287['summary']
+assert_that(_b287['status'].startswith('FRONT4_RECORD_GRADED_B287') and _b287['n_rows'] == 59
+            and _b287B['n'] == 28 and _b287C['n'] == 31 and abs(_b287B['k_min'] - 1.5554) < 1e-3 and abs(_b287C['k_min'] - 1.0110) < 1e-3
+            and abs(_b287B['k_c_measured_per_nm'] - 7.89) < 0.03 and _b287B['k_c_err'] < 0.06
+            and abs(_b287C['k_c_measured_per_nm'] - 7.92) < 0.05 and _b287C['k_c_err'] < 0.12
+            and abs(_b287B['atomic_current_k_c'] - 8.01) < 0.03 and abs(_b287C['atomic_current_k_c'] - 8.00) < 0.05
+            and _b287B['shape'] == 'gaussian' and _b287C['shape'] == 'gaussian'
+            and _b287B['chi2_gaussian'] < 40 and _b287B['chi2_lorentzian'] > 150 and _b287C['chi2_gaussian'] < 80 and _b287C['chi2_lorentzian'] > 100
+            and 0.82 < _b287B['eta_0_gauss'] < 0.86 and 0.82 < _b287C['eta_0_gauss'] < 0.86
+            and abs(_b287B['k_c_ratio_measured_over_predicted']['c_0'] - 1.49) < 0.02 and abs(_b287B['k_c_ratio_measured_over_predicted']['c_inf'] - 3.22) < 0.03
+            and 'EXCLUDED' in _b287B['candidate_reading']['c_inf'] and 'SAME SCALE' in _b287B['candidate_reading']['c_0']
+            and abs(_b287B['eta_ratio_at_k_c_c0_fit'] - 0.856) < 0.01 and abs(_b287B['implied_c_m_s'] - 995) < 10
+            and abs(_b287['k_c_record_per_nm'] - 7.92) < 0.05 and abs(_b287['ratio_to_D_BSFG_over_D_phys'] - 1.0) < 0.02
+            and _b287['shear_wave_onset']['onset_bracket_per_nm'] == [1.011, 1.43] and 'diffusive' in _b287['shear_wave_onset']['k_1p01'] and 'propagating' in _b287['shear_wave_onset']['k_1p43']
+            and 'NEGATIVE' in _b287['falsifier_verdict'] and 'POSITIVE on existence and shape' in _b287['falsifier_verdict']
+            and [round(r['kc_com'], 2) for r in _b287s['runs']] == [7.89, 7.89, 7.94, 7.93] and abs(_b287s['pooled_B']['kc_com'] - 7.90) < 0.01 and _b287s['pooled_B']['kc_seed_scatter'] < 0.03
+            and all(2.3e-5 < r['D'] < 2.5e-5 for r in _b287s['runs']) and abs(_b287s['validation']['madelung'] - 1.747565) < 1e-6 and _b287s['validation']['fd_force_rel'] < 1e-7
+            and _b287r['Q-247']['status'].startswith('RULED') and 'c_0' in _b287r['Q-247']['ruling'] and 'PAPER_2267 L53' in _b287r['Q-247']['provenance_corrected']
+            and _b287r['Q-250']['status'].startswith('RULED') and 'CENTRE-OF-MASS' in _b287r['Q-250']['ruling']
+            and _b287r['Q-246']['status'].startswith('RULED') and 'Gaussian' in _b287r['Q-246']['ruling']
+            and _b287r['Q-251']['status'].startswith(('OPEN', 'CLOSED NEGATIVE (B288')) and 'NOT claimed' in _b287r['Q-251']['not_claimed'] and abs(_b267.D_BSFG_OVER_D_PHYS - 1.5) < 1e-12
+            and 'RECORD RUN DONE (B287' in _b275d['awaiting_outside_data'][3] and 'CLOSED NEGATIVE ON THE COEFFICIENT' in _b275d['awaiting_outside_data'][3] and 'Q-251' in _b275d['awaiting_outside_data'][3]
+            and '7.90' in _b287p and 'CLOSED NEGATIVE' in _b287p.upper() and 'madelung' in _b287p.lower() and '1.747565' in _b287p and 'Q-251' in _b287p and 'not claimed' in _b287p.lower() and 'PAPER_2267 L53' in _b287p
+            and all(_shos.path.exists('md_grade/' + f) for f in ('md_pme.py', 'pair_kernel.c', 'gridcur.py', 'ewald_ref.py', 'validate.py', 'validate.out', 'front4_record.py', 'rec_analyze.py', 'rec_pool.py', 'front4_record_eta_k.csv', 'front4_record_summary.json', 'rec_C20.log'))
+            and 'pme_spread' in _readfile('md_grade/pair_kernel.c') and 'rattle_positions' in _readfile('md_grade/pair_kernel.c') and 'class PME' in _readfile('md_grade/md_pme.py')
+            and 'PAPER_2267 L53' in _readfile('uqff_ns_assembly.py') and 'seawater Vp anchor of the K4 family' not in _readfile('uqff_ns_assembly.py')
+            and 'front4_record_run' in _readfile('UNIFIED_REGISTRY.csv') and 'RULED_2026-09-17_c0' in _readfile('UNIFIED_REGISTRY.csv') and 'fluid_cutoff_scale_ratio_q251' in _readfile('UNIFIED_REGISTRY.csv')
+            and 'RULED (B287, 2026-09-17)' in _readfile('RULINGS_QUEUE.md') and '### Q-251' in _readfile('RULINGS_QUEUE.md') and 'PAPER_2282' in _readfile('WHITEPAPER_INDEX.md')
+            and C.calc('PAPER_2282')['status'].startswith('FRONT4_RECORD_GRADED_B287'),
+            "B287 - FRONT 4, THE RECORD RUN (PAPER_2282): an SPME engine written for it (md_grade/md_pme.py + pair_kernel.c + gridcur.py; Madelung 1.747565 to 1.2e-7, C vs numpy 1.2e-4 kJ/mol, SPME 3e-3, F = -grad E 3e-8, NVE -0.0001 kJ/mol/N per 2 ps, eta_0 0.84-0.85 vs 0.855, D 2.3-2.4e-5) and four runs (2197 molecules / 4.04 nm / 300 ps at seeds 11, 12, 13; 8000 / 6.21 nm / 200 ps; 4-fs sampling; COM and atomic currents): eta(k) Gaussian (chi2 33 vs Lorentzian 192; 71 vs 104) with k_c 7.89 / 7.89 / 7.94 / 7.93 -> 7.90 +- 0.05 nm^-1 - the harness reproduces the scipy fits with no scipy; c_0 x 1.49 (eta/eta_0 at k_c(c_0) 0.856 vs the predicted 0.709), c_inf x 3.22 EXCLUDED; shear-wave onset 1.0-1.4 nm^-1 below both candidates. The PAPER_2281 sec 4 falsifier applied: front 4 CLOSED NEGATIVE on the 0.344 coefficient at k_c = omega/c_0, POSITIVE on existence and shape. RULED 2026-09-17 on the brief: Q-247 c_0 (the 1480 literal's provenance corrected - PAPER_2261 carries no sound speed), Q-250 eta(k) on the centre-of-mass current, Q-246 the PAPER_1042 Gaussian tail; Q-251 OPENED (1.489 +- 0.010 vs D_BSFG/D_phys = 1.5; observation only). NOT claimed: front 4 passed; the 8 nm / 1 ns plateau (not run - the workspace suspends between turns; Daniel chose the 4 nm seeds + 6 nm box); anything about real water beyond TIP4P/2005.")
+
+
+# ---- B288 2026-09-17: THE Q-251 PRE-STATED TEST on argon - CLOSED NEGATIVE; Q-252 opened ----
+_b288p = _b267.q251_prestated_test()
+_b288 = _b267.q251_argon_grade()
+_b288r = _b267.front4_rulings()
+_b288w = _readfile('whitepapers/PAPER_2283_THE_Q251_PRESTATED_TEST_LENNARD_JONES_ARGON_KC_7_17_NEITHER_PREDICTION_Q251_CLOSED_NEGATIVE_THE_CUTOFF_TRACKS_SIGMA_Q252_OPENED_UQFF_LANDMARK.md')
+_b288q = _readfile('RULINGS_QUEUE.md')
+_b288f = _b288['fit_k_le_14']; _b288s = _b288['summary']
+assert_that(abs(_b288p['P1_kc_per_nm'] - 9.193) < 0.005 and abs(_b288p['P2_kc_per_nm'] - 13.789) < 0.005 and abs(_b288p['P2_kc_per_nm'] / _b288p['P1_kc_per_nm'] - 1.5) < 1e-12
+            and abs(_b288p['coefficient'] - _b267.BETA_I * _b267.SSQ) < 1e-15 and '+-10 pct' in _b288p['rule']
+            and _b288['status'].startswith('Q251_ARGON_GRADED_B288') and _b288['n_rows'] == 36
+            and _b288f['n'] == 27 and abs(_b288f['k_c_per_nm'] - 7.16) < 0.03 and _b288f['k_c_err'] < 0.06 and _b288f['chi2_gaussian'] < 70
+            and abs(_b288['fit_full_range']['k_c_per_nm'] - 8.27) < 0.1 and _b288['fit_full_range']['chi2_gaussian'] > 500
+            and abs(_b288['eta_0_plateau_k_lt_3'] - 0.2758) < 0.005 and abs(_b288['direct_one_over_e_per_nm'] - 12.3) < 0.15
+            and abs(_b288['ratio_P1'] - 0.779) < 0.01 and abs(_b288['ratio_P2'] - 0.519) < 0.01 and 'NEITHER' in _b288['verdict'] and 'CLOSED NEGATIVE' in _b288['verdict']
+            and abs(_b288['eta_over_eta0_at_P1'] - 0.567) < 0.01 and abs(_b288['eta_over_eta0_at_P2'] - 0.279) < 0.01 and abs(_b288['predicted_at_kc'] - 0.709) < 0.001
+            and abs(_b288['kc_sigma']['argon'] - 2.44) < 0.02 and abs(_b288['kc_sigma']['water'] - 2.50) < 0.01 and abs(_b288['kc_sigma']['c0_ratio_water_over_argon'] - 1.732) < 0.002 and abs(_b288['kc_sigma']['kc_ratio_water_over_argon'] - 1.10) < 0.01
+            and 'Q-252' in _b288['observation'] and 'NOT ruled' in _b288['observation']
+            and [r['kc_k14'] for r in _b288s['runs']] == [7.25, 7.09] and all(0.27 < r['eta0_plateau'] < 0.28 for r in _b288s['runs']) and all(1.7e-5 < r['D'] < 1.9e-5 for r in _b288s['runs'])
+            and abs(_b288s['state']['nist_c0_m_s'] - 854.35) < 1e-9 and abs(_b288s['state']['nist_eta_mPas'] - 0.2795) < 1e-3 and _b288s['validation']['fd_force_rel'] < 1e-7
+            and _b288r['Q-251']['status'].startswith('CLOSED NEGATIVE (B288') and _b288r['Q-252']['status'].startswith('OPEN (B288') and 'Daniel-gated' in _b288r['Q-252']['status'] and 'NOT claimed' in _b288r['Q-252']['not_claimed']
+            and 'PRE-STATED TEST (Daniel: "PROCEED WITH Q-251 argon test", 2026-09-17' in _b288q and 'P1, Q-247 as ruled) k_c = omega_SCm / c_0 = 9.19 nm^-1' in _b288q and 'CLOSED NEGATIVE (B288, 2026-09-17) - by the pre-stated rule' in _b288q and '### Q-252' in _b288q
+            and _b288q.index('PRE-STATED TEST (Daniel') < _b288q.index('RESULT (2026-09-17, appended below the pre-statement')
+            and 'Q-251 PRE-STATED TEST on argon (B288' in _b275d['awaiting_outside_data'][3] and 'Q-251 CLOSED NEGATIVE' in _b275d['awaiting_outside_data'][3] and 'Q-252 OPEN' in _b275d['awaiting_outside_data'][3]
+            and '7.17' in _b288w and 'NEITHER' in _b288w and 'CLOSED NEGATIVE' in _b288w and 'Q-252' in _b288w and '2.50' in _b288w and '2.44' in _b288w and 'not claimed' in _b288w.lower() and '854.35' in _b288w and 'category error' in _b288w
+            and all(_shos.path.exists('md_grade/' + f) for f in ('lj_kernel.c', 'argon_record.py', 'validate_argon.py', 'validate_argon.out', 'ar_analyze.py', 'q251_argon_eta_k.csv', 'q251_argon_summary.json', 'ar_s1.log', 'ar_s2.log', 'pool_argon.json'))
+            and 'lj_forces' in _readfile('md_grade/lj_kernel.c') and 'currents3' in _readfile('md_grade/gridcur.py') and 'Madelung' not in _readfile('md_grade/validate_argon.py')
+            and 'q251_argon_prestated_test' in _readfile('UNIFIED_REGISTRY.csv') and 'CLOSED_NEGATIVE_2026-09-17' in _readfile('UNIFIED_REGISTRY.csv') and 'eta_k_cutoff_tracks_molecular_diameter' in _readfile('UNIFIED_REGISTRY.csv')
+            and 'PAPER_2283' in _readfile('WHITEPAPER_INDEX.md') and C.calc('PAPER_2283')['status'].startswith('Q251_ARGON_GRADED_B288'),
+            "B288 - THE Q-251 PRE-STATED TEST (PAPER_2283): two predictions committed to the repo BEFORE the run (RULINGS_QUEUE.md Q-251: P1 = omega_SCm/c_0(NIST 854.35) = 9.19 nm^-1, P2 = (D_BSFG/D_phys) x P1 = 13.79, rule +-10 pct), the result appended beneath the unchanged pre-statement. Instrument: the B287 engine's LJ path (lj_kernel.c + argon_record.py; kernel vs numpy 9e-13, F = -grad E 6e-9, NVE 1e-5 kJ/mol per atom per 10 ps; eta_0 0.274-0.277 vs NIST 0.2795; D 1.8e-5). Two seeds x 400 ps, 4096 LJ atoms at the NIST 85 K state point, 36 shells to 26 nm^-1: eta(k) Gaussian to k = 14 (chi2 43/46 vs Lorentzian 94/111) with k_c 7.25 / 7.09 -> 7.17 +- 0.05 (harness 7.16); ratio to P1 0.78, to P2 0.52 -> NEITHER within 10 pct: Q-251 CLOSED NEGATIVE (water's 1.489 was a coincidence); P1 negative for argon (-22 pct) as for water (+49 pct). OBSERVATION, not claimed: k_c x sigma = 2.50 (water) / 2.44 (argon) while c_0 differs 1.73x - the eta(k) cutoff tracks the molecular diameter, not omega_SCm/c_s -> Q-252 OPENED, Daniel-gated (category error with Theorem B untested, or framework fluid cutoff falsified as written). NOT claimed: which reading; the model's own c_0 (not cleanly measured; P1 evaluated with NIST c_0 as pre-stated); the fit range (not pre-specified; both reported, neither rescues a prediction).")
 
 
 # ---- B268 2026-09-09: THE THREE TIERS - "TIER 1, THEN TIER 2, THEN TIER 3" (Daniel's order) ----

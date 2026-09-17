@@ -34,8 +34,9 @@ class ResourceResult(BaseModel):
     status: ResourceResultStatus = Field(description="Result status")
     error: Optional[StrictStr] = Field(default=None, description="Error message if failed")
     drift: Optional[List[StrictStr]] = Field(default=None, description="Fields the manifest DECLARES that differ from the live resource, present when status is `drifted`. Named rather than counted: 'collection c1 differs: schedule' is actionable, 'exists' is not. Only fields the manifest explicitly set are compared — an omitted field asserts nothing, and treating an omission as drift would make every apply drift on server-set defaults.")
+    refused: Optional[List[StrictStr]] = Field(default=None, description="Fields the manifest declares, and that DIFFER, which apply would not change. Present under `upsert` when the resource's own update surface does not accept a field or refuses the value. A refusal is reported per field rather than as a failed apply: the rest of the manifest still applies, and the caller learns exactly which resource and which field to take up by hand. A bucket's schema is the standing example — it is patchable through the API and a destructive change is refused, so upsert does not route around that guard.")
     drift_not_compared: Optional[List[StrictStr]] = Field(default=None, description="Fields the manifest declares that could NOT be compared, because the live resource has no corresponding key. Reported rather than dropped: a field silently excluded from the comparison is indistinguishable from one that matched, and that is the exact ambiguity `drifted` exists to remove.")
-    __properties: ClassVar[List[str]] = ["resource_type", "name", "resource_id", "status", "error", "drift", "drift_not_compared"]
+    __properties: ClassVar[List[str]] = ["resource_type", "name", "resource_id", "status", "error", "drift", "refused", "drift_not_compared"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -94,6 +95,7 @@ class ResourceResult(BaseModel):
             "status": obj.get("status"),
             "error": obj.get("error"),
             "drift": obj.get("drift"),
+            "refused": obj.get("refused"),
             "drift_not_compared": obj.get("drift_not_compared")
         })
         return _obj

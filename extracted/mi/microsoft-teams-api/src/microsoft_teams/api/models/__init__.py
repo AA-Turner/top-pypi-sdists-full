@@ -29,6 +29,7 @@ from .action import Action
 from .activity import Activity as ActivityBase
 from .activity import ActivityInput as ActivityInputBase
 from .adaptive_card import *  # noqa: F403
+from .agentic_identity import AgenticIdentity
 from .app_based_link_query import AppBasedLinkQuery
 from .attachment import *  # noqa: F403
 from .cache_info import CacheInfo
@@ -37,6 +38,7 @@ from .channel_data import *  # noqa: F403
 from .channel_id import ChannelID
 from .config import *  # noqa: F403
 from .conversation import *  # noqa: F403
+from .conversation_type import ConversationType
 from .custom_base_model import CustomBaseModel
 from .delivery_mode import DeliveryMode
 from .entity import *  # noqa: F403
@@ -80,10 +82,12 @@ __all__: list[str] = [
     "Action",
     "ActivityBase",
     "ActivityInputBase",
+    "AgenticIdentity",
     "AppBasedLinkQuery",
     "CacheInfo",
     "ChannelID",
     "ConversationAccount",
+    "ConversationType",
     "CustomBaseModel",
     "DeliveryMode",
     "ErrorResponse",

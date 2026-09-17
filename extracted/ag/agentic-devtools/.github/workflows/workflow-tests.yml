@@ -69,6 +69,7 @@ jobs:
         run: |
           node .github/scripts/speckit-trigger/tests/test_agent_fallback.js
           node .github/scripts/speckit-trigger/tests/test_extract_phase_info.js
+          node .github/scripts/speckit-trigger/tests/test_normalize_copilot_pr.js
 
       - name: Run Speckit artifact gate shell regression tests
         run: |

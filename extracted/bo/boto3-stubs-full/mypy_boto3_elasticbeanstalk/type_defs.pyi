@@ -26,6 +26,7 @@ from .literals import (
     ActionStatusType,
     ActionTypeType,
     ApplicationVersionStatusType,
+    ArchitectureTypeType,
     ComputeTypeType,
     ConfigurationDeploymentStatusType,
     ConfigurationOptionValueTypeType,
@@ -36,6 +37,7 @@ from .literals import (
     EnvironmentStatusType,
     EventSeverityType,
     FailureTypeType,
+    ImageBuildTypeType,
     InstancesHealthAttributeType,
     PlatformStatusType,
     SourceRepositoryType,
@@ -69,6 +71,7 @@ __all__ = (
     "CPUUtilizationTypeDef",
     "CheckDNSAvailabilityMessageTypeDef",
     "CheckDNSAvailabilityResultMessageTypeDef",
+    "ClusterTypeDef",
     "ComposeEnvironmentsMessageTypeDef",
     "ConfigurationOptionDescriptionTypeDef",
     "ConfigurationOptionSettingTypeDef",
@@ -130,6 +133,9 @@ __all__ = (
     "EnvironmentTierTypeDef",
     "EventDescriptionTypeDef",
     "EventDescriptionsMessageTypeDef",
+    "ImageBuildConfigurationTypeDef",
+    "ImageConfigurationTypeDef",
+    "ImageSourceTypeDef",
     "InstanceHealthSummaryTypeDef",
     "InstanceTypeDef",
     "LatencyTypeDef",
@@ -219,6 +225,22 @@ class StatusCodesTypeDef(TypedDict):
     Status4xx: NotRequired[int]
     Status5xx: NotRequired[int]
 
+ImageBuildConfigurationTypeDef = TypedDict(
+    "ImageBuildConfigurationTypeDef",
+    {
+        "Type": NotRequired[ImageBuildTypeType],
+        "DockerfileLocation": NotRequired[str],
+        "Buildpack": NotRequired[str],
+        "Architecture": NotRequired[ArchitectureTypeType],
+        "CodeBuildServiceRole": NotRequired[str],
+        "ComputeType": NotRequired[ComputeTypeType],
+        "TimeoutInMinutes": NotRequired[int],
+    },
+)
+
+class ImageSourceTypeDef(TypedDict):
+    Uri: NotRequired[str]
+
 class S3LocationTypeDef(TypedDict):
     S3Bucket: NotRequired[str]
     S3Key: NotRequired[str]
@@ -272,6 +294,9 @@ class CPUUtilizationTypeDef(TypedDict):
 
 class CheckDNSAvailabilityMessageTypeDef(TypedDict):
     CNAMEPrefix: str
+
+class ClusterTypeDef(TypedDict):
+    ClusterArn: NotRequired[str]
 
 class ComposeEnvironmentsMessageTypeDef(TypedDict):
     ApplicationName: NotRequired[str]
@@ -599,6 +624,10 @@ class ApplicationMetricsTypeDef(TypedDict):
     StatusCodes: NotRequired[StatusCodesTypeDef]
     Latency: NotRequired[LatencyTypeDef]
 
+class ImageConfigurationTypeDef(TypedDict):
+    Source: NotRequired[ImageSourceTypeDef]
+    Build: NotRequired[ImageBuildConfigurationTypeDef]
+
 class ApplicationVersionDescriptionTypeDef(TypedDict):
     ApplicationVersionArn: NotRequired[str]
     ApplicationName: NotRequired[str]
@@ -607,6 +636,9 @@ class ApplicationVersionDescriptionTypeDef(TypedDict):
     SourceBuildInformation: NotRequired[SourceBuildInformationTypeDef]
     BuildArn: NotRequired[str]
     SourceBundle: NotRequired[S3LocationTypeDef]
+    ImageSource: NotRequired[ImageSourceTypeDef]
+    ImageBuildConfiguration: NotRequired[ImageBuildConfigurationTypeDef]
+    Process: NotRequired[bool]
     DateCreated: NotRequired[datetime]
     DateUpdated: NotRequired[datetime]
     Status: NotRequired[ApplicationVersionStatusType]
@@ -666,17 +698,6 @@ class ValidateConfigurationSettingsMessageTypeDef(TypedDict):
 class ConfigurationSettingsValidationMessagesTypeDef(TypedDict):
     Messages: list[ValidationMessageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateApplicationVersionMessageTypeDef(TypedDict):
-    ApplicationName: str
-    VersionLabel: str
-    Description: NotRequired[str]
-    SourceBuildInformation: NotRequired[SourceBuildInformationTypeDef]
-    SourceBundle: NotRequired[S3LocationTypeDef]
-    BuildConfiguration: NotRequired[BuildConfigurationTypeDef]
-    AutoCreateApplication: NotRequired[bool]
-    Process: NotRequired[bool]
-    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class CreatePlatformVersionRequestTypeDef(TypedDict):
     PlatformName: str
@@ -871,6 +892,7 @@ class RetrieveEnvironmentInfoResultMessageTypeDef(TypedDict):
 class EnvironmentResourceDescriptionTypeDef(TypedDict):
     EnvironmentName: NotRequired[str]
     AutoScalingGroups: NotRequired[list[AutoScalingGroupTypeDef]]
+    Cluster: NotRequired[ClusterTypeDef]
     Instances: NotRequired[list[InstanceTypeDef]]
     LaunchConfigurations: NotRequired[list[LaunchConfigurationTypeDef]]
     LaunchTemplates: NotRequired[list[LaunchTemplateTypeDef]]
@@ -952,6 +974,18 @@ class DescribeEnvironmentHealthResultTypeDef(TypedDict):
     InstancesHealth: InstanceHealthSummaryTypeDef
     RefreshedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateApplicationVersionMessageTypeDef(TypedDict):
+    ApplicationName: str
+    VersionLabel: str
+    Description: NotRequired[str]
+    SourceBuildInformation: NotRequired[SourceBuildInformationTypeDef]
+    SourceBundle: NotRequired[S3LocationTypeDef]
+    BuildConfiguration: NotRequired[BuildConfigurationTypeDef]
+    AutoCreateApplication: NotRequired[bool]
+    Process: NotRequired[bool]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ImageConfiguration: NotRequired[ImageConfigurationTypeDef]
 
 class ApplicationVersionDescriptionMessageTypeDef(TypedDict):
     ApplicationVersion: ApplicationVersionDescriptionTypeDef

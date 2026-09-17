@@ -18,6 +18,7 @@ Usage::
         ListFailureModeFindingsPaginator,
         ListInputSourcesPaginator,
         ListPoliciesPaginator,
+        ListPolicyEventsPaginator,
         ListReportsPaginator,
         ListResolvedTestRunTargetResourcesPaginator,
         ListResourcesPaginator,
@@ -46,6 +47,7 @@ Usage::
     list_failure_mode_findings_paginator: ListFailureModeFindingsPaginator = client.get_paginator("list_failure_mode_findings")
     list_input_sources_paginator: ListInputSourcesPaginator = client.get_paginator("list_input_sources")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
+    list_policy_events_paginator: ListPolicyEventsPaginator = client.get_paginator("list_policy_events")
     list_reports_paginator: ListReportsPaginator = client.get_paginator("list_reports")
     list_resolved_test_run_target_resources_paginator: ListResolvedTestRunTargetResourcesPaginator = client.get_paginator("list_resolved_test_run_target_resources")
     list_resources_paginator: ListResourcesPaginator = client.get_paginator("list_resources")
@@ -86,6 +88,8 @@ from .type_defs import (
     ListInputSourcesResponseTypeDef,
     ListPoliciesRequestPaginateTypeDef,
     ListPoliciesResponseTypeDef,
+    ListPolicyEventsRequestPaginateTypeDef,
+    ListPolicyEventsResponseTypeDef,
     ListReportsRequestPaginateTypeDef,
     ListReportsResponseTypeDef,
     ListResolvedTestRunTargetResourcesRequestPaginateTypeDef,
@@ -135,6 +139,7 @@ __all__ = (
     "ListFailureModeFindingsPaginator",
     "ListInputSourcesPaginator",
     "ListPoliciesPaginator",
+    "ListPolicyEventsPaginator",
     "ListReportsPaginator",
     "ListResolvedTestRunTargetResourcesPaginator",
     "ListResourcesPaginator",
@@ -278,6 +283,27 @@ class ListPoliciesPaginator(_ListPoliciesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListPolicies.html#ResilienceHubV2.Paginator.ListPolicies.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/paginators/#listpoliciespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListPolicyEventsPaginatorBase = Paginator[ListPolicyEventsResponseTypeDef]
+else:
+    _ListPolicyEventsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListPolicyEventsPaginator(_ListPolicyEventsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListPolicyEvents.html#ResilienceHubV2.Paginator.ListPolicyEvents)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/paginators/#listpolicyeventspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPolicyEventsRequestPaginateTypeDef]
+    ) -> PageIterator[ListPolicyEventsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListPolicyEvents.html#ResilienceHubV2.Paginator.ListPolicyEvents.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/paginators/#listpolicyeventspaginator)
         """
 
 

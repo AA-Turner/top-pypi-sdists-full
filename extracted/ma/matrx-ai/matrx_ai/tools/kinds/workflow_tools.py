@@ -283,6 +283,9 @@ class WorkflowPlanResult(KindModel):
     emitted_count: int | None = None
     detached_edges: int | None = None
     needs_wiring: list[str] | None = None
+    #: ``retire`` — the agent-authored settled anchor removed from the canvas.
+    retired_node_id: str | None = None
+    replaced_by: list[str] | None = None
     #: ``build_agent``.
     agent_id: str | None = None
     version_id: str | None = None

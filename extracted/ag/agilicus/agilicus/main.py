@@ -7887,6 +7887,8 @@ def update_launcher(
 @click.option("--allow-value-regex", multiple=True, type=str)
 @click.option("--disallow-name-exact", multiple=True, type=str)
 @click.option("--disallow-value-regex", multiple=True, type=str)
+@click.option("--no-follow-name-exact", multiple=True, type=str)
+@click.option("--no-follow-value-regex", multiple=True, type=str)
 @click.pass_context
 def add_launcher_interceptor_rule(
     ctx,
@@ -7895,6 +7897,8 @@ def add_launcher_interceptor_rule(
     allow_value_regex,
     disallow_name_exact,
     disallow_value_regex,
+    no_follow_name_exact,
+    no_follow_value_regex,
     **kwargs,
 ):
     result = launchers.add_interceptor_rule(
@@ -7904,6 +7908,8 @@ def add_launcher_interceptor_rule(
         allow_value_regex_list=list(allow_value_regex),
         disallow_name_exact_list=list(disallow_name_exact),
         disallow_value_regex_list=list(disallow_value_regex),
+        no_follow_name_exact_list=list(no_follow_name_exact),
+        no_follow_value_regex_list=list(no_follow_value_regex),
         **kwargs,
     )
     output_entry(ctx, result)
@@ -7916,6 +7922,8 @@ def add_launcher_interceptor_rule(
 @click.option("--allow-value-regex", multiple=True, type=str)
 @click.option("--disallow-name-exact", multiple=True, type=str)
 @click.option("--disallow-value-regex", multiple=True, type=str)
+@click.option("--no-follow-name-exact", multiple=True, type=str)
+@click.option("--no-follow-value-regex", multiple=True, type=str)
 @click.pass_context
 def remove_launcher_interceptor_rule(
     ctx,
@@ -7924,6 +7932,8 @@ def remove_launcher_interceptor_rule(
     allow_value_regex,
     disallow_name_exact,
     disallow_value_regex,
+    no_follow_name_exact,
+    no_follow_value_regex,
     **kwargs,
 ):
     result = launchers.remove_interceptor_rule(
@@ -7933,6 +7943,8 @@ def remove_launcher_interceptor_rule(
         allow_value_regex_list=list(allow_value_regex),
         disallow_name_exact_list=list(disallow_name_exact),
         disallow_value_regex_list=list(disallow_value_regex),
+        no_follow_name_exact_list=list(no_follow_name_exact),
+        no_follow_value_regex_list=list(no_follow_value_regex),
         **kwargs,
     )
     output_entry(ctx, result)

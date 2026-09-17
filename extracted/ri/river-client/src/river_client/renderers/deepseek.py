@@ -1,9 +1,10 @@
-"""DeepSeek V4 renderer for chat template formatting.
+"""DeepSeek V4 / V4.1 renderer for chat template formatting.
 
-DeepSeek V4 checkpoints (``deepseek-ai/DeepSeek-V4-Flash-0731`` and its
-quantized twins) ship **no** ``chat_template.jinja`` — the release carries a
-reference Python encoder instead — so ``tokenizer.apply_chat_template`` is
-unavailable and every caller has to hand-roll the format. Hand-rolling it is
+DeepSeek V4 and V4.1 checkpoints (``deepseek-ai/DeepSeek-V4-Flash-0731``,
+``deepseek-ai/DeepSeek-V4.1-Flash`` and their quantized twins) ship **no**
+``chat_template.jinja`` — each release carries a reference Python encoder
+instead — so ``tokenizer.apply_chat_template`` is unavailable and every
+caller has to hand-roll the format. Hand-rolling it is
 what this renderer exists to stop: the V4 generation prompt MUST end with a
 thinking marker, and dropping it does not fail loudly, it silently produces
 a model that decides per sample whether it is reasoning.
@@ -35,12 +36,22 @@ tool-less case too.
 
 Tool calls use the DSML dialect that river-serve parses with
 ``--tool-call-parser deepseek``.
+
+V4.1 (``v41=True``) keeps this structure and changes three things, mirroring
+the checkpoint's ``encoding/encoding.py``: the DSML tag names carry a leading
+space (``<｜DSML｜ calls>`` / `` invoke`` / `` parameter``) and tools may be
+namespaced (``ns::name``); thinking mode opens the conversation with a
+numeric effort prefix behind the ``<｜System｜>`` token; and a leading or
+mid-conversation system message is framed by that token too. Like SGLang,
+the empty tools-hosting system message is only inserted when tools are
+present, because V4.1 renders even an empty one as a token.
 """
 
 from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from river_client.renderers.base import (
@@ -48,6 +59,7 @@ from river_client.renderers.base import (
     Message,
     ParsedResponse,
     Renderer,
+    SamplePrompt,
     TextPart,
     ThinkingPart,
     Tokenizer,
@@ -69,6 +81,9 @@ _BOS = "<｜begin▁of▁sentence｜>"
 _EOS = "<｜end▁of▁sentence｜>"
 _USER = "<｜User｜>"
 _ASSISTANT = "<｜Assistant｜>"
+#: V4.1 only: frames the conversation opener (effort prefix and/or a leading
+#: system message) and every mid-conversation system message.
+_SYSTEM = "<｜System｜>"
 
 _THINK_OPEN = "<think>"
 _THINK_CLOSE = "</think>"
@@ -76,38 +91,97 @@ _THINK_CLOSE = "</think>"
 _TOOL_RESULT_OPEN = "<tool_result>"
 _TOOL_RESULT_CLOSE = "</tool_result>"
 
-_DSML_CALLS_OPEN = "<｜DSML｜tool_calls>"
-_DSML_CALLS_CLOSE = "</｜DSML｜tool_calls>"
-_DSML_INVOKE_OPEN = "<｜DSML｜invoke"
-_DSML_INVOKE_CLOSE = "</｜DSML｜invoke>"
-_DSML_PARAM_OPEN = "<｜DSML｜parameter"
-_DSML_PARAM_CLOSE = "</｜DSML｜parameter>"
+_DSML = "｜DSML｜"
 
-#: Every marker that terminates an enclosing DSML element. A parameter value
-#: containing any of them truncates the block at parse time.
-_DSML_CLOSE_MARKERS = (_DSML_PARAM_CLOSE, _DSML_INVOKE_CLOSE, _DSML_CALLS_CLOSE)
+#: V4.1's `render_reasoning_effort`: the numeric budget prefix thinking mode
+#: opens with, and the tier names it maps onto it. Default `high`, like the
+#: encoder and SGLang's `SGLANG_DSV41_REASONING_EFFORT`.
+_EFFORT_TEMPLATE = (
+    "Reasoning Effort: {budget} "
+    "(range 1-100, the higher the value, the more thorough the reasoning)\n\n"
+)
+_EFFORT_TIERS = {"low": 50, "high": 75, "max": 100}
+_EFFORT_DEFAULT = "high"
 
-# The tools instruction block, verbatim from the V4 encoder's
-# ``TOOLS_TEMPLATE`` (format placeholders resolved). Model-family syntax the
+
+@dataclass(frozen=True)
+class DsmlDialect:
+    """The DSML tag names of one DeepSeek encoder generation.
+
+    V4 names the block, invoke and parameter tags ``tool_calls`` / ``invoke``
+    / ``parameter``. V4.1's ``encoding/encoding.py`` renames them
+    `` calls`` / `` invoke`` / `` parameter``, leading space included, and
+    introduces tool namespaces, which qualify the rendered name as
+    ``ns::name``. Both parsers on both sides accept either grammar; only the
+    rendering side has to pick one.
+    """
+
+    calls: str
+    invoke: str
+    param: str
+    namespaces: bool
+
+    @property
+    def calls_open(self) -> str:
+        return f"<{_DSML}{self.calls}>"
+
+    @property
+    def calls_close(self) -> str:
+        return f"</{_DSML}{self.calls}>"
+
+    @property
+    def invoke_open(self) -> str:
+        return f"<{_DSML}{self.invoke}"
+
+    @property
+    def invoke_close(self) -> str:
+        return f"</{_DSML}{self.invoke}>"
+
+    @property
+    def param_open(self) -> str:
+        return f"<{_DSML}{self.param}"
+
+    @property
+    def param_close(self) -> str:
+        return f"</{_DSML}{self.param}>"
+
+    @property
+    def close_markers(self) -> tuple[str, str, str]:
+        """Every marker that terminates an enclosing DSML element. A
+        parameter value containing any of them truncates the block at parse
+        time."""
+        return (self.param_close, self.invoke_close, self.calls_close)
+
+
+DSML_V4 = DsmlDialect(
+    calls="tool_calls", invoke="invoke", param="parameter", namespaces=False
+)
+DSML_V41 = DsmlDialect(
+    calls=" calls", invoke=" invoke", param=" parameter", namespaces=True
+)
+_DIALECTS = (DSML_V4, DSML_V41)
+
+# The tools instruction block, verbatim from the encoders' ``TOOLS_TEMPLATE``
+# (format placeholders resolved per dialect). Model-family syntax the
 # checkpoint was post-trained on — not prose we own, so it must not be
 # paraphrased. river-serve renders the identical block from
-# ``tokenizer.rs::dsml_tools_block``; the two must stay byte-identical or a
+# ``tokenizer.rs::render_tools_block``; the two must stay byte-identical or a
 # client-rendered prompt and a `/v1/chat/completions` prompt disagree.
 _TOOLS_TEMPLATE = """## Tools
 
 You have access to a set of tools to help answer the user's question. \
-You can invoke tools by writing a "<｜DSML｜tool_calls>" block like the following:
+You can invoke tools by writing a "<｜DSML｜{calls}>" block like the following:
 
-<｜DSML｜tool_calls>
-<｜DSML｜invoke name="$TOOL_NAME">
-<｜DSML｜parameter name="$PARAMETER_NAME" string="true|false">$PARAMETER_VALUE\
-</｜DSML｜parameter>
+<｜DSML｜{calls}>
+<｜DSML｜{invoke} name="$TOOL_NAME">
+<｜DSML｜{param} name="$PARAMETER_NAME" string="true|false">$PARAMETER_VALUE\
+</｜DSML｜{param}>
 ...
-</｜DSML｜invoke>
-<｜DSML｜invoke name="$TOOL_NAME2">
+</｜DSML｜{invoke}>
+<｜DSML｜{invoke} name="$TOOL_NAME2">
 ...
-</｜DSML｜invoke>
-</｜DSML｜tool_calls>
+</｜DSML｜{invoke}>
+</｜DSML｜{calls}>
 
 String parameters should be specified as is and set `string="true"`. \
 For all other types (numbers, booleans, arrays, objects), pass the value in \
@@ -144,18 +218,74 @@ def _schema_json(schema: object) -> str:
     return json.dumps(schema, ensure_ascii=False)
 
 
-def dsml_tools_block(tools: list[ToolSpec]) -> str:
+def qualified_tool_name(name: str, namespace: str | None = None) -> str:
+    """The V4.1 encoder's ``_tool_name_for_encoding``.
+
+    A namespace, given separately or as the ``ns::`` prefix of the name
+    itself, qualifies the rendered name. The two spellings must agree, and
+    neither side may itself contain ``::`` — the encoder asserts on both.
+    """
+    prefix, separator, bare = name.partition("::")
+    if separator:
+        if namespace not in (None, prefix):
+            raise ValueError(f"Conflicting tool namespaces: {namespace} != {prefix}")
+        namespace, name = prefix, bare
+    if "::" in name:
+        raise ValueError(f"Tool name must not contain '::': {name}")
+    if namespace is not None and "::" in namespace:
+        raise ValueError(f"Tool namespace must not contain '::': {namespace}")
+    return name if namespace is None else f"{namespace}::{name}"
+
+
+def _v41_function_schema(tool: Any, function: dict[str, Any]) -> dict[str, Any]:
+    """The V4.1 encoder's ``tools_from_openai_format`` for one schema.
+
+    A tool-level ``namespace`` (a string, or ``{name, description}``) moves
+    onto the function, the rendered ``name`` becomes ``ns::name``, the
+    namespace's description is prepended to the function's, and the
+    ``namespace`` key itself is not rendered. Every other key keeps the
+    caller's order.
+    """
+    function = dict(function)
+    if (
+        isinstance(tool, dict)
+        and "function" in tool
+        and tool.get("namespace") is not None
+    ):
+        function["namespace"] = tool["namespace"]
+    namespace: Any = function.pop("namespace", None)
+    ns_name: str | None = (
+        namespace["name"] if isinstance(namespace, dict) else namespace
+    )
+    function["name"] = qualified_tool_name(function["name"], ns_name)
+    if isinstance(namespace, dict) and namespace.get("description"):
+        function["description"] = (
+            namespace["description"] + "\n" + (function.get("description") or "")
+        )
+    return function
+
+
+def dsml_tools_block(tools: list[ToolSpec], dialect: DsmlDialect = DSML_V4) -> str:
     """Render the DSML tools instruction block for ``tools``.
 
     Each schema is emitted as one JSON line. OpenAI-wrapped entries
     (``{"type": "function", "function": {...}}``) are unwrapped to the bare
-    function schema, matching river-serve's renderer.
+    function schema, matching river-serve's renderer. The V4.1 dialect also
+    resolves tool namespaces into the rendered name.
     """
-    schemas = "\n".join(
-        _schema_json(tool.get("function", tool) if isinstance(tool, dict) else tool)
-        for tool in tools
+    schemas = []
+    for tool in tools:
+        spec: Any = tool
+        function: Any = spec.get("function", spec) if isinstance(spec, dict) else spec
+        if dialect.namespaces and isinstance(function, dict):
+            function = _v41_function_schema(spec, function)
+        schemas.append(_schema_json(function))
+    return _TOOLS_TEMPLATE.format(
+        calls=dialect.calls,
+        invoke=dialect.invoke,
+        param=dialect.param,
+        schemas="\n".join(schemas),
     )
-    return _TOOLS_TEMPLATE.format(schemas=schemas)
 
 
 # ─── Response parsing ────────────────────────────────────────────────────
@@ -195,7 +325,7 @@ def _split_dsml_tag(segment: str) -> tuple[str, str] | None:
     return None
 
 
-def _parse_dsml_params(body: str) -> dict[str, Any] | None:
+def _parse_dsml_params(body: str, dialect: DsmlDialect) -> dict[str, Any] | None:
     """Parse the ``<｜DSML｜parameter>`` elements inside one invoke body.
 
     ``None`` (malformed invoke) on stray inter-parameter text, a missing or
@@ -205,10 +335,10 @@ def _parse_dsml_params(body: str) -> dict[str, Any] | None:
     """
     params: dict[str, Any] = {}
     rest = body
-    while (p := rest.find(_DSML_PARAM_OPEN)) != -1:
+    while (p := rest.find(dialect.param_open)) != -1:
         if rest[:p].strip():
             return None
-        split = _split_dsml_tag(rest[p + len(_DSML_PARAM_OPEN) :])
+        split = _split_dsml_tag(rest[p + len(dialect.param_open) :])
         if split is None:
             return None
         attrs, after_tag = split
@@ -217,7 +347,7 @@ def _parse_dsml_params(body: str) -> dict[str, Any] | None:
         flag = parsed.get("string")
         if key is None or flag not in ("true", "false"):
             return None
-        val_end = after_tag.find(_DSML_PARAM_CLOSE)
+        val_end = after_tag.find(dialect.param_close)
         if val_end == -1:
             return None
         raw = after_tag[:val_end]
@@ -233,13 +363,20 @@ def _parse_dsml_params(body: str) -> dict[str, Any] | None:
         if key in params:
             return None  # duplicate parameter name (reference rejects too)
         params[key] = value
-        rest = after_tag[val_end + len(_DSML_PARAM_CLOSE) :]
+        rest = after_tag[val_end + len(dialect.param_close) :]
     return None if rest.strip() else params
 
 
-def _parse_dsml_invoke(segment: str) -> ToolCall | UnparsedToolCall:
-    """Parse one ``<｜DSML｜invoke ...>...</｜DSML｜invoke>`` segment."""
-    inner = segment[len(_DSML_INVOKE_OPEN) : -len(_DSML_INVOKE_CLOSE)]
+def _parse_dsml_invoke(
+    segment: str, dialect: DsmlDialect
+) -> ToolCall | UnparsedToolCall:
+    """Parse one ``<｜DSML｜invoke ...>...</｜DSML｜invoke>`` segment.
+
+    A V4.1 namespace stays in the name as ``ns::name``: that is how the
+    encoder renders it back, so a parsed call round-trips into a prompt
+    unchanged.
+    """
+    inner = segment[len(dialect.invoke_open) : -len(dialect.invoke_close)]
     split = _split_dsml_tag(inner)
     if split is None:
         return UnparsedToolCall(raw_text=segment, error="Malformed DSML invoke tag")
@@ -247,7 +384,7 @@ def _parse_dsml_invoke(segment: str) -> ToolCall | UnparsedToolCall:
     name = _dsml_attrs(attrs).get("name", "")
     if not name:
         return UnparsedToolCall(raw_text=segment, error="Missing invoke name")
-    params = _parse_dsml_params(body)
+    params = _parse_dsml_params(body, dialect)
     if params is None:
         return UnparsedToolCall(raw_text=segment, error="Malformed DSML parameters")
     return ToolCall(
@@ -259,23 +396,44 @@ def _parse_dsml_invoke(segment: str) -> ToolCall | UnparsedToolCall:
     )
 
 
+def _dialect_of(text: str) -> DsmlDialect | None:
+    """The dialect of the calls block in ``text``, if any.
+
+    A dialect whose block is CLOSED wins over one whose opener merely
+    appears (text quoting the other grammar's tag, say); among closed
+    blocks the earliest opener wins, matching the parsers on both sides,
+    which take the first well-formed block as the one that ends the turn.
+    """
+    closed = []
+    opened = []
+    for d in _DIALECTS:
+        pos = text.find(d.calls_open)
+        if pos == -1:
+            continue
+        opened.append((pos, d))
+        if text.find(d.calls_close, pos + len(d.calls_open)) != -1:
+            closed.append((pos, d))
+    ranked = closed or opened
+    return min(ranked, key=lambda item: item[0])[1] if ranked else None
+
+
 def parse_deepseek_content_blocks(
     content: str,
 ) -> tuple[list[ContentPart], list[ToolCall | UnparsedToolCall]] | None:
-    """Parse DeepSeek V4 ``<think>`` and DSML tool-call blocks.
+    """Parse DeepSeek ``<think>`` and DSML tool-call blocks (V4 or V4.1 tags).
 
     Returns ``None`` when the text carries neither, so callers can keep the
     plain-string content form. A trailing unclosed ``<think>`` block is
     treated as thinking: long generations truncate before ``</think>``.
     """
-    # A think block is only recognized at the very start: V4 emits its
-    # reasoning before anything else, and the generation prompt opens the
-    # block, so that is the only position it can legitimately occupy. A
+    # A think block is only recognized at the very start: the model emits
+    # its reasoning before anything else, and the generation prompt opens
+    # the block, so that is the only position it can legitimately occupy. A
     # `<think>` appearing mid-text is the model quoting the tag, not
     # reasoning — return None there rather than handing back parts with raw
     # tags embedded in the TextPart, so the caller keeps the plain string.
     has_reasoning = content.startswith(_THINK_OPEN)
-    if not has_reasoning and _DSML_CALLS_OPEN not in content:
+    if not has_reasoning and _dialect_of(content) is None:
         return None
 
     parts: list[ContentPart] = []
@@ -295,6 +453,8 @@ def parse_deepseek_content_blocks(
         if thinking.strip():
             parts.append(ThinkingPart(type="thinking", thinking=thinking.strip()))
 
+    # The dialect is read from what is LEFT after the reasoning: reasoning
+    # that quotes the other grammar's tag must not pin the parser to it.
     visible, calls = _extract_dsml_tool_calls(remainder)
     tool_calls.extend(calls)
     if visible:
@@ -303,35 +463,38 @@ def parse_deepseek_content_blocks(
 
 
 def _extract_dsml_tool_calls(
-    text: str,
+    text: str, dialect: DsmlDialect | None = None
 ) -> tuple[str, list[ToolCall | UnparsedToolCall]]:
     """Split ``text`` into (visible text, tool calls).
 
-    The reference format emits at most ONE ``tool_calls`` block and it
-    terminates the turn; text before and after it stays visible. An
-    unterminated block is left visible in full — the model was cut off
-    mid-call and there is nothing well-formed to report.
+    The reference format emits at most ONE calls block and it terminates the
+    turn; text before and after it stays visible. An unterminated block is
+    left visible in full — the model was cut off mid-call and there is
+    nothing well-formed to report.
     """
-    open_at = text.find(_DSML_CALLS_OPEN)
+    dialect = dialect or _dialect_of(text)
+    if dialect is None:
+        return text, []
+    open_at = text.find(dialect.calls_open)
     if open_at == -1:
         return text, []
-    body_start = open_at + len(_DSML_CALLS_OPEN)
-    close_rel = text[body_start:].find(_DSML_CALLS_CLOSE)
+    body_start = open_at + len(dialect.calls_open)
+    close_rel = text[body_start:].find(dialect.calls_close)
     if close_rel == -1:
         return text, []
 
     calls: list[ToolCall | UnparsedToolCall] = []
     leftover: list[str] = []
     rest = text[body_start : body_start + close_rel]
-    while (inv := rest.find(_DSML_INVOKE_OPEN)) != -1:
+    while (inv := rest.find(dialect.invoke_open)) != -1:
         leftover.append(rest[:inv])
-        end_rel = rest[inv:].find(_DSML_INVOKE_CLOSE)
+        end_rel = rest[inv:].find(dialect.invoke_close)
         if end_rel == -1:
             leftover.append(rest[inv:])
             rest = ""
             break
-        seg_end = inv + end_rel + len(_DSML_INVOKE_CLOSE)
-        calls.append(_parse_dsml_invoke(rest[inv:seg_end]))
+        seg_end = inv + end_rel + len(dialect.invoke_close)
+        calls.append(_parse_dsml_invoke(rest[inv:seg_end], dialect))
         rest = rest[seg_end:]
     leftover.append(rest)
 
@@ -340,7 +503,7 @@ def _extract_dsml_tool_calls(
     fragments = [
         text[:open_at].rstrip("\n"),
         "".join(leftover).strip(),
-        text[body_start + close_rel + len(_DSML_CALLS_CLOSE) :].lstrip("\n"),
+        text[body_start + close_rel + len(dialect.calls_close) :].lstrip("\n"),
     ]
     return "\n".join(f for f in fragments if f), calls
 
@@ -350,6 +513,30 @@ def strip_deepseek_thinking_from_text(text: str) -> str:
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     text = re.sub(r"<think>.*$", "", text, flags=re.DOTALL)
     return text.lstrip()
+
+
+def resolve_reasoning_effort(effort: int | str | None) -> int:
+    """The V4.1 encoder's effort validation: a tier name or an integer budget
+    in ``[1, 100]``; ``None`` is the encoder default (``high`` = 75)."""
+    if effort is None:
+        effort = _EFFORT_DEFAULT
+    if isinstance(effort, str):
+        if effort not in _EFFORT_TIERS:
+            raise ValueError(
+                f"Invalid reasoning effort for deepseek_v41: {effort!r}, should "
+                f"be int within [1,100] or {list(_EFFORT_TIERS)}"
+            )
+        return _EFFORT_TIERS[effort]
+    if (
+        isinstance(effort, bool)
+        or not isinstance(effort, int)
+        or not 1 <= effort <= 100
+    ):
+        raise ValueError(
+            f"Invalid reasoning effort for deepseek_v41: {effort!r}, should "
+            f"be int within [1,100] or {list(_EFFORT_TIERS)}"
+        )
+    return effort
 
 
 # ─── Renderer ────────────────────────────────────────────────────────────
@@ -368,6 +555,11 @@ class DeepSeekV4Renderer(Renderer):
     ``strip_thinking_from_history`` drops ``<think>`` blocks from assistant
     turns before the last user message, matching the reference encoder's
     ``drop_thinking`` default.
+
+    ``v41`` selects the V4.1 encoder's format (see the module docstring);
+    ``reasoning_effort`` is its numeric thinking budget — ``low`` / ``high``
+    / ``max`` or an integer in ``[1, 100]``, default ``high`` — and is only
+    meaningful there.
     """
 
     def __init__(
@@ -376,10 +568,22 @@ class DeepSeekV4Renderer(Renderer):
         *,
         thinking: bool = True,
         strip_thinking_from_history: bool = True,
+        v41: bool = False,
+        reasoning_effort: int | str | None = None,
     ) -> None:
         super().__init__(tokenizer)
         self.thinking = thinking
         self.strip_thinking_from_history = strip_thinking_from_history
+        self.v41 = v41
+        self.dialect = DSML_V41 if v41 else DSML_V4
+        if not v41 and reasoning_effort is not None:
+            raise ValueError(
+                "reasoning_effort is a DeepSeek V4.1 control; the V4 encoder "
+                "has no numeric budget, so it would be silently dropped."
+            )
+        self.reasoning_effort = (
+            resolve_reasoning_effort(reasoning_effort) if v41 else None
+        )
 
     # ── Prompt building ──────────────────────────────────────────────
 
@@ -395,6 +599,19 @@ class DeepSeekV4Renderer(Renderer):
         pieces.append(self._generation_prompt())
         return "".join(pieces)
 
+    def build_continuation_prompt(self, messages, *, last_stop):
+        if any(m["role"] not in ("user", "tool") for m in messages):
+            raise ValueError("DeepSeek continuations require user or tool observations")
+        prefix = "" if last_stop == _EOS else _EOS
+        rendered = self._render_all(messages, None)
+        return SamplePrompt(
+            prefix
+            + "".join(header + body for header, body in rendered)
+            + self._generation_prompt(),
+            [],
+            [],
+        )
+
     def get_stop_strings(self) -> list[str]:
         return [_EOS]
 
@@ -409,13 +626,28 @@ class DeepSeekV4Renderer(Renderer):
         return _ASSISTANT + (_THINK_OPEN if self.thinking else _THINK_CLOSE)
 
     def _prefix(self, messages: list[Message], tools: list[ToolSpec] | None) -> str:
-        """BOS, plus a standalone tools block when there is no system turn."""
+        """BOS, the V4.1 opener, and a standalone tools block when there is
+        no system turn.
+
+        The V4 encoder always inserts an EMPTY system message (it renders to
+        nothing) and joins it to the tools block with "\n\n", so the
+        separator is there even with nothing in front of it. V4.1 frames the
+        conversation with ``<｜System｜>`` whenever thinking mode opens it
+        with the effort prefix OR there is a system message — and SGLang
+        inserts the empty host only when tools need it, so a tool-less
+        chat-mode request starts straight at the user marker.
+        """
         prefix = _BOS
-        if tools and (not messages or messages[0]["role"] != "system"):
-            # The encoder inserts an EMPTY system message and joins it to the
-            # block with "\n\n", so the separator is there even with nothing
-            # in front of it.
-            prefix += "\n\n" + dsml_tools_block(tools)
+        has_system = bool(messages) and messages[0]["role"] == "system"
+        if self.v41:
+            if self.thinking:
+                prefix += _SYSTEM + _EFFORT_TEMPLATE.format(
+                    budget=self.reasoning_effort
+                )
+            elif has_system or tools:
+                prefix += _SYSTEM
+        if tools and not has_system:
+            prefix += "\n\n" + dsml_tools_block(tools, self.dialect)
         return prefix
 
     def _render_all(
@@ -462,8 +694,13 @@ class DeepSeekV4Renderer(Renderer):
         if role == "system":
             content = self._text_of(message)
             if tools and idx == 0:
-                content += "\n\n" + dsml_tools_block(tools)
-            return "", content
+                content += "\n\n" + dsml_tools_block(tools, self.dialect)
+            # V4.1 frames a mid-conversation system message with the system
+            # token (the leading one is framed by `_prefix`); it also counts
+            # as a user turn for the assistant header that follows, which
+            # the assistant branch emits itself.
+            header = _SYSTEM if self.v41 and idx > 0 else ""
+            return header, content
 
         if role in ("user", "tool"):
             # `merge_tool_messages` folds a run of consecutive user AND tool
@@ -513,7 +750,9 @@ class DeepSeekV4Renderer(Renderer):
 
     # ── Response parsing ─────────────────────────────────────────────
 
-    def parse_response(self, text: str) -> ParsedResponse:
+    def parse_response(
+        self, text: str, *, tools: list[ToolSpec] | None = None
+    ) -> ParsedResponse:
         stop_found = text.endswith(_EOS)
         if stop_found:
             text = text[: -len(_EOS)]
@@ -640,7 +879,7 @@ class DeepSeekV4Renderer(Renderer):
         renders, so pre-baking and inline rendering are interchangeable —
         but do BOTH and the block lands in the prompt twice.
         """
-        block = dsml_tools_block(tools) if tools else ""
+        block = dsml_tools_block(tools, self.dialect) if tools else ""
         if system_prompt and block:
             return Message(role="system", content=system_prompt + "\n\n" + block)
         return Message(role="system", content=block or system_prompt)
@@ -652,9 +891,23 @@ class DeepSeekV4Renderer(Renderer):
         text IS the string value, ``false`` means it is JSON. That flag is
         how the model (and both parsers) tell ``"3"`` from ``3``.
         """
+        d = self.dialect
         invokes: list[str] = []
         for call in tool_calls:
             name = call["function"]["name"]
+            if d.namespaces:
+                # `tool_calls_from_openai_format`: the call-level namespace
+                # wins over the function-level one; `::` in the name is the
+                # same information spelled inline.
+                fields: Any = call
+                namespace = fields.get("namespace") or fields["function"].get(
+                    "namespace"
+                )
+                if namespace is not None and not isinstance(namespace, str):
+                    raise ValueError(
+                        f"tool call namespace must be a string, got {namespace!r}"
+                    )
+                name = qualified_tool_name(name, namespace)
             raw_args = call["function"].get("arguments") or {}
             if isinstance(raw_args, str):
                 try:
@@ -683,7 +936,7 @@ class DeepSeekV4Renderer(Renderer):
                 # close, so a value carrying either one truncates the
                 # enclosing element and the call round-trips as an
                 # UnparsedToolCall — the outcome this check exists to stop.
-                for marker in _DSML_CLOSE_MARKERS:
+                for marker in d.close_markers:
                     if marker in text:
                         raise ValueError(
                             f"tool {name!r} parameter {key!r} contains "
@@ -691,9 +944,9 @@ class DeepSeekV4Renderer(Renderer):
                             "DSML element early; DSML has no escape for it."
                         )
                 params.append(
-                    f'{_DSML_PARAM_OPEN} name="{key}" '
+                    f'{d.param_open} name="{key}" '
                     f'string="{"true" if is_str else "false"}">'
-                    f"{text}{_DSML_PARAM_CLOSE}"
+                    f"{text}{d.param_close}"
                 )
             # The encoder builds the body as "\n".join(params) and wraps it
             # in "\n...\n", so a zero-parameter invoke carries TWO newlines,
@@ -701,9 +954,9 @@ class DeepSeekV4Renderer(Renderer):
             # that to one and diverges on every argument-less call.
             body = "\n".join(params)
             invokes.append(
-                f'{_DSML_INVOKE_OPEN} name="{name}">\n{body}\n{_DSML_INVOKE_CLOSE}\n'
+                f'{d.invoke_open} name="{name}">\n{body}\n{d.invoke_close}\n'
             )
-        return f"\n\n{_DSML_CALLS_OPEN}\n{''.join(invokes)}{_DSML_CALLS_CLOSE}"
+        return f"\n\n{d.calls_open}\n{''.join(invokes)}{d.calls_close}"
 
     # ── Internal helpers ─────────────────────────────────────────────
 
@@ -749,12 +1002,13 @@ class DeepSeekV4Renderer(Renderer):
     def _reject_non_text_parts(self, parts: list[ContentPart]) -> None:
         """Fail loudly on content this text-only renderer cannot express.
 
-        DeepSeek V4 Flash has no vision tower; silently dropping image parts
-        would produce corrupt training data rather than an obvious error.
+        DeepSeek V4 Flash has no vision tower, and this renderer does not
+        carry V4.1's image placeholders; silently dropping image parts would
+        produce corrupt training data rather than an obvious error.
         """
         for p in parts:
             if p["type"] not in ("text", "thinking"):
                 raise ValueError(
                     f"{type(self).__name__} cannot render {p['type']!r} content "
-                    "parts; DeepSeek V4 is text-only."
+                    "parts; this renderer is text-only."
                 )

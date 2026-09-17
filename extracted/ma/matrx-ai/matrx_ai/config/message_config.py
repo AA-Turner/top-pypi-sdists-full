@@ -904,6 +904,94 @@ class UnifiedMessage:
         return stripped
 
 
+# ── AUTHORSHIP: who actually wrote a user-role turn ─────────────────────────
+#
+# 🚨 A `user` ROW IS NOT PROOF A HUMAN TYPED IT. Three different things land in
+# the user tier: what the person typed, the agent definition's own seeded
+# opening turn plus resolved launch variables (merged into `content` so provider
+# replay stays lossless), and turns the HOST injects mid-loop — the orchestrator
+# gates' "⚠️ SYSTEM NOTICE (not from the user)" nudges. `content` is the
+# complete provider payload; `user_content` is the authorship record.
+#
+# Before this, a host-injected turn persisted with `user_content` NULL, which
+# the contract defines as "a historical row predating this contract" — so a
+# reader doing it RIGHT fell back to `content` and quoted the machine's own
+# notice as the person's words (matrx-frontend D327; live row
+# `chat.message` 363252d8-08d4-444e-9795-b139a607d3ad). Authorship can only be
+# stamped by the writer; no reader can infer it. So: every host-authored user
+# turn is built HERE, carries an explicit EMPTY `user_content` (the human said
+# nothing) and an `authored_by: host` marker, and NEVER leaves it NULL.
+
+HOST_AUTHORED_BY = "host"
+
+
+def host_authored_user_turn(text: str, *, reason: str) -> "UnifiedMessage":
+    """A user-role turn the HOST wrote — never something a person typed.
+
+    `content` carries the notice the model must read; `user_content` is an
+    explicit empty list, which is the difference between "the human said
+    nothing here" and "we don't know" (NULL). `metadata.authored_by` names the
+    author for any surface that wants to say so out loud, and `authored_reason`
+    names which gate wrote it.
+
+    Every mid-loop injection goes through this function. A bare
+    `UnifiedMessage(role="user", ...)` in orchestrator code is the defect it
+    exists to prevent (guard:
+    `packages/matrx-ai/tests/test_host_authored_user_turns.py`).
+    """
+    return UnifiedMessage(
+        role="user",
+        content=[TextContent(text=text)],
+        user_content=[],
+        metadata={"authored_by": HOST_AUTHORED_BY, "authored_reason": reason},
+    )
+
+
+def human_authored_text(role: Any, content: Any, user_content: Any) -> str:
+    """THE ONE projection of "what the human actually said" on a stored message.
+
+    Takes the raw stored shapes (a `chat.message` row's columns, or a
+    `UnifiedMessage`'s fields), not a model, so every reader — ORM row, `.values()`
+    dict, in-memory message — can use the same rule:
+
+      * a non-user row is never a human turn under this contract → its `content`
+        is returned as-is (the caller decides what a non-user row means);
+      * a user row with `user_content` NOT NULL → exactly that, even when it is
+        empty (empty means the human wrote nothing: a host-injected turn, which
+        must project to "" and be dropped by the caller, never quoted);
+      * a user row with `user_content` NULL → `content`, because NULL means the
+        row predates this contract, not that the input was empty.
+
+    Anything unrecognized contributes "" rather than JSON noise a reader would
+    quote at a person.
+    """
+    role_value = getattr(role, "value", role)
+    if str(role_value) == "user" and user_content is not None:
+        return content_text(user_content)
+    return content_text(content)
+
+
+def content_text(content: Any) -> str:
+    """Text blocks only. Tool machinery is not speech."""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    parts: list[str] = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and block.get("type", "text") in ("text", "input_text"):
+            text = block.get("text")
+            if isinstance(text, str):
+                parts.append(text)
+        else:
+            text = getattr(block, "text", None)
+            if isinstance(text, str) and getattr(block, "type", "text") in ("text", "input_text"):
+                parts.append(text)
+    return "\n".join(part for part in parts if part.strip())
+
+
 @dataclass
 class MessageList:
     """

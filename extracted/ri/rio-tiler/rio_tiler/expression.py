@@ -15,16 +15,13 @@ _ALLOWED_NODES = (
     ast.Expression,
     ast.BinOp,
     ast.UnaryOp,
-    ast.BoolOp,
     ast.Compare,
-    ast.IfExp,
     ast.Constant,
     ast.Name,
     ast.Call,
     ast.Load,
     ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow, ast.Mod, ast.FloorDiv,
-    ast.USub, ast.UAdd, ast.Not,
-    ast.And, ast.Or,
+    ast.USub, ast.UAdd,
     ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
     ast.BitAnd, ast.BitOr, ast.BitXor, ast.Invert,
 )
@@ -130,5 +127,13 @@ def apply_expression(
                 if bloc
             ]
         )
-    except KeyError as e:
-        raise InvalidExpression(f"Invalid band/asset name {str(e)}") from e
+
+    # NOTE: MemoryError is re-raised because an allocation failure depends on the machine.
+    except MemoryError as e:
+        raise e
+
+    # NOTE: We could explicitly handle the other error types, rather than using the Exception catch-all,
+    # but that would require tracking the various types of exceptions that numexpr and numpy could raise,
+    # and numexpr doesn't even document the specific exceptions it can raise.
+    except Exception as e:
+        raise InvalidExpression(f"Invalid expression: {e}") from e

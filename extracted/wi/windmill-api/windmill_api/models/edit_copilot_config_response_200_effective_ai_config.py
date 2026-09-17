@@ -51,6 +51,11 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
         copilot_disabled (Union[Unset, bool]): Hides the Windmill AI assistant (chat, sessions, code generation,
             completion, fixes) from the workspace UI. Read from the workspace's own settings even when the providers served
             fall back to the instance config. AI agent steps and the AI sandbox in flows are unaffected.
+        sessions_storage_disabled (Union[Unset, bool]): Stops browsers from backing their AI sessions up to the
+            workspace's object storage. Read from the workspace's own settings like `copilot_disabled`.
+        sessions_retention_days (Union[Unset, int]): The server deletes the backup of a session no push has reached for
+            this many days. Unset keeps backups until the user deletes the session. Read from the workspace's own settings
+            like `copilot_disabled`.
     """
 
     providers: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigProviders"] = UNSET
@@ -62,6 +67,8 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
     free_tier: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigFreeTier"] = UNSET
     model_pricing: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigModelPricing"] = UNSET
     copilot_disabled: Union[Unset, bool] = UNSET
+    sessions_storage_disabled: Union[Unset, bool] = UNSET
+    sessions_retention_days: Union[Unset, int] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -98,6 +105,8 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
             model_pricing = self.model_pricing.to_dict()
 
         copilot_disabled = self.copilot_disabled
+        sessions_storage_disabled = self.sessions_storage_disabled
+        sessions_retention_days = self.sessions_retention_days
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -120,6 +129,10 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
             field_dict["model_pricing"] = model_pricing
         if copilot_disabled is not UNSET:
             field_dict["copilot_disabled"] = copilot_disabled
+        if sessions_storage_disabled is not UNSET:
+            field_dict["sessions_storage_disabled"] = sessions_storage_disabled
+        if sessions_retention_days is not UNSET:
+            field_dict["sessions_retention_days"] = sessions_retention_days
 
         return field_dict
 
@@ -213,6 +226,10 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
 
         copilot_disabled = d.pop("copilot_disabled", UNSET)
 
+        sessions_storage_disabled = d.pop("sessions_storage_disabled", UNSET)
+
+        sessions_retention_days = d.pop("sessions_retention_days", UNSET)
+
         edit_copilot_config_response_200_effective_ai_config = cls(
             providers=providers,
             default_model=default_model,
@@ -223,6 +240,8 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
             free_tier=free_tier,
             model_pricing=model_pricing,
             copilot_disabled=copilot_disabled,
+            sessions_storage_disabled=sessions_storage_disabled,
+            sessions_retention_days=sessions_retention_days,
         )
 
         edit_copilot_config_response_200_effective_ai_config.additional_properties = d

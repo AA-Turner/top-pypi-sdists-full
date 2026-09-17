@@ -92,6 +92,16 @@ class RiverServiceStub(object):
                 request_serializer=river__pb2.UploadChunkRequest.SerializeToString,
                 response_deserializer=river__pb2.UploadChunkResponse.FromString,
                 _registered_method=True)
+        self.UploadImage = channel.unary_unary(
+                '/river.api.v1.RiverService/UploadImage',
+                request_serializer=river__pb2.UploadImageRequest.SerializeToString,
+                response_deserializer=river__pb2.ImageHandle.FromString,
+                _registered_method=True)
+        self.ReleaseImage = channel.unary_unary(
+                '/river.api.v1.RiverService/ReleaseImage',
+                request_serializer=river__pb2.ReleaseImageRequest.SerializeToString,
+                response_deserializer=river__pb2.ReleaseImageResponse.FromString,
+                _registered_method=True)
         self.ForwardBackward = channel.unary_unary(
                 '/river.api.v1.RiverService/ForwardBackward',
                 request_serializer=river__pb2.ForwardBackwardRequest.SerializeToString,
@@ -116,6 +126,16 @@ class RiverServiceStub(object):
                 '/river.api.v1.RiverService/SampleFromCheckpoint',
                 request_serializer=river__pb2.SampleFromCheckpointRequest.SerializeToString,
                 response_deserializer=river__pb2.AsyncResponse.FromString,
+                _registered_method=True)
+        self.SubmitSamplingBatch = channel.unary_unary(
+                '/river.api.v1.RiverService/SubmitSamplingBatch',
+                request_serializer=river__pb2.SubmitSamplingBatchRequest.SerializeToString,
+                response_deserializer=river__pb2.SubmitSamplingBatchResponse.FromString,
+                _registered_method=True)
+        self.RetrieveSamplingResults = channel.unary_stream(
+                '/river.api.v1.RiverService/RetrieveSamplingResults',
+                request_serializer=river__pb2.RetrieveSamplingResultsRequest.SerializeToString,
+                response_deserializer=river__pb2.SamplingResult.FromString,
                 _registered_method=True)
         self.ChatCompleteFromBase = channel.unary_unary(
                 '/river.api.v1.RiverService/ChatCompleteFromBase',

@@ -10,24 +10,13 @@ from pathlib import Path
 
 import typer
 
-from plato.cli.chronos.settings import get_settings as get_chronos_settings
+from plato.cli.publish_flow import AGENT, find_wheel, publish_image_then_wheel, registry_api_url
 from plato.cli.utils import (
     console,
     maybe_bump_package_version,
     prepare_build_context_with_sdk,
     require_api_key,
-    wait_for_pypi_version,
 )
-from plato.utils.ecr import (
-    ECR_REGISTRY,
-    get_image_digest,
-    publish_docker_image,
-    retag_agent_image_via_chronos,
-    retag_image,
-)
-from plato.utils.pypi_index import plato_token_simple_index
-from plato.v2 import Env, Plato
-from plato.v2.types import SimConfigCompute
 
 
 def _extract_schemas(pkg_path: Path, package_name: str) -> tuple[dict | None, dict | None, dict | None]:
@@ -157,191 +146,6 @@ def _extract_template_variables(build_config_schema: dict | None) -> dict[str, s
 
 
 agent_app = typer.Typer(help="Manage and deploy agents")
-
-
-# Cold-image boot = docker pull + rootfs conversion + snapshot-store ingest,
-# which is the 10+ minute path this prefetch exists to absorb, so the client
-# polls wait_for_ready for up to 30 minutes (a timeout here blocks promotion
-# to :latest). The VM lifetime sent in the /make body must cover that same
-# window: the backend stamps job_start_time when the job is matched to a VM
-# slot — before the rootfs build — and the VM agent force-shuts the VM once
-# job_max_timeout elapses (plato: node_provider match callback +
-# vm_lifecycle.check_job_timeout), so a short lifetime would kill a slow
-# ingest mid-flight. The VM is closed the moment it is ready and the worker
-# heartbeat timeout (300s) reaps it if this CLI dies, so the long lifetime
-# never actually keeps a VM alive.
-_PREFETCH_TIMEOUT_S = 1800
-
-
-def _prefetch_agent_image(image_url: str, agent_name: str) -> bool:
-    """Boot one throwaway VM from ``image_url`` so its rootfs lands in the snapshot store.
-
-    Returns True only if the VM actually came up. This is the gate for promoting
-    the image to ``:latest``: a digest that has never booted must not become the
-    tag every launch resolves.
-    """
-    console.print(f"[cyan]Starting VM to prefetch {image_url}...[/cyan]")
-
-    try:
-        plato = Plato()
-        env = Env.resource(
-            simulator=f"prefetch-{agent_name}",
-            sim_config=SimConfigCompute(),
-            docker_image_url=image_url,
-            upload_rootfs=True,
-            rootfs_storage_backend="snapshot-store",
-        )
-        session = plato.sessions.create(
-            envs=[env],
-            timeout=_PREFETCH_TIMEOUT_S,
-            ready_timeout=_PREFETCH_TIMEOUT_S,
-            connect_network=False,
-        )
-        console.print("[green]Prefetch complete - rootfs cached[/green]")
-        session.close()
-        plato.close()
-        return True
-    except Exception as e:
-        console.print(f"[red]Prefetch failed: {e}[/red]")
-        return False
-
-
-def _retag_agent_image(
-    package_name: str, repository: str, source_tag: str, target_tag: str, api_key: str | None
-) -> bool:
-    """Copy ``source_tag`` -> ``target_tag`` in the agent's ECR repo (manifest copy, same digest).
-
-    Prefers the server-side retag (Chronos uses its own ECS task creds, so the
-    author needs no local AWS access), falling back to local AWS credentials if
-    the endpoint is unavailable. The Chronos call needs an API key, which is
-    absent on dry runs — those go straight to the local fallback.
-    """
-    retagged = False
-    if api_key is not None:
-        retagged, retag_err = retag_agent_image_via_chronos(
-            get_chronos_settings().chronos_url, package_name, source_tag, target_tag, api_key
-        )
-        if not retagged:
-            console.print(
-                f"[dim]Chronos retag :{source_tag} -> :{target_tag} failed ({retag_err}); trying local AWS[/dim]"
-            )
-    if not retagged:
-        retagged = retag_image(repository, source_tag, target_tag)
-    return retagged
-
-
-def _retag_source_tags(previous_version: str, version: str) -> list[str]:
-    """Image tags a --skip-docker publish tries, in order, as the source for :<version>.
-
-    The version being bumped from comes first: it is the last thing this
-    checkout published, so a ``--dev --no-skip-docker`` rebuild (which never
-    moves :latest) chains forward into the python-only dev publishes that
-    follow it, and a fresh checkout starts from its release tag. :latest is the
-    fallback — it is also the only candidate when the version was bumped
-    externally so previous == new.
-    """
-    tags = []
-    if previous_version and previous_version != version:
-        tags.append(previous_version)
-    tags.append("latest")
-    return tags
-
-
-def _publish_agent_image(
-    agent_name: str,
-    version: str,
-    build_path: Path,
-    description: str,
-    dry_run: bool,
-    build_args: dict[str, str] | None = None,
-    no_cache: bool = False,
-    package_name: str | None = None,
-    api_key: str | None = None,
-    promote_latest: bool = True,
-) -> None:
-    """Build and publish an agent Docker image to ECR, then (release only) promote it to :latest.
-
-    Ordered push :<version> -> prefetch :<version> -> retag :<version> as
-    :latest. :latest only ever moves to a digest that has already booted on a
-    node and seeded the snapshot store; a retag is a manifest copy, so the
-    promoted tag is warm the instant it flips. Anything that resolves :latest
-    (launches, the next --skip-docker retag) never pays the 10+ minute
-    cold-ingest path. With ``promote_latest=False`` (dev publishes) the image
-    is pushed and prefetched under :<version> only — :latest is prod's tag and
-    a laptop iteration has no business moving it; the next --dev --skip-docker
-    publish chains from :<version> via _retag_source_tags.
-    """
-    # Check Docker is available
-    if not shutil.which("docker"):
-        console.print("[red]Error: docker not found[/red]")
-        raise typer.Exit(1)
-
-    repository = f"vm/rootfs/plato-agents/{agent_name}"
-    ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
-    latest_image = f"{ECR_REGISTRY}/{repository}:latest"
-
-    console.print(f"[cyan]Agent:[/cyan] {agent_name}")
-    console.print(f"[cyan]Version:[/cyan] {version}")
-    console.print()
-
-    if dry_run:
-        console.print("[yellow]Dry run - would build and push:[/yellow]")
-        console.print(f"  {ecr_image}")
-        if promote_latest:
-            console.print(f"  then prefetch it and promote it to {latest_image}")
-        else:
-            console.print("  then prefetch it (dev publish: :latest is not moved)")
-        return
-
-    # Current :latest digest, to detect a no-op rebuild below.
-    old_latest_digest = get_image_digest(repository, "latest")
-
-    console.print("[cyan]Building and pushing Docker image...[/cyan]")
-    result = publish_docker_image(
-        name=agent_name,
-        version=version,
-        build_path=str(build_path),
-        repo_prefix="vm/rootfs/plato-agents",
-        build_args=build_args,
-        no_cache=no_cache,
-    )
-
-    if not result.success:
-        console.print(f"[red]{result.error}[/red]")
-        raise typer.Exit(1)
-
-    console.print(f"[green]Published:[/green] {result.ecr_image}")
-    console.print("\n[bold]Use in config:[/bold]")
-    console.print(f'  "image": "{result.ecr_image}"')
-
-    new_digest = get_image_digest(repository, version)
-    if new_digest is not None and new_digest == old_latest_digest:
-        console.print("\n[dim]Docker image digest unchanged - :latest already points at it, skipping prefetch[/dim]")
-        return
-
-    console.print()
-    console.print("[bold]Step 4: Prefetching image...[/bold]")
-    if not _prefetch_agent_image(ecr_image, agent_name):
-        console.print(
-            f"[red]Prefetch failed: {ecr_image} is pushed but has not booted"
-            + (" and :latest was NOT moved" if promote_latest else "")
-            + ". Fix the boot failure and re-run the publish.[/red]"
-        )
-        raise typer.Exit(1)
-    if not promote_latest:
-        console.print(
-            f"[dim]Dev publish - :latest not moved. Use the pinned image {ecr_image}; "
-            "later --dev publishes retag from it.[/dim]"
-        )
-        return
-    console.print("[cyan]Promoting to :latest...[/cyan]")
-    if not _retag_agent_image(package_name or agent_name, repository, version, "latest", api_key):
-        console.print(
-            f"[red]Failed to promote {ecr_image} to :latest (prefetch succeeded; :latest was NOT moved). "
-            "Re-run the publish.[/red]"
-        )
-        raise typer.Exit(1)
-    console.print(f"[green]Promoted:[/green] {latest_image}")
 
 
 def _publish_package(path: str, repo: str, dry_run: bool = False):
@@ -566,6 +370,11 @@ def agent_publish(
         "as the new version tag instead",
     ),
     no_cache: bool = typer.Option(False, "--no-cache", help="Build Docker image without cache"),
+    wheel_only: bool = typer.Option(
+        False,
+        "--wheel-only",
+        help="Upload only the wheel; the image :<version> must already be in ECR. For re-running a publish whose image step succeeded but whose upload failed",
+    ),
     no_skip_docker: bool = typer.Option(
         False,
         "--no-skip-docker",
@@ -590,8 +399,12 @@ def agent_publish(
         --no-skip-docker: Force Docker rebuild even with --dev
     """
 
+    if wheel_only and (skip_docker or no_skip_docker):
+        console.print("[red]--wheel-only cannot be combined with --skip-docker / --no-skip-docker[/red]")
+        raise typer.Exit(1)
+
     # --dev implies --skip-docker unless --no-skip-docker is explicitly passed
-    if dev and not skip_docker and not no_skip_docker:
+    if dev and not skip_docker and not no_skip_docker and not wheel_only:
         skip_docker = True
         console.print(
             "[dim]--dev implies --skip-docker (retag instead of rebuild). Use --no-skip-docker to force a rebuild.[/dim]"
@@ -623,7 +436,15 @@ def agent_publish(
             console.print(f"[bold cyan]{'=' * 50}[/bold cyan]\n")
 
             try:
-                _push_single_agent(agent_dir, dry_run, minor=minor, dev=dev, skip_docker=skip_docker, no_cache=no_cache)
+                _push_single_agent(
+                    agent_dir,
+                    dry_run,
+                    minor=minor,
+                    dev=dev,
+                    skip_docker=skip_docker,
+                    no_cache=no_cache,
+                    wheel_only=wheel_only,
+                )
                 succeeded.append(agent_dir.name)
             except SystemExit:
                 failed.append(agent_dir.name)
@@ -644,7 +465,9 @@ def agent_publish(
         console.print(f"[red]Error: '{target}' is not a valid path[/red]")
         raise typer.Exit(1)
 
-    _push_single_agent(pkg_path, dry_run, minor=minor, dev=dev, skip_docker=skip_docker, no_cache=no_cache)
+    _push_single_agent(
+        pkg_path, dry_run, minor=minor, dev=dev, skip_docker=skip_docker, no_cache=no_cache, wheel_only=wheel_only
+    )
 
 
 def _push_single_agent(
@@ -655,6 +478,7 @@ def _push_single_agent(
     dev: bool = False,
     skip_docker: bool = False,
     no_cache: bool = False,
+    wheel_only: bool = False,
 ) -> None:
     """Publish a single agent package to PyPI and optionally Docker.
 
@@ -680,38 +504,34 @@ def _push_single_agent(
     project = pyproject.get("project", {})
     package_name = project.get("name", "")
     version = project.get("version")
-    description = project.get("description", "")
+    project.get("description", "")
 
     if not version:
         console.print("[red]Error: No version in pyproject.toml[/red]")
         raise typer.Exit(1)
 
     previous_version = version
-    version = maybe_bump_package_version(
-        pyproject_file,
-        version,
-        minor=minor,
-        dev=dev,
-        dry_run=dry_run,
-    )
-
-    # Extract short name (remove common prefixes)
-    short_name = package_name
-    for prefix in ("plato-agent-", "plato-"):
-        if short_name.startswith(prefix):
-            short_name = short_name[len(prefix) :]
-            break
+    if wheel_only:
+        # The re-run after a failed upload: the image step already ran for the
+        # version in pyproject.toml, so publish exactly that version. Bumping
+        # (a fresh dated dev version, or the release prompt defaulting to yes)
+        # would point the wheel at an image tag that was never pushed.
+        console.print(f"[dim]--wheel-only: keeping version {version} (no bump)[/dim]")
+    else:
+        version = maybe_bump_package_version(
+            pyproject_file,
+            version,
+            minor=minor,
+            dev=dev,
+            dry_run=dry_run,
+        )
 
     # Get API key
     api_key = None
     if not dry_run:
         api_key = require_api_key()
 
-    # Get registry URL (always publish to production registry by default)
-    registry_url = os.getenv("PLATO_REGISTRY_BASE_URL", "https://plato.so").rstrip("/")
-    if registry_url.endswith("/api"):
-        registry_url = registry_url[:-4]
-    api_url = f"{registry_url}/api"
+    api_url = registry_api_url()
 
     console.print(f"[cyan]Package:[/cyan] {package_name}")
     console.print(f"[cyan]Version:[/cyan] {version}")
@@ -737,113 +557,31 @@ def _push_single_agent(
         console.print("[red]Error: uv not found. Install with: pip install uv[/red]")
         raise typer.Exit(1) from None
 
-    # Find built wheel
-    dist_dir = pkg_path / "dist"
-    if not dist_dir.exists():
-        console.print("[red]Error: dist/ directory not found after build[/red]")
-        raise typer.Exit(1)
-
-    normalized_name = package_name.replace("-", "_")
-    wheel_files = list(dist_dir.glob(f"{normalized_name}-{version}-*.whl"))
-    if not wheel_files:
-        wheel_files = list(dist_dir.glob("*.whl"))
-    if not wheel_files:
-        console.print(f"[red]Error: No wheel file found in {dist_dir}[/red]")
-        raise typer.Exit(1)
-
-    wheel_file = wheel_files[0]
+    wheel_file = find_wheel(pkg_path, package_name, version)
     console.print(f"[cyan]Built:[/cyan] {wheel_file.name}")
 
-    # ========== STEP 2: Publish to PyPI ==========
-    console.print()
-    console.print("[bold]Step 2: Publishing to PyPI...[/bold]")
-
-    if dry_run:
-        console.print("[yellow]Dry run - skipping PyPI upload[/yellow]")
-    else:
-        upload_url = f"{api_url}/v2/pypi/agents/"
-        console.print(f"[cyan]Uploading to {upload_url}...[/cyan]")
-
-        assert api_key is not None
-        try:
-            result = subprocess.run(
-                [
-                    "uv",
-                    "publish",
-                    "--publish-url",
-                    upload_url,
-                    "--username",
-                    "__token__",
-                    "--password",
-                    api_key,
-                    str(wheel_file),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            if result.returncode == 0:
-                console.print("[green]PyPI upload successful![/green]")
-            else:
-                console.print("[red]PyPI upload failed:[/red]")
-                if result.stdout:
-                    console.print(result.stdout)
-                if result.stderr:
-                    console.print(result.stderr)
-                raise typer.Exit(1)
-
-        except FileNotFoundError:
-            console.print("[red]Error: uv not found[/red]")
-            raise typer.Exit(1) from None
-
-    # ========== STEP 3: Build and push Docker image (if Dockerfile exists) ==========
-    dockerfile = pkg_path / "Dockerfile"
-    if dockerfile.exists():
-        console.print()
-        if skip_docker:
-            console.print("[bold]Step 3: Retagging existing Docker image...[/bold]")
-            repository = f"vm/rootfs/plato-agents/{short_name}"
-            ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
-            source_tags = _retag_source_tags(previous_version, version)
-            for source_tag in source_tags:
-                console.print(f"[cyan]Retagging :{source_tag} as :{version}...[/cyan]")
-                if _retag_agent_image(package_name, repository, source_tag, version, api_key):
-                    console.print(f"[green]Retagged:[/green] {ecr_image} (from :{source_tag})")
-                    break
-            else:
-                console.print(
-                    f"[red]Failed to retag image from any of {source_tags}. Is there an existing :latest?[/red]"
-                )
-                raise typer.Exit(1)
-        else:
-            console.print("[bold]Step 3: Building and pushing Docker image...[/bold]")
-            # Wait for PyPI index to serve the newly uploaded version
-            # before Docker build tries to install it.
-            wait_for_pypi_version(short_name, version, repo="agents", api_key=api_key)
-            # Pass agent version and PyPI index URLs so the Dockerfile can
-            # pre-bake the agent package (skips ~14s install at runtime).
-            docker_build_args = {
-                "AGENT_VERSION": version,
-                "PYPI_AGENTS_URL": plato_token_simple_index("agents", api_key=api_key),
-            }
-            _publish_agent_image(
-                agent_name=short_name,
-                version=version,
-                build_path=pkg_path,
-                description=description,
-                dry_run=dry_run,
-                build_args=docker_build_args,
-                no_cache=no_cache,
-                package_name=package_name,
-                api_key=api_key,
-                # A dev rebuild never moves :latest (prod's tag); it is
-                # launchable by its pinned :<version>.
-                promote_latest=not dev,
-            )
-    else:
-        console.print()
-        console.print("[dim]No Dockerfile found - skipping Docker image build[/dim]")
+    # ========== STEP 2: Image, then wheel ==========
+    # Image first (retag, or push -> prefetch -> promote), wheel last: the
+    # wheel is what makes the version launchable. See plato.cli.publish_flow.
+    # AGENT_VERSION lets the Dockerfile stamp /opt/plato-agent-version so the
+    # runtime install is skipped when the baked version matches.
+    publish_image_then_wheel(
+        AGENT,
+        package_name=package_name,
+        previous_version=previous_version,
+        version=version,
+        pkg_path=pkg_path,
+        wheel_file=wheel_file,
+        api_key=api_key,
+        dry_run=dry_run,
+        skip_docker=skip_docker,
+        # A dev rebuild never moves :latest (prod's tag); it is launchable by
+        # its pinned :<version>.
+        promote_latest=not dev,
+        build_args={"AGENT_VERSION": version},
+        no_cache=no_cache,
+        wheel_only=wheel_only,
+    )
 
     # ========== Summary ==========
     console.print()

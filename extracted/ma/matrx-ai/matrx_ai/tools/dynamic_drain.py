@@ -340,7 +340,11 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
         InjectionConsumedPayload,
     )
 
-    from matrx_ai.config import TextContent, UnifiedMessage
+    from matrx_ai.config import (
+        TextContent,
+        UnifiedMessage,
+        host_authored_user_turn,
+    )
 
     consumed: list[ConsumedInjection] = []
     for row in claimed:
@@ -374,13 +378,25 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
         # column (PROMOTED_MESSAGE_COLUMNS); without the stamp the delivered
         # message persisted as a visible user-authored bubble.
         _msg_metadata = {"is_visible_to_user": False} if not is_visible_to_user else None
-        config.messages.append(
-            UnifiedMessage(
+        # 🚨 AUTHORSHIP IS STAMPED BY THE WRITER — no reader can infer it. Both
+        # halves of this branch land as role="user"; only this code knows which
+        # one a person actually typed. A queued user_message IS her words, so
+        # `user_content` carries them; a steer or a write-back is host-authored,
+        # so `user_content` is stamped EMPTY rather than left NULL (NULL means
+        # "a row predating this contract", which makes every correct reader fall
+        # back to `content` and quote the machine at her — matrx-frontend D327).
+        if kind == "user_message" and is_visible_to_user:
+            _delivered = UnifiedMessage(
                 role="user",
                 content=[TextContent(text=text)],
+                user_content=[TextContent(text=text)],
                 metadata=_msg_metadata or {},
             )
-        )
+        else:
+            _delivered = host_authored_user_turn(text, reason=f"injection:{kind}")
+            if _msg_metadata:
+                _delivered.metadata.update(_msg_metadata)
+        config.messages.append(_delivered)
         # Echo the text + visibility on the event so a client that didn't
         # originate the queue (reopened panel, other device) can render the
         # delivered bubble without its own local record.

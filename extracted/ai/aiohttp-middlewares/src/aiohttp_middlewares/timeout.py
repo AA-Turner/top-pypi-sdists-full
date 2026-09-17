@@ -5,6 +5,17 @@ Timeout Middleware
 
 Middleware to ensure that request handling does not exceeds X seconds.
 
+.. versionchanged:: 3.0.0
+
+From version **3.0.0** ``aiohttp-middlewares`` only requires `async-timeout
+<https://pypi.org/project/async-timeout/>`_ for Python 3.10 as library is
+**deprecated** with following message:
+
+    This library has effectively been upstreamed into Python 3.11+.
+
+All other supported Python versions will use ``asyncio.timeout`` context
+manager instead the one from ``async-timeout``.
+
 Usage
 =====
 
@@ -47,21 +58,30 @@ Usage
 
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Union
+import sys
+from typing import TYPE_CHECKING
 
 from aiohttp import web
-from async_timeout import timeout
 
-from aiohttp_middlewares.annotations import Handler, Middleware, Urls
 from aiohttp_middlewares.utils import match_request
+
+if TYPE_CHECKING:
+    from aiohttp_middlewares.annotations import Handler, Middleware, Urls
+
+if sys.version_info >= (3, 11):
+    from asyncio import timeout
+else:
+    from async_timeout import timeout
 
 
 logger = logging.getLogger(__name__)
 
 
 def timeout_middleware(
-    seconds: Union[int, float], *, ignore: Union[Urls, None] = None
+    seconds: int | float, *, ignore: Urls | None = None
 ) -> Middleware:
     """Ensure that request handling does not exceed X seconds.
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiostream
-Version: 0.8.0
+Version: 0.8.1
 Summary: Generator-based operators for asynchronous iteration
 Author-email: Vincent Michel <vxgmichel@gmail.com>
 License-Expression: GPL-3.0-or-later

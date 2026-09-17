@@ -406,6 +406,14 @@ class OptionContract(QuantConnect.Data.Market.BaseContract):
         """Gets the last price the underlying security traded at"""
         ...
 
+    @property
+    def days_to_expiry(self) -> int:
+        """
+        Calendar days from this contract's time until its last trading date: the previous open day for equity options expiring
+        on a Saturday or holiday, see OptionSymbol.GetLastDayOfTrading(Symbol), the expiration date otherwise
+        """
+        ...
+
     @overload
     def __init__(self, security: QuantConnect.Interfaces.ISecurityPrice) -> None:
         """
@@ -416,12 +424,13 @@ class OptionContract(QuantConnect.Data.Market.BaseContract):
         ...
 
     @overload
-    def __init__(self, contract_data: QuantConnect.Data.UniverseSelection.OptionUniverse, symbol_properties: QuantConnect.Securities.SymbolProperties) -> None:
+    def __init__(self, contract_data: QuantConnect.Data.UniverseSelection.OptionUniverse, symbol_properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours = None) -> None:
         """
         Initializes a new option contract from a given OptionUniverse instance
         
         :param contract_data: The option universe contract data to use as source for this contract
         :param symbol_properties: The contract symbol properties
+        :param exchange_hours: The contract exchange hours
         """
         ...
 
@@ -453,13 +462,14 @@ class OptionContract(QuantConnect.Data.Market.BaseContract):
 
     @staticmethod
     @overload
-    def create(contract_data: QuantConnect.Data.UniverseSelection.OptionUniverse, symbol_properties: QuantConnect.Securities.SymbolProperties) -> QuantConnect.Data.Market.OptionContract:
+    def create(contract_data: QuantConnect.Data.UniverseSelection.OptionUniverse, symbol_properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours = None) -> QuantConnect.Data.Market.OptionContract:
         """
         Creates a new option contract from a given OptionUniverse instance,
         using its data to form a quote bar to source pricing data
         
         :param contract_data: The option universe contract data to use as source for this contract
         :param symbol_properties: The contract symbol properties
+        :param exchange_hours: The contract exchange hours
         """
         ...
 
@@ -2769,7 +2779,7 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         ...
 
     @overload
-    def __init__(self, canonical_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], contracts: typing.List[QuantConnect.Data.UniverseSelection.OptionUniverse], symbol_properties: QuantConnect.Securities.SymbolProperties, flatten: bool = True) -> None:
+    def __init__(self, canonical_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], contracts: typing.List[QuantConnect.Data.UniverseSelection.OptionUniverse], symbol_properties: QuantConnect.Securities.SymbolProperties, exchange_hours: QuantConnect.Securities.SecurityExchangeHours = None, flatten: bool = True) -> None:
         """
         Initializes a new option chain for a list of contracts as OptionUniverse instances
         
@@ -2777,6 +2787,7 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         :param time: The time of this chain
         :param contracts: The list of contracts data
         :param symbol_properties: The option symbol properties
+        :param exchange_hours: The option exchange hours
         :param flatten: Whether to flatten the data frame
         """
         ...

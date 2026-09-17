@@ -312,14 +312,9 @@ def create_user_folder_if_necessary(context: WorkbookPushContext, user_id: str) 
                           status=context.status)
 
     if dummy_folder is not None:
-        try:
-            safely(lambda: items_api.archive_item(id=dummy_folder.id, delete=False),
-                   action_description=f'archive temporary folder {dummy_folder.id}',
-                   status=context.status)
-        finally:
-            safely(lambda: items_api.archive_item(id=dummy_folder.id, delete=True),
-                   action_description=f'delete temporary folder {dummy_folder.id}',
-                   status=context.status)
+        safely(lambda: items_api.archive_item(id=dummy_folder.id, delete=False),
+               action_description=f'archive temporary folder {dummy_folder.id}',
+               status=context.status)
 
     context.session.clear_user_folder_cache()
     return context.session.get_user_folder(user_id)

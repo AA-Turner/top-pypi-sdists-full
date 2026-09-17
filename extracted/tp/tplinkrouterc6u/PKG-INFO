@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tplinkrouterc6u
-Version: 5.33.0
+Version: 5.34.0
 Summary: TP-Link Router API (supports also Mercusys Router)
 Home-page: https://github.com/AlexandrErohin/TP-Link-Archer-C6U
 Author: Alex Erohin
@@ -169,7 +169,7 @@ Not every method is available on every client. Methods below `get_ipv6_status` t
 | reboot |   | reboot router |
 | pppoe_connect |   | Connect PPPoE WAN (XDR/R series only; WAN must be configured for PPPoE) |   |
 | pppoe_disconnect |   | Disconnect PPPoE WAN (XDR/R series only; WAN must be configured for PPPoE) |   |
-| set_ewan_connect | enable: bool | DHCP renew (`True`) or release (`False`) for Ethernet WAN (MR/VR-style clients) |   |
+| set_ewan_connect | enable: bool | Ethernet WAN up/renew (`True`) or down/release (`False`): MR/VR and C6U/LuCI (DHCP WAN only) use DHCP RENEW/RELEASE; C80 uses `wan -linkUp` / `wan -linkDown` |   |
 | authorize |   | authorize for actions |
 | logout |   | logout after all is done |
 | get_vpn_status |   | Gets VPN info for OpenVPN and PPTPVPN and connected clients amount | [VPNStatus](#vpn_status) |
@@ -212,7 +212,7 @@ Not every method is available on every client. Methods below `get_ipv6_status` t
 | wan_ipv4_gateway_address | router wan ipv4 gateway address | ipaddress.IPv4Address, None |
 | wan_ipv6_enabled | Is WAN IPv6 enabled | bool, None |
 | wan_ipv6_addr | router wan ipv6 address | str, None |
-| ewan_connected | Is Ethernet WAN connected (`None` if no eth WAN / not reported; MR/VR-style) | bool, None |
+| ewan_connected | Is Ethernet WAN connected (`None` if no eth WAN / not reported; MR/VR/C80; C6U/LuCI when WAN is DHCP) | bool, None |
 | lan_ipv4_dhcp_enable | Is LAN IPv4 DHCP server enabled | bool, None |
 | wired_total | Total amount of wired clients | int |
 | wifi_clients_total | Total amount of host wifi clients | int |
@@ -228,6 +228,9 @@ Not every method is available on every client. Methods below `get_ipv6_status` t
 | wifi_2g_enable | Is host wifi 2.4G enabled | bool, None |
 | wifi_5g_enable | Is host wifi 5G enabled | bool, None |
 | wifi_6g_enable | Is host wifi 6G enabled | bool, None |
+| wifi_mlo_2g_enable | Is MLO enabled on 2.4G (EX / HB810-class) | bool, None |
+| wifi_mlo_5g_enable | Is MLO enabled on 5G (EX / HB810-class) | bool, None |
+| wifi_mlo_6g_enable | Is MLO enabled on 6G (EX / HB810-class) | bool, None |
 | wan_ipv4_uptime | Internet Uptime | int, None |
 | mem_usage | Memory usage in percentage between 0 and 1 | float, None |
 | cpu_usage | CPU usage in percentage between 0 and 1 | float, None |
@@ -436,6 +439,10 @@ Not all fields are filled by every client:
 - Connection.HOST_2G - host wifi 2.4G
 - Connection.HOST_5G - host wifi 5G
 - Connection.HOST_6G - host wifi 6G
+- Connection.HOST_MLO - host MLO client connection (EX; multi-link)
+- Connection.HOST_MLO_2G - MLO enable switch for 2.4G (EX `set_wifi` only)
+- Connection.HOST_MLO_5G - MLO enable switch for 5G (EX `set_wifi` only)
+- Connection.HOST_MLO_6G - MLO enable switch for 6G (EX `set_wifi` only)
 - Connection.GUEST_2G - guest wifi 2.4G
 - Connection.GUEST_5G - guest wifi 5G
 - Connection.GUEST_6G - guest wifi 6G
@@ -562,7 +569,7 @@ Not all fields are filled by every client:
 - TL-MR150 v2
 - TL-MR6400 (v5, v5.3, v7)
 - TL-MR6500v
-- TL-R470GP-AC 4.0
+- TL-R470GP-AC (4.0, 6.0)
 - TL-R488GPM-AC 2.0
 - TL-SG108E v6.0
 - TL-WA1201 3.0
@@ -588,6 +595,7 @@ Not all fields are filled by every client:
 - ME30 1.0
 - MR47BE v1.0
 - MR50G 1.0
+- MR60X 2.0
 - MR80X v2.0
 
 Please let me know if you have tested integration with any other model. Open an issue with info about router's model, hardware and firmware versions.

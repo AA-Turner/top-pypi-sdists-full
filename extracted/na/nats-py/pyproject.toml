@@ -4,37 +4,47 @@ build-backend = "uv_build"
 
 [project]
 name = "nats-py"
-version = "2.15.0"
-authors = [
-  { name="Waldemar Quevedo", email="wally@synadia.com" },
-]
+version = "2.16.0"
 description = "NATS client for Python"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.7"
 classifiers = [
-    'Intended Audience :: Developers',
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.7',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
-    'Programming Language :: Python :: 3.11',
-    'Programming Language :: Python :: 3.12',
-    'Programming Language :: Python :: 3.13'
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
+[[project.authors]]
+name = "Waldemar Quevedo"
+email = "wally@synadia.com"
+
 [project.urls]
-"Homepage" = "https://github.com/nats-io/nats.py"
+Homepage = "https://github.com/nats-io/nats.py"
 "Bug Tracker" = "https://github.com/nats-io/nats.py/issues"
 
 [project.optional-dependencies]
-nkeys = ['nkeys']
-aiohttp = ['aiohttp']
-fast_parse = ['fast-mail-parser']
+nkeys = ["nkeys"]
+aiohttp = ["aiohttp"]
+fast_parse = ["fast-mail-parser"]
+
+[dependency-groups]
+dev = [
+    "aiohttp>=3.8.0",
+    "nkeys>=0.1.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-xdist>=3.0.0",
+]
 
 [tool.uv.build-backend]
 module-name = "nats"
-

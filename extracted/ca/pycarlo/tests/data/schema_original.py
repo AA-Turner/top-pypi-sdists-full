@@ -2432,6 +2432,20 @@ class CostAgentScopeMode(sgqlc.types.Enum):
     __choices__ = ("ALL", "RESTRICTED")
 
 
+class CostAgentTier(sgqlc.types.Enum):
+    """Billing tier of the Cost & Performance Agent: PAID or FREE. The
+    free tier ignores scope customization — its scope is the defaults.
+
+    Enumeration Choices:
+
+    * `FREE`None
+    * `PAID`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("FREE", "PAID")
+
+
 class CostBucketSize(sgqlc.types.Enum):
     """Calendar period the cost series is grouped into.
 
@@ -3147,6 +3161,19 @@ class DomainModelDomainType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("AGENTIC", "METADATA", "SAMPLING")
+
+
+class DomainTagOperator(sgqlc.types.Enum):
+    """How a criterion's tags combine.
+
+    Enumeration Choices:
+
+    * `ALL`None
+    * `ANY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ALL", "ANY")
 
 
 class DomainType(sgqlc.types.Enum):
@@ -7301,6 +7328,20 @@ class RcaStatus(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CANCELED", "EMPTY", "EXPIRED", "FAILED", "FOUND", "PARTIAL_DATA")
+
+
+class ReinforcementLoopClusterKind(sgqlc.types.Enum):
+    """BUILT_IN: default cluster with fixed criteria. EVAL_DERIVED: one
+    eval monitor's low-scoring conversations (see evalScoreThreshold).
+
+    Enumeration Choices:
+
+    * `BUILT_IN`None
+    * `EVAL_DERIVED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("BUILT_IN", "EVAL_DERIVED")
 
 
 class ReinforcementLoopDispatchOutcome(sgqlc.types.Enum):
@@ -13082,7 +13123,9 @@ class CustomRuleComparisonInput(sgqlc.types.Input):
     """
 
     percentage_baseline_sql = sgqlc.types.Field(String, graphql_name="percentageBaselineSql")
-    """SQL used to compute the percentage baseline value."""
+    """SQL query counting the population the monitor evaluates. Accepted
+    on any threshold type; required for a percentage threshold.
+    """
 
     upper_threshold = sgqlc.types.Field(Float, graphql_name="upperThreshold")
     """Upper threshold value"""
@@ -13209,7 +13252,10 @@ class CustomSqlRuleAlertConditionInput(sgqlc.types.Input):
     """Evaluate the threshold as a percentage of a baseline query result."""
 
     percentage_baseline_sql = sgqlc.types.Field(String, graphql_name="percentageBaselineSql")
-    """SQL query returning the baseline value for percentage thresholds."""
+    """SQL query counting the population the monitor evaluates. Accepted
+    on any threshold type; required for a percentage threshold. Send
+    an empty string to clear a stored baseline.
+    """
 
     baseline_agg_function = sgqlc.types.Field(
         AggregationFunction, graphql_name="baselineAggFunction"
@@ -13667,6 +13713,35 @@ class DismissMonitorTuningSuggestionInput(sgqlc.types.Input):
     __field_names__ = ("run_uuid",)
     run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
     """UUID of the tuning run backing the suggestion to dismiss."""
+
+
+class DomainCriterionInput(sgqlc.types.Input):
+    """A domain criterion: a location, optionally narrowed by a tag
+    filter. `tags` narrow the location, so they require one;
+    standalone tag filters belong in the domain's `tags` field.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("location", "tags", "operator", "excluded")
+    location = sgqlc.types.Field(String, graphql_name="location")
+    """What the criterion is scoped to: an integration (warehouse or ETL)
+    as a uuid or an MCON, or the MCON of any other catalog object of
+    the account (a database, schema, table, job, agent).
+    """
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
+    )
+    """Tags an asset must carry to match this criterion."""
+
+    operator = sgqlc.types.Field(DomainTagOperator, graphql_name="operator")
+    """How `tags` combine. `ANY` matches an asset carrying at least one
+    of them, `ALL` an asset carrying every one. Defaults to `ANY` when
+    omitted.
+    """
+
+    excluded = sgqlc.types.Field(Boolean, graphql_name="excluded")
+    """When true, assets matching this criterion are excluded."""
 
 
 class DynamicScheduleJobInput(sgqlc.types.Input):
@@ -19573,6 +19648,23 @@ class UpdateGoldenSetInput(sgqlc.types.Input):
     """New retention window in days."""
 
 
+class UpdateReinforcementLoopSelectorInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("issue_space_uuid", "selected_cluster_keys", "is_enabled")
+    issue_space_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueSpaceUuid")
+    """issueSpaceUuid from the selector, or the agent-wide ISSUE space
+    uuid.
+    """
+
+    selected_cluster_keys = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="selectedClusterKeys"
+    )
+    """Keys from availableClusters. Omit or null: unchanged; []: clear."""
+
+    is_enabled = sgqlc.types.Field(Boolean, graphql_name="isEnabled")
+    """Turn the loop on or off. Omit: unchanged."""
+
+
 class UpdateUserStateInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("state", "client_mutation_id")
@@ -21250,7 +21342,6 @@ class Account(sgqlc.types.Type):
         "enable_pr_agent_paid_tier",
         "enable_pr_agent_metering",
         "enable_proactive_tune_creator_notifications",
-        "enable_unified_lineage_read",
         "enable_cost_agent_paid_tier",
         "agent_monitor_default_collection_lag_hours",
         "validate_monitor_domains",
@@ -21906,13 +21997,6 @@ class Account(sgqlc.types.Type):
     """Whether monitor creators receive proactive tuning recommendation
     digests and see tuning views that highlight the monitors they
     created.
-    """
-
-    enable_unified_lineage_read = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="enableUnifiedLineageRead"
-    )
-    """Whether the account can read a job's lineage: the tables the job
-    reads and writes, and the jobs it triggers.
     """
 
     enable_cost_agent_paid_tier = sgqlc.types.Field(Boolean, graphql_name="enableCostAgentPaidTier")
@@ -24383,6 +24467,7 @@ class AgentMetadataV2(sgqlc.types.Type):
         "agent_reference",
         "warehouse",
         "classification",
+        "last_seen_at",
     )
     account_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="accountUuid")
     """Account UUID"""
@@ -24437,6 +24522,14 @@ class AgentMetadataV2(sgqlc.types.Type):
     split with this node's legacy `sourceType` enum (uppercase member
     names). Null only when a platform agent's registration could not
     be resolved (same contract as `agentReference`).
+    """
+
+    last_seen_at = sgqlc.types.Field(DateTime, graphql_name="lastSeenAt")
+    """When this agent last produced a trace; a row whose observation
+    carried no timestamp carries its record time instead. An agent
+    stays listed after it goes quiet, reporting zero traces, so this
+    is how long it has been silent. Null only when no observation of
+    the agent carried a timestamp.
     """
 
 
@@ -31279,12 +31372,19 @@ class CostAgentFindingTypeScopeOutput(sgqlc.types.Type):
 
 
 class CostAgentSettingsOutput(sgqlc.types.Type):
-    """Scope settings for the Cost & Performance Agent: which warehouses
-    it analyzes and which finding types it generates, each as a mode.
+    """Settings for the Cost & Performance Agent: the account's tier and
+    the scope in force, each as a mode. The warehouse scope sets which
+    warehouses the agent analyzes. It also narrows
+    getWarehousePriceRates and getStorageOptimizationCandidates:
+    warehouses outside the scope are dropped from those results. The
+    finding-type scope sets which finding types the agent generates.
     """
 
     __schema__ = schema
-    __field_names__ = ("warehouse_scope", "finding_type_scope")
+    __field_names__ = ("tier", "warehouse_scope", "finding_type_scope")
+    tier = sgqlc.types.Field(sgqlc.types.non_null(CostAgentTier), graphql_name="tier")
+    """Billing tier in force for the account."""
+
     warehouse_scope = sgqlc.types.Field(
         sgqlc.types.non_null("CostAgentWarehouseScopeOutput"), graphql_name="warehouseScope"
     )
@@ -33443,7 +33543,9 @@ class CustomRuleComparison(sgqlc.types.Type):
     """
 
     percentage_baseline_sql = sgqlc.types.Field(String, graphql_name="percentageBaselineSql")
-    """SQL used to compute the percentage baseline value."""
+    """SQL query counting the population the monitor evaluates. Accepted
+    on any threshold type; required for a percentage threshold.
+    """
 
     breach_count_metric = sgqlc.types.Field(String, graphql_name="breachCountMetric")
     """Auxiliary metric name storing raw breached-row counts for
@@ -36955,6 +37057,26 @@ class DomainAlertCounts(sgqlc.types.Type):
     """Number of incidents"""
 
 
+class DomainCriterionOutput(sgqlc.types.Type):
+    """A domain criterion, with its location resolved for display."""
+
+    __schema__ = schema
+    __field_names__ = ("location", "tags", "operator", "excluded")
+    location = sgqlc.types.Field(AssignmentWithProperties, graphql_name="location")
+    """What this criterion is scoped to, if anything."""
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairOutput")), graphql_name="tags"
+    )
+    """Tags an asset must carry to match this criterion."""
+
+    operator = sgqlc.types.Field(DomainTagOperator, graphql_name="operator")
+    """How `tags` combine."""
+
+    excluded = sgqlc.types.Field(Boolean, graphql_name="excluded")
+    """Whether matching assets are excluded."""
+
+
 class DomainMembershipOutput(sgqlc.types.Type):
     """A single domain an mcon belongs to."""
 
@@ -37033,6 +37155,7 @@ class DomainOutput(sgqlc.types.Type):
         "excluded_assignments_with_properties",
         "obj_assignment_update_time",
         "reference_domains",
+        "criteria",
     )
     uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
     """Domain UUID"""
@@ -37094,6 +37217,13 @@ class DomainOutput(sgqlc.types.Type):
         sgqlc.types.list_of("DomainSummaryOutput"), graphql_name="referenceDomains"
     )
     """Domains whose owned assets this domain's monitors may read"""
+
+    criteria = sgqlc.types.Field(
+        sgqlc.types.list_of(DomainCriterionOutput), graphql_name="criteria"
+    )
+    """Criteria scoping this domain to a location, a tag filter, or a
+    location narrowed by tags.
+    """
 
 
 class DomainOutputV2Connection(sgqlc.types.relay.Connection):
@@ -47477,6 +47607,7 @@ class Mutation(sgqlc.types.Type):
         "trigger_reinforcement_loop_dispatch",
         "delete_reinforcement_loop_issues_by_issue_id",
         "delete_reinforcement_loop_issues_by_agent",
+        "update_reinforcement_loop_selector",
         "delete_agent_trace_table",
         "create_or_update_platform_agent",
         "install_genie_collector",
@@ -49688,6 +49819,32 @@ class Mutation(sgqlc.types.Type):
     * `trace_table_mcon` (`String!`): The agent's trace table MCON —
       the same agentName/traceTableMcon pair
       getReinforcementLoopIssues takes.
+    """
+
+    update_reinforcement_loop_selector = sgqlc.types.Field(
+        "UpdateReinforcementLoopSelector",
+        graphql_name="updateReinforcementLoopSelector",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UpdateReinforcementLoopSelectorInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Change which Issue clusters the reinforcement loop
+    diagnoses for an agent, or turn the loop on or off. Omitted fields
+    are unchanged; [] clears the selection. Creates the selector if
+    absent. Applies to future runs only.
+
+    Arguments:
+
+    * `input` (`UpdateReinforcementLoopSelectorInput!`)None
     """
 
     delete_agent_trace_table = sgqlc.types.Field(
@@ -64497,10 +64654,10 @@ class Mutation(sgqlc.types.Type):
     span_id, conversation_id, model_name, prompts, completions,
     tool_call_input, tool_call_output) to S3 as JSONL, one span per
     line. model_name is null for non-LLM spans; tool_call_input and
-    tool_call_output are null for non-tool spans. Returns a job id;
-    poll getAgentSpansExport for the download URL when complete. Async
-    because the warehouse fetch can take longer than Django/ALB HTTP
-    timeouts.
+    tool_call_output are null for spans carrying no tool-call payload.
+    Returns a job id; poll getAgentSpansExport for the download URL
+    when complete. Async because the warehouse fetch can take longer
+    than Django/ALB HTTP timeouts.
 
     Arguments:
 
@@ -66480,6 +66637,14 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.list_of(String), graphql_name="assignments", default=None
                     ),
                 ),
+                (
+                    "criteria",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(DomainCriterionInput)),
+                        graphql_name="criteria",
+                        default=None,
+                    ),
+                ),
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
                 ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
                 (
@@ -66528,6 +66693,13 @@ class Mutation(sgqlc.types.Type):
 
     * `assignments` (`[String]`): Objects assigned to domain (as
       MCONs)
+    * `criteria` (`[DomainCriterionInput!]`): Criteria scoping the
+      domain to a location, a tag filter, or a location narrowed by
+      tags. Criteria belong to the same replaceable set as
+      `assignments`, `excludedAssignments`, `tags` and `excludedTags`:
+      an update that sends any one of them replaces all five, so send
+      the domain's full selection together. An update that sends none
+      of them leaves the selection untouched.
     * `description` (`String`): Description of the domain
     * `dry_run` (`Boolean`): When true, do not persist anything.
       Instead, resolve the given selection rules and return how many
@@ -69720,9 +69892,13 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `agent_observability_trace_store` (`Boolean`): ClickHouse only.
-      true/false: records whether the connection is an Agent
-      Observability trace store. null / omitted: nothing is recorded
-      on the connection.
+      For connections using customer-managed credentials: true marks
+      the connection as an Agent Observability trace store, false
+      records that it is not one, and null / omitted records nothing.
+      When Monte Carlo manages the credentials, the classification
+      derives from the connection's database name instead: it is
+      recorded whenever the database is otel_traces, and passing this
+      argument is rejected.
     * `allowed_dbt_cloud_connections` (`[String!]`): dbt Cloud webhook
       only: explicit allow-list of dbt connection ids/names; a run is
       kept only if its environment connection id or name is listed.
@@ -69887,8 +70063,7 @@ class Mutation(sgqlc.types.Type):
 
     * `connection_id` (`UUID!`): ID of the connection to update
     * `enable` (`Boolean!`): true marks the connection as a trace
-      store. false unmarks it, and is rejected while the connection's
-      database is named otel_traces.
+      store, false unmarks it.
     """
 
     add_bi_connection = sgqlc.types.Field(
@@ -77299,6 +77474,7 @@ class Query(sgqlc.types.Type):
         "get_golden_test_runs",
         "get_reinforcement_loop_issues",
         "get_reinforcement_loop_reports",
+        "get_reinforcement_loop_selectors",
         "get_linear_teams",
         "get_linear_integration",
         "get_available_platform_agents",
@@ -77980,13 +78156,18 @@ class Query(sgqlc.types.Type):
     """(experimental) Get tables that are candidates for storage
     optimization, largest first unless 'orderBy' or 'orderDirection'
     says otherwise. Scoped to a single warehouse when 'resourceId' is
-    given, otherwise to every warehouse in the account.
+    given, otherwise to every warehouse in the account. Both cases are
+    narrowed by the account's cost agent warehouse scope: candidates
+    on warehouses outside the scope are not returned.
 
     Arguments:
 
     * `resource_id` (`UUID`): UUID of the warehouse to scan for
-      optimization candidates. Omit to return candidates across all
-      warehouses in the account.
+      optimization candidates. Omit to return candidates across the
+      warehouses in the account's cost agent warehouse scope. Passing
+      a warehouse outside that scope returns an empty page with
+      totalCount 0 and no error, even when the warehouse is valid and
+      accessible.
     * `first` (`Int`): Maximum number of candidates to return per page
       (default: 50) (default: `50`)
     * `after` (`String`): Cursor from a previous page's endCursor to
@@ -78505,6 +78686,10 @@ class Query(sgqlc.types.Type):
             (
                 ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
                 ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
+                (
+                    "include_inactive",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeInactive", default=None),
+                ),
             )
         ),
     )
@@ -78517,6 +78702,11 @@ class Query(sgqlc.types.Type):
       value
     * `domain_uuid` (`UUID`): Filter results to only include MCONs
       assigned to this domain UUID
+    * `include_inactive` (`Boolean`): Also list agents that have
+      produced no traces in the window, including ones whose spans
+      have aged out of retention entirely. true (the default) and null
+      widen the listing; false keeps only agents with traces in the
+      window.
     """
 
     get_agent_observability_billing_info = sgqlc.types.Field(
@@ -78804,6 +78994,41 @@ class Query(sgqlc.types.Type):
       narrows to that workflow, its absence returns every workflow.
       NO_WORKFLOW narrows to the report whose workflow is null and
       must be sent without a workflowName; NAMED requires one.
+    """
+
+    get_reinforcement_loop_selectors = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("ReinforcementLoopSelector"))
+        ),
+        graphql_name="getReinforcementLoopSelectors",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) The reinforcement loop's Issue-cluster selectors
+    for one agent, with the clusters available to select. One per
+    agent-wide Issue space; a space without saved settings reports the
+    defaults.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Observability agent name.
+    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
+      — same value passed as `traceTableMcon` on getAgentGraph.
+      Disambiguates agents with identical names across trace tables.
     """
 
     get_linear_teams = sgqlc.types.Field(
@@ -84967,8 +85192,9 @@ class Query(sgqlc.types.Type):
     """(experimental) Estimated price rates for the given warehouses.
     Rates are flat estimates configured per warehouse platform, and
     not every platform has one for every usage type, so only
-    warehouses with a priced rate are returned and a warehouse absent
-    from the result has no known rate.
+    warehouses with a priced rate are returned. A warehouse absent
+    from the result either has no known rate or sits outside the
+    account's cost agent warehouse scope.
 
     Arguments:
 
@@ -103085,6 +103311,38 @@ class RegisterGitlabApp(sgqlc.types.Type):
     """GitLab URL to request authorization code"""
 
 
+class ReinforcementLoopAvailableCluster(sgqlc.types.Type):
+    """An Issue cluster the reinforcement loop can be pointed at."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "cluster_key",
+        "name",
+        "description",
+        "kind",
+        "source_monitor_uuid",
+        "criteria",
+    )
+    cluster_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clusterKey")
+    """Stable key; the value to put in selectedClusterKeys."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display name."""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """One-line summary of what belongs in the cluster."""
+
+    kind = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopClusterKind), graphql_name="kind"
+    )
+
+    source_monitor_uuid = sgqlc.types.Field(UUID, graphql_name="sourceMonitorUuid")
+    """For an EVAL_DERIVED cluster, the eval monitor it tracks."""
+
+    criteria = sgqlc.types.Field(sgqlc.types.non_null("FilterGroup"), graphql_name="criteria")
+    """Membership criteria as a filter tree."""
+
+
 class ReinforcementLoopDraftPrRef(sgqlc.types.Type):
     """The newest draft-PR workflow dispatch for an issue, list-grade.
     Enough to render an icon state (pending / opened / failed) and a
@@ -103360,6 +103618,62 @@ class ReinforcementLoopReport(sgqlc.types.Type):
     window_end = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="windowEnd")
     """End of the report's analysis window — the report's detection
     anchor (newest report = max windowEnd per scope).
+    """
+
+
+class ReinforcementLoopSelector(sgqlc.types.Type):
+    """Which Issue clusters the reinforcement loop diagnoses for one
+    agent. An agent whose Issue space has no saved settings reports
+    the defaults.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "issue_space_uuid",
+        "agent_name",
+        "trace_table_mcon",
+        "selected_cluster_keys",
+        "is_enabled",
+        "eval_score_threshold",
+        "available_clusters",
+    )
+    issue_space_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueSpaceUuid")
+    """The agent's Issue space; the id updateReinforcementLoopSelector
+    takes.
+    """
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+
+    selected_cluster_keys = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="selectedClusterKeys",
+    )
+    """Cluster keys whose conversations the loop diagnoses; empty selects
+    nothing.
+    """
+
+    is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
+    """Whether the loop runs for this agent at all."""
+
+    eval_score_threshold = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="evalScoreThreshold"
+    )
+    """Eval scores below this value put a conversation in the monitor's
+    EVAL_DERIVED cluster. Tuned on the clustering space, not here.
+    """
+
+    available_clusters = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopAvailableCluster))
+        ),
+        graphql_name="availableClusters",
+    )
+    """The Issue space's current clusters; any clusterKey here may be
+    selected.
     """
 
 
@@ -105501,9 +105815,10 @@ class SetCollibraMcDomainMapping(sgqlc.types.Type):
 
 class SetConnectionAgentObservabilityTraceStore(sgqlc.types.Type):
     """Mark or unmark a ClickHouse connection as an Agent Observability
-    trace store. Unmarking is rejected while the connection's database
-    is named otel_traces, because the connection would still be
-    classified as a trace store.
+    trace store. Only for connections using customer-managed
+    credentials; when Monte Carlo manages the credentials, the
+    classification follows the connection's database name and this
+    mutation is rejected.
     """
 
     __schema__ = schema
@@ -111066,6 +111381,7 @@ class TriageAgentRunResult(sgqlc.types.Type):
         "status",
         "alert_confidence",
         "alert_impact",
+        "title",
         "alert_description",
         "triage_summary",
         "likelihood_reasons",
@@ -111083,6 +111399,11 @@ class TriageAgentRunResult(sgqlc.types.Type):
 
     alert_impact = sgqlc.types.Field(TriageScore, graphql_name="alertImpact")
     """Populated when status is COMPLETED."""
+
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+    """One-sentence headline for the alert-page banner. Populated when
+    status is COMPLETED; empty otherwise.
+    """
 
     alert_description = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="alertDescription"
@@ -112720,6 +113041,15 @@ class UpdateRedshiftCredentialsV2Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
+
+
+class UpdateReinforcementLoopSelector(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("selector",)
+    selector = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopSelector), graphql_name="selector"
+    )
+    """The selector after the update."""
 
 
 class UpdateRequiredMonitorFields(sgqlc.types.Type):
@@ -119984,6 +120314,7 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         "excluded_tags",
         "assignments_with_properties",
         "excluded_assignments_with_properties",
+        "criteria",
         "reference_domains",
         "effective_triage_enabled",
         "triage_enabled_override",
@@ -120046,6 +120377,13 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         graphql_name="excludedAssignmentsWithProperties",
     )
     """Objects excluded from domains and their properties"""
+
+    criteria = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(DomainCriterionOutput)), graphql_name="criteria"
+    )
+    """Criteria scoping this domain to a tag filter, or a location
+    narrowed by tags. An unfiltered integration is a plain assignment.
+    """
 
     reference_domains = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DomainSummaryOutput))),
@@ -123079,12 +123417,12 @@ class TableMonitor(sgqlc.types.Type, Node):
         "monitor_name",
         "deleted_by",
         "domain_restrictions",
-        "enable_row_count_collection",
         "enable_row_count_collection_limit",
         "sensitivity",
         "auto_tuning",
         "effective_auto_tuning",
         "auto_triage",
+        "enable_row_count_collection",
         "asset_selection",
         "audiences",
         "audience_conditions",
@@ -123154,11 +123492,6 @@ class TableMonitor(sgqlc.types.Type, Node):
     monitor, if any
     """
 
-    enable_row_count_collection = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="enableRowCountCollection"
-    )
-    """Enable row count collection for tables that require it"""
-
     enable_row_count_collection_limit = sgqlc.types.Field(
         Int, graphql_name="enableRowCountCollectionLimit"
     )
@@ -123194,6 +123527,14 @@ class TableMonitor(sgqlc.types.Type, Node):
     the override, so a generated child rule reports its parent's
     value. Set via the monitor create/update mutation's ``autoTriage``
     input.
+    """
+
+    enable_row_count_collection = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="enableRowCountCollection"
+    )
+    """The stored setting for whether row count collection is enabled. A
+    monitor whose alert conditions contain no row-count metric never
+    collects row counts, regardless of this value.
     """
 
     asset_selection = sgqlc.types.Field(AssetSelection, graphql_name="assetSelection")

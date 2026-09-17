@@ -14,7 +14,7 @@ from agentic_devtools.cli.shared.retry import ProviderRateLimitError
 
 logger = logging.getLogger(__name__)
 
-_EFFECTIVE_REVIEW_STATES = {"APPROVED", "CHANGES_REQUESTED"}
+_EFFECTIVE_REVIEW_STATES = {"APPROVED", "CHANGES_REQUESTED", "COMMENTED"}
 
 
 class RequestReviewAction:

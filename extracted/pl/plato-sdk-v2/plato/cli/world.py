@@ -1,23 +1,14 @@
 """World CLI commands for Plato."""
 
 import json
-import os
-import shutil
 import subprocess
 import zipfile
 from pathlib import Path
 
 import typer
 
-from plato.cli.chronos.settings import get_settings as get_chronos_settings
-from plato.cli.utils import console, maybe_bump_package_version, require_api_key, wait_for_pypi_version
-from plato.utils.ecr import (
-    ECR_REGISTRY,
-    get_image_digest,
-    publish_docker_image,
-    retag_image,
-    retag_image_via_chronos,
-)
+from plato.cli.publish_flow import WORLD, find_wheel, publish_image_then_wheel, registry_api_url
+from plato.cli.utils import console, maybe_bump_package_version, require_api_key
 
 world_app = typer.Typer(help="Manage and deploy worlds")
 
@@ -53,98 +44,6 @@ def _get_module_name(pkg_path: Path, package_name: str) -> str:
         pass
 
     return package_name.replace("-", "_")
-
-
-# Cold-image boot = docker pull + rootfs conversion + snapshot-store ingest,
-# which is the 10+ minute path this prefetch exists to absorb, so the client
-# polls wait_for_ready for up to 30 minutes (a timeout here blocks promotion
-# to :latest). The VM lifetime sent in the /make body must cover that same
-# window: the backend stamps job_start_time when the job is matched to a VM
-# slot — before the rootfs build — and the VM agent force-shuts the VM once
-# job_max_timeout elapses (plato: node_provider match callback +
-# vm_lifecycle.check_job_timeout), so a short lifetime would kill a slow
-# ingest mid-flight. The VM is closed the moment it is ready and the worker
-# heartbeat timeout (300s) reaps it if this CLI dies, so the long lifetime
-# never actually keeps a VM alive.
-_PREFETCH_TIMEOUT_S = 1800
-
-
-def _prefetch_world_image(image_url: str, world_name: str) -> bool:
-    """Boot one throwaway VM from ``image_url`` so its rootfs lands in the snapshot store.
-
-    Returns True only if the VM actually came up. This is the gate for promoting
-    the image to ``:latest``: a digest that has never booted must not become the
-    tag every launch resolves.
-    """
-    console.print(f"[cyan]Starting VM to prefetch {image_url}...[/cyan]")
-
-    try:
-        from plato.v2 import Env, Plato
-        from plato.v2.types import SimConfigCompute
-
-        plato = Plato()
-        env = Env.resource(
-            simulator=f"prefetch-{world_name}",
-            sim_config=SimConfigCompute(),
-            docker_image_url=image_url,
-            upload_rootfs=True,
-            rootfs_storage_backend="snapshot-store",
-        )
-        session = plato.sessions.create(
-            envs=[env],
-            timeout=_PREFETCH_TIMEOUT_S,
-            ready_timeout=_PREFETCH_TIMEOUT_S,
-            connect_network=False,
-        )
-        console.print("[green]Prefetch complete - rootfs cached[/green]")
-        session.close()
-        plato.close()
-        return True
-    except Exception as e:
-        console.print(f"[red]Prefetch failed: {e}[/red]")
-        return False
-
-
-def _retag_world_image(
-    package_name: str, repository: str, source_tag: str, target_tag: str, api_key: str | None
-) -> bool:
-    """Copy ``source_tag`` -> ``target_tag`` in the world's ECR repo (manifest copy, same digest).
-
-    Prefers the Chronos retag endpoint (server-side creds); falls back to local
-    AWS credentials so an author without the endpoint deployed isn't stranded.
-    """
-    retagged = False
-    if api_key is not None:
-        retagged, retag_err = retag_image_via_chronos(
-            get_chronos_settings().chronos_url, package_name, source_tag, target_tag, api_key
-        )
-        if not retagged:
-            # TODO: remove this local-AWS fallback once the Chronos retag
-            # endpoint (POST /api/worlds/{package_name}/retag-image) is
-            # deployed everywhere.
-            console.print(
-                f"[dim]Chronos retag :{source_tag} -> :{target_tag} failed ({retag_err}); trying local AWS[/dim]"
-            )
-    if not retagged:
-        retagged = retag_image(repository, source_tag, target_tag)
-    return retagged
-
-
-def _retag_source_tags(previous_version: str, version: str) -> list[str]:
-    """Image tags a --skip-docker publish tries, in order, as the source for :<version>.
-
-    The version being bumped from comes first: it is the last thing this
-    checkout published, so a ``--dev --no-skip-docker`` rebuild (which never
-    moves :latest) chains forward into the python-only dev publishes that
-    follow it, and a fresh checkout starts from its release tag. :latest is the
-    fallback — it is also the only candidate when the version was bumped
-    externally (CI's version-bump.sh) so previous == new.
-    """
-    tags = []
-    if previous_version and previous_version != version:
-        tags.append(previous_version)
-    tags.append("latest")
-    return tags
 
 
 def _update_config_package_version(
@@ -226,6 +125,11 @@ def world_publish(
         help="Force Docker rebuild even with --dev (overrides the default skip behavior). "
         "A dev rebuild pushes and prefetches :<version> only; :latest moves only on a release publish",
     ),
+    wheel_only: bool = typer.Option(
+        False,
+        "--wheel-only",
+        help="Upload only the wheel; the image :<version> must already be in ECR. For re-running a publish whose image step succeeded but whose upload failed",
+    ),
     update_config: list[str] = typer.Option(
         None,
         "--update-config",
@@ -247,8 +151,12 @@ def world_publish(
 
     Requires PLATO_API_KEY environment variable for upload.
     """
+    if wheel_only and (skip_docker or no_skip_docker):
+        console.print("[red]--wheel-only cannot be combined with --skip-docker / --no-skip-docker[/red]")
+        raise typer.Exit(1)
+
     # --dev implies --skip-docker unless --no-skip-docker is explicitly passed
-    if dev and not skip_docker and not no_skip_docker:
+    if dev and not skip_docker and not no_skip_docker and not wheel_only:
         skip_docker = True
         console.print(
             "[dim]--dev implies --skip-docker (retag instead of rebuild). Use --no-skip-docker to force a rebuild.[/dim]"
@@ -267,12 +175,7 @@ def world_publish(
     if not dry_run:
         api_key = require_api_key()
 
-    # Get base URL
-    # Get registry URL (always publish to production registry by default)
-    registry_url = os.getenv("PLATO_REGISTRY_BASE_URL", "https://plato.so").rstrip("/")
-    if registry_url.endswith("/api"):
-        registry_url = registry_url[:-4]
-    api_url = f"{registry_url}/api"
+    api_url = registry_api_url()
 
     # Resolve package path
     pkg_path = Path(path).resolve()
@@ -306,13 +209,20 @@ def world_publish(
         raise typer.Exit(1)
 
     previous_version = version
-    version = maybe_bump_package_version(
-        pyproject_file,
-        version,
-        minor=minor,
-        dev=dev,
-        dry_run=dry_run,
-    )
+    if wheel_only:
+        # The re-run after a failed upload: the image step already ran for the
+        # version in pyproject.toml, so publish exactly that version. Bumping
+        # (a fresh dated dev version, or the release prompt defaulting to yes)
+        # would point the wheel at an image tag that was never pushed.
+        console.print(f"[dim]--wheel-only: keeping version {version} (no bump)[/dim]")
+    else:
+        version = maybe_bump_package_version(
+            pyproject_file,
+            version,
+            minor=minor,
+            dev=dev,
+            dry_run=dry_run,
+        )
 
     console.print(f"[cyan]Package:[/cyan] {package_name}")
     console.print(f"[cyan]Version:[/cyan] {version}")
@@ -359,21 +269,7 @@ def world_publish(
         console.print("[red]Error: uv not found. Install with: pip install uv[/red]")
         raise typer.Exit(1) from None
 
-    # Find built wheel
-    dist_dir = pkg_path / "dist"
-    if not dist_dir.exists():
-        console.print("[red]Error: dist/ directory not found after build[/red]")
-        raise typer.Exit(1)
-
-    normalized_name = package_name.replace("-", "_")
-    wheel_files = list(dist_dir.glob(f"{normalized_name}-{version}-*.whl"))
-    if not wheel_files:
-        wheel_files = list(dist_dir.glob("*.whl"))
-    if not wheel_files:
-        console.print(f"[red]Error: No wheel file found in {dist_dir}[/red]")
-        raise typer.Exit(1)
-
-    wheel_file = wheel_files[0]
+    wheel_file = find_wheel(pkg_path, package_name, version)
     console.print(f"[cyan]Built:[/cyan] {wheel_file.name}")
 
     # Extract schema from wheel
@@ -412,153 +308,28 @@ def world_publish(
         console.print('  2. Add [tool.hatch.build.hooks.custom] path = "hatch_build.py" to pyproject.toml')
         raise typer.Exit(1)
 
-    # ========== PyPI Upload ==========
-    if dry_run:
-        console.print("\n[yellow]Dry run - skipping PyPI upload[/yellow]")
-        if schema_data:
-            console.print("\n[bold]Schema:[/bold]")
-            console.print(json.dumps(schema_data, indent=2))
-    else:
-        upload_url = f"{api_url}/v2/pypi/worlds/"
-        console.print(f"\n[cyan]Uploading to {upload_url}...[/cyan]")
+    if dry_run and schema_data:
+        console.print("\n[bold]Schema:[/bold]")
+        console.print(json.dumps(schema_data, indent=2))
 
-        assert api_key is not None
-        try:
-            result = subprocess.run(
-                [
-                    "uv",
-                    "publish",
-                    "--publish-url",
-                    upload_url,
-                    "--username",
-                    "__token__",
-                    "--password",
-                    api_key,
-                    str(wheel_file),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            if result.returncode == 0:
-                console.print("[green]Upload successful![/green]")
-            else:
-                console.print("[red]Upload failed:[/red]")
-                if result.stdout:
-                    console.print(result.stdout)
-                if result.stderr:
-                    console.print(result.stderr)
-                raise typer.Exit(1)
-
-        except FileNotFoundError:
-            console.print("[red]Error: uv not found[/red]")
-            raise typer.Exit(1) from None
-
-    # ========== Docker Image Publishing (if Dockerfile exists) ==========
-    dockerfile = pkg_path / "Dockerfile"
-    if dockerfile.exists():
-        console.print()
-
-        # Extract short name (remove common prefixes)
-        short_name = package_name
-        for prefix in ("plato-world-", "plato-"):
-            if short_name.startswith(prefix):
-                short_name = short_name[len(prefix) :]
-                break
-
-        repository = f"vm/rootfs/plato-worlds/{short_name}"
-        latest_image = f"{ECR_REGISTRY}/{repository}:latest"
-
-        version_image = f"{ECR_REGISTRY}/{repository}:{version}"
-
+    # Image first (retag, or push -> prefetch -> promote), wheel last: the
+    # wheel is what makes the version launchable. See plato.cli.publish_flow.
+    publish_image_then_wheel(
+        WORLD,
+        package_name=package_name,
+        previous_version=previous_version,
+        version=version,
+        pkg_path=pkg_path,
+        wheel_file=wheel_file,
+        api_key=api_key,
+        dry_run=dry_run,
+        skip_docker=skip_docker,
         # A dev rebuild never moves :latest — it is prod's tag and a laptop
         # iteration has no business moving it. The dev image is launchable
-        # by its pinned version (schema.json bakes :<version>), and the next
-        # --dev --skip-docker publish chains from it via _retag_source_tags.
-        promote_latest = not dev
-
-        if dry_run:
-            console.print("[yellow]Dry run - would build and push Docker image:[/yellow]")
-            console.print(f"  {version_image}")
-            if promote_latest:
-                console.print(f"  then prefetch it and promote it to {latest_image}")
-            else:
-                console.print("  then prefetch it (dev publish: :latest is not moved)")
-        elif skip_docker:
-            assert api_key is not None
-            source_tags = _retag_source_tags(previous_version, version)
-            for source_tag in source_tags:
-                console.print(f"[cyan]Retagging :{source_tag} as :{version}...[/cyan]")
-                if _retag_world_image(package_name, repository, source_tag, version, api_key):
-                    console.print(f"[green]Retagged:[/green] {version_image} (from :{source_tag})")
-                    break
-            else:
-                console.print(
-                    f"[red]Failed to retag image from any of {source_tags}. Is there an existing :latest?[/red]"
-                )
-                raise typer.Exit(1)
-        else:
-            # Check Docker is available
-            if not shutil.which("docker"):
-                console.print("[red]Error: docker not found[/red]")
-                raise typer.Exit(1)
-
-            # Current :latest digest, to detect a no-op rebuild below.
-            old_latest_digest = get_image_digest(repository, "latest")
-
-            wait_for_pypi_version(package_name, version, repo="worlds", api_key=api_key)
-            console.print("[cyan]Building and pushing Docker image...[/cyan]")
-            result = publish_docker_image(
-                name=short_name,
-                version=version,
-                build_path=str(pkg_path),
-                repo_prefix="vm/rootfs/plato-worlds",
-            )
-
-            if not result.success:
-                console.print(f"[red]{result.error}[/red]")
-                raise typer.Exit(1)
-
-            console.print(f"[green]Published:[/green] {result.ecr_image}")
-
-            # Promotion is ordered push :<version> -> prefetch :<version> ->
-            # retag :<version> as :latest. :latest only ever moves to a digest
-            # that has already booted on a node and seeded the snapshot store;
-            # a retag is a manifest copy, so the promoted tag is warm the
-            # instant it flips. Anything that resolves :latest (launches, the
-            # next --skip-docker retag) never pays the 10+ minute cold-ingest path.
-            new_digest = get_image_digest(repository, version)
-            if new_digest is not None and new_digest == old_latest_digest:
-                console.print(
-                    "\n[dim]Docker image digest unchanged - :latest already points at it, skipping prefetch[/dim]"
-                )
-            else:
-                console.print()
-                console.print("[bold]Prefetching image...[/bold]")
-                if not _prefetch_world_image(version_image, short_name):
-                    console.print(
-                        f"[red]Prefetch failed: {version_image} is pushed but has not booted"
-                        + (" and :latest was NOT moved" if promote_latest else "")
-                        + ". Fix the boot failure and re-run the publish.[/red]"
-                    )
-                    raise typer.Exit(1)
-                if promote_latest:
-                    console.print("[cyan]Promoting to :latest...[/cyan]")
-                    if not _retag_world_image(package_name, repository, version, "latest", api_key):
-                        console.print(
-                            f"[red]Failed to promote {version_image} to :latest (prefetch succeeded; "
-                            ":latest was NOT moved). Re-run the publish.[/red]"
-                        )
-                        raise typer.Exit(1)
-                    console.print(f"[green]Promoted:[/green] {latest_image}")
-                else:
-                    console.print(
-                        f"[dim]Dev publish - :latest not moved. Launch by pinned version {package_name}:{version}; "
-                        "later --dev publishes retag from it.[/dim]"
-                    )
-    else:
-        console.print("\n[dim]No Dockerfile found - skipping Docker image build[/dim]")
+        # by its pinned version (schema.json bakes :<version>).
+        promote_latest=not dev,
+        wheel_only=wheel_only,
+    )
 
     if update_config:
         console.print()

@@ -21,10 +21,13 @@ from typing import TYPE_CHECKING, Any
 
 from plato.computer_use.mcp_server import RemoteComputerToolServer
 from plato.computer_use.remote_computer import RemoteDesktopComputer
+from plato.computer_use.ssh_sandbox import SshSandbox
 from plato.sims.ubuntu_vm import AsyncClient as VMAsyncClient
+from plato.utils.ssh import generate_ssh_key
 
 if TYPE_CHECKING:
     from plato.agents.config import AgentConfig
+    from plato.v2.async_.environment import Environment
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +59,15 @@ individual tools are self-documenting via their MCP schemas, so this only
 covers what the model cannot infer from them: that the desktop is a separate
 remote machine and how to orient (screenshot-first, pixel coordinates)."""
 
+SANDBOX_FILE_TOOLS_INSTRUCTIONS = """Use `read_file`, `write_file` and `edit_file` for the desktop VM's files
+rather than shell redirection or heredocs — they take raw content, so nothing
+needs quoting or escaping. `grep` and `glob` search it."""
+"""Extra system-prompt block, appended only when the agent has an ssh sandbox.
+
+Without one the `computer` server exposes no file or search tools, so naming
+them would point the model at tools it does not have.
+"""
+
 
 def computer_use_mcp_server_entry(config: AgentConfig) -> dict[str, Any] | None:
     """Return the MCP-config server dict for the local computer-use server.
@@ -86,6 +98,23 @@ def computer_use_mcp_server_entry(config: AgentConfig) -> dict[str, Any] | None:
     return {"url": computer_use_mcp_url()}
 
 
+async def sandbox_ssh_fields(env: Environment) -> dict[str, str]:
+    """Authorize a per-run key on the sandbox ``env`` and return its ssh agent-config fields.
+
+    A ``sandbox_tools_only`` agent reaches its sandbox over the session mesh
+    (Codex runs its exec-server there; the ``computer`` server's bash and file
+    tools use the same channel), so a world that hands an agent a sandbox calls
+    this before the agent boots. The key is minted per run and authorized on
+    ``env`` only — never the world's runner key, which also opens the world VM.
+    """
+    key_path = generate_ssh_key()
+    await env.add_ssh_key(key_path.with_suffix(".pub").read_text().strip())
+    host = await env.get_mesh_ip()
+    if not host:
+        raise RuntimeError(f"sandbox env {env.alias!r} has no mesh address for the agent's ssh channel")
+    return {"computer_use_ssh_host": host, "computer_use_ssh_key": key_path.read_text()}
+
+
 class ComputerUseMcp:
     """Lifecycle handle for the local computer-use MCP server.
 
@@ -97,13 +126,24 @@ class ComputerUseMcp:
         self,
         vm_url: str,
         *,
+        ssh_host: str | None = None,
+        ssh_key: str | None = None,
+        ssh_user: str = "root",
         port: int = COMPUTER_USE_MCP_PORT,
         logger: logging.Logger | None = None,
     ) -> None:
         self._vm_url = vm_url
+        # Both or neither: a host without a key (or vice versa) is a config
+        # error, not a reason to fall back to HTTP silently.
+        if (ssh_host is None) != (ssh_key is None):
+            raise ValueError("computer_use_ssh_host and computer_use_ssh_key must be set together")
+        self._ssh_host = ssh_host
+        self._ssh_key = ssh_key
+        self._ssh_user = ssh_user
         self._port = port
         self._logger = logger or logging.getLogger(__name__)
         self._vm_client = None
+        self._sandbox = None
         self._server = None
 
     @classmethod
@@ -113,7 +153,17 @@ class ComputerUseMcp:
             return None
         # The entry call above raised on None and on unresolved EnvMcpUrl refs.
         assert isinstance(config.computer_use_vm_url, str)
-        return cls(config.computer_use_vm_url, logger=logger)
+        return cls(
+            config.computer_use_vm_url,
+            ssh_host=config.computer_use_ssh_host,
+            ssh_key=config.computer_use_ssh_key,
+            ssh_user=config.computer_use_ssh_user,
+            logger=logger,
+        )
+
+    @property
+    def uses_ssh(self) -> bool:
+        return self._ssh_host is not None
 
     @property
     def url(self) -> str:
@@ -145,7 +195,13 @@ class ComputerUseMcp:
                 raise RuntimeError(f"computer-use MCP: remote desktop at {self._vm_url} is unreachable: {exc}") from exc
             computer.width = status.resolution.width
             computer.height = status.resolution.height
-            self._server = RemoteComputerToolServer(computer, port=self._port)
+            if self._ssh_host is not None and self._ssh_key is not None:
+                # bash + file tools over the persistent mesh ssh session; the
+                # probe inside start() fails loudly if the sandbox is unreachable.
+                self._logger.info("computer-use MCP: bash/file tools over ssh to %s", self._ssh_host)
+                self._sandbox = SshSandbox(self._ssh_host, self._ssh_key, user=self._ssh_user, logger=self._logger)
+                await self._sandbox.start()
+            self._server = RemoteComputerToolServer(computer, sandbox=self._sandbox, port=self._port)
             await self._server.start()
         except BaseException:
             # Don't leak the VM client / half-started server when startup
@@ -162,6 +218,9 @@ class ComputerUseMcp:
         if self._server is not None:
             await self._server.close()
             self._server = None
+        if self._sandbox is not None:
+            await self._sandbox.close()
+            self._sandbox = None
         if self._vm_client is not None:
             await self._vm_client.close()
             self._vm_client = None

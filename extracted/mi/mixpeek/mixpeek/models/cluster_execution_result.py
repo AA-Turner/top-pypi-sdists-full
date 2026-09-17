@@ -24,6 +24,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from mixpeek.models.cluster_execution_centroid import ClusterExecutionCentroid
 from mixpeek.models.cluster_execution_metrics import ClusterExecutionMetrics
+from mixpeek.models.cluster_generation_reap import ClusterGenerationReap
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -55,7 +56,8 @@ class ClusterExecutionResult(BaseModel):
     run_name: Optional[Annotated[str, Field(strict=True, max_length=120)]] = Field(default=None, description="OPTIONAL. Human-friendly name for this execution run (e.g. 'July tuning baseline'), set via PATCH /v1/clusters/{cluster_id}/executions/{run_id}/name and persisted on the execution record — no re-execution required. Editable at any time; capped at 120 characters. Use it to tell runs apart in the run selector / execution history instead of raw run_ids. Omitted from the response entirely when the run was never named (schema-additive, same rule as label_overrides).")
     layout_stability_applied: Optional[StrictStr] = Field(default=None, description="OPTIONAL. What layout stabilization actually happened on this execution. 'transform' = coordinates were projected through the previous run's saved reducer (existing documents pixel-stable). 'aligned' = the fresh layout was registered onto the previous run's coordinates via a least-squares similarity transform over shared documents. 'none' = raw independent layout (stability disabled, first run, or a documented skip — see layout_stability_reason). Omitted for executions that predate (schema-additive).")
     layout_stability_reason: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Human-readable explanation of layout_stability_applied — e.g. 'aligned to previous run on 412 shared documents' or 'only 3 shared documents with previous run (minimum 20)'. Omitted when absent (schema-additive).")
-    __properties: ClassVar[List[str]] = ["run_id", "cluster_id", "status", "num_clusters", "num_points", "metrics", "centroids", "created_at", "completed_at", "error_message", "error_traceback", "llm_labeling_errors", "source_documents", "vectors_retrieved", "vectors_clustered", "index_gap", "pipeline_drop", "input_reconciliation_ok", "input_reconciliation_reasons", "pipeline_drop_expected_as_noise", "label_overrides", "run_name", "layout_stability_applied", "layout_stability_reason"]
+    generation_reap: Optional[List[ClusterGenerationReap]] = Field(default=None, description="OPTIONAL. One record per output collection saying what this run did with the previous generation: deleted it, found nothing stale, or kept it (and why). Omitted for executions that predate the record (schema-additive).")
+    __properties: ClassVar[List[str]] = ["run_id", "cluster_id", "status", "num_clusters", "num_points", "metrics", "centroids", "created_at", "completed_at", "error_message", "error_traceback", "llm_labeling_errors", "source_documents", "vectors_retrieved", "vectors_clustered", "index_gap", "pipeline_drop", "input_reconciliation_ok", "input_reconciliation_reasons", "pipeline_drop_expected_as_noise", "label_overrides", "run_name", "layout_stability_applied", "layout_stability_reason", "generation_reap"]
 
     @field_validator('run_id')
     def run_id_validate_regular_expression(cls, value):
@@ -137,6 +139,13 @@ class ClusterExecutionResult(BaseModel):
                 if _item_centroids:
                     _items.append(_item_centroids.to_dict())
             _dict['centroids'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in generation_reap (list)
+        _items = []
+        if self.generation_reap:
+            for _item_generation_reap in self.generation_reap:
+                if _item_generation_reap:
+                    _items.append(_item_generation_reap.to_dict())
+            _dict['generation_reap'] = _items
         return _dict
 
     @classmethod
@@ -172,7 +181,8 @@ class ClusterExecutionResult(BaseModel):
             "label_overrides": obj.get("label_overrides"),
             "run_name": obj.get("run_name"),
             "layout_stability_applied": obj.get("layout_stability_applied"),
-            "layout_stability_reason": obj.get("layout_stability_reason")
+            "layout_stability_reason": obj.get("layout_stability_reason"),
+            "generation_reap": [ClusterGenerationReap.from_dict(_item) for _item in obj["generation_reap"]] if obj.get("generation_reap") is not None else None
         })
         return _obj
 

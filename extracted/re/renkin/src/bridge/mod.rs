@@ -69,12 +69,17 @@
 
 pub mod aizynthfinder;
 pub mod audit;
+pub mod audit_ranking;
 pub mod audit_route;
 pub mod forward;
+pub mod input_artifact;
 pub mod interchange;
+pub mod mechanistic_evidence;
 pub mod private_stock;
+pub mod receipt_binding;
 pub mod review;
 pub mod route_graph;
+pub mod route_metrics;
 pub mod synplanner;
 pub mod syntheseus;
 
@@ -84,6 +89,12 @@ pub use audit::{
     AuditedStep, CheckStatus, StockNotEvaluableReason, StockValidationResult, audit,
     audit_document, audit_document_with_policy, audit_with_policy,
 };
+pub use audit_ranking::{
+    AUDIT_RANKING_SCHEMA_VERSION, AuditEligibility, ObjectiveDirection, ParetoReceipt,
+    ParetoStatus, ParetoVerdict, RankingAxis, RankingCandidate, WEIGHTED_RANKING_SCHEMA_VERSION,
+    WeightSensitivityScenario, WeightedAxis, WeightedProfile, WeightedRankingInput,
+    WeightedRankingReceipt, WeightedVerdict, pareto_rank, weighted_rank_with_sensitivity,
+};
 pub use audit_route::{
     AuditManifest, AuditRouteReport, AuditRouteSummary, build_audit_route_report,
     build_audit_route_report_with_options, build_audit_route_report_with_policy, parse_stock_text,
@@ -92,15 +103,31 @@ pub use audit_route::{
 pub use forward::{
     EvidenceBasis, ForwardNotEvaluableReason, ForwardValidationResult, validate_step_forward,
 };
+pub use input_artifact::{
+    ArtifactTransform, INPUT_ARTIFACT_SCHEMA_VERSION, InputArtifactError, InputArtifactReceipt,
+    InputSourceKind, OcsrProvenance, RedactedInputArtifactReceipt, StructureReview,
+    StructureReviewStatus,
+};
 pub use interchange::{
-    ADAPTER_LOSS_SCHEMA_VERSION, AdapterLossField, AdapterLossReport, InterchangeStep,
-    LossDisposition, ROUTE_INTERCHANGE_SCHEMA_VERSION, ReactionProvenance, RouteInterchange,
-    StockProvenance, from_audit_report, validate_strict_import,
+    ADAPTER_LOSS_SCHEMA_VERSION, AdapterLossField, AdapterLossReport, InterchangeNodeV2,
+    InterchangeStep, LossDisposition, ROUTE_INTERCHANGE_SCHEMA_VERSION,
+    ROUTE_INTERCHANGE_V2_SCHEMA_VERSION, ReactionProvenance, RouteInterchange, RouteInterchangeV2,
+    StockProvenance, from_audit_report, from_document_v2, reauditable_import_v1,
+    reauditable_import_v2, validate_strict_import, validate_strict_import_v2,
+};
+pub use mechanistic_evidence::{
+    CalculationContext, EvidenceOrigin, MECHANISTIC_EVIDENCE_SCHEMA_VERSION, MechanisticAxisSpec,
+    MechanisticEvidenceError, MechanisticEvidenceReceipt, MechanisticQuantity,
+    project_comparable_axis,
 };
 pub use private_stock::{
     PRIVATE_STOCK_POLICY_SCHEMA_VERSION, PrivateStockDecision, PrivateStockDecisionRecord,
     PrivateStockPolicy, PrivateStockReason, PrivateStockReport, PrivateStockRouteScore,
     assess_report, assign_route_ranks,
+};
+pub use receipt_binding::{
+    EvidenceChainVerification, RECEIPT_BINDING_SCHEMA_VERSION, ReceiptBindingInput,
+    ReceiptBindingReceipt, ReceiptMaterial, verify_evidence_chain_v1,
 };
 pub use review::{
     CHEMICAL_REVIEW_RUBRIC_VERSION, ChemicalReview, ReviewDimension, ReviewFinding, ReviewSeverity,
@@ -109,6 +136,13 @@ pub use review::{
 pub use route_graph::{
     ParseOutcome, ReactionEvidence, RouteDocument, RouteNode, RouteSource, RouteStep,
     SynPlannerRuleProvenance, normalize_renkin_route,
+};
+pub use route_metrics::{
+    Coverage as RouteMetricCoverage, MassAmount, MassCategory, MassUnit, MetricError, MetricScope,
+    MetricStatus, MetricValue, ProcessBoundary, ProcessMassInput, ProcessMassLedger,
+    ROUTE_METRICS_SCHEMA_VERSION, ROUTE_METRICS_SIDECAR_SCHEMA_VERSION, ReportedMetric,
+    RouteMetricsReceipt, RouteMetricsSidecarBinding, RouteMetricsSidecarInput,
+    VerifiedRouteMetricsSidecar,
 };
 pub use synplanner::{SynPlannerNode, normalize_synplanner_route, parse_synplanner_routes};
 pub use syntheseus::{SyntheseusRouteV1, normalize_syntheseus_route};

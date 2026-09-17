@@ -2,6 +2,7 @@
 from typing import Any, Dict, Optional, Tuple
 
 # Constants
+collect_ignore: Any = ...  # From conftest
 ByteTrackWrapper: Any = ...  # From test_identity_analytics
 ByteTrackWrapper: Any = ...  # From test_incident_analytics
 ByteTrackWrapper: Any = ...  # From test_quality_analytics
@@ -267,4 +268,4 @@ class ZoneAnalyticsTestProcessor:
     def process_video(self: Any) -> Any: ...
 
 
-from . import test_identity_analytics, test_incident_analytics, test_quality_analytics, test_redis_publisher_config, test_safety_analytics, test_volume_analytics, test_zone_analytics
+from . import conftest, test_identity_analytics, test_incident_analytics, test_quality_analytics, test_redis_publisher_config, test_safety_analytics, test_volume_analytics, test_zone_analytics

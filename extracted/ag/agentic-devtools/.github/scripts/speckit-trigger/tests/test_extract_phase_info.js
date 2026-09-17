@@ -863,6 +863,206 @@ console.log('=== Testing workflow_dispatch path ===');
     assertEqual('normalized Copilot branch advances phase progression', '3', core.outputs.next_phase);
   }
   {
+    // Regression: a previously normalized Cloud Agent PR keeps its speckit:phase-N label
+    // and an earlier UUID-correlated normalizer success comment. If the PR body marker is
+    // later stripped and an "edited" normalizer run posts a fresh correlation_id=none
+    // success comment, the markerless fallback must not treat this as a legacy markerless
+    // PR and must not advance the superseded assignment.
+    const core = createMockCore();
+    await extractPhaseInfo.run({
+      github: createMockGithub([], {}, [
+        {
+          author_association: 'BOT',
+          body: '<!-- speckit:agent-pr-normalizer pr=24 correlation_id=11111111-1111-4111-8111-dddddddddddd -->',
+          created_at: '2026-01-01T00:00:00Z',
+          user: { login: 'github-actions[bot]' },
+        },
+        {
+          author_association: 'BOT',
+          body: '<!-- speckit:agent-pr-normalizer pr=24 correlation_id=none -->',
+          created_at: '2026-01-02T00:00:00Z',
+          user: { login: 'github-actions[bot]' },
+        },
+      ]),
+      context: {
+        eventName: 'pull_request',
+        payload: {
+          pull_request: {
+            number: 24,
+            labels: [{ name: 'speckit:phase-2' }, { name: 'speckit:level-feature' }],
+            base: { ref: 'speckit/793/phase-1-specify' },
+            head: { ref: 'copilot/implement-793' },
+            body: 'Closes #793',
+            merge_commit_sha: 'copilot124',
+            html_url: 'https://example.test/pr/24',
+          },
+        },
+        repo: { owner: 'swai-factory', repo: 'agentic-devtools' },
+      },
+      core,
+      workflowDispatchPhase: '',
+      workflowDispatchIssueNumber: '',
+    });
+    assertEqual(
+      'superseded normalized Copilot PR with stripped marker is skipped rather than advanced',
+      '0',
+      core.outputs.next_phase
+    );
+    assertEqual(
+      'superseded normalized Copilot PR with stripped marker clears issue number output',
+      '0',
+      core.outputs.issue_number
+    );
+    assertTruthy(
+      'superseded normalized Copilot PR logs a warning that the fallback was skipped',
+      core.warnings.some(msg => msg.includes('Skipping Copilot fallback') && msg.includes('normalization did not succeed'))
+    );
+  }
+  {
+    // Regression (label-stripped variant): same superseded-assignment scenario, but the
+    // speckit:phase-N label was also removed alongside the body marker, so the check in
+    // `hasSuccessfulNormalization`'s initial computation path (not just the branch fallback)
+    // must also refuse to treat the PR as legacy markerless.
+    const core = createMockCore();
+    await extractPhaseInfo.run({
+      github: createMockGithub([], {}, [
+        {
+          author_association: 'BOT',
+          body: '<!-- speckit:agent-pr-normalizer pr=25 correlation_id=22222222-2222-4222-8222-eeeeeeeeeeee -->',
+          created_at: '2026-01-01T00:00:00Z',
+          user: { login: 'github-actions[bot]' },
+        },
+        {
+          author_association: 'BOT',
+          body: '<!-- speckit:agent-pr-normalizer pr=25 correlation_id=none -->',
+          created_at: '2026-01-02T00:00:00Z',
+          user: { login: 'github-actions[bot]' },
+        },
+      ]),
+      context: {
+        eventName: 'pull_request',
+        payload: {
+          pull_request: {
+            number: 25,
+            labels: [],
+            base: { ref: 'speckit/794/phase-1-specify' },
+            head: { ref: 'copilot/implement-794' },
+            body: 'Closes #794',
+            merge_commit_sha: 'copilot125',
+            html_url: 'https://example.test/pr/25',
+          },
+        },
+        repo: { owner: 'swai-factory', repo: 'agentic-devtools' },
+      },
+      core,
+      workflowDispatchPhase: '',
+      workflowDispatchIssueNumber: '',
+    });
+    assertTruthy(
+      'superseded normalized Copilot PR without label logs the prior-correlation warning',
+      core.warnings.some(msg => msg.includes('prior UUID-correlated normalization'))
+    );
+    assertTruthy(
+      'superseded normalized Copilot PR without label fails closed for missing phase info',
+      core.failures.some(msg => msg.includes('Could not extract phase number from PR labels or cloud-agent marker'))
+    );
+  }
+  {
+    // Regression: the normalizer workflow posts its status comments through
+    // `github-script` using a PAT (`SPECKIT_PR_TOKEN`, `COPILOT_GITHUB_TOKEN`, or
+    // `DEFAULT_CLASSIC_REPO_WORKFLOW_PAT`), so GitHub attributes the comment to the
+    // PAT owner rather than `github-actions[bot]`, with `author_association` reflecting
+    // that account's real repo role (e.g. `MEMBER`) instead of `BOT`. The
+    // stale-assignment guard must still recognize the earlier UUID-correlated success
+    // comment under this real author shape (the exact `AMARSNIK_swica` login trusted
+    // for PAT-authored automation) and refuse to trust the later `correlation_id=none`
+    // comment.
+    const core = createMockCore();
+    await extractPhaseInfo.run({
+      github: createMockGithub([], {}, [
+        {
+          author_association: 'MEMBER',
+          body: '<!-- speckit:agent-pr-normalizer pr=26 correlation_id=33333333-3333-4333-8333-ffffffffffff -->',
+          created_at: '2026-01-01T00:00:00Z',
+          user: { login: 'AMARSNIK_swica' },
+        },
+        {
+          author_association: 'MEMBER',
+          body: '<!-- speckit:agent-pr-normalizer pr=26 correlation_id=none -->',
+          created_at: '2026-01-02T00:00:00Z',
+          user: { login: 'AMARSNIK_swica' },
+        },
+      ]),
+      context: {
+        eventName: 'pull_request',
+        payload: {
+          pull_request: {
+            number: 26,
+            labels: [{ name: 'speckit:phase-2' }, { name: 'speckit:level-feature' }],
+            base: { ref: 'speckit/795/phase-1-specify' },
+            head: { ref: 'copilot/implement-795' },
+            body: 'Closes #795',
+            merge_commit_sha: 'copilot126',
+            html_url: 'https://example.test/pr/26',
+          },
+        },
+        repo: { owner: 'swai-factory', repo: 'agentic-devtools' },
+      },
+      core,
+      workflowDispatchPhase: '',
+      workflowDispatchIssueNumber: '',
+    });
+    assertEqual(
+      'superseded normalized Copilot PR is skipped when normalizer comments use a PAT-owner author shape',
+      '0',
+      core.outputs.next_phase
+    );
+    assertTruthy(
+      'PAT-owner authored normalizer comments still trigger the prior-correlation warning',
+      core.warnings.some(msg => msg.includes('Skipping Copilot fallback') && msg.includes('normalization did not succeed'))
+    );
+  }
+  {
+    // Security regression: `author_association` describes a commenter's repo role, not
+    // the credential that authored the comment. An arbitrary current OWNER/MEMBER/
+    // COLLABORATOR (i.e. not the exact `AMARSNIK_swica` login trusted for PAT-authored
+    // automation) must not be able to forge a `speckit:agent-pr-normalizer` success
+    // marker just by holding a privileged repo role.
+    const core = createMockCore();
+    await extractPhaseInfo.run({
+      github: createMockGithub([], {}, [
+        {
+          author_association: 'OWNER',
+          body: '<!-- speckit:agent-pr-normalizer pr=27 correlation_id=none -->\n\n- Phase: 2',
+          created_at: '2026-01-01T00:00:00Z',
+          user: { login: 'some-other-owner' },
+        },
+      ]),
+      context: {
+        eventName: 'pull_request',
+        payload: {
+          pull_request: {
+            number: 27,
+            labels: [],
+            base: { ref: 'main' },
+            head: { ref: 'copilot/implement-796' },
+            body: 'Closes #796',
+            merge_commit_sha: 'copilot127',
+            html_url: 'https://example.test/pr/27',
+          },
+        },
+        repo: { owner: 'swai-factory', repo: 'agentic-devtools' },
+      },
+      core,
+      workflowDispatchPhase: '',
+      workflowDispatchIssueNumber: '',
+    });
+    assertTruthy(
+      'an untrusted OWNER/MEMBER/COLLABORATOR login cannot forge a normalizer success marker',
+      core.failures.some(msg => msg.includes('Could not extract phase number from PR labels or cloud-agent marker'))
+    );
+  }
+  {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extract-phase-info-pr-'));
     try {
       fs.mkdirSync(path.join(tempRoot, 'specs', '790'), { recursive: true });
@@ -913,6 +1113,7 @@ console.log('=== Testing workflow_dispatch path ===');
           author_association: 'MEMBER',
           body: marker,
           created_at: '2026-01-01T00:00:00Z',
+          user: { login: 'AMARSNIK_swica' },
         },
       ]),
       context: {
@@ -940,6 +1141,47 @@ console.log('=== Testing workflow_dispatch path ===');
     assertEqual('trusted cloud marker sets issue number', '888', core.outputs.issue_number);
   }
   {
+    // Security regression: an assignment marker comment posted by an arbitrary
+    // OWNER/MEMBER/COLLABORATOR (i.e. not the exact `AMARSNIK_swica` login trusted for
+    // PAT-authored automation, and not the legacy `github-actions[bot]`/`BOT` shape)
+    // must not be treated as authoritative just because of its repo role.
+    const core = createMockCore();
+    const marker = '<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=891 phase=2 hierarchy=feature correlation_id=11111111-1111-4111-8111-eeeeeeeeeeee -->';
+    await extractPhaseInfo.run({
+      github: createMockGithub([], {}, [
+        {
+          author_association: 'MEMBER',
+          body: marker,
+          created_at: '2026-01-01T00:00:00Z',
+          user: { login: 'some-other-member' },
+        },
+      ]),
+      context: {
+        eventName: 'pull_request',
+        payload: {
+          pull_request: {
+            number: 48,
+            user: { login: 'copilot-swe-agent[bot]' },
+            labels: [],
+            base: { ref: 'speckit/891/phase-1-specify' },
+            head: { ref: 'copilot/fix-891' },
+            body: marker,
+            merge_commit_sha: 'marker126',
+            html_url: 'https://example.test/pr/48',
+          },
+        },
+        repo: { owner: 'swai-factory', repo: 'agentic-devtools' },
+      },
+      core,
+      workflowDispatchPhase: '',
+      workflowDispatchIssueNumber: '',
+    });
+    assertTruthy(
+      'an untrusted OWNER/MEMBER/COLLABORATOR login cannot authenticate an assignment marker',
+      core.failures.some(msg => msg.includes('Could not extract phase number from PR labels or cloud-agent marker'))
+    );
+  }
+  {
     const core = createMockCore();
     const marker = '<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=889 phase=2 hierarchy=feature correlation_id=11111111-1111-4111-8111-bbbbbbbbbbbb -->';
     await extractPhaseInfo.run({
@@ -948,6 +1190,12 @@ console.log('=== Testing workflow_dispatch path ===');
           author_association: 'MEMBER',
           body: marker.replace('bbbbbbbbbbbb', 'cccccccccccc'),
           created_at: '2026-01-01T00:00:00Z',
+        },
+        {
+          author_association: 'BOT',
+          body: '<!-- speckit:agent-pr-normalizer pr=46 correlation_id=none -->\n\n- Phase: 2',
+          created_at: '2026-01-02T00:00:00Z',
+          user: { login: 'github-actions[bot]' },
         },
       ]),
       context: {
@@ -973,6 +1221,48 @@ console.log('=== Testing workflow_dispatch path ===');
     assertTruthy(
       'unmatched cloud marker is rejected without phase label',
       core.failures.some(msg => msg.includes('Could not extract phase number from PR labels or cloud-agent marker'))
+    );
+  }
+  {
+    const core = createMockCore();
+    const marker = '<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=890 phase=2 hierarchy=feature correlation_id=11111111-1111-4111-8111-cccccccccccc -->';
+    await extractPhaseInfo.run({
+      github: createMockGithub([], {}, [
+        {
+          author_association: 'MEMBER',
+          body: marker.replace('cccccccccccc', 'dddddddddddd'),
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        {
+          author_association: 'BOT',
+          body: '<!-- speckit:agent-pr-normalizer pr=47 correlation_id=none -->\n\n- Phase: 2',
+          created_at: '2026-01-02T00:00:00Z',
+          user: { login: 'github-actions[bot]' },
+        },
+      ]),
+      context: {
+        eventName: 'pull_request',
+        payload: {
+          pull_request: {
+            number: 47,
+            user: { login: 'copilot-swe-agent[bot]' },
+            labels: [{ name: 'speckit:phase-2' }],
+            base: { ref: 'speckit/890/phase-1-specify' },
+            head: { ref: 'copilot/fix-890' },
+            body: marker,
+            merge_commit_sha: 'marker125',
+            html_url: 'https://example.test/pr/47',
+          },
+        },
+        repo: { owner: 'swai-factory', repo: 'agentic-devtools' },
+      },
+      core,
+      workflowDispatchPhase: '',
+      workflowDispatchIssueNumber: '',
+    });
+    assertTruthy(
+      'unmatched cloud marker fails closed even when the stale PR still has a phase label and success comment',
+      core.failures.some(msg => msg.includes('non-authoritative cloud-agent marker'))
     );
   }
   {
@@ -1030,6 +1320,7 @@ console.log('=== Testing workflow_dispatch path ===');
       author_association: 'MEMBER',
       body: marker,
       created_at: '2026-01-01T00:00:00Z',
+      user: { login: 'AMARSNIK_swica' },
     }]);
     const core = createMockCore();
     await extractPhaseInfo.reconcileMergedPr({
@@ -1062,8 +1353,8 @@ console.log('=== Testing workflow_dispatch path ===');
     const olderMarker = '<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=903 phase=2 hierarchy=feature correlation_id=33333333-3333-4333-8333-cccccccccccc -->';
     const newerMarker = '<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=903 phase=2 hierarchy=feature correlation_id=44444444-4444-4444-8444-dddddddddddd -->';
     const github = createReconcileGithub([
-      { author_association: 'MEMBER', body: olderMarker, created_at: '2026-01-01T00:00:00Z' },
-      { author_association: 'MEMBER', body: newerMarker, created_at: '2026-01-02T00:00:00Z' },
+      { author_association: 'MEMBER', body: olderMarker, created_at: '2026-01-01T00:00:00Z', user: { login: 'AMARSNIK_swica' } },
+      { author_association: 'MEMBER', body: newerMarker, created_at: '2026-01-02T00:00:00Z', user: { login: 'AMARSNIK_swica' } },
     ]);
     await extractPhaseInfo.reconcileMergedPr({
       github,
@@ -1072,6 +1363,25 @@ console.log('=== Testing workflow_dispatch path ===');
       pr: { number: 92, body: olderMarker, labels: [] },
     });
     assertEqual('reconcile rejects an older trusted marker for the same issue and phase', 0, github.mutations.added.length);
+  }
+  {
+    // Security regression: an assignment marker on the source issue posted by an
+    // arbitrary OWNER/MEMBER/COLLABORATOR login must not be trusted for label
+    // reconciliation just because of its repo role.
+    const marker = '<!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=904 phase=2 hierarchy=feature correlation_id=55555555-5555-4555-8555-eeeeeeeeeeee -->';
+    const github = createReconcileGithub([{
+      author_association: 'MEMBER',
+      body: marker,
+      created_at: '2026-01-01T00:00:00Z',
+      user: { login: 'some-other-member' },
+    }]);
+    await extractPhaseInfo.reconcileMergedPr({
+      github,
+      context: { repo: { owner: 'swai-factory', repo: 'agentic-devtools' } },
+      core: createMockCore(),
+      pr: { number: 93, body: marker, labels: [] },
+    });
+    assertEqual('reconcile ignores an untrusted MEMBER-authored assignment marker', 0, github.mutations.added.length);
   }
 
   console.log('');

@@ -82,9 +82,9 @@ class ReplyFormatter:
     ) -> str:
         """Format a reply for threads resolved by default due to HEAD change.
 
-        Used when the SDK could not confirm resolution (unreachable, timeout,
-        malformed, or ambiguous response) but HEAD has changed since the review.
-        These threads are eligible for re-evaluation on subsequent runs.
+        Used when the SDK could not produce a definitive verdict but HEAD has
+        changed since the review. These threads are permanently finalized once
+        all review findings are resolved.
 
         Args:
             tier_result: The tier result carrying the actual tier name,
@@ -107,7 +107,7 @@ class ReplyFormatter:
         if model_id:
             parts.append(f"**Model**: {model_id}")
         parts.append("")
-        parts.append("_This thread will be re-evaluated in subsequent iterations._")
+        parts.append("_This thread is permanently finalized due to HEAD commit changes._")
         return "\n".join(parts)
 
     def format_abandoned_reply(self) -> str:

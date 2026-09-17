@@ -36,18 +36,22 @@ __all__ = (
     "DependencyCriticalityType",
     "DependencyDiscoveryInputType",
     "DependencyDiscoveryStatusType",
+    "DependencyInsightsErrorCodeType",
+    "DependencyInsightsStatusType",
     "EksLabelSelectorOperatorType",
     "FailureCategoryType",
     "FailureModeAssessmentSuccessWaiterName",
     "FindingSeverityType",
     "FindingStatusType",
     "InputSourceTypeType",
+    "InsightsCategoryType",
     "ListAssertionsPaginatorName",
     "ListDependenciesPaginatorName",
     "ListFailureModeAssessmentsPaginatorName",
     "ListFailureModeFindingsPaginatorName",
     "ListInputSourcesPaginatorName",
     "ListPoliciesPaginatorName",
+    "ListPolicyEventsPaginatorName",
     "ListReportsPaginatorName",
     "ListResolvedTestRunTargetResourcesPaginatorName",
     "ListResourcesPaginatorName",
@@ -70,6 +74,8 @@ __all__ = (
     "PaginatorName",
     "ParameterTypeType",
     "PolicyComponentType",
+    "PolicyDisassociationReasonType",
+    "PolicyEventTypeType",
     "PolicyValueSourceType",
     "QueryGranularityType",
     "RegionName",
@@ -131,6 +137,10 @@ CostCurrencyType = Literal["USD"]
 DependencyCriticalityType = Literal["HARD", "SOFT", "UNKNOWN"]
 DependencyDiscoveryInputType = Literal["DISABLED", "ENABLED"]
 DependencyDiscoveryStatusType = Literal["DISABLED", "ENABLED", "INITIALIZING"]
+DependencyInsightsErrorCodeType = Literal[
+    "INSUFFICIENT_DATA", "INTERNAL_ERROR", "LLM_GENERATION_FAILED"
+]
+DependencyInsightsStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 EksLabelSelectorOperatorType = Literal["DOES_NOT_EXIST", "EXISTS", "IN", "NOT_IN"]
 FailureCategoryType = Literal[
     "EXCESSIVE_LATENCY",
@@ -143,12 +153,16 @@ FailureModeAssessmentSuccessWaiterName = Literal["failure_mode_assessment_succes
 FindingSeverityType = Literal["HIGH", "LOW", "MEDIUM"]
 FindingStatusType = Literal["IRRELEVANT", "OPEN", "RESOLVED"]
 InputSourceTypeType = Literal["CFN_STACK", "DESIGN_FILE", "EKS", "MONITORING", "TAGS", "TERRAFORM"]
+InsightsCategoryType = Literal[
+    "AWS_SERVICE", "CROSS_REGION", "NEW_DEPENDENCY", "THIRD_PARTY", "UNEVEN_USAGE"
+]
 ListAssertionsPaginatorName = Literal["list_assertions"]
 ListDependenciesPaginatorName = Literal["list_dependencies"]
 ListFailureModeAssessmentsPaginatorName = Literal["list_failure_mode_assessments"]
 ListFailureModeFindingsPaginatorName = Literal["list_failure_mode_findings"]
 ListInputSourcesPaginatorName = Literal["list_input_sources"]
 ListPoliciesPaginatorName = Literal["list_policies"]
+ListPolicyEventsPaginatorName = Literal["list_policy_events"]
 ListReportsPaginatorName = Literal["list_reports"]
 ListResolvedTestRunTargetResourcesPaginatorName = Literal["list_resolved_test_run_target_resources"]
 ListResourcesPaginatorName = Literal["list_resources"]
@@ -178,6 +192,13 @@ PolicyComponentType = Literal[
     "DATA_RECOVERY",
     "MULTI_AZ_DISASTER_RECOVERY",
     "MULTI_REGION_DISASTER_RECOVERY",
+]
+PolicyDisassociationReasonType = Literal["POLICY_DELETED", "REPLACED_BY_UPDATE", "SHARING_REVOKED"]
+PolicyEventTypeType = Literal[
+    "POLICY_ATTACHED_TO_SERVICE",
+    "POLICY_DELETED",
+    "POLICY_DETACHED_FROM_SERVICE",
+    "POLICY_SHARING_REVOKED",
 ]
 PolicyValueSourceType = Literal["CROSS_ACCOUNT", "SELF"]
 QueryGranularityType = Literal["DAILY", "HOURLY"]
@@ -690,6 +711,7 @@ PaginatorName = Literal[
     "list_failure_mode_findings",
     "list_input_sources",
     "list_policies",
+    "list_policy_events",
     "list_reports",
     "list_resolved_test_run_target_resources",
     "list_resources",

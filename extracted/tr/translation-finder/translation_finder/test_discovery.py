@@ -10,6 +10,7 @@ import csv
 import json
 import tempfile
 from configparser import RawConfigParser
+from io import BytesIO
 from operator import itemgetter
 from pathlib import Path, PurePath
 from time import monotonic
@@ -150,12 +151,43 @@ class DiscoveryBaseTest(DiscoveryTestCase):
                 "file_format_params": {"existing": True},
             }
 
-            with patch.object(base_module, "from_fp", return_value=Detection()):
+            with patch.object(base_module, "from_bytes", return_value=Detection()):
                 discovery.adjust_format(result)
 
         self.assertEqual(
             result["file_format_params"],
             {"existing": True, "properties_encoding": "utf-8"},
+        )
+
+    def test_encoding_parameter_without_format_mapping(self) -> None:
+        discovery = OSXDiscovery(self.get_finder([]))
+        for file_format in (None, "strings", "json"):
+            with self.subTest(file_format=file_format):
+                result: ResultDict = {"filemask": "*"}
+                if file_format is not None:
+                    result["file_format"] = file_format
+                self.assertEqual(
+                    discovery.get_encoding_parameter(result),
+                    "" if file_format == "json" else "strings_encoding",
+                )
+
+    def test_set_encoding_parameter_for_unsupported_format(self) -> None:
+        discovery = OSXDiscovery(self.get_finder([]))
+        result: ResultDict = {
+            "filemask": "*.json",
+            "file_format": "json",
+            "file_format_params": {"strings_encoding": "utf-8", "existing": True},
+        }
+
+        discovery.set_encoding_parameter(result, "utf-16")
+
+        self.assertEqual(
+            result,
+            {
+                "filemask": "*.json",
+                "file_format": "json",
+                "file_format_params": {"existing": True},
+            },
         )
 
     def test_encoding_discovery_without_detection_result(self) -> None:
@@ -171,7 +203,7 @@ class DiscoveryBaseTest(DiscoveryTestCase):
             discovery = JavaDiscovery(finder)
             result: ResultDict = {"filemask": "messages_*.properties"}
 
-            with patch.object(base_module, "from_fp", return_value=Detection()):
+            with patch.object(base_module, "from_bytes", return_value=Detection()):
                 discovery.adjust_format(result)
 
         self.assertNotIn("file_format_params", result)
@@ -179,6 +211,117 @@ class DiscoveryBaseTest(DiscoveryTestCase):
     def test_non_english_variant_aliases(self) -> None:
         discovery = AppStoreDiscovery(self.get_finder([]))
         self.assertEqual(discovery.get_language_aliases("cs"), ["cs"])
+
+    def test_encoding_discovery_reads_bounded_sample(self) -> None:
+        class DetectionResult:
+            encoding = "utf_8"
+
+        class Detection:
+            @staticmethod
+            def best() -> DetectionResult:
+                return DetectionResult()
+
+        class TrackingBytesIO(BytesIO):
+            def __init__(self, content: bytes) -> None:
+                super().__init__(content)
+                self.read_sizes: list[int | None] = []
+
+            def read(self, size: int | None = -1) -> bytes:
+                self.read_sizes.append(size)
+                return super().read(size)
+
+        class SampleFinder:
+            @staticmethod
+            def mask_matches(_mask: str) -> Generator[Path]:
+                yield Path("sample.properties")
+
+            @staticmethod
+            def open(_path: Path, _mode: str) -> TrackingBytesIO:
+                return handle
+
+        handle = TrackingBytesIO(b"abc\xe2\x82\xacrest")
+        discovery = JavaDiscovery(cast("Finder", SampleFinder()))
+        with (
+            patch.object(base_module, "FORMAT_SNIFF_MAX_BYTES", 4),
+            patch.object(base_module, "from_bytes", return_value=Detection()) as detect,
+        ):
+            self.assertEqual(
+                discovery.detect_encoding({"filemask": "*.properties"}), "utf-8"
+            )
+
+        self.assertEqual(handle.read_sizes, [5])
+        detect.assert_called_once_with(b"abc")
+
+    def test_encoding_discovery_preserves_complete_sample(self) -> None:
+        class Detection:
+            @staticmethod
+            def best() -> None:
+                return None
+
+        content = b"abc\xe2"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "sample.properties").write_bytes(content)
+            discovery = JavaDiscovery(Finder(tmppath))
+            with (
+                patch.object(base_module, "FORMAT_SNIFF_MAX_BYTES", 4),
+                patch.object(
+                    base_module, "from_bytes", return_value=Detection()
+                ) as detect,
+            ):
+                self.assertIsNone(
+                    discovery.detect_encoding({"filemask": "*.properties"})
+                )
+
+        detect.assert_called_once_with(content)
+
+    def test_trim_incomplete_utf8_tail(self) -> None:
+        complete = "Příliš žluťoučký".encode()
+        character = "€".encode()
+        for length in range(1, len(character)):
+            with self.subTest(length=length):
+                self.assertEqual(
+                    base_module._trim_incomplete_unicode_tail(
+                        complete + character[:length]
+                    ),
+                    complete,
+                )
+
+    def test_trim_incomplete_utf16_tail(self) -> None:
+        for byte_order, bom in (
+            ("utf-16-le", b"\xff\xfe"),
+            ("utf-16-be", b"\xfe\xff"),
+        ):
+            complete = bom + "Complete".encode(byte_order)
+            character = "😀".encode(byte_order)
+            for length in range(1, len(character)):
+                with self.subTest(byte_order=byte_order, length=length):
+                    self.assertEqual(
+                        base_module._trim_incomplete_unicode_tail(
+                            complete + character[:length]
+                        ),
+                        complete,
+                    )
+
+    def test_trim_incomplete_utf32_tail(self) -> None:
+        for byte_order, bom in (
+            ("utf-32-le", b"\xff\xfe\x00\x00"),
+            ("utf-32-be", b"\x00\x00\xfe\xff"),
+        ):
+            complete = bom + "Complete".encode(byte_order)
+            character = "€".encode(byte_order)
+            for length in range(1, len(character)):
+                with self.subTest(byte_order=byte_order, length=length):
+                    self.assertEqual(
+                        base_module._trim_incomplete_unicode_tail(
+                            complete + character[:length]
+                        ),
+                        complete,
+                    )
+
+    def test_trim_incomplete_unicode_tail_preserves_interior_errors(self) -> None:
+        content = b"valid\xffinvalid\xe2"
+        self.assertEqual(base_module._trim_incomplete_unicode_tail(content), content)
 
 
 class GettextTest(DiscoveryTestCase):
@@ -671,6 +814,11 @@ class QtTest(DiscoveryTestCase):
             1,
         )
 
+    def test_ts_version_without_root_element(self) -> None:
+        for content in ("", '<?xml version="1.0"?>'):
+            with self.subTest(content=content):
+                self.assertIsNone(files_module._get_qt_ts_version(content))
+
     def test_detects_ts_version(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
@@ -1071,7 +1219,7 @@ class JavaTest(DiscoveryTestCase):
             )
 
             discovery = JavaDiscovery(Finder(tmppath))
-            with patch.object(base_module, "from_fp", return_value=Detection()):
+            with patch.object(base_module, "from_bytes", return_value=Detection()):
                 self.assert_discovery(
                     discovery.discover(),
                     [
@@ -1101,7 +1249,7 @@ class JavaTest(DiscoveryTestCase):
             (tmppath / "xwiki/messages_cs.properties").write_text(content)
 
             discovery = JavaDiscovery(Finder(tmppath))
-            with patch.object(base_module, "from_fp", return_value=Detection()):
+            with patch.object(base_module, "from_bytes", return_value=Detection()):
                 self.assert_discovery(
                     discovery.discover(),
                     [
@@ -2624,6 +2772,7 @@ class FormatSniffLimitTest(DiscoveryTestCase):
                 discovery.adjust_format(result)
 
         self.assertEqual(result["file_format"], "xliff2")
+        self.assertEqual(result["file_format_params"]["xliff_placeables"], "plain")
 
     def test_large_xliff_uses_sample_for_negative_refinement(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2640,7 +2789,8 @@ class FormatSniffLimitTest(DiscoveryTestCase):
             with patch.object(files_module, "FORMAT_SNIFF_MAX_BYTES", 32):
                 discovery.adjust_format(result)
 
-        self.assertEqual(result["file_format"], "plainxliff")
+        self.assertEqual(result["file_format"], "xliff")
+        self.assertEqual(result["file_format_params"]["xliff_placeables"], "plain")
 
     def test_xliff_skips_missing_sample(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -3395,8 +3545,10 @@ class XLIFFFormatVariantsTest(DiscoveryTestCase):
             len(xliff2_placeables_results) > 0,
             "Should detect XLIFF 2.0 placeables format",
         )
+        self.assertEqual(xliff2_placeables_results[0]["file_format"], "xliff2")
         self.assertEqual(
-            xliff2_placeables_results[0]["file_format"], "xliff2-placeables"
+            xliff2_placeables_results[0]["file_format_params"]["xliff_placeables"],
+            "placeables",
         )
 
 

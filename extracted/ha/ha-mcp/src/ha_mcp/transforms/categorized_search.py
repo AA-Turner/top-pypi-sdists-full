@@ -6,9 +6,15 @@ Each proxy carries its own MCP annotations so clients can apply
 appropriate permission policies (e.g., auto-approve reads, gate writes).
 
 Tools are categorized by their existing MCP annotations:
-- readOnlyHint=True → "read" category
-- destructiveHint=True with remove/delete in name → "delete" category
-- destructiveHint=True (other) → "write" category
+- read_only_hint=True → "read" category
+- destructive_hint=True with remove/delete in name → "delete" category
+- destructive_hint=True (other) → "write" category
+
+A ``manage`` tool combines several operations behind one name, so it is
+reachable from every proxy — read-approved calls only on the read proxy,
+the whole tool on the write and delete proxies (see ``_admits``) — and
+search results point each kind of action at its own proxy. In Read Only
+Mode only the read proxy is listed.
 """
 
 from __future__ import annotations
@@ -20,19 +26,19 @@ import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NoReturn
 
-from fastmcp.exceptions import ToolError
-from fastmcp.server.context import Context
-from fastmcp.server.transforms import Transform
-from fastmcp.server.transforms.search.bm25 import BM25SearchTransform
-from fastmcp.tools import Tool
-from mcp.types import ToolAnnotations
+from ha_mcp._vendor.fastmcp.exceptions import ToolError
+from ha_mcp._vendor.fastmcp.server.context import Context
+from ha_mcp._vendor.fastmcp.server.transforms import Transform
+from ha_mcp._vendor.fastmcp.server.transforms.search.bm25 import BM25SearchTransform
+from ha_mcp._vendor.fastmcp.tools import Tool
+from ha_mcp._vendor.mcp.types import ToolAnnotations
 
-from ..errors import ErrorCode, create_error_response
-from ..renamed_tools import current_tool_name
+from ..errors import TOOL_ERROR_LOG_LEVEL, ErrorCode, create_error_response
+from ..renamed_tools import adapt_retired_arguments, current_tool_name
 
 if TYPE_CHECKING:
-    from fastmcp.server.transforms import GetToolNext
-    from fastmcp.utilities.versions import VersionSpec
+    from ha_mcp._vendor.fastmcp.server.transforms import GetToolNext
+    from ha_mcp._vendor.fastmcp.utilities.versions import VersionSpec
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +90,12 @@ DEFAULT_PINNED_TOOLS: tuple[str, ...] = (
 
 # Tool name patterns that indicate delete/remove operations
 _DELETE_PATTERNS = ("_remove_", "_delete_")
+
+# ``manage`` names one interface that intentionally combines several
+# operations (.gemini/styleguide.md, Tool Naming Convention). Such a tool is
+# categorised by its annotations like any other, but every call proxy can
+# reach it — see ``_admits``.
+_MANAGE_PATTERNS = ("_manage_",)
 
 # Capability tier a tool falls into — shared by the call-proxy routing and
 # the settings-UI capability badges. See ``categorize_capability``.
@@ -192,13 +204,127 @@ def categorize_capability(
     return "write"
 
 
+def _is_manage_tool(name: str) -> bool:
+    """Whether *name* follows the ``manage`` convention for a multi-operation tool."""
+    return any(pattern in name for pattern in _MANAGE_PATTERNS)
+
+
+def _is_read_call_on_write_tool(name: str, arguments: dict[str, Any] | None) -> bool:
+    """Whether this call on a non-read-category tool is one of its read actions.
+
+    A mixed read/write tool (``ha_manage_backup``, ``ha_manage_updates``,
+    ``ha_manage_blueprints``, ...) is categorised ``write`` by its annotations
+    and lives in that category set only. But refusing its list/get actions on
+    the read proxy would strip real read surface from a client that only holds
+    that proxy — for blueprints, folding the old read tool into the merged one
+    would otherwise have removed listing entirely (#2329).
+
+    Read-only mode already enumerates, per call, which invocations of such a
+    tool are reads (``READ_ONLY_EXEMPT_TOOLS``), and the proxies reuse that
+    verdict so the two surfaces cannot disagree about what counts as a read.
+    The verdict fails closed: a tool without an exemption entry, or a missing
+    or unknown action, is never a read.
+    """
+    from ..read_only import READ_ONLY_EXEMPT_TOOLS
+
+    exemption = READ_ONLY_EXEMPT_TOOLS.get(name)
+    return exemption is not None and exemption.blocked_write(arguments or {}) is None
+
+
+def _has_read_actions(name: str) -> bool:
+    """Whether a write-category tool has read actions the read proxy can approve."""
+    from ..read_only import READ_ONLY_EXEMPT_TOOLS
+
+    return name in READ_ONLY_EXEMPT_TOOLS
+
+
+def _admits(
+    transform: CategorizedSearchTransform,
+    category: Capability,
+    name: str,
+    arguments: dict[str, Any] | None,
+) -> bool:
+    """Whether the *category* proxy may dispatch this call.
+
+    Membership in the category set is the rule. A ``manage`` tool (#2358) is
+    the exception: it is reachable from every proxy. The read proxy is the
+    one hard boundary — it carries ``readOnlyHint`` — so it admits only a
+    call the read-only predicate approves. The write and delete proxies both
+    carry ``destructiveHint`` and run the whole tool: its delete actions are
+    not statically enumerable (``ha_manage_radio`` and ``ha_manage_updates``
+    take a free-form ``action``), so neither proxy pretends to carve them out.
+    """
+    if category == "read":
+        return name in transform._read_tools or (
+            name in transform._write_tools
+            and _is_read_call_on_write_tool(name, arguments)
+        )
+    if category == "write":
+        return name in transform._write_tools
+    return name in transform._delete_tools or (
+        name in transform._write_tools and _is_manage_tool(name)
+    )
+
+
+def _execute_via(proxy: str, tool_name: str) -> str:
+    """Render the call form a search result advertises for *tool_name*."""
+    return (
+        f'client.{proxy}(name="{tool_name}", arguments={{...}}) '
+        f'or {proxy}(name="{tool_name}", arguments={{...}})'
+    )
+
+
+def _read_only_mode() -> bool:
+    """Whether Read Only Mode is on — consulted per request, like its filter."""
+    from ..read_only import is_read_only
+
+    return is_read_only()
+
+
+def _advertised_routes(name: str, category: Capability) -> list[Capability]:
+    """Proxies a search result points at for *name*, in listing order.
+
+    A manage tool lists every proxy it is reachable through (see
+    ``_admits``); the read route exists only when the read-only predicate can
+    approve calls to it. In Read Only Mode the destructive proxies are not
+    listed, so only the read route remains. The ``["write", "delete"]`` case
+    cannot occur in that mode: ``ReadOnlyToolsTransform`` drops every
+    non-exempt write tool from the catalog before the search index is built,
+    and every exempt tool has read actions.
+    """
+    if category != "write" or not _is_manage_tool(name):
+        return [category]
+    if _has_read_actions(name):
+        return ["read"] if _read_only_mode() else ["read", "write", "delete"]
+    return ["write", "delete"]
+
+
 def _categorize_tool(tool: Tool) -> Capability:
     """Categorize a Tool as read, write, or delete based on annotations and name."""
     annotations = tool.annotations
     return categorize_capability(
         tool.name,
-        read_only=bool(annotations and annotations.readOnlyHint),
-        destructive=bool(annotations and annotations.destructiveHint),
+        read_only=bool(annotations and annotations.read_only_hint),
+        destructive=bool(annotations and annotations.destructive_hint),
+    )
+
+
+def _raise_non_object_arguments(value: Any, proxy_name: str, name: str) -> NoReturn:
+    """Refuse a proxy ``arguments`` payload that is not an object."""
+    raise ToolError(
+        json.dumps(
+            create_error_response(
+                code=ErrorCode.VALIDATION_INVALID_PARAMETER,
+                message=(
+                    f"'arguments' must be a JSON object (got {type(value).__name__})."
+                ),
+                suggestions=[
+                    "Pass 'arguments' as an object (dict), not a list or scalar.",
+                ],
+                context={"proxy_used": proxy_name, "tool_name": name},
+            )
+        ),
+        log_level=TOOL_ERROR_LOG_LEVEL,
     )
 
 
@@ -216,7 +342,9 @@ def _coerce_proxy_arguments(
         return arguments
     try:
         parsed = json.loads(arguments)
-    except json.JSONDecodeError as e:
+    except (json.JSONDecodeError, RecursionError) as e:
+        # RecursionError: a string nested past the interpreter's limit is
+        # still "not valid JSON" to the caller, not an internal error.
         raise ToolError(
             json.dumps(
                 create_error_response(
@@ -227,24 +355,11 @@ def _coerce_proxy_arguments(
                     ],
                     context={"proxy_used": proxy_name, "tool_name": name},
                 )
-            )
+            ),
+            log_level=TOOL_ERROR_LOG_LEVEL,
         ) from e
     if not isinstance(parsed, dict):
-        raise ToolError(
-            json.dumps(
-                create_error_response(
-                    code=ErrorCode.VALIDATION_INVALID_PARAMETER,
-                    message=(
-                        "'arguments' must be a JSON object "
-                        f"(got {type(parsed).__name__})."
-                    ),
-                    suggestions=[
-                        "Pass 'arguments' as an object (dict), not a list or scalar.",
-                    ],
-                    context={"proxy_used": proxy_name, "tool_name": name},
-                )
-            )
-        )
+        _raise_non_object_arguments(parsed, proxy_name, name)
     logger.warning(
         "Proxy %s received 'arguments' as a JSON string for tool %s — parsed as fallback",
         proxy_name,
@@ -281,7 +396,8 @@ def _raise_wrong_category_error(
                     message=f"Tool '{name}' not found. Use ha_search_tools to discover available tools.",
                     context={"tool_name": name},
                 )
-            )
+            ),
+            log_level=TOOL_ERROR_LOG_LEVEL,
         )
     raise ToolError(
         json.dumps(
@@ -297,7 +413,8 @@ def _raise_wrong_category_error(
                     "correct_proxy": correct_proxy,
                 },
             )
-        )
+        ),
+        log_level=TOOL_ERROR_LOG_LEVEL,
     )
 
 
@@ -413,12 +530,18 @@ class CategorizedSearchTransform(BM25SearchTransform):
         }
         results = []
         for tool in tools:
-            data = tool.to_mcp_tool().model_dump(mode="json", exclude_none=True)
-            proxy = proxy_map[_categorize_tool(tool)]
-            data["execute_via"] = (
-                f'client.{proxy}(name="{tool.name}", arguments={{...}}) '
-                f'or {proxy}(name="{tool.name}", arguments={{...}})'
+            data = tool.to_mcp_tool().model_dump(
+                mode="json", exclude_none=True, by_alias=True
             )
+            routes = _advertised_routes(tool.name, _categorize_tool(tool))
+            if len(routes) == 1:
+                data["execute_via"] = _execute_via(proxy_map[routes[0]], tool.name)
+            else:
+                hint = "; ".join(
+                    f"{route} actions: {_execute_via(proxy_map[route], tool.name)}"
+                    for route in routes
+                )
+                data["execute_via"] = hint[:1].upper() + hint[1:]
             results.append(data)
         return results
 
@@ -447,20 +570,16 @@ class CategorizedSearchTransform(BM25SearchTransform):
             # catalog, so it would reject that call before the re-dispatch
             # reaches RenamedToolAliasMiddleware — resolve the name here too,
             # and the alias covers both call shapes.
+            requested = name
             name = current_tool_name(name)
 
             # Tolerate `arguments` passed as a JSON string — small models
             # sometimes serialize it before sending. Parse once up front so
             # downstream logic can assume a dict (or None).
             arguments = _coerce_proxy_arguments(arguments, proxy_name, name)
-
-            # Determine which category set to check
-            if category == "read":
-                allowed = transform._read_tools
-            elif category == "delete":
-                allowed = transform._delete_tools
-            else:
-                allowed = transform._write_tools
+            # A retired name folded into an action-dispatched tool (#2329)
+            # needs the action its old signature never carried.
+            arguments = adapt_retired_arguments(requested, arguments)
 
             # Detect and unwrap double-wrapped arguments where the LLM
             # accidentally nested name/arguments inside the arguments param
@@ -485,7 +604,8 @@ class CategorizedSearchTransform(BM25SearchTransform):
                 # inner name for the same reason the outer one is resolved
                 # above, or the alias covers one envelope shape and not the
                 # other.
-                inner_name = current_tool_name(arguments["name"])
+                requested_inner = arguments["name"]
+                inner_name = current_tool_name(requested_inner)
                 if inner_name in all_known:
                     logger.warning(
                         "Detected double-wrapped proxy call for '%s' via %s"
@@ -494,9 +614,19 @@ class CategorizedSearchTransform(BM25SearchTransform):
                         name,
                     )
                     name = inner_name
-                    arguments = arguments.get("arguments") or {}
+                    # The nested payload gets the same treatment as the outer
+                    # one: a JSON string is parsed, a scalar or list is
+                    # refused with the same structured error rather than
+                    # reaching the adapter, whose dict() would raise a bare
+                    # ValueError, and a retired inner name gets its action.
+                    nested = _coerce_proxy_arguments(
+                        arguments.get("arguments"), proxy_name, inner_name
+                    )
+                    if nested is not None and not isinstance(nested, dict):
+                        _raise_non_object_arguments(nested, proxy_name, inner_name)
+                    arguments = adapt_retired_arguments(requested_inner, nested or {})
 
-            if name not in allowed:
+            if not _admits(transform, category, name, arguments):
                 _raise_wrong_category_error(name, transform, proxy_name)
 
             return await ctx.fastmcp.call_tool(name, arguments)
@@ -517,31 +647,43 @@ class CategorizedSearchTransform(BM25SearchTransform):
         search_tool = search_tool.model_copy(
             update={
                 "description": self._search_tool_description or search_tool.description,
-                "annotations": ToolAnnotations(openWorldHint=False, readOnlyHint=True),
+                "annotations": ToolAnnotations(
+                    open_world_hint=False, read_only_hint=True
+                ),
             }
         )
 
         call_read = self._make_categorized_proxy(
             proxy_name=self._call_read_name,
             category="read",
-            annotations=ToolAnnotations(openWorldHint=True, readOnlyHint=True),
+            annotations=ToolAnnotations(open_world_hint=True, read_only_hint=True),
             description=self._proxy_descs["read"],
         )
 
         call_write = self._make_categorized_proxy(
             proxy_name=self._call_write_name,
             category="write",
-            annotations=ToolAnnotations(openWorldHint=True, destructiveHint=True),
+            annotations=ToolAnnotations(open_world_hint=True, destructive_hint=True),
             description=self._proxy_descs["write"],
         )
 
         call_delete = self._make_categorized_proxy(
             proxy_name=self._call_delete_name,
             category="delete",
-            annotations=ToolAnnotations(openWorldHint=False, destructiveHint=True),
+            annotations=ToolAnnotations(open_world_hint=False, destructive_hint=True),
             description=self._proxy_descs["delete"],
         )
 
+        if _read_only_mode():
+            # ReadOnlyToolsTransform runs before this one and never sees the
+            # proxies synthesised here; with every write blocked at call time
+            # the destructive proxies would only advertise dead ends. They
+            # stay resolvable by name so a client holding a stale catalog gets
+            # the proxy's own structured answer (ReadOnlyMiddleware blocks a
+            # write before the proxy is even resolved) rather than a bare
+            # not-found that ToolSearchHintMiddleware declines to explain
+            # while tool search is on.
+            return [*pinned, search_tool, call_read]
         return [*pinned, search_tool, call_read, call_write, call_delete]
 
     async def get_tool(
@@ -557,21 +699,21 @@ class CategorizedSearchTransform(BM25SearchTransform):
             return self._make_categorized_proxy(
                 self._call_read_name,
                 "read",
-                ToolAnnotations(openWorldHint=True, readOnlyHint=True),
+                ToolAnnotations(open_world_hint=True, read_only_hint=True),
                 self._proxy_descs["read"],
             )
         if name == self._call_write_name:
             return self._make_categorized_proxy(
                 self._call_write_name,
                 "write",
-                ToolAnnotations(openWorldHint=True, destructiveHint=True),
+                ToolAnnotations(open_world_hint=True, destructive_hint=True),
                 self._proxy_descs["write"],
             )
         if name == self._call_delete_name:
             return self._make_categorized_proxy(
                 self._call_delete_name,
                 "delete",
-                ToolAnnotations(openWorldHint=False, destructiveHint=True),
+                ToolAnnotations(open_world_hint=False, destructive_hint=True),
                 self._proxy_descs["delete"],
             )
         return await super().get_tool(name, call_next, version=version)

@@ -52,6 +52,9 @@ import httpx
 from matrx_scraper.ai_browser import actions as A
 from matrx_scraper.ai_browser.session import BrowserSession, BrowserSessionManager
 from matrx_scraper.ai_browser.url_guard import guard_proxy, install_egress_guard
+from matrx_scraper.cloud_browser.profile_archive_policy import (
+    is_profile_archive_path_excluded as _checkpoint_path_is_excluded,
+)
 from matrx_scraper.cloud_browser.worker import commands as C
 from matrx_scraper.cloud_browser.worker import models as M
 from matrx_scraper.cloud_browser.worker.auth import TokenVerifier
@@ -2399,10 +2402,19 @@ def _sha256_hex(value: bytes) -> str:
 
 
 def _archive_dir(user_data_dir: str) -> bytes:
+    def _filter(member: tarfile.TarInfo) -> tarfile.TarInfo | None:
+        # The worker's encrypted tar and the standalone checkpoint engine have
+        # one profile-contents contract. Reuse its predicate so regenerable
+        # Chromium caches cannot silently inflate the durable checkpoint.
+        name = member.name.removeprefix("profile/")
+        if name != member.name and _checkpoint_path_is_excluded(name):
+            return None
+        return member
+
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w") as tar:
         if os.path.isdir(user_data_dir):
-            tar.add(user_data_dir, arcname="profile")
+            tar.add(user_data_dir, arcname="profile", filter=_filter)
     return buf.getvalue()
 
 

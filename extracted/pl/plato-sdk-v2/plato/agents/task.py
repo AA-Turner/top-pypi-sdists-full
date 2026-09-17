@@ -44,6 +44,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _under_pinned_mount(path: str, mounts: list[AgentWorkspaceMount]) -> bool:
+    """Is ``path`` inside a mount the world pinned to the agent VM?
+
+    Compared as path components, so ``/w/notes`` does not match ``/w/notes2``.
+    """
+    target = Path(path)
+    for mount in mounts:
+        if not mount.on_agent_vm:
+            continue
+        root = Path(mount.agent_path)
+        if target == root or root in target.parents:
+            return True
+    return False
+
+
 def create_agent_runtime(
     agent: AgentConfig,
     session: Session | None = None,
@@ -517,6 +532,64 @@ class AgentTask:
             await asyncio.shield(lease.bind(pooled, workspace_paths, fingerprint=self._setup_fingerprint()))
             return True
 
+    def _workspace_info(self, info: RuntimeInfo) -> RuntimeInfo:
+        """The runtime whose filesystem this run's workspaces belong on.
+
+        Normally the agent VM. A ``sandbox_tools_only`` agent's file tools act
+        on the sandbox instead, so the workspaces mount there — the transports
+        only ever needed a hostname (every one of them discards ``agent_env``),
+        so this is the same mount and the same sync-back, aimed at a different
+        machine.
+
+        The key stays the world's own runner key, which the transport carries —
+        the agent is never handed it. A world that turns on ``sandbox_tools_only``
+        with mounted workspaces therefore has to authorize that key on the
+        sandbox VM, the same ``add_ssh_key`` call it already makes to reach any
+        VM it owns.
+        """
+        config = self._agent.config
+        if config.get("sandbox_tools_only") is not True:
+            return info
+        host = config.get("computer_use_ssh_host")
+        if not host:
+            raise ValueError(
+                "sandbox_tools_only needs computer_use_ssh_host: the agent's workspaces mount on the sandbox"
+            )
+        return info.model_copy(
+            update={"hostname": str(host), "ssh_user": str(config.get("computer_use_ssh_user") or "root")}
+        )
+
+    def _mounts_by_host(
+        self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount]
+    ) -> list[tuple[RuntimeInfo, list[AgentWorkspaceMount]]]:
+        """Group mounts by the VM each one belongs on.
+
+        Without ``sandbox_tools_only`` that is one group on the agent VM.
+        With it, the agent's file tools act on the sandbox so its workspaces
+        mount there — except the ones the world pinned with
+        :meth:`AgentWorkspaceMount.pinned_to_agent_vm`, which hold state the
+        CLI process writes directly and so have to stay where the CLI runs.
+        """
+        workspace_info = self._workspace_info(info)
+        if workspace_info is info:
+            return [(info, mounts)] if mounts else []
+        pinned = [m for m in mounts if m.on_agent_vm]
+        sandboxed = [m for m in mounts if not m.on_agent_vm]
+        groups: list[tuple[RuntimeInfo, list[AgentWorkspaceMount]]] = []
+        if sandboxed:
+            groups.append((workspace_info, sandboxed))
+        if pinned:
+            groups.append((info, pinned))
+        return groups
+
+    async def _setup_workspaces(self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount]) -> None:
+        for host, group in self._mounts_by_host(info, mounts):
+            await vm_setup.setup_workspaces(host, group)
+
+    async def _sync_back_workspaces(self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount]) -> None:
+        for host, group in self._mounts_by_host(info, mounts):
+            await vm_setup.sync_back_workspaces(host, group)
+
     def _agent_context(self, display_name: str | None) -> AgentContext:
         return AgentContext(
             image=self._agent.image,
@@ -709,8 +782,10 @@ class AgentTask:
             # Resolve runner path (needs agent code installed)
             runner_path = await vm_setup.resolve_runner_path(info)
 
-            # Mount workspaces
-            await vm_setup.setup_workspaces(info, mounts)
+            # Mount workspaces. A sandbox_tools_only agent reads and writes files
+            # with tools that run on the sandbox VM, so its workspaces mount there
+            # instead — same transports, same sync-back, just a different host.
+            await self._setup_workspaces(info, mounts)
 
             # Prepare hooks
             for hook in self._prepare_hooks:
@@ -805,7 +880,7 @@ class AgentTask:
                     logger.info("Agent execution completed on VM %s", info.runtime_id)
 
                     # Sync workspaces back after execution
-                    await vm_setup.sync_back_workspaces(info, mounts)
+                    await self._sync_back_workspaces(info, mounts)
 
                     # If no exit condition configured, one-shot — break immediately
                     if self._exit_condition is None:
@@ -836,7 +911,26 @@ class AgentTask:
                         # must NOT abort the build/review loop (the build's own
                         # changes already synced at the pre-compaction sync_back).
                         try:
-                            await vm_setup.sync_back_workspaces(info, mounts)
+                            workspace_info = self._workspace_info(info)
+                            # The summary is written by a PostCompact hook — a
+                            # local subprocess of the agent CLI, so it writes on
+                            # the agent VM and never travels the sandbox tool
+                            # transport. When sandbox_tools_only puts the
+                            # workspaces on the sandbox, it therefore lands
+                            # outside every mount; carry it across before the
+                            # sync that is supposed to make it durable. Unless
+                            # its mount is pinned to the agent VM, in which case
+                            # it is already on the right host and copying it to
+                            # the sandbox would strand it.
+                            summary_path = self._agent.config.get("compaction_summary_path")
+                            if (
+                                workspace_info is not info
+                                and isinstance(summary_path, str)
+                                and summary_path
+                                and not _under_pinned_mount(summary_path, mounts)
+                            ):
+                                await vm_setup.relocate_compaction_summary(info, workspace_info, summary_path)
+                            await self._sync_back_workspaces(info, mounts)
                         except Exception:
                             logger.warning(
                                 "Post-compaction workspace sync-back failed; the "

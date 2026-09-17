@@ -18,7 +18,7 @@ import warnings
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, ClassVar, Optional
-from urllib.parse import ParseResult, SplitResult, quote
+from urllib.parse import ParseResult, SplitResult, quote, unquote
 
 import icalendar
 from dateutil.rrule import rrulestr
@@ -1196,7 +1196,13 @@ class CalendarObjectResource(DAVObject):
         if not r.headers:
             return
         if "Etag" in r.headers:
-            self.props[dav.GetEtag.tag] = r.headers["Etag"]
+            etag = r.headers["Etag"]
+            ## Bedework 5 percent-encodes the quotes in a PUT response and then
+            ## refuses that form in If-Match.  RFC 9110 has an entity-tag start
+            ## with '"' or 'W/"', so a leading %22 can only be that encoding.
+            if etag.startswith(("%22", "W/%22")):
+                etag = unquote(etag)
+            self.props[dav.GetEtag.tag] = etag
         if r.headers.get("Schedule-Tag"):
             self.props[cdav.ScheduleTag.tag] = r.headers["Schedule-Tag"]
 
@@ -1362,6 +1368,10 @@ class CalendarObjectResource(DAVObject):
          * self
 
         """
+
+        # TODO: the overwrite/no-overwrite logic can be handled server-side for
+        # servers that adheres to the RFC: "If-Match: *" and "If-None-Match: *"
+
         # Early return if there's no data (no-op case)
         if not self.is_loaded():
             return self
@@ -1696,13 +1706,14 @@ class CalendarObjectResource(DAVObject):
         if not isinstance(inst, icalendar.Calendar):
             ## assume inst is an Event, Journal or Todo.
             ## TODO: perhaps a bit better sanity checking here?
-            try:  ## DEPRECATION TODO: remove this try/except the future
-                ## icalendar 7.x behaviour (not released yet as of 2025-09
-                cal = icalendar.Calendar.new()
-            except AttributeError:
-                cal = icalendar.Calendar()
-                cal.add("prodid", "-//python-caldav//caldav//en_DK")
-                cal.add("version", "2.0")
+            ## Deliberately not using icalendar.Calendar.new() here - it adds a
+            ## random RFC 7986 UID to the VCALENDAR wrapper, and some servers
+            ## (i.e. Stalwart) take that UID to be the identity of the calendar
+            ## object resource.  A fresh random UID on every wrap then makes
+            ## the second save of the same object fail with 412 no-uid-conflict.
+            cal = icalendar.Calendar()
+            cal.add("prodid", "-//python-caldav//caldav//en_DK")
+            cal.add("version", "2.0")
             cal.add_component(inst)
             inst = cal
         self._icalendar_instance = inst

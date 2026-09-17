@@ -467,8 +467,21 @@ class BaseMediaGeneration(ABC):
         else:
             kwargs["url"] = envelope
             kwargs["mime_type"] = asset.mime_type or self._default_mime()
-        if asset.metadata:
-            kwargs["metadata"] = asset.metadata
+        metadata = dict(asset.metadata or {})
+        if isinstance(envelope, MediaPersistResult):
+            # The row's visibility and its PERMANENT cdn_url (public rows only)
+            # travel on the block. Without them the frontend adapter guessed
+            # "public" and bound the authenticated durable
+            # `/files/{id}/download?inline=1` URL straight to an <img> — the
+            # cookie lane — for a `personal` row, which 401s forever in any
+            # browser that blocks third-party cookies (2026-09-16, "Image
+            # unavailable" in Arman's Chrome). The truth is on the envelope.
+            if envelope.visibility:
+                metadata.setdefault("visibility", envelope.visibility)
+            if envelope.cdn_url:
+                metadata.setdefault("cdn_url", envelope.cdn_url)
+        if metadata:
+            kwargs["metadata"] = metadata
         return cls(**kwargs)
 
     # ------------------------------------------------------------------

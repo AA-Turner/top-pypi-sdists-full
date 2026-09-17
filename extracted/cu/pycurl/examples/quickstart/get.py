@@ -6,7 +6,7 @@ from io import BytesIO
 
 buffer = BytesIO()
 c = pycurl.Curl()
-c.setopt(c.URL, 'http://pycurl.io/')
+c.setopt(c.URL, 'https://pycurl.github.io/')
 c.setopt(c.WRITEDATA, buffer)
 # For older PycURL versions:
 #c.setopt(c.WRITEFUNCTION, buffer.write)

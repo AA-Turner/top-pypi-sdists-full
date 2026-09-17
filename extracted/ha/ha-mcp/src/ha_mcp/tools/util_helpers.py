@@ -15,8 +15,9 @@ from datetime import tzinfo as _TZInfo
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastmcp.exceptions import ToolError
 from pydantic import BeforeValidator, ValidationError
+
+from ha_mcp._vendor.fastmcp.exceptions import ToolError
 
 from ..client.rest_client import (
     HomeAssistantAPIError,
@@ -205,7 +206,9 @@ def _parse_json_to_str_list(s: str, param_name: str) -> list[str]:
         if not all(isinstance(item, str) for item in parsed):
             raise ValueError(f"{param_name} must be a JSON array of strings")
         return parsed
-    except json.JSONDecodeError as e:
+    except (json.JSONDecodeError, RecursionError) as e:
+        # RecursionError: nested past the interpreter's limit is still
+        # "not valid JSON" to the caller, which expects ValueError here.
         raise ValueError(f"Invalid JSON in {param_name}: {e}") from e
 
 
@@ -388,6 +391,7 @@ def project_fields(
     fields: str | list[str] | None,
     *,
     extra_always_keep: frozenset[str] | None = None,
+    available_fields: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """Apply optional field projection to a response data dict.
 
@@ -398,6 +402,10 @@ def project_fields(
     ``extra_always_keep`` lets a caller extend the retained set with its own
     contract / diagnostic keys (e.g. the orchestrator's pagination + partial-
     state keys) without having to reimplement the projection logic.
+
+    ``available_fields`` supplies the complete response schema when *data* was
+    collected narrowly. It affects typo diagnostics only; projection still
+    returns only keys present in *data*.
 
     Typo guard: if any requested key does not exist in *data* (excluding the
     always-retained keys), a diagnostic is appended to ``result["warnings"]``
@@ -415,9 +423,10 @@ def project_fields(
     result = {k: v for k, v in data.items() if k in keep}
     # Typo guard — flag any requested keys that are absent from the response.
     # Exclude the always-retained sentinels so fields=["success"] never warns.
-    unknown = sorted(set(parsed) - set(data.keys()) - always_keep)
+    known_fields = set(available_fields) if available_fields is not None else set(data)
+    unknown = sorted(set(parsed) - known_fields - always_keep)
     if unknown:
-        available = sorted(k for k in data.keys() if k not in always_keep)
+        available = sorted(k for k in known_fields if k not in always_keep)
         result.setdefault("warnings", []).append(
             f"fields {unknown!r} not found in response — available keys: {available!r}"
         )
@@ -522,6 +531,7 @@ BLOCKED_WS_WRITE_COMMANDS: frozenset[str] = frozenset(
     {
         "config/core/update",
         "lovelace/config/save",
+        "ha_mcp_tools/dashboard_edit",
         "lovelace/dashboards/create",
         "lovelace/dashboards/delete",
         "lovelace/dashboards/update",
@@ -704,7 +714,7 @@ _TIMESTAMP_METADATA_FIELDS = {
 }
 
 
-async def _fetch_ha_timezone(client: Any) -> tuple[str, bool]:
+async def fetch_ha_timezone(client: Any) -> tuple[str, bool]:
     """Fetch the HA timezone, preferring the ``ha_mcp_tools`` component's cached
     ``info`` handshake over a fresh ``/api/config`` REST call.
 
@@ -749,7 +759,7 @@ async def _fetch_ha_timezone(client: Any) -> tuple[str, bool]:
         return "UTC", True
 
 
-def _resolve_local_timezone(ha_timezone: str) -> tuple[_TZInfo, str]:
+def resolve_local_timezone(ha_timezone: str) -> tuple[_TZInfo, str]:
     """Resolve *ha_timezone* to a ``ZoneInfo``, falling back to UTC if unknown.
 
     Returns ``(local_tz, ha_timezone)``. ``ha_timezone`` is normalized to
@@ -797,7 +807,7 @@ async def add_timezone_metadata(
 ) -> dict[str, Any]:
     """Add Home Assistant timezone to tool responses and convert timestamps to local time.
 
-    Resolves the Home Assistant time zone via ``_fetch_ha_timezone`` (which
+    Resolves the Home Assistant time zone via ``fetch_ha_timezone`` (which
     prefers the ``ha_mcp_tools`` component's cached handshake and falls back to
     ``/api/config``), converts every ``last_changed``, ``last_updated``,
     ``last_reported``, ``when``, and ``last_triggered`` field found anywhere in
@@ -816,7 +826,7 @@ async def add_timezone_metadata(
     if not include_metadata:
         return data
 
-    ha_timezone, fetch_failed = await _fetch_ha_timezone(client)
+    ha_timezone, fetch_failed = await fetch_ha_timezone(client)
 
     if fetch_failed:
         return {
@@ -828,7 +838,7 @@ async def add_timezone_metadata(
             },
         }
 
-    local_tz, ha_timezone = _resolve_local_timezone(ha_timezone)
+    local_tz, ha_timezone = resolve_local_timezone(ha_timezone)
     converted_data = _convert_timestamp_fields(data, local_tz)
 
     return {
@@ -2354,6 +2364,11 @@ def augment_error_dict_with_skill_content(
     if not isinstance(err, dict):
         return
     suggestions = err.setdefault("suggestions", [])
+    # create_error_response emits only the singular field for one suggestion.
+    # Preserve that recovery advice before appending the generic skill hint.
+    primary = err.get("suggestion")
+    if not suggestions and isinstance(primary, str) and primary:
+        suggestions.append(primary)
     if _WRITE_TOOL_BP_HINT_SUGGESTION not in suggestions:
         suggestions.append(_WRITE_TOOL_BP_HINT_SUGGESTION)
     if suggestions:
@@ -2396,7 +2411,9 @@ def augment_tool_error_with_skill_content(
     if not isinstance(error_dict, dict):
         return te
     augment_error_dict_with_skill_content(error_dict, bp_warnings)
-    return ToolError(json.dumps(error_dict, indent=2, default=str))
+    return ToolError(
+        json.dumps(error_dict, indent=2, default=str), log_level=te.log_level
+    )
 
 
 def merge_visibility_warnings(

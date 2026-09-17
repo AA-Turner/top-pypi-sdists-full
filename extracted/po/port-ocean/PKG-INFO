@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: port-ocean
-Version: 0.51.4
+Version: 0.52.0
 Summary: Port Ocean is a CLI tool for managing your Port projects.
 License-File: LICENSE.md
 Keywords: ocean,port-ocean,port
@@ -22,9 +22,11 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
+Provides-Extra: aws-vault
 Provides-Extra: cli
 Requires-Dist: aiofiles (>=24.1.0,<25.0.0)
 Requires-Dist: aiostream (>=0.5.2,<0.7.0)
+Requires-Dist: boto3 (>=1.43.64,<2.0.0) ; extra == "aws-vault"
 Requires-Dist: click (>=8.1.3,<9.0.0) ; extra == "cli"
 Requires-Dist: confluent-kafka (>=2.10.1,<3.0.0)
 Requires-Dist: cookiecutter (>=2.1.1,<3.0.0) ; extra == "cli"

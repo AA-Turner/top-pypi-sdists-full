@@ -33,10 +33,13 @@ class TriggerCollectionResponse(BaseModel):
     source_bucket_ids: Optional[List[StrictStr]] = Field(default=None, description="Bucket IDs that objects were discovered from (bucket-sourced collections).")
     source_collection_ids: Optional[List[StrictStr]] = Field(default=None, description="Collection IDs that documents were read from (collection-sourced collections).")
     object_count: Optional[StrictInt] = Field(default=None, description="Total number of objects included in the batch (bucket-sourced collections).")
+    batch_ids: Optional[List[StrictStr]] = Field(default=None, description="All batch IDs created for this trigger. Present when a large load was auto-chunked into multiple right-sized batches; `batch_id` is the first of these. Null (absent) for a single-batch trigger.")
+    task_ids: Optional[List[StrictStr]] = Field(default=None, description="Task IDs for each created batch, aligned with `batch_ids`.")
+    batch_count: Optional[StrictInt] = Field(default=None, description="Number of batches created. Null for a single-batch trigger; set when the load was auto-chunked into multiple batches.")
     document_count: Optional[StrictInt] = Field(default=None, description="Total number of documents to process (collection-sourced collections).")
     total_tiers: StrictInt = Field(description="Number of processing tiers in the DAG.")
     message: StrictStr = Field(description="Human-readable status message.")
-    __properties: ClassVar[List[str]] = ["batch_id", "task_id", "collection_id", "source_bucket_ids", "source_collection_ids", "object_count", "document_count", "total_tiers", "message"]
+    __properties: ClassVar[List[str]] = ["batch_id", "task_id", "collection_id", "source_bucket_ids", "source_collection_ids", "object_count", "batch_ids", "task_ids", "batch_count", "document_count", "total_tiers", "message"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -95,6 +98,9 @@ class TriggerCollectionResponse(BaseModel):
             "source_bucket_ids": obj.get("source_bucket_ids"),
             "source_collection_ids": obj.get("source_collection_ids"),
             "object_count": obj.get("object_count"),
+            "batch_ids": obj.get("batch_ids"),
+            "task_ids": obj.get("task_ids"),
+            "batch_count": obj.get("batch_count"),
             "document_count": obj.get("document_count"),
             "total_tiers": obj.get("total_tiers"),
             "message": obj.get("message")

@@ -34,6 +34,10 @@ from matrx_utils import vcprint
 # models/bases when their impl modules load, which raises DBNotConfiguredError
 # in a CLIENT host. Both are resolved lazily at CALL time via the helpers
 # below (config errors at CALL time, never import time).
+from matrx_ai.db.control_tokens import (
+    clean_assistant_content,
+    merge_control_token_metadata,
+)
 from matrx_ai.db.message_parts import validate_message_content
 from matrx_ai.db.message_positions import APPEND_MESSAGE_POSITION
 
@@ -849,6 +853,15 @@ async def persist_completed_request(
                         )
                         msg_content = raw_content
 
+                # DECLARED CONTROL TOKENS (matrx_ai/db/control_tokens.py): the
+                # streaming emitter kept these machine lines off the person's
+                # screen, but this row is written from the provider response, so
+                # it is cleaned from the SAME registry and the values are stored
+                # as structured metadata instead of prose.
+                _control_hits: tuple = ()
+                if role_val == "assistant":
+                    msg_content, _control_hits = clean_assistant_content(msg_content)
+
                 reserved_id = reserved_msg_ids.get(position) or reserved_msg_ids.get(str(position))
 
                 # LAYER-2 GUARD (2026-07-02): a message carrying an in-memory id
@@ -892,6 +905,8 @@ async def persist_completed_request(
                 # their columns so the row carries the per-turn call record
                 # first-class and metadata stays lean.
                 _clean_meta, _promoted = lift_promoted_message_columns(msg.get("metadata"))
+                if _control_hits:
+                    _clean_meta = merge_control_token_metadata(_clean_meta, _control_hits)
                 _meta_kwargs = {"metadata": _clean_meta} if _clean_meta else {}
 
                 msg_id: str = ""

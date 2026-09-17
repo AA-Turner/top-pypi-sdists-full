@@ -52,7 +52,7 @@ from plato.cli.chronos.dev.ssh import (
     get_vm_ssh_options,
 )
 from plato.cli.chronos.dev.sync import SyncManager, sync_fuse_binary_override
-from plato.cli.chronos.env import resolve_config_env_vars, substitute_env_vars
+from plato.cli.chronos.env import UnresolvedSecretError, resolve_config_env_vars, substitute_env_vars
 from plato.cli.chronos.provision import (
     SyncTarget,
     build_sync_targets,
@@ -239,6 +239,7 @@ class TestRunner:
         """Run setup + selected test phases. Returns process exit code."""
         exit_code = 1
         error_message: str | None = None
+        config_fault = False
 
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.junit_dir.mkdir(parents=True, exist_ok=True)
@@ -251,6 +252,16 @@ class TestRunner:
             error_message = "Interrupted by user"
             self._print("ERROR: Interrupted by user")
             exit_code = 130
+        except UnresolvedSecretError as exc:
+            # A config fault, not a runner crash: the run never started, and
+            # the session and VM we just provisioned hold nothing worth a
+            # post-mortem. Tear them down normally rather than taking the
+            # client-fault path, which deliberately leaves a VM running.
+            error_message = str(exc)
+            self._print(f"ERROR: {error_message}")
+            logger.error("chronos test failed: %s", exc)
+            exit_code = 1
+            config_fault = True
         except Exception as exc:  # noqa: BLE001
             error_message = str(exc)
             self._print(f"ERROR: {error_message}")
@@ -268,7 +279,7 @@ class TestRunner:
             # failures arrive as phase exit codes, not exceptions) — never
             # mark the remote session failed or close it for one: a runner
             # crash (oversized log line) once tore down a healthy 20h run.
-            client_fault = error_message is not None and exit_code not in (0, 130)
+            client_fault = error_message is not None and exit_code not in (0, 130) and not config_fault
             if self.session_id and status == "cancelled":
                 await self._cancel_chronos_session(error_message or "Interrupted by user")
             elif client_fault and self.session_id:
@@ -983,7 +994,7 @@ class TestRunner:
         await self._write_files_to_vm(files)
 
     async def _create_chronos_session(self) -> CreateSessionResponse:
-        world_config = self.config.world.config or {}
+        world_config = self.config.world.to_session_payload()
         tags = list({*self.config.tags, "test", "ci.test"})
         # world_name is resolved from the schema in _setup_vm, or set
         # explicitly in the config. Fall back to package name as last resort.

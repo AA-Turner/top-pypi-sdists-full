@@ -34,7 +34,6 @@ class MessageType(str, Enum):
     LIST_WORKFLOWS = "list_workflows"
     LIST_QUEUED_WORKFLOWS = "list_queued_workflows"
     RESUME = "resume"
-    RESTART = "restart"
     GET_WORKFLOW = "get_workflow"
     EXIST_PENDING_WORKFLOWS = "exist_pending_workflows"
     LIST_STEPS = "list_steps"
@@ -156,17 +155,6 @@ class ResumeRequest(BaseMessage):
 
 @dataclass
 class ResumeResponse(BaseMessage):
-    success: bool
-    error_message: Optional[str] = None
-
-
-@dataclass
-class RestartRequest(BaseMessage):
-    workflow_id: str
-
-
-@dataclass
-class RestartResponse(BaseMessage):
     success: bool
     error_message: Optional[str] = None
 
@@ -702,11 +690,6 @@ class ApplicationVersionOutput:
 
 
 @dataclass
-class ListApplicationVersionsRequest(BaseMessage):
-    pass
-
-
-@dataclass
 class ListApplicationVersionsResponse(BaseMessage):
     output: List[ApplicationVersionOutput]
     error_message: Optional[str] = None
@@ -907,8 +890,10 @@ class QueueOutput:
             worker_concurrency=q._worker_concurrency,
             rate_limit_max=q._limiter["limit"] if q._limiter else None,
             rate_limit_period_sec=q._limiter["period"] if q._limiter else None,
-            priority_enabled=q._priority_enabled,
-            partition_queue=q._partition_queue,
+            # Legacy fields: every queue is a priority queue, and any
+            # per-partition limit makes a queue partitioned.
+            priority_enabled=True,
+            partition_queue=q._has_partition_limits(),
             polling_interval_sec=q._polling_interval_sec,
             application_name=q.application_name,
             partition_concurrency=q._partition_concurrency,

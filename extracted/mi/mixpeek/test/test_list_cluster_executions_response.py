@@ -88,7 +88,18 @@ class TestListClusterExecutionsResponse(unittest.TestCase):
                             }, 
                         run_name = '', 
                         layout_stability_applied = 'transform', 
-                        layout_stability_reason = '', )
+                        layout_stability_reason = '', 
+                        generation_reap = [
+                            mixpeek.models.cluster_generation_reap.ClusterGenerationReap(
+                                output_collection_id = '', 
+                                decision = 'deleted', 
+                                prior = 56, 
+                                written = 56, 
+                                stale = 56, 
+                                reaped = 56, 
+                                wal_seq = 56, 
+                                confirmed_seq = 56, )
+                            ], )
                     ],
                 pagination = mixpeek.models.pagination_response.PaginationResponse(
                     total = 56, 
@@ -162,7 +173,18 @@ class TestListClusterExecutionsResponse(unittest.TestCase):
                             }, 
                         run_name = '', 
                         layout_stability_applied = 'transform', 
-                        layout_stability_reason = '', )
+                        layout_stability_reason = '', 
+                        generation_reap = [
+                            mixpeek.models.cluster_generation_reap.ClusterGenerationReap(
+                                output_collection_id = '', 
+                                decision = 'deleted', 
+                                prior = 56, 
+                                written = 56, 
+                                stale = 56, 
+                                reaped = 56, 
+                                wal_seq = 56, 
+                                confirmed_seq = 56, )
+                            ], )
                     ],
                 pagination = mixpeek.models.pagination_response.PaginationResponse(
                     total = 56, 

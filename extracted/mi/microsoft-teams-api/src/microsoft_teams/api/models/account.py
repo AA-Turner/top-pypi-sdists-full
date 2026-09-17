@@ -7,9 +7,12 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import AliasChoices, Field
 
+from .agentic_identity import AgenticIdentity
+from .conversation_type import ConversationType
 from .custom_base_model import CustomBaseModel
 
 AccountType = Literal["person", "tag", "channel", "team", "bot"]
+AccountRole = Literal["agenticUser"]
 
 
 class Account(CustomBaseModel):
@@ -44,6 +47,50 @@ class Account(CustomBaseModel):
     """
     The name of the account.
     """
+    email: Optional[str] = None
+    """
+    Email address for the account, when provided by the channel.
+    """
+    user_role: Optional[str] = None
+    """
+    Role description for the account, when provided by the channel.
+    """
+    role: Optional[AccountRole | str] = None
+    """The role of the account in the activity."""
+    agentic_user_id: Optional[str] = Field(
+        default=None,
+        validation_alias="agenticUserId",
+        serialization_alias="agenticUserId",
+    )
+    """The Agent ID user-shaped identity object ID."""
+    agentic_app_id: Optional[str] = Field(
+        default=None,
+        validation_alias="agenticAppId",
+        serialization_alias="agenticAppId",
+    )
+    """The Agent 365 app/client ID."""
+    agentic_app_blueprint_id: Optional[str] = Field(
+        default=None,
+        validation_alias="agenticAppBlueprintId",
+        serialization_alias="agenticAppBlueprintId",
+    )
+    """The Agent 365 app blueprint ID."""
+    callback_uri: Optional[str] = None
+    """The callback URI associated with the agentic identity."""
+    tenant_id: Optional[str] = None
+    """The tenant ID associated with the account."""
+
+    @property
+    def agentic_identity(self) -> Optional[AgenticIdentity]:
+        if self.agentic_app_blueprint_id is None:
+            return None
+
+        return AgenticIdentity(
+            agentic_app_blueprint_id=self.agentic_app_blueprint_id,
+            agentic_app_id=self.agentic_app_id,
+            agentic_user_id=self.agentic_user_id,
+            tenant_id=self.tenant_id,
+        )
 
 
 class TeamsChannelAccount(CustomBaseModel):
@@ -112,7 +159,7 @@ class ConversationAccount(CustomBaseModel):
     """
     The tenant ID for the conversation.
     """
-    conversation_type: Optional[str] = None
+    conversation_type: Optional[ConversationType] = None
     """
     The type of conversation (personal, groupChat, etc.).
     """

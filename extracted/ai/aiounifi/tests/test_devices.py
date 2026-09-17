@@ -35,6 +35,8 @@ from .fixtures import (
     PLUG_UP1,
     STRIP_UP6,
     SWITCH_16_PORT_POE,
+    UPS_2U,
+    UPS_2U_PRO,
 )
 
 test_data = [
@@ -159,6 +161,28 @@ test_data = [
                         },
                         {"availability": 0.0, "target": "google.com", "type": "icmp"},
                         {"availability": 0.0, "target": "1.1.1.1", "type": "icmp"},
+                    ]
+                },
+                "WAN3": {
+                    "monitors": [
+                        {
+                            "availability": 100.0,
+                            "latency_average": 41,
+                            "target": "www.microsoft.com",
+                            "type": "icmp",
+                        },
+                        {
+                            "availability": 100.0,
+                            "latency_average": 32,
+                            "target": "google.com",
+                            "type": "icmp",
+                        },
+                        {
+                            "availability": 100.0,
+                            "latency_average": 16,
+                            "target": "1.1.1.1",
+                            "type": "icmp",
+                        },
                     ]
                 },
             },
@@ -1196,6 +1220,33 @@ def test_device_type_enum() -> None:
     assert str(DeviceType.SECURITY_GATEWAY) == "ugw"
 
 
+def test_battery_pool() -> None:
+    """Verify UPS battery pool data."""
+    ups_2u_pro = Device(UPS_2U_PRO)
+    assert ups_2u_pro.vbms_table == UPS_2U_PRO["vbms_table"]
+    assert ups_2u_pro.battery_pool == UPS_2U_PRO["vbms_table"]["battpool"]
+    assert ups_2u_pro.battery_pool is not None
+    assert ups_2u_pro.battery_pool["batt_available_cnt"] == 6
+    assert ups_2u_pro.battery_pool["device_input_voltage"] == 121.9
+    assert "device_bypass_voltage" not in ups_2u_pro.battery_pool
+    assert ups_2u_pro.vbms_table["epo_enabled"] is False
+    assert ups_2u_pro.vbms_table["is_battery_mode"] is False
+
+    ups_2u = Device(UPS_2U)
+    assert ups_2u.vbms_table == UPS_2U["vbms_table"]
+    assert ups_2u.battery_pool == UPS_2U["vbms_table"]["battpool"]
+    assert ups_2u.battery_pool is not None
+    assert ups_2u.battery_pool["batt_available_cnt"] == 1
+    assert ups_2u.battery_pool["device_bypass_voltage"] == 120.30000305175781
+    assert "device_input_voltage" not in ups_2u.battery_pool
+    assert "epo_enabled" not in ups_2u.vbms_table
+    assert ups_2u.vbms_table["is_battery_mode"] is False
+    assert all("outlet_power" not in outlet for outlet in ups_2u.outlet_table)
+
+    assert Device({"mac": "0"}).vbms_table is None
+    assert Device({"mac": "0"}).battery_pool is None
+
+
 @pytest.mark.parametrize(
     ("raw_band", "expected"),
     [
@@ -1422,6 +1473,10 @@ async def test_update_stats(unifi_controller: Controller) -> None:
     assert device.uptime_stats is not None
     assert len(device.uptime_stats["WAN"].get("monitors")) == 3
     assert len(device.uptime_stats["WAN2"].get("monitors")) == 3
+    assert (wan3 := device.uptime_stats.get("WAN3")) is not None
+    assert len(wan3.get("monitors")) == 3
+    assert wan3["monitors"][1].get("target") == "google.com"
+    assert wan3["monitors"][1].get("latency_average") == 32
 
     assert device.uptime_stats["WAN"].get("monitors")[0].get("availability") == 100.0
     assert device.uptime_stats["WAN"].get("monitors")[0].get("latency_average") == 5

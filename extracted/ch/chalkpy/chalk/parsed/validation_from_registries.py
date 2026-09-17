@@ -245,6 +245,36 @@ def validate_materialized_feature_view_from_registries(
         errors.append(
             f"MaterializedFeatureView references namespace '{view.namespace}' which does not exist in the feature registry."
         )
+        # Every feature check below compares against this namespace, so they would all
+        # report the same missing namespace a second time.
+        return errors
+
+    for fqn in view.features or ():
+        try:
+            feature = Feature.from_root_fqn_in_registry(fqn, features_registry)
+        except FeatureNotFoundException:
+            errors.append(
+                f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
+                + "'features', but that feature does not exist."
+            )
+            continue
+
+        if feature.namespace != view.namespace:
+            errors.append(
+                f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
+                + f"'features', but that feature belongs to namespace '{feature.namespace}'. A "
+                + "materialized feature view can only materialize features from its own namespace."
+            )
+            continue
+
+        # `is_scalar` admits windowed features, which have no observation table of their own to
+        # materialize from, so they are rejected separately rather than through `is_scalar`.
+        if not feature.is_scalar or feature.is_windowed:
+            errors.append(
+                f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
+                + "'features', but only scalar features can be materialized."
+            )
+
     return errors
 
 

@@ -74,6 +74,17 @@ async def textual_analyzer(
         page, query, expected_value, needs_unit_conversion, condition, code_js,
     )
     if outcome is None:
+        if condition:
+            # This read feeds a condition (a while / if-else producer). Its
+            # element is gone and nothing on the page can replace it, so the
+            # condition is not met here: read false and let the caller take
+            # the else branch / exit the loop. Failing the step would abort a
+            # test whose recorded page simply differs from the current one.
+            _log.info(
+                "[textual_analyzer] heal missed for condition evidence -> 'false' (query=%r)",
+                query[:60],
+            )
+            return "false"
         raise TextualAnalyzerHealFailed(
             f"textual_analyzer could not heal extraction for query={query!r}; "
             f"stale locators: {stale}"

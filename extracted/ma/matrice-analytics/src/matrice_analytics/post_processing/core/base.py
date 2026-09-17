@@ -4,9 +4,12 @@ Base classes and interfaces for the post-processing system.
 This module provides the core abstractions that all post-processing components should follow.
 """
 
+import importlib
 import logging
+import threading
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Iterator, MutableMapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -217,7 +220,9 @@ class BaseProcessor(ABC):
         _context: Optional[ProcessingContext] = None,
     ) -> ProcessingResult:
         """Process data with given configuration."""
-        raise NotImplementedError(f"{self.__class__.__name__}.process() must be implemented by subclasses.")
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.process() must be implemented by subclasses."
+        )
 
     def create_result(
         self,
@@ -257,8 +262,21 @@ class BaseProcessor(ABC):
             self.logger.debug("%s %s=%r", self.name, label, value)
 
     def _debug_elapsed_since(self, start_time: float, label: str = "process") -> None:
-        """Log wall-clock seconds since ``start_time`` at DEBUG."""
+        """Log wall-clock seconds since ``start_time`` at DEBUG.
+
+        The wall clock here is DEBUG-only telemetry, never control logic -- an NTP
+        step can make one logged duration absurd, and nothing branches on it.
+
+        It cannot be converted in isolation: all 161 call sites across 74 use-case
+        modules derive ``start_time`` from ``time.time()``, so swapping only this
+        line would subtract a wall-clock reading from a monotonic one and print a
+        number that is wrong every time rather than occasionally. Converting the
+        pair is a 74-file change that belongs in its own PR, not in one that happens
+        to touch this file -- the hook only fires here because semgrep inspects
+        changed files.
+        """
         if self.logger.isEnabledFor(logging.DEBUG):
+            # nosemgrep: py-duration-from-wallclock
             self.logger.debug("%s.%s elapsed_s=%.4f", self.name, label, time.time() - start_time)
 
     # ===============================================================================
@@ -291,7 +309,9 @@ class BaseProcessor(ABC):
         """Get default reset settings."""
         return [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
 
-    def extract_deployment_ids(self, stream_info: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+    def extract_deployment_ids(
+        self, stream_info: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, str]:
         """Extract app_deployment_id and application_id from stream_info.
 
         Uses a priority-based fallback chain identical to the one in
@@ -389,7 +409,8 @@ class BaseProcessor(ABC):
             "incident_id": incident_id,
             "incident_type": incident_type,
             "severity_level": severity_level,
-            "human_text": human_text or f"{incident_type} detected. [Severity Level: {severity_level}]",
+            "human_text": human_text
+            or f"{incident_type} detected. [Severity Level: {severity_level}]",
             "start_time": timestamp,
             "end_time": end_time or timestamp,
             "camera_info": camera_info or self.get_default_camera_info(),
@@ -822,25 +843,176 @@ class BaseUseCase(ABC):
         return config.validate()
 
 
+class UseCaseLoadError(ImportError):
+    """A registered use case exists in the catalogue but its module would not load.
+
+    Subclasses :class:`ImportError` so existing ``except ImportError`` handlers --
+    including the one ml-codebases wraps its analytics import in -- keep working.
+    """
+
+
+class _LazyCategoryMap(MutableMapping):
+    """The ``name -> class`` half of ``ProcessorRegistry._use_cases``.
+
+    Iteration, ``len`` and ``in`` answer from the static catalogue and import
+    nothing; only ``registry["category"]["name"]`` actually loads a module.  This
+    is what lets callers keep reading ``registry._use_cases`` -- which several
+    tests and ``engine/migration/harness.py`` do -- without resurrecting the eager
+    import of every use-case module.
+    """
+
+    def __init__(self, registry: "ProcessorRegistry", category: str) -> None:
+        self._registry = registry
+        self._category = category
+
+    def _names(self) -> set:
+        return set(self._registry._concrete.get(self._category, {})) | set(
+            self._registry._lazy.get(self._category, {})
+        )
+
+    def __getitem__(self, name: str) -> Type[BaseUseCase]:
+        resolved = self._registry._resolve(self._category, name)
+        if resolved is None:
+            raise KeyError(name)
+        return resolved
+
+    def __setitem__(self, name: str, value: Type[BaseUseCase]) -> None:
+        self._registry.register_use_case(self._category, name, value)
+
+    def __delitem__(self, name: str) -> None:
+        with self._registry._lock:
+            self._registry._concrete.get(self._category, {}).pop(name, None)
+            self._registry._lazy.get(self._category, {}).pop(name, None)
+
+    def __iter__(self) -> Iterator:
+        return iter(sorted(self._names()))
+
+    def __len__(self) -> int:
+        return len(self._names())
+
+    def __repr__(self) -> str:
+        return f"<lazy use cases for {self._category!r}: {len(self)}>"
+
+
+class _LazyUseCaseMap(MutableMapping):
+    """The ``category -> {name: class}`` view exposed as ``_use_cases``."""
+
+    def __init__(self, registry: "ProcessorRegistry") -> None:
+        self._registry = registry
+
+    def _categories(self) -> set:
+        return set(self._registry._concrete) | set(self._registry._lazy)
+
+    def __getitem__(self, category: str) -> _LazyCategoryMap:
+        if category not in self._categories():
+            raise KeyError(category)
+        return _LazyCategoryMap(self._registry, category)
+
+    def __setitem__(self, category: str, value: Dict[str, Type[BaseUseCase]]) -> None:
+        for name, use_case_class in dict(value).items():
+            self._registry.register_use_case(category, name, use_case_class)
+
+    def __delitem__(self, category: str) -> None:
+        with self._registry._lock:
+            self._registry._concrete.pop(category, None)
+            self._registry._lazy.pop(category, None)
+
+    def __iter__(self) -> Iterator:
+        return iter(sorted(self._categories()))
+
+    def __len__(self) -> int:
+        return len(self._categories())
+
+    def __repr__(self) -> str:
+        return f"<lazy use-case registry: {len(self)} categories>"
+
+
 class ProcessorRegistry:
-    """Registry for processors and use cases."""
+    """Registry for processors and use cases.
+
+    Use cases may be registered either eagerly (a class object) or lazily (a
+    ``"module:ClassName"`` spec resolved on first lookup).  Lazy registration is
+    what keeps ``import matrice_analytics.post_processing`` from executing the
+    whole use-case catalogue -- see ``core/_usecase_table.py``.
+    """
 
     def __init__(self):
         """Initialize registry."""
         self._processors: Dict[str, Type[BaseProcessor]] = {}
-        self._use_cases: Dict[str, Dict[str, Type[BaseUseCase]]] = {}
+        #: Classes already resolved -- the storage the eager API always used.
+        self._concrete: Dict[str, Dict[str, Type[BaseUseCase]]] = {}
+        #: ``category -> name -> "module:ClassName"``, resolved on demand.
+        self._lazy: Dict[str, Dict[str, str]] = {}
+        self._lock = threading.Lock()
+        #: Back-compatible view; ``registry._use_cases`` is read by callers
+        #: outside this module, so it keeps behaving like the plain nested dict.
+        self._use_cases = _LazyUseCaseMap(self)
 
     def register_processor(self, name: str, processor_class: Type[BaseProcessor]) -> None:
         """Register a processor class."""
         self._processors[name] = processor_class
         logger.debug(f"Registered processor: {name}")
 
-    def register_use_case(self, category: str, name: str, use_case_class: Type[BaseUseCase]) -> None:
+    def register_use_case(
+        self, category: str, name: str, use_case_class: Type[BaseUseCase]
+    ) -> None:
         """Register a use case class."""
-        if category not in self._use_cases:
-            self._use_cases[category] = {}
-        self._use_cases[category][name] = use_case_class
+        with self._lock:
+            self._concrete.setdefault(category, {})[name] = use_case_class
         logger.debug(f"Registered use case: {category}/{name}")
+
+    def register_use_case_lazy(self, category: str, name: str, spec: str) -> None:
+        """Register a use case by ``"module:ClassName"``, loaded on first lookup.
+
+        ``module`` is an absolute module path, e.g.
+        ``"matrice_analytics.post_processing.usecases.people_counting:PeopleCountingUseCase"``.
+        """
+        with self._lock:
+            self._lazy.setdefault(category, {})[name] = spec
+
+    def register_use_cases_lazy(self, table: Dict[str, Dict[str, str]]) -> None:
+        """Seed the registry from a whole ``category -> {name: spec}`` catalogue."""
+        with self._lock:
+            for category, entries in table.items():
+                self._lazy.setdefault(category, {}).update(entries)
+
+    def _load(self, category: str, name: str, spec: str) -> Type[BaseUseCase]:
+        """Import and return the class named by a ``"module:ClassName"`` spec.
+
+        ``module`` is absolute, e.g.
+        ``"matrice_analytics.post_processing.usecases.people_counting:PeopleCountingUseCase"``.
+
+        A failure is re-raised naming the registry key, because the bare
+        ``ModuleNotFoundError`` says which module is missing but not which use case
+        asked for it -- and under lazy resolution the caller is a
+        ``get_use_case(category, name)`` several frames away, not an import statement
+        the reader can see.
+        """
+        module_name, _, qualname = spec.partition(":")
+        try:
+            return getattr(importlib.import_module(module_name), qualname)
+        except (ImportError, AttributeError) as exc:
+            raise UseCaseLoadError(
+                f"use case '{category}/{name}' could not be loaded from '{spec}': {exc}"
+            ) from exc
+
+    def _resolve(self, category: str, name: str) -> Optional[Type[BaseUseCase]]:
+        """Return the class for an exact ``category``/``name``, loading if needed."""
+        resolved = self._concrete.get(category, {}).get(name)
+        if resolved is not None:
+            return resolved
+        spec = self._lazy.get(category, {}).get(name)
+        if spec is None:
+            return None
+        # Import OUTSIDE the lock: taking our lock around an import would nest it
+        # inside CPython's per-module import lock, which deadlocks if any use-case
+        # module touches the registry while being imported.  Two threads racing the
+        # same spec both get the identical object out of sys.modules, so the
+        # last-write-wins insert below is correct.
+        use_case_class = self._load(category, name, spec)
+        with self._lock:
+            self._concrete.setdefault(category, {})[name] = use_case_class
+        return use_case_class
 
     def get_processor(self, name: str) -> Optional[Type[BaseProcessor]]:
         """Get processor class by name."""
@@ -853,13 +1025,31 @@ class ProcessorRegistry:
         pair is not found (handles category mismatches like general/footfall
         when footfall is registered under retail).
         """
-        result = self._use_cases.get(category, {}).get(name)
+        result = self._resolve(category, name)
         if result is not None:
             return result
-        for cat, use_cases in self._use_cases.items():
-            if name in use_cases:
-                logger.warning(f"Use case '{name}' not found under '{category}', found under '{cat}' instead")
-                return use_cases[name]
+        # The fallback must scan the lazy catalogue as well as the resolved one:
+        # against the resolved dict alone it would search a nearly empty map and
+        # silently stop finding exactly the mismatches it exists to paper over.
+        for cat in sorted(set(self._concrete) | set(self._lazy)):
+            if cat == category:
+                continue
+            try:
+                found = self._resolve(cat, name)
+            except UseCaseLoadError as exc:
+                # One unloadable entry must not abort the scan.  Before lazy
+                # resolution this loop walked an already-populated dict and could not
+                # raise at all -- a module that failed to import took the whole
+                # package down at import time, so it was simply absent here.  Letting
+                # the exception escape would let one broken use case break lookups for
+                # every unrelated one that happens to sort after it.
+                logger.warning(f"skipping unloadable use case while searching for '{name}': {exc}")
+                continue
+            if found is not None:
+                logger.warning(
+                    f"Use case '{name}' not found under '{category}', found under '{cat}' instead"
+                )
+                return found
         return None
 
     def list_processors(self) -> List[str]:
@@ -867,9 +1057,25 @@ class ProcessorRegistry:
         return list(self._processors.keys())
 
     def list_use_cases(self) -> Dict[str, List[str]]:
-        """List all registered use cases by category."""
-        return {category: list(use_cases.keys()) for category, use_cases in self._use_cases.items()}
+        """List all registered use cases by category.
+
+        Answers from the catalogue; imports nothing.
+        """
+        categories = set(self._concrete) | set(self._lazy)
+        return {
+            category: sorted(
+                set(self._concrete.get(category, {})) | set(self._lazy.get(category, {}))
+            )
+            for category in sorted(categories)
+        }
 
 
 # Global registry instance
 registry = ProcessorRegistry()
+
+# Seed the full legacy catalogue as lazy specs.  This is the single authoritative
+# source (PY-22) and costs one dict literal -- no use-case module is imported until
+# something actually asks for one.
+from ._usecase_table import USE_CASE_TABLE  # noqa: E402  (must follow `registry`)
+
+registry.register_use_cases_lazy(USE_CASE_TABLE)

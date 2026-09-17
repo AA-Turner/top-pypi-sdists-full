@@ -84,7 +84,6 @@ AZURE_DEVOPS_REQUIRED_FILES: list[str] = [
     "get-pull-request-threads",
     "get-run-details",
     "list-pipelines",
-    "mark-pull-request-draft",
     "publish-pull-request",
     "pull-request-review.completion",
     "pull-request-review.decision",

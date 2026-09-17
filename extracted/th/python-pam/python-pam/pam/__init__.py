@@ -1,0 +1,160 @@
+"""PAM (Pluggable Authentication Modules) interface for Python.
+
+This module provides a Python interface to Linux-PAM, allowing authentication
+against system PAM services.
+"""
+import sys as __sys
+
+# list all the constants and export them
+from .__internals import PAM_ACCT_EXPIRED
+from .__internals import PAM_AUTHINFO_UNAVAIL
+from .__internals import PAM_AUTHTOK_DISABLE_AGING
+from .__internals import PAM_AUTHTOK_ERR
+from .__internals import PAM_ABORT
+from .__internals import PAM_AUTHTOK_EXPIRED
+from .__internals import PAM_AUTHTOK_LOCK_BUSY
+from .__internals import PAM_AUTHTOK_RECOVER_ERR
+from .__internals import PAM_AUTH_ERR
+from .__internals import PAM_BAD_ITEM
+from .__internals import PAM_BUF_ERR
+from .__internals import PAM_CHANGE_EXPIRED_AUTHTOK
+from .__internals import PAM_CONV
+from .__internals import PAM_CONV_ERR
+from .__internals import PAM_CRED_ERR
+from .__internals import PAM_CRED_EXPIRED
+from .__internals import PAM_CRED_INSUFFICIENT
+from .__internals import PAM_CRED_UNAVAIL
+from .__internals import PAM_DATA_SILENT
+from .__internals import PAM_DELETE_CRED
+from .__internals import PAM_DISALLOW_NULL_AUTHTOK
+from .__internals import PAM_ERROR_MSG
+from .__internals import PAM_ESTABLISH_CRED
+from .__internals import PAM_IGNORE
+from .__internals import PAM_MAXTRIES
+from .__internals import PAM_MODULE_UNKNOWN
+from .__internals import PAM_NEW_AUTHTOK_REQD
+from .__internals import PAM_NO_MODULE_DATA
+from .__internals import PAM_OPEN_ERR
+from .__internals import PAM_PERM_DENIED
+from .__internals import PAM_PROMPT_ECHO_OFF
+from .__internals import PAM_PROMPT_ECHO_ON
+from .__internals import PAM_REFRESH_CRED
+from .__internals import PAM_REINITIALIZE_CRED
+from .__internals import PAM_RHOST
+from .__internals import PAM_RUSER
+from .__internals import PAM_SERVICE
+from .__internals import PAM_SERVICE_ERR
+from .__internals import PAM_SESSION_ERR
+from .__internals import PAM_SILENT
+from .__internals import PAM_SUCCESS
+from .__internals import PAM_SYMBOL_ERR
+from .__internals import PAM_SYSTEM_ERR
+from .__internals import PAM_TEXT_INFO
+from .__internals import PAM_TRY_AGAIN
+from .__internals import PAM_TTY
+from .__internals import PAM_USER
+from .__internals import PAM_USER_PROMPT
+from .__internals import PAM_USER_UNKNOWN
+from .__internals import PAM_XDISPLAY
+from .__internals import PamAuthenticator
+
+if __sys.version_info < (3, ):  # pragma: no cover
+    print('WARNING, Python 2 is EOL not supported')
+
+__all__ = [
+    'authenticate',
+    'pam',
+    'PAM_ACCT_EXPIRED',
+    'PAM_AUTHINFO_UNAVAIL',
+    'PAM_AUTHTOK_DISABLE_AGING',
+    'PAM_AUTHTOK_ERR',
+    'PAM_ABORT',
+    'PAM_AUTHTOK_EXPIRED',
+    'PAM_AUTHTOK_LOCK_BUSY',
+    'PAM_AUTHTOK_RECOVER_ERR',
+    'PAM_AUTH_ERR',
+    'PAM_BAD_ITEM',
+    'PAM_BUF_ERR',
+    'PAM_CHANGE_EXPIRED_AUTHTOK',
+    'PAM_CONV',
+    'PAM_CONV_ERR',
+    'PAM_CRED_ERR',
+    'PAM_CRED_EXPIRED',
+    'PAM_CRED_INSUFFICIENT',
+    'PAM_CRED_UNAVAIL',
+    'PAM_DATA_SILENT',
+    'PAM_DELETE_CRED',
+    'PAM_DISALLOW_NULL_AUTHTOK',
+    'PAM_ERROR_MSG',
+    'PAM_ESTABLISH_CRED',
+    'PAM_IGNORE',
+    'PAM_MAXTRIES',
+    'PAM_MODULE_UNKNOWN',
+    'PAM_NEW_AUTHTOK_REQD',
+    'PAM_NO_MODULE_DATA',
+    'PAM_OPEN_ERR',
+    'PAM_PERM_DENIED',
+    'PAM_PROMPT_ECHO_OFF',
+    'PAM_PROMPT_ECHO_ON',
+    'PAM_REFRESH_CRED',
+    'PAM_REINITIALIZE_CRED',
+    'PAM_RHOST',
+    'PAM_RUSER',
+    'PAM_SERVICE',
+    'PAM_SERVICE_ERR',
+    'PAM_SESSION_ERR',
+    'PAM_SILENT',
+    'PAM_SUCCESS',
+    'PAM_SYMBOL_ERR',
+    'PAM_SYSTEM_ERR',
+    'PAM_TEXT_INFO',
+    'PAM_TRY_AGAIN',
+    'PAM_TTY',
+    'PAM_USER',
+    'PAM_USER_PROMPT',
+    'PAM_USER_UNKNOWN',
+    'PAM_XDISPLAY',
+    ]
+
+
+def authenticate(
+    username: str | bytes,
+    password: str | bytes,
+    service: str | bytes = 'login',
+    env: dict[str, str] | None = None,
+    call_end: bool = True,
+    encoding: str = 'utf-8',
+    resetcreds: bool = True,
+    print_failure_messages: bool = False,
+) -> bool:
+    """Authenticate a user against PAM.
+
+    Creates a fresh ``PamAuthenticator`` for each call so concurrent use from
+    multiple threads is safe. libpam ctypes bindings are loaded once and shared.
+
+    For result codes after auth, use ``PamAuthenticator`` directly::
+
+        pa = pam.pam()
+        ok = pa.authenticate(user, password)
+        print(pa.code, pa.reason)
+
+    Args:
+        username: Username to authenticate
+        password: Password in plain text
+        service: PAM service to authenticate against (default: 'login')
+        env: Dictionary of environment variables to set
+        call_end: Whether to call pam_end() after authentication (default: True)
+        encoding: Encoding to use for string conversions (default: 'utf-8')
+        resetcreds: Whether to reset credentials after authentication (default: True)
+        print_failure_messages: Whether to print failure messages (default: False)
+
+    Returns:
+        bool: True if authentication succeeded, False otherwise
+    """
+    return PamAuthenticator().authenticate(
+        username, password, service, env, call_end, encoding, resetcreds, print_failure_messages,
+    )
+
+
+# legacy implementations used pam.pam()
+pam = PamAuthenticator  # noqa: N816, C0103

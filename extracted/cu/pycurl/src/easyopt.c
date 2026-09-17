@@ -142,8 +142,14 @@ PYCURL_IGNORE_DEPRECATED_END
     case CURLOPT_PROXY_SSLKEY_BLOB:
     case CURLOPT_PROXY_ISSUERCERT_BLOB:
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 73, 0)
+    case CURLOPT_SSL_EC_CURVES:
+#endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 74, 0)
     case CURLOPT_HSTS:
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 14, 0)
+    case CURLOPT_SSL_SIGNATURE_ALGORITHMS:
 #endif
         SETOPT((char *) NULL);
         break;
@@ -182,6 +188,9 @@ PYCURL_IGNORE_DEPRECATED_END
             goto error;
         Py_CLEAR(self->mimepost_obj);
         break;
+#endif
+#ifdef HAVE_CURLOPT_CURLU
+    CLEAR_OBJECT(CURLOPT_CURLU, self->curl_url);
 #endif
 
     /* "If you do not use a write callback, you must make pointer a 'FILE*'
@@ -290,15 +299,50 @@ error:
 }
 
 
+#ifdef CURLOPTTYPE_BLOB
+/* CURL_BLOB_COPY makes libcurl copy the data, so the buffer only has to stay
+   valid across curl_easy_setopt(). */
+static PyObject *
+do_curl_setopt_blob(CurlObject *self, int option, PyObject *obj)
+{
+    struct curl_blob curlblob;
+    PyObject *encoded_obj = NULL;
+    Py_buffer view;
+    int view_active = 0;
+    char *str;
+    Py_ssize_t len;
+    int res;
+
+    if (PyText_OrBuffer_AsStringAndSize(obj, &str, &len, &encoded_obj,
+            &view, &view_active, "blob option value") != 0) {
+        return NULL;
+    }
+
+    curlblob.data = str;
+    curlblob.len = len;
+    curlblob.flags = CURL_BLOB_COPY;
+
+    res = curl_easy_setopt(self->handle, (CURLoption)option, &curlblob);
+
+    if (view_active) {
+        PyBuffer_Release(&view);
+    }
+    Py_XDECREF(encoded_obj);
+
+    if (res != CURLE_OK) {
+        CURLERROR_RETVAL();
+    }
+    Py_RETURN_NONE;
+}
+#endif
+
+
 static PyObject *
 do_curl_setopt_string_impl(CurlObject *self, int option, PyObject *obj)
 {
     char *str = NULL;
     Py_ssize_t len = -1;
     PyObject *encoded_obj;
-#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 71, 0)
-    struct curl_blob curlblob;
-#endif
     int res;
 
     /* Check that the option specified a string as well as the input */
@@ -309,6 +353,16 @@ PYCURL_IGNORE_DEPRECATED_BEGIN
     case CURLOPT_RANDOM_FILE:
 #ifdef HAVE_CURL_7_19_4_OPTS
     case CURLOPT_SOCKS5_GSSAPI_SERVICE:
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 21, 4)
+    case CURLOPT_TLSAUTH_TYPE:
+    case CURLOPT_TLSAUTH_USERNAME:
+    case CURLOPT_TLSAUTH_PASSWORD:
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 52, 0)
+    case CURLOPT_PROXY_TLSAUTH_TYPE:
+    case CURLOPT_PROXY_TLSAUTH_USERNAME:
+    case CURLOPT_PROXY_TLSAUTH_PASSWORD:
 #endif
 PYCURL_IGNORE_DEPRECATED_END
         if (PyErr_WarnEx(PyExc_DeprecationWarning, "setopt option is deprecated", 1) != 0) {
@@ -389,11 +443,6 @@ PYCURL_IGNORE_DEPRECATED_END
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 40, 0)
     case CURLOPT_UNIX_SOCKET_PATH:
 #endif
-#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 21, 4)
-    case CURLOPT_TLSAUTH_TYPE:
-    case CURLOPT_TLSAUTH_USERNAME:
-    case CURLOPT_TLSAUTH_PASSWORD:
-#endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 45, 0)
     case CURLOPT_DEFAULT_PROTOCOL:
 #endif
@@ -415,9 +464,6 @@ PYCURL_IGNORE_DEPRECATED_END
     case CURLOPT_PROXY_KEYPASSWD:
     case CURLOPT_PROXY_PINNEDPUBLICKEY:
     case CURLOPT_PROXY_SSL_CIPHER_LIST:
-    case CURLOPT_PROXY_TLSAUTH_TYPE:
-    case CURLOPT_PROXY_TLSAUTH_USERNAME:
-    case CURLOPT_PROXY_TLSAUTH_PASSWORD:
 #endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 55, 0)
     case CURLOPT_REQUEST_TARGET:
@@ -432,6 +478,9 @@ PYCURL_IGNORE_DEPRECATED_END
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 71, 0)
     case CURLOPT_PROXY_ISSUERCERT:
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 73, 0)
+    case CURLOPT_SSL_EC_CURVES:
+#endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 74, 0)
     case CURLOPT_HSTS:
 #endif
@@ -443,6 +492,9 @@ PYCURL_IGNORE_DEPRECATED_END
 #endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 8, 0)
     case CURLOPT_ECH:
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 14, 0)
+    case CURLOPT_SSL_SIGNATURE_ALGORITHMS:
 #endif
         str = PyText_AsString_NoNUL(obj, &encoded_obj);
         if (str == NULL)
@@ -462,33 +514,6 @@ PYCURL_IGNORE_DEPRECATED_END
             CURLERROR_RETVAL();
         }
         break;
-#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 71, 0)
-    case CURLOPT_SSLCERT_BLOB:
-    case CURLOPT_SSLKEY_BLOB:
-    case CURLOPT_PROXY_SSLCERT_BLOB:
-    case CURLOPT_PROXY_SSLKEY_BLOB:
-    case CURLOPT_ISSUERCERT_BLOB:
-    case CURLOPT_PROXY_ISSUERCERT_BLOB:
-#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 77, 0)
-    case CURLOPT_CAINFO_BLOB:
-    case CURLOPT_PROXY_CAINFO_BLOB:
-#endif
-        if (PyText_AsStringAndSize(obj, &str, &len, &encoded_obj) != 0)
-            return NULL;
-
-        curlblob.data = str;
-        curlblob.len = len;
-        curlblob.flags = CURL_BLOB_COPY;
-
-        res = curl_easy_setopt(self->handle, (CURLoption)option, &curlblob);
-        if (res != CURLE_OK) {
-            Py_XDECREF(encoded_obj);
-            CURLERROR_RETVAL();
-        }
-        Py_XDECREF(encoded_obj);
-        Py_RETURN_NONE;
-        break;
-#endif
     default:
         PyErr_SetString(PyExc_TypeError, "strings are not supported for this option");
         return NULL;
@@ -527,7 +552,12 @@ PYCURL_IGNORE_DEPRECATED_END
 
 
 #define IS_LONG_OPTION(o)   (o < CURLOPTTYPE_OBJECTPOINT)
-#define IS_OFF_T_OPTION(o)  (o >= CURLOPTTYPE_OFF_T)
+#ifdef CURLOPTTYPE_BLOB
+#define IS_OFF_T_OPTION(o)  ((o) >= CURLOPTTYPE_OFF_T && (o) < CURLOPTTYPE_BLOB)
+#define IS_BLOB_OPTION(o)   ((o) >= CURLOPTTYPE_BLOB)
+#else
+#define IS_OFF_T_OPTION(o)  ((o) >= CURLOPTTYPE_OFF_T)
+#endif
 
 
 static PyObject *
@@ -574,6 +604,8 @@ do_curl_setopt_httppost(CurlObject *self, int option, int which, PyObject *obj)
     /* List of all references that have been INCed as a result of
      * this operation */
     PyObject *ref_params = NULL;
+    /* Encoded values, alive until curl_formadd() has copied them */
+    PyObject *encoded_objs = NULL;
     PyObject *nencoded_obj, *cencoded_obj, *oencoded_obj;
     int which_httppost_item, which_httppost_option;
     PyObject *httppost_option;
@@ -637,7 +669,7 @@ do_curl_setopt_httppost(CurlObject *self, int option, int which, PyObject *obj)
         else if ((which_httppost_option = PyListOrTuple_Check(httppost_option))) {
             /* Supports content, file and content-type */
             Py_ssize_t tlen = PyListOrTuple_Size(httppost_option, which_httppost_option);
-            int j, k, l;
+            int j, k;
             struct curl_forms *forms = NULL;
 
             /* Sanity check that there are at least two tuple items */
@@ -660,12 +692,18 @@ do_curl_setopt_httppost(CurlObject *self, int option, int which, PyObject *obj)
                 PyErr_NoMemory();
                 goto error;
             }
+            encoded_objs = PyList_New((Py_ssize_t)0);
+            if (encoded_objs == NULL) {
+                PyMem_Free(forms);
+                Py_XDECREF(nencoded_obj);
+                goto error;
+            }
 
             /* Iterate all the tuple members pairwise */
-            for (j = 0, k = 0, l = 0; j < tlen; j += 2, l++) {
+            for (j = 0, k = 0; j < tlen; j += 2) {
                 char *ostr;
                 Py_ssize_t olen;
-                int val;
+                int val, rv;
 
                 if (j == (tlen-1)) {
                     PyErr_SetString(PyExc_TypeError, "expected value");
@@ -708,6 +746,16 @@ do_curl_setopt_httppost(CurlObject *self, int option, int which, PyObject *obj)
                     Py_XDECREF(nencoded_obj);
                     goto error;
                 }
+                /* ostr points into oencoded_obj, which encoded_objs now owns */
+                if (oencoded_obj != NULL) {
+                    rv = PyList_Append(encoded_objs, oencoded_obj);
+                    Py_DECREF(oencoded_obj);
+                    if (rv != 0) {
+                        PyMem_Free(forms);
+                        Py_XDECREF(nencoded_obj);
+                        goto error;
+                    }
+                }
                 forms[k].option = val;
                 forms[k].value = ostr;
                 ++k;
@@ -724,7 +772,6 @@ do_curl_setopt_httppost(CurlObject *self, int option, int which, PyObject *obj)
                     if (ref_params == NULL) {
                         ref_params = PyList_New((Py_ssize_t)0);
                         if (ref_params == NULL) {
-                            Py_XDECREF(oencoded_obj);
                             PyMem_Free(forms);
                             Py_XDECREF(nencoded_obj);
                             goto error;
@@ -741,7 +788,6 @@ do_curl_setopt_httppost(CurlObject *self, int option, int which, PyObject *obj)
 
                     /* Ensure that the buffer remains alive until curl_easy_cleanup() */
                     if (PyList_Append(ref_params, obj) != 0) {
-                        Py_XDECREF(oencoded_obj);
                         PyMem_Free(forms);
                         Py_XDECREF(nencoded_obj);
                         goto error;
@@ -762,7 +808,7 @@ do_curl_setopt_httppost(CurlObject *self, int option, int which, PyObject *obj)
                                CURLFORM_ARRAY, forms,
                                CURLFORM_END);
             PYCURL_IGNORE_DEPRECATED_END
-            Py_XDECREF(oencoded_obj);
+            Py_CLEAR(encoded_objs);
             PyMem_Free(forms);
             if (res != CURLE_OK) {
                 Py_XDECREF(nencoded_obj);
@@ -818,6 +864,7 @@ error:
     PYCURL_IGNORE_DEPRECATED_BEGIN
     curl_formfree(post);
     PYCURL_IGNORE_DEPRECATED_END
+    Py_XDECREF(encoded_objs);
     Py_XDECREF(ref_params);
     return NULL;
 }
@@ -1186,6 +1233,20 @@ do_curl_setopt_mimepost(CurlObject *self, PyObject *obj)
         return NULL;
     }
 
+    /*
+     * CURLOPT_HTTPPOST and CURLOPT_MIMEPOST are mutually exclusive in libcurl.
+     * Unset the form first: libcurl has to stop pointing at it before
+     * curl_formfree() runs, and unsetting it later would clear the new mime.
+     */
+    if (self->httppost != NULL) {
+        PYCURL_IGNORE_DEPRECATED_BEGIN
+        res = curl_easy_setopt(self->handle, CURLOPT_HTTPPOST, NULL);
+        PYCURL_IGNORE_DEPRECATED_END
+        if (res != CURLE_OK) {
+            CURLERROR_RETVAL();
+        }
+    }
+
     res = curl_easy_setopt(self->handle, CURLOPT_MIMEPOST, mime->mime);
     if (res != CURLE_OK) {
         CURLERROR_RETVAL();
@@ -1196,8 +1257,37 @@ do_curl_setopt_mimepost(CurlObject *self, PyObject *obj)
     self->mimepost_obj = obj;
     Py_XDECREF(old_mimepost_obj);
 
-    util_curl_xdecref(self, PYCURL_MEMGROUP_HTTPPOST, self->handle);
+    util_curl_xdecref(self, PYCURL_MEMGROUP_HTTPPOST, NULL);
 
+    Py_RETURN_NONE;
+}
+#endif
+
+
+#ifdef HAVE_CURLOPT_CURLU
+static PyObject *
+do_curl_setopt_curlurl(CurlObject *self, PyObject *obj)
+{
+    CurlUrlObject *url;
+    int res;
+
+    if (!PyObject_TypeCheck(obj, p_CurlUrl_Type)) {
+        PyErr_SetString(PyExc_TypeError, "setopt(option=CURLU) expects a CurlUrl object");
+        return NULL;
+    }
+
+    url = (CurlUrlObject *)obj;
+    if (url->url_handle == NULL) {
+        PyErr_SetString(PyExc_ValueError, "setopt(option=CURLU) received a CurlUrl without a handle");
+        return NULL;
+    }
+
+    res = curl_easy_setopt(self->handle, CURLOPT_CURLU, url->url_handle);
+    if (res != CURLE_OK) {
+        CURLERROR_RETVAL();
+    }
+
+    Py_XSETREF(self->curl_url, Py_NewRef(obj));
     Py_RETURN_NONE;
 }
 #endif
@@ -1296,6 +1386,13 @@ do_curl_setopt(CurlObject *self, PyObject *args, PyObject *kwargs)
         return util_curl_unsetopt(self, option);
     }
 
+#ifdef CURLOPTTYPE_BLOB
+    /* Blob options accept text and buffer objects alike */
+    if (IS_BLOB_OPTION(option)) {
+        return do_curl_setopt_blob(self, option, obj);
+    }
+#endif
+
     /* Handle the case of string arguments */
     if (PyText_Check(obj)) {
         return do_curl_setopt_string_impl(self, option, obj);
@@ -1331,6 +1428,12 @@ do_curl_setopt(CurlObject *self, PyObject *args, PyObject *kwargs)
 #ifdef HAVE_CURL_MIME
     if (option == CURLOPT_MIMEPOST) {
         return do_curl_setopt_mimepost(self, obj);
+    }
+#endif
+
+#ifdef HAVE_CURLOPT_CURLU
+    if (option == CURLOPT_CURLU) {
+        return do_curl_setopt_curlurl(self, obj);
     }
 #endif
 

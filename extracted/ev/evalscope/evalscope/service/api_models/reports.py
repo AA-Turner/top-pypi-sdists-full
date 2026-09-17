@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from evalscope.api.agent.trace import EventType
 from evalscope.api.metric import JudgeSummary
@@ -158,6 +158,27 @@ class ListReportsResponse(ApiResponseModel):
     filters: ReportFilters
 
 
+class ReportGroup(ApiResponseModel):
+    """One row per model in a `group_by=model` listing - display-only rollup, never a merged report."""
+
+    model_name: str
+    dataset_name: str
+    timestamp: str
+    report_count: int
+    dataset_count: int
+    num_samples: int
+    refs: List[str]
+    children: List[ReportSummary]
+
+
+class ListReportsGroupedResponse(ApiResponseModel):
+    reports: List[ReportGroup]
+    total: int
+    page: int
+    page_size: int
+    filters: ReportFilters
+
+
 class LoadReportResponse(ApiResponseModel):
     report_list: List[ReportData]
     datasets: List[str]
@@ -222,11 +243,25 @@ class AgentTraceEvent(ApiResponseModel):
     payload: Dict[str, Any]
 
 
+class TraceUsage(ApiResponseModel):
+    """Mirrors `evalscope.api.model.model_output.ModelUsage`'s shape for the response contract."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    input_tokens_cache_write: Optional[int] = None
+    input_tokens_cache_read: Optional[int] = None
+    reasoning_tokens: Optional[int] = None
+
+
 class AgentTrace(ApiResponseModel):
+    framework: Optional[str] = None
     strategy: Optional[str] = None
     environment: Optional[str] = None
     max_steps: int
+    trial_id: Optional[str] = None
     events: List[AgentTraceEvent]
+    total_usage: Optional[TraceUsage] = None
 
 
 class JudgeAttempt(ApiResponseModel):
@@ -269,7 +304,7 @@ class PredictionRow(ApiResponseModel):
     input: str = Field(alias='Input')
     metadata: Any = Field(alias='Metadata')
     generated: str = Field(alias='Generated')
-    gold: str = Field(alias='Gold')
+    gold: Union[str, List[str]] = Field(alias='Gold')
     prediction: str = Field(alias='Pred')
     score: PredictionScore = Field(alias='Score')
     normalized_score: Optional[float] = Field(alias='NScore')

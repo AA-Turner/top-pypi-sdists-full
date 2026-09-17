@@ -83,11 +83,19 @@
 //! - `classify_commit_types(commit: dict) -> list[str]`
 //! - `aggregate_commit_log(repos: list[tuple[str, list[dict]]], limit: int) -> list[dict]`
 //! - `parse_merge_summary(subject: str, body: str) -> dict | None`
+//! - `disk_inventory_wire_schema_version() -> int`
+//! - `classify_disk_inventory(request: dict) -> dict`
+//! - `disk_cleanup_outcome_wire_schema_version() -> int`
+//! - `normalize_disk_cleanup_outcome(request: dict) -> dict`
 //! - `read_project_lifecycle_from_content(content: str) -> dict`
 //! - `apply_project_lifecycle_update(content: str, state: str) -> str`
 //! - `apply_project_aliases_update(content: str, aliases: list[str]) -> str`
 //! - `apply_project_name_update(content: str, name: str | None) -> str`
 //! - `list_project_records(projects_root: str, include_states: list[str], include_home: bool = False, projects_only: bool = False) -> list[dict]`
+//! - `compile_prompt_history_query(raw_query: str, catalog: list[dict]) -> dict`
+//! - `encode_prompt_history_literal(text: str) -> str`
+//! - `build_prompt_history_seed(request: dict, catalog: list[dict]) -> dict`
+//! - `match_prompt_history_rows(query: dict, rows: list[dict]) -> dict`
 //! - `read_notifications_snapshot(path: str, include_dismissed: bool, expire_due_snoozes: bool = False) -> dict`
 //! - `read_current_notifications_snapshot(path: str, include_dismissed: bool) -> dict`
 //! - `apply_notification_state_update(path: str, update: dict) -> dict`
@@ -113,6 +121,7 @@
 //! - `rewrite_prompt_stash(path: str, entries: list[dict]) -> dict`
 //! - `read_procs_snapshot(path: str) -> dict`
 //! - `append_proc(path: str, proc: dict, history_limit: int) -> dict`
+//! - `reserve_proc(path: str, request: dict, history_limit: int) -> dict`
 //! - `update_proc(path: str, update: dict) -> dict`
 //! - `prune_procs(path: str, history_limit: int) -> dict`
 //! - `proc_runtime_retention_wire_schema_version() -> int`
@@ -140,11 +149,23 @@
 //! - `classify_tailnet_health(request: dict) -> dict`
 //! - `classify_tailnet_discovery(request: dict) -> dict`
 //! - `reconcile_machine_enrollments(request: dict) -> dict`
+//! - `assess_machine_init_review(request: dict) -> dict`
+//! - `merge_machine_init_review(request: dict) -> dict`
 //! - `validate_agent_name(name: str) -> None`
 //! - `validate_agent_username(username: str) -> None`
 //! - `validate_owner_root(root: str) -> None`
 //! - `validate_agent_owner(username: str, machine_name: str) -> None`
 //! - `validate_owned_agent_name(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> None`
+//! - `validate_tribe_name(tribe: str) -> str`
+//! - `canonicalize_public_tribe_name(tribe: str) -> str`
+//! - `public_tribe_name(tribe: str) -> str`
+//! - `parse_tribe_reference(value: str) -> str | None`
+//! - `is_reserved_tribe_name(tribe: str) -> bool`
+//! - `reserved_tribe_target_reason(tribe: str) -> str`
+//! - `canonicalize_agent_tribe_metadata(data: dict) -> dict`
+//! - `agent_tribe_display_key(stored_tribe: str, configured_keys: list[str]) -> str`
+//! - `resolve_agent_tribe_display_config(request: dict) -> dict`
+//! - `resolve_agent_tribe_identity(request: dict) -> dict`
 //! - `commit_shas_equivalent(left: str, right: str) -> bool`
 //! - `normalize_agent_archive_name(name: str) -> str`
 //! - `normalize_owned_agent_name(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> str`
@@ -168,6 +189,7 @@
 //! - `spawn_prepared_agent_process(prepared: dict, env: dict, claim_callback: Callable[[int], bool] | None = None) -> int`
 //! - `allocate_launch_timestamp_batch(count: int, base_timestamp: str, after_timestamp: str | None = None) -> list[str]`
 //! - `plan_agent_launch_fanout(prompt: str, launch_kind: str | None = None) -> dict`
+//! - `next_admission_actions(plan: dict, states: dict, wait_facts: list[dict], hold_blocks: list[dict] | None = None) -> list[dict]`
 //! - `bind_batch_predecessor_waits(prompt: str, predecessor: dict) -> dict`
 //! - `inline_code_ranges(text: str, masked_ranges: list[tuple[int, int]] | None = None) -> list[tuple[int, int]]`
 //! - `model_shortcut_context(text: str, position: dict) -> dict | None`
@@ -196,6 +218,15 @@
 //! - `effort_override_set_relative(sase_home: str, effort: str, source: str, duration_seconds: float | None = None, now: float | None = None) -> dict`
 //! - `effort_override_set_until(sase_home: str, effort: str, expires_at: float, source: str, now: float | None = None) -> dict`
 //! - `effort_override_clear(sase_home: str) -> bool`
+//! - `agent_hold_wire_schema_version() -> int`
+//! - `agent_hold_arm_relative(sase_home: str, armer: dict, scope: dict, selectors: dict, duration_seconds: float, liveness: dict | None = None, now: float | None = None) -> dict`
+//! - `agent_hold_arm_until(sase_home: str, armer: dict, scope: dict, selectors: dict, expires_at: float, liveness: dict | None = None, now: float | None = None) -> dict`
+//! - `agent_hold_rebind(sase_home: str, old_key: str, new_armer: dict, liveness: dict | None = None, now: float | None = None) -> dict | None`
+//! - `agent_hold_release(sase_home: str, armer_key: str, liveness: dict | None = None, now: float | None = None) -> bool`
+//! - `agent_hold_list(sase_home: str, liveness: dict | None = None, now: float | None = None) -> dict`
+//! - `agent_hold_blocks_candidate(record: dict, candidate: dict) -> dict | None`
+//! - `launch_unit_hold_key(request_id: str, logical_id: str) -> str`
+//! - `launch_unit_hold_armer(unit: dict, request_id: str, project: str, pid: int, done_marker_path: str) -> dict`
 //! - `feature_flag_state_wire_schema_version() -> int`
 //! - `feature_flag_state_get(sase_home: str) -> dict`
 //! - `feature_flag_state_set(sase_home: str, flag: str, enabled: bool) -> dict`
@@ -323,6 +354,7 @@
 //! - `decide_gate_followup(request: dict) -> dict`
 //! - `axe_status_wire_schema_version() -> int`
 //! - `classify_axe_status(request: dict) -> dict`
+//! - `project_axe_status_public(snapshot: dict) -> dict`
 //! - `sase_content_layout(home_root: str, project_root: str | None = None, chezmoi_root: str | None = None, project: str | None = None) -> dict`
 //! - `continuation_wire_schema_version() -> int`
 //! - `continuation_validate_node(record: dict) -> dict`
@@ -435,6 +467,7 @@
 //! - `placeholder_completion(text: str, line: int, character: int, common:
 //!   Sequence[str] | None = None) -> dict | None`
 //! - `placeholder_spans(text: str) -> list[dict]`
+//! - `xprompt_argument_spans(text: str, entries: list[dict] | None = None) -> list[dict]`
 //! - `raw_placeholder_fields(text: str, context_width: int) -> list[dict]`
 //! - `substitute_raw_placeholders(text: str, values: dict[str, str]) -> str`
 //! - `placeholder_input_names(texts: list[str]) -> list[str]`
@@ -444,6 +477,9 @@
 //! - `parse_queue_capacity(raw: str, enabled_feature_flags: list[str] | None = None) -> int`
 //! - `normalize_persisted_queue_capacity(queue_capacity: int | None, queue_capacity_explicit: bool, effective_weight: float, global_limit: float, capacity_budget: bool) -> dict`
 //! - `queue_directive_flag_key() -> str`
+//! - `collect_hold_fields(occurrences: list[dict], enabled_feature_flags: list[str] | None = None) -> dict`
+//! - `format_hold_directive(fields: dict) -> str | None`
+//! - `hold_fields_to_selectors(fields: dict, pending_artifact_dirs: list[str] | None = None) -> dict`
 //! - `runner_capacity_policy_schema_version() -> int`
 //! - `runner_capacity_snapshot(request: dict) -> dict`
 //! - `code_value_wire_schema_version() -> int`
@@ -528,6 +564,8 @@
 //! - `validate_finalizer_assigned_bead_binding(context: dict, expected: dict | None) -> None`
 //! - `gate_decision_wire_schema_version() -> int`
 //! - `decide_gate_decision_acceptance(request: dict) -> dict`
+//! - `gate_lifecycle_wire_schema_version() -> int`
+//! - `decide_gate_lifecycle(request: dict) -> dict`
 //! - `validate_task_type_spec(spec: dict) -> None`
 //! - `task_type_spec_digest(spec: dict) -> str`
 //! - `validate_task_type_field_values(spec: dict, values: dict[str, str]) -> list[dict]`
@@ -657,6 +695,17 @@ use sase_core::agent_group_archive::{
     save_dismissed_agent_group as core_save_dismissed_agent_group,
     SavedAgentGroupWire,
 };
+use sase_core::agent_hold::{
+    arm_agent_hold_relative as core_arm_agent_hold_relative,
+    arm_agent_hold_until as core_arm_agent_hold_until,
+    hold_blocks_candidate as core_hold_blocks_candidate,
+    list_agent_holds as core_list_agent_holds,
+    rebind_agent_hold_armer as core_rebind_agent_hold_armer,
+    release_agent_hold as core_release_agent_hold, AgentHoldArmerWire,
+    AgentHoldCandidateWire, AgentHoldError as AgentHoldDomainError,
+    AgentHoldLivenessFactsWire, AgentHoldRecordWire, AgentHoldScopeWire,
+    AgentHoldSelectorsWire,
+};
 use sase_core::agent_identity::{
     agent_link_target as core_agent_link_target,
     agent_link_target_with_owner_roots as core_agent_link_target_with_owner_roots,
@@ -695,8 +744,11 @@ use sase_core::agent_launch::{
     decide_workspace_occupant_conflict as core_decide_workspace_occupant_conflict,
     dispatch_fingerprint as core_dispatch_fingerprint,
     evaluate_launch_condition as core_evaluate_launch_condition,
+    filter_conditional_launch_segments as core_filter_conditional_launch_segments,
+    launch_unit_hold_armer as core_launch_unit_hold_armer,
+    launch_unit_hold_key as core_launch_unit_hold_key,
     list_workspace_claims_from_content as core_list_workspace_claims_from_content,
-    next_admission_actions as core_next_admission_actions,
+    next_admission_actions_with_holds as core_next_admission_actions_with_holds,
     parse_proc_duration_seconds as core_parse_proc_duration_seconds,
     plan_agent_launch_fanout as core_plan_agent_launch_fanout,
     plan_claim_workspace_from_content as core_plan_claim_workspace_from_content,
@@ -715,11 +767,12 @@ use sase_core::agent_launch::{
     validate_standalone_proc_shell_name as core_validate_standalone_proc_shell_name,
     wait_target_key as core_wait_target_key, AgentLaunchPreparedWire,
     AgentLaunchRequestWire, AgentUnitWire, BatchPredecessorContextWire,
-    ConditionEvalRequestWire, LaunchAdmissionJournalEntryWire,
-    LaunchAdmissionUnitStateWire, LaunchAdmissionWaitFactWire, LaunchPlanWire,
-    LaunchUnitPayloadWire, LaunchUnitWire, OccupancyCallerWire,
-    OccupantRecordWire, ProcDispatchRequestWire, WaitTargetWire,
-    WaitedOutcomeWire, WorkspaceClaimRequestWire, WorkspaceClaimWire,
+    ConditionEvalRequestWire, LaunchAdmissionHoldBlockWire,
+    LaunchAdmissionJournalEntryWire, LaunchAdmissionUnitStateWire,
+    LaunchAdmissionWaitFactWire, LaunchPlanWire, LaunchUnitPayloadWire,
+    LaunchUnitWire, OccupancyCallerWire, OccupantRecordWire,
+    ProcDispatchRequestWire, WaitTargetWire, WaitedOutcomeWire,
+    WorkspaceClaimRequestWire, WorkspaceClaimWire,
     CONDITION_CONTEXT_SCHEMA_VERSION, CONDITION_DEFAULT_TIMEOUT_SECONDS,
     CONDITION_EVAL_WIRE_SCHEMA_VERSION, CONDITION_MAX_TIMEOUT_SECONDS,
     CONDITION_OUTPUT_CAP_BYTES, LAUNCH_ADMISSION_JOURNAL_SCHEMA_VERSION,
@@ -784,6 +837,21 @@ use sase_core::agent_stats::{
     query_activity_stats as core_query_activity_stats,
     query_run_stats as core_query_run_stats, AgentActivityStatsRequestWire,
     AgentRunStatsRequestWire,
+};
+use sase_core::agent_tribe::{
+    agent_tribe_display_key as core_agent_tribe_display_key,
+    canonicalize_agent_tribe_metadata as core_canonicalize_agent_tribe_metadata,
+    canonicalize_public_tribe_name as core_canonicalize_public_tribe_name,
+    is_reserved_tribe_name as core_is_reserved_tribe_name,
+    parse_tribe_reference as core_parse_tribe_reference,
+    public_tribe_name as core_public_tribe_name,
+    reserved_tribe_target_reason as core_reserved_tribe_target_reason,
+    resolve_agent_tribe_display_config as core_resolve_agent_tribe_display_config,
+    resolve_agent_tribe_identity as core_resolve_agent_tribe_identity,
+    validate_tribe_name as core_validate_tribe_name,
+    AgentTribeDisplayResolutionRequestWire,
+    AgentTribeError as AgentTribeDomainError,
+    AgentTribeIdentityResolutionRequestWire,
 };
 use sase_core::artifact_consumption::{
     read_artifact_consumption_log as core_read_artifact_consumption_log,
@@ -960,8 +1028,10 @@ use sase_core::axe_overrun::{
     ChopOverrunRequestWire, CHOP_OVERRUN_SCHEMA_VERSION,
 };
 use sase_core::axe_status::{
-    classify_axe_status as core_classify_axe_status, AxeStatusError,
-    AxeStatusRequestWire, AXE_STATUS_SCHEMA_VERSION,
+    classify_axe_status as core_classify_axe_status,
+    project_axe_status_public as core_project_axe_status_public,
+    AxeStatusError, AxeStatusRequestWire, AxeStatusSnapshotWire,
+    AXE_STATUS_SCHEMA_VERSION,
 };
 #[cfg(test)]
 use sase_core::bead::PhaseSizeWire;
@@ -1123,6 +1193,16 @@ use sase_core::continuation::{
     DiagnosticManifestWire, LaunchRequesterContinuationWire, MonitorResultWire,
     CONTINUATION_WIRE_SCHEMA_VERSION,
 };
+use sase_core::disk_cleanup_outcome::{
+    normalize_disk_cleanup_outcome as core_normalize_disk_cleanup_outcome,
+    DiskCleanupOutcomeError, DiskCleanupOutcomeRequestWire,
+    DISK_CLEANUP_OUTCOME_WIRE_SCHEMA_VERSION,
+};
+use sase_core::disk_inventory::{
+    classify_disk_inventory as core_classify_disk_inventory,
+    DiskInventoryError, DiskInventoryRequestWire,
+    DISK_INVENTORY_WIRE_SCHEMA_VERSION,
+};
 use sase_core::disk_pressure::{
     classify_disk_pressure as core_classify_disk_pressure, DiskPressureError,
     DiskPressureRequestWire, DISK_PRESSURE_WIRE_SCHEMA_VERSION,
@@ -1201,7 +1281,9 @@ use sase_core::fleet_mutation::{
 };
 use sase_core::gate_decision::{
     decide_gate_decision_acceptance_from_json as core_decide_gate_decision_acceptance_from_json,
+    decide_gate_lifecycle_from_json as core_decide_gate_lifecycle_from_json,
     GateDecisionError, GATE_DECISION_WIRE_SCHEMA_VERSION,
+    GATE_LIFECYCLE_WIRE_SCHEMA_VERSION,
 };
 use sase_core::gate_followup::{
     decide_gate_followup as core_decide_gate_followup,
@@ -1236,9 +1318,12 @@ use sase_core::machine_hood::{
     validate_machine_name as core_validate_machine_name,
 };
 use sase_core::machine_setup::{
+    assess_machine_init_review as core_assess_machine_init_review,
     classify_tailnet_discovery as core_classify_tailnet_discovery,
     classify_tailnet_health as core_classify_tailnet_health,
+    merge_machine_init_review as core_merge_machine_init_review,
     reconcile_machine_enrollments as core_reconcile_machine_enrollments,
+    MachineInitReviewAssessmentRequestWire, MachineInitReviewMergeRequestWire,
     MachineReconcileRequestWire, MachineSetupError,
     TailnetDiscoveryRequestWire, TailnetHealthRequestWire,
     MACHINE_SETUP_WIRE_SCHEMA_VERSION,
@@ -1366,6 +1451,14 @@ use sase_core::prompt_artifact::{
     rewrite_prompt_artifact_links as core_rewrite_prompt_artifact_links,
     select_manifest_records as core_select_prompt_artifact_manifest_records,
     PromptArtifactRecord, PROMPT_ARTIFACT_MANIFEST_SCHEMA_VERSION,
+};
+use sase_core::prompt_history_filter::{
+    build_prompt_history_seed as core_build_prompt_history_seed,
+    compile_prompt_history_query as core_compile_prompt_history_query,
+    encode_prompt_history_literal as core_encode_prompt_history_literal,
+    match_prompt_history_rows as core_match_prompt_history_rows,
+    CompiledPromptHistoryQueryWire, PromptHistoryProjectIdentityWire,
+    PromptHistoryRowFactsWire, PromptHistorySeedRequestWire,
 };
 use sase_core::prompt_stash::{
     append_prompt_stash as core_append_prompt_stash,
@@ -1530,12 +1623,15 @@ use sase_core::wire::ChangeSpecWire;
 use sase_core::wire::{CommentWire, HookWire, MentorWire};
 use sase_core::CODE_VALUE_WIRE_SCHEMA_VERSION;
 use sase_core::{
+    collect_hold_fields_with_flags as core_collect_hold_fields_with_flags,
     collect_queue_fields_with_flags as core_collect_queue_fields_with_flags,
+    format_hold_directive as core_format_hold_directive,
     format_queue_directive as core_format_queue_directive,
+    hold_fields_to_selectors as core_hold_fields_to_selectors,
     normalize_persisted_queue_capacity as core_normalize_persisted_queue_capacity,
     parse_queue_capacity_with_flags as core_parse_queue_capacity_with_flags,
-    queue_directive_flag_key as core_queue_directive_flag_key, QueueFieldsWire,
-    QueueOccurrenceWire,
+    queue_directive_flag_key as core_queue_directive_flag_key, HoldFieldsWire,
+    HoldOccurrenceWire, QueueFieldsWire, QueueOccurrenceWire,
 };
 use sase_core::{
     compose_snippet_catalog as core_compose_snippet_catalog,
@@ -1545,6 +1641,7 @@ use sase_core::{
     editor_model_shortcut_context as core_model_shortcut_context,
     editor_model_shortcut_edit as core_model_shortcut_edit,
     editor_plan_argument_colon_to_parentheses_edit as core_plan_argument_colon_to_parentheses_edit,
+    editor_plan_argument_double_colon_to_parentheses_edit as core_plan_argument_double_colon_to_parentheses_edit,
     editor_plan_model_alias_shortcut_edit as core_plan_model_alias_shortcut_edit,
     filter_model_completion_entries as core_filter_model_completion_entries,
     load_editor_snippet_catalog as core_load_editor_snippet_catalog,
@@ -1940,12 +2037,105 @@ fn py_reconcile_machine_enrollments<'py>(
     serialize_to_py(py, &result)
 }
 
+#[pyfunction]
+#[pyo3(name = "assess_machine_init_review")]
+fn py_assess_machine_init_review<'py>(
+    py: Python<'py>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let request: MachineInitReviewAssessmentRequestWire =
+        provider_priority_dict_from_py(
+            request.as_any(),
+            "machine init review assessment request",
+        )?;
+    let result = core_assess_machine_init_review(&request)
+        .map_err(machine_setup_error_to_pyerr)?;
+    serialize_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "merge_machine_init_review")]
+fn py_merge_machine_init_review<'py>(
+    py: Python<'py>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let request: MachineInitReviewMergeRequestWire =
+        provider_priority_dict_from_py(
+            request.as_any(),
+            "machine init review merge request",
+        )?;
+    let result = core_merge_machine_init_review(&request)
+        .map_err(machine_setup_error_to_pyerr)?;
+    serialize_to_py(py, &result)
+}
+
 fn managed_tmp_reap_error_to_pyerr(error: ManagedTmpReapError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+fn disk_inventory_error_to_pyerr(error: DiskInventoryError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+fn disk_cleanup_outcome_error_to_pyerr(
+    error: DiskCleanupOutcomeError,
+) -> PyErr {
     PyValueError::new_err(error.to_string())
 }
 
 fn disk_pressure_error_to_pyerr(error: DiskPressureError) -> PyErr {
     PyValueError::new_err(error.to_string())
+}
+
+#[pyfunction]
+#[pyo3(name = "disk_inventory_wire_schema_version")]
+fn py_disk_inventory_wire_schema_version() -> u32 {
+    DISK_INVENTORY_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "classify_disk_inventory")]
+fn py_classify_disk_inventory<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: DiskInventoryRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid DiskInventoryRequestWire dict: {error}"
+        ))
+    })?;
+    let result = py
+        .allow_threads(|| core_classify_disk_inventory(&request))
+        .map_err(disk_inventory_error_to_pyerr)?;
+    serialize_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "disk_cleanup_outcome_wire_schema_version")]
+fn py_disk_cleanup_outcome_wire_schema_version() -> u32 {
+    DISK_CLEANUP_OUTCOME_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "normalize_disk_cleanup_outcome")]
+fn py_normalize_disk_cleanup_outcome<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: DiskCleanupOutcomeRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid DiskCleanupOutcomeRequestWire dict: {error}"
+        ))
+    })?;
+    let result = core_normalize_disk_cleanup_outcome(&request)
+        .map_err(disk_cleanup_outcome_error_to_pyerr)?;
+    serialize_to_py(py, &result)
 }
 
 #[pyfunction]
@@ -2093,6 +2283,110 @@ fn py_validate_owned_agent_name(
 #[pyo3(name = "validate_agent_owner")]
 fn py_validate_agent_owner(username: &str, machine_name: &str) -> PyResult<()> {
     explicit_owner(username, machine_name).map(|_| ())
+}
+
+fn agent_tribe_error_to_pyerr(error: AgentTribeDomainError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+#[pyfunction]
+#[pyo3(name = "validate_tribe_name")]
+fn py_validate_tribe_name(tribe: &str) -> PyResult<String> {
+    core_validate_tribe_name(tribe)
+        .map(str::to_string)
+        .map_err(agent_tribe_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "canonicalize_public_tribe_name")]
+fn py_canonicalize_public_tribe_name(tribe: &str) -> PyResult<String> {
+    core_canonicalize_public_tribe_name(tribe)
+        .map_err(agent_tribe_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "public_tribe_name")]
+fn py_public_tribe_name(tribe: &str) -> String {
+    core_public_tribe_name(tribe)
+}
+
+#[pyfunction]
+#[pyo3(name = "parse_tribe_reference")]
+fn py_parse_tribe_reference(value: &str) -> PyResult<Option<String>> {
+    core_parse_tribe_reference(value).map_err(agent_tribe_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "is_reserved_tribe_name")]
+fn py_is_reserved_tribe_name(tribe: &str) -> bool {
+    core_is_reserved_tribe_name(tribe)
+}
+
+#[pyfunction]
+#[pyo3(name = "reserved_tribe_target_reason")]
+fn py_reserved_tribe_target_reason(tribe: &str) -> String {
+    core_reserved_tribe_target_reason(tribe)
+}
+
+#[pyfunction]
+#[pyo3(name = "canonicalize_agent_tribe_metadata")]
+fn py_canonicalize_agent_tribe_metadata<'py>(
+    py: Python<'py>,
+    data: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(data.as_any())?;
+    let serde_json::Value::Object(map) = value else {
+        return Err(PyValueError::new_err(
+            "agent tribe metadata must be a JSON object",
+        ));
+    };
+    let result = core_canonicalize_agent_tribe_metadata(map);
+    json_value_to_py(py, &serde_json::Value::Object(result))
+}
+
+#[pyfunction]
+#[pyo3(name = "agent_tribe_display_key")]
+fn py_agent_tribe_display_key(
+    stored_tribe: &str,
+    configured_keys: Vec<String>,
+) -> PyResult<String> {
+    core_agent_tribe_display_key(stored_tribe, &configured_keys)
+        .map_err(agent_tribe_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "resolve_agent_tribe_display_config")]
+fn py_resolve_agent_tribe_display_config<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(request.as_any())?;
+    let request: AgentTribeDisplayResolutionRequestWire =
+        serde_json::from_value(value).map_err(|error| {
+            PyValueError::new_err(format!(
+                "request is not a valid agent tribe display resolution request: {error}"
+            ))
+        })?;
+    let result = core_resolve_agent_tribe_display_config(&request);
+    serialize_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "resolve_agent_tribe_identity")]
+fn py_resolve_agent_tribe_identity<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(request.as_any())?;
+    let request: AgentTribeIdentityResolutionRequestWire =
+        serde_json::from_value(value).map_err(|error| {
+            PyValueError::new_err(format!(
+                "request is not a valid agent tribe identity resolution request: {error}"
+            ))
+        })?;
+    let result = core_resolve_agent_tribe_identity(&request)
+        .map_err(agent_tribe_error_to_pyerr)?;
+    serialize_to_py(py, &result)
 }
 
 #[pyfunction]
@@ -2553,6 +2847,20 @@ fn py_argument_colon_to_parentheses_edit(
     let position = editor_position_from_py(position)?;
     let document = sase_core::DocumentSnapshot::new(text);
     core_plan_argument_colon_to_parentheses_edit(&document, position)
+        .map(|edit| serialize_to_py(py, &edit))
+        .transpose()
+}
+
+#[pyfunction]
+#[pyo3(name = "argument_double_colon_to_parentheses_edit")]
+fn py_argument_double_colon_to_parentheses_edit(
+    py: Python<'_>,
+    text: &str,
+    position: &Bound<'_, PyAny>,
+) -> PyResult<Option<PyObject>> {
+    let position = editor_position_from_py(position)?;
+    let document = sase_core::DocumentSnapshot::new(text);
+    core_plan_argument_double_colon_to_parentheses_edit(&document, position)
         .map(|edit| serialize_to_py(py, &edit))
         .transpose()
 }
@@ -5164,6 +5472,89 @@ fn py_list_project_records<'py>(
     json_value_to_py(py, &value)
 }
 
+// --- Prompt-history project filter bindings -------------------------------
+
+fn prompt_history_catalog_from_py(
+    catalog: &Bound<'_, PyList>,
+) -> PyResult<Vec<PromptHistoryProjectIdentityWire>> {
+    let value = py_to_json_value(catalog.as_any())?;
+    serde_json::from_value(value).map_err(|e| {
+        PyValueError::new_err(format!(
+            "catalog is not a valid list of project identity dicts: {e}"
+        ))
+    })
+}
+
+/// Compile one Ctrl+K prompt-history filter string into a `project:`
+/// constraint plus a literal text substring, resolved against *catalog*.
+#[pyfunction]
+#[pyo3(name = "compile_prompt_history_query")]
+fn py_compile_prompt_history_query<'py>(
+    py: Python<'py>,
+    raw_query: &str,
+    catalog: &Bound<'py, PyList>,
+) -> PyResult<PyObject> {
+    let catalog = prompt_history_catalog_from_py(catalog)?;
+    let compiled = core_compile_prompt_history_query(raw_query, &catalog);
+    serialize_to_py(py, &compiled)
+}
+
+/// Encode arbitrary literal text so it always round-trips through
+/// `compile_prompt_history_query` as an unscoped substring, even when it
+/// starts with a `project:`-lookalike prefix.
+#[pyfunction]
+#[pyo3(name = "encode_prompt_history_literal")]
+fn py_encode_prompt_history_literal(text: &str) -> String {
+    core_encode_prompt_history_literal(text)
+}
+
+/// Build the initial Ctrl+K history query from the recognized leading
+/// workspace reference (if any) and the draft's remaining text.
+#[pyfunction]
+#[pyo3(name = "build_prompt_history_seed")]
+fn py_build_prompt_history_seed<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+    catalog: &Bound<'py, PyList>,
+) -> PyResult<PyObject> {
+    let request_value = py_to_json_value(request.as_any())?;
+    let request: PromptHistorySeedRequestWire =
+        serde_json::from_value(request_value).map_err(|e| {
+            PyValueError::new_err(format!(
+                "request is not a valid PromptHistorySeedRequestWire dict: {e}"
+            ))
+        })?;
+    let catalog = prompt_history_catalog_from_py(catalog)?;
+    let seed = core_build_prompt_history_seed(&request, &catalog);
+    serialize_to_py(py, &seed)
+}
+
+/// Batch-match prepared prompt-history rows against one compiled query.
+#[pyfunction]
+#[pyo3(name = "match_prompt_history_rows")]
+fn py_match_prompt_history_rows<'py>(
+    py: Python<'py>,
+    query: &Bound<'py, PyDict>,
+    rows: &Bound<'py, PyList>,
+) -> PyResult<PyObject> {
+    let query_value = py_to_json_value(query.as_any())?;
+    let query: CompiledPromptHistoryQueryWire =
+        serde_json::from_value(query_value).map_err(|e| {
+            PyValueError::new_err(format!(
+                "query is not a valid CompiledPromptHistoryQueryWire dict: {e}"
+            ))
+        })?;
+    let rows_value = py_to_json_value(rows.as_any())?;
+    let rows: Vec<PromptHistoryRowFactsWire> =
+        serde_json::from_value(rows_value).map_err(|e| {
+            PyValueError::new_err(format!(
+            "rows is not a valid list of PromptHistoryRowFactsWire dicts: {e}"
+        ))
+        })?;
+    let result = core_match_prompt_history_rows(&query, &rows);
+    serialize_to_py(py, &result)
+}
+
 // --- Bead read bindings ---------------------------------------------------
 
 #[pyfunction]
@@ -6441,6 +6832,33 @@ fn py_decide_gate_decision_acceptance<'py>(
         py,
         core_decide_gate_decision_acceptance_from_json(&value),
         "acceptance",
+    )
+}
+
+/// Return the gate-lifecycle wire schema version.
+#[pyfunction]
+#[pyo3(name = "gate_lifecycle_wire_schema_version")]
+fn py_gate_lifecycle_wire_schema_version() -> u32 {
+    GATE_LIFECYCLE_WIRE_SCHEMA_VERSION
+}
+
+/// Classify one gate's current lifecycle disposition (answered, cancelled,
+/// accepted with execution still incomplete, pending, or past its review
+/// deadline or reclaim grace window) from host-collected evidence. Raises a
+/// Python `ValueError` when a decision receipt is unreadable or names a
+/// different gate or request -- reported explicitly rather than silently
+/// treated as an unanswered gate eligible for cleanup.
+#[pyfunction]
+#[pyo3(name = "decide_gate_lifecycle")]
+fn py_decide_gate_lifecycle<'py>(
+    py: Python<'py>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(request.as_any())?;
+    gate_decision_result_to_py(
+        py,
+        core_decide_gate_lifecycle_from_json(&value),
+        "lifecycle",
     )
 }
 
@@ -12280,6 +12698,37 @@ fn py_placeholder_spans(py: Python<'_>, text: &str) -> PyResult<PyObject> {
     json_value_to_py(py, &value)
 }
 
+/// Return xprompt and directive argument spans as UTF-8 byte offsets.
+#[pyfunction]
+#[pyo3(name = "xprompt_argument_spans")]
+#[pyo3(signature = (text, entries = None))]
+fn py_xprompt_argument_spans(
+    py: Python<'_>,
+    text: &str,
+    entries: Option<Bound<'_, PyList>>,
+) -> PyResult<PyObject> {
+    let document = sase_core::DocumentSnapshot::new(text);
+    let spans = if let Some(entries) = entries {
+        let entries = serde_json::from_value::<Vec<sase_core::XpromptAssistEntry>>(
+            py_to_json_value(entries.as_any())?,
+        )
+        .map_err(|error| {
+            PyValueError::new_err(format!(
+                "entries is not a valid list of XpromptAssistEntry dicts: {error}"
+            ))
+        })?;
+        sase_core::editor_extract_xprompt_argument_spans_with_catalog(
+            &document, &entries,
+        )
+    } else {
+        sase_core::editor_extract_xprompt_argument_spans(&document)
+    };
+    let value = serde_json::to_value(&spans).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
 /// Return ordered summaries for the prompt's unique raw placeholders.
 #[pyfunction]
 #[pyo3(name = "raw_placeholder_fields")]
@@ -12510,6 +12959,28 @@ fn py_classify_axe_status<'py>(
     json_value_to_py(py, &value)
 }
 
+/// Project an internal AXE status snapshot to the public routine/job envelope.
+#[pyfunction]
+#[pyo3(name = "project_axe_status_public")]
+fn py_project_axe_status_public<'py>(
+    py: Python<'py>,
+    snapshot: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(snapshot.as_any())?;
+    let snapshot: AxeStatusSnapshotWire = serde_json::from_value(value)
+        .map_err(|error| {
+            PyValueError::new_err(format!(
+                "snapshot is not a valid AxeStatusSnapshotWire dict: {error}"
+            ))
+        })?;
+    let projected =
+        py.allow_threads(|| core_project_axe_status_public(&snapshot));
+    let value = serde_json::to_value(projected).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
 // --- Axe chop engine bindings --------------------------------------------
 
 fn chop_error_to_pyerr(error: ChopEngineError) -> PyErr {
@@ -12596,7 +13067,7 @@ fn py_validate_chop_result<'py>(
     result: &Bound<'py, PyDict>,
 ) -> PyResult<PyObject> {
     let result: ChopResultDocumentWire =
-        chop_request_from_pydict(result, "chop result")?;
+        chop_request_from_pydict(result, "job result")?;
     core_validate_chop_result(&result).map_err(chop_error_to_pyerr)?;
     chop_result_to_py(py, &result)
 }
@@ -13069,6 +13540,242 @@ fn py_effort_override_set_until<'py>(
 fn py_effort_override_clear(sase_home: &str) -> PyResult<bool> {
     core_clear_effort_override(&PathBuf::from(sase_home))
         .map_err(effort_override_error_to_pyerr)
+}
+
+// --- Durable agent holds -------------------------------------------------
+
+fn agent_hold_error_to_pyerr(err: AgentHoldDomainError) -> PyErr {
+    match err {
+        AgentHoldDomainError::Validation(message) => {
+            PyValueError::new_err(message)
+        }
+        AgentHoldDomainError::LockTimeout { .. } => {
+            PyTimeoutError::new_err(err.to_string())
+        }
+        AgentHoldDomainError::Io(_) | AgentHoldDomainError::Json(_) => {
+            PyRuntimeError::new_err(err.to_string())
+        }
+    }
+}
+
+fn agent_hold_wire_to_py<'py, T: serde::Serialize>(
+    py: Python<'py>,
+    value: &T,
+) -> PyResult<PyObject> {
+    let json = serde_json::to_value(value).map_err(|error| {
+        PyRuntimeError::new_err(format!(
+            "internal agent-hold serialize error: {error}"
+        ))
+    })?;
+    json_value_to_py(py, &json)
+}
+
+fn agent_hold_dict_from_py<T>(
+    value: &Bound<'_, PyAny>,
+    label: &str,
+) -> PyResult<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    serde_json::from_value(py_to_json_value(value)?).map_err(|error| {
+        PyValueError::new_err(format!("{label} is not a valid dict: {error}"))
+    })
+}
+
+fn agent_hold_liveness_from_optional(
+    liveness: Option<&Bound<'_, PyDict>>,
+) -> PyResult<AgentHoldLivenessFactsWire> {
+    match liveness {
+        Some(value) => {
+            agent_hold_dict_from_py(value.as_any(), "agent hold liveness")
+        }
+        None => Ok(AgentHoldLivenessFactsWire::default()),
+    }
+}
+
+#[pyfunction]
+#[pyo3(name = "agent_hold_wire_schema_version")]
+fn py_agent_hold_wire_schema_version() -> u32 {
+    sase_core::AGENT_HOLD_WIRE_SCHEMA_VERSION
+}
+
+#[allow(clippy::too_many_arguments)]
+#[pyfunction]
+#[pyo3(
+    name = "agent_hold_arm_relative",
+    signature = (
+        sase_home,
+        armer,
+        scope,
+        selectors,
+        duration_seconds,
+        liveness = None,
+        now = None
+    )
+)]
+fn py_agent_hold_arm_relative<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    armer: &Bound<'py, PyDict>,
+    scope: &Bound<'py, PyDict>,
+    selectors: &Bound<'py, PyDict>,
+    duration_seconds: f64,
+    liveness: Option<&Bound<'py, PyDict>>,
+    now: Option<f64>,
+) -> PyResult<PyObject> {
+    let armer: AgentHoldArmerWire =
+        agent_hold_dict_from_py(armer.as_any(), "agent hold armer")?;
+    let scope: AgentHoldScopeWire =
+        agent_hold_dict_from_py(scope.as_any(), "agent hold scope")?;
+    let selectors: AgentHoldSelectorsWire =
+        agent_hold_dict_from_py(selectors.as_any(), "agent hold selectors")?;
+    let liveness = agent_hold_liveness_from_optional(liveness)?;
+    let record = core_arm_agent_hold_relative(
+        &PathBuf::from(sase_home),
+        armer,
+        scope,
+        selectors,
+        duration_seconds,
+        &liveness,
+        effort_override_now(now)?,
+    )
+    .map_err(agent_hold_error_to_pyerr)?;
+    agent_hold_wire_to_py(py, &record)
+}
+
+#[allow(clippy::too_many_arguments)]
+#[pyfunction]
+#[pyo3(
+    name = "agent_hold_arm_until",
+    signature = (
+        sase_home,
+        armer,
+        scope,
+        selectors,
+        expires_at,
+        liveness = None,
+        now = None
+    )
+)]
+fn py_agent_hold_arm_until<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    armer: &Bound<'py, PyDict>,
+    scope: &Bound<'py, PyDict>,
+    selectors: &Bound<'py, PyDict>,
+    expires_at: f64,
+    liveness: Option<&Bound<'py, PyDict>>,
+    now: Option<f64>,
+) -> PyResult<PyObject> {
+    let armer: AgentHoldArmerWire =
+        agent_hold_dict_from_py(armer.as_any(), "agent hold armer")?;
+    let scope: AgentHoldScopeWire =
+        agent_hold_dict_from_py(scope.as_any(), "agent hold scope")?;
+    let selectors: AgentHoldSelectorsWire =
+        agent_hold_dict_from_py(selectors.as_any(), "agent hold selectors")?;
+    let liveness = agent_hold_liveness_from_optional(liveness)?;
+    let record = core_arm_agent_hold_until(
+        &PathBuf::from(sase_home),
+        armer,
+        scope,
+        selectors,
+        expires_at,
+        &liveness,
+        effort_override_now(now)?,
+    )
+    .map_err(agent_hold_error_to_pyerr)?;
+    agent_hold_wire_to_py(py, &record)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "agent_hold_rebind",
+    signature = (sase_home, old_key, new_armer, liveness = None, now = None)
+)]
+fn py_agent_hold_rebind<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    old_key: &str,
+    new_armer: &Bound<'py, PyDict>,
+    liveness: Option<&Bound<'py, PyDict>>,
+    now: Option<f64>,
+) -> PyResult<PyObject> {
+    let new_armer: AgentHoldArmerWire =
+        agent_hold_dict_from_py(new_armer.as_any(), "agent hold armer")?;
+    let liveness = agent_hold_liveness_from_optional(liveness)?;
+    match core_rebind_agent_hold_armer(
+        &PathBuf::from(sase_home),
+        old_key,
+        new_armer,
+        &liveness,
+        effort_override_now(now)?,
+    )
+    .map_err(agent_hold_error_to_pyerr)?
+    {
+        Some(record) => agent_hold_wire_to_py(py, &record),
+        None => Ok(py.None()),
+    }
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "agent_hold_release",
+    signature = (sase_home, armer_key, liveness = None, now = None)
+)]
+fn py_agent_hold_release(
+    sase_home: &str,
+    armer_key: &str,
+    liveness: Option<&Bound<'_, PyDict>>,
+    now: Option<f64>,
+) -> PyResult<bool> {
+    let liveness = agent_hold_liveness_from_optional(liveness)?;
+    core_release_agent_hold(
+        &PathBuf::from(sase_home),
+        armer_key,
+        &liveness,
+        effort_override_now(now)?,
+    )
+    .map_err(agent_hold_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "agent_hold_list",
+    signature = (sase_home, liveness = None, now = None)
+)]
+fn py_agent_hold_list<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    liveness: Option<&Bound<'py, PyDict>>,
+    now: Option<f64>,
+) -> PyResult<PyObject> {
+    let liveness = agent_hold_liveness_from_optional(liveness)?;
+    let snapshot = core_list_agent_holds(
+        &PathBuf::from(sase_home),
+        &liveness,
+        effort_override_now(now)?,
+    )
+    .map_err(agent_hold_error_to_pyerr)?;
+    agent_hold_wire_to_py(py, &snapshot)
+}
+
+#[pyfunction]
+#[pyo3(name = "agent_hold_blocks_candidate")]
+fn py_agent_hold_blocks_candidate<'py>(
+    py: Python<'py>,
+    record: &Bound<'py, PyDict>,
+    candidate: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let record: AgentHoldRecordWire =
+        agent_hold_dict_from_py(record.as_any(), "agent hold record")?;
+    let candidate: AgentHoldCandidateWire =
+        agent_hold_dict_from_py(candidate.as_any(), "agent hold candidate")?;
+    match core_hold_blocks_candidate(&record, &candidate)
+        .map_err(agent_hold_error_to_pyerr)?
+    {
+        Some(block) => agent_hold_wire_to_py(py, &block),
+        None => Ok(py.None()),
+    }
 }
 
 // --- Temporary maximum-running-agents override -----------------------
@@ -15916,6 +16623,21 @@ fn py_plan_agent_launch_fanout<'py>(
     json_value_to_py(py, &value)
 }
 
+/// Filter static `%if(should_run=...)` prompt segments before launch planning.
+#[pyfunction]
+#[pyo3(name = "filter_conditional_launch_segments")]
+fn py_filter_conditional_launch_segments<'py>(
+    py: Python<'py>,
+    prompt: &str,
+) -> PyResult<PyObject> {
+    let filter = core_filter_conditional_launch_segments(prompt)
+        .map_err(|err| PyValueError::new_err(format!("{err}")))?;
+    let value = serde_json::to_value(&filter).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
 /// Bind no-argument batch waits to a supplied predecessor launch identity.
 #[pyfunction]
 #[pyo3(name = "bind_batch_predecessor_waits")]
@@ -15966,6 +16688,44 @@ fn py_plan_typed_launch_units<'py>(
 }
 
 #[pyfunction]
+#[pyo3(name = "launch_unit_hold_key")]
+fn py_launch_unit_hold_key(
+    request_id: &str,
+    logical_id: &str,
+) -> PyResult<String> {
+    core_launch_unit_hold_key(request_id, logical_id)
+        .map_err(agent_hold_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "launch_unit_hold_armer")]
+fn py_launch_unit_hold_armer<'py>(
+    py: Python<'py>,
+    unit: &Bound<'py, PyAny>,
+    request_id: &str,
+    project: &str,
+    pid: u32,
+    done_marker_path: &str,
+) -> PyResult<PyObject> {
+    let unit: LaunchUnitWire = serde_json::from_value(py_to_json_value(unit)?)
+        .map_err(|err| {
+            PyValueError::new_err(format!("invalid launch unit: {err}"))
+        })?;
+    let armer = core_launch_unit_hold_armer(
+        &unit,
+        request_id,
+        project,
+        pid,
+        &PathBuf::from(done_marker_path),
+    )
+    .map_err(agent_hold_error_to_pyerr)?;
+    let value = serde_json::to_value(&armer).map_err(|err| {
+        PyRuntimeError::new_err(format!("internal serialize error: {err}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+#[pyfunction]
 #[pyo3(name = "launch_admission_journal_schema_version")]
 fn py_launch_admission_journal_schema_version() -> u32 {
     LAUNCH_ADMISSION_JOURNAL_SCHEMA_VERSION
@@ -15991,12 +16751,13 @@ fn py_reconcile_admission_journal<'py>(
 }
 
 #[pyfunction]
-#[pyo3(name = "next_admission_actions")]
+#[pyo3(name = "next_admission_actions", signature = (plan, states, wait_facts, hold_blocks = None))]
 fn py_next_admission_actions<'py>(
     py: Python<'py>,
     plan: &Bound<'_, PyAny>,
     states: &Bound<'_, PyAny>,
     wait_facts: &Bound<'_, PyAny>,
+    hold_blocks: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyObject> {
     let plan: LaunchPlanWire = serde_json::from_value(py_to_json_value(plan)?)
         .map_err(|err| {
@@ -16016,7 +16777,21 @@ fn py_next_admission_actions<'py>(
             "invalid launch admission wait facts: {err}"
         ))
     })?;
-    let actions = core_next_admission_actions(&plan, &states, &wait_facts);
+    let hold_blocks: Vec<LaunchAdmissionHoldBlockWire> = match hold_blocks {
+        Some(value) => serde_json::from_value(py_to_json_value(value)?)
+            .map_err(|err| {
+                PyValueError::new_err(format!(
+                    "invalid launch admission hold blocks: {err}"
+                ))
+            })?,
+        None => Vec::new(),
+    };
+    let actions = core_next_admission_actions_with_holds(
+        &plan,
+        &states,
+        &wait_facts,
+        &hold_blocks,
+    );
     let value = serde_json::to_value(&actions).map_err(|err| {
         PyValueError::new_err(format!("internal serialize error: {err}"))
     })?;
@@ -16138,6 +16913,62 @@ fn py_format_queue_directive(
             PyValueError::new_err(format!("invalid queue fields: {err}"))
         })?;
     Ok(core_format_queue_directive(&fields))
+}
+
+#[pyfunction]
+#[pyo3(name = "collect_hold_fields")]
+#[pyo3(signature = (occurrences, enabled_feature_flags = None))]
+fn py_collect_hold_fields<'py>(
+    py: Python<'py>,
+    occurrences: &Bound<'_, PyAny>,
+    enabled_feature_flags: Option<Vec<String>>,
+) -> PyResult<PyObject> {
+    let occurrences: Vec<HoldOccurrenceWire> = serde_json::from_value(
+        py_to_json_value(occurrences)?,
+    )
+    .map_err(|err| {
+        PyValueError::new_err(format!("invalid hold occurrences: {err}"))
+    })?;
+    let flags = enabled_feature_flags.unwrap_or_default();
+    let result = core_collect_hold_fields_with_flags(&occurrences, &flags);
+    let value = serde_json::to_value(&result).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+#[pyfunction]
+#[pyo3(name = "format_hold_directive")]
+fn py_format_hold_directive(
+    fields: &Bound<'_, PyAny>,
+) -> PyResult<Option<String>> {
+    let fields: HoldFieldsWire =
+        serde_json::from_value(py_to_json_value(fields)?).map_err(|err| {
+            PyValueError::new_err(format!("invalid hold fields: {err}"))
+        })?;
+    Ok(core_format_hold_directive(&fields))
+}
+
+#[pyfunction]
+#[pyo3(name = "hold_fields_to_selectors")]
+#[pyo3(signature = (fields, pending_artifact_dirs = None))]
+fn py_hold_fields_to_selectors<'py>(
+    py: Python<'py>,
+    fields: &Bound<'_, PyAny>,
+    pending_artifact_dirs: Option<Vec<String>>,
+) -> PyResult<PyObject> {
+    let fields: HoldFieldsWire =
+        serde_json::from_value(py_to_json_value(fields)?).map_err(|err| {
+            PyValueError::new_err(format!("invalid hold fields: {err}"))
+        })?;
+    let pending_artifact_dirs = pending_artifact_dirs.unwrap_or_default();
+    let selectors =
+        core_hold_fields_to_selectors(&fields, &pending_artifact_dirs)
+            .map_err(|error| PyValueError::new_err(error.message))?;
+    let value = serde_json::to_value(&selectors).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
 }
 
 #[pyfunction]
@@ -17961,6 +18792,19 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_validate_owner_root, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_agent_owner, m)?)?;
+    m.add_function(wrap_pyfunction!(py_validate_tribe_name, m)?)?;
+    m.add_function(wrap_pyfunction!(py_canonicalize_public_tribe_name, m)?)?;
+    m.add_function(wrap_pyfunction!(py_public_tribe_name, m)?)?;
+    m.add_function(wrap_pyfunction!(py_parse_tribe_reference, m)?)?;
+    m.add_function(wrap_pyfunction!(py_is_reserved_tribe_name, m)?)?;
+    m.add_function(wrap_pyfunction!(py_reserved_tribe_target_reason, m)?)?;
+    m.add_function(wrap_pyfunction!(py_canonicalize_agent_tribe_metadata, m)?)?;
+    m.add_function(wrap_pyfunction!(py_agent_tribe_display_key, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_resolve_agent_tribe_display_config,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_resolve_agent_tribe_identity, m)?)?;
     m.add_function(wrap_pyfunction!(py_commit_shas_equivalent, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_managed_origin_reconciliation_wire_schema_version,
@@ -17979,6 +18823,18 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_classify_tailnet_health, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_tailnet_discovery, m)?)?;
     m.add_function(wrap_pyfunction!(py_reconcile_machine_enrollments, m)?)?;
+    m.add_function(wrap_pyfunction!(py_assess_machine_init_review, m)?)?;
+    m.add_function(wrap_pyfunction!(py_merge_machine_init_review, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_disk_inventory_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_classify_disk_inventory, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_disk_cleanup_outcome_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_normalize_disk_cleanup_outcome, m)?)?;
     m.add_function(wrap_pyfunction!(py_disk_pressure_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_disk_pressure, m)?)?;
     m.add_function(wrap_pyfunction!(
@@ -18023,6 +18879,10 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_model_shortcut_edit, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_argument_colon_to_parentheses_edit,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_argument_double_colon_to_parentheses_edit,
         m
     )?)?;
     m.add_function(wrap_pyfunction!(
@@ -18225,6 +19085,10 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_apply_project_aliases_update, m)?)?;
     m.add_function(wrap_pyfunction!(py_apply_project_name_update, m)?)?;
     m.add_function(wrap_pyfunction!(py_list_project_records, m)?)?;
+    m.add_function(wrap_pyfunction!(py_compile_prompt_history_query, m)?)?;
+    m.add_function(wrap_pyfunction!(py_encode_prompt_history_literal, m)?)?;
+    m.add_function(wrap_pyfunction!(py_build_prompt_history_seed, m)?)?;
+    m.add_function(wrap_pyfunction!(py_match_prompt_history_rows, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_bead_needs_size_check_relax_migration,
         m
@@ -18382,6 +19246,11 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     m.add_function(wrap_pyfunction!(py_gate_decision_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_decide_gate_decision_acceptance, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_gate_lifecycle_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_decide_gate_lifecycle, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_task_type_spec, m)?)?;
     m.add_function(wrap_pyfunction!(py_task_type_spec_digest, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_task_type_field_values, m)?)?;
@@ -18742,6 +19611,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_fuzzy_match, m)?)?;
     m.add_function(wrap_pyfunction!(py_placeholder_completion, m)?)?;
     m.add_function(wrap_pyfunction!(py_placeholder_spans, m)?)?;
+    m.add_function(wrap_pyfunction!(py_xprompt_argument_spans, m)?)?;
     m.add_function(wrap_pyfunction!(py_raw_placeholder_fields, m)?)?;
     m.add_function(wrap_pyfunction!(py_substitute_raw_placeholders, m)?)?;
     m.add_function(wrap_pyfunction!(py_placeholder_input_names, m)?)?;
@@ -18754,6 +19624,9 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_directive_completion_candidates, m)?)?;
     m.add_function(wrap_pyfunction!(py_collect_queue_fields, m)?)?;
     m.add_function(wrap_pyfunction!(py_format_queue_directive, m)?)?;
+    m.add_function(wrap_pyfunction!(py_collect_hold_fields, m)?)?;
+    m.add_function(wrap_pyfunction!(py_format_hold_directive, m)?)?;
+    m.add_function(wrap_pyfunction!(py_hold_fields_to_selectors, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_queue_capacity, m)?)?;
     m.add_function(wrap_pyfunction!(py_queue_directive_flag_key, m)?)?;
     m.add_function(wrap_pyfunction!(
@@ -18768,6 +19641,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_decide_gate_followup, m)?)?;
     m.add_function(wrap_pyfunction!(py_axe_status_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_axe_status, m)?)?;
+    m.add_function(wrap_pyfunction!(py_project_axe_status_public, m)?)?;
     m.add_function(wrap_pyfunction!(py_chop_engine_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_chop_result_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_chop_state_schema_version, m)?)?;
@@ -18804,6 +19678,13 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_effort_override_set_relative, m)?)?;
     m.add_function(wrap_pyfunction!(py_effort_override_set_until, m)?)?;
     m.add_function(wrap_pyfunction!(py_effort_override_clear, m)?)?;
+    m.add_function(wrap_pyfunction!(py_agent_hold_wire_schema_version, m)?)?;
+    m.add_function(wrap_pyfunction!(py_agent_hold_arm_relative, m)?)?;
+    m.add_function(wrap_pyfunction!(py_agent_hold_arm_until, m)?)?;
+    m.add_function(wrap_pyfunction!(py_agent_hold_rebind, m)?)?;
+    m.add_function(wrap_pyfunction!(py_agent_hold_release, m)?)?;
+    m.add_function(wrap_pyfunction!(py_agent_hold_list, m)?)?;
+    m.add_function(wrap_pyfunction!(py_agent_hold_blocks_candidate, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_runner_limit_override_wire_schema_version,
         m
@@ -19107,8 +19988,14 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_spawn_prepared_agent_process, m)?)?;
     m.add_function(wrap_pyfunction!(py_allocate_launch_timestamp_batch, m)?)?;
     m.add_function(wrap_pyfunction!(py_plan_agent_launch_fanout, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_filter_conditional_launch_segments,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_bind_batch_predecessor_waits, m)?)?;
     m.add_function(wrap_pyfunction!(py_plan_typed_launch_units, m)?)?;
+    m.add_function(wrap_pyfunction!(py_launch_unit_hold_key, m)?)?;
+    m.add_function(wrap_pyfunction!(py_launch_unit_hold_armer, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_launch_admission_journal_schema_version,
         m
@@ -19203,6 +20090,143 @@ mod tests {
         value: JsonValue,
     ) {
         list.append(json_value_to_py(py, &value).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn disk_inventory_binding_classifies_overlaps() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            assert!(module
+                .getattr("disk_inventory_wire_schema_version")
+                .is_ok());
+            assert!(module.getattr("classify_disk_inventory").is_ok());
+
+            let request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": DISK_INVENTORY_WIRE_SCHEMA_VERSION,
+                    "rows": [
+                        {
+                            "section": "workspaces",
+                            "name": "root",
+                            "path": "/tmp/root",
+                            "size_bytes": 100,
+                            "owner": "workspace_cleanup_and_compact",
+                            "horizon": "cleanup TTL 14 day(s)",
+                        },
+                        {
+                            "section": "workspaces",
+                            "name": "primary",
+                            "path": "/tmp/root/primary",
+                            "size_bytes": 40,
+                            "owner": "workspace_git_object_source",
+                            "horizon": "shared Git object source",
+                        }
+                    ],
+                }),
+            )
+            .unwrap();
+            let request = request.bind(py).downcast::<PyDict>().unwrap();
+            let result = py_classify_disk_inventory(py, request).unwrap();
+            let result = py_to_json_value(result.bind(py)).unwrap();
+
+            assert_eq!(result["logical_total_bytes"], 140);
+            assert_eq!(result["total_bytes"], 100);
+            assert_eq!(
+                result["rows"][1]["overlap_parent_path"].as_str(),
+                Some("/tmp/root")
+            );
+        });
+    }
+
+    #[test]
+    fn disk_cleanup_outcome_binding_preserves_partial_effects() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            assert!(module
+                .getattr("disk_cleanup_outcome_wire_schema_version")
+                .is_ok());
+            assert!(module.getattr("normalize_disk_cleanup_outcome").is_ok());
+
+            let request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": DISK_CLEANUP_OUTCOME_WIRE_SCHEMA_VERSION,
+                    "owners": [
+                        {
+                            "owner": "workspace",
+                            "changed": true,
+                            "reclaimed_bytes": 1024,
+                            "exit_code": 0
+                        },
+                        {
+                            "owner": "proc",
+                            "exit_code": 2
+                        }
+                    ]
+                }),
+            )
+            .unwrap();
+            let request = request.bind(py).downcast::<PyDict>().unwrap();
+            let result =
+                py_normalize_disk_cleanup_outcome(py, request).unwrap();
+            let result = py_to_json_value(result.bind(py)).unwrap();
+
+            assert_eq!(result["status"], json!("failed"));
+            assert_eq!(result["changed"], json!(true));
+            assert_eq!(result["known_reclaimed_bytes"], json!(1024));
+            assert_eq!(result["problems"][0]["kind"], json!("nonzero_exit"));
+        });
+    }
+
+    #[test]
+    fn git_object_sharing_binding_preserves_existing_reuse() {
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+        let objects = temp.path().join("borrower/.git/objects");
+        let old = temp.path().join("old/.git/objects");
+        let primary = temp.path().join("primary/.git/objects");
+        fs::create_dir_all(&old).unwrap();
+        fs::create_dir_all(&primary).unwrap();
+
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            assert!(module
+                .getattr("git_object_sharing_wire_schema_version")
+                .is_ok());
+            assert!(module.getattr("plan_git_object_sharing").is_ok());
+
+            let request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": GIT_OBJECT_SHARING_WIRE_SCHEMA_VERSION,
+                    "operation": "install",
+                    "checkout_dir": temp.path().join("borrower").to_string_lossy(),
+                    "object_dir": objects.to_string_lossy(),
+                    "alternates_file": objects.join("info/alternates").to_string_lossy(),
+                    "primary_checkout_dir": temp.path().join("primary").to_string_lossy(),
+                    "primary_object_dir": primary.to_string_lossy(),
+                    "alternates": [old.to_string_lossy()],
+                    "config_enabled": true,
+                    "config_primary_objects": old.to_string_lossy(),
+                    "mutation_context": "existing_reuse"
+                }),
+            )
+            .unwrap();
+            let request = request.bind(py).downcast::<PyDict>().unwrap();
+            let result = py_plan_git_object_sharing(py, request).unwrap();
+            let result = py_to_json_value(result.bind(py)).unwrap();
+
+            assert_eq!(result["action"], json!("none"));
+            assert_eq!(result["status"], json!("preserved"));
+            assert_eq!(result["dependency_mutation"], json!(false));
+            assert_eq!(result["write_alternates"], JsonValue::Null);
+        });
     }
 
     fn py_dict_keys(dict: &Bound<'_, PyDict>) -> Vec<String> {
@@ -20355,6 +21379,52 @@ COMMITS:
             let pruned = py_prune_tasks(py, path, 0).unwrap();
             let pruned = py_to_json_value(pruned.bind(py)).unwrap();
             assert!(pruned["pruned_proc_ids"].as_array().unwrap().is_empty());
+
+            let reserve = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 3,
+                    "proc_id": "proc-service",
+                    "label": "Service proc",
+                    "kind": "detached",
+                    "argv": ["sleep", "1"],
+                    "cwd": "/tmp",
+                    "project": "sase",
+                    "workspace_num": 16,
+                    "session_id": null,
+                    "session_label": null,
+                    "origin": "test",
+                    "cl_name": null,
+                    "tags": ["service"],
+                    "created_at": "2026-07-25T12:00:10Z",
+                    "log_path": "/tmp/proc-service.log",
+                    "log_owner": "proc-store",
+                    "shell_name": "gateway",
+                    "shell_kind": "proc",
+                    "concurrency_keys": ["service:gateway"],
+                    "request_fingerprint": "service-fingerprint",
+                    "reserved_by": "agent-one",
+                    "timeout_seconds": null,
+                    "idle_timeout_seconds": null,
+                    "service": {
+                        "name": "gateway",
+                        "mode": "daemon",
+                        "source": "builtin"
+                    }
+                }),
+            )
+            .unwrap();
+            let reserve = reserve.bind(py).downcast::<PyDict>().unwrap();
+            let reserved = py_reserve_proc(py, path, reserve, 10).unwrap();
+            let reserved = py_to_json_value(reserved.bind(py)).unwrap();
+            assert_eq!(
+                reserved["proc"]["service"],
+                json!({
+                    "name": "gateway",
+                    "mode": "daemon",
+                    "source": "builtin"
+                })
+            );
         });
     }
 
@@ -20399,6 +21469,37 @@ COMMITS:
             let outcome = py_to_json_value(outcome.bind(py)).unwrap();
             assert_eq!(outcome["removed"], json!(1));
             assert!(!runtime_dir.exists());
+        });
+    }
+
+    #[test]
+    fn agent_artifact_run_retention_binding_refuses_apply_without_protection() {
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+
+        Python::with_gil(|py| {
+            let request_obj = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": AGENT_ARTIFACT_RUN_RETENTION_WIRE_SCHEMA_VERSION,
+                    "projects_root": temp.path().to_string_lossy(),
+                    "apply": true
+                }),
+            )
+            .unwrap();
+            let request = request_obj.bind(py).downcast::<PyDict>().unwrap();
+
+            let outcome =
+                py_apply_agent_artifact_run_retention(py, request).unwrap();
+            let outcome = py_to_json_value(outcome.bind(py)).unwrap();
+
+            assert_eq!(
+                outcome["blocked_reason"],
+                json!("authoritative_protection_unavailable")
+            );
+            assert_eq!(outcome["removed_runs"], json!(0));
+            assert_eq!(outcome["removed_empty_shards"], json!(0));
+            assert_eq!(outcome["bytes_reclaimed"], json!(0));
         });
     }
 
@@ -20617,6 +21718,8 @@ COMMITS:
                 "classify_tailnet_health",
                 "classify_tailnet_discovery",
                 "reconcile_machine_enrollments",
+                "assess_machine_init_review",
+                "merge_machine_init_review",
             ] {
                 assert!(module.getattr(name).is_ok(), "missing {name}");
             }
@@ -20777,6 +21880,67 @@ COMMITS:
                 .unwrap();
             let reconcile = py_to_json_value(&reconcile).unwrap();
             assert_eq!(reconcile["items"][0]["status"], json!("repair"));
+
+            let merge = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "presented_candidates": [{
+                        "provider_ref": "builtin@https",
+                        "endpoint": "https://fleet.example.test",
+                        "installation_pin": format!(
+                            "sase_inst_v1_{}",
+                            "c".repeat(64)
+                        ),
+                        "display_name": "ignored"
+                    }]
+                }),
+            )
+            .unwrap();
+            let merge = module
+                .getattr("merge_machine_init_review")
+                .unwrap()
+                .call1((merge.bind(py).downcast::<PyDict>().unwrap(),))
+                .unwrap();
+            let merged = py_to_json_value(&merge).unwrap();
+            assert_eq!(merged["initial_review_completed"], json!(true));
+            assert_eq!(
+                merged["reviewed"][0]["endpoint"],
+                json!("https://fleet.example.test")
+            );
+
+            let assess = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "state": merged,
+                    "candidates": [{
+                        "provider_ref": "builtin@https",
+                        "endpoint": "https://fleet.example.test",
+                        "installation_pin": format!(
+                            "sase_inst_v1_{}",
+                            "c".repeat(64)
+                        )
+                    }, {
+                        "provider_ref": "builtin@https",
+                        "endpoint": "https://new.example.test",
+                        "installation_pin": ""
+                    }],
+                    "enrolled": []
+                }),
+            )
+            .unwrap();
+            let assess = module
+                .getattr("assess_machine_init_review")
+                .unwrap()
+                .call1((assess.bind(py).downcast::<PyDict>().unwrap(),))
+                .unwrap();
+            let assess = py_to_json_value(&assess).unwrap();
+            assert_eq!(assess["offer_enrollment"], json!(true));
+            assert_eq!(
+                assess["unreviewed_candidates"][0]["endpoint"],
+                json!("https://new.example.test")
+            );
 
             let bad_schema = json_value_to_py(
                 py,
@@ -21855,6 +23019,116 @@ COMMITS:
     }
 
     #[test]
+    fn argument_double_colon_to_parentheses_binding_returns_plain_edit_or_none()
+    {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            module
+                .add_function(
+                    wrap_pyfunction!(
+                        py_argument_double_colon_to_parentheses_edit,
+                        &module
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+            let position =
+                json_value_to_py(py, &json!({"line": 0, "character": 8}))
+                    .unwrap();
+            let edit = module
+                .getattr("argument_double_colon_to_parentheses_edit")
+                .unwrap()
+                .call1(("#foo::  ", position.clone_ref(py)))
+                .unwrap();
+            assert_eq!(
+                py_to_json_value(&edit).unwrap(),
+                json!({
+                    "range": {
+                        "start": {"line": 0, "character": 4},
+                        "end": {"line": 0, "character": 8}
+                    },
+                    "new_text": "()::  "
+                })
+            );
+
+            let ordinary = module
+                .getattr("argument_double_colon_to_parentheses_edit")
+                .unwrap()
+                .call1(("%q::  ", position.clone_ref(py)))
+                .unwrap();
+            assert!(ordinary.is_none());
+
+            let utf16_position =
+                json_value_to_py(py, &json!({"line": 1, "character": 12}))
+                    .unwrap();
+            let utf16_edit = module
+                .getattr("argument_double_colon_to_parentheses_edit")
+                .unwrap()
+                .call1(("é🙂\nText #foo:: ", utf16_position))
+                .unwrap();
+            assert_eq!(
+                py_to_json_value(&utf16_edit).unwrap()["range"],
+                json!({
+                    "start": {"line": 1, "character": 9},
+                    "end": {"line": 1, "character": 12}
+                })
+            );
+
+            let malformed_position =
+                json_value_to_py(py, &json!({"line": "0", "character": 8}))
+                    .unwrap();
+            let error = module
+                .getattr("argument_double_colon_to_parentheses_edit")
+                .unwrap()
+                .call1(("#foo::  ", malformed_position))
+                .unwrap_err()
+                .to_string();
+            assert!(
+                error.contains("position is not a valid EditorPosition"),
+                "unexpected error: {error}"
+            );
+        });
+    }
+
+    #[test]
+    fn xprompt_argument_spans_binding_returns_open_structural_spans() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            module
+                .add_function(
+                    wrap_pyfunction!(py_xprompt_argument_spans, &module)
+                        .unwrap(),
+                )
+                .unwrap();
+
+            let source = "#foo(key=42, other=true";
+            let result = module
+                .getattr("xprompt_argument_spans")
+                .unwrap()
+                .call1((source,))
+                .unwrap();
+            let value = py_to_json_value(&result).unwrap();
+            let spans = value.as_array().unwrap();
+            let has = |role: &str, raw: &str| {
+                spans.iter().any(|span| {
+                    let start = span["start"].as_u64().unwrap() as usize;
+                    let end = span["end"].as_u64().unwrap() as usize;
+                    span["role"] == json!(role) && &source[start..end] == raw
+                })
+            };
+
+            assert!(has("arg_delimiter", "("), "{spans:?}");
+            assert!(has("arg_delimiter", ","), "{spans:?}");
+            assert!(has("arg_key", "key"), "{spans:?}");
+            assert!(has("arg_value_number", "42"), "{spans:?}");
+            assert!(has("arg_key", "other"), "{spans:?}");
+            assert!(has("arg_value_bool", "true"), "{spans:?}");
+        });
+    }
+
+    #[test]
     fn model_alias_shortcut_bindings_return_plain_dict_shapes() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
@@ -22398,6 +23672,412 @@ COMMITS:
             )
             .unwrap_err();
             assert!(error.is_instance_of::<PyValueError>(py));
+        });
+    }
+
+    #[test]
+    fn hold_directive_bindings_collect_format_and_expand() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let occurrences_obj = json_value_to_py(
+                py,
+                &json!([
+                    {
+                        "source": "%hold:reviewer,planner",
+                        "source_span": [0, 22],
+                        "args": [{"value": "reviewer,planner"}],
+                        "has_plus_suffix": false
+                    },
+                    {
+                        "source": "%hold(pending, future, hood=sase-11l, ttl=5m, scope=host)",
+                        "source_span": [23, 84],
+                        "args": [
+                            {"value": "pending"},
+                            {"value": "future"},
+                            {"name": "hood", "value": "sase-11l"},
+                            {"name": "ttl", "value": "5m"},
+                            {"name": "scope", "value": "host"}
+                        ],
+                        "has_plus_suffix": false
+                    }
+                ]),
+            )
+            .unwrap();
+
+            let result = py_collect_hold_fields(
+                py,
+                occurrences_obj.bind(py),
+                Some(vec!["agent_holds".to_string()]),
+            )
+            .unwrap();
+            let result_value = py_to_json_value(result.bind(py)).unwrap();
+            assert_eq!(result_value["errors"], json!([]));
+            assert_eq!(
+                result_value["fields"]["names"],
+                json!(["planner", "reviewer"])
+            );
+            assert_eq!(result_value["fields"]["pending"], json!(true));
+            assert_eq!(result_value["fields"]["future"], json!(true));
+            assert_eq!(result_value["fields"]["ttl_seconds"], json!(300));
+
+            let fields_obj =
+                json_value_to_py(py, &result_value["fields"]).unwrap();
+            let formatted =
+                py_format_hold_directive(fields_obj.bind(py)).unwrap();
+            assert_eq!(
+                formatted.as_deref(),
+                Some(
+                    "%hold(planner, reviewer, pending, future, hood=sase-11l, ttl=5m, scope=host)"
+                )
+            );
+
+            let selectors = py_hold_fields_to_selectors(
+                py,
+                fields_obj.bind(py),
+                Some(vec!["artifact/a".to_string(), "artifact/a".to_string()]),
+            )
+            .unwrap();
+            let selectors_value = py_to_json_value(selectors.bind(py)).unwrap();
+            assert_eq!(
+                selectors_value["names"],
+                json!(["planner", "reviewer"])
+            );
+            assert_eq!(
+                selectors_value["families"],
+                json!(["planner", "reviewer"])
+            );
+            assert_eq!(selectors_value["hoods"], json!(["sase-11l"]));
+            assert_eq!(selectors_value["artifact_dirs"], json!(["artifact/a"]));
+        });
+    }
+
+    #[test]
+    fn agent_hold_bindings_round_trip_and_predicate() {
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+        let home = temp.path().to_string_lossy();
+        let now = 1_800_000_000.0;
+        Python::with_gil(|py| {
+            assert_eq!(py_agent_hold_wire_schema_version(), 1);
+            let armer_obj = json_value_to_py(
+                py,
+                &json!({
+                    "kind": "agent",
+                    "key": "agent:hold-1",
+                    "display": "Hold 1",
+                    "project": "sase",
+                    "agent_name": "hold.agent",
+                    "family": "hold.agent",
+                    "clan": "hold-clan",
+                    "pid": 1234
+                }),
+            )
+            .unwrap();
+            let armer = armer_obj.bind(py).downcast::<PyDict>().unwrap();
+            let scope_obj = json_value_to_py(
+                py,
+                &json!({"kind": "project", "project": "sase"}),
+            )
+            .unwrap();
+            let scope = scope_obj.bind(py).downcast::<PyDict>().unwrap();
+            let selectors_obj = json_value_to_py(
+                py,
+                &json!({
+                    "artifact_dirs": ["artifact/a"],
+                    "names": ["target.agent--code"],
+                    "families": ["target.agent"],
+                    "hoods": ["target"],
+                    "clans": ["target-clan"],
+                    "workflows": ["wf"],
+                    "tribes": ["tribe"],
+                    "future": true
+                }),
+            )
+            .unwrap();
+            let selectors =
+                selectors_obj.bind(py).downcast::<PyDict>().unwrap();
+            let liveness_obj = json_value_to_py(
+                py,
+                &json!({
+                    "armers": {
+                        "agent:hold-1": {
+                            "kind": "agent",
+                            "pid_alive": true,
+                            "done_marker_present": false
+                        }
+                    }
+                }),
+            )
+            .unwrap();
+            let liveness = liveness_obj.bind(py).downcast::<PyDict>().unwrap();
+
+            let record = py_agent_hold_arm_relative(
+                py,
+                &home,
+                armer,
+                scope,
+                selectors,
+                60.0,
+                Some(liveness),
+                Some(now),
+            )
+            .unwrap();
+            let record_value = py_to_json_value(record.bind(py)).unwrap();
+            assert_eq!(record_value["expires_at"], json!(now + 60.0));
+
+            let snapshot =
+                py_agent_hold_list(py, &home, Some(liveness), Some(now + 1.0))
+                    .unwrap();
+            let snapshot_value = py_to_json_value(snapshot.bind(py)).unwrap();
+            assert_eq!(snapshot_value["holds"].as_array().unwrap().len(), 1);
+
+            let candidate_obj = json_value_to_py(
+                py,
+                &json!({
+                    "project": "sase",
+                    "created_at": now + 2.0,
+                    "artifact_dirs": ["artifact/a"],
+                    "agent_name": "target.agent--code",
+                    "clan": "target-clan",
+                    "workflow": "wf",
+                    "tribe": "tribe"
+                }),
+            )
+            .unwrap();
+            let candidate =
+                candidate_obj.bind(py).downcast::<PyDict>().unwrap();
+            let record_dict = record.bind(py).downcast::<PyDict>().unwrap();
+            let block =
+                py_agent_hold_blocks_candidate(py, record_dict, candidate)
+                    .unwrap();
+            let block_value = py_to_json_value(block.bind(py)).unwrap();
+            assert_eq!(block_value["armer"]["key"], json!("agent:hold-1"));
+            assert_eq!(
+                block_value["matches"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|item| item["kind"].as_str().unwrap())
+                    .collect::<Vec<_>>(),
+                [
+                    "artifact_dir",
+                    "name",
+                    "family",
+                    "hood",
+                    "clan",
+                    "workflow",
+                    "tribe",
+                    "future"
+                ]
+            );
+
+            let released = py_agent_hold_release(
+                &home,
+                "agent:hold-1",
+                Some(liveness),
+                Some(now + 3.0),
+            )
+            .unwrap();
+            assert!(released);
+            assert!(!py_agent_hold_release(
+                &home,
+                "agent:hold-1",
+                Some(liveness),
+                Some(now + 4.0),
+            )
+            .unwrap());
+        });
+    }
+
+    #[test]
+    fn agent_hold_rebind_and_launch_hold_bindings_round_trip() {
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+        let home = temp.path().to_string_lossy();
+        let now = 1_800_000_000.0;
+        Python::with_gil(|py| {
+            assert_eq!(
+                py_launch_unit_hold_key("request123", "unit-1").unwrap(),
+                "launch:request123/unit-1"
+            );
+            assert!(py_launch_unit_hold_key("request 123", "unit-1")
+                .unwrap_err()
+                .is_instance_of::<PyValueError>(py));
+
+            let unit_obj = json_value_to_py(
+                py,
+                &json!({
+                    "logical_id": "unit-1",
+                    "source_order": 1,
+                    "payload": {
+                        "kind": "agent",
+                        "prompt": "Review",
+                        "identity": "reviewer",
+                        "identity_explicit": true,
+                        "clan": "research"
+                    }
+                }),
+            )
+            .unwrap();
+            let launch_armer = py_launch_unit_hold_armer(
+                py,
+                unit_obj.bind(py),
+                "request123",
+                "sase",
+                4321,
+                "/tmp/receipt.json",
+            )
+            .unwrap();
+            let launch_armer_value =
+                py_to_json_value(launch_armer.bind(py)).unwrap();
+            assert_eq!(
+                launch_armer_value["key"],
+                json!("launch:request123/unit-1")
+            );
+            assert_eq!(launch_armer_value["kind"], json!("launch"));
+            assert_eq!(
+                launch_armer_value["agent_name"],
+                json!("research.reviewer")
+            );
+            assert_eq!(launch_armer_value["clan"], json!("research"));
+
+            let armer_obj = json_value_to_py(
+                py,
+                &json!({
+                    "kind": "agent",
+                    "key": "agent:old",
+                    "display": "Old hold",
+                    "project": "sase",
+                    "agent_name": "old.agent",
+                    "family": "old.agent",
+                    "pid": 1234
+                }),
+            )
+            .unwrap();
+            let armer = armer_obj.bind(py).downcast::<PyDict>().unwrap();
+            let scope_obj =
+                json_value_to_py(py, &json!({"kind": "host"})).unwrap();
+            let scope = scope_obj.bind(py).downcast::<PyDict>().unwrap();
+            let selectors_obj =
+                json_value_to_py(py, &json!({"future": true})).unwrap();
+            let selectors =
+                selectors_obj.bind(py).downcast::<PyDict>().unwrap();
+
+            py_agent_hold_arm_relative(
+                py,
+                &home,
+                armer,
+                scope,
+                selectors,
+                60.0,
+                None,
+                Some(now),
+            )
+            .unwrap();
+            let new_armer_obj = json_value_to_py(
+                py,
+                &json!({
+                    "kind": "agent",
+                    "key": "agent:new",
+                    "display": "New hold",
+                    "project": "sase",
+                    "agent_name": "new.agent",
+                    "family": "new.agent",
+                    "pid": 5678
+                }),
+            )
+            .unwrap();
+            let new_armer =
+                new_armer_obj.bind(py).downcast::<PyDict>().unwrap();
+            let rebound = py_agent_hold_rebind(
+                py,
+                &home,
+                "agent:old",
+                new_armer,
+                None,
+                Some(now + 1.0),
+            )
+            .unwrap();
+            let rebound_value = py_to_json_value(rebound.bind(py)).unwrap();
+            assert_eq!(rebound_value["armer"]["key"], json!("agent:new"));
+            assert_eq!(rebound_value["created_at"], json!(now));
+
+            let absent = py_agent_hold_rebind(
+                py,
+                &home,
+                "agent:missing",
+                new_armer,
+                None,
+                Some(now + 2.0),
+            )
+            .unwrap();
+            assert!(absent.bind(py).is_none());
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn agent_hold_bindings_map_validation_and_lock_errors() {
+        use std::fs::OpenOptions;
+        use std::os::fd::AsRawFd;
+
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+        let home = temp.path().to_string_lossy();
+        let now = 1_800_000_000.0;
+        Python::with_gil(|py| {
+            let armer_obj = json_value_to_py(
+                py,
+                &json!({
+                    "kind": "cli",
+                    "key": "cli:hold",
+                    "display": "CLI hold",
+                    "project": "sase",
+                    "pid": 1234
+                }),
+            )
+            .unwrap();
+            let armer = armer_obj.bind(py).downcast::<PyDict>().unwrap();
+            let scope_obj =
+                json_value_to_py(py, &json!({"kind": "host"})).unwrap();
+            let scope = scope_obj.bind(py).downcast::<PyDict>().unwrap();
+            let selectors_obj =
+                json_value_to_py(py, &json!({"future": true})).unwrap();
+            let selectors =
+                selectors_obj.bind(py).downcast::<PyDict>().unwrap();
+
+            let validation_error = py_agent_hold_arm_relative(
+                py,
+                &home,
+                armer,
+                scope,
+                selectors,
+                -1.0,
+                None,
+                Some(now),
+            )
+            .unwrap_err();
+            assert!(validation_error.is_instance_of::<PyValueError>(py));
+
+            let lock_path = sase_core::agent_hold_lock_path(temp.path());
+            let lock = OpenOptions::new()
+                .create(true)
+                .truncate(false)
+                .read(true)
+                .write(true)
+                .open(&lock_path)
+                .unwrap();
+            let lock_result =
+                unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX) };
+            assert_eq!(lock_result, 0);
+            std::env::set_var("SASE_AGENT_HOLD_LOCK_TIMEOUT", "0.01");
+            let timeout =
+                py_agent_hold_list(py, &home, None, Some(now)).unwrap_err();
+            std::env::remove_var("SASE_AGENT_HOLD_LOCK_TIMEOUT");
+            let unlock_result =
+                unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_UN) };
+            assert_eq!(unlock_result, 0);
+            assert!(timeout.is_instance_of::<PyTimeoutError>(py));
         });
     }
 
@@ -23888,6 +25568,50 @@ COMMITS:
     }
 
     #[test]
+    fn axe_status_public_projection_binding_preserves_user_values() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let mut request_json = healthy_axe_status_request_json();
+            request_json["lumberjacks"][0]["name"] = json!("chop-watch");
+            request_json["lumberjacks"][0]["configured_chops"] =
+                json!(["chop-test"]);
+            request_json["lumberjacks"][0]["heartbeat_age_seconds"] =
+                json!(500);
+
+            let request_obj = json_value_to_py(py, &request_json).unwrap();
+            let request = request_obj.bind(py).downcast::<PyDict>().unwrap();
+            let snapshot = py_classify_axe_status(py, request).unwrap();
+            let snapshot = snapshot.bind(py).downcast::<PyDict>().unwrap();
+            let projected = py_project_axe_status_public(py, snapshot).unwrap();
+            let value = py_to_json_value(projected.bind(py)).unwrap();
+
+            assert_eq!(value["schema_version"], json!(2));
+            assert_eq!(value["routines"][0]["name"], json!("chop-watch"));
+            assert_eq!(
+                value["routines"][0]["routine_name"],
+                json!("chop-watch")
+            );
+            assert_eq!(
+                value["routines"][0]["configured_jobs"],
+                json!(["chop-test"])
+            );
+            assert_eq!(
+                value["issues"][0]["code"],
+                json!("routine_stale_heartbeat")
+            );
+            assert_eq!(value["issues"][0]["subject"], json!("chop-watch"));
+            assert_eq!(
+                value["issues"][0]["summary"],
+                json!(
+                    "Configured routine `chop-watch` has a stale heartbeat (500s; threshold 180s)."
+                )
+            );
+            assert!(!value.to_string().contains("job-watch"));
+            assert!(!value.to_string().contains("job-test"));
+        });
+    }
+
+    #[test]
     fn axe_status_binding_maps_schema_structural_and_unknown_errors_to_value_error(
     ) {
         pyo3::prepare_freethreaded_python();
@@ -24070,6 +25794,100 @@ COMMITS:
                     && item["path"]
                         == "axe.lumberjacks.checks.chops.hooks.description"
             }));
+        });
+    }
+
+    #[test]
+    fn config_routine_job_projection_round_trips_through_python_bindings() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let schema = json!({
+                "type": "object",
+                "properties": {
+                    "axe": {
+                        "type": "object",
+                        "properties": {
+                            "routines": {
+                                "type": "object",
+                                "properties": {
+                                    "checks": {
+                                        "type": "object",
+                                        "properties": {
+                                            "interval": {"type": "integer"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            let layers = json!([
+                {
+                    "name": "defaults",
+                    "kind": "default",
+                    "path": "defaults.yml",
+                    "list_strategy": "replace",
+                    "writable": false,
+                    "value": {"axe": {"lumberjacks": {"checks": {"interval": 5}}}}
+                },
+                {
+                    "name": "user",
+                    "kind": "user",
+                    "path": "user.yml",
+                    "list_strategy": "replace",
+                    "writable": true,
+                    "value": {"axe": {"routines": {"checks": {"interval": 19}}}}
+                }
+            ]);
+            let inventory_req = json!({
+                "schema": schema.clone(),
+                "layers": layers.clone(),
+                "routine_job_contract": true
+            });
+            let inventory_obj = json_value_to_py(py, &inventory_req).unwrap();
+            let inventory_req =
+                inventory_obj.bind(py).downcast::<PyDict>().unwrap();
+            let inventory = py_config_inventory(py, inventory_req).unwrap();
+            let inventory = py_to_json_value(inventory.bind(py)).unwrap();
+            let interval = inventory["fields"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|field| field["path"] == "axe.routines.checks.interval")
+                .unwrap();
+            assert_eq!(interval["effective_value"], json!(19));
+            assert_eq!(interval["contributions"][0]["raw_value"], json!(5));
+            assert_eq!(interval["contributions"][1]["raw_value"], json!(19));
+
+            let edit_req = json!({
+                "schema": schema,
+                "layers": [{
+                    "name": "user",
+                    "kind": "user",
+                    "path": "user.yml",
+                    "list_strategy": "replace",
+                    "writable": true,
+                    "value": {"axe": {"lumberjacks": {"checks": {"interval": 5}}}}
+                }],
+                "target_layer": "user",
+                "path": "axe.routines.checks.interval",
+                "op": {"kind": "set", "value": 19},
+                "routine_job_contract": true
+            });
+            let edit_obj = json_value_to_py(py, &edit_req).unwrap();
+            let edit_req = edit_obj.bind(py).downcast::<PyDict>().unwrap();
+            let plan = py_config_plan_edit(py, edit_req).unwrap();
+            let plan = py_to_json_value(plan.bind(py)).unwrap();
+            assert_eq!(
+                plan["write_plan"]["key_path"],
+                json!(["axe", "lumberjacks", "checks", "interval"])
+            );
+            assert_eq!(
+                plan["candidate_config"]["axe"]["routines"]["checks"]
+                    ["interval"],
+                json!(19)
+            );
         });
     }
 
@@ -26067,6 +27885,137 @@ MENTORS:
             )
             .unwrap_err();
             assert!(error.to_string().contains("gate_decision_conflict"));
+        });
+    }
+
+    #[test]
+    fn gate_lifecycle_bindings_round_trip_json_shapes() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            for name in [
+                "gate_lifecycle_wire_schema_version",
+                "decide_gate_lifecycle",
+            ] {
+                assert!(module.getattr(name).is_ok(), "missing {name}");
+            }
+            assert_eq!(py_gate_lifecycle_wire_schema_version(), 1);
+
+            let answered_request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "gate_id": "gate-abc",
+                    "request_hash": "sha256:deadbeef",
+                    "now_unix": 2_000.0,
+                    "grace_seconds": 300.0,
+                    "has_response": true,
+                }),
+            )
+            .unwrap();
+            let answered = py_decide_gate_lifecycle(
+                py,
+                answered_request.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap();
+            let answered = py_to_json_value(answered.bind(py)).unwrap();
+            assert_eq!(answered["disposition"], json!("answered"));
+
+            let accepted_unfinished_request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "gate_id": "gate-abc",
+                    "request_hash": "sha256:deadbeef",
+                    "now_unix": 1_000_000.0,
+                    "deadline_unix": 1_000.0,
+                    "grace_seconds": 300.0,
+                    "has_response": false,
+                    "receipt": {
+                        "schema_version": 1,
+                        "gate_id": "gate-abc",
+                        "request_hash": "sha256:deadbeef",
+                        "selected_option_ids": ["approve"],
+                        "input_identity": "sha256:input",
+                        "source": "cli",
+                        "accepted_at_unix": 1_726_000_000.0,
+                        "identity_fingerprint": "fingerprint",
+                    },
+                }),
+            )
+            .unwrap();
+            let accepted_unfinished = py_decide_gate_lifecycle(
+                py,
+                accepted_unfinished_request
+                    .bind(py)
+                    .downcast::<PyDict>()
+                    .unwrap(),
+            )
+            .unwrap();
+            let accepted_unfinished =
+                py_to_json_value(accepted_unfinished.bind(py)).unwrap();
+            assert_eq!(
+                accepted_unfinished["disposition"],
+                json!("accepted_unfinished"),
+                "a verified receipt outranks the review deadline and grace window"
+            );
+
+            let mismatched_receipt_request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "gate_id": "gate-abc",
+                    "request_hash": "sha256:deadbeef",
+                    "now_unix": 2_000.0,
+                    "grace_seconds": 300.0,
+                    "has_response": false,
+                    "receipt": {
+                        "schema_version": 1,
+                        "gate_id": "gate-someone-else",
+                        "request_hash": "sha256:deadbeef",
+                        "selected_option_ids": ["approve"],
+                        "input_identity": "sha256:input",
+                        "source": "cli",
+                        "accepted_at_unix": 1_726_000_000.0,
+                        "identity_fingerprint": "fingerprint",
+                    },
+                }),
+            )
+            .unwrap();
+            let error = py_decide_gate_lifecycle(
+                py,
+                mismatched_receipt_request
+                    .bind(py)
+                    .downcast::<PyDict>()
+                    .unwrap(),
+            )
+            .unwrap_err();
+            assert!(error
+                .to_string()
+                .contains("invalid_gate_decision_receipt"));
+
+            let expired_grace_request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "gate_id": "gate-abc",
+                    "request_hash": "sha256:deadbeef",
+                    "now_unix": 10_000.0,
+                    "deadline_unix": 1_000.0,
+                    "grace_seconds": 300.0,
+                    "has_response": false,
+                }),
+            )
+            .unwrap();
+            let expired_grace = py_decide_gate_lifecycle(
+                py,
+                expired_grace_request.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap();
+            let expired_grace =
+                py_to_json_value(expired_grace.bind(py)).unwrap();
+            assert_eq!(expired_grace["disposition"], json!("expired_grace"));
         });
     }
 
@@ -29814,6 +31763,7 @@ MENTORS:
                     "clan",
                     "wait",
                     "queue",
+                    "hold",
                     "dispatch",
                     "if",
                     "proc",
@@ -29877,7 +31827,7 @@ MENTORS:
             )
             .is_err());
             assert!(py_parse_queue_capacity("true", None).is_err());
-            assert_eq!(py_runner_capacity_policy_schema_version(), 4);
+            assert_eq!(py_runner_capacity_policy_schema_version(), 5);
             let on_contract = py_directive_contract(
                 py,
                 Some(vec!["queue_capacity_budget".to_string()]),
@@ -29946,7 +31896,7 @@ MENTORS:
                 py_runner_capacity_snapshot(py, capacity_request.bind(py))
                     .unwrap();
             let capacity = py_to_json_value(capacity.bind(py)).unwrap();
-            assert_eq!(capacity["schema_version"], json!(4));
+            assert_eq!(capacity["schema_version"], json!(5));
             assert_eq!(capacity["occupied_capacity"], json!(0.75));
             assert_eq!(
                 capacity["first_eligible_artifact_dir"],
@@ -30002,6 +31952,51 @@ MENTORS:
             assert_eq!(
                 capacity["candidate_decision"]["explicit_weight_compatibility"],
                 json!("inherited-active-claim")
+            );
+            let held_capacity_request = json_value_to_py(
+                py,
+                &json!({
+                    "effective_limit": 1.0,
+                    "holds": [{
+                        "schema_version": 1,
+                        "armer": {
+                            "kind": "agent",
+                            "key": "agent:hold",
+                            "display": "Hold Agent",
+                            "project": "proj",
+                            "agent_name": "holder.agent--code",
+                            "family": "holder.agent",
+                            "pid": 123
+                        },
+                        "scope": {"kind": "project", "project": "proj"},
+                        "selectors": {"names": ["target.agent--code"]},
+                        "created_at": 1788998400.0,
+                        "expires_at": 1788998580.0
+                    }],
+                    "records": [{
+                        "artifact_dir": "/tmp/held",
+                        "project_name": "proj",
+                        "timestamp": "held",
+                        "agent_name": "target.agent--code",
+                        "created_at": 1788998430.0,
+                        "slot_requested_at": "2026-09-10T00:00:30Z"
+                    }],
+                    "now": "2026-09-10T00:01:00Z"
+                }),
+            )
+            .unwrap();
+            let held_capacity =
+                py_runner_capacity_snapshot(py, held_capacity_request.bind(py))
+                    .unwrap();
+            let held_capacity =
+                py_to_json_value(held_capacity.bind(py)).unwrap();
+            assert_eq!(
+                held_capacity["waiters"][0]["blockers"][0]["code"],
+                json!("hold-barrier")
+            );
+            assert_eq!(
+                held_capacity["waiters"][0]["blockers"][0]["held_by"],
+                json!("agent:hold")
             );
 
             let wait = contract

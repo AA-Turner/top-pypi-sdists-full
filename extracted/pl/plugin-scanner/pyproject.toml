@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plugin-scanner"
-version = "3.0.181"
+version = "3.0.186"
 description = "Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows."
 readme = "README.md"
 license = "Apache-2.0"
@@ -134,6 +134,7 @@ packages = ["src/codex_plugin_scanner"]
 "contracts/extensions/contribution.v1.schema.json" = "codex_plugin_scanner/guard/contracts/data/extensions/contribution.v1.schema.json"
 "contributions/extensions/command.blitcp.json" = "codex_plugin_scanner/guard/contracts/data/extensions/contributions/command.blitcp.json"
 "contributions/extensions/command.noodle.json" = "codex_plugin_scanner/guard/contracts/data/extensions/contributions/command.noodle.json"
+"contributions/extensions/command.ollama.json" = "codex_plugin_scanner/guard/contracts/data/extensions/contributions/command.ollama.json"
 "contributions/extensions/command.probe.json" = "codex_plugin_scanner/guard/contracts/data/extensions/contributions/command.probe.json"
 "contributions/extensions/command.remote.essh.json" = "codex_plugin_scanner/guard/contracts/data/extensions/contributions/command.remote.essh.json"
 "contributions/extensions/command.repo2nb.json" = "codex_plugin_scanner/guard/contracts/data/extensions/contributions/command.repo2nb.json"

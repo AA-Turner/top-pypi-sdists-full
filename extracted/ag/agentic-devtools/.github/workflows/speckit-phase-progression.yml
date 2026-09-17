@@ -66,12 +66,12 @@ jobs:
           startsWith(github.event.pull_request.base.ref, 'speckit/')
         ) &&
         (
-          startsWith(github.event.pull_request.head.ref, 'copilot/') ||
           contains(github.event.pull_request.labels.*.name, 'speckit:phase-1') ||
           contains(github.event.pull_request.labels.*.name, 'speckit:phase-2') ||
           contains(github.event.pull_request.labels.*.name, 'speckit:phase-3') ||
           contains(github.event.pull_request.labels.*.name, 'speckit:phase-4') ||
           contains(github.event.pull_request.labels.*.name, 'speckit:phase-5') ||
+          contains(github.event.pull_request.labels.*.name, 'speckit:spec') ||
           contains(github.event.pull_request.body || '', 'speckit:agent-assigned schema_version=1 engine=cloud-agent')
         )
       )

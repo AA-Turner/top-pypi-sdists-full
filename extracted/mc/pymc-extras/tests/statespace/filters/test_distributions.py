@@ -24,6 +24,7 @@ from pymc_extras.statespace.filters.kalman_filter import StandardFilter
 from pymc_extras.statespace.filters.kalman_smoother import RTSSmoother
 from pymc_extras.statespace.utils.constants import (
     ALL_STATE_DIM,
+    MISSING_FILL,
     OBS_STATE_DIM,
     TIME_DIM,
 )
@@ -455,29 +456,38 @@ class TestSimulationSmoother:
         assert_allclose(shifted_draw - draw, expected_difference, atol=ATOL, rtol=RTOL)
 
     @pytest.mark.parametrize(
-        "fixture_name, d",
+        "fixture_name, d, missing_block",
         [
-            ("small_lgssm", None),
-            ("small_lgssm", np.array([50.0, -30.0])),
-            ("nile_lgssm", None),
+            ("small_lgssm", None, None),
+            ("small_lgssm", np.array([50.0, -30.0]), None),
+            ("nile_lgssm", None, None),
+            ("nile_lgssm", None, slice(30, 60)),
         ],
-        ids=["small", "small_large_d", "nile"],
+        ids=["small", "small_large_d", "nile", "nile_missing"],
     )
-    def test_draws_match_statsmodels_posterior(self, fixture_name, d, request):
+    def test_draws_match_statsmodels_posterior(self, fixture_name, d, missing_block, request):
         """The smoothed mean matches statsmodels exactly, and the sample mean, per-step
         covariances, and lag-one autocovariances of the draws match it to Monte Carlo error.
 
         The smoothed states form a Gaussian Markov chain, so those moments pin down the whole
         joint posterior. The large ``d`` case catches an observation intercept applied
-        inconsistently across the simulated trajectory, which shows up as a mean shift.
+        inconsistently across the simulated trajectory, which shows up as a mean shift. The
+        missing block catches the smoother fitting ``data - y_plus`` at missing positions. It must
+        be fed the fill sentinel, as the statespace core does, because a ``NaN`` difference stays
+        ``NaN`` and is masked regardless.
         """
         params = request.getfixturevalue(fixture_name)
         if d is not None:
             params = {**params, "d": d.astype(floatX)}
+        if missing_block is not None:
+            y = params["y"].copy()
+            y[missing_block] = np.nan
+            params = {**params, "y": y}
         reference = _statsmodels_smoother(params)
 
         n_draws = 5_000
-        a_smooth, draws = self.draws(params, seed=42, n_draws=n_draws)
+        filled = {**params, "y": np.nan_to_num(params["y"], nan=MISSING_FILL)}
+        a_smooth, draws = self.draws(filled, seed=42, n_draws=n_draws)
         assert_allclose(a_smooth, reference.smoothed_state.T, atol=ATOL, rtol=RTOL)
 
         centered = draws - reference.smoothed_state.T
@@ -608,8 +618,16 @@ def _var_parameters(rng, k_endog, order, k_exog):
     return A.astype(floatX), rng.normal(size=(k_endog, k_exog)).astype(floatX), Q.astype(floatX)
 
 
-def _reference_filter(coefficients, state_cov, endog, exog, exog_coefficients):
-    """A Kalman filter over the companion form, built independently of the distribution."""
+def _reference_filter(
+    coefficients, state_cov, endog, exog, exog_coefficients, exog_in_observation=False
+):
+    """A Kalman filter over the companion form, built independently of the distribution.
+
+    In the state equation the regressors enter as an intercept shifted back by one step, since
+    the filter applies the intercept of step ``t`` to the transition into ``t + 1``, and the
+    initial state is the fixed point of the dynamics under the first intercept. In the observation
+    equation they are the observation intercept as given.
+    """
     n_timesteps, k_endog = endog.shape
     k_states = coefficients.type.shape[1]
 
@@ -619,16 +637,29 @@ def _reference_filter(coefficients, state_cov, endog, exog, exog_coefficients):
     design = pt.concatenate([pt.eye(k_endog), pt.zeros((k_endog, k_states - k_endog))], axis=1)
     selection = pt.concatenate([pt.eye(k_endog), pt.zeros((k_states - k_endog, k_endog))], axis=0)
 
-    return StandardFilter(time_varying_names=["obs_intercept"], cov_jitter=0.0).build_graph(
+    exog_effect = pt.as_tensor_variable(exog) @ exog_coefficients.T
+    if exog_in_observation:
+        x0 = pt.zeros((k_states,))
+        state_intercept = pt.zeros((k_states,))
+        obs_intercept = exog_effect
+        time_varying_names = ["obs_intercept"]
+    else:
+        shifted = pt.concatenate([exog_effect[1:], exog_effect[-1:]], axis=0)
+        state_intercept = pt.pad(shifted, [(0, 0), (0, k_states - k_endog)])
+        x0 = pt.linalg.solve(pt.eye(k_states) - transition, state_intercept[0], b_ndim=1)
+        obs_intercept = pt.zeros((k_endog,))
+        time_varying_names = ["state_intercept"]
+
+    return StandardFilter(time_varying_names=time_varying_names, cov_jitter=0.0).build_graph(
         pt.specify_shape(pt.as_tensor_variable(endog), (n_timesteps, k_endog)),
-        pt.zeros((k_states,)),
+        x0,
         solve_discrete_lyapunov(
             transition,
             pt.linalg.matrix_dot(selection, state_cov, selection.T),
             method="bilinear",
         ),
-        pt.zeros((k_states,)),
-        pt.as_tensor_variable(exog) @ exog_coefficients.T,
+        state_intercept,
+        obs_intercept,
         transition,
         design,
         selection,
@@ -637,7 +668,7 @@ def _reference_filter(coefficients, state_cov, endog, exog, exog_coefficients):
     )
 
 
-def _var_logp_pair(k_endog, order, k_exog, n_timesteps=80):
+def _var_logp_pair(k_endog, order, k_exog, n_timesteps=80, exog_in_observation=False):
     """The distribution's log-density and a Kalman filter over the same model.
 
     The reference is assembled from concatenations rather than from the distribution's own
@@ -666,26 +697,34 @@ def _var_logp_pair(k_endog, order, k_exog, n_timesteps=80):
             pt.as_tensor_variable(endog),
             exog=pt.as_tensor_variable(exog),
             exog_coefficients=B,
+            exog_in_observation=exog_in_observation,
         ),
         pt.as_tensor_variable(endog),
     )
 
-    *_, ll = _reference_filter(A, Q, endog, exog, B)
+    *_, ll = _reference_filter(A, Q, endog, exog, B, exog_in_observation=exog_in_observation)
 
     return fast, ll.sum(), [A, B, Q]
 
 
 @pytest.mark.parametrize(
-    "k_endog, order, k_exog",
-    [(1, 1, 0), (3, 2, 2)],
-    ids=["k1_p1_m0", "k3_p2_m2"],
+    "k_endog, order, k_exog, exog_in_observation",
+    [(1, 1, 0, False), (3, 2, 2, False), (3, 2, 2, True)],
+    ids=["k1_p1_m0", "k3_p2_m2", "k3_p2_m2_observation"],
 )
-def test_stationary_var_matches_kalman_filter(k_endog, order, k_exog):
+def test_stationary_var_matches_kalman_filter(k_endog, order, k_exog, exog_in_observation):
     rng = np.random.default_rng(sum(map(ord, f"draws{k_endog}{order}{k_exog}")))
-    fast, kalman, inputs = _var_logp_pair(k_endog, order, k_exog)
+    fast, kalman, inputs = _var_logp_pair(
+        k_endog, order, k_exog, exog_in_observation=exog_in_observation
+    )
     fn = pytensor.function(
         inputs,
-        [fast, kalman, *pt.grad(fast, inputs), *pt.grad(kalman, inputs)],
+        [
+            fast,
+            kalman,
+            *pt.grad(fast, inputs, disconnected_inputs="ignore"),
+            *pt.grad(kalman, inputs, disconnected_inputs="ignore"),
+        ],
         on_unused_input="ignore",
     )
 

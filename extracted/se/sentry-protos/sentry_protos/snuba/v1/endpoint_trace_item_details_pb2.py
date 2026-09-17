@@ -28,7 +28,7 @@ from sentry_protos.snuba.v1 import trace_item_attribute_pb2 as sentry__protos_do
 from sentry_protos.snuba.v1 import trace_item_filter_pb2 as sentry__protos_dot_snuba_dot_v1_dot_trace__item__filter__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n8sentry_protos/snuba/v1/endpoint_trace_item_details.proto\x12\x16sentry_protos.snuba.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a+sentry_protos/snuba/v1/request_common.proto\x1a\x31sentry_protos/snuba/v1/trace_item_attribute.proto\x1a.sentry_protos/snuba/v1/trace_item_filter.proto\"\xa8\x01\n\x17TraceItemDetailsRequest\x12\x31\n\x04meta\x18\x01 \x01(\x0b\x32#.sentry_protos.snuba.v1.RequestMeta\x12\x0f\n\x07item_id\x18\x02 \x01(\t\x12\x10\n\x08trace_id\x18\x04 \x01(\t\x12\x37\n\x06\x66ilter\x18\x03 \x01(\x0b\x32\'.sentry_protos.snuba.v1.TraceItemFilter\"`\n\x19TraceItemDetailsAttribute\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x35\n\x05value\x18\x02 \x01(\x0b\x32&.sentry_protos.snuba.v1.AttributeValue\"\xd5\x01\n\x18TraceItemDetailsResponse\x12\x0f\n\x07item_id\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x45\n\nattributes\x18\x03 \x03(\x0b\x32\x31.sentry_protos.snuba.v1.TraceItemDetailsAttribute\x12\x32\n\x04meta\x18\x04 \x01(\x0b\x32$.sentry_protos.snuba.v1.ResponseMetab\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n8sentry_protos/snuba/v1/endpoint_trace_item_details.proto\x12\x16sentry_protos.snuba.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a+sentry_protos/snuba/v1/request_common.proto\x1a\x31sentry_protos/snuba/v1/trace_item_attribute.proto\x1a.sentry_protos/snuba/v1/trace_item_filter.proto\"\xbe\x01\n\x17TraceItemDetailsRequest\x12\x31\n\x04meta\x18\x01 \x01(\x0b\x32#.sentry_protos.snuba.v1.RequestMeta\x12\x0f\n\x07item_id\x18\x02 \x01(\t\x12\x10\n\x08trace_id\x18\x04 \x01(\t\x12\x37\n\x06\x66ilter\x18\x03 \x01(\x0b\x32\'.sentry_protos.snuba.v1.TraceItemFilter\x12\x14\n\x0crouting_hint\x18\x05 \x01(\t\"`\n\x19TraceItemDetailsAttribute\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x35\n\x05value\x18\x02 \x01(\x0b\x32&.sentry_protos.snuba.v1.AttributeValue\"\xd5\x01\n\x18TraceItemDetailsResponse\x12\x0f\n\x07item_id\x18\x01 \x01(\t\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x45\n\nattributes\x18\x03 \x03(\x0b\x32\x31.sentry_protos.snuba.v1.TraceItemDetailsAttribute\x12\x32\n\x04meta\x18\x04 \x01(\x0b\x32$.sentry_protos.snuba.v1.ResponseMetab\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,9 +36,9 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.snuba.v1.endp
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_TRACEITEMDETAILSREQUEST']._serialized_start=262
-  _globals['_TRACEITEMDETAILSREQUEST']._serialized_end=430
-  _globals['_TRACEITEMDETAILSATTRIBUTE']._serialized_start=432
-  _globals['_TRACEITEMDETAILSATTRIBUTE']._serialized_end=528
-  _globals['_TRACEITEMDETAILSRESPONSE']._serialized_start=531
-  _globals['_TRACEITEMDETAILSRESPONSE']._serialized_end=744
+  _globals['_TRACEITEMDETAILSREQUEST']._serialized_end=452
+  _globals['_TRACEITEMDETAILSATTRIBUTE']._serialized_start=454
+  _globals['_TRACEITEMDETAILSATTRIBUTE']._serialized_end=550
+  _globals['_TRACEITEMDETAILSRESPONSE']._serialized_start=553
+  _globals['_TRACEITEMDETAILSRESPONSE']._serialized_end=766
 # @@protoc_insertion_point(module_scope)

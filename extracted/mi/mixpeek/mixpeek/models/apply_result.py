@@ -33,12 +33,13 @@ class ApplyResult(BaseModel):
     created_count: Optional[StrictInt] = Field(default=0, description="Number of resources created")
     failed_count: Optional[StrictInt] = Field(default=0, description="Number of resources that failed")
     skipped_count: Optional[StrictInt] = Field(default=0, description="Number of resources skipped")
+    updated_count: Optional[StrictInt] = Field(default=0, description="Resources that existed, differed, and were PATCHED to match. Only ever non-zero under `upsert`. Counted separately because without it an upsert that changed five running resources reports created 0, failed 0, skipped 0, a summary that reads as nothing having happened.")
     errors: Optional[List[StrictStr]] = Field(default=None, description="Error messages")
     warnings: Optional[List[StrictStr]] = Field(default=None, description="Non-fatal issues found while PARSING the manifest, chiefly keys the parser had to drop. the parser already detects these and /validate and /lint already surface them, but /apply computed them and threw them away — so anyone applying without validating first got a 201 and no hint that part of their manifest was ignored. A collection-level `field_passthrough:` is the case that cost a customer POC: detected, described, discarded.")
     rollback_performed: Optional[StrictBool] = Field(default=False, description="Whether a rollback was ATTEMPTED after a failure. this used to read as 'the namespace was returned to its prior state', which it does not mean — rollback deletes only namespaces and buckets today, so any other resource created before the failure SURVIVES. Read `rollback_orphans` to find out what is still there.")
     rollback_orphans: Optional[List[StrictStr]] = Field(default=None, description="Resources created before the failure that rollback did NOT delete, as '<type>/<id>'. Non-empty means the namespace is in a PARTIAL state and a straight retry will hit AlreadyExists on these. previously these were silently skipped while rollback_performed=true claimed otherwise, which is the state that had to be unpicked by hand on the Radio-Canada POC.")
     dry_run: Optional[StrictBool] = Field(default=False, description="Whether this was a dry run (no changes made)")
-    __properties: ClassVar[List[str]] = ["success", "resources", "created_count", "failed_count", "skipped_count", "errors", "warnings", "rollback_performed", "rollback_orphans", "dry_run"]
+    __properties: ClassVar[List[str]] = ["success", "resources", "created_count", "failed_count", "skipped_count", "updated_count", "errors", "warnings", "rollback_performed", "rollback_orphans", "dry_run"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -103,6 +104,7 @@ class ApplyResult(BaseModel):
             "created_count": obj.get("created_count") if obj.get("created_count") is not None else 0,
             "failed_count": obj.get("failed_count") if obj.get("failed_count") is not None else 0,
             "skipped_count": obj.get("skipped_count") if obj.get("skipped_count") is not None else 0,
+            "updated_count": obj.get("updated_count") if obj.get("updated_count") is not None else 0,
             "errors": obj.get("errors"),
             "warnings": obj.get("warnings"),
             "rollback_performed": obj.get("rollback_performed") if obj.get("rollback_performed") is not None else False,

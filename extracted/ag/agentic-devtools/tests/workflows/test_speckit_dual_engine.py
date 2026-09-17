@@ -5,8 +5,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TRIGGER = (REPO_ROOT / ".github/workflows/speckit-issue-trigger.yml").read_text(encoding="utf-8")
 PROGRESSION = (REPO_ROOT / ".github/workflows/speckit-phase-progression.yml").read_text(encoding="utf-8")
+NORMALIZER = (REPO_ROOT / ".github/workflows/speckit-agent-pr-normalizer.yml").read_text(encoding="utf-8")
 CLEANUP = (REPO_ROOT / ".github/workflows/speckit-agent-fallback-cleanup.yml").read_text(encoding="utf-8")
 EXTRACT_PHASE_INFO = (REPO_ROOT / ".github/scripts/speckit-trigger/extract-phase-info.js").read_text(encoding="utf-8")
+NORMALIZE_COPILOT_PR = (REPO_ROOT / ".github/scripts/speckit-trigger/normalize-copilot-pr.js").read_text(
+    encoding="utf-8"
+)
+WORKFLOW_README = (REPO_ROOT / ".github/workflows/README.md").read_text(encoding="utf-8")
 
 
 def test_dual_engine_defaults_safely_to_legacy() -> None:
@@ -14,6 +19,41 @@ def test_dual_engine_defaults_safely_to_legacy() -> None:
     assert "unsupported SPECKIT_ENGINE" in TRIGGER
     assert "env.SPECKIT_ENGINE != 'cloud-agent'" in PROGRESSION
     assert "generate-spec-from-issue.sh" in PROGRESSION
+
+
+def test_normalizer_requires_copilot_identity_and_explicit_speckit_signal() -> None:
+    assert "types: [opened, synchronize, ready_for_review, edited, labeled]" in NORMALIZER
+    assert "github.event.pull_request.user.login == 'copilot-swe-agent[bot]' &&" in NORMALIZER
+    assert "contains(github.event.pull_request.labels.*.name, 'speckit:spec')" in NORMALIZER
+    assert (
+        "contains(github.event.pull_request.body || '', 'speckit:agent-assigned schema_version=1 engine=cloud-agent')"
+    ) in NORMALIZER
+    assert "contains(github.event.pull_request.labels.*.name, 'speckit:phase-1')" in NORMALIZER
+    assert "authoritativeMarker.match[0] !== markerMatch[0]" in NORMALIZE_COPILOT_PR
+    assert "TRUSTED_NORMALIZER_LOGINS = new Set(['AMARSNIK_swica', 'github-actions[bot]'])" in NORMALIZE_COPILOT_PR
+    assert "if (!markerMatch && comments.some(comment => {" in NORMALIZE_COPILOT_PR
+    assert "&& isTrustedNormalizerComment(comment);" in NORMALIZE_COPILOT_PR
+    assert "await postDiagnostic(" in NORMALIZE_COPILOT_PR
+    assert "No trusted source issue comment matched correlation ID" in NORMALIZE_COPILOT_PR
+    assert "startsWith(github.event.pull_request.head.ref, 'copilot/')" not in NORMALIZER
+
+
+def test_progression_requires_explicit_speckit_signal_for_merged_prs() -> None:
+    gate = PROGRESSION[PROGRESSION.index("github.event.pull_request.merged == true") :]
+    assert "startsWith(github.event.pull_request.head.ref, 'copilot/')" not in gate[: gate.index("permissions:")]
+    assert "contains(github.event.pull_request.labels.*.name, 'speckit:spec')" in gate
+    assert "speckit:agent-assigned schema_version=1 engine=cloud-agent" in gate
+    assert "only quotes the cloud-agent marker prefix; skipping phase progression" in EXTRACT_PHASE_INFO
+    assert "core.setFailed('Could not extract phase number from PR labels or cloud-agent marker')" in EXTRACT_PHASE_INFO
+
+
+def test_progression_readme_describes_spec_or_validated_cloud_agent_trigger() -> None:
+    assert "Pull request closed (merged) events that already have an explicit" in WORKFLOW_README
+    assert "assignment marker long enough for `extract-phase-info.js` to" in WORKFLOW_README
+    assert "- `speckit:phase-N` labels from legacy and normalized PRs" in WORKFLOW_README
+    assert "- `speckit:spec` for normalized Cloud Agent PRs" in WORKFLOW_README
+    assert "- A PR body containing `speckit:agent-assigned schema_version=1" in WORKFLOW_README
+    assert "before using as a fallback while label reconciliation is still" in WORKFLOW_README
 
 
 def test_concurrency_is_serialized_at_required_scopes() -> None:

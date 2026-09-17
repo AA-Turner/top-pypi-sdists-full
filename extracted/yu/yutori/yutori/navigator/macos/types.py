@@ -5,8 +5,16 @@ from __future__ import annotations
 import asyncio
 import base64
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
+
+from ..n2_actions import is_optional_non_negative_int, is_strict_number
+
+
+def normalize_window_ids(window_ids: Sequence[int]) -> tuple[int, ...]:
+    """Coerce a CGWindowID sequence to a plain int tuple, as both capture-exclusion sites need."""
+    return tuple(int(window_id) for window_id in window_ids)
 
 
 @dataclass(frozen=True)
@@ -67,10 +75,7 @@ class MacOSStatusMetrics:
 
     def __post_init__(self) -> None:
         counts = (self.input_tokens, self.cached_input_tokens, self.output_tokens)
-        if any(
-            value is not None and (not isinstance(value, int) or isinstance(value, bool) or value < 0)
-            for value in counts
-        ):
+        if any(not is_optional_non_negative_int(value) for value in counts):
             raise ValueError("status metric token counts must be non-negative integers or None")
         if (
             self.input_tokens is not None
@@ -79,10 +84,7 @@ class MacOSStatusMetrics:
         ):
             raise ValueError("cached input tokens cannot exceed input tokens")
         timings = (*self.rtt_samples_ms, *((self.latest_rtt_ms,) if self.latest_rtt_ms is not None else ()))
-        if any(
-            not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value) or value < 0
-            for value in timings
-        ):
+        if any(not is_strict_number(value) or not math.isfinite(value) or value < 0 for value in timings):
             raise ValueError("status metric RTT values must be finite non-negative numbers")
         if not isinstance(self.request_in_flight, bool):
             raise ValueError("request_in_flight must be a bool")

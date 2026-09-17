@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: skops
-Version: 0.14.0
+Version: 0.15.0
 Summary: A set of tools, related to machine learning in production.
 Project-URL: Homepage, http://github.com/skops-dev/skops
 Project-URL: Documentation, https://skops.readthedocs.io/en/stable/
@@ -40,7 +40,7 @@ Description-Content-Type: text/x-rst
 
 .. -*- mode: rst -*-
 
-|readthedocs| |github-actions| |Codecov| |PyPI| |Black|
+|readthedocs| |github-actions| |Codecov| |PyPI| |Ruff|
 
 .. |readthedocs| image:: https://readthedocs.org/projects/skops/badge/?version=latest&style=flat
     :target: https://skops.readthedocs.io/en/latest/
@@ -58,9 +58,9 @@ Description-Content-Type: text/x-rst
     :target: https://pypi.org/project/skops
     :alt: PyPi
 
-.. |Black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
-    :target: https://github.com/psf/black
-    :alt: Black
+.. |Ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
+    :target: https://github.com/astral-sh/ruff
+    :alt: Ruff
 
 .. image:: https://raw.githubusercontent.com/skops-dev/skops/main/docs/images/logo.png
   :width: 500
@@ -80,9 +80,7 @@ card explaining what the model does and how it should be used.
   <https://skops.readthedocs.io/en/latest/persistence.html>`__ for more
   information.
 - ``skops.card``: tools to create a model card explaining what the model does
-  and how it should be used. The model card can then be stored as the
-  ``README.md`` file on the Hugging Face Hub, with pre-populated metadata to
-  help Hub understand the model. More information can be found `here
+  and how it should be used. More information can be found `here
   <https://skops.readthedocs.io/en/stable/model_card.html>`__.
 
 Please refer to our `documentation <https://skops.readthedocs.io/en/latest/>`_

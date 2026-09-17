@@ -69,6 +69,7 @@ class AsyncQdrantLocal(AsyncQdrantBase):
     """
 
     LARGE_DATA_THRESHOLD = 20000
+    MMR_CANDIDATES_LIMIT_MAX = 16384
 
     def __init__(self, location: str, force_disable_check_same_thread: bool = False) -> None:
         """
@@ -188,6 +189,42 @@ class AsyncQdrantLocal(AsyncQdrantBase):
             return self.collections[self.aliases[collection_name]]
         raise ValueError(f"Collection {collection_name} not found")
 
+    @classmethod
+    def _validate_query(cls, query: types.Query | None) -> None:
+        if isinstance(query, rest_models.RrfQuery):
+            if query.rrf.k is not None and query.rrf.k < 1:
+                raise ValueError(f"rrf k value {query.rrf.k} is invalid. Must be 1 or larger.")
+        elif isinstance(query, rest_models.NearestQuery):
+            mmr = query.mmr
+            if mmr is not None and mmr.candidates_limit is not None:
+                if mmr.candidates_limit < 0:
+                    raise ValueError(
+                        f"mmr candidates_limit value {mmr.candidates_limit} is invalid. Must be 0 or larger."
+                    )
+                if mmr.candidates_limit > cls.MMR_CANDIDATES_LIMIT_MAX:
+                    raise ValueError(
+                        f"mmr candidates_limit value {mmr.candidates_limit} is invalid. Must be {cls.MMR_CANDIDATES_LIMIT_MAX} or smaller."
+                    )
+        elif isinstance(query, rest_models.RelevanceFeedbackQuery):
+            naive = query.relevance_feedback.strategy.naive
+            if naive.b < 0:
+                raise ValueError(
+                    f"naive feedback b value {naive.b} is invalid. Must be 0 or larger."
+                )
+
+    @classmethod
+    def _validate_prefetch(cls, prefetch: types.Prefetch | list[types.Prefetch] | None) -> None:
+        if prefetch is None:
+            return
+        prefetches = prefetch if isinstance(prefetch, list) else [prefetch]
+        for item in prefetches:
+            if item.limit is not None and item.limit < 1:
+                raise ValueError(
+                    f"prefetch limit value {item.limit} is invalid. Must be 1 or larger."
+                )
+            cls._validate_query(item.query)
+            cls._validate_prefetch(item.prefetch)
+
     async def search_matrix_offsets(
         self,
         collection_name: str,
@@ -197,6 +234,10 @@ class AsyncQdrantLocal(AsyncQdrantBase):
         using: str | None = None,
         **kwargs: Any,
     ) -> types.SearchMatrixOffsetsResponse:
+        if limit < 1:
+            raise ValueError(f"limit value {limit} is invalid. Must be 1 or larger.")
+        if sample < 2:
+            raise ValueError(f"sample value {sample} is invalid. Must be 2 or larger.")
         collection = self._get_collection(collection_name)
         return collection.search_matrix_offsets(
             query_filter=query_filter, limit=limit, sample=sample, using=using
@@ -213,6 +254,8 @@ class AsyncQdrantLocal(AsyncQdrantBase):
     ) -> types.SearchMatrixPairsResponse:
         if limit < 1:
             raise ValueError(f"limit value {limit} is invalid. Must be 1 or larger.")
+        if sample < 2:
+            raise ValueError(f"sample value {sample} is invalid. Must be 2 or larger.")
         collection = self._get_collection(collection_name)
         return collection.search_matrix_pairs(
             query_filter=query_filter, limit=limit, sample=sample, using=using
@@ -237,14 +280,6 @@ class AsyncQdrantLocal(AsyncQdrantBase):
             if lookup_from is not None and lookup_from.vector is not None
             else search_in_vector_name
         )
-        sparse = vector_name in collection.sparse_vectors
-        multi = vector_name in collection.multivectors
-        if sparse:
-            collection_vectors = collection.sparse_vectors
-        elif multi:
-            collection_vectors = collection.multivectors
-        else:
-            collection_vectors = collection.vectors
         mentioned_ids: set[types.PointId] = set()
 
         def input_into_vector(vector_input: types.VectorInput) -> types.VectorInput:
@@ -252,15 +287,7 @@ class AsyncQdrantLocal(AsyncQdrantBase):
                 if isinstance(vector_input, uuid.UUID):
                     vector_input = str(vector_input)
                 point_id = vector_input
-                if point_id not in collection.ids:
-                    raise ValueError(f"Point {point_id} is not found in the collection")
-                idx = collection.ids[point_id]
-                if vector_name in collection_vectors:
-                    vec = collection_vectors[vector_name][idx]
-                else:
-                    raise ValueError(f"Vector {vector_name} not found")
-                if isinstance(vec, np.ndarray):
-                    vec = vec.tolist()
+                vec = collection._vector_by_point_id(vector_name, point_id)
                 if collection_name == lookup_collection_name:
                     mentioned_ids.add(point_id)
                 return vec
@@ -308,6 +335,8 @@ class AsyncQdrantLocal(AsyncQdrantBase):
             pass
         elif isinstance(query, rest_models.RrfQuery):
             pass
+        elif query is not None and (not isinstance(query, get_args(rest_models.Query))):
+            query = rest_models.NearestQuery(nearest=input_into_vector(query))
         return (query, mentioned_ids)
 
     def _resolve_prefetches_input(
@@ -320,9 +349,6 @@ class AsyncQdrantLocal(AsyncQdrantBase):
         prefetches = []
         if isinstance(prefetch, types.Prefetch):
             prefetches = [prefetch]
-            prefetches.extend(
-                prefetch.prefetch if isinstance(prefetch.prefetch, list) else [prefetch.prefetch]
-            )
         elif isinstance(prefetch, Sequence):
             prefetches = list(prefetch)
         return [
@@ -355,14 +381,18 @@ class AsyncQdrantLocal(AsyncQdrantBase):
         search_params: types.SearchParams | None = None,
         limit: int = 10,
         offset: int | None = None,
-        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
-        with_vectors: bool | Sequence[str] = False,
+        with_payload: types.WithPayloadInterface = True,
+        with_vectors: types.WithVector = False,
         score_threshold: float | None = None,
         lookup_from: types.LookupLocation | None = None,
         **kwargs: Any,
     ) -> types.QueryResponse:
         if limit < 1:
             raise ValueError(f"limit value {limit} is invalid. Must be 1 or larger.")
+        if offset is not None and offset < 0:
+            raise ValueError(f"offset value {offset} is invalid. Must be 0 or larger.")
+        self._validate_query(query)
+        self._validate_prefetch(prefetch)
         collection = self._get_collection(collection_name)
         search_params = _parse_search_params(search_params)
         if _has_ignored_search_params(search_params):
@@ -431,8 +461,8 @@ class AsyncQdrantLocal(AsyncQdrantBase):
         search_params: types.SearchParams | None = None,
         limit: int = 10,
         group_size: int = 3,
-        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
-        with_vectors: bool | Sequence[str] = False,
+        with_payload: types.WithPayloadInterface = True,
+        with_vectors: types.WithVector = False,
         score_threshold: float | None = None,
         with_lookup: types.WithLookupInterface | None = None,
         lookup_from: types.LookupLocation | None = None,
@@ -440,6 +470,10 @@ class AsyncQdrantLocal(AsyncQdrantBase):
     ) -> types.GroupsResult:
         if limit < 1:
             raise ValueError(f"limit value {limit} is invalid. Must be 1 or larger.")
+        if group_size < 1:
+            raise ValueError(f"group_size value {group_size} is invalid. Must be 1 or larger.")
+        self._validate_query(query)
+        self._validate_prefetch(prefetch)
         collection = self._get_collection(collection_name)
         search_params = _parse_search_params(search_params)
         if _has_ignored_search_params(search_params):
@@ -481,8 +515,8 @@ class AsyncQdrantLocal(AsyncQdrantBase):
         limit: int = 10,
         order_by: types.OrderBy | None = None,
         offset: types.PointId | None = None,
-        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
-        with_vectors: bool | Sequence[str] = False,
+        with_payload: types.WithPayloadInterface = True,
+        with_vectors: types.WithVector = False,
         **kwargs: Any,
     ) -> tuple[list[types.Record], types.PointId | None]:
         if limit < 1:
@@ -559,8 +593,8 @@ class AsyncQdrantLocal(AsyncQdrantBase):
         self,
         collection_name: str,
         ids: Sequence[types.PointId],
-        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
-        with_vectors: bool | Sequence[str] = False,
+        with_payload: types.WithPayloadInterface = True,
+        with_vectors: types.WithVector = False,
         **kwargs: Any,
     ) -> list[types.Record]:
         collection = self._get_collection(collection_name)
@@ -834,9 +868,8 @@ class AsyncQdrantLocal(AsyncQdrantBase):
         if isinstance(vectors, dict) and any(
             (isinstance(v, np.ndarray) for v in vectors.values())
         ):
-            assert (
-                len(set([arr.shape[0] for arr in vectors.values()])) == 1
-            ), "Each named vector should have the same number of vectors"
+            if len(set([arr.shape[0] for arr in vectors.values()])) != 1:
+                raise ValueError("Each named vector should have the same number of vectors")
             num_vectors = next(iter(vectors.values())).shape[0]
             vectors = [
                 {name: vectors[name][i].tolist() for name in vectors.keys()}

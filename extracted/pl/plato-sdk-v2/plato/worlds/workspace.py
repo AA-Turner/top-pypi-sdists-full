@@ -72,6 +72,7 @@ class Workspace:
         session_id: str = "",
         commit_strategy: str = "manifest",
         nfs_mount_options: str = "",
+        pin_to_agent_vm: bool = False,
     ):
         self._repo_root = path
         self.path = path / "data" if tracked else path
@@ -90,6 +91,10 @@ class Workspace:
         # Extra client-side NFS mount options for this workspace's agent
         # mounts (e.g. "sync" for live-tailed write-through workspaces).
         self.nfs_mount_options = nfs_mount_options
+        # Mount on the agent VM even under sandbox_tools_only: this workspace
+        # holds state the agent CLI process writes itself, and that process
+        # runs on the agent VM no matter where its file tools act.
+        self.pin_to_agent_vm = pin_to_agent_vm
         self._transport: Transport | None = None
         self._sts_credentials: dict[str, str] = {}
         self._sts_expires_at: float = 0
@@ -161,6 +166,7 @@ class Workspace:
             session_id=self.session_id,
             commit_strategy=self.commit_strategy,
             nfs_mount_options=self.nfs_mount_options,
+            pin_to_agent_vm=self.pin_to_agent_vm,
         )
 
     def mount(

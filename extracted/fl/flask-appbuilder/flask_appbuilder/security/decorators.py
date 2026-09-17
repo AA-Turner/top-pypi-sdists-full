@@ -3,6 +3,7 @@ import logging
 from typing import Callable, List, Optional, TypeVar, Union
 
 from flask import (
+    abort,
     current_app,
     flash,
     jsonify,
@@ -34,9 +35,9 @@ def no_cache(view: Callable[..., Response]) -> Callable[..., Response]:
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs) -> Response:
         response = make_response(view(*args, **kwargs))
-        response.headers[
-            "Cache-Control"
-        ] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Cache-Control"] = (
+            "no-store, no-cache, must-revalidate, max-age=0"
+        )
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
         return response
@@ -172,6 +173,8 @@ def has_access(f):
             log.warning(
                 LOGMSG_ERR_SEC_ACCESS_DENIED, permission_str, self.__class__.__name__
             )
+            if current_user.is_authenticated and current_user.is_active:
+                abort(403)
             flash(as_unicode(FLAMSG_ERR_SEC_ACCESS_DENIED), "danger")
         return redirect(
             url_for(

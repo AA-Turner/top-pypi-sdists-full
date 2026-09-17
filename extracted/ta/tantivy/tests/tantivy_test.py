@@ -371,6 +371,48 @@ class TestClass(object):
         ):
             searcher.search(query, 10, order_by_field="order")
 
+    def test_date_index_roundtrip(self):
+        schema = (
+            SchemaBuilder()
+            .add_date_field("date", stored=True, indexed=True)
+            .add_text_field("title", stored=True)
+            .build()
+        )
+        index = Index(schema)
+        writer = index.writer()
+
+        naive = datetime.datetime(2019, 8, 12, 13, 0, 0, 123456)
+        ist = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        aware = datetime.datetime(2019, 8, 12, 13, 0, 0, tzinfo=ist)
+
+        doc = Document()
+        doc.add_text("title", "naive")
+        doc.add_date("date", naive)
+        writer.add_document(doc)
+
+        doc = Document()
+        doc.add_text("title", "aware")
+        doc.add_date("date", aware)
+        writer.add_document(doc)
+
+        writer.commit()
+        index.reload()
+        searcher = index.searcher()
+
+        query = index.parse_query("naive OR aware", ["title"])
+        hits = searcher.search(query, 10).hits
+        by_title = {
+            searcher.doc(addr)["title"][0]: searcher.doc(addr)["date"][0]
+            for _, addr in hits
+        }
+
+        assert by_title["naive"] == naive.replace(
+            tzinfo=datetime.timezone.utc
+        )
+        assert by_title["aware"] == datetime.datetime(
+            2019, 8, 12, 7, 30, 0, tzinfo=datetime.timezone.utc
+        )
+
     def test_with_merges(self):
         # This test is taken from tantivy's test suite:
         # https://github.com/quickwit-oss/tantivy/blob/42acd334f49d5ff7e4fe846b5c12198f24409b50/src/indexer/index_writer.rs#L1130
@@ -652,6 +694,15 @@ class TestFromDiskClass(object):
         index = Index(build_schema(), str(index_dir), reuse=True)
         assert index.searcher().num_docs == 3
 
+    def test_is_compatible_for_current_index(self, dir_index):
+        index_dir, _ = dir_index
+
+        assert Index.is_compatible(str(index_dir)) is True
+
+    def test_is_compatible_raises_for_missing_index(self, tmp_path):
+        with pytest.raises(ValueError):
+            Index.is_compatible(str(tmp_path / "does-not-exist"))
+
     def test_create_readers(self):
         # not sure what is the point of this test.
         idx = Index(build_schema())
@@ -702,7 +753,27 @@ class TestDocument(object):
     def test_document_with_date(self):
         date = datetime.datetime(2019, 8, 12, 13, 0, 0)
         doc = tantivy.Document(name="Bill", date=date)
-        assert doc["date"][0] == date
+        assert doc["date"][0] == date.replace(tzinfo=datetime.timezone.utc)
+
+    def test_document_with_aware_date(self):
+        eastern = datetime.timezone(datetime.timedelta(hours=-5))
+        date = datetime.datetime(2019, 8, 12, 13, 0, 0, tzinfo=eastern)
+        doc = tantivy.Document(name="Bill", date=date)
+        assert doc["date"][0] == date.astimezone(datetime.timezone.utc)
+
+    def test_document_with_offset_date_normalizes_to_utc(self):
+        ist = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        date = datetime.datetime(2019, 8, 12, 13, 0, 0, tzinfo=ist)
+        doc = tantivy.Document(name="Bill", date=date)
+        expected = datetime.datetime(
+            2019, 8, 12, 7, 30, 0, tzinfo=datetime.timezone.utc
+        )
+        assert doc["date"][0] == expected
+
+    def test_document_date_microseconds_preserved(self):
+        date = datetime.datetime(2019, 8, 12, 13, 0, 0, 123456)
+        doc = tantivy.Document(name="Bill", date=date)
+        assert doc["date"][0] == date.replace(tzinfo=datetime.timezone.utc)
 
     def test_document_repr(self):
         doc = tantivy.Document(name="Bill", reference=[1, 2])
@@ -829,6 +900,46 @@ class TestJsonField:
         # )
         # result = index.searcher().search(query, 2)
         # assert len(result.hits) == 1
+
+    def test_json_field_expand_dots_enabled(self):
+        # Without expand_dots, a literal "." in a JSON key is NOT treated as
+        # a path separator - querying it as a path must fail to match, and
+        # the literal key must be reachable only via an escaped dot.
+        plain_schema = SchemaBuilder().add_json_field("attrs", stored=True).build()
+        plain_index = Index(plain_schema)
+        writer = plain_index.writer()
+        doc = Document()
+        doc.add_json("attrs", {"a.b": "hello"})
+        writer.add_document(doc)
+        writer.commit()
+        plain_index.reload()
+
+        query = plain_index.parse_query("attrs.a.b:hello", ["attrs"])
+        result = plain_index.searcher().search(query, 10)
+        assert len(result.hits) == 0
+
+        escaped_query = plain_index.parse_query(r"attrs.a\.b:hello", ["attrs"])
+        result = plain_index.searcher().search(escaped_query, 10)
+        assert len(result.hits) == 1
+
+        # With expand_dots enabled, the same flat key "a.b" is treated as a
+        # nested path a -> b, so the unescaped dotted query now matches.
+        expand_schema = (
+            SchemaBuilder()
+            .add_json_field("attrs", stored=True, expand_dots_enabled=True)
+            .build()
+        )
+        expand_index = Index(expand_schema)
+        writer = expand_index.writer()
+        doc = Document()
+        doc.add_json("attrs", {"a.b": "hello"})
+        writer.add_document(doc)
+        writer.commit()
+        expand_index.reload()
+
+        query = expand_index.parse_query("attrs.a.b:hello", ["attrs"])
+        result = expand_index.searcher().search(query, 10)
+        assert len(result.hits) == 1
 
 
 @pytest.mark.parametrize("bytes_kwarg", [True, False])
@@ -1233,6 +1344,128 @@ class TestQuery(object):
                     (query1, Occur.Must),
                 ]
             )
+
+    def test_boolean_query_helpers(self, ram_index: tantivy.Index):
+        index = ram_index
+        searcher = index.searcher()
+
+        # Queries for testing
+        query_sea = Query.term_query(index.schema, "title", "sea")  # Matches "The Old Man and the Sea"
+        query_mice = Query.term_query(index.schema, "title", "mice")  # Matches "Of Mice and Men"
+        query_old = Query.term_query(index.schema, "title", "old")  # Matches "The Old Man and the Sea"
+        query_man = Query.term_query(index.schema, "title", "man")  # Matches "The Old Man and the Sea"
+
+        # Test and_must_match
+        # No document contains both "sea" and "mice" in the title
+        combined_must = query_sea.and_must_match(query_mice)
+        result = searcher.search(combined_must, 10)
+        assert len(result.hits) == 0
+
+        # "The Old Man and the Sea" contains both "old" and "man"
+        combined_must = query_old.and_must_match(query_man)
+        result = searcher.search(combined_must, 10)
+        assert len(result.hits) == 1
+        searched_doc = searcher.doc(result.hits[0][1])
+        assert searched_doc["title"] == ["The Old Man and the Sea"]
+
+        # "The Old Man and the Sea" contains both "old" and "man"
+        # (but with many chains)
+        combined_must = (
+            query_old
+            .and_must_match(query_man)
+            .and_must_match(query_man)
+            .and_must_match(query_man)
+            .and_must_match(query_man)
+            .and_must_match(query_man)
+            .and_must_match(query_man)
+            .and_must_match(query_man)
+            .and_must_match(query_man)
+            .and_must_match(query_man)
+            .and_must_match(query_man)
+            .and_must_match(query_man)
+        )
+        result = searcher.search(combined_must, 10)
+        assert len(result.hits) == 1
+        searched_doc = searcher.doc(result.hits[0][1])
+        assert searched_doc["title"] == ["The Old Man and the Sea"]
+
+        # Test or_should_match
+        # Should match documents containing either "sea" or "mice"
+        combined_should = query_sea.or_should_match(query_mice)
+        result = searcher.search(combined_should, 10)
+        assert len(result.hits) == 2
+        titles = {searcher.doc(hit[1])["title"][0] for hit in result.hits}
+        assert "The Old Man and the Sea" in titles
+        assert "Of Mice and Men" in titles
+
+        # Test and_must_not_match
+        # All 3 docs contain "and" in the body. We exclude the one with "sea" in the title.
+        query_and_body = Query.term_query(index.schema, "body", "and")
+        combined_must_not = query_and_body.and_must_not_match(query_sea)
+        result = searcher.search(combined_must_not, 10)
+        assert len(result.hits) == 2
+        titles = {searcher.doc(hit[1])["title"][0] for hit in result.hits}
+        assert "The Old Man and the Sea" not in titles
+
+    def test_boolean_query_helpers_multiple_queries(self, ram_index: tantivy.Index):
+        index = ram_index
+        searcher = index.searcher()
+
+        query_sea = Query.term_query(index.schema, "title", "sea")
+        query_mice = Query.term_query(index.schema, "title", "mice")
+        query_old = Query.term_query(index.schema, "title", "old")
+        query_man = Query.term_query(index.schema, "title", "man")
+        query_frankenstein = Query.term_query(index.schema, "title", "frankenstein")
+        query_and_body = Query.term_query(index.schema, "body", "and")
+
+        # Multiple queries in a single call
+        combined_must = query_old.and_must_match(query_man, query_sea)
+        result = searcher.search(combined_must, 10)
+        assert len(result.hits) == 1
+        assert searcher.doc(result.hits[0][1])["title"] == ["The Old Man and the Sea"]
+
+        combined_should = query_old.or_should_match(query_mice, query_frankenstein)
+        result = searcher.search(combined_should, 10)
+        assert len(result.hits) == 3
+
+        # A list of queries can be passed with argument unpacking.
+        # All 3 docs contain "and" in the body; exclude "sea" and "mice" titles.
+        excluded = [query_sea, query_mice]
+        combined_must_not = query_and_body.and_must_not_match(*excluded)
+        result = searcher.search(combined_must_not, 10)
+        assert len(result.hits) == 1
+        assert "Frankenstein" in searcher.doc(result.hits[0][1])["title"]
+
+        # Calling with no queries returns an equivalent query
+        result = searcher.search(query_old.and_must_match(), 10)
+        assert len(result.hits) == 1
+
+    def test_boolean_query_helpers_mixed_chains(self, ram_index: tantivy.Index):
+        """Chains mixing AND and OR must group the left-hand side correctly."""
+        index = ram_index
+        searcher = index.searcher()
+
+        query_mice = Query.term_query(index.schema, "title", "mice")
+        query_old = Query.term_query(index.schema, "title", "old")
+        query_man = Query.term_query(index.schema, "title", "man")
+        query_frankenstein = Query.term_query(index.schema, "title", "frankenstein")
+
+        # (old OR mice) AND frankenstein: no document satisfies both sides,
+        # so this must match nothing. The OR group must remain required and
+        # not degrade into optional scoring clauses next to the MUST clause.
+        combined = query_old.or_should_match(query_mice).and_must_match(
+            query_frankenstein
+        )
+        result = searcher.search(combined, 10)
+        assert len(result.hits) == 0
+
+        # (old AND man) OR mice: the AND group must stay grouped, with the
+        # OR applying to the whole of it.
+        combined = query_old.and_must_match(query_man).or_should_match(query_mice)
+        result = searcher.search(combined, 10)
+        assert len(result.hits) == 2
+        titles = {searcher.doc(hit[1])["title"][0] for hit in result.hits}
+        assert titles == {"The Old Man and the Sea", "Of Mice and Men"}
 
     def test_disjunction_max_query(self, ram_index):
         index = ram_index
@@ -1718,6 +1951,63 @@ class TestQuery(object):
         result = index.searcher().search(query, 10)
         assert len(result.hits) == 1
 
+    def test_term_query_dates(self, ram_index_with_date_field):
+        index = ram_index_with_date_field
+
+        # A naive datetime is interpreted as UTC and matches the doc indexed
+        # with the same wall-clock value.
+        query = Query.term_query(
+            index.schema,
+            "date",
+            datetime.datetime(2021, 1, 1),
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 1
+        _, addr = result.hits[0]
+        assert index.searcher().doc(addr)["id"] == [1]
+
+        # A tz-aware datetime pointing at the same instant matches the same
+        # doc, exercising the datetime -> tantivy DateTime conversion in the
+        # query path.
+        aware = datetime.datetime(
+            2021, 1, 1, tzinfo=datetime.timezone.utc
+        )
+        query = Query.term_query(index.schema, "date", aware)
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 1
+        _, addr = result.hits[0]
+        assert index.searcher().doc(addr)["id"] == [1]
+
+        # A datetime that no document was indexed with matches nothing.
+        query = Query.term_query(
+            index.schema,
+            "date",
+            datetime.datetime(2021, 1, 3),
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 0
+
+    def test_term_set_query_dates(self, ram_index_with_date_field):
+        index = ram_index_with_date_field
+
+        # A set of datetimes matches every document indexed with one of them.
+        # The first is tz-aware and the second naive, so both the aware and
+        # naive conversion paths are covered.
+        query = Query.term_set_query(
+            index.schema,
+            "date",
+            [
+                datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
+                datetime.datetime(2021, 1, 2),
+            ],
+        )
+        result = index.searcher().search(query, 10)
+        assert len(result.hits) == 2
+        ids = sorted(
+            index.searcher().doc(addr)["id"][0] for _, addr in result.hits
+        )
+        assert ids == [1, 2]
+
     def test_range_query_ip_addrs(self, ram_index_with_ip_addr_field):
         index = ram_index_with_ip_addr_field
 
@@ -1973,6 +2263,15 @@ class TestTokenizers:
         )
         doc_text = "the bad wolf buys an axe"
         assert ["bad", "wolf", "buys", "axe"] == analyzer.analyze(doc_text)
+
+    @pytest.mark.parametrize(
+        "language", ["arabic", "greek", "romanian", "tamil", "turkish"]
+    )
+    def test_build_tokenizer_w_stopword_filter_no_builtin_list(self, language):
+        # These languages have a stemmer, but tantivy has no builtin stop word list
+        builder = tantivy.TextAnalyzerBuilder(tokenizer=tantivy.Tokenizer.simple())
+        with pytest.raises(ValueError, match="stop word list"):
+            builder.filter(tantivy.Filter.stopword(language))
 
     def test_build_tokenizer_w_custom_stopwords_filter(self):
         analyzer = (

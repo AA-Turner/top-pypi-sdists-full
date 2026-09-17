@@ -116,6 +116,70 @@ def check_databricks_auth():
         ]
 
 
+def check_sagemaker_auth():
+    """Test SageMaker Managed MLflow authentication.
+
+    Validates the three prerequisites for the SageMaker backend:
+      1. the sagemaker-mlflow plugin is installed (registers the `arn` tracking scheme),
+      2. AWS credentials are present in the environment,
+      3. the resource ARN tracking URI actually connects.
+
+    Mirrors check_databricks_auth(): this NEVER installs the plugin and NEVER acquires
+    credentials -- it validates and returns remediation messages for main() to report.
+    """
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "")
+
+    if not tracking_uri.startswith("arn:aws:sagemaker:"):
+        print("  ⊘ Not using SageMaker Managed MLflow (skipped)")
+        print()
+        return []
+
+    print("Testing SageMaker Managed MLflow authentication...")
+
+    # Requirement 2: sagemaker-mlflow plugin must be installed (it brings boto3 with it).
+    # Like the Databricks SDK check, we report the fix instead of installing it.
+    try:
+        import sagemaker_mlflow  # noqa: F401
+        import boto3
+
+        print("  ✓ sagemaker-mlflow plugin installed")
+    except ImportError:
+        print("  ✗ sagemaker-mlflow plugin (or its boto3 dependency) not installed")
+        print()
+        return ["Install SageMaker MLflow plugin: pip install sagemaker-mlflow"]
+
+    # Requirement 1: AWS credentials must be present (validate only, never acquire).
+    try:
+        identity = boto3.client("sts").get_caller_identity()
+        print(f"  ✓ AWS credentials present ({identity['Arn']})")
+    except Exception as e:
+        print(f"  ✗ AWS credentials missing or expired: {str(e)[:80]}")
+        print()
+        return [
+            "Configure AWS credentials (aws configure, SSO, or an IAM role), "
+            "then verify with: aws sts get-caller-identity"
+        ]
+
+    # Requirement 3: the ARN tracking URI must connect (lightweight API call).
+    try:
+        from mlflow import MlflowClient
+
+        MlflowClient().search_experiments(max_results=1)
+        print(f"  ✓ Connected to SageMaker Managed MLflow: {tracking_uri}")
+        print()
+        return []
+    except Exception as e:
+        error_msg = str(e)
+        print(f"  ✗ Connection failed: {error_msg[:100]}")
+        print()
+        if "403" in error_msg or "AccessDenied" in error_msg:
+            return [
+                "AWS principal lacks MLflow permissions on the resource "
+                "(needs sagemaker-mlflow / sagemaker actions on the ARN)"
+            ]
+        return [f"Cannot connect to {tracking_uri} - check the ARN, region, and network"]
+
+
 def check_mlflow_tracking():
     """Test MLflow tracking server connectivity."""
     print("Testing MLflow tracking server...")
@@ -171,6 +235,9 @@ def check_llm_provider():
     if os.getenv("ANTHROPIC_API_KEY"):
         providers_found.append("Anthropic")
 
+    if os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+        providers_found.append("Gemini")
+
     if os.getenv("DATABRICKS_TOKEN") or os.getenv("DATABRICKS_HOST"):
         providers_found.append("Databricks")
 
@@ -202,7 +269,11 @@ def main():
     databricks_issues = check_databricks_auth()
     all_issues.extend(databricks_issues)
 
-    # Check 3: LLM provider (optional check)
+    # Check 3: SageMaker Managed MLflow auth (if using a SageMaker ARN)
+    sagemaker_issues = check_sagemaker_auth()
+    all_issues.extend(sagemaker_issues)
+
+    # Check 4: LLM provider (optional check)
     llm_issues = check_llm_provider()
     all_issues.extend(llm_issues)
 
@@ -218,8 +289,8 @@ def main():
         print("Your authentication is configured correctly.")
         print()
         print("Next steps:")
-        print("  1. Integrate tracing: See references/tracing-integration.md")
-        print("  2. Test runtime tracing: Edit and run scripts/validate_agent_tracing.py")
+        print("  1. Integrate tracing: Use the instrumenting-with-mlflow-tracing skill")
+        print("  2. Test runtime tracing: Run scripts/validate_tracing_runtime.py")
         print()
     else:
         print(f"✗ Found {len(all_issues)} issue(s):")

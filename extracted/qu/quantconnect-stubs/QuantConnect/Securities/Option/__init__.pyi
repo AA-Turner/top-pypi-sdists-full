@@ -2190,11 +2190,23 @@ class OptionSymbol(System.Object):
     """Static class contains common utility methods specific to symbols representing the option contracts"""
 
     @staticmethod
+    @overload
     def get_last_day_of_trading(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> datetime.datetime:
         """
         Returns the last trading date for the option contract
         
         :param symbol: Option symbol
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_last_day_of_trading(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> datetime.datetime:
+        """
+        Returns the last trading date for the option contract, using the given exchange hours instead of looking them up
+        
+        :param symbol: Option symbol
+        :param exchange_hours: The exchange hours of the option
         """
         ...
 

@@ -145,6 +145,13 @@ void IdasInterface::init(const Dict& opts) {
       "to correct 'init_xdot' for the augmented integrator.");
   }
 
+  // Leave forward sensitivity states unconstrained.
+  if (nfwd_ > 0 && !y_c_.empty() && y_c_.size() == nx1_ + nz1_) {
+    y_c_.insert(y_c_.begin() + nx1_, nx_ - nx1_, 0);
+    y_c_.resize(nx_ + nz_, 0);
+    opts_["constraints"] = y_c_;
+  }
+
   // Constraints
   casadi_assert(y_c_.size() == nx_+nz_ || y_c_.empty(),
     "Constraint vector if supplied, must be of length nx+nz, but got "
@@ -525,10 +532,12 @@ void IdasInterface::impulseB(IntegratorMemory* mem,
     }
 
     // Quadratures for the adjoint problem
-    THROWING(IDAQuadInitB, m->mem, m->whichB, rhsQB, m->v_adj_pu);
-    if (quad_err_con_) {
-      THROWING(IDASetQuadErrConB, m->mem, m->whichB, true);
-      THROWING(IDAQuadSStolerancesB, m->mem, m->whichB, reltol_, abstol_);
+    if (nrq_ > 0 || nuq_ > 0) {
+      THROWING(IDAQuadInitB, m->mem, m->whichB, rhsQB, m->v_adj_pu);
+      if (quad_err_con_) {
+        THROWING(IDASetQuadErrConB, m->mem, m->whichB, true);
+        THROWING(IDAQuadSStolerancesB, m->mem, m->whichB, reltol_, abstol_);
+      }
     }
 
     // Mark initialized

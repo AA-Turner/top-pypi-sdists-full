@@ -240,6 +240,8 @@ from .type_defs import (
     PutSegmentSubscriptionResponseTypeDef,
     SearchProfilesRequestTypeDef,
     SearchProfilesResponseTypeDef,
+    SearchRecommendationsRequestTypeDef,
+    SearchRecommendationsResponseTypeDef,
     StartRecommenderRequestTypeDef,
     StartUploadJobRequestTypeDef,
     StopRecommenderRequestTypeDef,
@@ -1354,6 +1356,16 @@ class CustomerProfilesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/search_profiles.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#search_profiles)
+        """
+
+    def search_recommendations(
+        self, **kwargs: Unpack[SearchRecommendationsRequestTypeDef]
+    ) -> SearchRecommendationsResponseTypeDef:
+        """
+        Retrieves recommendations for a profile in a specific domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/search_recommendations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#search_recommendations)
         """
 
     def start_recommender(self, **kwargs: Unpack[StartRecommenderRequestTypeDef]) -> dict[str, Any]:

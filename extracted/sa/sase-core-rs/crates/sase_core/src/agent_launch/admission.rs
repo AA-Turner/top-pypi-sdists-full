@@ -8,6 +8,8 @@ use super::{
     AgentUnitWire, LaunchOutcomeWire, LaunchPlanWire, LaunchUnitPayloadWire,
     LaunchUnitResultWire, WaitTargetWire,
 };
+use crate::agent_hold::AgentHoldBlockWire;
+use crate::hold_directive::format_hold_directive;
 use crate::queue_directive::{format_queue_directive, QueueFieldsWire};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -106,6 +108,8 @@ pub struct LaunchAdmissionUnitStateWire {
     pub logical_id: String,
     pub phase: LaunchUnitPhaseWire,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_recorded_at_unix: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fingerprint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub identity: Option<String>,
@@ -138,6 +142,13 @@ pub struct LaunchAdmissionWaitFactWire {
     pub identity: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LaunchAdmissionHoldBlockWire {
+    pub logical_id: String,
+    pub block: AgentHoldBlockWire,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -221,6 +232,7 @@ pub fn reconcile_admission_journal(
                 LaunchAdmissionUnitStateWire {
                     logical_id: entry.logical_id.clone(),
                     phase: entry.phase,
+                    first_recorded_at_unix: Some(entry.recorded_at_unix),
                     last_seq: entry.seq,
                     ..Default::default()
                 }
@@ -238,6 +250,11 @@ pub fn reconcile_admission_journal(
         }
         if let Some(message) = &entry.message {
             state.message = Some(message.clone());
+        } else if matches!(
+            entry.phase,
+            LaunchUnitPhaseWire::Dispatching | LaunchUnitPhaseWire::Launched
+        ) {
+            state.message = None;
         }
         if let Some(dispatch_target) = &entry.dispatch_target {
             state.dispatch_target = Some(dispatch_target.clone());
@@ -266,7 +283,17 @@ pub fn next_admission_actions(
     states: &BTreeMap<String, LaunchAdmissionUnitStateWire>,
     wait_facts: &[LaunchAdmissionWaitFactWire],
 ) -> Vec<LaunchAdmissionActionWire> {
+    next_admission_actions_with_holds(plan, states, wait_facts, &[])
+}
+
+pub fn next_admission_actions_with_holds(
+    plan: &LaunchPlanWire,
+    states: &BTreeMap<String, LaunchAdmissionUnitStateWire>,
+    wait_facts: &[LaunchAdmissionWaitFactWire],
+    hold_blocks: &[LaunchAdmissionHoldBlockWire],
+) -> Vec<LaunchAdmissionActionWire> {
     let facts = facts_by_key(wait_facts);
+    let holds = hold_blocks_by_logical_id(hold_blocks);
     let mut actions = Vec::new();
     for unit in &plan.units {
         match states.get(&unit.logical_id) {
@@ -283,6 +310,9 @@ pub fn next_admission_actions(
                     if let Some(waited) =
                         resolved_wait_outcomes(unit, states, &facts)
                     {
+                        if proc_unit_held(unit, &holds) {
+                            continue;
+                        }
                         if unit.condition.is_some() {
                             actions.push(LaunchAdmissionActionWire::Check {
                                 logical_id: unit.logical_id.clone(),
@@ -303,6 +333,9 @@ pub fn next_admission_actions(
                     });
                 }
                 LaunchUnitPhaseWire::Eligible => {
+                    if proc_unit_held(unit, &holds) {
+                        continue;
+                    }
                     actions.push(dispatch_action(plan, unit));
                 }
                 LaunchUnitPhaseWire::Dispatching => {
@@ -461,6 +494,10 @@ pub fn agent_unit_dispatch_prompt_with_flags(
     }) {
         lines.push(directive);
     }
+    if let Some(directive) = agent.hold.as_ref().and_then(format_hold_directive)
+    {
+        lines.push(directive);
+    }
     if let Some(workspace) = agent.workspace_reference.as_deref() {
         if !workspace.is_empty() {
             lines.push(workspace.to_string());
@@ -508,6 +545,29 @@ fn facts_by_key(
     facts
 }
 
+fn hold_blocks_by_logical_id(
+    hold_blocks: &[LaunchAdmissionHoldBlockWire],
+) -> BTreeMap<String, Vec<AgentHoldBlockWire>> {
+    let mut blocks: BTreeMap<String, Vec<AgentHoldBlockWire>> = BTreeMap::new();
+    for block in hold_blocks {
+        blocks
+            .entry(block.logical_id.clone())
+            .or_default()
+            .push(block.block.clone());
+    }
+    blocks
+}
+
+fn proc_unit_held(
+    unit: &super::LaunchUnitWire,
+    holds: &BTreeMap<String, Vec<AgentHoldBlockWire>>,
+) -> bool {
+    matches!(unit.payload, LaunchUnitPayloadWire::Proc(_))
+        && holds
+            .get(&unit.logical_id)
+            .is_some_and(|blocks| !blocks.is_empty())
+}
+
 fn resolved_wait_outcomes(
     unit: &super::LaunchUnitWire,
     states: &BTreeMap<String, LaunchAdmissionUnitStateWire>,
@@ -550,6 +610,10 @@ fn resolved_wait_outcome(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent_hold::{
+        AgentHoldArmerKindWire, AgentHoldBlockArmerWire, AgentHoldBlockWire,
+        AGENT_HOLD_WIRE_SCHEMA_VERSION,
+    };
     use crate::agent_launch::{
         AgentUnitWire, LaunchConditionWire, LaunchUnitWire, ProcUnitWire,
         LAUNCH_PLAN_WIRE_SCHEMA_VERSION,
@@ -569,6 +633,55 @@ mod tests {
                 model: Some("opus".to_string()),
                 ..Default::default()
             }),
+        }
+    }
+
+    fn proc_unit(logical_id: &str, source_order: u32) -> LaunchUnitWire {
+        LaunchUnitWire {
+            logical_id: logical_id.to_string(),
+            source_order,
+            waits: Vec::new(),
+            condition: None,
+            payload: LaunchUnitPayloadWire::Proc(ProcUnitWire {
+                code: CodeValueWire {
+                    schema_version: 1,
+                    source: "just check".to_string(),
+                    language: "bash".to_string(),
+                    info_string: None,
+                    digest: "b".repeat(64),
+                    preview: "just check".to_string(),
+                },
+                shell_name: Some("check".to_string()),
+                label: None,
+                timeout: None,
+                idle_timeout: None,
+                cwd: None,
+                workspace: true,
+                workspace_explicit: false,
+                selected_project: Some("sase".to_string()),
+                queue_capacity: None,
+                wait_priority: None,
+                queue_weight: None,
+                queue_weight_explicit: false,
+                hold: None,
+            }),
+        }
+    }
+
+    fn hold_block(logical_id: &str) -> LaunchAdmissionHoldBlockWire {
+        LaunchAdmissionHoldBlockWire {
+            logical_id: logical_id.to_string(),
+            block: AgentHoldBlockWire {
+                schema_version: AGENT_HOLD_WIRE_SCHEMA_VERSION,
+                armer: AgentHoldBlockArmerWire {
+                    kind: AgentHoldArmerKindWire::Agent,
+                    key: "agent:holder".to_string(),
+                    display: "holder".to_string(),
+                    project: "sase".to_string(),
+                },
+                expires_at: 1_800_000_060.0,
+                matches: Vec::new(),
+            },
         }
     }
 
@@ -625,6 +738,7 @@ mod tests {
         assert_eq!(state.phase, LaunchUnitPhaseWire::Launched);
         assert_eq!(state.identity.as_deref(), Some("reviewer"));
         assert_eq!(state.fingerprint.as_deref(), Some("fp"));
+        assert_eq!(state.first_recorded_at_unix, Some(1.0));
     }
 
     #[test]
@@ -681,6 +795,46 @@ mod tests {
             }
             other => panic!("expected dispatch, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn proc_hold_blocks_waiting_to_eligible_and_eligible_to_dispatch() {
+        let plan = plan_with(vec![proc_unit("unit-1", 0)]);
+        let hold_blocks = vec![hold_block("unit-1")];
+        let mut states = BTreeMap::new();
+        states.insert(
+            "unit-1".to_string(),
+            LaunchAdmissionUnitStateWire {
+                logical_id: "unit-1".to_string(),
+                phase: LaunchUnitPhaseWire::Waiting,
+                last_seq: 2,
+                ..Default::default()
+            },
+        );
+        assert!(next_admission_actions_with_holds(
+            &plan,
+            &states,
+            &[],
+            &hold_blocks
+        )
+        .is_empty());
+        assert!(matches!(
+            next_admission_actions_with_holds(&plan, &states, &[], &[])[0],
+            LaunchAdmissionActionWire::Eligible { .. }
+        ));
+
+        states.get_mut("unit-1").unwrap().phase = LaunchUnitPhaseWire::Eligible;
+        assert!(next_admission_actions_with_holds(
+            &plan,
+            &states,
+            &[],
+            &hold_blocks
+        )
+        .is_empty());
+        assert!(matches!(
+            next_admission_actions_with_holds(&plan, &states, &[], &[])[0],
+            LaunchAdmissionActionWire::Dispatch { .. }
+        ));
     }
 
     #[test]
@@ -1071,6 +1225,11 @@ mod tests {
             workspace: true,
             workspace_explicit: false,
             selected_project: Some("sase".to_string()),
+            queue_capacity: None,
+            wait_priority: None,
+            queue_weight: None,
+            queue_weight_explicit: false,
+            hold: None,
         });
         assert_eq!(dispatch_fingerprint("plan", "unit-1", &payload).len(), 64);
     }

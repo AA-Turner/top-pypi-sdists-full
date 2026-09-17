@@ -8,6 +8,9 @@ from enum import StrEnum
 from typing import Any, Literal, NotRequired, TypedDict, Union, cast
 
 
+from river_client.images import Image, ImageHandle
+
+
 # ─── Tokenizer type alias ────────────────────────────────────────────────
 
 Tokenizer = Any  # PreTrainedTokenizer | PreTrainedTokenizerFast
@@ -40,12 +43,13 @@ class ImagePart(TypedDict):
     callers preferring to avoid the soft Pillow dependency should
     pass dimensions explicitly via :func:`image_part`.
 
-    The raw image bytes ride through ``forward_backward`` /
-    ``sample()`` untouched; image preprocessing happens server-side.
+    Uploaded handles supply server-read dimensions without decoding bytes
+    locally. Inline bytes and handles both work with ``forward_backward`` and
+    ``sample()``; image preprocessing happens server-side.
     """
 
     type: Literal["image"]
-    image: bytes
+    image: Image
     format: ImageFormat
     height: NotRequired[int]
     width: NotRequired[int]
@@ -55,17 +59,17 @@ ContentPart = Union[TextPart, ThinkingPart, ImagePart]
 
 
 def image_part(
-    image: bytes,
+    image: Image,
     *,
     format: ImageFormat = "png",
     height: int | None = None,
     width: int | None = None,
 ) -> ImagePart:
-    """Build an :class:`ImagePart` from raw image bytes.
+    """Build an :class:`ImagePart` from bytes or an uploaded image handle.
 
     Passing ``height``/``width`` makes the renderer Pillow-free. When
-    omitted, the renderer reads them lazily via PIL the first time the
-    image is rendered.
+    omitted, uploaded handles supply server-read dimensions; inline bytes
+    are read lazily via PIL the first time the image is rendered.
     """
     part: ImagePart = {"type": "image", "image": image, "format": format}
     if height is not None:
@@ -83,6 +87,14 @@ def image_part_size(part: ImagePart) -> tuple[int, int]:
     or if it cannot decode the bytes — callers that want to avoid the
     soft Pillow dependency should pass ``height``/``width`` explicitly.
     """
+    if isinstance(part["image"], ImageHandle):
+        image = part["image"]
+        if (
+            part.get("height", image.height) != image.height
+            or part.get("width", image.width) != image.width
+        ):
+            raise ValueError("explicit dimensions disagree with uploaded image")
+        return image.height, image.width
     h = part.get("height")
     w = part.get("width")
     if h is not None and w is not None:
@@ -120,14 +132,14 @@ class EncodedTextChunk(TypedDict):
 class ImageChunk(TypedDict):
     """A single image inside a chunked model input.
 
-    ``data`` is raw image bytes (PNG/JPEG); the worker base64-decodes
-    them, runs its ``AutoProcessor``, and verifies that the actual
-    feature count matches ``expected_tokens`` before splicing the
-    placeholder ids into the LLM stream.
+    ``data`` is image bytes or an uploaded handle. The API resolves handles;
+    the worker runs its image processor and verifies that the actual feature
+    count matches ``expected_tokens`` before splicing placeholder ids into the
+    LLM stream.
     """
 
     type: Literal["image"]
-    data: bytes
+    data: Image
     format: ImageFormat
     expected_tokens: int
 
@@ -310,14 +322,14 @@ class TrainingExample:
 class SamplePrompt:
     """Inference-ready prompt for ``model.sample(...)``.
 
-    Vision-aware renderers emit a fully expanded prompt string with
-    per-image placeholder runs already in place, alongside a parallel
-    list of raw image bytes. The client base64-encodes the images and
-    ships them in ``InferencePrompt.images`` for inference.
+    Vision-aware renderers emit one unexpanded placeholder per image,
+    alongside an ordered list of image bytes or uploaded handles. The client
+    selects the corresponding protobuf image representation; preprocessing
+    and placeholder expansion happen on the server.
     """
 
     prompt: str
-    images: list[bytes] = field(default_factory=list)
+    images: list[Image] = field(default_factory=list)
     image_formats: list[str] = field(default_factory=list)
 
     def __post_init__(self):
@@ -387,7 +399,7 @@ class _ChunkBuilder:
     def add_image(
         self,
         *,
-        data: bytes,
+        data: Image,
         format: str,
         expected_tokens: int,
         placeholder_id: int,
@@ -529,19 +541,39 @@ class Renderer(ABC):
             image_formats=[],
         )
 
+    def build_continuation_prompt(
+        self, messages: list[Message], *, last_stop: str | None
+    ) -> SamplePrompt:
+        """Frame only new environment messages after an exact sampled prefix.
+
+        Include any missing assistant terminator and the next generation header.
+        ``last_stop`` is the stop string already present in the sampled ids, or
+        None if no stop was retained (including an interrupted generation).
+        Never render earlier assistant content, tools declarations, or a fresh
+        conversation preamble here. Unsupported families fail explicitly.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} has no token-exact continuation implementation"
+        )
+
     @abstractmethod
     def get_stop_strings(self) -> list[str]:
         """Return stop strings for model.sample(stop=...)."""
         ...
 
     @abstractmethod
-    def parse_response(self, text: str) -> ParsedResponse:
+    def parse_response(
+        self, text: str, *, tools: list[ToolSpec] | None = None
+    ) -> ParsedResponse:
         """Parse sampled text into a structured Message.
 
         Parses renderer-specific response syntax and strips stop strings.
 
         Args:
             text: Raw text from Sample.text.
+            tools: Tool definitions for schema-aware parsers (currently GLM).
+                Pass the same definitions used to build the prompt. Other
+                renderers retain their format-specific argument decoding.
 
         Returns:
             ParsedResponse with structured message and stop_found flag.

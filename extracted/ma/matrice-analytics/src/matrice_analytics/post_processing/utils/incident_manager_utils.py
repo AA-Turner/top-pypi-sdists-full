@@ -1879,7 +1879,7 @@ class IncidentManagerFactory:
     def _create_redis_client(self, rpc: Any):
         """Create and return a Redis MatriceStream client, or None on failure."""
         try:
-            from matrice_common.stream.matrice_stream import MatriceStream, StreamType
+            from matrice_streaming.databus.matrice_stream import MatriceStream, StreamType
         except ImportError:
             MatriceStream = None
             StreamType = None

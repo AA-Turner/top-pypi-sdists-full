@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyproject_hooks
-Version: 1.3.0
+Version: 1.3.3
 Summary: Wrappers to call pyproject.toml-based build backend hooks.
 Author-email: Thomas Kluyver <thomas@kluyver.me.uk>
 Requires-Python: >=3.8

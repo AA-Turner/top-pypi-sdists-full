@@ -29,7 +29,8 @@ import numpy
 import numpy as n
 import unittest
 from types import *
-from helpers import *
+from numpy import array
+from helpers import args, casadiTestCase, hessian_old, jacobian_old, memory_heavy, requires_integrator, requires_nlpsol, slow
 import copy
 
 scipy_available = True
@@ -1030,6 +1031,23 @@ class Integrationtests(casadiTestCase):
     print(stats["nsteps"])
     self.assertTrue(stats["nsteps"]>=int(0.5/1.1e-4))
 
+  def test_adjoint_without_parameters(self):
+    self.message("Adjoint sensitivities without parameter or control quadratures")
+    x = ca.MX.sym("x", 3)
+    rates = ca.DM([1, 2, 3])
+    x0 = ca.MX.sym("x0", 3)
+    for backend in ["cvodes", "idas"]:
+      if not ca.has_integrator(backend):
+        continue
+      for grid in [[1], [0.5, 1]]:
+        I = ca.integrator("I", backend, {"x": x, "ode": -rates*x}, 0, grid,
+          {"enable_forward": False, "abstol": 1e-11, "reltol": 1e-11})
+        xf = I(x0=x0)["xf"]
+        J = ca.Function("J", [x0], [ca.jacobian(xf[:2, -1], x0)])
+        reference = ca.diag(ca.exp(-rates))[:2, :]
+        for value in [[1, 2, 3], [3, 2, 1]]:
+          self.checkarray(reference, J(value), digits=7)
+
   @requires_integrator('idas')
   def test_constraints_idas(self):
     x = ca.SX.sym("x")
@@ -1049,6 +1067,24 @@ class Integrationtests(casadiTestCase):
     with self.assertInException("IDA_CONSTR_FAIL"):
       sol = I(x0=0, p=0.15)
       # xf:0.259754<=0, zf:0.26948<=0
+
+  @requires_integrator('idas')
+  def test_constraints_idas_sensitivities(self):
+    self.message("IDAS constraints apply to primal states, not sensitivities")
+    x = ca.MX.sym("x", 2)
+    z = ca.MX.sym("z")
+    p = ca.MX.sym("p", 2)
+    I = ca.integrator("I", "idas",
+      {"x": x, "z": z, "p": p, "ode": -p*x, "alg": z+ca.sum1(x)}, 0, 1,
+      {"constraints": [2, 2, -2], "enable_reverse": False,
+       "abstol": 1e-11, "reltol": 1e-11})
+    result = I(x0=[1, 2], z0=-3, p=p)
+    y = ca.vertcat(result["xf"], result["zf"])
+    J = ca.Function("J", [p], [ca.jacobian(y, p)])
+    reference = ca.DM([[-np.exp(-1), 0], [0, -2*np.exp(-2)],
+                       [np.exp(-1), 2*np.exp(-2)]])
+    self.checkarray(reference, J([1, 2]), digits=7)
+    self.checkarray(reference, ca.Function.deserialize(J.serialize())([1, 2]), digits=7)
 
   @requires_integrator('idas')
   @requires_nlpsol('ipopt')

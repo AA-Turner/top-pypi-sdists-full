@@ -263,10 +263,14 @@ def get_capabilities(
         },
     }
 
-    # loadExtensions=[EXTENSION] (the dom-watcher) — set for every browser EXCEPT WebKit:
-    # WebKit loads no extensions, and for safari the EXTENSION env carries lt_utility.js
-    # (a JS file, not an extension zip), which must not be sent as loadExtensions.
-    if not _is_webkit:
+    # loadExtensions=[EXTENSION] (the dom-watcher) — set for every browser EXCEPT WebKit
+    # and Firefox: WebKit loads no extensions, and for safari the EXTENSION env carries
+    # lt_utility.js (a JS file, not an extension zip), which must not be sent as
+    # loadExtensions. Firefox is excluded because the grid turns loadExtensions into the
+    # Chromium-only launch flags --load-extension/--disable-extensions-except and passes
+    # them to a Playwright Firefox launch, which renders the extension folder as a
+    # file:// page and never completes the session's first new_page() (TE-28487).
+    if not _is_webkit and not _is_firefox:
         capabilities["LT:Options"]["loadExtensions"] = [os.getenv("EXTENSION")]
 
     # Geolocation — conditional (matches: if os.getenv("GEO_LOCATION", False))

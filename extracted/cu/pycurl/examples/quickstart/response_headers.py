@@ -34,7 +34,7 @@ def header_function(header_line):
 
 buffer = BytesIO()
 c = pycurl.Curl()
-c.setopt(c.URL, 'http://pycurl.io')
+c.setopt(c.URL, 'https://pycurl.github.io')
 c.setopt(c.WRITEFUNCTION, buffer.write)
 # Set our header function.
 c.setopt(c.HEADERFUNCTION, header_function)

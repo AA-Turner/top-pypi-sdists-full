@@ -50,7 +50,7 @@ COMMAND_MAP = {
         "resolve_thread_async",
     ),
     "agdt-mark-pull-request-draft": (
-        "agentic_devtools.cli.azure_devops",
+        "agentic_devtools.cli.pull_request_draft",
         "mark_pull_request_draft_async",
     ),
     "agdt-publish-pull-request": (

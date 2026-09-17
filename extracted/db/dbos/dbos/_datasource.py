@@ -8,6 +8,7 @@ from typing import (
     Callable,
     Coroutine,
     Dict,
+    Literal,
     Optional,
     ParamSpec,
     TypedDict,
@@ -27,9 +28,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import Session, sessionmaker
 
-from dbos._app_db import RecordedResult
 from dbos._context import DBOSContextEnsure, get_local_dbos_context
-from dbos._dbos import IsolationLevel
 from dbos._error import DBOSException, DBOSWorkflowConflictIDError
 from dbos._schemas import SCHEMA_PLACEHOLDER
 from dbos._schemas.datasource_database import DatasourceSchema
@@ -55,6 +54,18 @@ _DUPLICATE_CHECKPOINT_POLL_SECONDS = 0.01
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+IsolationLevel = Literal[
+    "SERIALIZABLE",
+    "REPEATABLE READ",
+    "READ COMMITTED",
+]
+
+
+class RecordedResult(TypedDict):
+    output: Optional[str]  # determined by `serialization`
+    error: Optional[str]  # determined by `serialization`
+    serialization: Optional[str]
 
 
 class _StepAlreadyRecorded(Exception):
@@ -199,7 +210,6 @@ class AsyncSQLAlchemyDatasource(ABC):
         self.engine = base_engine.execution_options(
             schema_translate_map={SCHEMA_PLACEHOLDER: self.schema}
         )
-        self._engine_kwargs = engine_kwargs
         self.sessionmaker = async_sessionmaker(bind=self.engine)
         self.serializer = serializer
 
@@ -557,7 +567,6 @@ class SQLAlchemyDatasource(ABC):
         self.engine = base_engine.execution_options(
             schema_translate_map={SCHEMA_PLACEHOLDER: self.schema}
         )
-        self._engine_kwargs = engine_kwargs
         self.sessionmaker = sessionmaker(bind=self.engine)
         self.serializer = serializer
 

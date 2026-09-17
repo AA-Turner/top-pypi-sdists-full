@@ -241,14 +241,23 @@ namespace casadi {
 template<typename K, typename T>
 class CASADI_EXPORT WeakCache {
   public:
-    void tocache(const K& key, const T& f, bool needs_lock=true) {
+    void tocache(const K& key, const T& f, bool needs_lock=true,
+        bool prune=true) {
 #ifdef CASADI_WITH_THREADSAFE_SYMBOLICS
       // Safe access to cache_
       casadi::conditional_lock_guard<std::mutex> lock(mtx_, needs_lock);
 #endif // CASADI_WITH_THREADSAFE_SYMBOLICS
       // Add to cache
-      cache_.insert(std::make_pair(key, f));
+      auto it = cache_.find(key);
+
+      if (it == cache_.end()) {
+        cache_.emplace(key, f);
+      } else if (!it->second.alive()) {
+        it->second = f;
+      }
+
       // Remove a lost reference, if any, to prevent uncontrolled growth
+      if (!prune) return;
       for (auto it = cache_.begin(); it!=cache_.end(); ++it) {
         if (!it->second.alive()) {
           cache_.erase(it);
@@ -264,13 +273,13 @@ class CASADI_EXPORT WeakCache {
     * may lead to deadlocks.
     *
     */
-    void tocache_if_missing(const K& key, T& f) {
+    void tocache_if_missing(const K& key, T& f, bool prune=true) {
 #ifdef CASADI_WITH_THREADSAFE_SYMBOLICS
       // Safe access to cache_
       std::lock_guard<std::mutex> lock(mtx_);
 #endif // CASADI_WITH_THREADSAFE_SYMBOLICS
       if (!incache(key, f, false)) {
-        tocache(key, f, false);
+        tocache(key, f, false, prune);
       }
     }
     bool incache(const K& key, T& f, bool needs_lock=true) const {
@@ -285,6 +294,20 @@ class CASADI_EXPORT WeakCache {
         return true;
       } else {
         return false;
+      }
+    }
+    // Remove all expired entries in one pass.
+    void prune() {
+#ifdef CASADI_WITH_THREADSAFE_SYMBOLICS
+      // Safe access to cache_
+      std::lock_guard<std::mutex> lock(mtx_);
+#endif // CASADI_WITH_THREADSAFE_SYMBOLICS
+      for (auto it = cache_.begin(); it!=cache_.end();) {
+        if (!it->second.alive()) {
+          it = cache_.erase(it);
+        } else {
+          ++it;
+        }
       }
     }
     void cache(std::vector<K>& keys, std::vector<T>& entries) const {
@@ -312,14 +335,6 @@ class CASADI_EXPORT WeakCache {
 #endif // CASADI_WITH_THREADSAFE_SYMBOLICS
 };
 
-// gcc-12 is overzealous about use-after-free warnings
-// <12 or >12 works fine
-#if __GNUC__
-#pragma GCC diagnostic push
-#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ == 12)
-#pragma GCC diagnostic ignored "-Wuse-after-free"
-#endif
-#endif
 /**
  * Key is stored as a weakref
  * Value is stored as regular ref
@@ -327,20 +342,33 @@ class CASADI_EXPORT WeakCache {
 template<typename K, typename T>
 class CASADI_EXPORT RevWeakCache {
   public:
-    void tocache(const K& key, const T& f, bool needs_lock=true) {
+    void tocache(const K& key, const T& f, bool needs_lock=true,
+        bool prune=true) {
 #ifdef CASADI_WITH_THREADSAFE_SYMBOLICS
       // Safe access to cache_
       casadi::conditional_lock_guard<std::mutex> lock(mtx_, needs_lock);
 #endif // CASADI_WITH_THREADSAFE_SYMBOLICS
       // Add to cache
       const void* k = key.get();
-      pre_cache_.insert(std::make_pair(k, key));
-      cache_.insert(std::make_pair(k, f));
+      auto it = pre_cache_.find(k);
+
+      if (it == pre_cache_.end()) {
+        pre_cache_.emplace(k, key);
+        cache_.emplace(k, f);
+      } else if (it->second.get() != typename K::base_type(key).weak()->get()) {
+        // The address was recycled. Compare weak-reference identities without
+        // reading liveness, and replace both entries in place.
+        it->second = key;
+        cache_.find(k)->second = f;
+      }
+
       // Remove a lost reference, if any, to prevent uncontrolled growth
+      if (!prune) return;
       for (auto it = pre_cache_.begin(); it!=pre_cache_.end(); ++it) {
         if (!it->second.alive()) {
+          const void* dead = it->first;
           pre_cache_.erase(it);
-          cache_.erase(it->first);
+          cache_.erase(dead);
           break; // just one dead reference is enough
         }
       }
@@ -353,13 +381,13 @@ class CASADI_EXPORT RevWeakCache {
     * may lead to deadlocks.
     *
     */
-    void tocache_if_missing(const K& key, T& f) {
+    void tocache_if_missing(const K& key, T& f, bool prune=true) {
 #ifdef CASADI_WITH_THREADSAFE_SYMBOLICS
       // Safe access to cache_
       std::lock_guard<std::mutex> lock(mtx_);
 #endif // CASADI_WITH_THREADSAFE_SYMBOLICS
       if (!incache(key, f, false)) {
-        tocache(key, f, false);
+        tocache(key, f, false, prune);
       }
     }
     bool incache(const K& key, T& f, bool needs_lock=true) const {
@@ -387,10 +415,6 @@ class CASADI_EXPORT RevWeakCache {
     mutable std::mutex mtx_;
 #endif // CASADI_WITH_THREADSAFE_SYMBOLICS
 };
-
-#if __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 /**
  * Simple cache template for regular (non-weak) key-value pairs

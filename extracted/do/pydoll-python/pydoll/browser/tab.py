@@ -46,6 +46,7 @@ from pydoll.elements.shadow_root import ShadowRoot
 from pydoll.elements.web_element import WebElement
 from pydoll.exceptions import (
     CommandExecutionTimeout,
+    CommandFailed,
     DownloadTimeout,
     IFrameNotFound,
     InvalidFileExtension,
@@ -590,11 +591,7 @@ class Tab(FindElementsMixin):
             logger.debug(f'Iframe tab already tracked: {target_id}')
             return self._browser._tabs_opened[target_id]
 
-        tab = Tab(
-            self._browser,
-            target_id=target_id,
-            connection_port=self._connection_port,
-        )
+        tab = Tab(self._browser, **self._browser._get_tab_kwargs(target_id))
         self._browser._tabs_opened[target_id] = tab
         logger.debug(f'Iframe tab created and registered: {target_id}')
         return tab
@@ -665,13 +662,13 @@ class Tab(FindElementsMixin):
                     DomCommands.resolve_node(backend_node_id=backend_node_id)
                 )
                 shadow_object_id = resolve_response['result']['object']['objectId']
-            except (CommandExecutionTimeout, WebSocketConnectionClosed, KeyError):
+            except (CommandExecutionTimeout, CommandFailed, WebSocketConnectionClosed, KeyError):
                 logger.debug(f'Failed to resolve shadow root: backend_node_id={backend_node_id}')
                 continue
 
             try:
                 host_element = await self._resolve_shadow_host(host_backend_id)
-            except (CommandExecutionTimeout, WebSocketConnectionClosed, KeyError):
+            except (CommandExecutionTimeout, CommandFailed, WebSocketConnectionClosed, KeyError):
                 logger.debug(f'Failed to resolve shadow host: backend_node_id={host_backend_id}')
                 host_element = None
             mode = ShadowRootType(shadow_data.get('shadowRootType', 'open'))
@@ -707,7 +704,10 @@ class Tab(FindElementsMixin):
 
     async def _collect_oopif_shadow_roots(self) -> list[ShadowRoot]:
         """Discover shadow roots inside cross-origin iframes (OOPIFs)."""
-        browser_handler = ConnectionHandler(connection_port=self._connection_port)
+        browser_handler = ConnectionHandler(
+            connection_port=self._connection_port,
+            ws_address=self._ws_address,
+        )
         try:
             targets_response: GetTargetsResponse = await browser_handler.execute_command(
                 TargetCommands.get_targets()
@@ -744,7 +744,7 @@ class Tab(FindElementsMixin):
             session_id = attach_response.get('result', {}).get('sessionId')
             if not session_id:
                 return []
-        except (CommandExecutionTimeout, WebSocketConnectionClosed):
+        except (CommandExecutionTimeout, CommandFailed, WebSocketConnectionClosed):
             logger.debug(f'Failed to attach to OOPIF target: {target_id}')
             return []
 
@@ -755,7 +755,7 @@ class Tab(FindElementsMixin):
                 get_doc_command
             )
             root_node = doc_response.get('result', {}).get('root', {})
-        except (CommandExecutionTimeout, WebSocketConnectionClosed):
+        except (CommandExecutionTimeout, CommandFailed, WebSocketConnectionClosed):
             logger.debug(f'Failed to get document from OOPIF target: {target_id}')
             return []
 
@@ -797,7 +797,7 @@ class Tab(FindElementsMixin):
                 resolve_command
             )
             shadow_object_id = resolve_response['result']['object']['objectId']
-        except (CommandExecutionTimeout, WebSocketConnectionClosed, KeyError):
+        except (CommandExecutionTimeout, CommandFailed, WebSocketConnectionClosed, KeyError):
             logger.debug(f'Failed to resolve OOPIF shadow root: backend_node_id={backend_node_id}')
             return None
 
@@ -855,7 +855,7 @@ class Tab(FindElementsMixin):
                 attributes_list=attributes,
                 mouse=self._mouse,
             )
-        except (CommandExecutionTimeout, WebSocketConnectionClosed, KeyError):
+        except (CommandExecutionTimeout, CommandFailed, WebSocketConnectionClosed, KeyError):
             logger.debug(f'Failed to resolve OOPIF shadow host: backend_node_id={host_backend_id}')
             return None
 

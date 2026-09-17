@@ -4,23 +4,26 @@
 # See LICENSE in the root of the repository for full licensing details.
 
 import types
+from unittest import mock
 
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 import pytest
-import shapely.geometry as sgeom
+import shapely
 
-from cartopy import config
-import cartopy.crs as ccrs
-import cartopy.io.img_tiles as cimgt
+from cartopy.mpl import _MPL_311
 from cartopy.tests.conftest import _HAS_PYKDTREE_OR_SCIPY
-import cartopy.tests.test_img_tiles as ctest_tiles
 
 
 if not _HAS_PYKDTREE_OR_SCIPY:
     pytest.skip('pykdtree or scipy is required', allow_module_level=True)
+
+from cartopy import config
+import cartopy.crs as ccrs
+import cartopy.io.img_tiles as cimgt
+import cartopy.tests.test_img_tiles as ctest_tiles
 
 
 NATURAL_EARTH_IMG = (config["repo_data_dir"] / 'raster' / 'natural_earth'
@@ -34,14 +37,14 @@ REGIONAL_IMG = (config['repo_data_dir'] / 'raster' / 'sample'
 # care that it is putting images onto the map which are roughly correct.
 @pytest.mark.natural_earth
 @pytest.mark.network
-@pytest.mark.mpl_image_compare(filename='web_tiles.png', tolerance=5.91)
+@pytest.mark.mpl_image_compare(tolerance=5.91)
 def test_web_tiles():
     extent = [-15, 0.1, 50, 60]
-    target_domain = sgeom.Polygon([[extent[0], extent[1]],
-                                   [extent[2], extent[1]],
-                                   [extent[2], extent[3]],
-                                   [extent[0], extent[3]],
-                                   [extent[0], extent[1]]])
+    target_domain = shapely.Polygon([[extent[0], extent[1]],
+                                     [extent[2], extent[1]],
+                                     [extent[2], extent[3]],
+                                     [extent[0], extent[3]],
+                                     [extent[0], extent[1]]])
     map_prj = cimgt.GoogleTiles().crs
     fig = plt.figure()
 
@@ -73,7 +76,7 @@ def test_web_tiles():
 
 @pytest.mark.natural_earth
 @pytest.mark.network
-@pytest.mark.mpl_image_compare(filename='image_merge.png', tolerance=0.03)
+@pytest.mark.mpl_image_compare
 def test_image_merge():
     # tests the basic image merging functionality
     tiles = []
@@ -115,18 +118,19 @@ def test_imshow():
 
 
 @pytest.mark.natural_earth
-@pytest.mark.mpl_image_compare(filename='imshow_regional_projected.png',
-                               tolerance=1.97)
+@pytest.mark.mpl_image_compare(style='mpl20', tolerance=7.14 if not _MPL_311 else 0.5)
 def test_imshow_projected():
     source_proj = ccrs.PlateCarree()
     img_extent = (-120.67660000000001, -106.32104523100001,
                   13.2301484511245, 30.766899999999502)
     img = plt.imread(REGIONAL_IMG)
-    ax = plt.axes(projection=ccrs.LambertConformal())
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_axes((0.125, 0.1, 0.9 - 0.125, 0.9 - 0.1),  # Preserve classic rect.
+                      projection=ccrs.LambertConformal())
     ax.set_extent(img_extent, crs=source_proj)
     ax.coastlines(resolution='50m')
     ax.imshow(img, extent=img_extent, transform=source_proj)
-    return ax.figure
+    return fig
 
 
 def test_imshow_wrapping():
@@ -200,6 +204,18 @@ def test_stock_img():
     return ax.figure
 
 
+def test_stock_img_kwargs():
+    # test that extra keyword arguments are passed to imshow
+    with mock.patch('cartopy.mpl.geoaxes.GeoAxes.imshow') as imshow_mock:
+        ax = plt.axes(projection=ccrs.Orthographic())
+        ax.stock_img(alpha=None, interpolation=None, resample=None,
+                     regrid_shape=750)
+        imshow_mock.assert_called_once()
+        call_kwargs = imshow_mock.call_args.kwargs
+        assert call_kwargs['regrid_shape'] == 750
+        assert call_kwargs['interpolation'] is None
+
+
 @pytest.mark.mpl_image_compare(filename='imshow_natural_earth_ortho.png')
 def test_pil_Image():
     img = Image.open(NATURAL_EARTH_IMG)
@@ -215,6 +231,19 @@ def test_background_img():
     ax = plt.axes(projection=ccrs.Orthographic())
     ax.background_img(name='ne_shaded', resolution='low')
     return ax.figure
+
+
+def test_background_img_kwargs():
+    # test that extra keyword arguments are passed to imshow
+    with mock.patch('cartopy.mpl.geoaxes.GeoAxes.imshow') as imshow_mock:
+        ax = plt.axes(projection=ccrs.Orthographic())
+        ax.background_img(name='ne_shaded', resolution='low',
+                          alpha=None, interpolation=None, resample=None,
+                          regrid_shape=750)
+        imshow_mock.assert_called_once()
+        call_kwargs = imshow_mock.call_args.kwargs
+        assert call_kwargs['regrid_shape'] == 750
+        assert call_kwargs['interpolation'] is None
 
 
 def test_alpha_2d_warp():

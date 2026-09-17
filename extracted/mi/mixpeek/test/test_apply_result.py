@@ -47,6 +47,9 @@ class TestApplyResult(unittest.TestCase):
                         drift = [
                             ''
                             ], 
+                        refused = [
+                            ''
+                            ], 
                         drift_not_compared = [
                             ''
                             ], )
@@ -54,6 +57,7 @@ class TestApplyResult(unittest.TestCase):
                 created_count = 56,
                 failed_count = 56,
                 skipped_count = 56,
+                updated_count = 56,
                 errors = [
                     ''
                     ],

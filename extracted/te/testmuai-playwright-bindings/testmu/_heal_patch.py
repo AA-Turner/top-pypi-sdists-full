@@ -7,14 +7,14 @@ The patch only fires inside a testmu.step() block (ContextVar check).
 Outside a step, the wrapper is a pure passthrough.
 
 heal_fn contract:
-    async def heal_fn(page, description, method_name, *args, **kwargs) -> bool
+    async def heal_fn(page, description, method_name, locator, *args, **kwargs)
 
-    Returns True if heal handled the action (wrapper returns normally).
-    Returns False if heal couldn't help (wrapper re-raises original error).
-
-    Today's default heal does a coordinate lookup via vision API and clicks
-    at the returned coordinates for click/hover methods. Other methods are
-    not supported until locator re-resolution lands.
+    Returns the value of the replayed method when heal handled the action
+    (the wrapper returns it to the caller, so healed reads such as
+    ``evaluate`` still hand back their result).
+    Returns ``_NOT_HANDLED`` when heal couldn't help (the wrapper re-raises
+    the original error). ``None`` and ``False`` are legitimate return values
+    of Playwright methods, so only the sentinel means "not handled".
 """
 import contextvars
 import functools
@@ -24,6 +24,10 @@ from testmu._step import _current_step
 from testmu._heal_cache import get_cache
 
 _log = logging.getLogger("testmu")
+
+# Returned by a heal_fn that could not help. The wrapper re-raises the
+# original error on this value and returns anything else to the caller.
+_NOT_HANDLED = object()
 
 # Re-entry guard for the action engine. Set by _run_verb (imported from here
 # by the engine) for the duration of a heal-cascade call so the verb runners'
@@ -177,14 +181,14 @@ def _make_wrapper(name, original, heal_fn):
                     heal_desc = _resolve_var(heal_desc)
                 except Exception:
                     heal_desc = step.description
-            handled = await heal_fn(
+            outcome = await heal_fn(
                 self.page, heal_desc, name, self, *args, _reprobe=True, **kwargs
             )
-            if not handled:
+            if outcome is _NOT_HANDLED:
                 raise _TIMEOUT_EXCS[0](
                     f"reprobe: could not re-locate {heal_desc!r} for {name}"
                 )
-            return
+            return outcome
 
         # Version-gated path — delegate the whole try → cascade → retry loop to the action
         # engine. Gated strictly on kane_version == "v3"; the default ("v4")
@@ -235,10 +239,11 @@ def _make_wrapper(name, original, heal_fn):
             # skip the guard and let heal disambiguate.
             if not strict and await self.count() > 0:
                 raise
-            handled = await heal_fn(
+            outcome = await heal_fn(
                 self.page, step.description, name, self, *args, **kwargs
             )
-            if not handled:
+            if outcome is _NOT_HANDLED:
                 raise
+            return outcome
 
     return wrapper

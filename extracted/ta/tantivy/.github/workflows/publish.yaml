@@ -23,7 +23,7 @@ jobs:
         platform: [ 'x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu' ]
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -49,8 +49,8 @@ jobs:
             release-assets.githubusercontent.com:443
             releases.astral.sh:443
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.10'
           architecture: x64
@@ -60,7 +60,7 @@ jobs:
           manylinux: auto
           target: ${{ matrix.platform }}
           command: build
-          args: --release --sdist -o dist -i 3.10 3.11 3.12 3.13 3.13t 3.14
+          args: --release --sdist -o dist -i 3.10 3.11 3.12 3.13 3.14
 
       - name: Upload wheels
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # 7.0.1
@@ -77,15 +77,15 @@ jobs:
     strategy:
       matrix:
         target: [x64]
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.13t', '3.14']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -110,16 +110,16 @@ jobs:
       attestations: write  # persist the attestation
     strategy:
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.13t', '3.14']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
         target: ['universal2', 'x86_64-apple-darwin']
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1
         with:
           egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -147,7 +147,7 @@ jobs:
       packages: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2.1.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.1.0
         with:
           disable-sudo: true
           egress-policy: block
@@ -158,16 +158,16 @@ jobs:
             static.rust-lang.org:443
             release-assets.githubusercontent.com:443
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.head_ref }}
 
-      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
         with:
           toolchain: "stable"
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.10'
 
@@ -178,7 +178,7 @@ jobs:
           merge-multiple: true
 
       - name: Upload release binaries
-        uses: alexellis/upload-assets@13926a61cdb2cb35f5fdef1c06b8b591523236d3 # 0.4.1
+        uses: alexellis/upload-assets@d8de0b9b956cfb3d7633afdb66ef24c36940a9f7 # 0.5.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -192,7 +192,7 @@ jobs:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1
         with:
           egress-policy: audit
 
@@ -203,7 +203,7 @@ jobs:
           merge-multiple: true
 
       - name: Publish package distributions to Test PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: wheels/
@@ -212,7 +212,7 @@ jobs:
 
       - name: Publish package distributions to PyPI
         if: always()
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: wheels/
           skip-existing: true

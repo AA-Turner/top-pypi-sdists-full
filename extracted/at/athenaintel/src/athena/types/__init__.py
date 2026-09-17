@@ -126,6 +126,13 @@ if typing.TYPE_CHECKING:
     from .paginated_assets_out import PaginatedAssetsOut
     from .paginated_meetings_out import PaginatedMeetingsOut
     from .paginated_sessions_out import PaginatedSessionsOut
+    from .presence_asset_out import PresenceAssetOut
+    from .presence_member_out import PresenceMemberOut
+    from .presence_project_out import PresenceProjectOut
+    from .presence_resolve_response_out import PresenceResolveResponseOut
+    from .presence_session_out import PresenceSessionOut
+    from .presence_token_response_out import PresenceTokenResponseOut
+    from .presence_token_response_out_access_type import PresenceTokenResponseOutAccessType
     from .prompt_message import PromptMessage
     from .prompt_message_type import PromptMessageType
     from .public_asset_out import PublicAssetOut
@@ -300,6 +307,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaginatedAssetsOut": ".paginated_assets_out",
     "PaginatedMeetingsOut": ".paginated_meetings_out",
     "PaginatedSessionsOut": ".paginated_sessions_out",
+    "PresenceAssetOut": ".presence_asset_out",
+    "PresenceMemberOut": ".presence_member_out",
+    "PresenceProjectOut": ".presence_project_out",
+    "PresenceResolveResponseOut": ".presence_resolve_response_out",
+    "PresenceSessionOut": ".presence_session_out",
+    "PresenceTokenResponseOut": ".presence_token_response_out",
+    "PresenceTokenResponseOutAccessType": ".presence_token_response_out_access_type",
     "PromptMessage": ".prompt_message",
     "PromptMessageType": ".prompt_message_type",
     "PublicAssetOut": ".public_asset_out",
@@ -498,6 +512,13 @@ __all__ = [
     "PaginatedAssetsOut",
     "PaginatedMeetingsOut",
     "PaginatedSessionsOut",
+    "PresenceAssetOut",
+    "PresenceMemberOut",
+    "PresenceProjectOut",
+    "PresenceResolveResponseOut",
+    "PresenceSessionOut",
+    "PresenceTokenResponseOut",
+    "PresenceTokenResponseOutAccessType",
     "PromptMessage",
     "PromptMessageType",
     "PublicAssetOut",

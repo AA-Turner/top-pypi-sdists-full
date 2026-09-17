@@ -16,6 +16,7 @@ pub mod agent_clan_tribe;
 pub mod agent_cleanup;
 pub mod agent_family;
 pub mod agent_group_archive;
+pub mod agent_hold;
 pub mod agent_identity;
 pub mod agent_launch;
 pub mod agent_name_template;
@@ -23,6 +24,7 @@ pub mod agent_ownership;
 pub mod agent_runtime;
 pub mod agent_scan;
 pub mod agent_stats;
+pub mod agent_tribe;
 pub mod artifact_consumption;
 pub mod artifact_file;
 pub mod artifact_link;
@@ -40,6 +42,8 @@ pub mod commit_subject;
 pub mod config;
 pub mod content_layout;
 pub mod continuation;
+pub mod disk_cleanup_outcome;
+pub mod disk_inventory;
 pub mod disk_pressure;
 pub mod editor;
 pub mod effort;
@@ -58,6 +62,7 @@ pub mod gate_followup;
 pub mod git_object_sharing;
 pub mod git_query;
 pub mod glossary;
+pub mod hold_directive;
 pub mod host_bridge;
 pub mod machine_hood;
 pub mod machine_setup;
@@ -76,6 +81,7 @@ pub mod procs;
 pub mod project_spec;
 pub mod prompt_archive;
 pub mod prompt_artifact;
+pub mod prompt_history_filter;
 pub mod prompt_literals;
 mod prompt_rewrite;
 pub mod prompt_stash;
@@ -92,6 +98,7 @@ pub mod runner_capacity;
 pub mod runner_limit_override;
 pub mod sections;
 mod serde_option;
+pub mod service;
 pub mod sidecar_publication;
 pub mod snippet_catalog;
 pub mod snippet_session;
@@ -185,6 +192,17 @@ pub use agent_group_archive::{
     SavedAgentGroupSummaryWire, SavedAgentGroupWire,
     AGENT_GROUP_ARCHIVE_WIRE_SCHEMA_VERSION,
 };
+pub use agent_hold::{
+    agent_hold_lock_path, agent_hold_state_path, arm_agent_hold_relative,
+    arm_agent_hold_until, hold_blocks_candidate, list_agent_holds,
+    rebind_agent_hold_armer, release_agent_hold, AgentHoldArmerKindWire,
+    AgentHoldArmerLivenessFactWire, AgentHoldArmerWire,
+    AgentHoldBlockArmerWire, AgentHoldBlockWire, AgentHoldCandidateWire,
+    AgentHoldError, AgentHoldLivenessFactsWire, AgentHoldRecordWire,
+    AgentHoldScopeWire, AgentHoldSelectorMatchWire, AgentHoldSelectorsWire,
+    AgentHoldSnapshotWire, AGENT_HOLD_LOCK_FILENAME, AGENT_HOLD_STATE_FILENAME,
+    AGENT_HOLD_WIRE_SCHEMA_VERSION,
+};
 pub use agent_identity::{
     agent_link_target, agent_local_hood, agent_name_ancestors,
     agent_name_in_hood, globalize_agent_name, normalize_agent_archive_name,
@@ -208,9 +226,9 @@ pub use agent_launch::{
     classify_condition_status, cleanup_proc_private_inputs,
     condition_command_argv, condition_context_digest,
     decide_workspace_occupant_conflict, dispatch_fingerprint,
-    evaluate_launch_condition, list_workspace_claims_from_content,
-    next_admission_actions, parse_proc_duration_seconds,
-    plan_claim_workspace_from_content,
+    evaluate_launch_condition, launch_unit_hold_armer, launch_unit_hold_key,
+    list_workspace_claims_from_content, next_admission_actions,
+    parse_proc_duration_seconds, plan_claim_workspace_from_content,
     plan_transfer_workspace_claim_from_content, plan_typed_launch_units,
     plan_typed_launch_units_with_flags, prepare_agent_launch,
     prepare_proc_script, proc_script_argv, prompt_has_identity_directive,
@@ -344,6 +362,16 @@ pub use agent_stats::{
     AgentWorkStatsWire, AgentWorkspaceStatsWire, AgentXPromptFocusWire,
     AgentXPromptStatsRowWire, AgentXPromptStatsWire,
     AGENT_STATS_WIRE_SCHEMA_VERSION,
+};
+pub use agent_tribe::{
+    agent_tribe_display_key, canonicalize_agent_tribe_metadata,
+    canonicalize_public_tribe_name, is_reserved_tribe_name,
+    parse_tribe_reference, public_tribe_name, reserved_tribe_target_reason,
+    resolve_agent_tribe_display_config, resolve_agent_tribe_identity,
+    validate_tribe_name, AgentTribeDisplayResolutionRequestWire,
+    AgentTribeDisplayResolutionWire, AgentTribeError,
+    AgentTribeIdentityResolutionRequestWire, AgentTribeIdentityResolutionWire,
+    LEGACY_JOB_TRIBE, PUBLIC_JOB_TRIBE, RESERVED_DEFAULT_TRIBE,
 };
 pub use artifact_consumption::{
     consumed_artifact_file_refs, read_artifact_consumption_log,
@@ -491,8 +519,8 @@ pub use axe_chop::{
     CHOP_STATE_SCHEMA_VERSION,
 };
 pub use axe_status::{
-    classify_axe_status, AxeDesiredStateValueWire, AxeDesiredStateWire,
-    AxeLifecycleEventKindWire, AxeLifecycleEventWire,
+    classify_axe_status, project_axe_status_public, AxeDesiredStateValueWire,
+    AxeDesiredStateWire, AxeLifecycleEventKindWire, AxeLifecycleEventWire,
     AxeLumberjackObservationWire, AxeLumberjackReportedStateWire,
     AxeLumberjackStateWire, AxeLumberjackStatusWire, AxeMaintenanceWire,
     AxeOrchestratorCoherenceWire, AxeOrchestratorObservationWire,
@@ -500,7 +528,8 @@ pub use axe_status::{
     AxeProcessObservationWire, AxeRunnerOccupancyWire,
     AxeStatusCollectionErrorWire, AxeStatusError, AxeStatusHealthWire,
     AxeStatusIssueSeverityWire, AxeStatusIssueWire, AxeStatusRequestWire,
-    AxeStatusSnapshotWire, AxeStatusStateWire, AXE_STATUS_SCHEMA_VERSION,
+    AxeStatusSnapshotWire, AxeStatusStateWire,
+    AXE_PUBLIC_STATUS_SCHEMA_VERSION, AXE_STATUS_SCHEMA_VERSION,
 };
 pub use bead::{
     add_bead_link, add_bead_references, add_dependency as bead_add_dependency,
@@ -650,6 +679,20 @@ pub use continuation::{
     MonitorResultWire, MonitorTimeoutKindWire, RetainedLogMetadataWire,
     CONTINUATION_WIRE_SCHEMA_VERSION,
 };
+pub use disk_cleanup_outcome::{
+    normalize_disk_cleanup_outcome, DiskCleanupOutcomeError,
+    DiskCleanupOutcomeProblemWire, DiskCleanupOutcomeRequestWire,
+    DiskCleanupOutcomeResultWire, DiskCleanupOwnerOutcomeWire,
+    DiskCleanupOwnerResultWire, CLEANUP_OUTCOME_STATUS_BLOCKED,
+    CLEANUP_OUTCOME_STATUS_FAILED, CLEANUP_OUTCOME_STATUS_INCOMPLETE,
+    CLEANUP_OUTCOME_STATUS_SUCCESS, DISK_CLEANUP_OUTCOME_WIRE_SCHEMA_VERSION,
+};
+pub use disk_inventory::{
+    classify_disk_inventory, DiskInventoryError, DiskInventoryInputRowWire,
+    DiskInventoryRequestWire, DiskInventoryResultWire, DiskInventoryRowWire,
+    DISK_INVENTORY_COVERAGE_COMPLETE, DISK_INVENTORY_COVERAGE_PARTIAL,
+    DISK_INVENTORY_COVERAGE_UNRESOLVED, DISK_INVENTORY_WIRE_SCHEMA_VERSION,
+};
 pub use disk_pressure::{
     classify_disk_pressure, DiskPressureError,
     DiskPressureObservationResultWire, DiskPressureObservationWire,
@@ -715,6 +758,9 @@ pub use editor::{
     directive_snippet_recipes_with_flags as editor_directive_snippet_recipes_with_flags,
     extract_placeholder_spans as editor_extract_placeholder_spans,
     extract_token_at_position as editor_extract_token_at_position,
+    extract_xprompt_argument_spans as editor_extract_xprompt_argument_spans,
+    extract_xprompt_argument_spans_with_catalog as editor_extract_xprompt_argument_spans_with_catalog,
+    extract_xprompt_call_name_spans as editor_extract_xprompt_call_name_spans,
     filter_explicit_model_shortcut_entries as editor_filter_explicit_model_shortcut_entries,
     filter_model_alias_shortcut_entries as editor_filter_model_alias_shortcut_entries,
     frontmatter_field_schema as editor_frontmatter_field_schema,
@@ -732,6 +778,7 @@ pub use editor::{
     named_args_skeleton as editor_named_args_skeleton,
     placeholder_input_names as editor_placeholder_input_names,
     plan_argument_colon_to_parentheses_edit as editor_plan_argument_colon_to_parentheses_edit,
+    plan_argument_double_colon_to_parentheses_edit as editor_plan_argument_double_colon_to_parentheses_edit,
     plan_model_alias_shortcut_edit as editor_plan_model_alias_shortcut_edit,
     queue_directive_diagnostics as editor_queue_directive_diagnostics,
     rank_and_filter_bead_entries as editor_rank_and_filter_bead_entries,
@@ -763,11 +810,13 @@ pub use editor::{
     PlaceholderCandidateSource, PlaceholderCompletion, PlaceholderContext,
     PlaceholderSpan, RawPlaceholderField, TokenInfo, VcsNamespaceEntry,
     VcsProjectEntry, VcsRefTrigger, VcsRepoCatalogRequest,
-    VcsRepoCatalogResponse, VcsRepoEntry, VcsRepoTrigger, XpromptAssistEntry,
-    XpromptInputHint, AGENT_CATALOG_SCHEMA_VERSION,
-    AT_REFERENCE_MAX_GROUP_ROWS, BEAD_COMPLETION_LIMIT,
-    DIRECTIVES as EDITOR_DIRECTIVES, EDITOR_WIRE_SCHEMA_VERSION,
-    FINALIZER_CATALOG_SCHEMA_VERSION, MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION,
+    VcsRepoCatalogResponse, VcsRepoEntry, VcsRepoTrigger,
+    XpromptArgumentSource, XpromptArgumentSpan, XpromptArgumentSpanRole,
+    XpromptArgumentSpanValidity, XpromptAssistEntry, XpromptInputHint,
+    AGENT_CATALOG_SCHEMA_VERSION, AT_REFERENCE_MAX_GROUP_ROWS,
+    BEAD_COMPLETION_LIMIT, DIRECTIVES as EDITOR_DIRECTIVES,
+    EDITOR_WIRE_SCHEMA_VERSION, FINALIZER_CATALOG_SCHEMA_VERSION,
+    MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION,
     MODEL_SHORTCUT_WIRE_SCHEMA_VERSION, PLACEHOLDER_MAX_INNER_CHARS,
     VCS_REPO_CATALOG_SCHEMA_VERSION,
 };
@@ -980,6 +1029,11 @@ pub use git_object_sharing::{
     GitObjectSharingPlanRequestWire, GitObjectSharingPlanWire,
     GIT_OBJECT_SHARING_ACTION_DELETE, GIT_OBJECT_SHARING_ACTION_FAIL,
     GIT_OBJECT_SHARING_ACTION_NONE, GIT_OBJECT_SHARING_ACTION_WRITE,
+    GIT_OBJECT_SHARING_CONTEXT_EXISTING_REUSE,
+    GIT_OBJECT_SHARING_CONTEXT_MAINTENANCE_COMPACT,
+    GIT_OBJECT_SHARING_CONTEXT_MAINTENANCE_DISSOCIATE,
+    GIT_OBJECT_SHARING_CONTEXT_MAINTENANCE_REPAIR,
+    GIT_OBJECT_SHARING_CONTEXT_NEW_CHECKOUT,
     GIT_OBJECT_SHARING_WIRE_SCHEMA_VERSION,
 };
 pub use git_query::{
@@ -994,6 +1048,13 @@ pub use glossary::{
     GlossaryDiagnosticWire, GlossaryEntryWire, GlossaryError,
     GlossaryInputEntryWire, GlossarySegmentWire, GlossarySourceWire,
     GlossarySpanWire, GLOSSARY_WIRE_SCHEMA_VERSION,
+};
+pub use hold_directive::{
+    agent_holds_enabled, collect_hold_fields, collect_hold_fields_with_flags,
+    format_hold_directive, hold_directive_disabled_message,
+    hold_fields_to_selectors, HoldArgWire, HoldCollectResultWire,
+    HoldFieldsWire, HoldOccurrenceWire, HoldParseErrorWire, HoldScopeWire,
+    AGENT_HOLDS_FLAG,
 };
 pub use host_bridge::{
     split_command_words, CommandHelperHostBridge, DynHelperHostBridge,
@@ -1024,8 +1085,12 @@ pub use machine_hood::{
     validate_machine_name, MachineNameError,
 };
 pub use machine_setup::{
-    classify_tailnet_discovery, classify_tailnet_health,
+    assess_machine_init_review, classify_tailnet_discovery,
+    classify_tailnet_health, merge_machine_init_review,
     reconcile_machine_enrollments, DiscoveryCandidateWire, EnrolledMachineWire,
+    MachineInitReviewAssessmentRequestWire,
+    MachineInitReviewAssessmentResultWire, MachineInitReviewEntryWire,
+    MachineInitReviewMergeRequestWire, MachineInitReviewStateWire,
     MachineReconcileRequestWire, MachineReconcileResultWire,
     MachineSetupDiagnosticWire, MachineSetupError, ReconciledCandidateWire,
     TailnetDiscoveryRequestWire, TailnetDiscoveryResultWire,
@@ -1162,11 +1227,11 @@ pub use procs::{
     append_proc, begin_proc_settlement, claim_proc_supervisor, finish_proc,
     prune_procs, read_procs_snapshot, request_proc_stop, reserve_proc,
     update_proc, ProcAppendOutcomeWire, ProcFinishWire, ProcPruneOutcomeWire,
-    ProcReserveOutcomeWire, ProcReserveWire, ProcSettlementWire,
-    ProcStopRequestWire, ProcStoreError, ProcStoreSnapshotWire,
-    ProcStoreStatsWire, ProcSupervisorClaimWire, ProcUpdateOutcomeWire,
-    ProcUpdateWire, ProcWire, XpromptProcMetaWire, PROC_WIRE_SCHEMA_VERSION,
-    SUPPORTED_PROC_WIRE_SCHEMA_VERSIONS,
+    ProcReserveOutcomeWire, ProcReserveWire, ProcServiceWire,
+    ProcSettlementWire, ProcStopRequestWire, ProcStoreError,
+    ProcStoreSnapshotWire, ProcStoreStatsWire, ProcSupervisorClaimWire,
+    ProcUpdateOutcomeWire, ProcUpdateWire, ProcWire, XpromptProcMetaWire,
+    PROC_WIRE_SCHEMA_VERSION, SUPPORTED_PROC_WIRE_SCHEMA_VERSIONS,
 };
 pub use project_spec::{
     active_project_spec_filename, apply_project_aliases_update,
@@ -1184,6 +1249,14 @@ pub use prompt_archive::{
     prompt_archive_inventory, PromptArchiveDocumentWire,
     PromptArchiveInventoryRequestWire, PromptArchiveInventoryWire,
     PROMPT_ARCHIVE_INVENTORY_WIRE_SCHEMA_VERSION,
+};
+pub use prompt_history_filter::{
+    build_prompt_history_seed, compile_prompt_history_query,
+    encode_prompt_history_literal, match_prompt_history_rows,
+    CompiledPromptHistoryQueryWire, PromptHistoryMatchResultWire,
+    PromptHistoryProjectIdentityWire, PromptHistoryRowFactsWire,
+    PromptHistorySeedRequestWire, PromptHistorySeedWire,
+    PROMPT_HISTORY_FILTER_WIRE_SCHEMA_VERSION,
 };
 pub use prompt_literals::inline_code_ranges;
 pub use prompt_stash::{
@@ -1318,6 +1391,13 @@ pub use runner_limit_override::{
     set_runner_limit_override_until, RunnerLimitOverrideError,
     RunnerLimitOverrideWire, RUNNER_LIMIT_OVERRIDE_STATE_FILENAME,
     RUNNER_LIMIT_OVERRIDE_WIRE_SCHEMA_VERSION,
+};
+pub use service::{
+    is_service_proc_mode, is_service_proc_source, validate_service_proc_name,
+    RESERVED_BUILTIN_SERVICE_PROCS, SERVICE_PROC_MODES,
+    SERVICE_PROC_MODE_DAEMON, SERVICE_PROC_MODE_ONESHOT, SERVICE_PROC_SOURCES,
+    SERVICE_PROC_SOURCE_BUILTIN, SERVICE_PROC_SOURCE_PLUGIN,
+    SERVICE_PROC_SOURCE_TRANSIENT, SERVICE_PROC_SOURCE_USER,
 };
 pub use sidecar_publication::{
     decide_sidecar_publication_after_push, SidecarPublicationDecisionWire,

@@ -228,6 +228,7 @@ from mixpeek.models.cluster_execution_list_stats import ClusterExecutionListStat
 from mixpeek.models.cluster_execution_metric import ClusterExecutionMetric
 from mixpeek.models.cluster_execution_metrics import ClusterExecutionMetrics
 from mixpeek.models.cluster_execution_result import ClusterExecutionResult
+from mixpeek.models.cluster_generation_reap import ClusterGenerationReap
 from mixpeek.models.cluster_group import ClusterGroup
 from mixpeek.models.cluster_groups_response import ClusterGroupsResponse
 from mixpeek.models.cluster_list_stats import ClusterListStats

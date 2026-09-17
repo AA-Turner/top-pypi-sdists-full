@@ -57,12 +57,15 @@ from river_client.renderers.deepseek import (
     parse_deepseek_content_blocks,
     strip_deepseek_thinking_from_text,
 )
+from river_client.renderers.glm52 import Glm52Renderer
+from river_client.renderers.nemotron import Nemotron35Renderer
 from river_client.renderers.glm53 import Glm53FlashRenderer, parse_glm53_content_blocks
 from river_client.renderers.kimi import (
     KimiRenderer,
     kimi_image_token_count,
     parse_kimi_k2_content_blocks,
 )
+from river_client.renderers.kimi_k3 import KimiK3Renderer
 from river_client.renderers.qwen3 import (
     QWEN38_REASONING_EFFORT_INSTRUCTIONS,
     Qwen35DisableThinkingRenderer,
@@ -146,6 +149,14 @@ def _is_kimi(name_lower: str) -> bool:
     )
 
 
+def _is_kimi_k3(name_lower: str) -> bool:
+    segments = re.split(r"[^a-z0-9]+", name_lower)
+    return "kimik3" in segments or any(
+        segments[index : index + 2] == ["kimi", "k3"]
+        for index in range(len(segments) - 1)
+    )
+
+
 def _is_glm53_flash(name_lower: str) -> bool:
     """Detect GLM-5.3 Flash deployment aliases by normalized name segments.
 
@@ -177,6 +188,17 @@ def _is_deepseek_v4(name_lower: str) -> bool:
     return "deepseek-v4" in name_lower
 
 
+def _is_deepseek_v41(name_lower: str) -> bool:
+    """Detect DeepSeek V4.1 checkpoints by name (``deepseek-ai/DeepSeek-V4.1-Flash``).
+
+    Checked before :func:`_is_deepseek_v4`, whose substring it also matches:
+    V4.1 needs its own encoder format (spaced DSML tags, the numeric effort
+    prefix, ``<｜System｜>`` framing), and rendering it as V4 silently builds
+    prompts the model was never trained on.
+    """
+    return "deepseek-v4.1" in name_lower
+
+
 def get_renderer(
     model_name: str,
     *,
@@ -198,13 +220,16 @@ def get_renderer(
         strip_thinking_from_history: For thinking-enabled renderers, whether
             to strip <think> blocks from non-last assistant messages. None
             (default) takes the model family's own default — True for
-            Qwen3.5/3.6 and Kimi, False for Qwen3.8, whose template flipped
-            ``preserve_thinking`` to default-on.
+            Qwen3.5/3.6, Kimi K2 and Nemotron, False for GLM5.2, Qwen3.8 and Kimi K3.
+            RL continuations preserve the already sampled token prefix.
         tokenizer: Pre-loaded tokenizer. If None, loads via AutoTokenizer.
         tokenizer_revision: Optional immutable Hugging Face revision used when
             loading the tokenizer.
-        reasoning_effort: Qwen3.8 only — ``xhigh`` (the model's own default),
-            ``medium`` or ``low``. None takes the family default. Passing it
+        reasoning_effort: Qwen3.8 accepts ``xhigh`` (default), ``medium`` or
+            ``low``. GLM5.2 accepts ``max`` (default) or ``high``.
+            GLM-5.3 Flash and Kimi K3 accept ``max`` (default), ``high`` or ``low``.
+            DeepSeek V4.1 accepts ``low``, ``high`` (default) or ``max``.
+            None takes the family default. Passing it
             for a family whose template has no such control is an error
             rather than a silent no-op.
 
@@ -228,13 +253,38 @@ def get_renderer(
 
     name_lower = model_name.lower()
     is_qwen38 = _is_qwen38_template(name_lower)
+    is_k3 = _is_kimi_k3(name_lower)
+    is_dsv41 = _is_deepseek_v41(name_lower)
+    is_glm53 = _is_glm53_flash(name_lower)
 
-    if reasoning_effort is not None and not is_qwen38:
+    is_glm52 = "glm-5.2" in name_lower or "glm52" in name_lower
+    if is_glm52:
+        return Glm52Renderer(
+            tokenizer,
+            thinking=True if thinking is None else thinking,
+            strip_thinking_from_history=False
+            if strip_thinking_from_history is None
+            else strip_thinking_from_history,
+            reasoning_effort=reasoning_effort or "max",
+        )
+
+    if reasoning_effort is not None and not (
+        is_qwen38 or is_k3 or is_glm53 or is_dsv41
+    ):
         raise ValueError(
             f"reasoning_effort is not supported for {model_name}. Only the "
-            f"Qwen3.8 chat template defines it; Qwen3.5/3.6 and Kimi have no "
-            f"equivalent control, so setting it here would be silently "
-            f"dropped."
+            f"Qwen3.8, GLM-5.2, GLM-5.3 Flash, Kimi K3 and DeepSeek V4.1 chat "
+            f"templates define it; Qwen3.5/3.6, Kimi K2 and DeepSeek V4 have no "
+            f"equivalent control, so setting it here would be silently dropped."
+        )
+
+    if "nemotron-3.5-lightning" in name_lower:
+        return Nemotron35Renderer(
+            tokenizer,
+            thinking=True if thinking is None else thinking,
+            strip_thinking_from_history=True
+            if strip_thinking_from_history is None
+            else strip_thinking_from_history,
         )
 
     if _is_qwen_vl(name_lower):
@@ -256,8 +306,20 @@ def get_renderer(
             reasoning_effort=((reasoning_effort or "xhigh") if is_qwen38 else None),
         )
 
-    if _is_glm53_flash(name_lower):
+    if is_glm53:
         return Glm53FlashRenderer(
+            tokenizer,
+            reasoning_effort="max" if reasoning_effort is None else reasoning_effort,
+            thinking=True if thinking is None else thinking,
+            strip_thinking_from_history=(
+                False
+                if strip_thinking_from_history is None
+                else strip_thinking_from_history
+            ),
+        )
+
+    if is_k3:
+        return KimiK3Renderer(
             tokenizer,
             thinking=True if thinking is None else thinking,
             strip_thinking_from_history=(
@@ -265,6 +327,7 @@ def get_renderer(
                 if strip_thinking_from_history is None
                 else strip_thinking_from_history
             ),
+            reasoning_effort="max" if reasoning_effort is None else reasoning_effort,
         )
 
     if _is_kimi(name_lower):
@@ -281,22 +344,24 @@ def get_renderer(
     if _is_deepseek_v4(name_lower):
         return DeepSeekV4Renderer(
             tokenizer,
-            # The reference encoder drops history reasoning by default.
+            # The reference encoders drop history reasoning by default.
             strip_thinking_from_history=(
                 True
                 if strip_thinking_from_history is None
                 else strip_thinking_from_history
             ),
             thinking=True if thinking is None else thinking,
+            v41=is_dsv41,
+            reasoning_effort=reasoning_effort if is_dsv41 else None,
         )
 
     raise ValueError(
         f"Unsupported model: {model_name}. "
         f"Supported families: Qwen3.5 / Qwen3.6 / Qwen3.8 (e.g. "
         f"Qwen/Qwen3.8-27B-FP8), Kimi K2.5/K2.6 (e.g. "
-        f"nvidia/Kimi-K2.6-NVFP4), GLM-5.3 Flash (e.g. "
-        f"zai-org/GLM-5.3-Flash) and DeepSeek V4 (e.g. "
-        f"deepseek-ai/DeepSeek-V4-Flash-0731). Construct a renderer "
+        f"nvidia/Kimi-K2.6-NVFP4), Kimi K3 (moonshotai/Kimi-K3), GLM-5.3 Flash (e.g. "
+        f"zai-org/GLM-5.3-Flash), DeepSeek V4 / V4.1 (e.g. "
+        f"deepseek-ai/DeepSeek-V4.1-Flash), GLM-5.2 and Nemotron 3.5 Lightning. Construct a renderer "
         f"directly, e.g., Qwen35VLRenderer(tokenizer) / Glm53FlashRenderer(tokenizer) / "
         f"KimiRenderer(tokenizer) / DeepSeekV4Renderer(tokenizer)."
     )
@@ -327,7 +392,10 @@ __all__ = [
     # Concrete renderers
     "DeepSeekV4Renderer",
     "Glm53FlashRenderer",
+    "Glm52Renderer",
+    "Nemotron35Renderer",
     "KimiRenderer",
+    "KimiK3Renderer",
     "QWEN38_REASONING_EFFORT_INSTRUCTIONS",
     "Qwen35DisableThinkingRenderer",
     "Qwen35Renderer",

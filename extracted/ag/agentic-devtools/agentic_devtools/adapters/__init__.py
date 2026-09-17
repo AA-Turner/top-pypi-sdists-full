@@ -76,6 +76,12 @@ from agentic_devtools.adapters.pull_request_comments import (
     PullRequestCommentResult,
     discover_github_token,
 )
+from agentic_devtools.adapters.pull_request_draft import (
+    AzureDevOpsPullRequestDraftAdapter,
+    GitHubPullRequestDraftAdapter,
+    PullRequestDraftRequest,
+    PullRequestDraftResult,
+)
 from agentic_devtools.adapters.pull_request_threads import (
     AzureDevOpsThreadResolutionAdapter,
     GitHubThreadResolutionAdapter,
@@ -93,12 +99,14 @@ __all__ = [
     "AdapterValidationError",
     "DefinitiveCreationFailure",
     "AzureDevOpsPullRequestCommentAdapter",
+    "AzureDevOpsPullRequestDraftAdapter",
     "AzureDevOpsThreadResolutionAdapter",
     "Comment",
     "CommentResult",
     "GitHubIssuesAdapter",
     "GitHubMappingResult",
     "GitHubPullRequestCommentAdapter",
+    "GitHubPullRequestDraftAdapter",
     "GitHubThreadResolutionAdapter",
     "HierarchyLinkError",
     "HierarchyValidationProvider",
@@ -126,6 +134,8 @@ __all__ = [
     "PullRequestCommentCapability",
     "PullRequestCommentRequest",
     "PullRequestCommentResult",
+    "PullRequestDraftRequest",
+    "PullRequestDraftResult",
     "PullRequestThreadReplyRequest",
     "PullRequestThreadReplyResult",
     "ReplyToPullRequestThreadRequest",

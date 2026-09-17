@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddtrace
-Version: 4.14.1
+Version: 4.15.0
 Summary: Datadog APM client library
 Author-email: "Datadog, Inc." <dev@datadoghq.com>
 License: LICENSE.BSD3
@@ -25,11 +25,13 @@ License-File: LICENSE
 License-File: LICENSE.Apache
 License-File: LICENSE.BSD3
 License-File: NOTICE
+Requires-Dist: bytecode<1,>=0.19.0; python_version >= "3.15.0"
 Requires-Dist: bytecode<1,>=0.17.0; python_version >= "3.14.0"
 Requires-Dist: bytecode<1,>=0.16.0; python_version >= "3.13.0"
 Requires-Dist: bytecode<1,>=0.15.1; python_version ~= "3.12.0"
 Requires-Dist: bytecode<1,>=0.14.0; python_version ~= "3.11.0"
 Requires-Dist: bytecode<1,>=0.13.0; python_version < "3.11"
+Requires-Dist: ddtrace-internal==0.1.0
 Requires-Dist: envier~=0.6.1
 Requires-Dist: opentelemetry-api<2,>=1
 Requires-Dist: wrapt!=2.2.0,<3,>=1

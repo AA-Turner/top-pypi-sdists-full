@@ -23,7 +23,6 @@ from testmu._helpers._errors import AssertionFailureError
 from testmu._helpers._http import create_session
 from testmu._helpers._screenshot import take_screenshot
 
-_AI_API_HOST = os.getenv("TESTMU_AI_API_HOST", "https://kaneai-api.lambdatest.com/v16-server")
 
 from testmu import _config
 from testmu._vars import _variable_store, var
@@ -63,8 +62,11 @@ async def _resolve_sub_checks(sub_checks):
             "description": await _resolve(raw_description),
             "expected_value": await _resolve(raw_expected),
             "extracted_value": await _resolve(raw_extracted),
-            "operator": sc.get("operator") or "contains",
-            "transforms": sc.get("transforms") or ["strip"],
+            # Auteur replay parity: an absent operator means equals and an
+            # explicit empty transforms list stays empty, so a recorded recipe
+            # reaches the same verdict in exported code as in the playground.
+            "operator": sc.get("operator") or "equals",
+            "transforms": sc.get("transforms") or [],
             # The json_path TRANSFORM is a no-op without its path argument
             # (evaluation/_core.py gates on it) — dropping the key here turned
             # every json_path derivation into a whole-value compare at replay.
@@ -102,15 +104,16 @@ async def _verify_visual(page, claim, composite_op, sub_checks, assertion_tree):
     if verification:
         request_body["verification"] = verification
 
+    url = f"{_config.get_ai_api_host()}/api/v1/assertions/verify"
     async with create_session() as session:
         async with session.post(
-            f"{_AI_API_HOST}/api/v1/assertions/verify",
+            url,
             json=request_body,
             timeout=aiohttp.ClientTimeout(total=60),
         ) as response:
             if response.status != 200:
                 text = await response.text()
-                raise Exception(f"Assertion API error {response.status}: {text}")
+                raise Exception(f"Assertion API error {response.status} at {url}: {text}")
             result = await response.json()
 
     _log.info("    [assertion] result status=%s", result.get("status", "unknown"))

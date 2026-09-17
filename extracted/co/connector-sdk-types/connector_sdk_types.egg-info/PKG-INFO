@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connector-sdk-types
-Version: 0.72.0
+Version: 0.73.0
 Summary: Generated types for the Lumos Connector SDK
 Author-email: teamlumos <security@lumos.com>
 License-Expression: Apache-2.0
@@ -10,6 +10,7 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
@@ -33,6 +34,8 @@ This package contains the generated types for the Lumos Connector SDK. These typ
 ```console
 pip install connector-sdk-types
 ```
+
+Requires Python 3.10, 3.11, or 3.12 (`requires-python = ">=3.10"`).
 
 ## Usage
 

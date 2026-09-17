@@ -1309,9 +1309,6 @@ SWIG_WASMJS_SetModule(void *SWIGUNUSEDPARM(clientdata), swig_module_info *pointe
 #undef _POSIX_C_SOURCE
 #endif
 
-
-#define SWIG_PYTHON_OUTPUT_TUPLE
-
 /* SWIG Errors applicable to all language modules, values are reserved from -1 to -99 */
 #define  SWIG_UnknownError    	   -1
 #define  SWIG_IOError        	   -2
@@ -3679,9 +3676,9 @@ namespace casadi {
 
 
   namespace casadi {
-    /*@SWIG:/local/swig/casadi.i,4482,SPARSITY_INTERFACE_ALL@*/
-/*@SWIG:/local/swig/casadi.i,4514,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4351,SPARSITY_INTERFACE_FUN_BASE@*/
+    /*@SWIG:/local/swig/casadi.i,4568,SPARSITY_INTERFACE_ALL@*/
+/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline Sparsity casadi_horzcat(const std::vector< Sparsity > &v) {
@@ -3823,8 +3820,8 @@ namespace casadi {
       }
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4514,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4351,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline MX casadi_horzcat(const std::vector< MX > &v) {
@@ -3966,8 +3963,8 @@ namespace casadi {
       }
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4514,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4351,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline Matrix<double> casadi_horzcat(const std::vector< Matrix<double> > &v) {
@@ -4109,8 +4106,8 @@ namespace casadi {
       }
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4514,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4351,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline Matrix<SXElem> casadi_horzcat(const std::vector< Matrix<SXElem> > &v) {
@@ -4253,8 +4250,8 @@ namespace casadi {
 
   /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,4979,GENERIC_EXPRESSION_ALL@*/
-/*@SWIG:/local/swig/casadi.i,4924,GENERIC_EXPRESSION_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5085,GENERIC_EXPRESSION_ALL@*/
+/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
 
 inline MX casadi_plus(const MX& x, const MX& y) { return x+y; }
 inline MX casadi_minus(const MX& x, const MX& y) { return x-y; }
@@ -4308,7 +4305,7 @@ inline MX casadi_copysign(const MX& x, const MX& y) { return copysign(x, y); }
 inline MX casadi_constpow(const MX& x, const MX& y) { using casadi::constpow; return constpow(x, y); }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4924,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
 
 inline Matrix<double> casadi_plus(const Matrix<double>& x, const Matrix<double>& y) { return x+y; }
 inline Matrix<double> casadi_minus(const Matrix<double>& x, const Matrix<double>& y) { return x-y; }
@@ -4362,7 +4359,7 @@ inline Matrix<double> casadi_copysign(const Matrix<double>& x, const Matrix<doub
 inline Matrix<double> casadi_constpow(const Matrix<double>& x, const Matrix<double>& y) { using casadi::constpow; return constpow(x, y); }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4924,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
 
 inline Matrix<SXElem> casadi_plus(const Matrix<SXElem>& x, const Matrix<SXElem>& y) { return x+y; }
 inline Matrix<SXElem> casadi_minus(const Matrix<SXElem>& x, const Matrix<SXElem>& y) { return x-y; }
@@ -4416,7 +4413,7 @@ inline Matrix<SXElem> casadi_copysign(const Matrix<SXElem>& x, const Matrix<SXEl
 inline Matrix<SXElem> casadi_constpow(const Matrix<SXElem>& x, const Matrix<SXElem>& y) { using casadi::constpow; return constpow(x, y); }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4924,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
 
 inline double casadi_plus(const double& x, const double& y) { return x+y; }
 inline double casadi_minus(const double& x, const double& y) { return x-y; }
@@ -4471,8 +4468,8 @@ inline double casadi_constpow(const double& x, const double& y) { using casadi::
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,4918,GENERIC_MATRIX_ALL@*/
-/*@SWIG:/local/swig/casadi.i,4530,GENERIC_MATRIX_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5024,GENERIC_MATRIX_ALL@*/
+/*@SWIG:/local/swig/casadi.i,4616,GENERIC_MATRIX_FUN@*/
 
 inline MX casadi_mpower(const MX& x, const MX& n) {
   return mpower(x, n);
@@ -4818,6 +4815,26 @@ casadi_reverse(const std::vector< MX > &ex, const std::vector< MX > &arg,
   return reverse(ex, arg, v, opts);
 }
 
+
+inline std::string casadi_export_graph(const std::vector<MX>& expressions, const Dict& opts=Dict()) {
+  return export_graph(expressions, opts);
+}
+
+inline std::string casadi_export_graph(const MX& expression, const Dict& opts=Dict()) {
+  return export_graph(expression, opts);
+}
+
+inline void casadi_export_graph(const std::vector<MX>& expressions, const std::string& fname,
+                             const Dict& opts=Dict()) {
+  export_graph(expressions, fname, opts);
+}
+
+inline void casadi_export_graph(const MX& expression, const std::string& fname,
+                             const Dict& opts=Dict()) {
+  export_graph(expression, fname, opts);
+}
+
+
 inline MX casadi_substitute(const MX& ex, const MX& v, const MX& vdef) {
   return substitute(ex, v, vdef);
 }
@@ -4859,7 +4876,7 @@ inline MX casadi_blockcat(const std::vector< std::vector< MX > > &v) {
 }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4530,GENERIC_MATRIX_FUN@*/
+/*@SWIG:/local/swig/casadi.i,4616,GENERIC_MATRIX_FUN@*/
 
 inline Matrix<double> casadi_mpower(const Matrix<double>& x, const Matrix<double>& n) {
   return mpower(x, n);
@@ -5205,6 +5222,26 @@ casadi_reverse(const std::vector< Matrix<double> > &ex, const std::vector< Matri
   return reverse(ex, arg, v, opts);
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 inline Matrix<double> casadi_substitute(const Matrix<double>& ex, const Matrix<double>& v, const Matrix<double>& vdef) {
   return substitute(ex, v, vdef);
 }
@@ -5246,7 +5283,7 @@ inline Matrix<double> casadi_blockcat(const std::vector< std::vector< Matrix<dou
 }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4530,GENERIC_MATRIX_FUN@*/
+/*@SWIG:/local/swig/casadi.i,4616,GENERIC_MATRIX_FUN@*/
 
 inline Matrix<SXElem> casadi_mpower(const Matrix<SXElem>& x, const Matrix<SXElem>& n) {
   return mpower(x, n);
@@ -5592,6 +5629,26 @@ casadi_reverse(const std::vector< Matrix<SXElem> > &ex, const std::vector< Matri
   return reverse(ex, arg, v, opts);
 }
 
+
+inline std::string casadi_export_graph(const std::vector<Matrix<SXElem>>& expressions, const Dict& opts=Dict()) {
+  return export_graph(expressions, opts);
+}
+
+inline std::string casadi_export_graph(const Matrix<SXElem>& expression, const Dict& opts=Dict()) {
+  return export_graph(expression, opts);
+}
+
+inline void casadi_export_graph(const std::vector<Matrix<SXElem>>& expressions, const std::string& fname,
+                             const Dict& opts=Dict()) {
+  export_graph(expressions, fname, opts);
+}
+
+inline void casadi_export_graph(const Matrix<SXElem>& expression, const std::string& fname,
+                             const Dict& opts=Dict()) {
+  export_graph(expression, fname, opts);
+}
+
+
 inline Matrix<SXElem> casadi_substitute(const Matrix<SXElem>& ex, const Matrix<SXElem>& v, const Matrix<SXElem>& vdef) {
   return substitute(ex, v, vdef);
 }
@@ -5634,8 +5691,8 @@ inline Matrix<SXElem> casadi_blockcat(const std::vector< std::vector< Matrix<SXE
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,5112,MATRIX_ALL@*/
-/*@SWIG:/local/swig/casadi.i,4986,MATRIX_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5218,MATRIX_ALL@*/
+/*@SWIG:/local/swig/casadi.i,5092,MATRIX_FUN@*/
 
 inline Matrix<double> casadi_all(const Matrix<double>& x) {
   return all(x);
@@ -5760,7 +5817,7 @@ inline Matrix<double> casadi_eig_symbolic(const Matrix<double>& m) {
 
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4986,MATRIX_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5092,MATRIX_FUN@*/
 
 inline Matrix<SXElem> casadi_all(const Matrix<SXElem>& x) {
   return all(x);
@@ -5886,8 +5943,8 @@ inline Matrix<SXElem> casadi_eig_symbolic(const Matrix<SXElem>& m) {
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,5205,MX_ALL@*/
-/*@SWIG:/local/swig/casadi.i,5117,MX_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5311,MX_ALL@*/
+/*@SWIG:/local/swig/casadi.i,5223,MX_FUN@*/
 
 inline MX casadi_find(const MX& x) {
   return find(x);
@@ -26304,6 +26361,67 @@ EMSCRIPTEN_KEEPALIVE const char* swig_casadi_Function_serialize_0(EM_VAL self_ha
 fail:
   return (const char*)0;
 }
+EMSCRIPTEN_KEEPALIVE void swig_casadi_Function_export_graph_0(EM_VAL self_handle, const char* obj0, EM_VAL obj1) {
+  static swig_type_info* __self_ti = SWIG_TypeQuery("_p_casadi__Function");
+  const casadi::Function* self = 0;
+  {
+    void* _self_raw = 0;
+    if (!SWIG_IsOK(SWIG_ConvertPtr(self_handle, &_self_raw, __self_ti, 0))) SWIG_exception_fail(SWIG_TypeError, "self conversion failed");
+    self = static_cast<const casadi::Function*>(_self_raw);
+  }
+  {
+  std::string * arg1;
+  std::string m1;
+  {
+    
+  m1 = std::string(obj0);
+  arg1 = &m1;
+
+  }
+  casadi::Dict * arg2;
+  std::map< std::string,casadi::GenericType > m2;
+  {
+    arg2 = &m2;
+  if (!casadi::to_ptr(obj1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "dict" "'.");
+  }
+  self->export_graph(*arg1, *arg2);
+  
+  return;
+  }
+fail:
+  return;
+}
+EMSCRIPTEN_KEEPALIVE const char* swig_casadi_Function_export_graph_1(EM_VAL self_handle, EM_VAL obj0) {
+  static swig_type_info* __self_ti = SWIG_TypeQuery("_p_casadi__Function");
+  const casadi::Function* self = 0;
+  {
+    void* _self_raw = 0;
+    if (!SWIG_IsOK(SWIG_ConvertPtr(self_handle, &_self_raw, __self_ti, 0))) SWIG_exception_fail(SWIG_TypeError, "self conversion failed");
+    self = static_cast<const casadi::Function*>(_self_raw);
+  }
+  {
+  casadi::Dict * arg1;
+  std::map< std::string,casadi::GenericType > m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "dict" "'.");
+  }
+  std::string result;
+  result = self->export_graph(*arg1);
+  const char* _outv;
+  
+  {
+    char* __buf = (char*)malloc((&result)->size() + 1);
+    memcpy(__buf, (&result)->c_str(), (&result)->size() + 1);
+    _outv = __buf;
+  }
+
+  
+  return _outv;
+  }
+fail:
+  return (const char*)0;
+}
 EMSCRIPTEN_KEEPALIVE void swig_casadi_Function_save_0(EM_VAL self_handle, const char* obj0, EM_VAL obj1) {
   static swig_type_info* __self_ti = SWIG_TypeQuery("_p_casadi__Function");
   const casadi::Function* self = 0;
@@ -41570,6 +41688,128 @@ EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_reverse_0(EM_VAL obj0, EM_VAL obj
 fail:
   return (EM_VAL)0;
 }
+EMSCRIPTEN_KEEPALIVE const char* swig_casadi_casadi_export_graph_0(EM_VAL obj0, EM_VAL obj1) {
+  {
+  std::vector< casadi::MX > * arg1;
+  std::vector< casadi::MX > m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "[" "MX" "]" "'.");
+  }
+  casadi::Dict * arg2;
+  std::map< std::string,casadi::GenericType > m2;
+  {
+    arg2 = &m2;
+  if (!casadi::to_ptr(obj1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "dict" "'.");
+  }
+  std::string result;
+  result = casadi::casadi_export_graph(*arg1, *arg2);
+  const char* _outv;
+  
+  {
+    char* __buf = (char*)malloc((&result)->size() + 1);
+    memcpy(__buf, (&result)->c_str(), (&result)->size() + 1);
+    _outv = __buf;
+  }
+
+  
+  
+  return _outv;
+  }
+fail:
+  return (const char*)0;
+}
+EMSCRIPTEN_KEEPALIVE const char* swig_casadi_casadi_export_graph_1(EM_VAL obj0, EM_VAL obj1) {
+  {
+  casadi::MX * arg1;
+  casadi::MX m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "MX" "'.");
+  }
+  casadi::Dict * arg2;
+  std::map< std::string,casadi::GenericType > m2;
+  {
+    arg2 = &m2;
+  if (!casadi::to_ptr(obj1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "dict" "'.");
+  }
+  std::string result;
+  result = casadi::casadi_export_graph(*arg1, *arg2);
+  const char* _outv;
+  
+  {
+    char* __buf = (char*)malloc((&result)->size() + 1);
+    memcpy(__buf, (&result)->c_str(), (&result)->size() + 1);
+    _outv = __buf;
+  }
+
+  
+  
+  return _outv;
+  }
+fail:
+  return (const char*)0;
+}
+EMSCRIPTEN_KEEPALIVE void swig_casadi_casadi_export_graph_2(EM_VAL obj0, const char* obj1, EM_VAL obj2) {
+  {
+  std::vector< casadi::MX > * arg1;
+  std::vector< casadi::MX > m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "[" "MX" "]" "'.");
+  }
+  std::string * arg2;
+  std::string m2;
+  {
+    
+  m2 = std::string(obj1);
+  arg2 = &m2;
+
+  }
+  casadi::Dict * arg3;
+  std::map< std::string,casadi::GenericType > m3;
+  {
+    arg3 = &m3;
+  if (!casadi::to_ptr(obj2, &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "dict" "'.");
+  }
+  casadi::casadi_export_graph(*arg1, *arg2, *arg3);
+  
+  
+  return;
+  }
+fail:
+  return;
+}
+EMSCRIPTEN_KEEPALIVE void swig_casadi_casadi_export_graph_3(EM_VAL obj0, const char* obj1, EM_VAL obj2) {
+  {
+  casadi::MX * arg1;
+  casadi::MX m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "MX" "'.");
+  }
+  std::string * arg2;
+  std::string m2;
+  {
+    
+  m2 = std::string(obj1);
+  arg2 = &m2;
+
+  }
+  casadi::Dict * arg3;
+  std::map< std::string,casadi::GenericType > m3;
+  {
+    arg3 = &m3;
+  if (!casadi::to_ptr(obj2, &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "dict" "'.");
+  }
+  casadi::casadi_export_graph(*arg1, *arg2, *arg3);
+  
+  
+  return;
+  }
+fail:
+  return;
+}
 EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_substitute_0(EM_VAL obj0, EM_VAL obj1, EM_VAL obj2) {
   {
   casadi::MX * arg1;
@@ -46895,6 +47135,128 @@ EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_reverse_2(EM_VAL obj0, EM_VAL obj
   }
 fail:
   return (EM_VAL)0;
+}
+EMSCRIPTEN_KEEPALIVE const char* swig_casadi_casadi_export_graph_4(EM_VAL obj0, EM_VAL obj1) {
+  {
+  std::vector< casadi::Matrix< casadi::SXElem > > * arg1;
+  std::vector< casadi::Matrix< casadi::SXElem > > m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "[" "SX" "]" "'.");
+  }
+  casadi::Dict * arg2;
+  std::map< std::string,casadi::GenericType > m2;
+  {
+    arg2 = &m2;
+  if (!casadi::to_ptr(obj1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "dict" "'.");
+  }
+  std::string result;
+  result = casadi::casadi_export_graph(*arg1, *arg2);
+  const char* _outv;
+  
+  {
+    char* __buf = (char*)malloc((&result)->size() + 1);
+    memcpy(__buf, (&result)->c_str(), (&result)->size() + 1);
+    _outv = __buf;
+  }
+
+  
+  
+  return _outv;
+  }
+fail:
+  return (const char*)0;
+}
+EMSCRIPTEN_KEEPALIVE const char* swig_casadi_casadi_export_graph_5(EM_VAL obj0, EM_VAL obj1) {
+  {
+  casadi::Matrix< casadi::SXElem > * arg1;
+  casadi::Matrix< casadi::SXElem > m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "SX" "'.");
+  }
+  casadi::Dict * arg2;
+  std::map< std::string,casadi::GenericType > m2;
+  {
+    arg2 = &m2;
+  if (!casadi::to_ptr(obj1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "dict" "'.");
+  }
+  std::string result;
+  result = casadi::casadi_export_graph(*arg1, *arg2);
+  const char* _outv;
+  
+  {
+    char* __buf = (char*)malloc((&result)->size() + 1);
+    memcpy(__buf, (&result)->c_str(), (&result)->size() + 1);
+    _outv = __buf;
+  }
+
+  
+  
+  return _outv;
+  }
+fail:
+  return (const char*)0;
+}
+EMSCRIPTEN_KEEPALIVE void swig_casadi_casadi_export_graph_6(EM_VAL obj0, const char* obj1, EM_VAL obj2) {
+  {
+  std::vector< casadi::Matrix< casadi::SXElem > > * arg1;
+  std::vector< casadi::Matrix< casadi::SXElem > > m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "[" "SX" "]" "'.");
+  }
+  std::string * arg2;
+  std::string m2;
+  {
+    
+  m2 = std::string(obj1);
+  arg2 = &m2;
+
+  }
+  casadi::Dict * arg3;
+  std::map< std::string,casadi::GenericType > m3;
+  {
+    arg3 = &m3;
+  if (!casadi::to_ptr(obj2, &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "dict" "'.");
+  }
+  casadi::casadi_export_graph(*arg1, *arg2, *arg3);
+  
+  
+  return;
+  }
+fail:
+  return;
+}
+EMSCRIPTEN_KEEPALIVE void swig_casadi_casadi_export_graph_7(EM_VAL obj0, const char* obj1, EM_VAL obj2) {
+  {
+  casadi::Matrix< casadi::SXElem > * arg1;
+  casadi::Matrix< casadi::SXElem > m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "SX" "'.");
+  }
+  std::string * arg2;
+  std::string m2;
+  {
+    
+  m2 = std::string(obj1);
+  arg2 = &m2;
+
+  }
+  casadi::Dict * arg3;
+  std::map< std::string,casadi::GenericType > m3;
+  {
+    arg3 = &m3;
+  if (!casadi::to_ptr(obj2, &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "dict" "'.");
+  }
+  casadi::casadi_export_graph(*arg1, *arg2, *arg3);
+  
+  
+  return;
+  }
+fail:
+  return;
 }
 EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_substitute_4(EM_VAL obj0, EM_VAL obj1, EM_VAL obj2) {
   {

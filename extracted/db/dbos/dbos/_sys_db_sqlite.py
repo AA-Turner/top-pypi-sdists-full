@@ -1,6 +1,5 @@
 import os
-import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict
 
 import sqlalchemy as sa
 from sqlalchemy import event
@@ -141,6 +140,14 @@ class SQLiteSystemDatabase(SystemDatabase):
     def _is_unique_constraint_violation(self, dbapi_error: DBAPIError) -> bool:
         """Check if the error is a unique constraint violation in SQLite."""
         return "UNIQUE constraint failed" in str(dbapi_error.orig)
+
+    def _is_serialization_error(self, dbapi_error: DBAPIError) -> bool:
+        """Check if the error is a serialization/concurrency error in SQLite."""
+        # SQLite database is locked or busy errors
+        error_msg = str(dbapi_error.orig).lower()
+        return (
+            "database is locked" in error_msg or "database table is locked" in error_msg
+        )
 
     def _attributes_contains_clause(
         self, attributes: Dict[str, Any]

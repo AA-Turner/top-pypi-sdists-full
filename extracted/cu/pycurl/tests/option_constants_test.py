@@ -1,3 +1,5 @@
+import array
+
 import pycurl
 import pytest
 
@@ -85,7 +87,7 @@ def test_protocols_setopt(curl):
 # CURLOPT_REDIR_PROTOCOLS was introduced in libcurl-7.19.4
 @util.min_libcurl(7, 19, 4)
 def test_redir_protocols_setopt(curl):
-    curl.setopt(curl.PROTOCOLS, curl.PROTO_ALL & ~curl.PROTO_HTTP)
+    curl.setopt(curl.REDIR_PROTOCOLS, curl.PROTO_ALL & ~curl.PROTO_HTTP)
 
 
 # CURLOPT_TFTP_BLKSIZE was introduced in libcurl-7.19.4
@@ -251,6 +253,16 @@ def test_capath(curl):
     curl.setopt(curl.CAPATH, "/bogus-capath")
 
 
+def _exercise_blob_option(curl, option):
+    curl.setopt(option, "bogus-blob-as-str")
+    curl.setopt(option, b"bogus-blob-as-bytes")
+    curl.setopt(option, bytearray(b"bogus-blob-as-bytearray"))
+    curl.setopt(option, memoryview(b"bogus-blob-as-memoryview"))
+    curl.setopt(option, array.array("B", b"bogus-blob-as-array"))
+    curl.setopt(option, None)
+    curl.unsetopt(option)
+
+
 @util.only_ssl_backends_with_min_libcurl(
     {
         "openssl": (7, 77, 0),
@@ -262,37 +274,25 @@ def test_capath(curl):
     }
 )
 def test_cainfo_blob(curl):
-    curl.setopt(curl.CAINFO_BLOB, "bogus-cainfo-blob-as-str")
-    curl.setopt(curl.CAINFO_BLOB, None)
-    curl.setopt(curl.CAINFO_BLOB, b"bogus-cainfo-blob-as-bytes")
-    curl.unsetopt(curl.CAINFO_BLOB)
+    _exercise_blob_option(curl, curl.CAINFO_BLOB)
 
 
 @util.min_libcurl(7, 71, 0)
 @util.only_ssl_backends("openssl", "schannel", "mbedtls", "wolfssl")
 def test_sslcert_blob(curl):
-    curl.setopt(curl.SSLCERT_BLOB, "bogus-sslcert-blob-as-str")
-    curl.setopt(curl.SSLCERT_BLOB, None)
-    curl.setopt(curl.SSLCERT_BLOB, b"bogus-sslcert-blob-as-bytes")
-    curl.unsetopt(curl.SSLCERT_BLOB)
+    _exercise_blob_option(curl, curl.SSLCERT_BLOB)
 
 
 @util.min_libcurl(7, 71, 0)
 @util.only_ssl_backends("openssl", "wolfssl")
 def test_sslkey_blob(curl):
-    curl.setopt(curl.SSLKEY_BLOB, "bogus-sslkey-blob-as-str")
-    curl.setopt(curl.SSLKEY_BLOB, None)
-    curl.setopt(curl.SSLKEY_BLOB, b"bogus-sslkey-blob-as-bytes")
-    curl.unsetopt(curl.SSLKEY_BLOB)
+    _exercise_blob_option(curl, curl.SSLKEY_BLOB)
 
 
 @util.min_libcurl(7, 71, 0)
 @util.only_ssl_backends("openssl")
 def test_issuercert_blob(curl):
-    curl.setopt(curl.ISSUERCERT_BLOB, "bogus-issuercert-blob-as-str")
-    curl.setopt(curl.ISSUERCERT_BLOB, None)
-    curl.setopt(curl.ISSUERCERT_BLOB, b"bogus-issuercert-blob-as-bytes")
-    curl.unsetopt(curl.ISSUERCERT_BLOB)
+    _exercise_blob_option(curl, curl.ISSUERCERT_BLOB)
 
 
 # CURLOPT_PROXY_CAPATH was introduced in libcurl-7.52.0
@@ -311,10 +311,7 @@ def test_proxy_cainfo(curl):
 @util.min_libcurl(7, 77, 0)
 @util.only_ssl_backends("openssl", "rustls", "schannel")
 def test_proxy_cainfo_blob(curl):
-    curl.setopt(curl.PROXY_CAINFO_BLOB, "bogus-cainfo-blob-as-str")
-    curl.setopt(curl.PROXY_CAINFO_BLOB, None)
-    curl.setopt(curl.PROXY_CAINFO_BLOB, b"bogus-cainfo-blob-as-bytes")
-    curl.unsetopt(curl.PROXY_CAINFO_BLOB)
+    _exercise_blob_option(curl, curl.PROXY_CAINFO_BLOB)
 
 
 @util.min_libcurl(7, 52, 0)
@@ -332,10 +329,7 @@ def test_proxy_sslcert(curl):
 @util.min_libcurl(7, 71, 0)
 @util.only_ssl_backends("openssl", "schannel")
 def test_proxy_sslcert_blob(curl):
-    curl.setopt(curl.PROXY_SSLCERT_BLOB, "bogus-sslcert-blob-as-str")
-    curl.setopt(curl.PROXY_SSLCERT_BLOB, None)
-    curl.setopt(curl.PROXY_SSLCERT_BLOB, b"bogus-sslcert-blob-as-bytes")
-    curl.unsetopt(curl.PROXY_SSLCERT_BLOB)
+    _exercise_blob_option(curl, curl.PROXY_SSLCERT_BLOB)
 
 
 @util.min_libcurl(7, 52, 0)
@@ -353,10 +347,7 @@ def test_proxy_sslkey(curl):
 @util.min_libcurl(7, 71, 0)
 @util.only_ssl_backends("openssl")
 def test_proxy_sslkey_blob(curl):
-    curl.setopt(curl.PROXY_SSLKEY_BLOB, "bogus-sslkey-blob-as-str")
-    curl.setopt(curl.PROXY_SSLKEY_BLOB, None)
-    curl.setopt(curl.PROXY_SSLKEY_BLOB, b"bogus-sslkey-blob-as-bytes")
-    curl.unsetopt(curl.PROXY_SSLKEY_BLOB)
+    _exercise_blob_option(curl, curl.PROXY_SSLKEY_BLOB)
 
 
 @util.min_libcurl(7, 52, 0)
@@ -368,10 +359,7 @@ def test_proxy_sslkeytype(curl):
 @util.min_libcurl(7, 71, 0)
 @util.only_ssl_backends("openssl")
 def test_proxy_issuercert_blob(curl):
-    curl.setopt(curl.PROXY_ISSUERCERT_BLOB, "bogus-issuercert-blob-as-str")
-    curl.setopt(curl.PROXY_ISSUERCERT_BLOB, None)
-    curl.setopt(curl.PROXY_ISSUERCERT_BLOB, b"bogus-issuercert-blob-as-bytes")
-    curl.unsetopt(curl.PROXY_ISSUERCERT_BLOB)
+    _exercise_blob_option(curl, curl.PROXY_ISSUERCERT_BLOB)
 
 
 @util.min_libcurl(7, 52, 0)
@@ -441,8 +429,9 @@ def test_proxy_ssl_options(curl):
 @util.only_ssl_backends("openssl", "gnutls")
 @util.only_tls_srp
 def test_proxy_tlsauth(curl):
-    curl.setopt(curl.PROXY_TLSAUTH_USERNAME, "test")
-    curl.setopt(curl.PROXY_TLSAUTH_PASSWORD, "test")
+    with pytest.warns(DeprecationWarning, match="setopt option is deprecated"):
+        curl.setopt(curl.PROXY_TLSAUTH_USERNAME, "test")
+        curl.setopt(curl.PROXY_TLSAUTH_PASSWORD, "test")
 
 
 @util.min_libcurl(7, 71, 0)
@@ -516,6 +505,36 @@ def test_ssl_option_no_revoke(curl):
     curl.setopt(curl.SSL_OPTIONS, curl.SSLOPT_NO_REVOKE)
 
 
+@util.min_libcurl(7, 68, 0)
+@util.only_ssl
+def test_ssl_option_no_partialchain(curl):
+    curl.setopt(curl.SSL_OPTIONS, curl.SSLOPT_NO_PARTIALCHAIN)
+
+
+@util.min_libcurl(7, 70, 0)
+@util.only_ssl
+def test_ssl_option_revoke_best_effort(curl):
+    curl.setopt(curl.SSL_OPTIONS, curl.SSLOPT_REVOKE_BEST_EFFORT)
+
+
+@util.min_libcurl(7, 71, 0)
+@util.only_ssl
+def test_ssl_option_native_ca(curl):
+    curl.setopt(curl.SSL_OPTIONS, curl.SSLOPT_NATIVE_CA)
+
+
+@util.min_libcurl(7, 77, 0)
+@util.only_ssl
+def test_ssl_option_auto_client_cert(curl):
+    curl.setopt(curl.SSL_OPTIONS, curl.SSLOPT_AUTO_CLIENT_CERT)
+
+
+@util.min_libcurl(8, 11, 0)
+@util.only_ssl
+def test_ssl_option_earlydata(curl):
+    curl.setopt(curl.SSL_OPTIONS, curl.SSLOPT_EARLYDATA)
+
+
 @util.min_libcurl(7, 55, 0)
 def test_request_target_option(curl):
     curl.setopt(curl.REQUEST_TARGET, "*")
@@ -548,6 +567,25 @@ def test_tls13_ciphers(curl):
 )
 def test_proxy_tls13_ciphers(curl):
     curl.setopt(curl.PROXY_TLS13_CIPHERS, "TLS_CHACHA20_POLY1305_SHA256")
+
+
+@util.only_ssl_backends_with_min_libcurl(
+    {
+        "openssl": (7, 73, 0),
+        "wolfssl": (7, 73, 0),
+    }
+)
+def test_ssl_ec_curves(curl):
+    curl.setopt(curl.SSL_EC_CURVES, "X25519:P-256")
+
+
+@util.only_ssl_backends_with_min_libcurl(
+    {
+        "openssl": (8, 14, 0),
+    }
+)
+def test_ssl_signature_algorithms(curl):
+    curl.setopt(curl.SSL_SIGNATURE_ALGORITHMS, "rsa_pss_pss_sha256")
 
 
 @util.min_libcurl(7, 75, 0)
@@ -715,9 +753,10 @@ def test_proto_smb(curl):
 @util.only_ssl_backends("openssl", "gnutls")
 @util.only_tls_srp
 def test_tlsauth(curl):
-    curl.setopt(curl.TLSAUTH_TYPE, "SRP")
-    curl.setopt(curl.TLSAUTH_USERNAME, "test")
-    curl.setopt(curl.TLSAUTH_PASSWORD, "test")
+    with pytest.warns(DeprecationWarning, match="setopt option is deprecated"):
+        curl.setopt(curl.TLSAUTH_TYPE, "SRP")
+        curl.setopt(curl.TLSAUTH_USERNAME, "test")
+        curl.setopt(curl.TLSAUTH_PASSWORD, "test")
 
 
 @util.min_libcurl(7, 45, 0)
@@ -791,3 +830,80 @@ def test_hsts_constants():
     assert pycurl.CURLSTS_OK == 0
     assert pycurl.CURLSTS_DONE == 1
     assert pycurl.CURLSTS_FAIL == 2
+
+
+@util.min_libcurl(7, 52, 0)
+def test_scheme_constant(curl):
+    assert hasattr(pycurl, "SCHEME")
+    assert hasattr(curl, "SCHEME")
+    assert pycurl.SCHEME == curl.SCHEME
+
+
+@util.min_libcurl(7, 76, 0)
+def test_info_referer_constant(curl):
+    assert hasattr(pycurl, "INFO_REFERER")
+    assert hasattr(curl, "INFO_REFERER")
+    assert pycurl.INFO_REFERER == curl.INFO_REFERER
+
+
+@util.min_libcurl(7, 66, 0)
+def test_retry_after_constant(curl):
+    assert hasattr(pycurl, "RETRY_AFTER")
+    assert hasattr(curl, "RETRY_AFTER")
+    assert pycurl.RETRY_AFTER == curl.RETRY_AFTER
+
+
+@util.min_libcurl(8, 2, 0)
+def test_conn_id_constant(curl):
+    assert hasattr(pycurl, "CONN_ID")
+    assert hasattr(curl, "CONN_ID")
+    assert pycurl.CONN_ID == curl.CONN_ID
+
+
+@util.min_libcurl(8, 2, 0)
+def test_xfer_id_constant(curl):
+    assert hasattr(pycurl, "XFER_ID")
+    assert hasattr(curl, "XFER_ID")
+    assert pycurl.XFER_ID == curl.XFER_ID
+
+
+@util.min_libcurl(8, 7, 0)
+def test_used_proxy_constant(curl):
+    assert hasattr(pycurl, "USED_PROXY")
+    assert hasattr(curl, "USED_PROXY")
+    assert pycurl.USED_PROXY == curl.USED_PROXY
+
+
+@util.min_libcurl(7, 73, 0)
+def test_proxy_error_constant(curl):
+    assert hasattr(pycurl, "PROXY_ERROR")
+    assert hasattr(curl, "PROXY_ERROR")
+    assert pycurl.PROXY_ERROR == curl.PROXY_ERROR
+
+
+@util.min_libcurl(7, 52, 0)
+def test_proxy_ssl_verifyresult_constant(curl):
+    assert hasattr(pycurl, "PROXY_SSL_VERIFYRESULT")
+    assert hasattr(curl, "PROXY_SSL_VERIFYRESULT")
+    assert pycurl.PROXY_SSL_VERIFYRESULT == curl.PROXY_SSL_VERIFYRESULT
+
+
+@util.min_libcurl(8, 20, 0)
+def test_size_delivered_constant(curl):
+    assert hasattr(pycurl, "SIZE_DELIVERED")
+    assert hasattr(curl, "SIZE_DELIVERED")
+    assert pycurl.SIZE_DELIVERED == curl.SIZE_DELIVERED
+
+
+@util.min_libcurl(7, 73, 0)
+def test_ssl_ec_curves_constant(curl):
+    assert hasattr(pycurl, "SSL_EC_CURVES")
+    assert hasattr(curl, "SSL_EC_CURVES")
+    assert pycurl.SSL_EC_CURVES == curl.SSL_EC_CURVES
+
+
+@util.min_libcurl(8, 14, 0)
+def test_ssl_signature_algorithms_constant(curl):
+    assert hasattr(pycurl, "SSL_SIGNATURE_ALGORITHMS")
+    assert hasattr(curl, "SSL_SIGNATURE_ALGORITHMS")
+    assert pycurl.SSL_SIGNATURE_ALGORITHMS == curl.SSL_SIGNATURE_ALGORITHMS

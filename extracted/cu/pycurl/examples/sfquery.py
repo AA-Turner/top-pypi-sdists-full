@@ -37,7 +37,7 @@ if __name__ == "__main__":
     try:
         auth = netrc.netrc().authenticators("sourceforge.net")
         name, account, password = auth
-    except:
+    except Exception:
         if len(sys.argv) < 4:
             print("Usage: %s <project id> <username> <password>" % sys.argv[0])
             raise SystemExit

@@ -1,6 +1,6 @@
 [project]
 name = "google-agents-cli"
-version = "1.5.0"
+version = "1.6.1"
 description = "Agents CLI — Agent Development Lifecycle toolchain for ADK"
 readme = "README.md"
 license = "Apache-2.0"
@@ -25,6 +25,7 @@ dependencies = [
   "rich>=13.7.0",
   "backoff>=2.2.1",
   "requests>=2.31.0",
+  "websockets>=13.0",
   "a2a-sdk>=1.0,<2",
   # Pin the a2a-sdk (>=5.29.5) .. aiplatform (<7) window so pip won't chase
   # protobuf 7 and backtrack into old google-api-core (protobuf<5).

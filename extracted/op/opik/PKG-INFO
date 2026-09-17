@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opik
-Version: 2.2.64
+Version: 2.2.66
 Summary: Comet tool for logging and evaluating LLM traces
 Home-page: https://www.comet.com
 Author: Comet ML Inc.
@@ -37,6 +37,7 @@ Requires-Dist: sentry_sdk>=2.0.0
 Requires-Dist: tenacity
 Requires-Dist: tqdm
 Requires-Dist: uuid6
+Requires-Dist: orjson>=3.9.10; platform_python_implementation == "CPython" and platform_machine in "x86_64 AMD64 aarch64 arm64 ARM64 i686 x86" and (sys_platform != "win32" or platform_machine != "ARM64" or python_version >= "3.11")
 Requires-Dist: jinja2
 Requires-Dist: watchfiles<2.0.0,>=1.0.0
 Requires-Dist: tree-sitter<1.0,>=0.23; platform_machine != "aarch64" or sys_platform != "linux"

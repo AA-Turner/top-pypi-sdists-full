@@ -3,7 +3,7 @@
 import re
 from abc import abstractmethod
 from pathlib import Path
-from types import MethodType
+from types import MethodType, ModuleType
 from typing import Any
 
 from pyrig_runtime.core.strings import snake_to_kebab_case
@@ -17,7 +17,7 @@ from pyrig.core.strings import (
 )
 from pyrig.core.subprocesses import Args
 from pyrig.rig import resources
-from pyrig.rig.configs.base.yaml import YMLDictConfigFile
+from pyrig.rig.configs.base.yaml import YMLDictConfigFile, commented_map
 from pyrig.rig.configs.pyproject import PyprojectConfigFile
 from pyrig.rig.tools.linting.shell import ShellLinter
 from pyrig.rig.tools.packages.manager import PackageManager
@@ -147,13 +147,10 @@ class WorkflowConfigFile(YMLDictConfigFile):
         return {name: "write" if write else "read"}
 
     def documented_permissions(self, permissions: dict[str, str]) -> CommentedMap:
-        """Return `permissions` as a `CommentedMap` that documents permissions.
+        """Return `permissions` as a documented `CommentedMap`.
 
         zizmor's `undocumented-permissions` audit requires an explanatory
         comment on any permission entry other than `contents: read`.
-
-        Is assembled via multiple single-entry `CommentedMap` instances to ensure
-        consistent inline comment placement.
 
         Args:
             permissions: Mapping of permission name to `"read"` or `"write"`.
@@ -162,16 +159,14 @@ class WorkflowConfigFile(YMLDictConfigFile):
             Equivalent `CommentedMap`; every entry except `contents: read`
             carries an inline comment.
         """
-        commented = CommentedMap()
-        for name, level in permissions.items():
-            if (name, level) == ("contents", "read"):
-                commented[name] = level
-                continue
-            permission = CommentedMap({name: level})
-            permission.yaml_add_eol_comment(self.permission_comment(), name)
-            commented[name] = level
-            commented.ca.items[name] = permission.ca.items[name]
-        return commented
+        return commented_map(
+            permissions,
+            {
+                k: self.permission_comment()
+                for k in permissions
+                if (k, permissions[k]) != ("contents", "read")
+            },
+        )
 
     def permission_comment(self) -> str:
         """Return the comment attached to every documented permission entry.
@@ -180,6 +175,21 @@ class WorkflowConfigFile(YMLDictConfigFile):
             `"required"`.
         """
         return "required"
+
+    def uses(self, action: str, ref: str) -> str:
+        """Return the full reference for a GitHub Actions action.
+
+        If the file already exists and already has a reference for the action,
+        that reference will be used instead of the provided `ref`.
+
+        Args:
+            action: The name of the action (e.g., `actions/checkout`).
+            ref: The git ref for the action (e.g., <sha>).
+
+        Returns:
+            The full action reference in the format `action@ref`.
+        """
+        return f"{action}@{self.action(action, default=ref)}"
 
     def concurrency(self) -> dict[str, Any]:
         """Return the workflow's concurrency setting.
@@ -378,11 +388,13 @@ class WorkflowConfigFile(YMLDictConfigFile):
         *,
         run: str | None = None,
         if_condition: str | None = None,
-        uses: tuple[str, str] | None = None,
+        uses: tuple[str, str, str] | None = None,
         with_: dict[str, Any] | None = None,
         env: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> CommentedMap:
         """Build a step configuration dict.
+
+        Adds a comment to a step that uses an action.
 
         Args:
             method: Method representing this step; its name is used to
@@ -390,14 +402,21 @@ class WorkflowConfigFile(YMLDictConfigFile):
             run: Shell command to execute.
             if_condition: GitHub Actions conditional expression controlling
                 whether the step runs.
-            uses: GitHub Action tuple of `(action, default_ref)` (e.g.
-                `("actions/checkout", "<ref>")`).
+            uses: GitHub Action tuple of `(action, ref, tag)` (e.g.
+                `("actions/checkout", "<sha>", "v7.0.1")`).
             with_: Input parameters passed to the action.
             env: Step-level environment variables.
 
         Returns:
             Step configuration dict with at least `name` and `id` set.
+
+        Note:
+            The returned dictionary is a `CommentedMap` which preserves comments
+            associated with each key. Mutating the returned `CommentedMap` will
+            preserve these comments.
         """
+        comments: dict[str, str] = {}
+
         id_ = self.step_id_from_method(method)
         step = {
             "name": self.name_from_id(id_),
@@ -408,14 +427,18 @@ class WorkflowConfigFile(YMLDictConfigFile):
         if run is not None:
             step["run"] = run
         if uses is not None:
-            action, ref = uses
-            step["uses"] = f"{action}@{self.action_ref(action, default=ref)}"
+            action, ref, tag = uses
+            step["uses"] = self.uses(action, ref)
+            comments["uses"] = tag
         if with_ is not None:
             step["with"] = with_
         if env is not None:
             step["env"] = env
 
-        return step
+        return commented_map(
+            step,
+            comments,
+        )
 
     def name_from_id(self, id_: str) -> str:
         """Generate a human-readable display name from a kebab-case identifier.
@@ -713,18 +736,38 @@ class WorkflowConfigFile(YMLDictConfigFile):
             self.step_setup_package_manager(python_version=python_version),
         ]
 
-    def checkout_action_ref(self) -> str:
-        """Return the pinned commit SHA for `actions/checkout`.
+    def checkout_action(self) -> tuple[str, str, str]:
+        """Return action metadata for `actions/checkout`.
 
         Returns:
-            Commit SHA `actions/checkout` is pinned to.
+            Tuple of action name, pinned commit SHA, and release tag.
         """
-        return resource_content(
-            self.checkout_action_ref.__name__.upper(),
-            resources,
-        ).strip()
+        return self.action_from_resource(self.checkout_action, resources)
 
-    def action_ref(self, name: str, *, default: str) -> str:
+    def action_from_resource(
+        self,
+        method: MethodType,
+        package: ModuleType,
+    ) -> tuple[str, str, str]:
+        """Read action name, pinned ref, and release tag from a resource.
+
+        The resource name is derived from the method name, converted to
+        uppercase, and the first three lines provide the action metadata.
+
+        Args:
+            method: Action method whose name identifies the resource.
+            package: Package module containing the resource.
+
+        Returns:
+            Tuple of action name, pinned commit SHA, and release tag.
+        """
+        action, ref, tag, *_ = resource_content(
+            method.__name__.upper(),
+            package,
+        ).splitlines()
+        return action, ref, tag
+
+    def action(self, name: str, *, default: str) -> str:
         """Return the ref for an action, preferring the existing ref in the file.
 
         Looks for an existing step using `name` in the loaded workflow file. If
@@ -752,7 +795,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
     def step_checkout_repository(self) -> dict[str, Any]:
         """Build a step that checks out the repository.
 
-        Uses `actions/checkout`, pinned to `checkout_action_ref()`, which
+        Uses `actions/checkout`, defaulting to `checkout_action()`. It
         authenticates with the automatic `GITHUB_TOKEN`. Credential
         persistence is disabled since no later step needs the checked-out
         git credentials. The containing job must grant at least
@@ -763,23 +806,17 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return self.step(
             self.step_checkout_repository,
-            uses=(
-                "actions/checkout",
-                self.checkout_action_ref(),
-            ),
+            uses=self.checkout_action(),
             with_={"persist-credentials": False},
         )
 
-    def setup_uv_action_ref(self) -> str:
-        """Return the pinned commit SHA for `astral-sh/setup-uv`.
+    def setup_uv_action(self) -> tuple[str, str, str]:
+        """Return action metadata for `astral-sh/setup-uv`.
 
         Returns:
-            Commit SHA `astral-sh/setup-uv` is pinned to.
+            Tuple of action name, pinned commit SHA, and release tag.
         """
-        return resource_content(
-            self.setup_uv_action_ref.__name__.upper(),
-            resources,
-        ).strip()
+        return self.action_from_resource(self.setup_uv_action, resources)
 
     def step_setup_package_manager(
         self,
@@ -788,10 +825,10 @@ class WorkflowConfigFile(YMLDictConfigFile):
     ) -> dict[str, Any]:
         """Build a step that installs uv and pins the Python version.
 
-        Uses `astral-sh/setup-uv`, pinned to `setup_uv_action_ref()`, to
+        Uses `astral-sh/setup-uv`, defaulting to `setup_uv_action()`, to
         install uv on the runner and configure it to use the given Python
-        version. All subsequent `uv run` and `uv sync` commands will use
-        this version.
+        version. All subsequent `uv run` and `uv sync` commands will use this
+        version.
 
         Args:
             python_version: Python version string to pin, e.g. `"3.13"`.
@@ -801,10 +838,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return self.step(
             self.step_setup_package_manager,
-            uses=(
-                "astral-sh/setup-uv",
-                self.setup_uv_action_ref(),
-            ),
+            uses=self.setup_uv_action(),
             with_={"python-version": python_version},
         )
 

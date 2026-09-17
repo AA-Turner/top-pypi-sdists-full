@@ -7,7 +7,7 @@ See https://www.python-ldap.org/ for details.
 from ldap import __version__
 
 __all__ = [
-  'open','initialize','init',
+  'initialize',
   'explode_dn','explode_rdn',
   'get_option','set_option',
   'escape_str',
@@ -83,7 +83,9 @@ def initialize(
         Whether to enable :ref:`bytes_mode` for backwards compatibility under Py2.
   fileno
         If not None the socket file descriptor is used to connect to an
-        LDAP server.
+        LDAP server. The connection takes ownership of the descriptor and
+        closes it when unbound, so nothing else may close it. Detach the
+        socket object it came from.
 
   Additional keyword arguments (such as ``bytes_strictness``) are
   passed to ``LDAPObject``.

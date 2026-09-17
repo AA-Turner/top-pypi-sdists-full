@@ -578,6 +578,25 @@ def test_temperature_tilt_vibration_sensor(fake_home: Home):
     assert d.functionalChannels[2].tiltState == "NON_NEUTRAL"
 
 
+def test_ultrasonic_distance_sensor(fake_home: Home):
+    """ELV-SH-DUSI reports a distance and, when activated, a height derived from it."""
+    d = fake_home.search_device_by_id("3014F711000000000000DUSI")
+    assert isinstance(d, UltrasonicDistanceSensor)
+    assert d.modelType == "ELV-SH-DUSI"
+    assert d.distance == 150.0
+    assert d.calculatedHeight == 500.0
+    assert d.heightActivated is True
+    assert d.referenceHeight == 650.0
+
+    distance_channel = d.functionalChannels[1]
+    assert isinstance(distance_channel, DistanceSensorChannel)
+    assert distance_channel.distance == 150.0
+    assert distance_channel.calculatedHeight == 500.0
+    assert distance_channel.referenceHeight == 650.0
+    assert distance_channel.measuringInterval == 30
+    assert distance_channel.distanceSensorVoltage == "SENSOR_VOLTAGE_3_3"
+
+
 def test_multi_io_box(fake_home: Home):
     d = fake_home.search_device_by_id("3014F711ABCD0ABCD000002")
     assert isinstance(d, MultiIOBox)
@@ -2533,6 +2552,23 @@ def test_motion_detector_switch_outdoor(fake_home: Home):
         assert switch_channel.profileMode == "AUTOMATIC"
         assert switch_channel.userDesiredProfileMode == "AUTOMATIC"
         assert sabotage_channel.sabotage is False
+
+
+def test_wall_mounted_glass_switch(fake_home: Home):
+    with no_ssl_verification():
+        d = fake_home.search_device_by_id("3014F7110000000000000WGS")
+        assert isinstance(d, WallMountedGlassSwitch)
+        assert d.modelType == "HmIP-WGS"
+
+        key_channels = [
+            c
+            for c in d.functionalChannels
+            if c.functionalChannelType == "SINGLE_KEY_CHANNEL"
+        ]
+        assert [c.index for c in key_channels] == [4, 5, 6, 7]
+
+        assert d.functionalChannels[2].dimLevel == 0.75
+        assert d.functionalChannels[3].on is False
 
 
 def test_wall_mounted_keypad(fake_home: Home):

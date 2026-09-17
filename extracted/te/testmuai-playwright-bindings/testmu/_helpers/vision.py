@@ -36,8 +36,6 @@ from testmu._helpers._dom_capture import (
 
 _log = logging.getLogger("testmu")
 
-_VISION_API_HOST = os.getenv("TESTMU_AI_API_HOST", "https://kaneai-api.lambdatest.com/v16-server")
-_ANALYZER_URL = f"{_VISION_API_HOST}/api/v1/analyzer"
 _ANALYZER_TIMEOUT = aiohttp.ClientTimeout(total=120)
 _QUERY_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
@@ -85,10 +83,11 @@ async def _post_analyzer(
 ) -> dict:
     """POST to the analyzer endpoint and return parsed JSON."""
     t = timeout or _ANALYZER_TIMEOUT
-    async with session.post(_ANALYZER_URL, json=body, timeout=t) as resp:
+    url = f"{_config.get_ai_api_host()}/api/v1/analyzer"
+    async with session.post(url, json=body, timeout=t) as resp:
         if resp.status != 200:
             text = await resp.text()
-            raise Exception(f"Analyzer API error {resp.status}: {text}")
+            raise Exception(f"Analyzer API error {resp.status} at {url}: {text}")
         return await resp.json()
 
 
@@ -108,27 +107,29 @@ async def _derive_if_recorded(page, code_js: str | None, value):
 async def _check_wait_condition(
     session: aiohttp.ClientSession, screenshot_b64: str, query: str
 ) -> dict:
+    url = f"{_config.get_ai_api_host()}/api/v1/wait/check"
     async with session.post(
-        f"{_VISION_API_HOST}/api/v1/wait/check",
+        url,
         json={"screenshot_b64": screenshot_b64, "query": query},
         timeout=aiohttp.ClientTimeout(total=30),
     ) as resp:
         if resp.status == 200:
             return await resp.json()
-        raise Exception(f"Wait API error: {resp.status}")
+        raise Exception(f"Wait API error: {resp.status} at {url}")
 
 
 async def _check_visibility(
     session: aiohttp.ClientSession, screenshot_b64: str, query: str
 ) -> dict:
+    url = f"{_config.get_ai_api_host()}/api/v1/visibility/check"
     async with session.post(
-        f"{_VISION_API_HOST}/api/v1/visibility/check",
+        url,
         json={"screenshot_b64": screenshot_b64, "query": query},
         timeout=aiohttp.ClientTimeout(total=30),
     ) as resp:
         if resp.status == 200:
             return await resp.json()
-        raise Exception(f"Visibility API error: {resp.status}")
+        raise Exception(f"Visibility API error: {resp.status} at {url}")
 
 
 async def _wait_for_visibility(page, query: str, opts: dict = None) -> str:
@@ -549,9 +550,10 @@ async def vision_action(
     width = viewport["width"] if viewport else 1920
     height = viewport["height"] if viewport else 1080
 
+    url = f"{_config.get_ai_api_host()}/api/v1/vision/coordinates"
     async with create_session() as session:
         async with session.post(
-            f"{_VISION_API_HOST}/api/v1/vision/coordinates",
+            url,
             json={
                 "screenshot_b64": screenshot_b64,
                 "action_instruction": description,
@@ -562,7 +564,7 @@ async def vision_action(
             timeout=aiohttp.ClientTimeout(total=30),
         ) as resp:
             if resp.status != 200:
-                _log.info("    [vision_action] API error status=%d", resp.status)
+                _log.info("    [vision_action] API error status=%d at %s", resp.status, url)
                 return False
             result = await resp.json()
             if not result.get("found", False):
@@ -626,9 +628,10 @@ async def get_vision_coordinates(
     width = viewport["width"] if viewport else 1920
     height = viewport["height"] if viewport else 1080
 
+    url = f"{_config.get_ai_api_host()}/api/v1/vision/coordinates"
     async with create_session() as session:
         async with session.post(
-            f"{_VISION_API_HOST}/api/v1/vision/coordinates",
+            url,
             json={
                 "screenshot_b64": screenshot_b64,
                 "action_instruction": description,
@@ -638,7 +641,7 @@ async def get_vision_coordinates(
             timeout=aiohttp.ClientTimeout(total=30),
         ) as resp:
             if resp.status != 200:
-                raise Exception(f"Vision API error: {resp.status}")
+                raise Exception(f"Vision API error: {resp.status} at {url}")
             result = await resp.json()
             if not result.get("found", False):
                 raise Exception(

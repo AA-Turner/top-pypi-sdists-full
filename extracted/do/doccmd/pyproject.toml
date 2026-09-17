@@ -38,7 +38,7 @@ dependencies = [
     "beartype>=0.22.9",
     "charset-normalizer>=3.4.1",
     "click>=8.3.0,<8.6.0",
-    "click-compose>=2025.10.27.3",
+    "click-compose>=2026.9.16.1",
     "cloup>=3.0.0",
     "dulwich>=0.22.1",
     "pygments>=2.18.0",
@@ -47,8 +47,14 @@ dependencies = [
     # * It might have breaking changes
     # * It is not a direct dependency of the user
     "sybil-extras==2026.8.16",
+    "typing-extensions>=4.12.0",
 ]
-optional-dependencies.dev = [
+urls.Documentation = "https://adamtheturtle.github.io/doccmd/"
+urls.Source = "https://github.com/adamtheturtle/doccmd"
+scripts.doccmd = "doccmd:main"
+
+[dependency-groups]
+dev = [
     "actionlint-py==1.7.12.24",
     "ansi==0.3.7",
     "check-manifest==0.51",
@@ -67,20 +73,21 @@ optional-dependencies.dev = [
     "pygments==2.21.0",
     "pylint[spelling]==4.0.8",
     "pylint-per-file-ignores==3.2.1",
-    "pyproject-fmt==2.29.3",
-    "pyrefly==1.2.0",
-    "pyright==1.1.411",
+    "pyproject-fmt==2.29.4",
+    "pyrefly==1.3.0",
+    "pyright==1.1.414",
     "pyroma==5.0.1",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "pytest-regressions==2.11.0",
     "pyyaml==6.0.3",
-    "ruff==0.16.6",
+    "ruff==0.16.7",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
     "shellcheck-py==0.11.0.1",
-    "shfmt-py==4.1.0",
+    "shfmt-py==4.2.0",
+    "snapper-fmt==0.11.2",
     "sphinx>=8.1.3",
     "sphinx-click==6.2.0",
     "sphinx-copybutton==0.5.2",
@@ -93,22 +100,19 @@ optional-dependencies.dev = [
     # into docs/source/unreleased.rst during Sphinx builds.
     "sphinxcontrib-towncrier==0.5.0a0",
     "strict-kwargs==2026.8.28.post2",
-    "towncrier==25.8.0",
-    "ty==0.0.78",
+    "towncrier==26.9.0",
+    "ty==0.0.80",
     "types-pygments==2.21.0.20260819",
-    "vale==3.20.0.0",
+    "vale==3.21.0.0",
     "vulture==2.16",
     "yamlfix==1.19.1",
-    "zizmor==1.30.0",
+    "zizmor==1.30.1",
 ]
-optional-dependencies.release = [
+release = [
     "check-wheel-contents==0.6.3",
     "homebrew-pypi-poet==0.10",
-    "towncrier==25.8.0",
+    "towncrier==26.9.0",
 ]
-urls.Documentation = "https://adamtheturtle.github.io/doccmd/"
-urls.Source = "https://github.com/adamtheturtle/doccmd"
-scripts.doccmd = "doccmd:main"
 
 [tool.setuptools]
 packages.find.where = [
@@ -136,6 +140,7 @@ line-length = 79
 lint.select = [
     "ALL",
 ]
+lint.extend-select = [ "ANN", "PGH003", "PYI" ]
 lint.ignore = [
     # We can manage our own complexity.
     "C901",
@@ -155,6 +160,7 @@ lint.ignore = [
     "PLR0913",
     "PLR0915",
 ]
+lint.explicit-preview-rules = true
 lint.per-file-ignores."doccmd_*.py" = [
     # Allow our chosen docstring line-style - pydocstringformatter handles
     # formatting but docstrings in docs may not match this style.
@@ -175,10 +181,12 @@ lint.unfixable = [
     "ERA001",
 ]
 lint.external = [ "NOD" ]
+lint.flake8-tidy-imports.banned-api."operator.attrgetter".msg = "operator.attrgetter is banned: use a lambda instead."
 lint.flake8-tidy-imports.banned-api."typing.cast".msg = """\
     typing.cast is banned: use explicit type narrowing or a typed variable instead.\
     """
 lint.pydocstyle.convention = "google"
+lint.preview = true
 
 [tool.pylint]
 # Disable the message, report, category or checker with the given id(s). You
@@ -314,6 +322,7 @@ ignore = [
     ".git_archival.txt",
     ".prettierrc",
     ".shellcheckrc",
+    ".snapperrc.toml",
     ".vale.ini",
     ".vscode/**",
     ".yamlfmt",
@@ -341,6 +350,7 @@ ignore = [
     "prek.toml",
     "spelling_private_dict.txt",
     "src/*/_setuptools_scm_version.py",
+    "styles/snapper/**",
     "tests",
     "tests-pylintrc",
     "tests/**",
@@ -348,13 +358,6 @@ ignore = [
     "uv.lock",
     "VERSION",
     "zizmor.yml",
-]
-
-[tool.deptry]
-optional_dependencies_dev_groups = [
-    "dev",
-    "packaging",
-    "release",
 ]
 
 [tool.vulture]
@@ -425,6 +428,8 @@ plugins = [
 
 [tool.pyrefly]
 errors.non-exhaustive-match = "error"
+enabled-ignores = [ "pyrefly" ]
+preset = "all"
 
 [tool.pyright]
 typeCheckingMode = "strict"
@@ -432,10 +437,23 @@ enableTypeIgnoreComments = false
 reportUnnecessaryTypeIgnoreComment = true
 
 [tool.ty]
+rules.blanket-ignore-comment = "error"
+rules.division-by-zero = "warn"
+rules.dynamic-function-decorator-return = "error"
+rules.missing-type-argument = "error"
+rules.possibly-missing-attribute = "warn"
+rules.possibly-missing-import = "warn"
+rules.possibly-unresolved-reference = "warn"
+rules.unsound-assignment = "error"
+rules.unsound-return-statement = "error"
+rules.unsound-yield = "error"
+rules.unsupported-dynamic-base = "warn"
 # Error if ty emits any warning-level diagnostics.
 terminal.error-on-warning = true
 # Disable support for `type: ignore` comments
 analysis.respect-type-ignore-comments = false
+analysis.strict-equality-semantics = true
+analysis.strict-generic-narrowing = true
 
 [tool.pytest]
 log_cli = true

@@ -16,7 +16,7 @@ class Person(TypedDict):
 # the database-backed queues on the second pass.
 if _dbos_global_instance is not None and _dbos_global_instance._launched:
     DBOS.register_queue("test_queue")
-    DBOS.register_queue("inorder_queue", concurrency=1, priority_enabled=True)
+    DBOS.register_queue("inorder_queue", concurrency=1)
 inorder_results: List[str] = []
 
 
@@ -52,8 +52,8 @@ def blocked_workflow() -> None:
         DBOS.sleep(0.1)
 
 
-@DBOS.transaction()
-def test_txn(x: int) -> int:
+@DBOS.step()
+def test_other_step(x: int) -> int:
     return x
 
 
@@ -64,4 +64,4 @@ def test_step(x: int) -> int:
 
 @DBOS.workflow()
 def fork_test(x: int) -> int:
-    return test_txn(x) + test_step(x)
+    return test_other_step(x) + test_step(x)

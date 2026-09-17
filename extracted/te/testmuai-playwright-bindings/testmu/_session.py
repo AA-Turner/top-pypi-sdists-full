@@ -80,10 +80,10 @@ def _assert_sse_browser_supported(page) -> None:
 
 
 def _apply_page_timeouts(page) -> None:
-    """Apply page defaults: env > configure > 10s action / 60s navigation."""
+    """Apply page defaults: env > configure > 60s action / 60s navigation."""
     env_action = os.environ.get("TESTMU_ACTION_TIMEOUT_MS")
     env_nav = os.environ.get("TESTMU_NAVIGATION_TIMEOUT_MS")
-    action_timeout = int(env_action) if env_action else int(_configure.get("default_action_timeout_ms", 10000))
+    action_timeout = int(env_action) if env_action else int(_configure.get("default_action_timeout_ms", 60000))
     nav_timeout = int(env_nav) if env_nav else int(_configure.get("default_navigation_timeout_ms", 60000))
     page.set_default_timeout(action_timeout)
     page.set_default_navigation_timeout(nav_timeout)

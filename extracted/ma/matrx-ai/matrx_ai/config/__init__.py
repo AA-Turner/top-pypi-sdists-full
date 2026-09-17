@@ -66,7 +66,14 @@ from .media_config import (
     YouTubeVideoContent,
     reconstruct_media_content,
 )
-from .message_config import MessageList, UnifiedMessage
+from .message_config import (
+    HOST_AUTHORED_BY,
+    MessageList,
+    UnifiedMessage,
+    content_text,
+    host_authored_user_turn,
+    human_authored_text,
+)
 from .response_format import (
     OutputSchemaEnvelope,
     ResponseFormat,
@@ -127,6 +134,11 @@ from .usage_config import (
 from .validators import ModelReference
 
 __all__ = [
+    # Authorship of a user-role turn (who actually wrote it)
+    "HOST_AUTHORED_BY",
+    "content_text",
+    "host_authored_user_turn",
+    "human_authored_text",
     # Tier 1
     "NormalizedCitation",
     "ensure_normalized_citations",

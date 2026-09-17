@@ -2,7 +2,7 @@
 
 __author__ = """Matteo Ghia"""
 __email__ = "matteo.ghia@yahoo.it"
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 __github_url__ = "https://github.com/Maestro-Zacht/aa-contacts"
 __app_name_ua__ = "aa-contacts"

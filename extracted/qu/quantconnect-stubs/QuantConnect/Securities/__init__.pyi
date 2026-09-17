@@ -6833,6 +6833,18 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         """
         ...
 
+    def get_last_trading_date(self, contract: QuantConnect_Securities_ContractSecurityFilterUniverse_TData) -> datetime.datetime:
+        """
+        Gets the date the given contract stops trading, used by the expiration filters. Defaults to the contract expiration date
+        
+        
+        This Class is protected.
+        
+        :param contract: The contract
+        :returns: The contract's last trading date.
+        """
+        ...
+
     def get_open_interest(self, contract: QuantConnect_Securities_ContractSecurityFilterUniverse_TData) -> float:
         """
         Gets the open interest of the given contract
@@ -8354,6 +8366,34 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         
         
         This Class is protected.
+        """
+        ...
+
+    @overload
+    def get_last_trading_date(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> datetime.datetime:
+        """
+        Gets the last trading date of the given contract, see get_last_trading_date(TData). Uses the universe
+        exchange hours and keeps the last resolved expiration, since every contract in the universe shares them
+        
+        
+        This Class is protected.
+        
+        :param symbol: The contract symbol
+        :returns: The date the contract stops trading.
+        """
+        ...
+
+    @overload
+    def get_last_trading_date(self, contract: QuantConnect_Securities_BaseOptionFilterUniverse_TData) -> datetime.datetime:
+        """
+        Gets the last trading date of the given contract: the previous open day for equity options expiring on a Saturday
+        or a holiday, see OptionSymbol.get_last_day_of_trading(Symbol, SecurityExchangeHours), the expiration date otherwise
+        
+        
+        This Class is protected.
+        
+        :param contract: The contract
+        :returns: The date the contract stops trading.
         """
         ...
 

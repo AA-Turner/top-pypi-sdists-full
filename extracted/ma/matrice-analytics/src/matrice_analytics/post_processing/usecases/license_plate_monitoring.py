@@ -204,7 +204,7 @@ def _extract_lpr_exception_response_body(exc: Exception) -> str:
         if callable(text):
             try:
                 text = text()
-            except Exception:
+            except Exception:  # noqa: BLE001 - best effort: an unparsable body must not mask the original LPR error
                 text = None
         if text:
             return str(text)
@@ -217,9 +217,11 @@ def _extract_lpr_exception_response_body(exc: Exception) -> str:
         if callable(json_body):
             try:
                 return json.dumps(json_body(), default=str)
-            except Exception:
+            except Exception:  # noqa: BLE001 - body is unreadable; fall through to the other exception attributes
                 # Body is unreadable; fall through to the other exception attributes.
-                logging.getLogger(__name__).debug("could not serialise LPR error body", exc_info=True)
+                logging.getLogger(__name__).debug(
+                    "could not serialise LPR error body", exc_info=True
+                )
     body = getattr(exc, "body", None)
     if body is not None:
         return str(body)
@@ -345,7 +347,7 @@ try:
     from ..ocr._ocr_subprocess_client import (  # noqa: E402
         OcrSubprocessUnavailable as _OcrSubprocessUnavailable,
     )
-except Exception:  # pragma: no cover - defensive
+except Exception:  # noqa: BLE001 - optional OCR subprocess import; absence is handled by the fallback path  # pragma: no cover - defensive
 
     class _OcrSubprocessUnavailable(Exception):  # noqa: N818 - mirrors public name
         """Fallback sentinel when the OCR subprocess client is unavailable."""
@@ -389,7 +391,9 @@ class LicensePlateMonitorConfig(BaseConfig):
     index_to_category: Dict[int, str] | None = field(default_factory=lambda: {0: "license_plate"})
     language: List[str] = field(default_factory=lambda: ["en"])
     country: str = field(default_factory=lambda: "us")
-    ocr_mode: str = field(default_factory=lambda: "alphanumeric")  # "alphanumeric" or "numeric" or "alphabetic"
+    ocr_mode: str = field(
+        default_factory=lambda: "alphanumeric"
+    )  # "alphanumeric" or "numeric" or "alphabetic"
     ocr_model_name: str = "cct-s-v1-global-model"  # See table above for available models
     ocr_device: str = "auto"  # "auto", "cuda", or "cpu"
     session: Session | None = None
@@ -405,7 +409,9 @@ class LicensePlateMonitorConfig(BaseConfig):
     # Was 30.0, which meant a wedged lpr-server held a sender slot for half a minute
     # per plate. These POSTs are a single small JSON body to a service on the same
     # network; if it has not answered in 5 s it is not going to.
-    lpr_post_timeout_s: float = _LPR_POST_TIMEOUT_DEFAULT_S  # Total timeout for pooled lpr-server HTTP POSTs
+    lpr_post_timeout_s: float = (
+        _LPR_POST_TIMEOUT_DEFAULT_S  # Total timeout for pooled lpr-server HTTP POSTs
+    )
     # Transport for plate sightings.
     #
     # "redis" (default) publishes each sighting to the ``lpr-detections`` stream and
@@ -657,9 +663,11 @@ class _LprRedisPublisher:
         self._last_connect_attempt = now
         try:
             import redis  # noqa: PLC0415 - lazy: only needed when publish mode is redis
-        except Exception as e:  # pragma: no cover - environment-dependent
+        except Exception as e:  # noqa: BLE001 - redis is optional; absence disables plate publishing, not the pipeline  # pragma: no cover - environment-dependent
             self._import_failed = True
-            self.logger.warning("[LP_LOGGING] redis not importable (%s); plate publishing disabled", e)
+            self.logger.warning(
+                "[LP_LOGGING] redis not importable (%s); plate publishing disabled", e
+            )
             return None
         try:
             if self._sentinel_hosts and self.master_name:
@@ -699,7 +707,7 @@ class _LprRedisPublisher:
                 self._target_description(),
                 self.stream,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - a connect failure degrades publishing; it must not stop the frame loop
             self.logger.warning(
                 "[LP_LOGGING] plate publisher redis connect failed (%s): %s",
                 self._target_description(),
@@ -729,7 +737,7 @@ class _LprRedisPublisher:
             )
             self.n_published += 1
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - a failed publish is counted and retried, never raised at the caller
             self.n_failed += 1
             now = time.time()
             if now - self._last_warn_ts >= 10.0:
@@ -741,6 +749,86 @@ class _LprRedisPublisher:
 
     def stats(self) -> Dict[str, int]:
         return {"published": self.n_published, "failed": self.n_failed}
+
+
+# The four helpers below were nested inside
+# ``LicensePlateMonitorLogger._extract_camera_info_from_stream``. They are pure
+# functions of their arguments -- no `self`, no closure over anything -- so
+# nesting bought nothing and cost everything: the complexity gate counts a nested
+# function's lines and branches inside its parent as well as on its own, which is
+# most of why that method measured 227 lines. Module level, same names, same
+# bodies; every call site inside the method is unchanged.
+
+
+def _to_str(value: Any) -> str:
+    """Convert common stream-info values to a safe string."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, dict):
+        return ""
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            s = _to_str(item)
+            if s:
+                return s
+        return ""
+    try:
+        return str(value).strip()
+    except Exception:  # noqa: BLE001 - best effort: an unresolvable value yields an empty string
+        return ""
+
+
+def _dict_get_str(d: Any, *keys: str) -> str:
+    """Get first non-empty key from dict as string."""
+    if not isinstance(d, dict):
+        return ""
+    for k in keys:
+        val = _to_str(d.get(k))
+        if val:
+            return val
+    return ""
+
+
+def _extract_camera_id_from_topic(topic_val: Any) -> str:
+    """Extract camera_id from topic formats like '{camera_id}_input_topic' or '{camera_id}_input-topic'."""
+    topic = _to_str(topic_val)
+    if not topic:
+        return ""
+    for suffix in ("_input_topic", "_input-topic"):
+        if topic.endswith(suffix):
+            return topic[: -len(suffix)].strip()
+    for marker in ("_input_topic", "_input-topic"):
+        if marker in topic:
+            return topic.split(marker)[0].strip()
+    return ""
+
+
+def _extract_camera_id_from_frame_id(frame_id_val: Any) -> str:
+    """
+    Best-effort fallback: extract a stable camera/stream identifier from frame_id.
+
+    Observed upstream format (py_inference legacy mode):
+      - 'legacy_{hexId}_{suffix}'
+    Example:
+      - 'legacy_694e7603a086e13d9c95dd3d_51b30e93'
+
+    We ONLY accept the middle segment if it looks like a hex identifier (>= 8 chars)
+    to avoid mis-parsing arbitrary frame_id formats.
+    """
+    fid = _to_str(frame_id_val)
+    if not fid:
+        return ""
+    if fid.startswith("legacy_"):
+        parts = fid.split("_")
+        if len(parts) >= 3:
+            candidate = parts[1].strip()
+            if candidate and re.fullmatch(r"[0-9a-f]{8,}", candidate, re.IGNORECASE):
+                return candidate
+    return ""
 
 
 class LicensePlateMonitorLogger:
@@ -892,10 +980,14 @@ class LicensePlateMonitorLogger:
                 )
                 return data
             else:
-                self.logger.warning(f"Failed to fetch server info: {response.get('message', 'Unknown error')}")
+                self.logger.warning(
+                    f"Failed to fetch server info: {response.get('message', 'Unknown error')}"
+                )
                 return None
         except Exception as e:
-            self.logger.error(f"Exception while fetching server connection info: {e}", exc_info=True)
+            self.logger.error(
+                f"Exception while fetching server connection info: {e}", exc_info=True
+            )
             return None
 
     def _format_timestamp_rfc3339(self, timestamp: str) -> str:
@@ -936,11 +1028,15 @@ class LicensePlateMonitorLogger:
             # Format to RFC3339: 2006-01-02T15:04:05Z
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        except Exception as e:
-            self.logger.warning(f"Failed to parse timestamp '{timestamp}': {e}. Using current time.")
+        except Exception as e:  # noqa: BLE001 - any unparsable timestamp falls back to now(); never fatal
+            self.logger.warning(
+                f"Failed to parse timestamp '{timestamp}': {e}. Using current time."
+            )
             return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    def _extract_camera_info_from_stream(self, stream_info: Dict[str, Any] | None) -> Dict[str, str]:
+    def _extract_camera_info_from_stream(
+        self, stream_info: Dict[str, Any] | None
+    ) -> Dict[str, str]:
         """
         Extract camera_name, camera_id, and location_id from stream_info.
 
@@ -971,73 +1067,6 @@ class LicensePlateMonitorLogger:
                 "camera_id": camera_id,
                 "location_id": location_id,
             }
-
-        def _to_str(value: Any) -> str:
-            """Convert common stream-info values to a safe string."""
-            if value is None:
-                return ""
-            if isinstance(value, str):
-                return value.strip()
-            if isinstance(value, (int, float)):
-                return str(value)
-            if isinstance(value, dict):
-                return ""
-            if isinstance(value, (list, tuple, set)):
-                for item in value:
-                    s = _to_str(item)
-                    if s:
-                        return s
-                return ""
-            try:
-                return str(value).strip()
-            except Exception:
-                return ""
-
-        def _dict_get_str(d: Any, *keys: str) -> str:
-            """Get first non-empty key from dict as string."""
-            if not isinstance(d, dict):
-                return ""
-            for k in keys:
-                val = _to_str(d.get(k))
-                if val:
-                    return val
-            return ""
-
-        def _extract_camera_id_from_topic(topic_val: Any) -> str:
-            """Extract camera_id from topic formats like '{camera_id}_input_topic' or '{camera_id}_input-topic'."""
-            topic = _to_str(topic_val)
-            if not topic:
-                return ""
-            for suffix in ("_input_topic", "_input-topic"):
-                if topic.endswith(suffix):
-                    return topic[: -len(suffix)].strip()
-            for marker in ("_input_topic", "_input-topic"):
-                if marker in topic:
-                    return topic.split(marker)[0].strip()
-            return ""
-
-        def _extract_camera_id_from_frame_id(frame_id_val: Any) -> str:
-            """
-            Best-effort fallback: extract a stable camera/stream identifier from frame_id.
-
-            Observed upstream format (py_inference legacy mode):
-              - 'legacy_{hexId}_{suffix}'
-            Example:
-              - 'legacy_694e7603a086e13d9c95dd3d_51b30e93'
-
-            We ONLY accept the middle segment if it looks like a hex identifier (>= 8 chars)
-            to avoid mis-parsing arbitrary frame_id formats.
-            """
-            fid = _to_str(frame_id_val)
-            if not fid:
-                return ""
-            if fid.startswith("legacy_"):
-                parts = fid.split("_")
-                if len(parts) >= 3:
-                    candidate = parts[1].strip()
-                    if candidate and re.fullmatch(r"[0-9a-f]{8,}", candidate, re.IGNORECASE):
-                        return candidate
-            return ""
 
         input_settings = stream_info.get("input_settings") or {}
         if not isinstance(input_settings, dict):
@@ -1074,9 +1103,9 @@ class LicensePlateMonitorLogger:
                 if isinstance(ci, dict) and ci:
                     camera_info_input_streams.append(ci)
 
-        topic_camera_id = _extract_camera_id_from_topic(stream_info.get("topic")) or _extract_camera_id_from_topic(
-            input_settings.get("topic")
-        )
+        topic_camera_id = _extract_camera_id_from_topic(
+            stream_info.get("topic")
+        ) or _extract_camera_id_from_topic(input_settings.get("topic"))
         if not topic_camera_id:
             topics_val = stream_info.get("topics")
             if isinstance(topics_val, (list, tuple, set)):
@@ -1144,7 +1173,9 @@ class LicensePlateMonitorLogger:
         if not location_id:
             location_id = (
                 _dict_get_str(camera_info_root, "location", "location_id", "locationId")
-                or _dict_get_str(camera_info_input_settings, "location", "location_id", "locationId")
+                or _dict_get_str(
+                    camera_info_input_settings, "location", "location_id", "locationId"
+                )
                 or _dict_get_str(camera_info_input_stream, "location", "location_id", "locationId")
                 or _dict_get_str(stream_info, "location_id", "location", "locationId")
                 or _dict_get_str(input_settings, "location_id", "location", "locationId")
@@ -1215,10 +1246,14 @@ class LicensePlateMonitorLogger:
         camera_info = self._extract_camera_info_from_stream(stream_info)
         camera_id = camera_info.get("camera_id", "")
         camera_name = camera_info.get("camera_name", "default_camera")
-        location = camera_info.get("location_id", "") or camera_info.get("location", "default_location")
+        location = camera_info.get("location_id", "") or camera_info.get(
+            "location", "default_location"
+        )
         application_id = self._extract_application_id_from_stream(stream_info)
         input_settings = (
-            stream_info.get("input_settings", {}) if isinstance(stream_info.get("input_settings", {}), dict) else {}
+            stream_info.get("input_settings", {})
+            if isinstance(stream_info.get("input_settings", {}), dict)
+            else {}
         )
         frame_id = (
             stream_info.get("frame_id", "")
@@ -1404,21 +1439,27 @@ class LicensePlateMonitorLogger:
         """
         session = self._http_session
         if session is None or session.closed:
-            session = aiohttp_mod.ClientSession(timeout=aiohttp_mod.ClientTimeout(total=float(self._post_timeout_s)))
+            session = aiohttp_mod.ClientSession(
+                timeout=aiohttp_mod.ClientTimeout(total=float(self._post_timeout_s))
+            )
             self._http_session = session
         return session
 
-    async def _pooled_post(self, session, url: str, headers: Dict[str, str], payload: Dict[str, Any]) -> Any:
+    async def _pooled_post(
+        self, session, url: str, headers: Dict[str, str], payload: Dict[str, Any]
+    ) -> Any:
         """POST once via the pooled session; mimic ``rpc.post_async`` semantics.
 
         Returns the parsed JSON body on 2xx; raises on non-2xx (same as the
         rpc path, whose exception is handled by the existing call sites).
         """
-        async with session.post(url, json=payload, headers=headers, allow_redirects=True) as response:
+        async with session.post(
+            url, json=payload, headers=headers, allow_redirects=True
+        ) as response:
             status = response.status
             try:
                 body = await response.json(content_type=None)
-            except Exception:
+            except Exception:  # noqa: BLE001 - reading the body is best effort; status handling continues regardless
                 body = await response.text()
             if status == 429:
                 # Backpressure, not a fault: lpr-server is telling us to slow down.
@@ -1471,13 +1512,15 @@ class LicensePlateMonitorLogger:
                 "sdk_version": str(getattr(rpc, "sdk_version", "0.0.0")),
             }
             http_session = self._get_http_session(aiohttp)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - pooled HTTP is optional; falls back to session.rpc.post_async
             self.logger.warning(
                 "[LP_LOGGING] Pooled HTTP path unavailable (%s: %s); falling back to session.rpc.post_async",
                 type(e).__name__,
                 e,
             )
-            return await self.session.rpc.post_async(endpoint, payload=payload, base_url=self.server_base_url)
+            return await self.session.rpc.post_async(
+                endpoint, payload=payload, base_url=self.server_base_url
+            )
 
         try:
             return await self._pooled_post(http_session, url, headers, payload)
@@ -1487,7 +1530,7 @@ class LicensePlateMonitorLogger:
                 raise
             try:
                 await http_session.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 - the session/loop is already closed, which is why we are here
                 # Expected: the session/loop is already closed, which is why we are here.
                 self.logger.debug("[LP_LOGGING] closing stale http session failed", exc_info=True)
             self._http_session = None
@@ -1511,7 +1554,7 @@ class LicensePlateMonitorLogger:
             )
             try:
                 await http_session.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 - non-fatal: the session is dropped and rebuilt regardless
                 # Non-fatal: the session is dropped and rebuilt regardless.
                 self.logger.debug("[LP_LOGGING] closing dropped http session failed", exc_info=True)
             self._http_session = None
@@ -1532,7 +1575,7 @@ class LicensePlateMonitorLogger:
         if session is not None and not session.closed:
             try:
                 await session.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 - non-fatal: the reference is already dropped, so the session cannot leak
                 # Non-fatal: the reference is already dropped, so the session cannot leak.
                 self.logger.debug("[LP_LOGGING] aclose of http session failed", exc_info=True)
 
@@ -1726,7 +1769,9 @@ class LicensePlateMonitorLogger:
                         err_status = int(raw_status)
                     except (TypeError, ValueError):
                         err_status = None
-            self.note_send_failed(f"create status={err_status if err_status is not None else 'unknown'}")
+            self.note_send_failed(
+                f"create status={err_status if err_status is not None else 'unknown'}"
+            )
             self.logger.error(
                 "[LP_LOGGING] Create detection failed: plate=%s status=%s error=%s",
                 plate_text,
@@ -1855,7 +1900,9 @@ def _extract_stream_frame_fields(stream_info: Dict[str, Any] | None) -> Tuple[st
     if not stream_info:
         return "", ""
     input_settings = (
-        stream_info.get("input_settings", {}) if isinstance(stream_info.get("input_settings", {}), dict) else {}
+        stream_info.get("input_settings", {})
+        if isinstance(stream_info.get("input_settings", {}), dict)
+        else {}
     )
     frame_id = (
         stream_info.get("frame_id", "")
@@ -1982,7 +2029,9 @@ class _PlateSyncSender:
         # ALL mutable coordination state below is guarded by this one lock.
         self._lock = threading.Lock()
         self._slots: Dict[str, dict] = {}  # key -> latest pending payload
-        self._slot_order: "OrderedDict[str, None]" = OrderedDict()  # key -> None, oldest-updated first
+        self._slot_order: "OrderedDict[str, None]" = (
+            OrderedDict()
+        )  # key -> None, oldest-updated first
         self._inflight: set = set()  # keys with an outstanding create/append
         self._next_ok_ts: Dict[str, float] = {}  # key -> monotonic earliest-next-send
         self._last_warn_ts: Dict[str, float] = {}
@@ -2013,7 +2062,9 @@ class _PlateSyncSender:
             return
         self._stopped = False
         self._loop_ready.clear()
-        self._thread = threading.Thread(target=self._thread_main, name="lpr-plate-sync", daemon=True)
+        self._thread = threading.Thread(
+            target=self._thread_main, name="lpr-plate-sync", daemon=True
+        )
         self._thread.start()
 
     def offer_batch(self, items: List[Tuple[str, dict]]) -> Dict[str, str]:
@@ -2066,7 +2117,9 @@ class _PlateSyncSender:
         """Stop the sender: best-effort flush of pending CREATES, then join."""
         with self._lock:
             self._stopped = True
-            pending_creates = [(key, self._slots[key]) for key in list(self._slots) if key not in self._registry]
+            pending_creates = [
+                (key, self._slots[key]) for key in list(self._slots) if key not in self._registry
+            ]
             self._slots.clear()
             self._slot_order.clear()
         thread = self._thread
@@ -2079,16 +2132,22 @@ class _PlateSyncSender:
         if loop is not None and not loop.is_closed() and thread is not None and thread.is_alive():
             drain_budget = max(0.1, deadline - time.monotonic() - 0.5)
             try:
-                future = asyncio.run_coroutine_threadsafe(self._drain_on_stop(pending_creates, drain_budget), loop)
+                future = asyncio.run_coroutine_threadsafe(
+                    self._drain_on_stop(pending_creates, drain_budget), loop
+                )
                 future.result(timeout=drain_budget + 0.5)
-            except Exception:
+            except Exception:  # noqa: BLE001 - shutdown continues even when the drain is incomplete
                 # Shutdown continues, but queued plates may not have been flushed.
-                self.logger.warning("[LP_LOGGING] drain-on-stop incomplete; plates may be lost", exc_info=True)
+                self.logger.warning(
+                    "[LP_LOGGING] drain-on-stop incomplete; plates may be lost", exc_info=True
+                )
             try:
                 loop.call_soon_threadsafe(loop.stop)
-            except Exception:
+            except Exception:  # noqa: BLE001 - non-fatal: the loop is already stopping; the join below still bounds us
                 # Non-fatal: the loop is already stopping/closed; the join below still bounds us.
-                self.logger.debug("[LP_LOGGING] could not signal sender loop to stop", exc_info=True)
+                self.logger.debug(
+                    "[LP_LOGGING] could not signal sender loop to stop", exc_info=True
+                )
         if thread is not None:
             thread.join(max(0.1, deadline - time.monotonic()))
 
@@ -2118,7 +2177,7 @@ class _PlateSyncSender:
             if loop is not None:
                 try:
                     loop.close()
-                except Exception:
+                except Exception:  # noqa: BLE001 - non-fatal: the thread is exiting; the loop is unreachable either way
                     # Non-fatal: thread is exiting; the loop is unreachable either way.
                     self.logger.debug("[LP_LOGGING] closing sender loop failed", exc_info=True)
 
@@ -2183,7 +2242,10 @@ class _PlateSyncSender:
                     earliest_delta = delta if earliest_delta is None else min(earliest_delta, delta)
                     continue
                 payload = self._slots[key]
-                if key in self._registry and self._payload_age_s(payload, now) > self._max_frame_age_s:
+                if (
+                    key in self._registry
+                    and self._payload_age_s(payload, now) > self._max_frame_age_s
+                ):
                     # Stale APPEND: drop silently. Creates are never dropped.
                     del self._slots[key]
                     self._slot_order.pop(key, None)
@@ -2267,20 +2329,26 @@ class _PlateSyncSender:
                 with self._lock:
                     self._next_ok_ts[key] = time.monotonic() + self._append_min_interval_s
         except Exception as e:
-            self.logger.error(f"[LP_LOGGING] Plate sync send error for key={key!r}: {e}", exc_info=True)
+            self.logger.error(
+                f"[LP_LOGGING] Plate sync send error for key={key!r}: {e}", exc_info=True
+            )
         finally:
             with self._lock:
                 self._inflight.discard(key)
                 slot_pending = key in self._slots
             try:
                 self._semaphore.release()
-            except Exception:
+            except Exception:  # noqa: BLE001 - a failed release is logged; raising here would strand the sender
                 # A failed release would permanently shrink send concurrency - worth seeing.
-                self.logger.warning("[LP_LOGGING] semaphore release failed key=%r", key, exc_info=True)
+                self.logger.warning(
+                    "[LP_LOGGING] semaphore release failed key=%r", key, exc_info=True
+                )
             if slot_pending and self._wake is not None:
                 self._wake.set()
 
-    async def _drain_on_stop(self, pending_creates: List[Tuple[str, dict]], budget_s: float) -> None:
+    async def _drain_on_stop(
+        self, pending_creates: List[Tuple[str, dict]], budget_s: float
+    ) -> None:
         """Best-effort flush of pending creates + logger session close on stop."""
         deadline = time.monotonic() + max(0.05, budget_s)
         # Let in-flight sends settle first so we don't duplicate creates.
@@ -2298,14 +2366,16 @@ class _PlateSyncSender:
                 detection_id = await self._plate_logger.log_plate(**payload["create_kwargs"])
                 if detection_id:
                     self._registry[key] = detection_id
-            except Exception:
+            except Exception:  # noqa: BLE001 - this plate is dropped; the drain continues with the rest
                 # This plate is dropped; the drain continues with the rest.
-                self.logger.warning("[LP_LOGGING] drain-on-stop plate failed key=%r", key, exc_info=True)
+                self.logger.warning(
+                    "[LP_LOGGING] drain-on-stop plate failed key=%r", key, exc_info=True
+                )
         try:
             aclose = getattr(self._plate_logger, "aclose", None)
             if aclose is not None:
                 await aclose()
-        except Exception:
+        except Exception:  # noqa: BLE001 - non-fatal: teardown is best effort at this point
             # Non-fatal: teardown is best-effort at this point.
             self.logger.debug("[LP_LOGGING] plate logger aclose failed", exc_info=True)
 
@@ -2320,7 +2390,9 @@ class _DetectionSmoother:
     """
 
     def __init__(self, hold_frames: int = 3, iou_threshold: float = 0.3):
-        self._buffers: Dict[str, Dict] = {}  # camera_id -> {track_key: {det, last_seen, miss_count}}
+        self._buffers: Dict[
+            str, Dict
+        ] = {}  # camera_id -> {track_key: {det, last_seen, miss_count}}
         self._hold_frames = hold_frames
         self._iou_threshold = iou_threshold
 
@@ -2395,7 +2467,11 @@ class _DetectionSmoother:
                 buf[best_key]["rtp_number"] = rtp_number
                 matched_keys.add(best_key)
             else:
-                key = tid if tid and not str(tid).startswith("simple_") else f"s_{frame_idx}_{id(det)}"
+                key = (
+                    tid
+                    if tid and not str(tid).startswith("simple_")
+                    else f"s_{frame_idx}_{id(det)}"
+                )
                 buf[key] = {
                     "det": dict(det),
                     "last_seen": frame_idx,
@@ -2468,8 +2544,12 @@ def _map_tracker_ids_to_source(source_data: list, tracked_data: list) -> None:
             inter = max(0, x2 - x1) * max(0, y2 - y1)
             if inter == 0:
                 continue
-            a1 = (float(sbb["xmax"]) - float(sbb["xmin"])) * (float(sbb["ymax"]) - float(sbb["ymin"]))
-            a2 = (float(tbb["xmax"]) - float(tbb["xmin"])) * (float(tbb["ymax"]) - float(tbb["ymin"]))
+            a1 = (float(sbb["xmax"]) - float(sbb["xmin"])) * (
+                float(sbb["ymax"]) - float(sbb["ymin"])
+            )
+            a2 = (float(tbb["xmax"]) - float(tbb["xmin"])) * (
+                float(tbb["ymax"]) - float(tbb["ymin"])
+            )
             iou = inter / (a1 + a2 - inter) if (a1 + a2 - inter) > 0 else 0
             if iou > best_iou:
                 best_iou = iou
@@ -2558,7 +2638,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         # Containers for text stability & uniqueness
         self._unique_plate_texts: Dict[str, str] = {}  # cleaned_text -> original (longest)
         # NEW: track-wise frequency of cleaned texts to pick the dominant variant per track
-        self._track_text_counts: Dict[Any, Counter] = defaultdict(Counter)  # track_id -> Counter(cleaned_text -> count)
+        self._track_text_counts: Dict[Any, Counter] = defaultdict(
+            Counter
+        )  # track_id -> Counter(cleaned_text -> count)
         # Helper dictionary to keep history of plate texts per track
         self.helper: Dict[Any, List[str]] = {}
         # Map of track_id -> current dominant plate text
@@ -2660,7 +2742,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 candidates.append(cwd.name)
                 for parent in cwd.parents:
                     candidates.append(parent.name)
-            except Exception:
+            except Exception:  # noqa: BLE001 - non-fatal: cwd is only one of several action_id candidate sources
                 # Non-fatal: cwd is only one of several action_id candidate sources.
                 self.logger.debug("[LP_LOGGING] cwd scan for action_id failed", exc_info=True)
 
@@ -2670,14 +2752,14 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     for child in usr_src.iterdir():
                         if child.is_dir():
                             candidates.append(child.name)
-            except Exception:
+            except Exception:  # noqa: BLE001 - non-fatal: /usr/src is absent outside the container image
                 # Non-fatal: /usr/src is absent outside the container image.
                 self.logger.debug("[LP_LOGGING] /usr/src scan for action_id failed", exc_info=True)
 
             for candidate in candidates:
                 if candidate and len(candidate) >= 8 and pattern.match(candidate):
                     return candidate
-        except Exception:
+        except Exception:  # noqa: BLE001 - callers treat an unresolved action_id as 'not discoverable'
             # Non-fatal: callers treat an unresolved action_id as "not discoverable".
             self.logger.debug("[LP_LOGGING] action_id discovery failed", exc_info=True)
         return None
@@ -2720,7 +2802,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
         # Empty OR placeholder all-zeros ObjectId ("000...0") -> no backend call (hot path).
         if not location_id or not str(location_id).strip("0"):
-            self.logger.debug(f"[LOCATION] No/placeholder location_id, using default: '{default_location}'")
+            self.logger.debug(
+                f"[LOCATION] No/placeholder location_id, using default: '{default_location}'"
+            )
             return default_location
 
         # Check cache first
@@ -2729,11 +2813,15 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
         cached_name = self._location_name_cache.resolved(location_id)
         if cached_name is not None:
-            self.logger.debug(f"[LOCATION] Using cached location name for '{location_id}': '{cached_name}'")
+            self.logger.debug(
+                f"[LOCATION] Using cached location name for '{location_id}': '{cached_name}'"
+            )
             return cached_name
 
         if not session:
-            self.logger.warning(f"[LOCATION] No session provided, using default: '{default_location}'")
+            self.logger.warning(
+                f"[LOCATION] No session provided, using default: '{default_location}'"
+            )
             return default_location
 
         # A recent failure suppresses the request for a cool-off, but no longer forever:
@@ -2812,6 +2900,45 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             return response.get("data", {})
         return None
 
+    def _detect_localhost_environment(self, rpc: Any, lpr_server_id: Any) -> bool:
+        """Is lpr-server on this machine, or in the cloud?
+
+        Lifted out of ``_initialize_alert_manager_once`` unchanged. The answer
+        picks the alert transport -- Redis on the box, Kafka across the network --
+        and every failure path returns Cloud: no server id, no server record, an
+        unreachable RPC, a raise. Cloud is the mode that works from either side of
+        the boundary, so it is the safe default rather than merely the fallback.
+        """
+        if not lpr_server_id:
+            self.logger.info("[ALERT] No LPR server ID, defaulting to Cloud mode")
+            return False
+        try:
+            # One fetch per frame, shared with the plate logger -- ANA-16.
+            server_data = self._resolve_lpr_server_record(rpc, lpr_server_id)
+            if not server_data:
+                self.logger.warning(
+                    "[ALERT] Failed to fetch LPR server info for environment detection, defaulting to Cloud mode"
+                )
+                return False
+            server_host = server_data.get("host", "")
+            public_ip = self._get_public_ip()
+            # Check if server_host indicates localhost
+            localhost_indicators = ["localhost", "127.0.0.1", "0.0.0.0"]  # nosec B104
+            if server_host in localhost_indicators or server_host == public_ip:
+                self.logger.info(
+                    f"[ALERT] Detected Localhost environment (Public IP={public_ip}, Server IP={server_host})"
+                )
+                return True
+            self.logger.info(
+                f"[ALERT] Detected Cloud environment (Public IP={public_ip}, Server IP={server_host})"
+            )
+            return False
+        except Exception as e:  # noqa: BLE001 - environment detection defaults to Cloud mode on any failure
+            self.logger.warning(
+                f"[ALERT] Error detecting environment: {e}, defaulting to Cloud mode"
+            )
+            return False
+
     def _initialize_alert_manager_once(self, config: LicensePlateMonitorConfig) -> None:
         """
         Initialize alert manager ONCE with Redis OR Kafka clients (Environment based).
@@ -2823,7 +2950,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
         try:
             # Import required modules
-            from matrice_common.stream.matrice_stream import MatriceStream, StreamType
+            from matrice_streaming.databus.matrice_stream import MatriceStream, StreamType
 
             # Use existing session from config (same pattern as plate_logger)
             if not config.session:
@@ -2840,16 +2967,14 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 )
                 config.session = self.session
                 if not self.session:
-                    self.logger.warning("[ALERT] No session in config OR manual, skipping alert manager initialization")
+                    self.logger.warning(
+                        "[ALERT] No session in config OR manual, skipping alert manager initialization"
+                    )
                     self._alert_manager_initialized = True
                     return
 
             rpc = config.session.rpc
 
-            # Determine environment: Localhost vs Cloud
-            # We use LPR server info to determine if we are local or cloud, similar to face_recognition_client
-            is_localhost = False
-            lpr_server_id = config.lpr_server_id
             _cfg_repr = repr(config)
             self.logger.info(
                 "[ALERT] CONFIG-PRINT | config_type=%s repr_len=%d",
@@ -2857,41 +2982,16 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 len(_cfg_repr),
             )
             self.logger.debug("[ALERT] CONFIG-PRINT repr=%s", _cfg_repr)
-            if lpr_server_id:
-                try:
-                    # One fetch per frame, shared with the plate logger -- ANA-16.
-                    server_data = self._resolve_lpr_server_record(rpc, lpr_server_id)
-                    if server_data:
-                        server_host = server_data.get("host", "")
-                        public_ip = self._get_public_ip()
-
-                        # Check if server_host indicates localhost
-                        localhost_indicators = ["localhost", "127.0.0.1", "0.0.0.0"]  # nosec B104
-                        if server_host in localhost_indicators or server_host == public_ip:
-                            is_localhost = True
-                            self.logger.info(
-                                f"[ALERT] Detected Localhost environment (Public IP={public_ip}, Server IP={server_host})"
-                            )
-                        else:
-                            is_localhost = False
-                            self.logger.info(
-                                f"[ALERT] Detected Cloud environment (Public IP={public_ip}, Server IP={server_host})"
-                            )
-                    else:
-                        self.logger.warning(
-                            "[ALERT] Failed to fetch LPR server info for environment detection, defaulting to Cloud mode"
-                        )
-                except Exception as e:
-                    self.logger.warning(f"[ALERT] Error detecting environment: {e}, defaulting to Cloud mode")
-            else:
-                self.logger.info("[ALERT] No LPR server ID, defaulting to Cloud mode")
+            is_localhost = self._detect_localhost_environment(rpc, config.lpr_server_id)
 
             # ------------------------------------------------------------------
             # Discover action_id and fetch action details (STRICT API-DRIVEN)
             # ------------------------------------------------------------------
             action_id = self._discover_action_id()
             if not action_id:
-                self.logger.error("[ALERT] Could not discover action_id from working directory or parents")
+                self.logger.error(
+                    "[ALERT] Could not discover action_id from working directory or parents"
+                )
                 _log_with_msg_meta(
                     self.logger,
                     logging.WARNING,
@@ -2910,7 +3010,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                         else "Unknown error"
                     )
                 action_doc = action_resp.get("data", {}) if isinstance(action_resp, dict) else {}
-                action_details = action_doc.get("actionDetails", {}) if isinstance(action_doc, dict) else {}
+                action_details = (
+                    action_doc.get("actionDetails", {}) if isinstance(action_doc, dict) else {}
+                )
 
                 # server id and type extraction (robust to variants)
                 server_id = (
@@ -2921,19 +3023,25 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     or action_details.get("kafka_server_id")
                 )
                 server_type = (
-                    action_details.get("serverType") or action_details.get("server_type") or action_details.get("type")
+                    action_details.get("serverType")
+                    or action_details.get("server_type")
+                    or action_details.get("type")
                 )
 
                 # Persist identifiers for future
                 self._action_id = action_id
-                self._deployment_id = action_details.get("_idDeployment") or action_details.get("deployment_id")
-                self._app_deployment_id = action_details.get("app_deployment_id")
-                self._instance_id = action_details.get("instanceID") or action_details.get("instanceId")
-                self._external_ip = action_details.get("externalIP") or action_details.get("externalIp")
-
-                _ad_msg = (
-                    f"[ALERT] Action details: action_id={action_id} server_type={server_type} server_id={server_id}"
+                self._deployment_id = action_details.get("_idDeployment") or action_details.get(
+                    "deployment_id"
                 )
+                self._app_deployment_id = action_details.get("app_deployment_id")
+                self._instance_id = action_details.get("instanceID") or action_details.get(
+                    "instanceId"
+                )
+                self._external_ip = action_details.get("externalIP") or action_details.get(
+                    "externalIp"
+                )
+
+                _ad_msg = f"[ALERT] Action details: action_id={action_id} server_type={server_type} server_id={server_id}"
                 self.logger.info(_ad_msg)
                 self.logger.debug(f"[ALERT] Full action_details: {action_details}")
             except Exception as e:
@@ -2988,7 +3096,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                                 master_name = sentinel_cfg.get("masterName")
 
                             sentinel_str = (
-                                f"yes, master={master_name}, nodes={len(sentinel_hosts)}" if sentinel_hosts else "no"
+                                f"yes, master={master_name}, nodes={len(sentinel_hosts)}"
+                                if sentinel_hosts
+                                else "no"
                             )
 
                             self.logger.debug(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
@@ -3030,14 +3140,16 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                             self.logger.warning(
                                 f"[ALERT] Failed to fetch Redis server info: {response.get('message', 'Unknown error') if isinstance(response, dict) else 'Unknown error'}"
                             )
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - a redis init failure degrades alerting; it must not break the frame
                         self.logger.warning(f"[ALERT] Redis initialization failed: {e}")
 
             # Create alert manager if client is available
             if redis_client or kafka_client:
                 # Get app_deployment_id from action_details for filtering alerts
                 app_deployment_id_for_alert = getattr(self, "_app_deployment_id", None)
-                self.logger.info(f"[ALERT] Using app_deployment_id for alert filtering: {app_deployment_id_for_alert}")
+                self.logger.info(
+                    f"[ALERT] Using app_deployment_id for alert filtering: {app_deployment_id_for_alert}"
+                )
 
                 self.alert_manager = ALERT_INSTANCE(
                     redis_client=redis_client,
@@ -3050,7 +3162,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 )
                 self.alert_manager.start()
                 transport = "Redis" if redis_client else "Kafka"
-                self.logger.info(f"[ALERT] Alert manager initialized and started with {transport} (polling every 10s)")
+                self.logger.info(
+                    f"[ALERT] Alert manager initialized and started with {transport} (polling every 10s)"
+                )
             else:
                 self.logger.warning(
                     f"[ALERT] No {'Redis' if is_localhost else 'Kafka'} client available for {'Localhost' if is_localhost else 'Cloud'} mode, alerts disabled"
@@ -3136,7 +3250,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         against the wire), and the reason the ``lpr-detections`` payload must stay
         in pixels until that server is changed.
         """
-        space = str(getattr(config, "alert_bbox_coordinate_space", "normalized") or "normalized").lower()
+        space = str(
+            getattr(config, "alert_bbox_coordinate_space", "normalized") or "normalized"
+        ).lower()
         if space != "normalized" or not coordinates:
             return coordinates
 
@@ -3171,6 +3287,36 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             "payload's coordinate_frame is available."
         )
 
+    @staticmethod
+    def _bbox_to_alert_coordinates(bbox: Any) -> Dict[str, int]:
+        """Normalise a bbox into the alert system's ``{x, y, width, height}``.
+
+        Lifted out of ``_send_instant_alerts`` unchanged. Three shapes are
+        accepted -- an ``xmin/ymin/xmax/ymax`` dict, an ``x/y/width/height`` dict,
+        and a 4-element list -- because the bbox may come from the frozen anchor or
+        from the live detection and those do not agree on a format. Anything else
+        yields ``{}``, which is what the alert system reads as "no box".
+        """
+        if isinstance(bbox, dict):
+            if "xmin" in bbox:
+                return {
+                    "x": int(bbox.get("xmin", 0)),
+                    "y": int(bbox.get("ymin", 0)),
+                    "width": int(bbox.get("xmax", 0) - bbox.get("xmin", 0)),
+                    "height": int(bbox.get("ymax", 0) - bbox.get("ymin", 0)),
+                }
+            if "x" in bbox:
+                return {
+                    "x": int(bbox.get("x", 0)),
+                    "y": int(bbox.get("y", 0)),
+                    "width": int(bbox.get("width", 0)),
+                    "height": int(bbox.get("height", 0)),
+                }
+        elif isinstance(bbox, list) and len(bbox) >= 4:
+            x1, y1, x2, y2 = bbox[:4]
+            return {"x": int(x1), "y": int(y1), "width": int(x2 - x1), "height": int(y2 - y1)}
+        return {}
+
     def _send_instant_alerts(
         self,
         detections: List[Dict[str, Any]],
@@ -3194,7 +3340,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         if not plates_to_alert:
             return
 
-        self.logger.debug("[ALERT] Processing %d confirmed plate(s) for alerts", len(plates_to_alert))
+        self.logger.debug(
+            "[ALERT] Processing %d confirmed plate(s) for alerts", len(plates_to_alert)
+        )
 
         # Extract metadata directly from stream_info with empty string defaults
         # No complex nested checks - if not found, pass empty string (no errors)
@@ -3221,7 +3369,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
             # Extract frame_id and rtp_number - at root level of stream_info
             input_settings = (
-                stream_info.get("input_settings", {}) if isinstance(stream_info.get("input_settings", {}), dict) else {}
+                stream_info.get("input_settings", {})
+                if isinstance(stream_info.get("input_settings", {}), dict)
+                else {}
             )
             frame_id = (
                 stream_info.get("frame_id", "")
@@ -3278,33 +3428,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             # no anchor at all (no camera_id -> no registry_key -> no anchor lookup).
             bbox = (anchor or {}).get("bbox") or plate_meta.get("bbox", [])
 
-            # Build coordinates dict
-            coordinates = {}
-            if isinstance(bbox, dict):
-                # Handle dict format bbox
-                if "xmin" in bbox:
-                    coordinates = {
-                        "x": int(bbox.get("xmin", 0)),
-                        "y": int(bbox.get("ymin", 0)),
-                        "width": int(bbox.get("xmax", 0) - bbox.get("xmin", 0)),
-                        "height": int(bbox.get("ymax", 0) - bbox.get("ymin", 0)),
-                    }
-                elif "x" in bbox:
-                    coordinates = {
-                        "x": int(bbox.get("x", 0)),
-                        "y": int(bbox.get("y", 0)),
-                        "width": int(bbox.get("width", 0)),
-                        "height": int(bbox.get("height", 0)),
-                    }
-            elif isinstance(bbox, list) and len(bbox) >= 4:
-                x1, y1, x2, y2 = bbox[:4]
-                coordinates = {
-                    "x": int(x1),
-                    "y": int(y1),
-                    "width": int(x2 - x1),
-                    "height": int(y2 - y1),
-                }
-
+            coordinates = self._bbox_to_alert_coordinates(bbox)
             coordinates = self._scale_alert_coordinates(coordinates, stream_info, config)
 
             # Build detection event for alert system
@@ -3328,7 +3452,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
             # Send to alert manager for evaluation
             try:
-                self.alert_manager.process_detection_event(detection_event, anchor_stream or stream_info)
+                self.alert_manager.process_detection_event(
+                    detection_event, anchor_stream or stream_info
+                )
                 sent_count += 1
             except Exception as e:
                 self.logger.error(
@@ -3368,7 +3494,8 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             # the session is created lazily on the sender thread afterwards.
             try:
                 self.plate_logger._post_timeout_s = float(
-                    getattr(config, "lpr_post_timeout_s", _LPR_POST_TIMEOUT_DEFAULT_S) or _LPR_POST_TIMEOUT_DEFAULT_S
+                    getattr(config, "lpr_post_timeout_s", _LPR_POST_TIMEOUT_DEFAULT_S)
+                    or _LPR_POST_TIMEOUT_DEFAULT_S
                 )
             except (TypeError, ValueError):
                 self.plate_logger._post_timeout_s = _LPR_POST_TIMEOUT_DEFAULT_S
@@ -3382,7 +3509,10 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             ).lower()
             if mode == "redis" and self.plate_logger._plate_publisher is None:
                 self.plate_logger._plate_publisher = _LprRedisPublisher(
-                    stream=str(getattr(config, "lpr_detections_stream", "lpr-detections") or "lpr-detections"),
+                    stream=str(
+                        getattr(config, "lpr_detections_stream", "lpr-detections")
+                        or "lpr-detections"
+                    ),
                     maxlen=int(getattr(config, "lpr_stream_maxlen", 100_000) or 100_000),
                 )
             if self._plate_sync is None:
@@ -3406,7 +3536,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     self.plate_logger,
                     self._registered_plate_detections,
                     max_in_flight=max_in_flight,
-                    append_min_interval_s=float(getattr(config, "lpr_append_min_interval_s", 5.0) or 5.0),
+                    append_min_interval_s=float(
+                        getattr(config, "lpr_append_min_interval_s", 5.0) or 5.0
+                    ),
                     max_frame_age_s=float(getattr(config, "lpr_max_frame_age_s", 5.0) or 5.0),
                     max_pending_slots=max_pending_slots,
                 )
@@ -3418,7 +3550,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 )
                 self._plate_sync.start()
                 self.logger.info("[LP_LOGGING] Plate sync sender started")
-            self.logger.info("[LP_LOGGING] Plate logging enabled (server_id=%s)", config.lpr_server_id)
+            self.logger.info(
+                "[LP_LOGGING] Plate logging enabled (server_id=%s)", config.lpr_server_id
+            )
             return True
         except Exception as e:
             self.logger.error(
@@ -3427,7 +3561,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             )
             self._logging_enabled = False
             self._plate_logger_initialized = False
-            self.logger.error("[LP_LOGGING] Plate logging has been DISABLED due to initialization failure")
+            self.logger.error(
+                "[LP_LOGGING] Plate logging has been DISABLED due to initialization failure"
+            )
             return False
 
     def _plate_registry_key(self, camera_id: str, plate_text: str) -> str:
@@ -3534,6 +3670,57 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 if rtp_number:
                     det["rtp_number"] = rtp_number
 
+    def _build_plate_sync_item(
+        self,
+        registry_key: str,
+        plate_text: str,
+        plate_meta: Dict[str, Any],
+        stream_info: Dict[str, Any],
+        image_data: str,
+        current_timestamp: str,
+        frame_age_ref: str,
+        enq_monotonic: float,
+    ) -> "Tuple[str, dict]":
+        """Anchor one sighting and shape it into a payload for the sync sender.
+
+        Lifted out of ``_offer_detected_plates`` unchanged. The anchor is the
+        first stable frame of this sighting episode, and it is what BOTH the
+        create and the append carry -- so the lpr-server/BOLO thumbnail matches
+        the first confirmed sighting rather than a later frame where the vehicle
+        has already moved on. The two ``dict(call_kwargs)`` copies are deliberate:
+        the sender may mutate either payload independently while coalescing.
+        """
+        # Fresh anchor for this sighting episode (first stable frame on track).
+        self._plate_create_anchors[registry_key] = self._build_plate_create_anchor(
+            stream_info,
+            image_data,
+            plate_meta,
+            current_timestamp,
+        )
+        self._plate_create_anchors.move_to_end(registry_key)
+        while len(self._plate_create_anchors) > _PLATE_ANCHOR_MAX:
+            self._plate_create_anchors.popitem(last=False)
+        self._pending_plate_sighting_commits[registry_key] = plate_meta.get("track_id")
+        anchor = self._plate_create_anchors[registry_key]
+
+        call_kwargs = {
+            "plate_text": plate_text,
+            "timestamp": anchor["timestamp"],
+            "stream_info": anchor["stream_info"],
+            "image_data": anchor["image_data"],
+            "bbox": anchor.get("bbox"),
+            "ocr_confidence": anchor.get("ocr_confidence"),
+        }
+        return (
+            registry_key,
+            {
+                "create_kwargs": dict(call_kwargs),
+                "append_kwargs": dict(call_kwargs),
+                "frame_age_ref": frame_age_ref,
+                "enq_monotonic": enq_monotonic,
+            },
+        )
+
     def _offer_detected_plates(
         self,
         detections: List[Dict[str, Any]],
@@ -3604,7 +3791,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         if plates_to_log:
             raw_input_settings = stream_info.get("input_settings", {})
             input_settings = raw_input_settings if isinstance(raw_input_settings, dict) else {}
-            frame_age_ref = str(input_settings.get("stream_time", "") or stream_info.get("stream_time", "") or "")
+            frame_age_ref = str(
+                input_settings.get("stream_time", "") or stream_info.get("stream_time", "") or ""
+            )
             enq_monotonic = time.monotonic()
             items: List[Tuple[str, dict]] = []
             for plate_text, plate_meta in plates_to_log.items():
@@ -3616,36 +3805,16 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 if not self._should_offer_plate_sighting(registry_key, track_id, config):
                     continue
 
-                # Fresh anchor for this sighting episode (first stable frame on track).
-                self._plate_create_anchors[registry_key] = self._build_plate_create_anchor(
-                    stream_info,
-                    _frame_image_data(),
-                    plate_meta,
-                    current_timestamp,
-                )
-                self._plate_create_anchors.move_to_end(registry_key)
-                while len(self._plate_create_anchors) > _PLATE_ANCHOR_MAX:
-                    self._plate_create_anchors.popitem(last=False)
-                self._pending_plate_sighting_commits[registry_key] = track_id
-                anchor = self._plate_create_anchors[registry_key]
-
-                call_kwargs = {
-                    "plate_text": plate_text,
-                    "timestamp": anchor["timestamp"],
-                    "stream_info": anchor["stream_info"],
-                    "image_data": anchor["image_data"],
-                    "bbox": anchor.get("bbox"),
-                    "ocr_confidence": anchor.get("ocr_confidence"),
-                }
                 items.append(
-                    (
+                    self._build_plate_sync_item(
                         registry_key,
-                        {
-                            "create_kwargs": dict(call_kwargs),
-                            "append_kwargs": dict(call_kwargs),
-                            "frame_age_ref": frame_age_ref,
-                            "enq_monotonic": enq_monotonic,
-                        },
+                        plate_text,
+                        plate_meta,
+                        stream_info,
+                        _frame_image_data(),
+                        current_timestamp,
+                        frame_age_ref,
+                        enq_monotonic,
                     )
                 )
             if items:
@@ -3659,7 +3828,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         else:
             self.logger.debug("[LP_LOGGING] No confirmed plates to sync this frame")
 
-    def _collect_confirmed_plates(self, detections: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    def _collect_confirmed_plates(
+        self, detections: List[Dict[str, Any]]
+    ) -> Dict[str, Dict[str, Any]]:
         """Collect CONFIRMED/DOMINANT plates from detections.
 
         Returns ``plate_text -> logging metadata (track_id, bbox, ocr_confidence)``.
@@ -3685,7 +3856,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
             recent = history[-self._stable_frames_required :]
             if len(set(recent)) != 1:
-                self.logger.debug(f"[LP_LOGGING] Skipping track_id={track_id} - plate not stable yet (recent={recent})")
+                self.logger.debug(
+                    f"[LP_LOGGING] Skipping track_id={track_id} - plate not stable yet (recent={recent})"
+                )
                 continue
 
             stable_plate = recent[0]
@@ -3729,7 +3902,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         if plate_sync is not None:
             try:
                 plate_sync.stop()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - shutdown: a raise here must not skip the closes after it
                 self.logger.warning(f"[LP_LOGGING] Error stopping plate sync sender: {e}")
 
     def __del__(self):
@@ -3769,6 +3942,74 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             smoother._hold_frames = int(getattr(config, "smoother_hold_frames", 3) or 3)
             smoother._iou_threshold = float(getattr(config, "smoother_iou_threshold", 0.3))
 
+    def _log_frame_diagnostics(
+        self,
+        frame_number: Any,
+        marks: "Tuple[float, ...]",
+        ocr_analysis: List[Dict[str, Any]],
+        _n_ocr_run: int,
+        processing_latency_ms: float,
+    ) -> None:
+        """The DEBUG-only per-frame diagnostics: [LPR_TIMING]/[LPR_PLATES]/[LPR_REJECTED].
+
+        Lifted out of ``process`` unchanged. ``marks`` is the 13 monotonic timestamps
+        taken across the frame, in order, so the 12 spans below are consecutive
+        differences -- exactly the tuple that used to be written out by hand here.
+
+        The caller still guards the call with ``isEnabledFor(DEBUG)``: everything in
+        here (the marks tuple included) is built only when DEBUG is on, which is the
+        property the original inline block was written to have.
+        """
+        # Every span between _t0 and _t11 is attributed, and `cols` is printed
+        # next to `latency` so the un-instrumented prologue (logger + alert
+        # manager init, config normalisation) shows up as a residual instead of
+        # being assumed free. Previously `alerts=` was always ~0.0 because its
+        # end marker was set one statement after its start, `state=` was missing
+        # entirely, and count/offer/sync_alerts/summary/build/log were computed
+        # but never printed -- so the most expensive part of the frame was the
+        # part the log did not mention.
+        _spans = tuple(marks[i + 1] - marks[i] for i in range(12))
+        self.logger.debug(
+            "[LPR_TIMING] %s F%s filter=%.1f smooth=%.1f track=%.1f state=%.1f ocr=%.1f(n=%d) "
+            "plates=%.1f count=%.1f offer=%.1f sync_alerts=%.1f summary=%.1f build=%.1f log=%.1f "
+            "| cols=%.1f latency=%.1f tracks=%d anchors=%d",
+            self.name,
+            frame_number,
+            _spans[0] * 1e3,
+            _spans[1] * 1e3,
+            _spans[2] * 1e3,
+            _spans[3] * 1e3,
+            _spans[4] * 1e3,
+            _n_ocr_run,
+            _spans[5] * 1e3,
+            _spans[6] * 1e3,
+            _spans[7] * 1e3,
+            _spans[8] * 1e3,
+            _spans[9] * 1e3,
+            _spans[10] * 1e3,
+            _spans[11] * 1e3,
+            sum(_spans) * 1e3,
+            processing_latency_ms,
+            len(self.helper),
+            len(self._plate_create_anchors),
+        )
+        # Both joins are only ever fed to a DEBUG log, so they belong inside
+        # this guard -- they used to be built unconditionally.
+        plates_str = " ".join(
+            f"{r['plate_text']}({r.get('ocr_confidence', 0):.2f})"
+            for r in ocr_analysis
+            if r.get("plate_text")
+        )
+        if plates_str:
+            self.logger.debug("[LPR_PLATES] F%s | %s", frame_number, plates_str)
+        rejected_str = " ".join(
+            f"{r.get('raw_text', '')}({r.get('ocr_confidence', 0):.2f},{r.get('reject_reason', '')})"
+            for r in ocr_analysis
+            if r.get("reject_reason")
+        )
+        if rejected_str:
+            self.logger.debug("[LPR_REJECTED] F%s | %s", frame_number, rejected_str)
+
     async def process(
         self,
         data: Any,
@@ -3800,14 +4041,23 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
             # Initialize plate logger once if lpr_server_id is provided (optional flow)
             if not self._plate_logger_initialized and config.lpr_server_id:
-                self.logger.info("[LP_LOGGING] First-time initialization - lpr_server_id: %s", config.lpr_server_id)
+                self.logger.info(
+                    "[LP_LOGGING] First-time initialization - lpr_server_id: %s",
+                    config.lpr_server_id,
+                )
                 success = self._initialize_plate_logger(config)
                 if success:
-                    self.logger.info("[LP_LOGGING] Plate logger initialized successfully and ready to send plates")
+                    self.logger.info(
+                        "[LP_LOGGING] Plate logger initialized successfully and ready to send plates"
+                    )
                 else:
-                    self.logger.error("[LP_LOGGING] Plate logger initialization FAILED - plates will NOT be sent")
+                    self.logger.error(
+                        "[LP_LOGGING] Plate logger initialization FAILED - plates will NOT be sent"
+                    )
             elif self._plate_logger_initialized:
-                self.logger.debug("[LP_LOGGING] Plate logger already initialized, skipping re-initialization")
+                self.logger.debug(
+                    "[LP_LOGGING] Plate logger already initialized, skipping re-initialization"
+                )
             elif not config.lpr_server_id:
                 if self._total_frame_counter == 0:  # Only log once at start
                     self.logger.warning(
@@ -3822,9 +4072,11 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if isinstance(getattr(config, "alert_config", None), dict):
                 try:
                     config.alert_config = AlertConfig(**config.alert_config)  # type: ignore[arg-type]
-                except Exception:
+                except Exception:  # noqa: BLE001 - non-fatal: the raw dict is left in place and alerting degrades
                     # Non-fatal: the raw dict is left in place and alerting degrades.
-                    self.logger.warning("[LP] alert_config dict -> AlertConfig coercion failed", exc_info=True)
+                    self.logger.warning(
+                        "[LP] alert_config dict -> AlertConfig coercion failed", exc_info=True
+                    )
 
             # OCR model will be lazily initialized when _run_ocr is first called
             # No need to initialize here
@@ -3850,7 +4102,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
             # Step 1: Apply confidence filtering
             processed_data = filter_by_confidence(data, config.confidence_threshold)
-            self.logger.debug("Applied confidence filtering with threshold %s", config.confidence_threshold)
+            self.logger.debug(
+                "Applied confidence filtering with threshold %s", config.confidence_threshold
+            )
 
             # Step 2: Apply category mapping if provided
             if config.index_to_category:
@@ -3858,9 +4112,14 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             # Step 3: Filter to target categories (handle dict or list)
             if isinstance(processed_data, dict):
                 processed_data = processed_data.get("detections", [])
-            effective_targets = getattr(config, "target_categories", self.target_categories) or self.target_categories
+            effective_targets = (
+                getattr(config, "target_categories", self.target_categories)
+                or self.target_categories
+            )
             targets_lower = {str(cat).lower() for cat in effective_targets}
-            processed_data = [d for d in processed_data if str(d.get("category", "")).lower() in targets_lower]
+            processed_data = [
+                d for d in processed_data if str(d.get("category", "")).lower() in targets_lower
+            ]
 
             # The mask probe has to happen HERE, not at the consumer below: this is the
             # pre-tracker list, and the tracker may drop `mask`/`segmentation` keys, so
@@ -3868,7 +4127,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             # stop attaching masks. Probing here and copying conditionally keeps both
             # the guard's meaning and the saved work.
             _has_masks = any(d.get("mask") or d.get("segmentation") for d in processed_data[:5])
-            raw_processed_data = [copy.deepcopy(det) for det in processed_data] if _has_masks else []
+            raw_processed_data = (
+                [copy.deepcopy(det) for det in processed_data] if _has_masks else []
+            )
 
             _t1 = _t()  # after filtering
 
@@ -3901,7 +4162,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                             profile=TrackerProfile.DEFAULT,
                         )
                     processed_data = self.tracker.update(processed_data)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - a tracker failure must not drop the frame; detections pass through
                     self.logger.warning(f"AdvancedTracker failed: {e}")
 
             # Map persistent track IDs back to original data dicts (in-place) so that
@@ -3929,7 +4190,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             self._update_tracking_state(processed_data)
             # Step 7: Attach masks to detections (skip if no masks — O(n²) IOU matching)
             if raw_processed_data:  # non-empty only when the pre-tracker probe saw masks
-                processed_data = self._attach_masks_to_detections(processed_data, raw_processed_data)
+                processed_data = self._attach_masks_to_detections(
+                    processed_data, raw_processed_data
+                )
 
             _t4 = _t()  # after tracking state + masks
 
@@ -3995,7 +4258,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
             # Step 13: Generate alerts and summaries
             alerts = self._check_alerts(counting_summary, frame_number, config)
-            incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
+            incidents_list = self._generate_incidents(
+                counting_summary, alerts, config, frame_number, stream_info
+            )
             tracking_stats_list = self._generate_tracking_stats(
                 counting_summary, alerts, config, frame_number, stream_info
             )
@@ -4055,66 +4320,13 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             )
             _t11 = _t()  # after the [LPR_FRAME] line -- the `log=` column below
             if self.logger.isEnabledFor(logging.DEBUG):
-                # Every span between _t0 and _t11 is attributed, and `cols` is printed
-                # next to `latency` so the un-instrumented prologue (logger + alert
-                # manager init, config normalisation) shows up as a residual instead of
-                # being assumed free. Previously `alerts=` was always ~0.0 because its
-                # end marker was set one statement after its start, `state=` was missing
-                # entirely, and count/offer/sync_alerts/summary/build/log were computed
-                # but never printed -- so the most expensive part of the frame was the
-                # part the log did not mention.
-                _spans = (
-                    (_t1 - _t0),
-                    (_t2 - _t1),
-                    (_t3 - _t2),
-                    (_t4 - _t3),
-                    (_t5 - _t4),
-                    (_t6 - _t5),
-                    (_t8 - _t6),
-                    (_t8a - _t8),
-                    (_t8b - _t8a),
-                    (_t9 - _t8b),
-                    (_t10 - _t9),
-                    (_t11 - _t10),
-                )
-                self.logger.debug(
-                    "[LPR_TIMING] %s F%s filter=%.1f smooth=%.1f track=%.1f state=%.1f ocr=%.1f(n=%d) "
-                    "plates=%.1f count=%.1f offer=%.1f sync_alerts=%.1f summary=%.1f build=%.1f log=%.1f "
-                    "| cols=%.1f latency=%.1f tracks=%d anchors=%d",
-                    self.name,
+                self._log_frame_diagnostics(
                     frame_number,
-                    _spans[0] * 1e3,
-                    _spans[1] * 1e3,
-                    _spans[2] * 1e3,
-                    _spans[3] * 1e3,
-                    _spans[4] * 1e3,
+                    (_t0, _t1, _t2, _t3, _t4, _t5, _t6, _t8, _t8a, _t8b, _t9, _t10, _t11),
+                    ocr_analysis,
                     _n_ocr_run,
-                    _spans[5] * 1e3,
-                    _spans[6] * 1e3,
-                    _spans[7] * 1e3,
-                    _spans[8] * 1e3,
-                    _spans[9] * 1e3,
-                    _spans[10] * 1e3,
-                    _spans[11] * 1e3,
-                    sum(_spans) * 1e3,
                     processing_latency_ms,
-                    len(self.helper),
-                    len(self._plate_create_anchors),
                 )
-                # Both joins are only ever fed to a DEBUG log, so they belong inside
-                # this guard -- they used to be built unconditionally.
-                plates_str = " ".join(
-                    f"{r['plate_text']}({r.get('ocr_confidence', 0):.2f})" for r in ocr_analysis if r.get("plate_text")
-                )
-                if plates_str:
-                    self.logger.debug("[LPR_PLATES] F%s | %s", frame_number, plates_str)
-                rejected_str = " ".join(
-                    f"{r.get('raw_text', '')}({r.get('ocr_confidence', 0):.2f},{r.get('reject_reason', '')})"
-                    for r in ocr_analysis
-                    if r.get("reject_reason")
-                )
-                if rejected_str:
-                    self.logger.debug("[LPR_REJECTED] F%s | %s", frame_number, rejected_str)
             return result
 
         except Exception as e:
@@ -4154,7 +4366,39 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self._last_cvt_ms = getattr(self, "_last_cvt_ms", 0.0)
         return result
 
-    def _analyze_ocr_in_image(self, data: Any, image_bytes, config: LicensePlateMonitorConfig) -> List[Dict[str, Any]]:
+    def _cached_stable_ocr_result(self, track_id: Any) -> Dict[str, Any] | None:
+        """The stability cache: a track whose recent reads agree needs no OCR.
+
+        Lifted out of ``_analyze_ocr_in_image`` unchanged. Returns the synthetic
+        result that method used to build inline, or ``None`` when the track has no
+        dominant text yet -- which is the signal to send the crop to the model.
+        Worth ~80-180 ms per detection, which is why it runs before the crop is
+        even converted to RGB.
+        """
+        if track_id is None or not hasattr(self, "helper") or track_id not in self.helper:
+            return None
+        hist = self.helper[track_id]
+        if len(hist) < 3:
+            return None
+        half = max(1, len(hist) // 2)
+        dom, cnt = Counter(hist[-half:]).most_common(1)[0]
+        if not dom or cnt < 2:
+            return None
+        # Stable text exists -- reuse it, skip expensive OCR. The 0.95 is a
+        # synthetic confidence, not a measurement: it exists so the record looks
+        # like a real read to everything downstream.
+        return {
+            "text": dom,
+            "avg_conf": 0.95,
+            "raw_text": dom,
+            "char_confs": [],
+            "rejected": False,
+            "reject_reason": None,
+        }
+
+    def _analyze_ocr_in_image(
+        self, data: Any, image_bytes, config: LicensePlateMonitorConfig
+    ) -> List[Dict[str, Any]]:
         """Analyze OCR in a single image. Accepts JPEG bytes, raw BGR numpy, or __RAW_BGR__ sentinel."""
         _mt = time.monotonic
         _img_t0 = _mt()
@@ -4208,22 +4452,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
             track_id = detection.get("track_id")
             # Skip OCR if track already has stable plate text (saves ~80-180ms per detection)
-            ocr_result = None
-            if track_id is not None and hasattr(self, "helper") and track_id in self.helper:
-                hist = self.helper[track_id]
-                if len(hist) >= 3:
-                    half = max(1, len(hist) // 2)
-                    dom, cnt = Counter(hist[-half:]).most_common(1)[0]
-                    if dom and cnt >= 2:
-                        # Stable text exists — reuse it, skip expensive OCR
-                        ocr_result = {
-                            "text": dom,
-                            "avg_conf": 0.95,
-                            "raw_text": dom,
-                            "char_confs": [],
-                            "rejected": False,
-                            "reject_reason": None,
-                        }
+            ocr_result = self._cached_stable_ocr_result(track_id)
             _ocr_skipped = ocr_result is not None
 
             crop_h, crop_w = crop.shape[:2]
@@ -4263,7 +4492,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             # number to reason about.
             _per_crop_ms = (_mt() - _t0) * 1000.0 / len(_pending)
             for (idx, _crop, _w, _h), _result in zip(_pending, _results, strict=False):
-                self._apply_ocr_to_record(ocr_analysis[idx], _result, _per_crop_ms, _w, _h, cached=False)
+                self._apply_ocr_to_record(
+                    ocr_analysis[idx], _result, _per_crop_ms, _w, _h, cached=False
+                )
 
         # Store timing on self so process() can log it (in case logger doesn't work here)
         self._last_img_src = _img_src
@@ -4345,13 +4576,17 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if image is None:
                 self.logger.warning("[LP_LOGGING] Failed to decode image bytes")
                 return ""
-            success, jpeg_buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, _PLATE_JPEG_QUALITY])
+            success, jpeg_buffer = cv2.imencode(
+                ".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, _PLATE_JPEG_QUALITY]
+            )
             if not success:
                 self.logger.warning("[LP_LOGGING] Failed to encode JPEG image")
                 return ""
             return base64.b64encode(jpeg_buffer.tobytes()).decode("utf-8")
         except Exception as e:
-            self.logger.error("[LP_LOGGING] Exception while encoding frame image: %s", e, exc_info=True)
+            self.logger.error(
+                "[LP_LOGGING] Exception while encoding frame image: %s", e, exc_info=True
+            )
             return ""
 
     def _resolve_ocr_image(self, image_bytes):
@@ -4455,7 +4690,10 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         """
         if self._ocr_subprocess_failed:
             return False
-        if not os.environ.get("MATRICE_OCR_PYTHON") and os.environ.get("MATRICE_OCR_AUTO_VENV") != "1":
+        if (
+            not os.environ.get("MATRICE_OCR_PYTHON")
+            and os.environ.get("MATRICE_OCR_AUTO_VENV") != "1"
+        ):
             # No isolated OCR venv configured and auto-creation disabled ->
             # run OCR in-process. With MATRICE_OCR_AUTO_VENV=1 the client
             # bootstraps the venv on demand, so let the subprocess path proceed.
@@ -4495,7 +4733,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             model_name = getattr(self, "_ocr_model_name", "cct-s-v1-global-model")
             client = get_shared_ocr_client(model_name, chosen_providers)
             started = client.start()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - unexpected wiring error: latch off rather than raise once per frame
             # An exception here is an unexpected wiring error, not a known
             # transient -> latch off to avoid per-frame exceptions.
             self._ocr_subprocess_failed = True
@@ -4513,9 +4751,13 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             # cooldown, so this is cheap per frame.
             if getattr(client, "is_permanently_unavailable", lambda: False)():
                 self._ocr_subprocess_failed = True
-                self.logger.warning("OCR subprocess permanently unavailable; using in-process CPU OCR.")
+                self.logger.warning(
+                    "OCR subprocess permanently unavailable; using in-process CPU OCR."
+                )
             else:
-                self.logger.info("OCR subprocess not ready yet (transient); will retry on a later frame.")
+                self.logger.info(
+                    "OCR subprocess not ready yet (transient); will retry on a later frame."
+                )
             return False
 
         # Started OK. Guard BEFORE adopting the model and OUTSIDE the try above so
@@ -4583,7 +4825,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             from ..ocr._deps_check import get_ort_providers
 
             _ort_providers = get_ort_providers()
-        except Exception:
+        except Exception:  # noqa: BLE001 - ORT provider introspection is diagnostic only
             _ort_providers = []
         _platform = os.environ.get("MATRICE_PLATFORM", "").strip().lower()
         try:
@@ -4626,7 +4868,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         # the actually-bound providers from the live ORT session.
         try:
             bound = list(self.ocr_model.model.get_providers())
-        except Exception:
+        except Exception:  # noqa: BLE001 - ORT provider introspection is diagnostic only
             bound = chosen_providers if configured_device == "auto" else [configured_device]
         self._assert_or_warn_gpu_ocr(bound, "in-process")
         return True
@@ -4741,14 +4983,20 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         """
         if not crops:
             return []
-        if not self._ensure_ocr_model_loaded() or self.ocr_model is None or not hasattr(self.ocr_model, "run"):
+        if (
+            not self._ensure_ocr_model_loaded()
+            or self.ocr_model is None
+            or not hasattr(self.ocr_model, "run")
+        ):
             return [self._empty_ocr_result("ocr_model_unavailable") for _ in crops]
 
         if len(crops) >= 2 and self._ocr_batch_supported is not False:
             try:
                 texts, confs = self._ocr_run_raw(crops)
                 if len(texts) != len(crops) or (confs is not None and len(confs) != len(crops)):
-                    raise ValueError(f"batched OCR returned {len(texts)} texts for {len(crops)} crops")
+                    raise ValueError(
+                        f"batched OCR returned {len(texts)} texts for {len(crops)} crops"
+                    )
                 self._ocr_batch_supported = True
                 return [
                     self._interpret_ocr_result(
@@ -4761,7 +5009,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 # A dead worker says nothing about batch support -- do NOT latch it
                 # off here, or one GPU hiccup would disable batching for good.
                 return [self._empty_ocr_result("ocr_model_unavailable") for _ in crops]
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - batch OCR is optional; fall back to per-crop calls
                 self._ocr_batch_supported = False
                 self.logger.warning(
                     "OCR model does not support batched run (%s); falling back to "
@@ -4778,7 +5026,11 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         if crop is None or crop.size == 0:
             return _empty("empty_crop")
 
-        if not self._ensure_ocr_model_loaded() or self.ocr_model is None or not hasattr(self.ocr_model, "run"):
+        if (
+            not self._ensure_ocr_model_loaded()
+            or self.ocr_model is None
+            or not hasattr(self.ocr_model, "run")
+        ):
             return _empty("ocr_model_unavailable")
 
         try:
@@ -4790,7 +5042,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 texts[0] if texts else "",
                 confs[0] if confs is not None and len(confs) > 0 else [],
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - an OCR failure yields an empty read, never a dropped frame
             self.logger.warning("OCR exception: %s", exc)
             return _empty("ocr_exception")
 
@@ -4840,7 +5092,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             have_confs = char_confs_raw is not None and len(char_confs_raw) > 0
             if have_confs:
                 valid_confs = [
-                    float(c) for j, c in enumerate(char_confs_raw) if j < len(raw_text) and raw_text[j] != "_"
+                    float(c)
+                    for j, c in enumerate(char_confs_raw)
+                    if j < len(raw_text) and raw_text[j] != "_"
                 ]
                 avg_conf = sum(valid_confs) / len(valid_confs) if valid_confs else 0.0
                 char_confs_list = [round(float(c), 3) for c in char_confs_raw]
@@ -4898,7 +5152,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 "rejected": False,
                 "reject_reason": None,
             }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - an interpretation failure yields an empty read, never a dropped frame
             self.logger.warning("OCR interpretation failed: %s", exc)
             return self._empty_ocr_result("ocr_exception")
 
@@ -4959,7 +5213,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             # self.logger.info(f"Detection track_id={track_id}, bbox={det.get('bounding_box')}: Assigned plate_text={plate_text}")
         return detections
 
-    def _count_categories(self, detections: List[Dict], _config: LicensePlateMonitorConfig) -> Dict[str, Any]:
+    def _count_categories(
+        self, detections: List[Dict], _config: LicensePlateMonitorConfig
+    ) -> Dict[str, Any]:
         """Count unique licence-plate texts per frame and attach detections."""
         _ = (_config,)
         unique_texts: set = set()
@@ -5042,6 +5298,43 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             "detections": valid_detections,
         }
 
+    def _build_alert_settings(self, config: LicensePlateMonitorConfig) -> List[Dict[str, Any]]:
+        """Normalise ``config.alert_config`` into the tracking-stats alert block.
+
+        Lifted out of ``_generate_tracking_stats`` unchanged. It tolerates a dict
+        OR a dataclass on purpose: ``alert_config`` arrives as raw platform JSON
+        and ``process`` coerces it to ``AlertConfig`` only on a best-effort basis,
+        so when that coercion fails the raw dict is what reaches here.
+        """
+        if not config.alert_config:
+            return []
+        alert_cfg = config.alert_config
+        is_dict = isinstance(alert_cfg, dict)
+        alert_type = (
+            alert_cfg.get("alert_type") if is_dict else getattr(alert_cfg, "alert_type", None)
+        )
+        alert_value = (
+            alert_cfg.get("alert_value") if is_dict else getattr(alert_cfg, "alert_value", None)
+        )
+        count_thresholds = (
+            alert_cfg.get("count_thresholds")
+            if is_dict
+            else getattr(alert_cfg, "count_thresholds", None)
+        )
+        if not isinstance(alert_type, list):
+            alert_type = list(alert_type) if alert_type is not None else ["Default"]
+        if not isinstance(alert_value, list):
+            alert_value = list(alert_value) if alert_value is not None else ["JSON"]
+        return [
+            {
+                "alert_type": alert_type,
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": count_thresholds or {},
+                "ascending": True,
+                "settings": dict(zip(alert_type, alert_value, strict=False)),
+            }
+        ]
+
     def _generate_tracking_stats(
         self,
         counting_summary: Dict,
@@ -5058,7 +5351,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
         start_timestamp = self._get_start_timestamp_str(stream_info, precision=False)
         self._debug_stream_timing("start_timestamp", start_timestamp)
-        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_start_timestamp = self._get_current_timestamp_str(
+            stream_info, precision=True
+        )
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
         camera_info = self.get_camera_info_from_stream(stream_info)
 
@@ -5066,14 +5361,18 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         if not isinstance(total_counts_dict, dict):
             total_counts_dict = self.get_total_counts()
         total_counts_list = [
-            {"category": str(cat), "count": int(count)} for cat, count in total_counts_dict.items() if int(count) > 0
+            {"category": str(cat), "count": int(count)}
+            for cat, count in total_counts_dict.items()
+            if int(count) > 0
         ]
         current_counts: List[Dict[str, Any]] = []
         for cat, count in per_category_count.items():
             if count > 0 or total_detections > 0:
                 current_counts.append({"category": str(cat), "count": int(count)})
         new_counts_dict = self.get_new_counts_this_frame()
-        current_new_counts = [{"category": str(cat), "count": int(count)} for cat, count in new_counts_dict.items()]
+        current_new_counts = [
+            {"category": str(cat), "count": int(count)} for cat, count in new_counts_dict.items()
+        ]
 
         human_text_lines = []
         # print("counting_summary", counting_summary)
@@ -5082,7 +5381,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
         if total_detections > 0:
             # for cat, count in per_category_count.items():
-            human_text_lines.append(f"\t- License Plates Detected: {sum_of_current_frame_detections}")
+            human_text_lines.append(
+                f"\t- License Plates Detected: {sum_of_current_frame_detections}"
+            )
             # human_text_lines.append(f"\t- {detection_text}")
             # Show dominant per-track license plates for current frame
             seen = set()
@@ -5116,38 +5417,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             )
             detections.append(detection_obj)
 
-        alert_settings = []
-        # Build alert settings tolerating dict or dataclass for alert_config
-        if config.alert_config:
-            alert_cfg = config.alert_config
-            alert_type = (
-                getattr(alert_cfg, "alert_type", None)
-                if not isinstance(alert_cfg, dict)
-                else alert_cfg.get("alert_type")
-            )
-            alert_value = (
-                getattr(alert_cfg, "alert_value", None)
-                if not isinstance(alert_cfg, dict)
-                else alert_cfg.get("alert_value")
-            )
-            count_thresholds = (
-                getattr(alert_cfg, "count_thresholds", None)
-                if not isinstance(alert_cfg, dict)
-                else alert_cfg.get("count_thresholds")
-            )
-            if not isinstance(alert_type, list):
-                alert_type = list(alert_type) if alert_type is not None else ["Default"]
-            if not isinstance(alert_value, list):
-                alert_value = list(alert_value) if alert_value is not None else ["JSON"]
-            alert_settings.append(
-                {
-                    "alert_type": alert_type,
-                    "incident_category": self.CASE_TYPE,
-                    "threshold_level": count_thresholds or {},
-                    "ascending": True,
-                    "settings": dict(zip(alert_type, alert_value, strict=False)),
-                }
-            )
+        alert_settings = self._build_alert_settings(config)
 
         if alerts:
             human_text_lines.append(f"Alerts: {alerts[0].get('settings', {})}")
@@ -5155,7 +5425,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             human_text_lines.append("Alerts: None")
 
         human_text = "\n".join(human_text_lines)
-        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
+        reset_settings = [
+            {"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}
+        ]
 
         tracking_stat = self.create_tracking_stats(
             total_counts=total_counts_list,
@@ -5175,7 +5447,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         tracking_stats.append(tracking_stat)
         return tracking_stats
 
-    def _check_alerts(self, summary: Dict, frame_number: Any, config: LicensePlateMonitorConfig) -> List[Dict]:
+    def _check_alerts(
+        self, summary: Dict, frame_number: Any, config: LicensePlateMonitorConfig
+    ) -> List[Dict]:
         """Check if any alert thresholds are exceeded."""
 
         def get_trend(data, lookback=900, threshold=0.6):
@@ -5210,8 +5484,16 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if not isinstance(_alert_cfg, dict)
             else _alert_cfg.get("alert_value")
         )
-        _types = _types if isinstance(_types, list) else (list(_types) if _types is not None else ["Default"])
-        _values = _values if isinstance(_values, list) else (list(_values) if _values is not None else ["JSON"])
+        _types = (
+            _types
+            if isinstance(_types, list)
+            else (list(_types) if _types is not None else ["Default"])
+        )
+        _values = (
+            _values
+            if isinstance(_values, list)
+            else (list(_values) if _values is not None else ["JSON"])
+        )
         if _thresholds:
             for category, threshold in _thresholds.items():
                 if category == "all" and total_detections > threshold:
@@ -5238,6 +5520,43 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     )
         return alerts
 
+    def _incident_severity_level(
+        self, total_detections: int, config: LicensePlateMonitorConfig
+    ) -> str:
+        """Grade this frame's detection count, and record the grade.
+
+        Lifted out of ``_generate_incidents`` unchanged, side effect included: the
+        0/1/2/3 appended to ``_ascending_alert_list`` is what the 15-frame rolling
+        mean uses to decide an incident has ended, so grading and recording cannot
+        be separated without changing when incidents close.
+
+        Note the two ladders are not the same comparison -- the configured one is
+        ``>=`` on a 0-10 intensity, the fallback is ``>`` on a raw count. That is
+        pre-existing and preserved deliberately.
+        """
+        if config.alert_config and config.alert_config.count_thresholds:
+            threshold = config.alert_config.count_thresholds.get("all", 15)
+            intensity = min(10.0, (total_detections / threshold) * 10)
+            for floor, level, weight in (
+                (9, "critical", 3),
+                (7, "significant", 2),
+                (5, "medium", 1),
+            ):
+                if intensity >= floor:
+                    self._ascending_alert_list.append(weight)
+                    return level
+        else:
+            for floor, level, weight in (
+                (30, "critical", 3),
+                (25, "significant", 2),
+                (15, "medium", 1),
+            ):
+                if total_detections > floor:
+                    self._ascending_alert_list.append(weight)
+                    return level
+        self._ascending_alert_list.append(0)
+        return "low"
+
     def _generate_incidents(
         self,
         counting_summary: Dict,
@@ -5254,7 +5573,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         camera_info = self.get_camera_info_from_stream(stream_info)
 
         self._ascending_alert_list = (
-            self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+            self._ascending_alert_list[-900:]
+            if len(self._ascending_alert_list) > 900
+            else self._ascending_alert_list
         )
 
         if total_detections > 0:
@@ -5263,7 +5584,10 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if start_timestamp and self.current_incident_end_timestamp == "N/A":
                 self.current_incident_end_timestamp = "Incident still active"
             elif start_timestamp and self.current_incident_end_timestamp == "Incident still active":
-                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5:
+                if (
+                    len(self._ascending_alert_list) >= 15
+                    and sum(self._ascending_alert_list[-15:]) / 15 < 1.5
+                ):
                     self.current_incident_end_timestamp = current_timestamp
             elif (
                 self.current_incident_end_timestamp != "Incident still active"
@@ -5271,68 +5595,18 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             ):
                 self.current_incident_end_timestamp = "N/A"
 
-            if config.alert_config and config.alert_config.count_thresholds:
-                threshold = config.alert_config.count_thresholds.get("all", 15)
-                intensity = min(10.0, (total_detections / threshold) * 10)
-                if intensity >= 9:
-                    level = "critical"
-                    self._ascending_alert_list.append(3)
-                elif intensity >= 7:
-                    level = "significant"
-                    self._ascending_alert_list.append(2)
-                elif intensity >= 5:
-                    level = "medium"
-                    self._ascending_alert_list.append(1)
-                else:
-                    level = "low"
-                    self._ascending_alert_list.append(0)
-            else:
-                if total_detections > 30:
-                    level = "critical"
-                    self._ascending_alert_list.append(3)
-                elif total_detections > 25:
-                    level = "significant"
-                    self._ascending_alert_list.append(2)
-                elif total_detections > 15:
-                    level = "medium"
-                    self._ascending_alert_list.append(1)
-                else:
-                    level = "low"
-                    self._ascending_alert_list.append(0)
+            level = self._incident_severity_level(total_detections, config)
 
             human_text_lines = [f"INCIDENTS DETECTED @ {current_timestamp}:"]
             human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE, level)}")
             human_text = "\n".join(human_text_lines)
 
-            alert_settings = []
-            if config.alert_config:
-                _alert_cfg = config.alert_config
-                _types = (
-                    getattr(_alert_cfg, "alert_type", None)
-                    if not isinstance(_alert_cfg, dict)
-                    else _alert_cfg.get("alert_type")
-                )
-                _values = (
-                    getattr(_alert_cfg, "alert_value", None)
-                    if not isinstance(_alert_cfg, dict)
-                    else _alert_cfg.get("alert_value")
-                )
-                _thresholds = (
-                    getattr(_alert_cfg, "count_thresholds", None)
-                    if not isinstance(_alert_cfg, dict)
-                    else _alert_cfg.get("count_thresholds")
-                )
-                _types = _types if isinstance(_types, list) else (list(_types) if _types is not None else ["Default"])
-                _values = _values if isinstance(_values, list) else (list(_values) if _values is not None else ["JSON"])
-                alert_settings.append(
-                    {
-                        "alert_type": _types,
-                        "incident_category": self.CASE_TYPE,
-                        "threshold_level": _thresholds or {},
-                        "ascending": True,
-                        "settings": {t: v for t, v in zip(_types, _values, strict=False)},
-                    }
-                )
+            # The block that used to sit here built the same dict as
+            # `_generate_tracking_stats`, spelled differently (a conditional
+            # expression instead of an `if not isinstance`, a dict comprehension
+            # instead of `dict(zip(...))`). Same inputs, same output, two places to
+            # fix -- now one.
+            alert_settings = self._build_alert_settings(config)
 
             event = self.create_incident(
                 incident_id=f"{self.CASE_TYPE}_{frame_key}",
@@ -5397,10 +5671,13 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         lines.append("Application Name: " + self.CASE_TYPE)
         lines.append("Application Version: " + self.CASE_VERSION)
         if len(incidents) > 0:
-            lines.append("Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
+            lines.append(
+                "Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}"
+            )
         if len(tracking_stats) > 0:
             lines.append(
-                "Tracking Statistics: " + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
+                "Tracking Statistics: "
+                + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
             )
         if len(business_analytics) > 0:
             lines.append(
@@ -5436,12 +5713,17 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
         # NEW track IDs = present in current frame but NOT in previous frame
         self._new_track_ids_this_frame = {
-            cat: (self._current_frame_track_ids.get(cat, set()) - self._previous_frame_track_ids.get(cat, set()))
+            cat: (
+                self._current_frame_track_ids.get(cat, set())
+                - self._previous_frame_track_ids.get(cat, set())
+            )
             for cat in self.target_categories
         }
 
         # Snapshot current -> previous for next call
-        self._previous_frame_track_ids = {cat: set(ids) for cat, ids in self._current_frame_track_ids.items()}
+        self._previous_frame_track_ids = {
+            cat: set(ids) for cat, ids in self._current_frame_track_ids.items()
+        }
 
     def _update_plate_texts(self, detections: List[Dict]):
         """Update set of seen plate texts and track the longest plate_text per track_id."""
@@ -5501,7 +5783,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
     def get_new_counts_this_frame(self) -> Dict[str, int]:
         """Get count of NEW track IDs that appeared in this frame vs the previous one."""
-        return {cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()
+        }
 
     def get_current_frame_counts(self) -> Dict[str, int]:
         """Get count of ALL track IDs currently in this frame (existing + new)."""
@@ -5509,7 +5793,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
     def _get_track_ids_info(self, detections: List[Dict]) -> Dict[str, Any]:
         """Get detailed information about track IDs."""
-        frame_track_ids = {det.get("track_id") for det in detections if det.get("track_id") is not None}
+        frame_track_ids = {
+            det.get("track_id") for det in detections if det.get("track_id") is not None
+        }
         total_track_ids = set()
         for s in getattr(self, "_per_category_total_track_ids", {}).values():
             total_track_ids.update(s)
@@ -5663,9 +5949,11 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     # parts = ['2025', '10', '27', '19:31:20']
                     formatted = f"{parts[0]}:{parts[1]}:{parts[2]} {'-'.join(parts[3:])}"
                     return formatted
-        except Exception:
+        except Exception:  # noqa: BLE001 - non-fatal: falls through to returning the cleaned string as-is
             # Non-fatal: falls through to returning the cleaned string as-is.
-            self.logger.debug("[LP] could not reformat timestamp %r", timestamp_clean, exc_info=True)
+            self.logger.debug(
+                "[LP] could not reformat timestamp %r", timestamp_clean, exc_info=True
+            )
 
         # If parsing fails, return the cleaned string as-is
         return timestamp_clean
@@ -5683,38 +5971,48 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:
-                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                        "original_fps", 30
+                    )
                 else:
-                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                        "input_settings", {}
-                    ).get("original_fps", 30)
+                    start_time = stream_info.get("input_settings", {}).get(
+                        "start_frame", 30
+                    ) / stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
                 self._debug_stream_timing("stream_time_str", stream_time_str)
-                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+                return self._format_timestamp(
+                    stream_info.get("input_settings", {}).get("stream_time", "NA")
+                )
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             if frame_id:
-                start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                    "original_fps", 30
+                )
             else:
-                start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                    "input_settings", {}
-                ).get("original_fps", 30)
+                start_time = stream_info.get("input_settings", {}).get(
+                    "start_frame", 30
+                ) / stream_info.get("input_settings", {}).get("original_fps", 30)
 
             stream_time_str = self._format_timestamp_for_video(start_time)
 
             self._debug_stream_timing("stream_time_str", stream_time_str)
-            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+            return self._format_timestamp(
+                stream_info.get("input_settings", {}).get("stream_time", "NA")
+            )
         else:
-            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            stream_time_str = (
+                stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            )
             if stream_time_str:
                 try:
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
-                except Exception:
+                except Exception:  # noqa: BLE001 - any unusable stream time falls back to the wall clock
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
@@ -5745,16 +6043,20 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             candidate = stream_info.get("input_settings", {}).get("stream_time")
             if not candidate or candidate == "NA":
                 # Fallback to nested stream_info.stream_time used by current timestamp path
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                        candidate = datetime.fromtimestamp(self._tracking_start_time, timezone.utc).strftime(
-                            "%Y-%m-%d-%H:%M:%S.%f UTC"
-                        )
-                    except Exception:
+                        candidate = datetime.fromtimestamp(
+                            self._tracking_start_time, timezone.utc
+                        ).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                    except Exception:  # noqa: BLE001 - any unusable stream time falls back to the wall clock
                         candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
                     candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -5763,14 +6065,20 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
             candidate = stream_info.get("input_settings", {}).get("stream_time")
             if not candidate or candidate == "NA":
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         ts = dt.replace(tzinfo=timezone.utc).timestamp()
-                        candidate = datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
-                    except Exception:
+                        candidate = datetime.fromtimestamp(ts, timezone.utc).strftime(
+                            "%Y-%m-%d-%H:%M:%S.%f UTC"
+                        )
+                    except Exception:  # noqa: BLE001 - any unusable stream time falls back to the wall clock
                         candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
                     candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -5782,13 +6090,17 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 return self._format_timestamp(self.start_timer)
 
             if self._tracking_start_time is None:
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - any unusable start time falls back to now()
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()

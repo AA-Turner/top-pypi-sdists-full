@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: hishel
-Version: 1.3.1
+Version: 1.4.0
 Summary:  Elegant HTTP Caching for Python
 Project-URL: Homepage, https://hishel.com
 Project-URL: Source, https://github.com/karpetrosyan/hishel
@@ -33,6 +33,10 @@ Provides-Extra: httpx
 Requires-Dist: anyio>=4.9.0; extra == 'httpx'
 Requires-Dist: anysqlite>=0.0.5; extra == 'httpx'
 Requires-Dist: httpx>=0.28.1; extra == 'httpx'
+Provides-Extra: httpx2
+Requires-Dist: anyio>=4.9.0; extra == 'httpx2'
+Requires-Dist: anysqlite>=0.0.5; extra == 'httpx2'
+Requires-Dist: httpx2>=2.9.1; extra == 'httpx2'
 Provides-Extra: redis
 Requires-Dist: redis>=7.0.0; extra == 'redis'
 Provides-Extra: requests
@@ -75,7 +79,7 @@ Description-Content-Type: text/markdown
 ## ✨ Features
 
 - 🎯 **RFC 9111 Compliant** - Fully compliant with the latest HTTP caching specification
-- 🔌 **Easy Integration** - Drop-in support for HTTPX, Requests, ASGI, FastAPI, and BlackSheep
+- 🔌 **Easy Integration** - Drop-in support for HTTPX, HTTPX2, Requests, ASGI, FastAPI, and BlackSheep
 - 💾 **Flexible Storage** - SQLite backend with more coming soon
 - ⚡ **High Performance** - Efficient caching with minimal overhead
 - 🔄 **Async & Sync** - Full support for both synchronous and asynchronous workflows

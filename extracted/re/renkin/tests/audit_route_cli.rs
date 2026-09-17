@@ -59,6 +59,7 @@ fn passes_when_stock_and_forward_replay_succeed() {
         route_path.to_str().unwrap(),
         "--stock",
         "data/building_blocks.smi",
+        "--interchange",
         "--output",
         "json",
     ]);
@@ -77,6 +78,415 @@ fn passes_when_stock_and_forward_replay_succeed() {
         "{report}"
     );
     std::fs::remove_file(&route_path).ok();
+}
+
+#[test]
+fn canonical_interchange_reaudits_in_a_fresh_cli_process() {
+    let route_path = generate_route_fixture();
+    let exported = run(&[
+        "audit-route",
+        route_path.to_str().unwrap(),
+        "--stock",
+        "data/building_blocks.smi",
+        "--interchange",
+        "--output",
+        "json",
+    ]);
+    assert!(
+        exported.status.success(),
+        "{}",
+        String::from_utf8_lossy(&exported.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&exported.stdout).unwrap();
+    let interchange_path = unique_temp_path("interchange");
+    std::fs::write(
+        &interchange_path,
+        serde_json::to_vec(&report["route_interchange"][0]).unwrap(),
+    )
+    .unwrap();
+
+    let reaudited = run(&[
+        "audit-route",
+        interchange_path.to_str().unwrap(),
+        "--format",
+        "interchange",
+        "--stock",
+        "data/building_blocks.smi",
+        "--interchange",
+        "--output",
+        "json",
+    ]);
+    assert!(
+        reaudited.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reaudited.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&reaudited.stdout).unwrap();
+    assert_eq!(result["audit_manifest"]["source_format"], "interchange");
+    assert_eq!(result["routes"][0]["source"], "renkin");
+    assert_eq!(
+        result["routes"][0]["normalized_route_sha256"],
+        report["route_interchange"][0]["route_id"]
+    );
+    assert_eq!(result["route_interchange"][0]["source_tool"], "renkin");
+
+    std::fs::remove_file(route_path).ok();
+    std::fs::remove_file(interchange_path).ok();
+}
+
+#[test]
+fn route_metrics_attach_by_route_hash_and_keep_reported_values_separate() {
+    let route_path = generate_route_fixture();
+    let baseline = run(&[
+        "audit-route",
+        route_path.to_str().unwrap(),
+        "--stock",
+        "data/building_blocks.smi",
+        "--output",
+        "json",
+    ]);
+    assert!(baseline.status.success());
+    let baseline: serde_json::Value = serde_json::from_slice(&baseline.stdout).unwrap();
+    let route_id = baseline["routes"][0]["normalized_route_sha256"]
+        .as_str()
+        .unwrap();
+    let ledger_path = unique_temp_path("metrics");
+    let ledgers = serde_json::json!([{
+        "schema_version": 1,
+        "route_id": route_id,
+        "scope": "route",
+        "boundary": {
+            "description": "test batch",
+            "includes_water": false,
+            "includes_workup": false,
+            "recycling_policy": "none"
+        },
+        "product": {"value": 100.0, "unit": "gram"},
+        "inputs": [{
+            "category": "starting_material",
+            "amount": {"value": 1.5, "unit": "kilogram"},
+            "label": "input"
+        }],
+        "required_categories": ["starting_material"],
+        "waste": {"value": 1250.0, "unit": "gram"},
+        "reported_pmi": {
+            "value": 16.8,
+            "source_reference": "procedure",
+            "method": "reported"
+        },
+        "method": "ledger fixture",
+        "source_sha256": "sha256:fixture"
+    }]);
+    std::fs::write(&ledger_path, serde_json::to_vec(&ledgers).unwrap()).unwrap();
+    let out = run(&[
+        "audit-route",
+        route_path.to_str().unwrap(),
+        "--stock",
+        "data/building_blocks.smi",
+        "--route-metrics",
+        ledger_path.to_str().unwrap(),
+        "--output",
+        "json",
+    ]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        report["route_metrics"][0][0]["process_mass_intensity"]["value"],
+        15.0
+    );
+    assert_eq!(report["route_metrics"][0][0]["e_factor"]["value"], 12.5);
+    assert_eq!(report["route_metrics"][0][0]["reported_pmi"]["value"], 16.8);
+    std::fs::remove_file(route_path).ok();
+    std::fs::remove_file(ledger_path).ok();
+}
+
+#[test]
+fn o7_public_procedure_round_trips_with_redacted_incomplete_mass_receipt() {
+    // This is a curated, attributable numeric extraction from a public patent
+    // procedure, not a synthetic mass-ledger fixture. The route deliberately
+    // has no forward-replay evidence: the test verifies that a real procedure
+    // can remain partial while its source binding and missing mass data remain
+    // auditable through a fresh canonical-import process.
+    let route_path = "tests/fixtures/o7/ethyl_benzoate_cn115677497_route.json";
+    let stock_path = "tests/fixtures/o7/ethyl_benzoate_cn115677497_stock.smi";
+    let source: serde_json::Value = serde_json::from_str(include_str!(
+        "fixtures/o7/ethyl_benzoate_cn115677497_procedure.json"
+    ))
+    .unwrap();
+    let initial = run(&[
+        "audit-route",
+        route_path,
+        "--stock",
+        stock_path,
+        "--interchange",
+        "--output",
+        "json",
+    ]);
+    assert!(
+        initial.status.success(),
+        "{}",
+        String::from_utf8_lossy(&initial.stderr)
+    );
+    let initial: serde_json::Value = serde_json::from_slice(&initial.stdout).unwrap();
+    assert_eq!(initial["routes"][0]["status"], "partial", "{initial}");
+    let route_id = initial["routes"][0]["normalized_route_sha256"]
+        .as_str()
+        .unwrap();
+    let interchange_path = unique_temp_path("o7_public_procedure_interchange");
+    std::fs::write(
+        &interchange_path,
+        serde_json::to_vec(&initial["route_interchange"][0]).unwrap(),
+    )
+    .unwrap();
+
+    let source_sha256 = renkin::mcp::audit_receipt::sha256_value(&source);
+    let sidecar_path = unique_temp_path("o7_public_procedure_sidecar");
+    let sidecar = serde_json::json!({
+        "schema_version": 1,
+        "source_artifact": source,
+        "ledgers": [{
+            "schema_version": 1,
+            "route_id": route_id,
+            "scope": "route",
+            "boundary": {
+                "description": "Reported production batch; water and workup are within the intended accounting boundary but not reported.",
+                "includes_water": true,
+                "includes_workup": true,
+                "recycling_policy": "No recovery credit; allocation is not reported."
+            },
+            "product": {"value": 956.8, "unit": "kilogram"},
+            "inputs": [
+                {"category": "starting_material", "amount": {"value": 940.2, "unit": "kilogram"}, "label": "benzoyl chloride"},
+                {"category": "starting_material", "amount": {"value": 318.2, "unit": "kilogram"}, "label": "ethanol"}
+            ],
+            "required_categories": ["starting_material", "water", "workup"],
+            "waste": null,
+            "method": "O7 operational validation: source quantities only; no missing quantity is inferred.",
+            "source_sha256": source_sha256
+        }]
+    });
+    std::fs::write(&sidecar_path, serde_json::to_vec(&sidecar).unwrap()).unwrap();
+
+    let reaudited = run(&[
+        "audit-route",
+        interchange_path.to_str().unwrap(),
+        "--format",
+        "interchange",
+        "--stock",
+        stock_path,
+        "--route-metrics-sidecar",
+        sidecar_path.to_str().unwrap(),
+        "--output",
+        "json",
+    ]);
+    assert!(
+        reaudited.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reaudited.stderr)
+    );
+    let reaudited: serde_json::Value = serde_json::from_slice(&reaudited.stdout).unwrap();
+    assert_eq!(reaudited["routes"][0]["normalized_route_sha256"], route_id);
+    let metrics = &reaudited["route_metrics"][0][0];
+    assert_eq!(metrics["process_mass_intensity"]["status"], "not_evaluable");
+    assert_eq!(metrics["e_factor"]["status"], "not_evaluable");
+    assert_eq!(
+        metrics["coverage"]["missing_categories"],
+        serde_json::json!(["water", "workup"])
+    );
+    assert_eq!(
+        reaudited["route_metrics_sidecar"]["source_artifact_sha256"],
+        source_sha256
+    );
+    assert!(
+        !reaudited.to_string().contains("patents.google.com"),
+        "raw source material must not leak into the public report"
+    );
+    std::fs::remove_file(interchange_path).ok();
+    std::fs::remove_file(sidecar_path).ok();
+}
+
+#[test]
+fn input_artifact_binds_target_but_redacts_local_details() {
+    let route_path = generate_route_fixture();
+    let baseline = run(&[
+        "audit-route",
+        route_path.to_str().unwrap(),
+        "--stock",
+        "data/building_blocks.smi",
+        "--output",
+        "json",
+    ]);
+    assert!(baseline.status.success());
+    let baseline: serde_json::Value = serde_json::from_slice(&baseline.stdout).unwrap();
+    let target = baseline["routes"][0]["steps"][0]["target"]
+        .as_str()
+        .unwrap();
+    let artifact_path = unique_temp_path("artifact");
+    let artifact = serde_json::json!({
+        "schema_version": 1,
+        "source_kind": "image",
+        "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "content_type": "image/png",
+        "source_locator": "https://private.example/drawing.png?token=secret",
+        "transforms": [],
+        "normalized_smiles": target,
+        "normalization_changed": false,
+        "review": {"status": "needs_review", "reviewer_id": "private-user"}
+    });
+    std::fs::write(&artifact_path, serde_json::to_vec(&artifact).unwrap()).unwrap();
+    let out = run(&[
+        "audit-route",
+        route_path.to_str().unwrap(),
+        "--stock",
+        "data/building_blocks.smi",
+        "--input-artifact",
+        artifact_path.to_str().unwrap(),
+        "--output",
+        "json",
+    ]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(report["input_artifact"]["review_status"], "needs_review");
+    assert_eq!(
+        report["input_artifact"]["content_sha256"],
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    );
+    let rendered = report["input_artifact"].to_string();
+    assert!(!rendered.contains("private.example"));
+    assert!(!rendered.contains("private-user"));
+    assert!(!rendered.contains(target));
+    std::fs::remove_file(route_path).ok();
+    std::fs::remove_file(artifact_path).ok();
+}
+
+#[test]
+fn pareto_ranking_cannot_promote_a_partial_audit() {
+    let route_path = generate_route_fixture();
+    let baseline = run(&[
+        "audit-route",
+        route_path.to_str().unwrap(),
+        "--output",
+        "json",
+    ]);
+    assert!(baseline.status.success());
+    let baseline: serde_json::Value = serde_json::from_slice(&baseline.stdout).unwrap();
+    assert_eq!(baseline["routes"][0]["status"], "partial");
+    let route_id = baseline["routes"][0]["normalized_route_sha256"]
+        .as_str()
+        .unwrap();
+    let ranking_path = unique_temp_path("ranking");
+    let candidates = serde_json::json!([{
+        "route_id": route_id,
+        "eligibility": "eligible",
+        "axes": [{
+            "key": "pmi",
+            "direction": "minimize",
+            "value": 10.0,
+            "unit": "kg/kg",
+            "basis": "fixture"
+        }]
+    }]);
+    std::fs::write(&ranking_path, serde_json::to_vec(&candidates).unwrap()).unwrap();
+    let out = run(&[
+        "audit-route",
+        route_path.to_str().unwrap(),
+        "--audit-ranking",
+        ranking_path.to_str().unwrap(),
+        "--output",
+        "json",
+    ]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        report["audit_ranking"]["verdicts"][0]["status"],
+        "needs_review"
+    );
+    std::fs::remove_file(route_path).ok();
+    std::fs::remove_file(ranking_path).ok();
+}
+
+#[test]
+fn mechanistic_evidence_binds_an_existing_route_step_without_reordering_it() {
+    let route_path = generate_route_fixture();
+    let baseline = run(&[
+        "audit-route",
+        route_path.to_str().unwrap(),
+        "--stock",
+        "data/building_blocks.smi",
+        "--output",
+        "json",
+    ]);
+    assert!(baseline.status.success());
+    let baseline: serde_json::Value = serde_json::from_slice(&baseline.stdout).unwrap();
+    let route_id = baseline["routes"][0]["normalized_route_sha256"]
+        .as_str()
+        .unwrap();
+    let evidence_path = unique_temp_path("mechanistic");
+    let evidence = serde_json::json!([{
+        "schema_version": 1,
+        "route_id": route_id,
+        "step_index": 0,
+        "quantity": "gibbs_activation",
+        "value": 42.0,
+        "unit": "kJ/mol",
+        "origin": "computed",
+        "source_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reaction_mapping_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "calculation": {
+            "method": "DFT",
+            "functional": "PBE0",
+            "basis_set": "def2-SVP",
+            "solvent_model": "water",
+            "temperature_kelvin": "298.15",
+            "charge": 0,
+            "multiplicity": 1,
+            "geometry_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "transition_state_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "convergence_checked": true,
+            "frequency_checked": true,
+            "irc_checked": true
+        }
+    }]);
+    std::fs::write(&evidence_path, serde_json::to_vec(&evidence).unwrap()).unwrap();
+    let out = run(&[
+        "audit-route",
+        route_path.to_str().unwrap(),
+        "--stock",
+        "data/building_blocks.smi",
+        "--mechanistic-evidence",
+        evidence_path.to_str().unwrap(),
+        "--output",
+        "json",
+    ]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        report["mechanistic_evidence"][0][0]["quantity"],
+        "gibbs_activation"
+    );
+    assert_eq!(report["mechanistic_evidence"][0][0]["value"], 42.0);
+    assert_eq!(
+        report["routes"][0]["status"],
+        baseline["routes"][0]["status"]
+    );
+    std::fs::remove_file(route_path).ok();
+    std::fs::remove_file(evidence_path).ok();
 }
 
 /// v0.27.0 "Reproducible Route Audit": `audit_manifest` must record real,

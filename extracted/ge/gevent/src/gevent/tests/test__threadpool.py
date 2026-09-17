@@ -721,6 +721,103 @@ class TestThreadResult(greentest.TestCase):
         self.assertIsNotNone(tr.receiver)
 
 
+_setup_failure_script = r"""
+import sys
+import threading
+
+# Workers only call sys.setprofile() when a profile hook is configured
+# (see issue 2206).
+threading.setprofile(lambda *args: None)
+
+from gevent.threadpool import ThreadPool
+
+# Wait until gevent has been imported to install the audit hook, since
+# it runs for every audited event for the rest of the process.
+def audit(event, args):
+    if event == 'sys.setprofile':
+        raise RuntimeError('setprofile rejected by audit hook')
+sys.addaudithook(audit)
+
+try:
+    sys.setprofile(None)
+except RuntimeError:
+    pass
+else:
+    sys.exit(4)
+
+pool = ThreadPool(2)
+try:
+    pool.apply(len, ('x',))
+except RuntimeError:
+    sys.exit(0)
+raise AssertionError('pool.apply() did not raise')
+"""
+
+
+class TestBeforeRunTaskFailure(TestCase):
+    # If _before_run_task raises, the caller should get the exception and
+    # the pool should release the slot reserved by spawn().
+    # https://github.com/gevent/gevent/issues/2207
+
+    error_fatal = False
+
+    def setUp(self):
+        super().setUp()
+        # Make task setup fail until the test opts out.
+        self.fail_setup = True
+
+    def _make_failing_pool(self):
+        import io
+        test = self
+
+        class Pool(ThreadPool):
+            class _WorkerGreenlet(ThreadPool._WorkerGreenlet):
+                def __init__(self, threadpool):
+                    ThreadPool._WorkerGreenlet.__init__(self, threadpool)
+                    # Suppress the expected "Failed to run worker thread"
+                    # message when setup fails.
+                    self._stderr = io.StringIO()
+
+                def _before_run_task(self, *args):
+                    if test.fail_setup:
+                        raise ExpectedException
+                    ThreadPool._WorkerGreenlet._before_run_task(self, *args)
+
+        self.ClassUnderTest = Pool
+        return self._makeOne(2)
+
+    def test_caller_gets_exception_and_slot_is_released(self):
+        # Before the fix, each failed task leaked a pool slot. Once every
+        # slot was gone, the next spawn() blocked forever.
+        pool = self._make_failing_pool()
+        for _ in range(pool.maxsize + 1):
+            with self.assertRaises(ExpectedException):
+                pool.apply(lambda: 1701)
+
+        self.fail_setup = False
+        self.assertEqual(pool.apply(lambda: 1701), 1701)
+
+    def test_queued_task_runs_after_all_workers_fail(self):
+        # Queued tasks should not need another spawn() call to replace the
+        # failed workers.
+        pool = self._make_failing_pool()
+        results = [pool.spawn(lambda: 1701) for _ in range(pool.maxsize + 1)]
+        for result in results:
+            with self.assertRaises(ExpectedException):
+                result.get()
+        pool.join()
+
+    @greentest.ignores_leakcheck
+    def test_audit_hook_rejection_does_not_hang(self):
+        # Audit hooks cannot be removed, so keep this one in a subprocess.
+        import subprocess
+        import sys
+        rc = subprocess.call([sys.executable, '-c', _setup_failure_script], timeout=30)
+        if rc == 4:
+            self.skipTest('audit events not enforced on this interpreter')
+        self.assertEqual(rc, 0)
+
+
 class TestWorkerProfileAndTrace(TestCase):
     # Worker threads should execute the test and trace functions.
     # (When running the user code.)
@@ -818,6 +915,83 @@ class TestWorkerProfileAndTrace(TestCase):
 
     def test_trace_called_in_task(self):
         self._test_func_called_in_task('trace')
+
+    def _make_recording_pool(self):
+        class RecordingSys(object):
+            def __init__(self):
+                self.profile = None
+                self.trace = None
+                self.setter_calls = []
+
+            def getprofile(self):
+                return self.profile
+
+            def gettrace(self):
+                return self.trace
+
+            def setprofile(self, value):
+                self.setter_calls.append(('setprofile', value))
+                self.profile = value
+
+            def settrace(self, value):
+                self.setter_calls.append(('settrace', value))
+                self.trace = value
+
+        recording_sys = RecordingSys()
+
+        def no_hook():
+            return None
+
+        class Pool(ThreadPool):
+            class _WorkerGreenlet(ThreadPool._WorkerGreenlet):
+                # pylint:disable=signature-differs
+                def _before_run_task(self, *args):
+                    ThreadPool._WorkerGreenlet._before_run_task(
+                        self, *args,
+                        _sys=recording_sys,
+                        _get_thread_profile=no_hook,
+                        _get_thread_trace=no_hook)
+
+                def _after_run_task(self, *args):
+                    ThreadPool._WorkerGreenlet._after_run_task(
+                        self, *args, _sys=recording_sys)
+
+        self.ClassUnderTest = Pool
+
+        pool = self._makeOne(1, create_all_worker_threads=True)
+        return pool, recording_sys
+
+    def test_setters_not_called_without_hooks(self):
+        # The setters emit audit events even when passed None.
+        # https://github.com/gevent/gevent/issues/2206
+        pool, recording_sys = self._make_recording_pool()
+        res = pool.apply(lambda: 1701)
+        pool.kill()
+
+        self.assertEqual(res, 1701)
+        self.assertEqual(recording_sys.setter_calls, [])
+
+    def test_hooks_set_by_task_are_cleared(self):
+        pool, recording_sys = self._make_recording_pool()
+        profile = object()
+        trace = object()
+
+        def task():
+            recording_sys.setprofile(profile)
+            recording_sys.settrace(trace)
+
+        pool.apply(task)
+        # The clearing calls happen on the worker thread after apply()
+        # has returned; kill() is what makes them visible here (see the
+        # memory-consistency note in _test_func_called_in_task).
+        pool.kill()
+
+        self.assertEqual(recording_sys.setter_calls, [
+            ('setprofile', profile),
+            ('settrace', trace),
+            ('setprofile', None),
+            ('settrace', None),
+        ])
 
 
 

@@ -27,10 +27,6 @@ from testmu._helpers._locator_enrichment import enrich_element_locator
 
 _log = logging.getLogger("testmu")
 
-_AUTOHEAL_API_HOST = os.getenv(
-    "TESTMU_AI_API_HOST", "https://kaneai-api.lambdatest.com/v16-server"
-)
-_AUTOHEAL_URL = f"{_AUTOHEAL_API_HOST}/api/v1/autoheal"
 _AUTOHEAL_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 _VALID_ACTION_TYPES = frozenset({"click", "select", "type", "scroll"})
@@ -70,7 +66,7 @@ async def autoheal_locator(
 
         async with create_session() as session:
             async with session.post(
-                _AUTOHEAL_URL, json=body, timeout=_AUTOHEAL_TIMEOUT
+                f"{_config.get_ai_api_host()}/api/v1/autoheal", json=body, timeout=_AUTOHEAL_TIMEOUT
             ) as resp:
                 payload = await resp.json(content_type=None)
                 status = resp.status

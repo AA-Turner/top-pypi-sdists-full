@@ -188,7 +188,7 @@ class ClickHouseBuildExt(build_ext):
             # -fvisibility=hidden: Reduces the size of the final library by allowing the compiler to not export many
             #                     symbols from CH (in the final library)
             f'-DCMAKE_C_FLAGS=-fPIC -fvisibility=hidden{" -march=x86-64-v3 -mtune=generic" if platform.machine() in ("x86_64", "AMD64") else ""}{" -fsanitize=address" if ASAN_ENABLED else ""}{" -fsanitize=undefined" if UBSAN_ENABLED else ""}{" -fsanitize=memory" if MSAN_ENABLED else ""}{" -fsanitize=thread" if TSAN_ENABLED else ""}',
-            f'-DCMAKE_CXX_FLAGS=-fPIC -fvisibility=hidden{" -march=x86-64-v3 -mtune=generic" if platform.machine() in ("x86_64", "AMD64") else ""}{" -fsanitize=address" if ASAN_ENABLED else ""}{" -fsanitize=undefined" if UBSAN_ENABLED else ""}{" -fsanitize=memory" if MSAN_ENABLED else ""}{" -fsanitize=thread" if TSAN_ENABLED else ""}',
+            f'-DCMAKE_CXX_FLAGS=-fPIC -fvisibility=hidden{" -march=x86-64-v3 -mtune=generic" if platform.machine() in ("x86_64", "AMD64") else ""}{" -fsanitize=address" if ASAN_ENABLED else ""}{" -fsanitize=undefined" if UBSAN_ENABLED else ""}{" -fsanitize=memory" if MSAN_ENABLED else ""}{" -fsanitize=thread" if TSAN_ENABLED else ""}{" -DRE2_ON_VALGRIND" if BUILD_FOR_VALGRIND else ""}',
             '-DCMAKE_ASM_FLAGS_INIT=-fPIC -fvisibility=hidden',
 
             '-DENABLE_TESTS=FALSE',
@@ -321,7 +321,7 @@ class CustomBuildWithFromCH(build_ext):
         other_list += ['-Werror']  # Treat warnings as errors
 
         if BUILD_FOR_VALGRIND:
-            other_list += ['-g', '-gdwarf-4']
+            other_list += ['-g', '-gdwarf-4', '-DRE2_ON_VALGRIND']
         elif DEBUG_SYMBOLS:
             other_list += ['-g']
 

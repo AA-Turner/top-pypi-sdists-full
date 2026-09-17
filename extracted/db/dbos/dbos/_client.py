@@ -11,7 +11,6 @@ from typing import (
     Generic,
     List,
     Optional,
-    Tuple,
     TypeVar,
     Union,
 )
@@ -46,7 +45,7 @@ if TYPE_CHECKING:
     from dbos._dbos import WorkflowHandle, WorkflowHandleAsync
 
 from dbos._croniter import croniter  # type: ignore
-from dbos._dbos_config import get_system_database_url, is_valid_database_url
+from dbos._dbos_config import is_valid_database_url
 from dbos._error import (
     DBOSException,
     DBOSNonExistentWorkflowError,
@@ -132,11 +131,9 @@ class DBOSClient:
 
     def __init__(
         self,
-        database_url: Optional[str] = None,  # DEPRECATED
         *,
         system_database_url: Optional[str] = None,
         system_database_engine: Optional[sa.Engine] = None,
-        application_database_url: Optional[str] = None,
         dbos_system_schema: Optional[str] = "dbos",
         serializer: Serializer = DefaultSerializer(),
         system_database_pool_size: Optional[int] = None,
@@ -145,6 +142,7 @@ class DBOSClient:
         application_name: Optional[str] = None,
         lazy: bool = False,
         retry_connection_errors: bool = True,
+        observability_query_timeout_sec: Optional[float] = None,
     ):
         """Create a client for interacting with a DBOS application from outside it.
 
@@ -158,10 +156,8 @@ class DBOSClient:
         database must already have been created by a DBOS application.
 
         Args:
-            database_url (str): (DEPRECATED) Use system_database_url instead.
             system_database_url (str): Connection string for the DBOS system database.
             system_database_engine (sa.Engine): A custom system database engine. If provided, the client uses it as-is instead of creating one, the database URL and pool size arguments are ignored, and destroy() does not dispose of it.
-            application_database_url (str): (DEPRECATED) Use system_database_url instead.
             dbos_system_schema (str): Schema name for DBOS system tables. Defaults to "dbos". Must match the schema the application uses.
             serializer (Serializer): A custom serializer and deserializer for program data the client reads from and writes to the system database. Must match the application's serializer.
             system_database_pool_size (int): System database pool size. Defaults to 5.
@@ -170,6 +166,7 @@ class DBOSClient:
             application_name (str): The application this client acts on behalf of. Always set this when several applications share this system database, so workflows, schedules, and queues created by this client are owned by that application.
             lazy (bool): Whether to defer connecting until the client is first used. Defaults to False, meaning the connection is checked on construction. Call check_connection() or check_connection_async() to check it explicitly. Cannot be combined with use_listen_notify, whose listener connects immediately.
             retry_connection_errors (bool): Whether an operation that loses its database connection blocks and retries until the connection recovers. Defaults to True. Set to False to raise instead, so an unreachable database surfaces as an error rather than a wait.
+            observability_query_timeout_sec (float): Statement timeout, in seconds, for read-only observability queries against the system database. Defaults to 30.0.
 
         Raises:
             Exception: If the system database cannot be reached, unless lazy is True.
@@ -186,15 +183,10 @@ class DBOSClient:
             else:
                 system_database_url = "postgresql://custom:system@database/engine"
         else:
-            application_database_url = (
-                database_url if database_url else application_database_url
-            )
-            system_database_url = get_system_database_url(
-                {
-                    "system_database_url": system_database_url,
-                    "database_url": application_database_url,
-                }
-            )
+            if system_database_url is None:
+                raise DBOSException(
+                    "A DBOSClient requires a system_database_url or a system_database_engine."
+                )
             assert is_valid_database_url(system_database_url)
         # We only create database connections but do not run migrations
         self._sys_db = SystemDatabase.create(
@@ -218,6 +210,7 @@ class DBOSClient:
             polling_concurrency=system_database_polling_concurrency,
             app_name=application_name,
             retry_connection_errors=retry_connection_errors,
+            observability_query_timeout_sec=observability_query_timeout_sec,
         )
         self._notification_listener_thread: Optional[threading.Thread] = None
         if not lazy:
@@ -380,8 +373,6 @@ class DBOSClient:
         application_name: Optional[str] = None,
         # Deprecated, retained for backwards compatibility
         concurrency: Optional[int] = None,
-        priority_enabled: bool = False,
-        partition_queue: bool = False,
     ) -> Queue:
         """Register a queue from a client and persist it to the system database.
 
@@ -423,8 +414,6 @@ class DBOSClient:
             it. Defaults to the client's own application. Registering a queue
             already owned by a different application raises.
         :param concurrency: Deprecated. Use ``global_concurrency``.
-        :param priority_enabled: Deprecated. Priority is always enabled.
-        :param partition_queue: Deprecated. Use the ``partition_*`` limits.
 
         :returns: A :class:`Queue` bound to this client's system database.
         """
@@ -432,13 +421,13 @@ class DBOSClient:
             "DBOSClient.register_queue", "DBOSClient.register_queue_async"
         )
         Queue._validate_queue(
+            name=name,
             concurrency=concurrency,
             worker_concurrency=worker_concurrency,
             global_concurrency=global_concurrency,
             partition_concurrency=partition_concurrency,
             partition_worker_concurrency=partition_worker_concurrency,
             partition_limiter=partition_limiter,
-            partition_queue=partition_queue,
             polling_interval_sec=polling_interval_sec,
             limiter=limiter,
         )
@@ -462,8 +451,6 @@ class DBOSClient:
             worker_concurrency=worker_concurrency,
             rate_limit_max=limiter["limit"] if limiter else None,
             rate_limit_period_sec=limiter["period"] if limiter else None,
-            priority_enabled=priority_enabled,
-            partition_queue=partition_queue,
             partition_concurrency=partition_concurrency,
             partition_worker_concurrency=partition_worker_concurrency,
             partition_rate_limit_max=(
@@ -497,8 +484,6 @@ class DBOSClient:
         application_name: Optional[str] = None,
         # Deprecated, retained for backwards compatibility
         concurrency: Optional[int] = None,
-        priority_enabled: bool = False,
-        partition_queue: bool = False,
     ) -> Queue:
         """Async version of :meth:`register_queue`."""
         return await asyncio.to_thread(
@@ -514,13 +499,11 @@ class DBOSClient:
                 on_conflict=on_conflict,
                 application_name=application_name,
                 concurrency=concurrency,
-                priority_enabled=priority_enabled,
-                partition_queue=partition_queue,
             )
         )
 
     def retrieve_queue(self, name: str) -> Optional[Queue]:
-        """Retrieve a database-backed queue by name from the client."""
+        """Retrieve a queue by name from the client."""
         _warn_sync_db_call_in_async_context(
             "DBOSClient.retrieve_queue", "DBOSClient.retrieve_queue_async"
         )
@@ -531,7 +514,7 @@ class DBOSClient:
         return await asyncio.to_thread(self.retrieve_queue, name)
 
     def delete_queue(self, name: str) -> None:
-        """Delete a database-backed queue. Pending workflows on it are unrecoverable."""
+        """Delete a queue. Pending workflows on it are unrecoverable."""
         _warn_sync_db_call_in_async_context(
             "DBOSClient.delete_queue", "DBOSClient.delete_queue_async"
         )
@@ -544,7 +527,7 @@ class DBOSClient:
     def list_queues(
         self, *, application_name: Optional[Union[str, List[str]]] = None
     ) -> List[Queue]:
-        """List all database-backed queues registered in the system database.
+        """List all queues registered in the system database.
 
         :param application_name: List only queues owned by these applications.
             By default, only list this application's queues.
@@ -613,10 +596,8 @@ class DBOSClient:
         handle_map: Dict[str, "WorkflowHandleAsync[Any]"] = {
             h.workflow_id: h for h in handles
         }
-        completed_id = await asyncio.to_thread(
-            self._sys_db.await_first_workflow_id,
-            workflow_ids,
-            polling_interval_sec,
+        completed_id = await self._sys_db.await_first_workflow_id_async(
+            workflow_ids, polling_interval_sec
         )
         return handle_map[completed_id]
 

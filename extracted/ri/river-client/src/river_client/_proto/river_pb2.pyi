@@ -3,12 +3,20 @@ import datetime
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from collections.abc import Iterable as _Iterable, Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class SamplingPolicySelection(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SAMPLING_POLICY_SELECTION_ORDERED: _ClassVar[SamplingPolicySelection]
+    SAMPLING_POLICY_SELECTION_LATEST_SNAPSHOT: _ClassVar[SamplingPolicySelection]
+SAMPLING_POLICY_SELECTION_ORDERED: SamplingPolicySelection
+SAMPLING_POLICY_SELECTION_LATEST_SNAPSHOT: SamplingPolicySelection
 
 class AsyncResponse(_message.Message):
     __slots__ = ("request_id", "type")
@@ -83,26 +91,30 @@ class LoraConfig(_message.Message):
     def __init__(self, rank: _Optional[int] = ..., seed: _Optional[int] = ..., train_unembed: bool = ..., train_mlp: bool = ..., train_attn: bool = ..., alpha: _Optional[float] = ...) -> None: ...
 
 class AdamParams(_message.Message):
-    __slots__ = ("learning_rate", "beta1", "beta2", "eps", "weight_decay", "grad_clip_norm")
+    __slots__ = ("learning_rate", "beta1", "beta2", "eps", "weight_decay", "grad_clip_norm", "gradient_scale")
     LEARNING_RATE_FIELD_NUMBER: _ClassVar[int]
     BETA1_FIELD_NUMBER: _ClassVar[int]
     BETA2_FIELD_NUMBER: _ClassVar[int]
     EPS_FIELD_NUMBER: _ClassVar[int]
     WEIGHT_DECAY_FIELD_NUMBER: _ClassVar[int]
     GRAD_CLIP_NORM_FIELD_NUMBER: _ClassVar[int]
+    GRADIENT_SCALE_FIELD_NUMBER: _ClassVar[int]
     learning_rate: float
     beta1: float
     beta2: float
     eps: float
     weight_decay: float
     grad_clip_norm: float
-    def __init__(self, learning_rate: _Optional[float] = ..., beta1: _Optional[float] = ..., beta2: _Optional[float] = ..., eps: _Optional[float] = ..., weight_decay: _Optional[float] = ..., grad_clip_norm: _Optional[float] = ...) -> None: ...
+    gradient_scale: float
+    def __init__(self, learning_rate: _Optional[float] = ..., beta1: _Optional[float] = ..., beta2: _Optional[float] = ..., eps: _Optional[float] = ..., weight_decay: _Optional[float] = ..., grad_clip_norm: _Optional[float] = ..., gradient_scale: _Optional[float] = ...) -> None: ...
 
 class Datum(_message.Message):
-    __slots__ = ("data",)
+    __slots__ = ("data", "resolved_image_handles")
     DATA_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_IMAGE_HANDLES_FIELD_NUMBER: _ClassVar[int]
     data: bytes
-    def __init__(self, data: _Optional[bytes] = ...) -> None: ...
+    resolved_image_handles: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, data: _Optional[bytes] = ..., resolved_image_handles: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class Checkpoint(_message.Message):
     __slots__ = ("checkpoint_id", "checkpoint_type", "time", "river_path", "size_bytes", "public", "training_run_id")
@@ -164,20 +176,26 @@ class HealthCheckResponse(_message.Message):
     def __init__(self, status: _Optional[str] = ...) -> None: ...
 
 class GetServerCapabilitiesRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class SupportedModel(_message.Message):
     __slots__ = ("model_name",)
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     model_name: str
     def __init__(self, model_name: _Optional[str] = ...) -> None: ...
 
+class SupportedModel(_message.Message):
+    __slots__ = ("model_name", "features")
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    model_name: str
+    features: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, model_name: _Optional[str] = ..., features: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class GetServerCapabilitiesResponse(_message.Message):
-    __slots__ = ("supported_models",)
+    __slots__ = ("supported_models", "features")
     SUPPORTED_MODELS_FIELD_NUMBER: _ClassVar[int]
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
     supported_models: _containers.RepeatedCompositeFieldContainer[SupportedModel]
-    def __init__(self, supported_models: _Optional[_Iterable[_Union[SupportedModel, _Mapping]]] = ...) -> None: ...
+    features: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, supported_models: _Optional[_Iterable[_Union[SupportedModel, _Mapping]]] = ..., features: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class CreateSessionRequest(_message.Message):
     __slots__ = ("tags", "sdk_version", "user_metadata")
@@ -295,21 +313,35 @@ class ModelData(_message.Message):
     tokenizer_id: str
     def __init__(self, arch: _Optional[str] = ..., model_name: _Optional[str] = ..., tokenizer_id: _Optional[str] = ...) -> None: ...
 
+class PolicyVersion(_message.Message):
+    __slots__ = ("id", "lineage_id", "step", "parent_id")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    LINEAGE_ID_FIELD_NUMBER: _ClassVar[int]
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    PARENT_ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    lineage_id: str
+    step: int
+    parent_id: str
+    def __init__(self, id: _Optional[str] = ..., lineage_id: _Optional[str] = ..., step: _Optional[int] = ..., parent_id: _Optional[str] = ...) -> None: ...
+
 class GetInfoResponse(_message.Message):
-    __slots__ = ("type", "model_data", "model_id", "is_lora", "lora_rank", "model_name")
+    __slots__ = ("type", "model_data", "model_id", "is_lora", "lora_rank", "model_name", "policy_version")
     TYPE_FIELD_NUMBER: _ClassVar[int]
     MODEL_DATA_FIELD_NUMBER: _ClassVar[int]
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     IS_LORA_FIELD_NUMBER: _ClassVar[int]
     LORA_RANK_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
     type: str
     model_data: ModelData
     model_id: str
     is_lora: bool
     lora_rank: int
     model_name: str
-    def __init__(self, type: _Optional[str] = ..., model_data: _Optional[_Union[ModelData, _Mapping]] = ..., model_id: _Optional[str] = ..., is_lora: bool = ..., lora_rank: _Optional[int] = ..., model_name: _Optional[str] = ...) -> None: ...
+    policy_version: PolicyVersion
+    def __init__(self, type: _Optional[str] = ..., model_data: _Optional[_Union[ModelData, _Mapping]] = ..., model_id: _Optional[str] = ..., is_lora: bool = ..., lora_rank: _Optional[int] = ..., model_name: _Optional[str] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ...) -> None: ...
 
 class UnloadModelRequest(_message.Message):
     __slots__ = ("model_id", "seq_id")
@@ -345,26 +377,30 @@ class ForwardBackwardInput(_message.Message):
     def __init__(self, data: _Optional[_Iterable[_Union[Datum, _Mapping]]] = ..., loss_fn: _Optional[str] = ..., loss_fn_config: _Optional[_Mapping[str, float]] = ..., gradient_accumulation: bool = ..., init_gradients: bool = ..., compute_expert_flip_metric: bool = ..., force_routing_replay: _Optional[str] = ...) -> None: ...
 
 class ForwardRequest(_message.Message):
-    __slots__ = ("model_id", "seq_id", "forward_input")
+    __slots__ = ("model_id", "seq_id", "forward_input", "expected_policy_id")
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     SEQ_ID_FIELD_NUMBER: _ClassVar[int]
     FORWARD_INPUT_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
     model_id: str
     seq_id: int
     forward_input: ForwardBackwardInput
-    def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., forward_input: _Optional[_Union[ForwardBackwardInput, _Mapping]] = ...) -> None: ...
+    expected_policy_id: str
+    def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., forward_input: _Optional[_Union[ForwardBackwardInput, _Mapping]] = ..., expected_policy_id: _Optional[str] = ...) -> None: ...
 
 class ForwardBackwardRequest(_message.Message):
-    __slots__ = ("model_id", "seq_id", "forward_backward_input", "upload_id")
+    __slots__ = ("model_id", "seq_id", "forward_backward_input", "upload_id", "expected_policy_id")
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     SEQ_ID_FIELD_NUMBER: _ClassVar[int]
     FORWARD_BACKWARD_INPUT_FIELD_NUMBER: _ClassVar[int]
     UPLOAD_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
     model_id: str
     seq_id: int
     forward_backward_input: ForwardBackwardInput
     upload_id: str
-    def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., forward_backward_input: _Optional[_Union[ForwardBackwardInput, _Mapping]] = ..., upload_id: _Optional[str] = ...) -> None: ...
+    expected_policy_id: str
+    def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., forward_backward_input: _Optional[_Union[ForwardBackwardInput, _Mapping]] = ..., upload_id: _Optional[str] = ..., expected_policy_id: _Optional[str] = ...) -> None: ...
 
 class CreateUploadRequest(_message.Message):
     __slots__ = ("model_id", "total_size", "chunk_count")
@@ -399,14 +435,18 @@ class UploadChunkResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class OptimStepRequest(_message.Message):
-    __slots__ = ("model_id", "seq_id", "adam_params")
+    __slots__ = ("model_id", "seq_id", "adam_params", "expected_policy_id", "idempotency_key")
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     SEQ_ID_FIELD_NUMBER: _ClassVar[int]
     ADAM_PARAMS_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
     model_id: str
     seq_id: int
     adam_params: AdamParams
-    def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., adam_params: _Optional[_Union[AdamParams, _Mapping]] = ...) -> None: ...
+    expected_policy_id: str
+    idempotency_key: str
+    def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., adam_params: _Optional[_Union[AdamParams, _Mapping]] = ..., expected_policy_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ...) -> None: ...
 
 class LoadWeightsRequest(_message.Message):
     __slots__ = ("model_id", "seq_id", "path", "optimizer")
@@ -421,18 +461,22 @@ class LoadWeightsRequest(_message.Message):
     def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., path: _Optional[str] = ..., optimizer: bool = ...) -> None: ...
 
 class SaveWeightsRequest(_message.Message):
-    __slots__ = ("model_id", "seq_id", "path", "mode", "ttl_seconds")
+    __slots__ = ("model_id", "seq_id", "path", "mode", "ttl_seconds", "immutable", "expected_policy_id")
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     SEQ_ID_FIELD_NUMBER: _ClassVar[int]
     PATH_FIELD_NUMBER: _ClassVar[int]
     MODE_FIELD_NUMBER: _ClassVar[int]
     TTL_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    IMMUTABLE_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
     model_id: str
     seq_id: int
     path: str
     mode: str
     ttl_seconds: int
-    def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., path: _Optional[str] = ..., mode: _Optional[str] = ..., ttl_seconds: _Optional[int] = ...) -> None: ...
+    immutable: bool
+    expected_policy_id: str
+    def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., path: _Optional[str] = ..., mode: _Optional[str] = ..., ttl_seconds: _Optional[int] = ..., immutable: bool = ..., expected_policy_id: _Optional[str] = ...) -> None: ...
 
 class RetrieveFutureRequest(_message.Message):
     __slots__ = ("request_id", "model_id")
@@ -535,7 +579,7 @@ class ForwardBackwardOutput(_message.Message):
     def __init__(self, type: _Optional[str] = ..., loss_fn_output_type: _Optional[str] = ..., loss_fn_outputs: _Optional[_Mapping[str, TensorData]] = ..., metrics: _Optional[_Mapping[str, float]] = ..., usage: _Optional[_Union[Usage, _Mapping]] = ...) -> None: ...
 
 class OptimStepResponse(_message.Message):
-    __slots__ = ("type", "metrics")
+    __slots__ = ("type", "metrics", "policy_version")
     class MetricsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -545,25 +589,31 @@ class OptimStepResponse(_message.Message):
         def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
     TYPE_FIELD_NUMBER: _ClassVar[int]
     METRICS_FIELD_NUMBER: _ClassVar[int]
+    POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
     type: str
     metrics: _containers.ScalarMap[str, float]
-    def __init__(self, type: _Optional[str] = ..., metrics: _Optional[_Mapping[str, float]] = ...) -> None: ...
+    policy_version: PolicyVersion
+    def __init__(self, type: _Optional[str] = ..., metrics: _Optional[_Mapping[str, float]] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ...) -> None: ...
 
 class LoadWeightsResponse(_message.Message):
-    __slots__ = ("type", "path")
+    __slots__ = ("type", "path", "policy_version")
     TYPE_FIELD_NUMBER: _ClassVar[int]
     PATH_FIELD_NUMBER: _ClassVar[int]
+    POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
     type: str
     path: str
-    def __init__(self, type: _Optional[str] = ..., path: _Optional[str] = ...) -> None: ...
+    policy_version: PolicyVersion
+    def __init__(self, type: _Optional[str] = ..., path: _Optional[str] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ...) -> None: ...
 
 class SaveWeightsResponse(_message.Message):
-    __slots__ = ("type", "path")
+    __slots__ = ("type", "path", "policy_version")
     TYPE_FIELD_NUMBER: _ClassVar[int]
     PATH_FIELD_NUMBER: _ClassVar[int]
+    POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
     type: str
     path: str
-    def __init__(self, type: _Optional[str] = ..., path: _Optional[str] = ...) -> None: ...
+    policy_version: PolicyVersion
+    def __init__(self, type: _Optional[str] = ..., path: _Optional[str] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ...) -> None: ...
 
 class UnloadModelResponse(_message.Message):
     __slots__ = ("type",)
@@ -571,8 +621,58 @@ class UnloadModelResponse(_message.Message):
     type: str
     def __init__(self, type: _Optional[str] = ...) -> None: ...
 
+class UploadImageRequest(_message.Message):
+    __slots__ = ("idempotency_key", "data", "session_id")
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    idempotency_key: str
+    data: bytes
+    session_id: str
+    def __init__(self, idempotency_key: _Optional[str] = ..., data: _Optional[bytes] = ..., session_id: _Optional[str] = ...) -> None: ...
+
+class ImageHandle(_message.Message):
+    __slots__ = ("id", "sha256", "byte_count", "width", "height", "session_id")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    SHA256_FIELD_NUMBER: _ClassVar[int]
+    BYTE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    WIDTH_FIELD_NUMBER: _ClassVar[int]
+    HEIGHT_FIELD_NUMBER: _ClassVar[int]
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    sha256: str
+    byte_count: int
+    width: int
+    height: int
+    session_id: str
+    def __init__(self, id: _Optional[str] = ..., sha256: _Optional[str] = ..., byte_count: _Optional[int] = ..., width: _Optional[int] = ..., height: _Optional[int] = ..., session_id: _Optional[str] = ...) -> None: ...
+
+class ReleaseImageRequest(_message.Message):
+    __slots__ = ("image_handle", "idempotency_key", "session_id", "close_session")
+    IMAGE_HANDLE_FIELD_NUMBER: _ClassVar[int]
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    CLOSE_SESSION_FIELD_NUMBER: _ClassVar[int]
+    image_handle: str
+    idempotency_key: str
+    session_id: str
+    close_session: bool
+    def __init__(self, image_handle: _Optional[str] = ..., idempotency_key: _Optional[str] = ..., session_id: _Optional[str] = ..., close_session: bool = ...) -> None: ...
+
+class ReleaseImageResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ImageInput(_message.Message):
+    __slots__ = ("data", "image_handle")
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_HANDLE_FIELD_NUMBER: _ClassVar[int]
+    data: bytes
+    image_handle: str
+    def __init__(self, data: _Optional[bytes] = ..., image_handle: _Optional[str] = ...) -> None: ...
+
 class InferencePrompt(_message.Message):
-    __slots__ = ("prompt", "max_tokens", "temperature", "top_p", "top_k", "stop", "seed", "logprobs", "return_prompt_logprobs", "images", "return_expert_routing", "input_ids")
+    __slots__ = ("prompt", "max_tokens", "temperature", "top_p", "top_k", "stop", "seed", "logprobs", "return_prompt_logprobs", "images", "return_expert_routing", "input_ids", "image_inputs", "resolved_image_handles", "return_prompt_token_ids", "kv_cache_namespace", "kv_cache_policy")
     PROMPT_FIELD_NUMBER: _ClassVar[int]
     MAX_TOKENS_FIELD_NUMBER: _ClassVar[int]
     TEMPERATURE_FIELD_NUMBER: _ClassVar[int]
@@ -585,6 +685,11 @@ class InferencePrompt(_message.Message):
     IMAGES_FIELD_NUMBER: _ClassVar[int]
     RETURN_EXPERT_ROUTING_FIELD_NUMBER: _ClassVar[int]
     INPUT_IDS_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_INPUTS_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_IMAGE_HANDLES_FIELD_NUMBER: _ClassVar[int]
+    RETURN_PROMPT_TOKEN_IDS_FIELD_NUMBER: _ClassVar[int]
+    KV_CACHE_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    KV_CACHE_POLICY_FIELD_NUMBER: _ClassVar[int]
     prompt: str
     max_tokens: int
     temperature: float
@@ -597,7 +702,12 @@ class InferencePrompt(_message.Message):
     images: _containers.RepeatedScalarFieldContainer[bytes]
     return_expert_routing: bool
     input_ids: _containers.RepeatedScalarFieldContainer[int]
-    def __init__(self, prompt: _Optional[str] = ..., max_tokens: _Optional[int] = ..., temperature: _Optional[float] = ..., top_p: _Optional[float] = ..., top_k: _Optional[int] = ..., stop: _Optional[_Iterable[str]] = ..., seed: _Optional[int] = ..., logprobs: _Optional[int] = ..., return_prompt_logprobs: bool = ..., images: _Optional[_Iterable[bytes]] = ..., return_expert_routing: bool = ..., input_ids: _Optional[_Iterable[int]] = ...) -> None: ...
+    image_inputs: _containers.RepeatedCompositeFieldContainer[ImageInput]
+    resolved_image_handles: _containers.RepeatedScalarFieldContainer[str]
+    return_prompt_token_ids: bool
+    kv_cache_namespace: str
+    kv_cache_policy: KvCachePolicy
+    def __init__(self, prompt: _Optional[str] = ..., max_tokens: _Optional[int] = ..., temperature: _Optional[float] = ..., top_p: _Optional[float] = ..., top_k: _Optional[int] = ..., stop: _Optional[_Iterable[str]] = ..., seed: _Optional[int] = ..., logprobs: _Optional[int] = ..., return_prompt_logprobs: bool = ..., images: _Optional[_Iterable[bytes]] = ..., return_expert_routing: bool = ..., input_ids: _Optional[_Iterable[int]] = ..., image_inputs: _Optional[_Iterable[_Union[ImageInput, _Mapping]]] = ..., resolved_image_handles: _Optional[_Iterable[str]] = ..., return_prompt_token_ids: bool = ..., kv_cache_namespace: _Optional[str] = ..., kv_cache_policy: _Optional[_Union[KvCachePolicy, _Mapping]] = ...) -> None: ...
 
 class SampleFromTrainingRequest(_message.Message):
     __slots__ = ("model_id", "prompts", "metrics_type")
@@ -632,7 +742,7 @@ class SampleFromCheckpointRequest(_message.Message):
     def __init__(self, checkpoint_path: _Optional[str] = ..., base_model: _Optional[str] = ..., prompts: _Optional[_Iterable[_Union[InferencePrompt, _Mapping]]] = ..., metrics_type: _Optional[str] = ...) -> None: ...
 
 class InferenceResult(_message.Message):
-    __slots__ = ("text", "token_logprobs", "tokens", "prompt_token_logprobs", "token_ids", "prompt_token_ids", "top_logprobs", "prompt_top_logprobs", "expert_routing", "metrics")
+    __slots__ = ("text", "token_logprobs", "tokens", "prompt_token_logprobs", "token_ids", "prompt_token_ids", "top_logprobs", "prompt_top_logprobs", "expert_routing", "metrics", "policy_version", "retained_kv", "cached_prompt_tokens", "prompt_tokens", "kv_cache_policy_version")
     class MetricsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -650,6 +760,11 @@ class InferenceResult(_message.Message):
     PROMPT_TOP_LOGPROBS_FIELD_NUMBER: _ClassVar[int]
     EXPERT_ROUTING_FIELD_NUMBER: _ClassVar[int]
     METRICS_FIELD_NUMBER: _ClassVar[int]
+    POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
+    RETAINED_KV_FIELD_NUMBER: _ClassVar[int]
+    CACHED_PROMPT_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    PROMPT_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    KV_CACHE_POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
     text: str
     token_logprobs: _containers.RepeatedScalarFieldContainer[float]
     tokens: _containers.RepeatedScalarFieldContainer[str]
@@ -660,7 +775,12 @@ class InferenceResult(_message.Message):
     prompt_top_logprobs: _containers.RepeatedCompositeFieldContainer[TopLogprobsPosition]
     expert_routing: ExpertRouting
     metrics: _containers.ScalarMap[str, float]
-    def __init__(self, text: _Optional[str] = ..., token_logprobs: _Optional[_Iterable[float]] = ..., tokens: _Optional[_Iterable[str]] = ..., prompt_token_logprobs: _Optional[_Iterable[float]] = ..., token_ids: _Optional[_Iterable[int]] = ..., prompt_token_ids: _Optional[_Iterable[int]] = ..., top_logprobs: _Optional[_Iterable[_Union[TopLogprobsPosition, _Mapping]]] = ..., prompt_top_logprobs: _Optional[_Iterable[_Union[TopLogprobsPosition, _Mapping]]] = ..., expert_routing: _Optional[_Union[ExpertRouting, _Mapping]] = ..., metrics: _Optional[_Mapping[str, float]] = ...) -> None: ...
+    policy_version: PolicyVersion
+    retained_kv: bool
+    cached_prompt_tokens: int
+    prompt_tokens: int
+    kv_cache_policy_version: PolicyVersion
+    def __init__(self, text: _Optional[str] = ..., token_logprobs: _Optional[_Iterable[float]] = ..., tokens: _Optional[_Iterable[str]] = ..., prompt_token_logprobs: _Optional[_Iterable[float]] = ..., token_ids: _Optional[_Iterable[int]] = ..., prompt_token_ids: _Optional[_Iterable[int]] = ..., top_logprobs: _Optional[_Iterable[_Union[TopLogprobsPosition, _Mapping]]] = ..., prompt_top_logprobs: _Optional[_Iterable[_Union[TopLogprobsPosition, _Mapping]]] = ..., expert_routing: _Optional[_Union[ExpertRouting, _Mapping]] = ..., metrics: _Optional[_Mapping[str, float]] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., retained_kv: bool = ..., cached_prompt_tokens: _Optional[int] = ..., prompt_tokens: _Optional[int] = ..., kv_cache_policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ...) -> None: ...
 
 class ExpertRouting(_message.Message):
     __slots__ = ("num_tokens", "num_decoder_layers", "top_k", "layer_indices", "topk_ids", "topk_weights", "routing_handle")
@@ -748,3 +868,71 @@ class ChatCompleteResponse(_message.Message):
     status_code: int
     usage: Usage
     def __init__(self, response_json: _Optional[str] = ..., status_code: _Optional[int] = ..., usage: _Optional[_Union[Usage, _Mapping]] = ...) -> None: ...
+
+class KvCachePolicy(_message.Message):
+    __slots__ = ("max_staleness", "anchor_policy_id", "refill_on_limit", "previous_policy_id")
+    MAX_STALENESS_FIELD_NUMBER: _ClassVar[int]
+    ANCHOR_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    REFILL_ON_LIMIT_FIELD_NUMBER: _ClassVar[int]
+    PREVIOUS_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    max_staleness: int
+    anchor_policy_id: str
+    refill_on_limit: bool
+    previous_policy_id: str
+    def __init__(self, max_staleness: _Optional[int] = ..., anchor_policy_id: _Optional[str] = ..., refill_on_limit: bool = ..., previous_policy_id: _Optional[str] = ...) -> None: ...
+
+class SubmitSamplingBatchRequest(_message.Message):
+    __slots__ = ("idempotency_key", "training", "base", "checkpoint", "pinned_policy_id", "retained_kv_groups", "kv_cache_policy", "policy_selection")
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
+    TRAINING_FIELD_NUMBER: _ClassVar[int]
+    BASE_FIELD_NUMBER: _ClassVar[int]
+    CHECKPOINT_FIELD_NUMBER: _ClassVar[int]
+    PINNED_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    RETAINED_KV_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    KV_CACHE_POLICY_FIELD_NUMBER: _ClassVar[int]
+    POLICY_SELECTION_FIELD_NUMBER: _ClassVar[int]
+    idempotency_key: str
+    training: SampleFromTrainingRequest
+    base: InferenceGenerateRequest
+    checkpoint: SampleFromCheckpointRequest
+    pinned_policy_id: str
+    retained_kv_groups: _containers.RepeatedScalarFieldContainer[str]
+    kv_cache_policy: KvCachePolicy
+    policy_selection: SamplingPolicySelection
+    def __init__(self, idempotency_key: _Optional[str] = ..., training: _Optional[_Union[SampleFromTrainingRequest, _Mapping]] = ..., base: _Optional[_Union[InferenceGenerateRequest, _Mapping]] = ..., checkpoint: _Optional[_Union[SampleFromCheckpointRequest, _Mapping]] = ..., pinned_policy_id: _Optional[str] = ..., retained_kv_groups: _Optional[_Iterable[str]] = ..., kv_cache_policy: _Optional[_Union[KvCachePolicy, _Mapping]] = ..., policy_selection: _Optional[_Union[SamplingPolicySelection, str]] = ...) -> None: ...
+
+class SubmitSamplingBatchResponse(_message.Message):
+    __slots__ = ("request_ids",)
+    REQUEST_IDS_FIELD_NUMBER: _ClassVar[int]
+    request_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, request_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class RetrieveSamplingResultsRequest(_message.Message):
+    __slots__ = ("request_ids", "model_id")
+    REQUEST_IDS_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ID_FIELD_NUMBER: _ClassVar[int]
+    request_ids: _containers.RepeatedScalarFieldContainer[str]
+    model_id: str
+    def __init__(self, request_ids: _Optional[_Iterable[str]] = ..., model_id: _Optional[str] = ...) -> None: ...
+
+class SamplingResult(_message.Message):
+    __slots__ = ("request_id", "pending", "inference", "failed", "error")
+    REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+    PENDING_FIELD_NUMBER: _ClassVar[int]
+    INFERENCE_FIELD_NUMBER: _ClassVar[int]
+    FAILED_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    request_id: str
+    pending: bool
+    inference: InferenceResponse
+    failed: RequestFailedResponse
+    error: SamplingRetrievalError
+    def __init__(self, request_id: _Optional[str] = ..., pending: bool = ..., inference: _Optional[_Union[InferenceResponse, _Mapping]] = ..., failed: _Optional[_Union[RequestFailedResponse, _Mapping]] = ..., error: _Optional[_Union[SamplingRetrievalError, _Mapping]] = ...) -> None: ...
+
+class SamplingRetrievalError(_message.Message):
+    __slots__ = ("code", "message")
+    CODE_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    code: int
+    message: str
+    def __init__(self, code: _Optional[int] = ..., message: _Optional[str] = ...) -> None: ...

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-gallery
-Version: 0.21.0
+Version: 0.22.0
 Summary: A Sphinx extension that builds an HTML gallery of examples from any set of Python scripts.
 Author-email: Óscar Nájera <najera.oscar@gmail.com>
 License: 3-clause BSD
@@ -32,7 +32,6 @@ Requires-Dist: joblib; extra == "dev"
 Requires-Dist: jupyterlite-sphinx>=0.17.1; extra == "dev"
 Requires-Dist: lxml; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
 Requires-Dist: packaging; extra == "dev"
 Requires-Dist: plotly; extra == "dev"
@@ -43,15 +42,15 @@ Requires-Dist: seaborn; extra == "dev"
 Requires-Dist: sphinx-design; extra == "dev"
 Requires-Dist: sphinxcontrib-video; extra == "dev"
 Requires-Dist: statsmodels; extra == "dev"
-Requires-Dist: types-docutils; extra == "dev"
-Requires-Dist: types-pillow; extra == "dev"
-Requires-Dist: types-pygments; extra == "dev"
+Requires-Dist: threadpoolctl; extra == "dev"
+Requires-Dist: ty; extra == "dev"
 Provides-Extra: jupyterlite
 Requires-Dist: jupyterlite-sphinx; extra == "jupyterlite"
 Provides-Extra: parallel
 Requires-Dist: joblib; extra == "parallel"
 Provides-Extra: recommender
 Requires-Dist: numpy; extra == "recommender"
+Requires-Dist: threadpoolctl; extra == "recommender"
 Provides-Extra: show-api-usage
 Requires-Dist: graphviz; extra == "show-api-usage"
 Provides-Extra: show-memory
@@ -196,6 +195,7 @@ An incomplete list:
 * `Optuna <https://optuna.readthedocs.io/en/stable/tutorial/index.html>`_
 * `PlasmaPy <https://docs.plasmapy.org/en/latest/examples.html>`_
 * `POT <https://pythonot.github.io/auto_examples/index.html>`_
+* `pvlib <https://pvlib-python.readthedocs.io/en/stable/gallery/index.html>`_
 * `PyGMT <https://www.pygmt.org/latest/gallery/index.html>`_
 * `pyRiemann <https://pyriemann.readthedocs.io/en/latest/auto_examples/index.html>`_
 * `PyStruct <https://pystruct.github.io/auto_examples/index.html>`_

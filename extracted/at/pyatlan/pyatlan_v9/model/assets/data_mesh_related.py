@@ -47,7 +47,8 @@ class RelatedDataMesh(RelatedCatalog):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "DataMesh"
+        if self.type_name is UNSET:
+            self.type_name = "DataMesh"
 
 
 class RelatedDataMeshDataset(RelatedDataMesh):
@@ -65,7 +66,8 @@ class RelatedDataMeshDataset(RelatedDataMesh):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "DataMeshDataset"
+        if self.type_name is UNSET:
+            self.type_name = "DataMeshDataset"
 
 
 class RelatedStakeholderTitle(RelatedDataMesh):
@@ -80,7 +82,8 @@ class RelatedStakeholderTitle(RelatedDataMesh):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "StakeholderTitle"
+        if self.type_name is UNSET:
+            self.type_name = "StakeholderTitle"
 
 
 class RelatedDataDomain(RelatedDataMesh):
@@ -95,7 +98,8 @@ class RelatedDataDomain(RelatedDataMesh):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "DataDomain"
+        if self.type_name is UNSET:
+            self.type_name = "DataDomain"
 
 
 class RelatedDataProduct(RelatedDataMesh):
@@ -143,7 +147,7 @@ class RelatedDataProduct(RelatedDataMesh):
     data_product_score_value: Union[float, None, UnsetType] = UNSET
     """Score of this data product."""
 
-    data_product_score_updated_at: Union[int, None, UnsetType] = UNSET
+    data_mesh_score_updated_at: Union[int, None, UnsetType] = UNSET
     """Timestamp when the score of this data product was last updated."""
 
     daap_visibility_users: Union[List[str], None, UnsetType] = UNSET
@@ -163,7 +167,8 @@ class RelatedDataProduct(RelatedDataMesh):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "DataProduct"
+        if self.type_name is UNSET:
+            self.type_name = "DataProduct"
 
 
 class RelatedStakeholder(RelatedDataMesh):
@@ -184,4 +189,5 @@ class RelatedStakeholder(RelatedDataMesh):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "Stakeholder"
+        if self.type_name is UNSET:
+            self.type_name = "Stakeholder"

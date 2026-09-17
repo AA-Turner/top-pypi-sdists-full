@@ -7,6 +7,8 @@ from ...analytics.schemas import IncidentEvent, IncidentMessage, StreamInfo
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..core.base import ResultFormat
 from ..core.base import registry
+from .business_metrics_aggregation_utils import AGGREGATION_TYPES, BUSINESS_METRICS_MANAGER, DEFAULT_AGGREGATION_INTERVAL, DEFAULT_METRICS_CONFIG, CameraMetricsState, MetricAggregator
+from .business_metrics_manager_utils import BusinessMetricsManagerFactory
 from .filter_utils import filter_by_confidence
 from .format_utils import match_results_structure
 from .geometry_utils import calculate_iou
@@ -31,9 +33,9 @@ from .visualization_utils import bbox_dict_to_xyxy
 from .weapon_person_fusion_v1 import _norm_cat, _xyxy_from_det, coerce_frame_detections, iou_positive_or_centroid_inside
 
 # Constants
-AGGREGATION_TYPES: List[Any] = ...  # From business_metrics_manager_utils
-DEFAULT_AGGREGATION_INTERVAL: int = ...  # From business_metrics_manager_utils
-DEFAULT_METRICS_CONFIG: Dict[Any, Any] = ...  # From business_metrics_manager_utils
+AGGREGATION_TYPES: List[Any] = ...  # From business_metrics_aggregation_utils
+DEFAULT_AGGREGATION_INTERVAL: int = ...  # From business_metrics_aggregation_utils
+DEFAULT_METRICS_CONFIG: Dict[Any, Any] = ...  # From business_metrics_aggregation_utils
 CANONICAL_COLOR_LAB: Any = ...  # From color_utils
 CANONICAL_COLOR_NAMES: List[Any] = ...  # From color_utils
 CANONICAL_COLOR_RGB: Dict[Any, Any] = ...  # From color_utils
@@ -1629,7 +1631,7 @@ class SimpleAlerter:
         ...
 
 
-# From business_metrics_manager_utils
+# From business_metrics_aggregation_utils
 class BUSINESS_METRICS_MANAGER:
     # Manages business metrics aggregation and publishing.
     #
@@ -1742,6 +1744,64 @@ class BUSINESS_METRICS_MANAGER:
         ...
 
 
+# From business_metrics_aggregation_utils
+class CameraMetricsState:
+    # Stores metrics state for a camera.
+
+    def add_metric_value(self: Any, metric_name: str, value: float, agg_type: str = 'mean') -> Any:
+        """
+        Add a value for a specific metric.
+        """
+        ...
+
+    def get_aggregated_metrics(self: Any) -> Dict[str, Dict[str, Any]]:
+        """
+        Get all aggregated metrics in output format.
+        """
+        ...
+
+    def has_metrics(self: Any) -> bool:
+        """
+        Check if any metrics have values.
+        """
+        ...
+
+    def reset_metrics(self: Any) -> Any:
+        """
+        Reset all metric aggregators.
+        """
+        ...
+
+
+# From business_metrics_aggregation_utils
+class MetricAggregator:
+    # Stores aggregated values for a single metric.
+
+    def add_value(self: Any, value: float) -> Any:
+        """
+        Add a value to the aggregator.
+        """
+        ...
+
+    def get_aggregated_value(self: Any) -> Optional[float]:
+        """
+        Get the aggregated value based on aggregation type.
+        """
+        ...
+
+    def has_values(self: Any) -> bool:
+        """
+        Check if aggregator has any values.
+        """
+        ...
+
+    def reset(self: Any) -> Any:
+        """
+        Reset the aggregator values.
+        """
+        ...
+
+
 # From business_metrics_manager_utils
 class BusinessMetricsManagerFactory:
     # Factory class for creating BUSINESS_METRICS_MANAGER instances.
@@ -1773,64 +1833,6 @@ class BusinessMetricsManagerFactory:
         ...
 
     def is_initialized(self: Any) -> bool: ...
-
-
-# From business_metrics_manager_utils
-class CameraMetricsState:
-    # Stores metrics state for a camera.
-
-    def add_metric_value(self: Any, metric_name: str, value: float, agg_type: str = 'mean') -> Any:
-        """
-        Add a value for a specific metric.
-        """
-        ...
-
-    def get_aggregated_metrics(self: Any) -> Dict[str, Dict[str, Any]]:
-        """
-        Get all aggregated metrics in output format.
-        """
-        ...
-
-    def has_metrics(self: Any) -> bool:
-        """
-        Check if any metrics have values.
-        """
-        ...
-
-    def reset_metrics(self: Any) -> Any:
-        """
-        Reset all metric aggregators.
-        """
-        ...
-
-
-# From business_metrics_manager_utils
-class MetricAggregator:
-    # Stores aggregated values for a single metric.
-
-    def add_value(self: Any, value: float) -> Any:
-        """
-        Add a value to the aggregator.
-        """
-        ...
-
-    def get_aggregated_value(self: Any) -> Optional[float]:
-        """
-        Get the aggregated value based on aggregation type.
-        """
-        ...
-
-    def has_values(self: Any) -> bool:
-        """
-        Check if aggregator has any values.
-        """
-        ...
-
-    def reset(self: Any) -> Any:
-        """
-        Reset the aggregator values.
-        """
-        ...
 
 
 # From bytetrack_utils
@@ -2532,4 +2534,4 @@ class WrongWayState:
     WRONG_WAY: str
 
 
-from . import advanced_counting_utils, advanced_helper_utils, agnostic_nms, alert_instance_utils, alerting_utils, business_metrics_manager_utils, bytetrack_utils, category_mapping_utils, color_utils, counting_utils, filter_utils, format_utils, geometry_utils, incident_manager_utils, incident_res_format, legacy_analytics_bridge, location_name_cache, parking_analytics_tracker, post_processing_config_client, public_ip, smoothing_utils, stream_time_utils, tailgating_utils, tracking_utils, visualization_utils, weapon_human_filter, weapon_person_fusion_v1, wrong_way_tracker
+from . import advanced_counting_utils, advanced_helper_utils, agnostic_nms, alert_instance_utils, alerting_utils, business_metrics_aggregation_utils, business_metrics_manager_utils, bytetrack_utils, category_mapping_utils, color_utils, counting_utils, filter_utils, format_utils, geometry_utils, incident_manager_utils, incident_res_format, legacy_analytics_bridge, location_name_cache, parking_analytics_tracker, post_processing_config_client, public_ip, smoothing_utils, stream_time_utils, tailgating_utils, tracking_utils, visualization_utils, weapon_human_filter, weapon_person_fusion_v1, wrong_way_tracker

@@ -3,11 +3,12 @@ from __future__ import annotations
 import inspect
 import re
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Collection, Type
 
 from chalk.utils.duration import CronTab, Duration, parse_chalk_duration
 
 if TYPE_CHECKING:
+    from chalk.client.models import FeatureReference
     from chalk.features.feature_set import Features
 
 _MIN_UPDATE_CADENCE = timedelta(minutes=10)
@@ -77,6 +78,39 @@ class MaterializedFeatureView:
             compaction. Compaction combines multiple rows into a summary row when
             possible, making the table smaller and reads cheaper. Defaults to ``True``.
             Another option is manual compaction, which can be triggered via the UI.
+        features: The scalar features to materialize, as feature references or fully-qualified
+            name strings. Defaults to ``None``, which materializes every feature in the namespace
+            that is eligible for the offline store.
+
+            Naming a subset reduces the cost of the fill and of background compaction,
+            which would otherwise process every column. Excluded features remain fully
+            queryable: they are served from the observation tables, which return the same
+            values without wide table acceleration.
+
+            The namespace's primary key is always materialized, so listing it is allowed but has
+            no effect. Each version of a versioned feature is materialized separately, and a bare
+            reference selects only that feature's ``default_version`` -- write ``f @ 2`` to
+            materialize version 2 as well. Changing ``default_version`` therefore changes which
+            column this view materializes.
+
+            >>> from chalk.features import features
+            >>> from chalk.queries.materialized_feature_view import MaterializedFeatureView
+            >>> @features
+            ... class User:
+            ...     id: int
+            ...     credit_score: int
+            ...     account_age_days: int
+            ...     email: str
+            ...     street_address: str
+            ...     marketing_opt_in: bool
+            >>> # Accelerate only what the risk model queries; the rest stay queryable from the
+            >>> # observation tables and cost nothing to fill or compact.
+            >>> _ = MaterializedFeatureView(
+            ...     User,
+            ...     time_resolution="1h",
+            ...     update_cadence="1d",
+            ...     features=[User.credit_score, User.account_age_days],
+            ... )
     """
 
     def __init__(
@@ -88,6 +122,7 @@ class MaterializedFeatureView:
         lower_bound: datetime | None = None,
         lookback_retention_period: Duration | None = None,
         background_compaction: bool = True,
+        features: "Collection[FeatureReference] | None" = None,
     ):
         super().__init__()
 
@@ -124,6 +159,12 @@ class MaterializedFeatureView:
                 f"MaterializedFeatureView 'update_cadence' must be a string (cron expression or duration) or a timedelta, got {type(update_cadence).__name__!r}."
             )
 
+        if features is not None and len(features) == 0:
+            raise ValueError(
+                "MaterializedFeatureView 'features' is empty, which would materialize nothing. "
+                + "Omit the argument to materialize every eligible feature in the namespace."
+            )
+
         from chalk.utils.object_inspect import get_source_object_starting
 
         source_line_start: int | None = None
@@ -146,6 +187,11 @@ class MaterializedFeatureView:
         self.lower_bound = lower_bound
         self.lookback_retention_period = lookback_retention_period
         self.background_compaction = background_compaction
+        # Order-preserving dedup, matching ScheduledAggregateBackfill. `None` stays `None` so the
+        # proto converter can distinguish "materialize everything" from an explicit selection.
+        self.features = (
+            None if features is None else tuple(dict.fromkeys(str(feature) for feature in features))
+        )
         self.filename = caller_filename
         self.source_line_start = source_line_start
         self.source_line_end = source_line_end
@@ -163,7 +209,8 @@ class MaterializedFeatureView:
             f"namespace={self.namespace!r}, "
             f"time_resolution={self.time_resolution!r}, "
             f"update_cadence={self.update_cadence!r}, "
-            f"background_compaction={self.background_compaction!r}"
+            f"background_compaction={self.background_compaction!r}, "
+            f"features={self.features!r}"
             f")"
         )
 
@@ -177,6 +224,7 @@ class MaterializedFeatureView:
             and self.lower_bound == other.lower_bound
             and self.lookback_retention_period == other.lookback_retention_period
             and self.background_compaction == other.background_compaction
+            and self.features == other.features
         )
 
 

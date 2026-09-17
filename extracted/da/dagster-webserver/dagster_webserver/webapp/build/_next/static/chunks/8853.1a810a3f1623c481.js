@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[8853],{88853:(e,s,n)=>{n.r(s),n.d(s,{RunsPage:()=>i,default:()=>l});var a=n(60072),d=n(26400),u=n(27824);let i=()=>(0,a.jsx)(d.a,{padding:64,children:(0,a.jsx)(u.I,{icon:"run",title:"Runs",description:"Redesigned runs page placeholder…"})}),l=i}}]);
+//# sourceMappingURL=8853.1a810a3f1623c481.js.map

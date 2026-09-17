@@ -8,6 +8,7 @@ mounting, and agent execution.
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import logging
 import os
@@ -393,6 +394,54 @@ async def sync_back_workspaces(info: RuntimeInfo, workspaces: list[AgentWorkspac
         logger.info("Syncing back workspace: %s", ws.world_path)
         await ws.sync_back(env, hostname)
     logger.info("All workspaces synced back")
+
+
+async def relocate_compaction_summary(agent_info: RuntimeInfo, workspace_info: RuntimeInfo, summary_path: str) -> bool:
+    """Carry a compaction summary from the agent VM onto the workspace host.
+
+    The ``PostCompact`` hook is a local subprocess of the agent CLI, so it
+    persists the summary with a plain filesystem write on the machine the CLI
+    runs on — the agent VM. It never travels the sandbox tool transport the
+    way the model's own Write does.
+
+    That is invisible until ``sandbox_tools_only`` puts the workspaces on a
+    different machine: the summary then lands outside every mount, and the
+    sync-back that follows compaction reads the sandbox, where it was never
+    written. Copy it across first so that sync makes it durable.
+
+    A no-op that returns False when both are the same host. Best-effort, like
+    compaction itself — the caller logs and carries on.
+    """
+    if agent_info.hostname == workspace_info.hostname:
+        return False
+    key = agent_info.ssh_key_path
+    if key is None:
+        logger.warning("No SSH key for %s; cannot relocate the compaction summary", agent_info.hostname)
+        return False
+
+    quoted = shlex.quote(summary_path)
+    code, stdout, stderr = await run_ssh(key, agent_info.hostname, f"base64 -w0 -- {quoted}")
+    if code != 0:
+        # Nothing written this cycle (no compaction, or an empty summary) is
+        # the ordinary case, not an error.
+        logger.debug("No compaction summary at %s on %s: %s", summary_path, agent_info.hostname, stderr.strip())
+        return False
+
+    content = base64.b64decode(stdout)
+    if not content:
+        return False
+
+    ws_key = workspace_info.ssh_key_path or key
+    parent = str(Path(summary_path).parent)
+    await run_ssh(ws_key, workspace_info.hostname, f"mkdir -p -- {shlex.quote(parent)}")
+    await scp_content_to_vm(ws_key, workspace_info.hostname, summary_path, content)
+    logger.info(
+        "Relocated the compaction summary (%d bytes) from %s to the workspace host %s",
+        len(content),
+        agent_info.hostname,
+        workspace_info.hostname,
+    )
+    return True
 
 
 async def execute_agent(

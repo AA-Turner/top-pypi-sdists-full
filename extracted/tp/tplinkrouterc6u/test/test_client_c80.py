@@ -299,6 +299,9 @@ class TplinkC80RouterTest(TplinkC80Router):
                     return ResponseMock('blabla\r\nblabla\r\nblabla\r\nauthinfo1\r\nauthinfo2')
             elif use_token is True:
                 return ResponseMock(self.response)
+        if code == 0 and asyn == 0 and use_token is True:
+            # set_ewan_connect (#227): wan -linkUp / wan -linkDown → 00000
+            return ResponseMock(self.response if self.response else '00000')
         elif (code == 16 or code == 7) and asyn == 0:
             if use_token is False:
                 # Authorization
@@ -533,6 +536,7 @@ class TestTPLinkClient(TestCase):
         self.assertTrue(status.iot_5g_enable)
         self.assertTrue(status.wifi_2g_enable)
         self.assertTrue(status.wifi_5g_enable)
+        self.assertTrue(status.ewan_connected)
         self.assertEqual(status.wan_ipv4_uptime, 308149)
         self.assertEqual(status.mem_usage, None)
         self.assertEqual(status.cpu_usage, None)
@@ -659,6 +663,7 @@ class TestTPLinkClient(TestCase):
         self.assertEqual(status.wan_ipv4_addr, '192.168.0.68')
         self.assertEqual(status.conn_type, 'Router/AP')
         self.assertTrue(status.wifi_2g_enable)
+        self.assertIsNone(status.ewan_connected)
         self.assertEqual(status.clients_total, 3)
         self.assertEqual(status.wifi_clients_total, 3)
         self.assertEqual(status.wired_total, 0)
@@ -798,6 +803,97 @@ class TestTPLinkClient(TestCase):
 
         client.get_status()
         self.assertEqual(ipv6_calls['n'], 1)
+
+    def test_get_firmware_falls_back_to_plaintext_on_00006(self) -> None:
+        firmware_plain = (
+            '00000\r\nid 0|1,0,0\r\nfullName 300Mbps%20Wi-Fi%20Router\r\nfacturer TP-Link\r\n'
+            'modelName TL-WR844N\r\nmodelVer 1.0\r\n'
+            'softVer 1.15.20%20Build%20260611%20Rel.30987n(4555)\r\n'
+            'hardVer TL-WR844N%201.0\r\nprodId 0x8440001\r\n'
+        )
+
+        class PlainFallbackClient(TplinkC80RouterTest):
+            def request(self, code: int, asyn: int, use_token: bool = False, data: str = None):
+                if code == 2 and asyn == 1 and use_token:
+                    if isinstance(data, str) and data.startswith('sign='):
+                        return ResponseMock('00006\r\n')
+                    if data == '0|1,0,0':
+                        return ResponseMock(firmware_plain)
+                return super().request(code, asyn, use_token, data)
+
+        client = PlainFallbackClient('', '')
+        client.authorize()
+        self.assertFalse(client._plain_data)
+
+        firmware = client.get_firmware()
+
+        self.assertTrue(client._plain_data)
+        self.assertEqual(firmware.model, 'TL-WR844N')
+        self.assertEqual(firmware.hardware_version, 'TL-WR844N 1.0')
+        self.assertEqual(firmware.firmware_version, '1.15.20 Build 260611 Rel.30987n(4555)')
+
+    def test_subsequent_data_requests_stay_plaintext_after_fallback(self) -> None:
+        firmware_plain = (
+            '00000\r\nid 0|1,0,0\r\nmodelName TL-WR844N\r\n'
+            'hardVer TL-WR844N%201.0\r\nsoftVer 1.0\r\n'
+        )
+        sent = []
+
+        class CaptureClient(TplinkC80RouterTest):
+            def request(self, code: int, asyn: int, use_token: bool = False, data: str = None):
+                if code == 2 and asyn == 1 and use_token:
+                    sent.append(data)
+                    if isinstance(data, str) and data.startswith('sign='):
+                        return ResponseMock('00006\r\n')
+                    return ResponseMock(firmware_plain)
+                return super().request(code, asyn, use_token, data)
+
+        client = CaptureClient('', '')
+        client.authorize()
+        client.get_firmware()
+        sent.clear()
+        client.get_firmware()
+
+        self.assertEqual(len(sent), 1)
+        self.assertEqual(sent[0], '0|1,0,0')
+        self.assertFalse(sent[0].startswith('sign='))
+
+    def test_get_status_ewan_disconnected(self) -> None:
+        # WAN block 23 with status 0 → ewan_connected False
+        status_down = STATUS_RESPONSE_TEXT.replace('status 1\r\ncode 0\r\nupTime 30814980',
+                                                   'status 0\r\ncode 0\r\nupTime 30814980', 1)
+        client = TplinkC80RouterTest('', '')
+        client.authorize()
+        client.set_encrypted_response(status_down)
+
+        status = client.get_status()
+
+        self.assertFalse(status.ewan_connected)
+
+    def test_set_ewan_connect_link_up_and_down(self) -> None:
+        # Capture from #227: wan -linkUp / wan -linkDown → response 00000
+        sent = []
+
+        class CaptureClient(TplinkC80RouterTest):
+            def request(self, code: int, asyn: int, use_token: bool = False, data: str = None):
+                if code == 0 and asyn == 0 and use_token:
+                    sent.append(data)
+                    return ResponseMock('00000')
+                return super().request(code, asyn, use_token, data)
+
+        client = CaptureClient('', '')
+        client.authorize()
+
+        client.set_ewan_connect(True)
+        client.set_ewan_connect(False)
+
+        self.assertEqual(len(sent), 2)
+        self.assertTrue(sent[0].startswith('sign='))
+        self.assertTrue(sent[1].startswith('sign='))
+        up_plain = client._decrypt_data(sent[0].split('data=', 1)[1])
+        down_plain = client._decrypt_data(sent[1].split('data=', 1)[1])
+        self.assertEqual(up_plain, 'wan -linkUp')
+        self.assertEqual(down_plain, 'wan -linkDown')
 
 
 class TestTplinkC80RouterSslContext(TestCase):

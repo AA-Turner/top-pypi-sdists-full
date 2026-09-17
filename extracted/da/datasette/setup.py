@@ -42,14 +42,14 @@ setup(
         "datasette": ["templates/*.html", "vendored/**/*.txt"],
     },
     include_package_data=True,
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=[
         "asgiref>=3.2.10",
         "click>=7.1.1",
         "click-default-group>=1.2.3",
         "Jinja2>=2.10.3",
         "hupper>=1.9",
-        "httpx>=0.20",
+        "httpx>=0.20,<1.0",
         "pluggy>=1.0",
         "uvicorn>=0.11",
         "aiofiles>=0.4",
@@ -105,6 +105,5 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.9",
     ],
 )

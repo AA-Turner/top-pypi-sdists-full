@@ -18,9 +18,8 @@ Improve your data science workflow with skops
 # - Explain how the feature engineering informs the *choice of machine
 #   learning model* and vice versa
 # - Show how to make use of a couple of *advanced scikit-learn* features
-#   and explain why we use them - Create a *model card* that provides
-#   useful information about the model
-# - Share the model by uploading it to the *Hugging Face Hub*
+#   and explain why we use them
+# - Create a *model card* that provides useful information about the model
 
 # %%
 # Imports
@@ -1010,8 +1009,8 @@ df_cv.sort_values("rank_test_score")[
 # %%
 
 fig, ax = plt.subplots()
-for weight in params["weights"]:  # type: ignore
-    for p in params["p"]:  # type: ignore
+for weight in params["weights"]:
+    for p in params["p"]:
         query = f"param_weights=='{weight}' & param_p=={p}"
         df_subset = df_cv.query(query)
         df_subset.plot(

@@ -30,7 +30,7 @@
 
 import struct
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from datetime import datetime
 from typing import (
     Any,
@@ -1302,12 +1302,6 @@ class PdfDocCommon(ABC):
             traversal_state: State shared across the complete traversal.
 
         """
-        inheritable_page_attributes = (
-            NameObject(PG.RESOURCES),
-            NameObject(PG.MEDIABOX),
-            NameObject(PG.CROPBOX),
-            NameObject(PG.ROTATE),
-        )
         if inherit is None:
             inherit = {}
         if visited is None:
@@ -1329,82 +1323,116 @@ class PdfDocCommon(ABC):
             self.flattened_pages = []
         assert pages is not None, "mypy"
 
+        # Get the current node_type
         if PagesAttributes.TYPE in pages:
-            t = cast(str, pages[PagesAttributes.TYPE])
+            node_type = cast(str, pages[PagesAttributes.TYPE])
         # if the page tree node has no /Type, consider as a page if /Kids is also missing
         elif PagesAttributes.KIDS not in pages:
             # Without /Type, only accept it as a page if it carries a structural page key.
-            if self.strict and not any(
-                key in pages for key in (PG.CONTENTS, PG.MEDIABOX, PG.PARENT)
-            ):
+            if self.strict and not any(key in pages for key in (PG.CONTENTS, PG.MEDIABOX, PG.PARENT)):
                 raise PdfReadError(f"Non-page object reached through /Kids: {pages!r}")
-            t = "/Page"
+            node_type = "/Page"
         else:
-            t = "/Pages"
+            node_type = "/Pages"
 
-        if t == "/Pages":
-            for attr in inheritable_page_attributes:
-                if attr in pages:
-                    inherit[attr] = pages[attr]
-            pages_reference = getattr(pages, "indirect_reference", object())
-            kids = pages.get(PagesAttributes.KIDS, ArrayObject()).get_object()
-            if isinstance(kids, NullObject):
-                kids = ArrayObject()
-            elif not isinstance(kids, ArrayObject):
-                raise PdfReadError(
-                    f"Expected /Kids to be an array, got {type(kids).__name__}."
+        # Flatten that type of node
+        if node_type == "/Pages":
+            self._flatten_page_tree_node(pages, list_only, inherit, visited, depth, traversal_state)
+        elif node_type == "/Page":
+            self._flatten_leaf_page(pages, list_only, inherit, indirect_reference)
+
+    def _flatten_page_tree_node(
+        self,
+        pages: DictionaryObject,
+        list_only: bool,
+        inherit: dict[str, Any],
+        visited: set[int],
+        depth: int,
+        traversal_state: _TraversalState,
+    ) -> None:
+        """
+        Handle an intermediate ``/Pages`` node: propagate its inheritable
+        attributes into ``inherit`` and recurse into each entry of ``/Kids``.
+
+        Cyclic references and the configured page-tree entry limit are enforced here.
+        """
+        inheritable_page_attributes = (
+            NameObject(PG.RESOURCES),
+            NameObject(PG.MEDIABOX),
+            NameObject(PG.CROPBOX),
+            NameObject(PG.ROTATE),
+        )
+        for attr in inheritable_page_attributes:
+            if attr in pages:
+                inherit[attr] = pages[attr]
+
+        kids = pages.get(PagesAttributes.KIDS, ArrayObject()).get_object()
+        if isinstance(kids, NullObject):
+            kids = ArrayObject()
+        elif not isinstance(kids, ArrayObject):
+            raise PdfReadError(f"Expected /Kids to be an array, got {type(kids).__name__}.")
+
+        configuration = get_configuration()
+        pages_reference = getattr(pages, "indirect_reference", object())
+        for page in kids:
+            if getattr(page, "indirect_reference", object()) == pages_reference:
+                raise PdfReadError("Detected cyclic page references.")
+
+            additional_arguments = {}
+            if isinstance(page, IndirectObject):
+                additional_arguments["indirect_reference"] = page
+            obj = page.get_object()
+            if not is_null_or_none(obj) and not isinstance(obj, DictionaryObject):
+                logger_warning(
+                    "Ignoring page tree entry that is not a dictionary: %(entry)s",
+                    source=__name__,
+                    entry=obj,
                 )
-            for page in kids:
-                if getattr(page, "indirect_reference", object()) == pages_reference:
-                    raise PdfReadError("Detected cyclic page references.")
+                continue
+            if not obj:
+                # damaged file may have invalid child in /Pages
+                continue
+            obj_id = id(obj)
+            if obj_id in visited:
+                raise PdfReadError("Detected cyclic page references.")
+            traversal_state.entry_count += 1
+            if traversal_state.entry_count > configuration.page_tree_maximum_entries:
+                raise LimitReachedError(
+                    "Maximum page tree entry limit reached: "
+                    f"{traversal_state.entry_count} > {configuration.page_tree_maximum_entries}."
+                )
+            visited.add(obj_id)
+            try:
+                self._flatten(
+                    list_only,
+                    cast(DictionaryObject, obj),
+                    inherit.copy(),
+                    visited=visited,
+                    depth=depth + 1,
+                    traversal_state=traversal_state,
+                    **additional_arguments,
+                )
+            finally:
+                visited.remove(obj_id)
 
-                additional_arguments = {}
-                if isinstance(page, IndirectObject):
-                    additional_arguments["indirect_reference"] = page
-                obj = page.get_object()
-                if not is_null_or_none(obj) and not isinstance(obj, DictionaryObject):
-                    logger_warning(
-                        "Ignoring page tree entry that is not a dictionary: %(entry)s",
-                        source=__name__,
-                        entry=obj,
-                    )
-                    continue
-                if obj:
-                    # damaged file may have invalid child in /Pages
-                    obj_id = id(obj)
-                    if obj_id in visited:
-                        raise PdfReadError("Detected cyclic page references.")
-                    traversal_state.entry_count += 1
-                    if traversal_state.entry_count > configuration.page_tree_maximum_entries:
-                        raise LimitReachedError(
-                            "Maximum page tree entry limit reached: "
-                            f"{traversal_state.entry_count} > {configuration.page_tree_maximum_entries}."
-                        )
-                    visited.add(obj_id)
-                    try:
-                        self._flatten(
-                            list_only,
-                            cast(DictionaryObject, obj),
-                            inherit.copy(),
-                            visited=visited,
-                            depth=depth + 1,
-                            traversal_state=traversal_state,
-                            **additional_arguments,
-                        )
-                    finally:
-                        visited.remove(obj_id)
-        elif t == "/Page":
-            page_obj = PageObject(self, indirect_reference)
-            if not list_only:
-                page_obj.update(pages)
-            for attr_in, value in inherit.items():
-                # if the page has its own value, it does not inherit the
-                # parent's value
-                if attr_in not in page_obj:
-                    page_obj[attr_in] = value
+    def _flatten_leaf_page(
+        self,
+        page: DictionaryObject,
+        list_only: bool,
+        inherit: dict[str, Any],
+        indirect_reference: Optional[IndirectObject],
+    ) -> None:
+        """Build the :class:`PageObject` for a leaf ``/Page`` node and append it to ``flattened_pages``."""
+        page_obj = PageObject(self, indirect_reference)
+        if not list_only:
+            page_obj.update(page)
+        for attr, value in inherit.items():
+            # if the page has its own value, it does not inherit the parent's value
+            if attr not in page_obj:
+                page_obj[attr] = value
 
-            # TODO: Could flattened_pages be None at this point?
-            self.flattened_pages.append(page_obj)  # type: ignore[union-attr]
+        # TODO: Could flattened_pages be None at this point?
+        self.flattened_pages.append(page_obj)  # type: ignore[union-attr]
 
     def remove_page(
         self,
@@ -1559,80 +1587,27 @@ class PdfDocCommon(ABC):
     @property
     def attachments(self) -> Mapping[str, list[bytes]]:
         """Mapping of attachment filenames to their content."""
+        entries: dict[str, list[EmbeddedFile]] = {}
+
+        for entry in self.attachment_list:
+            for name in entry._names:
+                entries.setdefault(name, []).append(entry)
+
         return LazyDict(
             {
-                name: (self._get_attachment_list, name)
-                for name in self._list_attachments()
+                name: (self._get_attachment_contents, attachment_entries)
+                for name, attachment_entries in entries.items()
             }
         )
 
+    @classmethod
+    def _get_attachment_contents(cls, entries: list[EmbeddedFile]) -> list[bytes]:
+        return [entry.content for entry in entries]
+
     @property
-    def attachment_list(self) -> Generator[EmbeddedFile, None, None]:
+    def attachment_list(self) -> Iterator[EmbeddedFile]:
         """Iterable of attachment objects."""
         yield from EmbeddedFile._load(self.root_object, strict=self.strict)
-
-    def _list_attachments(self) -> list[str]:
-        """
-        Retrieves the list of filenames of file attachments.
-
-        Returns:
-            list of filenames
-
-        """
-        names = []
-        for entry in self.attachment_list:
-            names.append(entry.name)
-            if (name := entry.alternative_name) != entry.name and name:
-                names.append(name)
-        return names
-
-    def _get_attachment_list(self, name: str) -> list[bytes]:
-        out = self._get_attachments(name)[name]
-        if isinstance(out, list):
-            return out
-        return [out]
-
-    def _get_attachments(
-        self, filename: Optional[str] = None
-    ) -> dict[str, Union[bytes, list[bytes]]]:
-        """
-        Retrieves all or selected file attachments of the PDF as a dictionary of file names
-        and the file data as a bytestring.
-
-        Args:
-            filename: If filename is None, then a dictionary of all attachments
-                will be returned, where the key is the filename and the value
-                is the content. Otherwise, a dictionary with just a single key
-                - the filename - and its content will be returned.
-
-        Returns:
-            dictionary of filename -> Union[bytestring or List[ByteString]]
-            If the filename exists multiple times a list of the different versions will be provided.
-
-        """
-        attachments: dict[str, Union[bytes, list[bytes]]] = {}
-        for entry in self.attachment_list:
-            names = set()
-            alternative_name = entry.alternative_name
-            if filename is not None:
-                if filename in {entry.name, alternative_name}:
-                    name = entry.name if filename == entry.name else alternative_name
-                    names.add(name)
-                else:
-                    continue
-            else:
-                names = {entry.name, alternative_name}
-
-            for name in names:
-                if name is None:
-                    continue
-                if name in attachments:
-                    if not isinstance(attachments[name], list):
-                        attachments[name] = [attachments[name]]  # type:ignore
-                    attachments[name].append(entry.content)  # type:ignore
-                else:
-                    attachments[name] = entry.content
-        return attachments
 
     @abstractmethod
     def _repr_mimebundle_(

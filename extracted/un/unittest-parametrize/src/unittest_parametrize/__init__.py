@@ -2,16 +2,11 @@ from __future__ import annotations
 
 import inspect
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import wraps
 from types import FunctionType
-from typing import Any, Callable, TypeVar
-from unittest import TestCase
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
+from typing import Any, ParamSpec, TypeVar
+from unittest import TestCase, expectedFailure, skip
 
 
 class ParametrizedTestCase(TestCase):
@@ -33,7 +28,7 @@ class ParametrizedTestCase(TestCase):
                     + func.__qualname__
                 )
 
-            _parametrized = func._parametrized  # type: ignore [attr-defined]
+            _parametrized = func._parametrized
             delattr(cls, name)
             for param in _parametrized.params:
                 params = dict(zip(_parametrized.argnames, param.args))
@@ -82,8 +77,22 @@ class ParametrizedTestCase(TestCase):
                                 )
                             raise
 
+                if param.skip is not None:
+                    test = skip(param.skip)(test)
+                elif param.expected_failure:
+                    test = expectedFailure(test)
+
                 test.__name__ = f"{name}_{param.id}"
                 test.__qualname__ = f"{test.__qualname__}_{param.id}"
+                if sys.version_info >= (3, 11):
+                    test.__code__ = test.__code__.replace(  # type: ignore[attr-defined]
+                        co_name=test.__name__,
+                        co_qualname=test.__qualname__,
+                    )
+                else:
+                    test.__code__ = test.__code__.replace(  # type: ignore[attr-defined]
+                        co_name=test.__name__
+                    )
 
                 if hasattr(cls, test.__name__):
                     raise ValueError(
@@ -94,15 +103,26 @@ class ParametrizedTestCase(TestCase):
 
 
 class param:
-    __slots__ = ("args", "id")
+    __slots__ = ("args", "expected_failure", "id", "skip")
 
-    def __init__(self, *args: Any, id: str | None = None) -> None:
+    def __init__(
+        self,
+        *args: Any,
+        id: str | None = None,
+        skip: str | None = None,
+        expected_failure: bool = False,
+    ) -> None:
         self.args = args
 
         if id is not None and not f"_{id}".isidentifier():
             raise ValueError(f"id must be a valid Python identifier suffix: {id!r}")
 
+        if skip is not None and expected_failure:
+            raise ValueError("param cannot be both skipped and an expected failure")
+
         self.id = id
+        self.skip = skip
+        self.expected_failure = expected_failure
 
 
 class parametrized:
@@ -115,7 +135,6 @@ class parametrized:
 
 P = ParamSpec("P")
 T = TypeVar("T")
-TestFunc = Callable[P, T]
 
 
 def parametrize(
@@ -129,11 +148,10 @@ def parametrize(
     if len(argnames) == 0:
         raise ValueError("argnames must contain at least one element")
 
-    ids_callable = callable(ids)
-    if ids is not None and not ids_callable and len(ids) != len(argvalues):  # type: ignore[arg-type]
+    if ids is not None and not callable(ids) and len(ids) != len(argvalues):
         raise ValueError("ids must have the same length as argvalues")
 
-    seen_ids = set()
+    seen_ids: set[str | None] = set()
     params = []
     for i, argvalue in enumerate(argvalues):
         if isinstance(argvalue, tuple):
@@ -143,8 +161,6 @@ def parametrize(
                     + f"({len(argvalue)} != {len(argnames)})"
                 )
             argvalue = param(*argvalue, id=make_id(i, argvalue, ids))
-            params.append(argvalue)
-            seen_ids.add(argvalue.id)
         elif isinstance(argvalue, param):
             if len(argvalue.args) != len(argnames):
                 raise ValueError(
@@ -153,19 +169,23 @@ def parametrize(
                 )
 
             if argvalue.id is None:
-                argvalue = param(*argvalue.args, id=make_id(i, argvalue, ids))
-            if argvalue.id in seen_ids:
-                raise ValueError(f"Duplicate param id {argvalue.id!r}")
-            seen_ids.add(argvalue.id)
-            params.append(argvalue)
+                argvalue = param(
+                    *argvalue.args,
+                    id=make_id(i, argvalue, ids),
+                    skip=argvalue.skip,
+                    expected_failure=argvalue.expected_failure,
+                )
         elif len(argnames) == 1:
             argvalue = param(argvalue, id=make_id(i, (argvalue,), ids))
-            seen_ids.add(argvalue.id)
-            params.append(argvalue)
         else:
             raise TypeError(
                 f"argvalue at index {i} is not a tuple, param instance, or single value: {argvalue!r}"
             )
+
+        if argvalue.id in seen_ids:
+            raise ValueError(f"Duplicate param id {argvalue.id!r}")
+        seen_ids.add(argvalue.id)
+        params.append(argvalue)
 
     _parametrized = parametrized(argnames, params)
     bind_kwargs = dict.fromkeys(_parametrized.argnames)
@@ -198,17 +218,20 @@ def make_id(
         id_parts = []
         for value in values:
             id_part = ids(value)
-            if id_part is not None:
-                id_parts.append(id_part)
-            else:
-                id_parts.append(str(value))
-        id_ = "_".join(id_parts)
-        # Validate the generated ID
-        if not f"_{id_}".isidentifier():
-            raise ValueError(
-                f"callable ids returned invalid Python identifier suffix: {id_!r}"
-            )
-        return id_
+            if id_part is None:
+                # Fall back to the value's string representation.
+                id_part = str(value)
+                if not f"_{id_part}".isidentifier():
+                    raise ValueError(
+                        f"ids returned None for {value!r}, whose string representation"
+                        + f" is not a valid Python identifier suffix: {id_part!r}"
+                    )
+            elif not f"_{id_part}".isidentifier():
+                raise ValueError(
+                    f"callable ids returned invalid Python identifier suffix: {id_part!r}"
+                )
+            id_parts.append(id_part)
+        return "_".join(id_parts)
     elif ids and ids[i]:
         return str(ids[i])
     else:

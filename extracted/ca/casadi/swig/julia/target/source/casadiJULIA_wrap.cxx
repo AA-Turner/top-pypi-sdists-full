@@ -14,9 +14,6 @@
 #undef _POSIX_C_SOURCE
 #endif
 
-
-#define SWIG_PYTHON_OUTPUT_TUPLE
-
 /* director.swg -- Julia director runtime.
  *
  * Inserted verbatim into the generated wrapper's runtime so SwigDirector_<C>
@@ -49,7 +46,7 @@ extern "C" void swig_jl_set_module(jl_value_t *m) {
 
 namespace Swig {
   /* Look up a director dispatch function `name` in the registered module. */
-  inline jl_function_t *swig_director_fn(const char *name) {
+  inline jl_value_t *swig_director_fn(const char *name) {
     jl_module_t *m = swig_jl_director_module ? swig_jl_director_module : jl_main_module;
     return jl_get_function(m, name);
   }
@@ -77,8 +74,8 @@ namespace Swig {
     if (!e) return std::string();
     std::string msg;
     JL_GC_PUSH1(&e);
-    jl_function_t *sprintf_fn = jl_get_function(jl_base_module, "sprint");
-    jl_function_t *showerror_fn = jl_get_function(jl_base_module, "showerror");
+    jl_value_t *sprintf_fn = jl_get_function(jl_base_module, "sprint");
+    jl_value_t *showerror_fn = jl_get_function(jl_base_module, "showerror");
     if (sprintf_fn && showerror_fn) {
       jl_value_t *s = jl_call2(sprintf_fn, (jl_value_t *)showerror_fn, e);
       if (s && jl_is_string(s)) msg = jl_string_ptr(s);
@@ -1203,7 +1200,7 @@ SWIGRUNTIME jl_value_t* swig_jl_new_pointer_obj(void* ptr, swig_type_info* type)
     if (it != swig_jl_ti2type().end()) {
       jl_value_t* boxed = jl_box_voidpointer(ptr);
       JL_GC_PUSH1(&boxed);
-      jl_value_t* r = jl_call1((jl_function_t*)it->second, boxed);  /* proxy w/ finalizer */
+      jl_value_t* r = jl_call1((jl_value_t*)it->second, boxed);  /* proxy w/ finalizer */
       JL_GC_POP();
       return r;
     }
@@ -1220,7 +1217,7 @@ SWIGRUNTIME jl_value_t* swig_jl_new_pointer_obj(void* ptr, swig_type_info* type)
 SWIGRUNTIME jl_value_t* SWIG_AppendOutput(jl_value_t* cur, jl_value_t* x) {
   if (!cur) return x;
   JL_GC_PUSH2(&cur, &x);
-  jl_function_t* tuple_f = jl_get_function(jl_core_module, "tuple");
+  jl_value_t* tuple_f = jl_get_function(jl_core_module, "tuple");
   jl_value_t* r;
   if (jl_is_tuple(cur)) {
     size_t n = jl_nfields(cur);
@@ -2267,7 +2264,7 @@ SWIGINTERN int SWIG_AsVal_double (jl_value_t* p, double* val) {
         jl_array_t* a = (jl_array_t*)p;
         size_t n = jl_array_len(a);
         if (m) (**m).resize(n);
-        jl_function_t* getindex_f = jl_get_function(jl_base_module, "getindex");
+        jl_value_t* getindex_f = jl_get_function(jl_base_module, "getindex");
         for (size_t i = 0; i < n; ++i) {
           jl_value_t* el = 0; jl_value_t* idx = 0;
           JL_GC_PUSH2(&el, &idx);
@@ -2848,9 +2845,9 @@ SWIGINTERN int SWIG_AsVal_double (jl_value_t* p, double* val) {
       {
         jl_value_t* adt = jl_get_global(jl_base_module, jl_symbol("AbstractDict"));
         if (!adt || !jl_isa(p, adt)) return false;
-        jl_function_t* keys_f = jl_get_function(jl_base_module, "keys");
-        jl_function_t* collect_f = jl_get_function(jl_base_module, "collect");
-        jl_function_t* getindex_f = jl_get_function(jl_base_module, "getindex");
+        jl_value_t* keys_f = jl_get_function(jl_base_module, "keys");
+        jl_value_t* collect_f = jl_get_function(jl_base_module, "collect");
+        jl_value_t* getindex_f = jl_get_function(jl_base_module, "getindex");
         jl_value_t* karr = 0;
         JL_GC_PUSH1(&karr);
         karr = jl_call1(collect_f, jl_call1(keys_f, p));
@@ -2945,8 +2942,8 @@ SWIGINTERN int SWIG_AsVal_double (jl_value_t* p, double* val) {
     template<typename M> jl_value_t* from_ptr(const std::map<std::string, M> *a) {
 
       {
-        jl_function_t* dict_f = jl_get_function(jl_base_module, "Dict");
-        jl_function_t* set_f = jl_get_function(jl_base_module, "setindex!");
+        jl_value_t* dict_f = jl_get_function(jl_base_module, "Dict");
+        jl_value_t* set_f = jl_get_function(jl_base_module, "setindex!");
         jl_value_t* d = 0; JL_GC_PUSH1(&d);
         d = jl_call0(dict_f);
         if (!d) { JL_GC_POP(); return 0; }
@@ -3621,9 +3618,9 @@ static jl_value_t* swig_jl_make_tuple2(jl_value_t* a, jl_value_t* b) {
 SWIGINTERN void casadi_Matrix_Sl_double_Sg__assign(casadi::Matrix< double > *self,casadi::Matrix< double > const &rhs){ (*self)=rhs; }
 
   namespace casadi {
-    /*@SWIG:/local/swig/casadi.i,4482,SPARSITY_INTERFACE_ALL@*/
-/*@SWIG:/local/swig/casadi.i,4514,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4351,SPARSITY_INTERFACE_FUN_BASE@*/
+    /*@SWIG:/local/swig/casadi.i,4568,SPARSITY_INTERFACE_ALL@*/
+/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline Sparsity casadi_horzcat(const std::vector< Sparsity > &v) {
@@ -3765,8 +3762,8 @@ SWIGINTERN void casadi_Matrix_Sl_double_Sg__assign(casadi::Matrix< double > *sel
       }
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4514,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4351,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline MX casadi_horzcat(const std::vector< MX > &v) {
@@ -3908,8 +3905,8 @@ SWIGINTERN void casadi_Matrix_Sl_double_Sg__assign(casadi::Matrix< double > *sel
       }
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4514,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4351,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline Matrix<double> casadi_horzcat(const std::vector< Matrix<double> > &v) {
@@ -4051,8 +4048,8 @@ SWIGINTERN void casadi_Matrix_Sl_double_Sg__assign(casadi::Matrix< double > *sel
       }
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4514,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4351,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline Matrix<SXElem> casadi_horzcat(const std::vector< Matrix<SXElem> > &v) {
@@ -4195,8 +4192,8 @@ SWIGINTERN void casadi_Matrix_Sl_double_Sg__assign(casadi::Matrix< double > *sel
 
   /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,4979,GENERIC_EXPRESSION_ALL@*/
-/*@SWIG:/local/swig/casadi.i,4924,GENERIC_EXPRESSION_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5085,GENERIC_EXPRESSION_ALL@*/
+/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
 
 inline MX casadi_plus(const MX& x, const MX& y) { return x+y; }
 inline MX casadi_minus(const MX& x, const MX& y) { return x-y; }
@@ -4250,7 +4247,7 @@ inline MX casadi_copysign(const MX& x, const MX& y) { return copysign(x, y); }
 inline MX casadi_constpow(const MX& x, const MX& y) { using casadi::constpow; return constpow(x, y); }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4924,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
 
 inline Matrix<double> casadi_plus(const Matrix<double>& x, const Matrix<double>& y) { return x+y; }
 inline Matrix<double> casadi_minus(const Matrix<double>& x, const Matrix<double>& y) { return x-y; }
@@ -4304,7 +4301,7 @@ inline Matrix<double> casadi_copysign(const Matrix<double>& x, const Matrix<doub
 inline Matrix<double> casadi_constpow(const Matrix<double>& x, const Matrix<double>& y) { using casadi::constpow; return constpow(x, y); }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4924,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
 
 inline Matrix<SXElem> casadi_plus(const Matrix<SXElem>& x, const Matrix<SXElem>& y) { return x+y; }
 inline Matrix<SXElem> casadi_minus(const Matrix<SXElem>& x, const Matrix<SXElem>& y) { return x-y; }
@@ -4358,7 +4355,7 @@ inline Matrix<SXElem> casadi_copysign(const Matrix<SXElem>& x, const Matrix<SXEl
 inline Matrix<SXElem> casadi_constpow(const Matrix<SXElem>& x, const Matrix<SXElem>& y) { using casadi::constpow; return constpow(x, y); }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4924,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
 
 inline double casadi_plus(const double& x, const double& y) { return x+y; }
 inline double casadi_minus(const double& x, const double& y) { return x-y; }
@@ -4413,8 +4410,8 @@ inline double casadi_constpow(const double& x, const double& y) { using casadi::
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,4918,GENERIC_MATRIX_ALL@*/
-/*@SWIG:/local/swig/casadi.i,4530,GENERIC_MATRIX_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5024,GENERIC_MATRIX_ALL@*/
+/*@SWIG:/local/swig/casadi.i,4616,GENERIC_MATRIX_FUN@*/
 
 inline MX casadi_mpower(const MX& x, const MX& n) {
   return mpower(x, n);
@@ -4760,6 +4757,26 @@ casadi_reverse(const std::vector< MX > &ex, const std::vector< MX > &arg,
   return reverse(ex, arg, v, opts);
 }
 
+
+inline std::string casadi_export_graph(const std::vector<MX>& expressions, const Dict& opts=Dict()) {
+  return export_graph(expressions, opts);
+}
+
+inline std::string casadi_export_graph(const MX& expression, const Dict& opts=Dict()) {
+  return export_graph(expression, opts);
+}
+
+inline void casadi_export_graph(const std::vector<MX>& expressions, const std::string& fname,
+                             const Dict& opts=Dict()) {
+  export_graph(expressions, fname, opts);
+}
+
+inline void casadi_export_graph(const MX& expression, const std::string& fname,
+                             const Dict& opts=Dict()) {
+  export_graph(expression, fname, opts);
+}
+
+
 inline MX casadi_substitute(const MX& ex, const MX& v, const MX& vdef) {
   return substitute(ex, v, vdef);
 }
@@ -4801,7 +4818,7 @@ inline MX casadi_blockcat(const std::vector< std::vector< MX > > &v) {
 }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4530,GENERIC_MATRIX_FUN@*/
+/*@SWIG:/local/swig/casadi.i,4616,GENERIC_MATRIX_FUN@*/
 
 inline Matrix<double> casadi_mpower(const Matrix<double>& x, const Matrix<double>& n) {
   return mpower(x, n);
@@ -5147,6 +5164,26 @@ casadi_reverse(const std::vector< Matrix<double> > &ex, const std::vector< Matri
   return reverse(ex, arg, v, opts);
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 inline Matrix<double> casadi_substitute(const Matrix<double>& ex, const Matrix<double>& v, const Matrix<double>& vdef) {
   return substitute(ex, v, vdef);
 }
@@ -5188,7 +5225,7 @@ inline Matrix<double> casadi_blockcat(const std::vector< std::vector< Matrix<dou
 }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4530,GENERIC_MATRIX_FUN@*/
+/*@SWIG:/local/swig/casadi.i,4616,GENERIC_MATRIX_FUN@*/
 
 inline Matrix<SXElem> casadi_mpower(const Matrix<SXElem>& x, const Matrix<SXElem>& n) {
   return mpower(x, n);
@@ -5534,6 +5571,26 @@ casadi_reverse(const std::vector< Matrix<SXElem> > &ex, const std::vector< Matri
   return reverse(ex, arg, v, opts);
 }
 
+
+inline std::string casadi_export_graph(const std::vector<Matrix<SXElem>>& expressions, const Dict& opts=Dict()) {
+  return export_graph(expressions, opts);
+}
+
+inline std::string casadi_export_graph(const Matrix<SXElem>& expression, const Dict& opts=Dict()) {
+  return export_graph(expression, opts);
+}
+
+inline void casadi_export_graph(const std::vector<Matrix<SXElem>>& expressions, const std::string& fname,
+                             const Dict& opts=Dict()) {
+  export_graph(expressions, fname, opts);
+}
+
+inline void casadi_export_graph(const Matrix<SXElem>& expression, const std::string& fname,
+                             const Dict& opts=Dict()) {
+  export_graph(expression, fname, opts);
+}
+
+
 inline Matrix<SXElem> casadi_substitute(const Matrix<SXElem>& ex, const Matrix<SXElem>& v, const Matrix<SXElem>& vdef) {
   return substitute(ex, v, vdef);
 }
@@ -5576,8 +5633,8 @@ inline Matrix<SXElem> casadi_blockcat(const std::vector< std::vector< Matrix<SXE
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,5112,MATRIX_ALL@*/
-/*@SWIG:/local/swig/casadi.i,4986,MATRIX_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5218,MATRIX_ALL@*/
+/*@SWIG:/local/swig/casadi.i,5092,MATRIX_FUN@*/
 
 inline Matrix<double> casadi_all(const Matrix<double>& x) {
   return all(x);
@@ -5702,7 +5759,7 @@ inline Matrix<double> casadi_eig_symbolic(const Matrix<double>& m) {
 
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4986,MATRIX_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5092,MATRIX_FUN@*/
 
 inline Matrix<SXElem> casadi_all(const Matrix<SXElem>& x) {
   return all(x);
@@ -5828,8 +5885,8 @@ inline Matrix<SXElem> casadi_eig_symbolic(const Matrix<SXElem>& m) {
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,5205,MX_ALL@*/
-/*@SWIG:/local/swig/casadi.i,5117,MX_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5311,MX_ALL@*/
+/*@SWIG:/local/swig/casadi.i,5223,MX_FUN@*/
 
 inline MX casadi_find(const MX& x) {
   return find(x);
@@ -5979,7 +6036,7 @@ SwigDirector_Callback::~SwigDirector_Callback() {
 
 void SwigDirector_Callback::init() {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_init");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_init");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 1);
@@ -6002,7 +6059,7 @@ void SwigDirector_Callback::init() {
 
 void SwigDirector_Callback::finalize() {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_finalize");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_finalize");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 1);
@@ -6025,7 +6082,7 @@ void SwigDirector_Callback::finalize() {
 
 std::vector< casadi::DM > SwigDirector_Callback::eval(std::vector< casadi::DM > const &arg) const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_eval");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_eval");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 2);
@@ -6057,7 +6114,7 @@ std::vector< casadi::DM > SwigDirector_Callback::eval(std::vector< casadi::DM > 
 
 bool SwigDirector_Callback::has_eval_buffer() const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_has_eval_buffer");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_has_eval_buffer");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 1);
@@ -6086,7 +6143,7 @@ bool SwigDirector_Callback::has_eval_buffer() const {
 
 casadi_int SwigDirector_Callback::get_n_in() {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_n_in");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_n_in");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 1);
@@ -6115,7 +6172,7 @@ casadi_int SwigDirector_Callback::get_n_in() {
 
 casadi_int SwigDirector_Callback::get_n_out() {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_n_out");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_n_out");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 1);
@@ -6144,7 +6201,7 @@ casadi_int SwigDirector_Callback::get_n_out() {
 
 casadi::Sparsity SwigDirector_Callback::get_sparsity_in(casadi_int i) {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_sparsity_in");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_sparsity_in");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 2);
@@ -6176,7 +6233,7 @@ casadi::Sparsity SwigDirector_Callback::get_sparsity_in(casadi_int i) {
 
 casadi::Sparsity SwigDirector_Callback::get_sparsity_out(casadi_int i) {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_sparsity_out");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_sparsity_out");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 2);
@@ -6208,7 +6265,7 @@ casadi::Sparsity SwigDirector_Callback::get_sparsity_out(casadi_int i) {
 
 std::string SwigDirector_Callback::get_name_in(casadi_int i) {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_name_in");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_name_in");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 2);
@@ -6240,7 +6297,7 @@ std::string SwigDirector_Callback::get_name_in(casadi_int i) {
 
 std::string SwigDirector_Callback::get_name_out(casadi_int i) {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_name_out");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_name_out");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 2);
@@ -6272,7 +6329,7 @@ std::string SwigDirector_Callback::get_name_out(casadi_int i) {
 
 bool SwigDirector_Callback::uses_output() const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_uses_output");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_uses_output");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 1);
@@ -6301,7 +6358,7 @@ bool SwigDirector_Callback::uses_output() const {
 
 casadi::Function SwigDirector_Callback::get_factory(std::string const &name,std::vector< std::string > const &s_in,std::vector< std::string > const &s_out,casadi::Function::AuxOut const &aux,casadi::Dict const &opts) const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_factory");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_factory");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 6);
@@ -6345,7 +6402,7 @@ casadi::Function SwigDirector_Callback::get_factory(std::string const &name,std:
 
 bool SwigDirector_Callback::has_jacobian() const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_has_jacobian");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_has_jacobian");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 1);
@@ -6374,7 +6431,7 @@ bool SwigDirector_Callback::has_jacobian() const {
 
 casadi::Function SwigDirector_Callback::get_jacobian(std::string const &name,std::vector< std::string > const &inames,std::vector< std::string > const &onames,casadi::Dict const &opts) const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_jacobian");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_jacobian");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 5);
@@ -6415,7 +6472,7 @@ casadi::Function SwigDirector_Callback::get_jacobian(std::string const &name,std
 
 bool SwigDirector_Callback::has_forward(casadi_int nfwd) const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_has_forward");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_has_forward");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 2);
@@ -6447,7 +6504,7 @@ bool SwigDirector_Callback::has_forward(casadi_int nfwd) const {
 
 casadi::Function SwigDirector_Callback::get_forward(casadi_int nfwd,std::string const &name,std::vector< std::string > const &inames,std::vector< std::string > const &onames,casadi::Dict const &opts) const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_forward");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_forward");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 6);
@@ -6491,7 +6548,7 @@ casadi::Function SwigDirector_Callback::get_forward(casadi_int nfwd,std::string 
 
 bool SwigDirector_Callback::has_reverse(casadi_int nadj) const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_has_reverse");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_has_reverse");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 2);
@@ -6523,7 +6580,7 @@ bool SwigDirector_Callback::has_reverse(casadi_int nadj) const {
 
 casadi::Function SwigDirector_Callback::get_reverse(casadi_int nadj,std::string const &name,std::vector< std::string > const &inames,std::vector< std::string > const &onames,casadi::Dict const &opts) const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_reverse");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_reverse");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 6);
@@ -6567,7 +6624,7 @@ casadi::Function SwigDirector_Callback::get_reverse(casadi_int nadj,std::string 
 
 bool SwigDirector_Callback::has_jac_sparsity(casadi_int oind,casadi_int iind) const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_has_jac_sparsity");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_has_jac_sparsity");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 3);
@@ -6602,7 +6659,7 @@ bool SwigDirector_Callback::has_jac_sparsity(casadi_int oind,casadi_int iind) co
 
 casadi::Sparsity SwigDirector_Callback::get_jac_sparsity(casadi_int oind,casadi_int iind,bool symmetric) const {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("Callback_get_jac_sparsity");
+  jl_value_t *__f = Swig::swig_director_fn("Callback_get_jac_sparsity");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 4);
@@ -6656,7 +6713,7 @@ SwigDirector_OptiCallback::SwigDirector_OptiCallback(casadi::OptiCallback const 
 
 void SwigDirector_OptiCallback::call(casadi_int i) {
   jl_value_t *__self = swig_get_self();
-  jl_function_t *__f = Swig::swig_director_fn("OptiCallback_call");
+  jl_value_t *__f = Swig::swig_director_fn("OptiCallback_call");
   if (__self && __f) {
     jl_value_t **__jargs;
     JL_GC_PUSHARGS(__jargs, 2);
@@ -15422,14 +15479,6 @@ casadi::GenericExpressionCommon *result = 0 ;
   } SWIG_JL_CATCH(0)
 }
 
-extern "C" long long _swig_const_IS_GLOBAL() { return (long long)(0x1); }
-extern "C" long long _swig_const_IS_MEMBER() { return (long long)(0x10); }
-extern "C" long long _swig_const_IS_SPARSITY() { return (long long)(0x100); }
-extern "C" long long _swig_const_IS_DMATRIX() { return (long long)(0x1000); }
-extern "C" long long _swig_const_IS_IMATRIX() { return (long long)(0x10000); }
-extern "C" long long _swig_const_IS_SX() { return (long long)(0x100000); }
-extern "C" long long _swig_const_IS_MX() { return (long long)(0x1000000); }
-extern "C" long long _swig_const_IS_DOUBLE() { return (long long)(0x10000000); }
 extern "C" void _swig_MatrixCommon_delete(void *p) {
   SWIG_JL_ENTER();
   try { delete static_cast<casadi::MatrixCommon*>(p); } SWIG_JL_CATCH()
@@ -31881,6 +31930,80 @@ arg2 = &m2;
   } SWIG_JL_CATCH(0)
 }
 
+extern "C" int _swig_can__swig_Function_Function_export_graph__SWIG_0(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
+  SWIG_JL_ENTER();
+  try {
+  { int _v = 0;
+_v = casadi::to_ptr(jarg1, static_cast< std::string **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg2, static_cast< std::map<std::string,casadi::GenericType> **>(0));
+  if (!_v) return 0; }
+  return 1;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" void _swig_Function_Function_export_graph__SWIG_0(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
+  SWIG_JL_ENTER();
+  try {
+casadi::Function *arg1 = 0 ;
+std::string *arg2 = 0 ;
+casadi::Dict const &arg3_defvalue = casadi::Dict() ;
+casadi::Dict *arg3 = (casadi::Dict *) &arg3_defvalue ;
+std::string m2 ;
+std::map< std::string,casadi::GenericType > m3 ;
+if (!SWIG_IsOK(SWIG_ConvertPtr(jarg0, reinterpret_cast<void**>(&arg1), SWIGTYPE_p_casadi__Function, 0)))
+    SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "Function" "'.");
+arg2 = &m2;
+  if (!casadi::to_ptr(jarg1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "str" "'.");
+arg3 = &m3;
+  if (!casadi::to_ptr(jarg2, &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "dict" "'.");
+{
+  try {
+    ((casadi::Function const *)arg1)->export_graph((std::string const &)*arg2,(casadi::Dict const &)*arg3);
+  } catch(const std::exception& e) {
+    SWIG_exception(SWIG_RuntimeError, e.what());
+  }
+}
+  return;
+  } SWIG_JL_CATCH()
+}
+
+extern "C" int _swig_can__swig_Function_Function_export_graph__SWIG_1(jl_value_t* jarg0, jl_value_t* jarg1) {
+  SWIG_JL_ENTER();
+  try {
+  { int _v = 0;
+_v = casadi::to_ptr(jarg1, static_cast< std::map<std::string,casadi::GenericType> **>(0));
+  if (!_v) return 0; }
+  return 1;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" char * _swig_Function_Function_export_graph__SWIG_1(jl_value_t* jarg0, jl_value_t* jarg1) {
+  SWIG_JL_ENTER();
+  try {
+casadi::Function *arg1 = 0 ;
+casadi::Dict const &arg2_defvalue = casadi::Dict() ;
+casadi::Dict *arg2 = (casadi::Dict *) &arg2_defvalue ;
+std::map< std::string,casadi::GenericType > m2 ;
+std::string result;
+  char * _outv;
+if (!SWIG_IsOK(SWIG_ConvertPtr(jarg0, reinterpret_cast<void**>(&arg1), SWIGTYPE_p_casadi__Function, 0)))
+    SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "Function" "'.");
+arg2 = &m2;
+  if (!casadi::to_ptr(jarg1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "dict" "'.");
+{
+  try {
+    result = ((casadi::Function const *)arg1)->export_graph((casadi::Dict const &)*arg2);
+  } catch(const std::exception& e) {
+    SWIG_exception(SWIG_RuntimeError, e.what());
+  }
+}
+ _outv = swig_jl_strdup(result); 
+  return _outv;
+  } SWIG_JL_CATCH(0)
+}
+
 extern "C" int _swig_can__swig_Function_Function_save__SWIG_0(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
   SWIG_JL_ENTER();
   try {
@@ -39516,7 +39639,6 @@ arg4 = &m4;
   } SWIG_JL_CATCH()
 }
 
-extern "C" long long _swig_const_FLAG() { return (long long)((0x1|0x10)); }
 extern "C" int _swig_can__swig_g_horzcat__SWIG_0(jl_value_t* jarg0) {
   SWIG_JL_ENTER();
   try {
@@ -55757,6 +55879,170 @@ arg6 = &m6;
   } SWIG_JL_CATCH(0)
 }
 
+extern "C" int _swig_can__swig_g_export_graph__SWIG_0(jl_value_t* jarg0, jl_value_t* jarg1) {
+  SWIG_JL_ENTER();
+  try {
+  { int _v = 0;
+_v = casadi::to_ptr(jarg0, static_cast< std::vector< casadi::MX > **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg1, static_cast< std::map<std::string,casadi::GenericType> **>(0));
+  if (!_v) return 0; }
+  return 1;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" char * _swig_g_export_graph__SWIG_0(jl_value_t* jarg0, jl_value_t* jarg1) {
+  SWIG_JL_ENTER();
+  try {
+std::vector< casadi::MX > *arg1 = 0 ;
+casadi::Dict const &arg2_defvalue = casadi::Dict() ;
+casadi::Dict *arg2 = (casadi::Dict *) &arg2_defvalue ;
+std::vector< casadi::MX > m1 ;
+std::map< std::string,casadi::GenericType > m2 ;
+std::string result;
+  char * _outv;
+arg1 = &m1;
+  if (!casadi::to_ptr(jarg0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "[" "MX" "]" "'.");
+arg2 = &m2;
+  if (!casadi::to_ptr(jarg1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "dict" "'.");
+{
+  try {
+    result = casadi::casadi_export_graph((std::vector< casadi::MX > const &)*arg1,(std::map< std::string,casadi::GenericType > const &)*arg2);
+  } catch(const std::exception& e) {
+    SWIG_exception(SWIG_RuntimeError, e.what());
+  }
+}
+ _outv = swig_jl_strdup(result); 
+  return _outv;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" int _swig_can__swig_g_export_graph__SWIG_1(jl_value_t* jarg0, jl_value_t* jarg1) {
+  SWIG_JL_ENTER();
+  try {
+  { int _v = 0;
+_v = casadi::to_ptr(jarg0, static_cast< casadi::MX **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg1, static_cast< std::map<std::string,casadi::GenericType> **>(0));
+  if (!_v) return 0; }
+  return 1;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" char * _swig_g_export_graph__SWIG_1(jl_value_t* jarg0, jl_value_t* jarg1) {
+  SWIG_JL_ENTER();
+  try {
+casadi::MX *arg1 = 0 ;
+casadi::Dict const &arg2_defvalue = casadi::Dict() ;
+casadi::Dict *arg2 = (casadi::Dict *) &arg2_defvalue ;
+casadi::MX m1 ;
+std::map< std::string,casadi::GenericType > m2 ;
+std::string result;
+  char * _outv;
+arg1 = &m1;
+  if (!casadi::to_ptr(jarg0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "MX" "'.");
+arg2 = &m2;
+  if (!casadi::to_ptr(jarg1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "dict" "'.");
+{
+  try {
+    result = casadi::casadi_export_graph((casadi::MX const &)*arg1,(std::map< std::string,casadi::GenericType > const &)*arg2);
+  } catch(const std::exception& e) {
+    SWIG_exception(SWIG_RuntimeError, e.what());
+  }
+}
+ _outv = swig_jl_strdup(result); 
+  return _outv;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" int _swig_can__swig_g_export_graph__SWIG_2(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
+  SWIG_JL_ENTER();
+  try {
+  { int _v = 0;
+_v = casadi::to_ptr(jarg0, static_cast< std::vector< casadi::MX > **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg1, static_cast< std::string **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg2, static_cast< std::map<std::string,casadi::GenericType> **>(0));
+  if (!_v) return 0; }
+  return 1;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" void _swig_g_export_graph__SWIG_2(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
+  SWIG_JL_ENTER();
+  try {
+std::vector< casadi::MX > *arg1 = 0 ;
+std::string *arg2 = 0 ;
+casadi::Dict const &arg3_defvalue = casadi::Dict() ;
+casadi::Dict *arg3 = (casadi::Dict *) &arg3_defvalue ;
+std::vector< casadi::MX > m1 ;
+std::string m2 ;
+std::map< std::string,casadi::GenericType > m3 ;
+arg1 = &m1;
+  if (!casadi::to_ptr(jarg0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "[" "MX" "]" "'.");
+arg2 = &m2;
+  if (!casadi::to_ptr(jarg1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "str" "'.");
+arg3 = &m3;
+  if (!casadi::to_ptr(jarg2, &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "dict" "'.");
+{
+  try {
+    casadi::casadi_export_graph((std::vector< casadi::MX > const &)*arg1,(std::string const &)*arg2,(std::map< std::string,casadi::GenericType > const &)*arg3);
+  } catch(const std::exception& e) {
+    SWIG_exception(SWIG_RuntimeError, e.what());
+  }
+}
+  return;
+  } SWIG_JL_CATCH()
+}
+
+extern "C" int _swig_can__swig_g_export_graph__SWIG_3(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
+  SWIG_JL_ENTER();
+  try {
+  { int _v = 0;
+_v = casadi::to_ptr(jarg0, static_cast< casadi::MX **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg1, static_cast< std::string **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg2, static_cast< std::map<std::string,casadi::GenericType> **>(0));
+  if (!_v) return 0; }
+  return 1;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" void _swig_g_export_graph__SWIG_3(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
+  SWIG_JL_ENTER();
+  try {
+casadi::MX *arg1 = 0 ;
+std::string *arg2 = 0 ;
+casadi::Dict const &arg3_defvalue = casadi::Dict() ;
+casadi::Dict *arg3 = (casadi::Dict *) &arg3_defvalue ;
+casadi::MX m1 ;
+std::string m2 ;
+std::map< std::string,casadi::GenericType > m3 ;
+arg1 = &m1;
+  if (!casadi::to_ptr(jarg0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "MX" "'.");
+arg2 = &m2;
+  if (!casadi::to_ptr(jarg1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "str" "'.");
+arg3 = &m3;
+  if (!casadi::to_ptr(jarg2, &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "dict" "'.");
+{
+  try {
+    casadi::casadi_export_graph((casadi::MX const &)*arg1,(std::string const &)*arg2,(std::map< std::string,casadi::GenericType > const &)*arg3);
+  } catch(const std::exception& e) {
+    SWIG_exception(SWIG_RuntimeError, e.what());
+  }
+}
+  return;
+  } SWIG_JL_CATCH()
+}
+
 extern "C" int _swig_can__swig_g_substitute__SWIG_0(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
   SWIG_JL_ENTER();
   try {
@@ -63459,6 +63745,170 @@ arg6 = &m6;
 
   return _outv;
   } SWIG_JL_CATCH(0)
+}
+
+extern "C" int _swig_can__swig_g_export_graph__SWIG_4(jl_value_t* jarg0, jl_value_t* jarg1) {
+  SWIG_JL_ENTER();
+  try {
+  { int _v = 0;
+_v = casadi::to_ptr(jarg0, static_cast< std::vector< casadi::Matrix<casadi::SXElem> > **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg1, static_cast< std::map<std::string,casadi::GenericType> **>(0));
+  if (!_v) return 0; }
+  return 1;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" char * _swig_g_export_graph__SWIG_4(jl_value_t* jarg0, jl_value_t* jarg1) {
+  SWIG_JL_ENTER();
+  try {
+std::vector< casadi::Matrix< casadi::SXElem > > *arg1 = 0 ;
+casadi::Dict const &arg2_defvalue = casadi::Dict() ;
+casadi::Dict *arg2 = (casadi::Dict *) &arg2_defvalue ;
+std::vector< casadi::Matrix< casadi::SXElem > > m1 ;
+std::map< std::string,casadi::GenericType > m2 ;
+std::string result;
+  char * _outv;
+arg1 = &m1;
+  if (!casadi::to_ptr(jarg0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "[" "SX" "]" "'.");
+arg2 = &m2;
+  if (!casadi::to_ptr(jarg1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "dict" "'.");
+{
+  try {
+    result = casadi::casadi_export_graph((std::vector< casadi::Matrix< casadi::SXElem > > const &)*arg1,(std::map< std::string,casadi::GenericType > const &)*arg2);
+  } catch(const std::exception& e) {
+    SWIG_exception(SWIG_RuntimeError, e.what());
+  }
+}
+ _outv = swig_jl_strdup(result); 
+  return _outv;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" int _swig_can__swig_g_export_graph__SWIG_5(jl_value_t* jarg0, jl_value_t* jarg1) {
+  SWIG_JL_ENTER();
+  try {
+  { int _v = 0;
+_v = casadi::to_ptr(jarg0, static_cast< casadi::Matrix<casadi::SXElem> **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg1, static_cast< std::map<std::string,casadi::GenericType> **>(0));
+  if (!_v) return 0; }
+  return 1;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" char * _swig_g_export_graph__SWIG_5(jl_value_t* jarg0, jl_value_t* jarg1) {
+  SWIG_JL_ENTER();
+  try {
+casadi::Matrix< casadi::SXElem > *arg1 = 0 ;
+casadi::Dict const &arg2_defvalue = casadi::Dict() ;
+casadi::Dict *arg2 = (casadi::Dict *) &arg2_defvalue ;
+casadi::Matrix< casadi::SXElem > m1 ;
+std::map< std::string,casadi::GenericType > m2 ;
+std::string result;
+  char * _outv;
+arg1 = &m1;
+  if (!casadi::to_ptr(jarg0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "SX" "'.");
+arg2 = &m2;
+  if (!casadi::to_ptr(jarg1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "dict" "'.");
+{
+  try {
+    result = casadi::casadi_export_graph((casadi::Matrix< casadi::SXElem > const &)*arg1,(std::map< std::string,casadi::GenericType > const &)*arg2);
+  } catch(const std::exception& e) {
+    SWIG_exception(SWIG_RuntimeError, e.what());
+  }
+}
+ _outv = swig_jl_strdup(result); 
+  return _outv;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" int _swig_can__swig_g_export_graph__SWIG_6(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
+  SWIG_JL_ENTER();
+  try {
+  { int _v = 0;
+_v = casadi::to_ptr(jarg0, static_cast< std::vector< casadi::Matrix<casadi::SXElem> > **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg1, static_cast< std::string **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg2, static_cast< std::map<std::string,casadi::GenericType> **>(0));
+  if (!_v) return 0; }
+  return 1;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" void _swig_g_export_graph__SWIG_6(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
+  SWIG_JL_ENTER();
+  try {
+std::vector< casadi::Matrix< casadi::SXElem > > *arg1 = 0 ;
+std::string *arg2 = 0 ;
+casadi::Dict const &arg3_defvalue = casadi::Dict() ;
+casadi::Dict *arg3 = (casadi::Dict *) &arg3_defvalue ;
+std::vector< casadi::Matrix< casadi::SXElem > > m1 ;
+std::string m2 ;
+std::map< std::string,casadi::GenericType > m3 ;
+arg1 = &m1;
+  if (!casadi::to_ptr(jarg0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "[" "SX" "]" "'.");
+arg2 = &m2;
+  if (!casadi::to_ptr(jarg1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "str" "'.");
+arg3 = &m3;
+  if (!casadi::to_ptr(jarg2, &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "dict" "'.");
+{
+  try {
+    casadi::casadi_export_graph((std::vector< casadi::Matrix< casadi::SXElem > > const &)*arg1,(std::string const &)*arg2,(std::map< std::string,casadi::GenericType > const &)*arg3);
+  } catch(const std::exception& e) {
+    SWIG_exception(SWIG_RuntimeError, e.what());
+  }
+}
+  return;
+  } SWIG_JL_CATCH()
+}
+
+extern "C" int _swig_can__swig_g_export_graph__SWIG_7(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
+  SWIG_JL_ENTER();
+  try {
+  { int _v = 0;
+_v = casadi::to_ptr(jarg0, static_cast< casadi::Matrix<casadi::SXElem> **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg1, static_cast< std::string **>(0));
+  if (!_v) return 0; }
+  { int _v = 0;
+_v = casadi::to_ptr(jarg2, static_cast< std::map<std::string,casadi::GenericType> **>(0));
+  if (!_v) return 0; }
+  return 1;
+  } SWIG_JL_CATCH(0)
+}
+
+extern "C" void _swig_g_export_graph__SWIG_7(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {
+  SWIG_JL_ENTER();
+  try {
+casadi::Matrix< casadi::SXElem > *arg1 = 0 ;
+std::string *arg2 = 0 ;
+casadi::Dict const &arg3_defvalue = casadi::Dict() ;
+casadi::Dict *arg3 = (casadi::Dict *) &arg3_defvalue ;
+casadi::Matrix< casadi::SXElem > m1 ;
+std::string m2 ;
+std::map< std::string,casadi::GenericType > m3 ;
+arg1 = &m1;
+  if (!casadi::to_ptr(jarg0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "SX" "'.");
+arg2 = &m2;
+  if (!casadi::to_ptr(jarg1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "str" "'.");
+arg3 = &m3;
+  if (!casadi::to_ptr(jarg2, &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "dict" "'.");
+{
+  try {
+    casadi::casadi_export_graph((casadi::Matrix< casadi::SXElem > const &)*arg1,(std::string const &)*arg2,(std::map< std::string,casadi::GenericType > const &)*arg3);
+  } catch(const std::exception& e) {
+    SWIG_exception(SWIG_RuntimeError, e.what());
+  }
+}
+  return;
+  } SWIG_JL_CATCH()
 }
 
 extern "C" int _swig_can__swig_g_substitute__SWIG_4(jl_value_t* jarg0, jl_value_t* jarg1, jl_value_t* jarg2) {

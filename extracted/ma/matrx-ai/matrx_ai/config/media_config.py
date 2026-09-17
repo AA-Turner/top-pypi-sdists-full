@@ -256,6 +256,27 @@ def _our_file_id_from_url(url: str) -> str | None:
     return uuids[1] if len(uuids) >= 2 else uuids[0]
 
 
+
+def _promote_row_facts(result: dict[str, Any], storage_metadata: dict[str, Any]) -> None:
+    """Lift the cld_files row facts the block carries in ``metadata`` onto the
+    wire block's own ``visibility`` / ``cdn_url`` slots.
+
+    The frontend reads the top-level fields first and, for ``visibility``,
+    used to GUESS "public" when neither was present — which bound the
+    authenticated durable ``/files/{id}/download?inline=1`` URL straight to an
+    ``<img>`` (the third-party-cookie lane) for a ``personal`` row: "Image
+    unavailable" forever in any browser that blocks third-party cookies
+    (2026-09-16). ``base_media._build_content_block`` stamps both facts from
+    the persistence envelope; this makes them first-class on the wire.
+    """
+    visibility = storage_metadata.get("visibility")
+    if isinstance(visibility, str) and visibility and "visibility" not in result:
+        result["visibility"] = visibility
+    cdn_url = storage_metadata.get("cdn_url")
+    if isinstance(cdn_url, str) and cdn_url and "cdn_url" not in result:
+        result["cdn_url"] = cdn_url
+
+
 @dataclass
 class ImageContent:
     """Image media item.
@@ -608,6 +629,7 @@ class ImageContent:
             storage_metadata["vision_class"] = self.vision_class
         if self.alt:
             storage_metadata["alt"] = self.alt
+        _promote_row_facts(result, storage_metadata)
         if storage_metadata:
             result["metadata"] = storage_metadata
         return result
@@ -843,6 +865,7 @@ class AudioContent:
             storage_metadata["transcription_language"] = self.transcription_language
         if self.transcription_result:
             storage_metadata["transcription_result"] = self.transcription_result
+        _promote_row_facts(result, storage_metadata)
         if storage_metadata:
             result["metadata"] = storage_metadata
         return result
@@ -1114,6 +1137,7 @@ class VideoContent:
         storage_metadata = {**self.metadata}
         if self.video_metadata:
             storage_metadata["video_metadata"] = self.video_metadata
+        _promote_row_facts(result, storage_metadata)
         if storage_metadata:
             result["metadata"] = storage_metadata
         return result
@@ -1347,6 +1371,7 @@ class YouTubeVideoContent:
         storage_metadata = {**self.metadata}
         if self.video_metadata:
             storage_metadata["video_metadata"] = self.video_metadata
+        _promote_row_facts(result, storage_metadata)
         if storage_metadata:
             result["metadata"] = storage_metadata
         return result

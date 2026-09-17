@@ -885,6 +885,7 @@ if TYPE_CHECKING:
         CreateGuardrailResponse,
         CreateGuardrailResponseTypedDict,
     )
+    from .createinternrequest import CreateInternRequest, CreateInternRequestTypedDict
     from .createobservabilitydestinationrequest import (
         CreateObservabilityDestinationRequest,
         CreateObservabilityDestinationRequestType,
@@ -990,6 +991,10 @@ if TYPE_CHECKING:
     from .deleteguardrailresponse import (
         DeleteGuardrailResponse,
         DeleteGuardrailResponseTypedDict,
+    )
+    from .deleteinternresponse import (
+        DeleteInternResponse,
+        DeleteInternResponseTypedDict,
     )
     from .deleteobservabilitydestinationresponse import (
         DeleteObservabilityDestinationResponse,
@@ -1521,10 +1526,24 @@ if TYPE_CHECKING:
         InputVideoTypedDict,
     )
     from .instructtype import InstructType
+    from .intern import (
+        Intern,
+        InternStatus,
+        InternTypedDict,
+        Progress,
+        ProgressTypedDict,
+    )
     from .internalserverresponseerrordata import (
         InternalServerResponseErrorData,
         InternalServerResponseErrorDataTypedDict,
     )
+    from .internlifecycleerror import (
+        Code,
+        CodeTypedDict,
+        InternLifecycleErrorError,
+        InternLifecycleErrorErrorTypedDict,
+    )
+    from .internlistresponse import InternListResponse, InternListResponseTypedDict
     from .itemreferenceitem import (
         ItemReferenceItem,
         ItemReferenceItemType,
@@ -2595,6 +2614,10 @@ if TYPE_CHECKING:
         ProviderSortConfig,
         ProviderSortConfigTypedDict,
     )
+    from .provisioninternresponse import (
+        ProvisionInternResponse,
+        ProvisionInternResponseTypedDict,
+    )
     from .publicendpoint import (
         Embeddings,
         EmbeddingsTypedDict,
@@ -2746,7 +2769,7 @@ if TYPE_CHECKING:
         ResponseOutputTextTypedDict,
     )
     from .responseserrorfield import (
-        Code,
+        CodeEnum,
         ResponsesErrorField,
         ResponsesErrorFieldTypedDict,
     )
@@ -2983,6 +3006,10 @@ if TYPE_CHECKING:
         SubmitGenerationFeedbackResponseDataTypedDict,
         SubmitGenerationFeedbackResponseTypedDict,
     )
+    from .suspendinternresponse import (
+        SuspendInternResponse,
+        SuspendInternResponseTypedDict,
+    )
     from .taskclassificationitem import (
         TaskClassificationItem,
         TaskClassificationItemTypedDict,
@@ -3123,6 +3150,7 @@ if TYPE_CHECKING:
         UpdateGuardrailResponse,
         UpdateGuardrailResponseTypedDict,
     )
+    from .updateinternrequest import UpdateInternRequest, UpdateInternRequestTypedDict
     from .updateobservabilitydestinationrequest import (
         UpdateObservabilityDestinationRequest,
         UpdateObservabilityDestinationRequestTypedDict,
@@ -3157,6 +3185,24 @@ if TYPE_CHECKING:
         UpsertWorkspaceBudgetResponseTypedDict,
     )
     from .urlcitation import URLCitation, URLCitationType, URLCitationTypedDict
+    from .vaultsecret import VaultSecret, VaultSecretTypedDict
+    from .vaultsecretcopyrequest import (
+        VaultSecretCopyRequest,
+        VaultSecretCopyRequestTypedDict,
+    )
+    from .vaultsecretcopyresponse import (
+        VaultSecretCopyResponse,
+        VaultSecretCopyResponseTypedDict,
+    )
+    from .vaultsecretlistresponse import (
+        VaultSecretListResponse,
+        VaultSecretListResponseTypedDict,
+    )
+    from .vaultsecretresponse import VaultSecretResponse, VaultSecretResponseTypedDict
+    from .vaultsecretwriterequest import (
+        VaultSecretWriteRequest,
+        VaultSecretWriteRequestTypedDict,
+    )
     from .videogenerationrequest import (
         VideoGenerationRequest,
         VideoGenerationRequestAspectRatio,
@@ -3754,6 +3800,7 @@ __all__ = [
     "ClearToolInputs",
     "ClearToolInputsTypedDict",
     "Code",
+    "CodeEnum",
     "CodeInterpreterCallCodeDeltaEvent",
     "CodeInterpreterCallCodeDeltaEventType",
     "CodeInterpreterCallCodeDeltaEventTypedDict",
@@ -3780,6 +3827,7 @@ __all__ = [
     "CodeInterpreterLogsOutputTypedDict",
     "CodeInterpreterServerTool",
     "CodeInterpreterServerToolTypedDict",
+    "CodeTypedDict",
     "CodexLocalShellTool",
     "CodexLocalShellToolType",
     "CodexLocalShellToolTypedDict",
@@ -3907,6 +3955,8 @@ __all__ = [
     "CreateGuardrailRequestTypedDict",
     "CreateGuardrailResponse",
     "CreateGuardrailResponseTypedDict",
+    "CreateInternRequest",
+    "CreateInternRequestTypedDict",
     "CreateObservabilityDestinationRequest",
     "CreateObservabilityDestinationRequestType",
     "CreateObservabilityDestinationRequestTypedDict",
@@ -3970,6 +4020,8 @@ __all__ = [
     "DeleteBYOKKeyResponseTypedDict",
     "DeleteGuardrailResponse",
     "DeleteGuardrailResponseTypedDict",
+    "DeleteInternResponse",
+    "DeleteInternResponseTypedDict",
     "DeleteObservabilityDestinationResponse",
     "DeleteObservabilityDestinationResponseTypedDict",
     "DeleteScimGroupMappingResponse",
@@ -4375,6 +4427,13 @@ __all__ = [
     "InputsUnion1TypedDict",
     "InputsUnionTypedDict",
     "InstructType",
+    "Intern",
+    "InternLifecycleErrorError",
+    "InternLifecycleErrorErrorTypedDict",
+    "InternListResponse",
+    "InternListResponseTypedDict",
+    "InternStatus",
+    "InternTypedDict",
     "InternalServerResponseErrorData",
     "InternalServerResponseErrorDataTypedDict",
     "IssuedTokenType",
@@ -5045,6 +5104,8 @@ __all__ = [
     "PricingOverrideTypedDict",
     "PricingTypedDict",
     "PrimaryMetric",
+    "Progress",
+    "ProgressTypedDict",
     "PromptCacheBreakpoint",
     "PromptCacheBreakpointMode",
     "PromptCacheBreakpointTypedDict",
@@ -5073,6 +5134,8 @@ __all__ = [
     "ProviderSort",
     "ProviderSortConfig",
     "ProviderSortConfigTypedDict",
+    "ProvisionInternResponse",
+    "ProvisionInternResponseTypedDict",
     "PublicEndpoint",
     "PublicEndpointTypedDict",
     "PublicPricing",
@@ -5359,6 +5422,8 @@ __all__ = [
     "SupportedFrameImage",
     "SupportedResolution",
     "SupportedSize",
+    "SuspendInternResponse",
+    "SuspendInternResponseTypedDict",
     "Syntax",
     "System",
     "SystemTypedDict",
@@ -5565,6 +5630,8 @@ __all__ = [
     "UpdateGuardrailRequestTypedDict",
     "UpdateGuardrailResponse",
     "UpdateGuardrailResponseTypedDict",
+    "UpdateInternRequest",
+    "UpdateInternRequestTypedDict",
     "UpdateObservabilityDestinationRequest",
     "UpdateObservabilityDestinationRequestTypedDict",
     "UpdateObservabilityDestinationResponse",
@@ -5594,6 +5661,18 @@ __all__ = [
     "UtcDay",
     "Variables",
     "VariablesTypedDict",
+    "VaultSecret",
+    "VaultSecretCopyRequest",
+    "VaultSecretCopyRequestTypedDict",
+    "VaultSecretCopyResponse",
+    "VaultSecretCopyResponseTypedDict",
+    "VaultSecretListResponse",
+    "VaultSecretListResponseTypedDict",
+    "VaultSecretResponse",
+    "VaultSecretResponseTypedDict",
+    "VaultSecretTypedDict",
+    "VaultSecretWriteRequest",
+    "VaultSecretWriteRequestTypedDict",
     "Verbosity",
     "VideoGeneration",
     "VideoGenerationRequest",
@@ -6278,6 +6357,8 @@ _dynamic_imports: dict[str, str] = {
     "CreateGuardrailRequestTypedDict": ".createguardrailrequest",
     "CreateGuardrailResponse": ".createguardrailresponse",
     "CreateGuardrailResponseTypedDict": ".createguardrailresponse",
+    "CreateInternRequest": ".createinternrequest",
+    "CreateInternRequestTypedDict": ".createinternrequest",
     "CreateObservabilityDestinationRequest": ".createobservabilitydestinationrequest",
     "CreateObservabilityDestinationRequestType": ".createobservabilitydestinationrequest",
     "CreateObservabilityDestinationRequestTypedDict": ".createobservabilitydestinationrequest",
@@ -6350,6 +6431,8 @@ _dynamic_imports: dict[str, str] = {
     "DeleteBYOKKeyResponseTypedDict": ".deletebyokkeyresponse",
     "DeleteGuardrailResponse": ".deleteguardrailresponse",
     "DeleteGuardrailResponseTypedDict": ".deleteguardrailresponse",
+    "DeleteInternResponse": ".deleteinternresponse",
+    "DeleteInternResponseTypedDict": ".deleteinternresponse",
     "DeleteObservabilityDestinationResponse": ".deleteobservabilitydestinationresponse",
     "DeleteObservabilityDestinationResponseTypedDict": ".deleteobservabilitydestinationresponse",
     "DeleteScimGroupMappingResponse": ".deletescimgroupmappingresponse",
@@ -6754,8 +6837,19 @@ _dynamic_imports: dict[str, str] = {
     "InputVideoType": ".inputvideo",
     "InputVideoTypedDict": ".inputvideo",
     "InstructType": ".instructtype",
+    "Intern": ".intern",
+    "InternStatus": ".intern",
+    "InternTypedDict": ".intern",
+    "Progress": ".intern",
+    "ProgressTypedDict": ".intern",
     "InternalServerResponseErrorData": ".internalserverresponseerrordata",
     "InternalServerResponseErrorDataTypedDict": ".internalserverresponseerrordata",
+    "Code": ".internlifecycleerror",
+    "CodeTypedDict": ".internlifecycleerror",
+    "InternLifecycleErrorError": ".internlifecycleerror",
+    "InternLifecycleErrorErrorTypedDict": ".internlifecycleerror",
+    "InternListResponse": ".internlistresponse",
+    "InternListResponseTypedDict": ".internlistresponse",
     "ItemReferenceItem": ".itemreferenceitem",
     "ItemReferenceItemType": ".itemreferenceitem",
     "ItemReferenceItemTypedDict": ".itemreferenceitem",
@@ -7589,6 +7683,8 @@ _dynamic_imports: dict[str, str] = {
     "Partition": ".providersortconfig",
     "ProviderSortConfig": ".providersortconfig",
     "ProviderSortConfigTypedDict": ".providersortconfig",
+    "ProvisionInternResponse": ".provisioninternresponse",
+    "ProvisionInternResponseTypedDict": ".provisioninternresponse",
     "Embeddings": ".publicendpoint",
     "EmbeddingsTypedDict": ".publicendpoint",
     "ImageGeneration": ".publicendpoint",
@@ -7695,7 +7791,7 @@ _dynamic_imports: dict[str, str] = {
     "ResponseOutputTextTopLogprobTypedDict": ".responseoutputtext",
     "ResponseOutputTextType": ".responseoutputtext",
     "ResponseOutputTextTypedDict": ".responseoutputtext",
-    "Code": ".responseserrorfield",
+    "CodeEnum": ".responseserrorfield",
     "ResponsesErrorField": ".responseserrorfield",
     "ResponsesErrorFieldTypedDict": ".responseserrorfield",
     "ReasoningConfig": ".responsesrequest",
@@ -7871,6 +7967,8 @@ _dynamic_imports: dict[str, str] = {
     "SubmitGenerationFeedbackResponseData": ".submitgenerationfeedbackresponse",
     "SubmitGenerationFeedbackResponseDataTypedDict": ".submitgenerationfeedbackresponse",
     "SubmitGenerationFeedbackResponseTypedDict": ".submitgenerationfeedbackresponse",
+    "SuspendInternResponse": ".suspendinternresponse",
+    "SuspendInternResponseTypedDict": ".suspendinternresponse",
     "TaskClassificationItem": ".taskclassificationitem",
     "TaskClassificationItemTypedDict": ".taskclassificationitem",
     "TaskClassificationMacroCategory": ".taskclassificationmacrocategory",
@@ -7964,6 +8062,8 @@ _dynamic_imports: dict[str, str] = {
     "UpdateGuardrailRequestTypedDict": ".updateguardrailrequest",
     "UpdateGuardrailResponse": ".updateguardrailresponse",
     "UpdateGuardrailResponseTypedDict": ".updateguardrailresponse",
+    "UpdateInternRequest": ".updateinternrequest",
+    "UpdateInternRequestTypedDict": ".updateinternrequest",
     "UpdateObservabilityDestinationRequest": ".updateobservabilitydestinationrequest",
     "UpdateObservabilityDestinationRequestTypedDict": ".updateobservabilitydestinationrequest",
     "UpdateObservabilityDestinationResponse": ".updateobservabilitydestinationresponse",
@@ -7984,6 +8084,18 @@ _dynamic_imports: dict[str, str] = {
     "URLCitation": ".urlcitation",
     "URLCitationType": ".urlcitation",
     "URLCitationTypedDict": ".urlcitation",
+    "VaultSecret": ".vaultsecret",
+    "VaultSecretTypedDict": ".vaultsecret",
+    "VaultSecretCopyRequest": ".vaultsecretcopyrequest",
+    "VaultSecretCopyRequestTypedDict": ".vaultsecretcopyrequest",
+    "VaultSecretCopyResponse": ".vaultsecretcopyresponse",
+    "VaultSecretCopyResponseTypedDict": ".vaultsecretcopyresponse",
+    "VaultSecretListResponse": ".vaultsecretlistresponse",
+    "VaultSecretListResponseTypedDict": ".vaultsecretlistresponse",
+    "VaultSecretResponse": ".vaultsecretresponse",
+    "VaultSecretResponseTypedDict": ".vaultsecretresponse",
+    "VaultSecretWriteRequest": ".vaultsecretwriterequest",
+    "VaultSecretWriteRequestTypedDict": ".vaultsecretwriterequest",
     "VideoGenerationRequest": ".videogenerationrequest",
     "VideoGenerationRequestAspectRatio": ".videogenerationrequest",
     "VideoGenerationRequestOptions": ".videogenerationrequest",

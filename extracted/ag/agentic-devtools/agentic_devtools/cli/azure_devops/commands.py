@@ -4,6 +4,7 @@ These are action commands that read state from the JSON file and execute.
 They are parameterless for easy auto-approval.
 """
 
+import dataclasses
 import os
 import re
 import sys
@@ -706,36 +707,81 @@ def approve_pull_request() -> None:
         add_pull_request_comment()
 
 
-def mark_pull_request_draft() -> None:
+def mark_pull_request_draft(
+    pull_request_id: int | None = None,
+    *,
+    exit_on_error: bool = True,
+    organization: str | None = None,
+    project: str | None = None,
+    dry_run: bool | None = None,
+) -> None:
     """
     Mark a pull request as draft.
 
+    Args:
+        pull_request_id: Pull request ID. Falls back to state's ``pull_request_id``
+            (required) when not supplied explicitly.
+        exit_on_error: When ``True`` (default), failures (missing Azure CLI,
+            failed ``az`` invocation, unparseable response) call ``sys.exit(1)``.
+            When ``False``, those failures raise ``RuntimeError`` instead so
+            programmatic callers can handle them without a process exit.
+        organization: Overrides the Azure DevOps organization from
+            ``AzureDevOpsConfig.from_state()`` when supplied.
+        project: Overrides the Azure DevOps project from
+            ``AzureDevOpsConfig.from_state()`` when supplied.
+        dry_run: Preview without making API calls. When ``None`` (default),
+            falls back to state's ``dry_run`` value; an explicit ``True``/``False``
+            overrides state.
+
     Reads from state:
-    - pull_request_id (required): Pull request ID
-    - dry_run (optional): Preview without making API calls
+    - pull_request_id (required unless the parameter is supplied)
+    - dry_run (optional): used only when the ``dry_run`` parameter is ``None``
 
     Usage:
         agdt-set pull_request_id 23046
         agdt-mark-pull-request-draft
     """
-    pull_request_id = get_pull_request_id(required=True)
-    dry_run = is_dry_run()
+    resolved_pull_request_id = pull_request_id if pull_request_id is not None else get_pull_request_id(required=True)
+    if (
+        not isinstance(resolved_pull_request_id, int)
+        or isinstance(resolved_pull_request_id, bool)
+        or resolved_pull_request_id <= 0
+    ):
+        raise ValueError("pull_request_id must be a positive integer")
+    if dry_run is not None and not isinstance(dry_run, bool):
+        raise ValueError("dry_run must be a boolean")
+    if organization is not None and (not isinstance(organization, str) or not organization.strip()):
+        raise ValueError("organization must be a non-empty string")
+    if project is not None and (not isinstance(project, str) or not project.strip()):
+        raise ValueError("project must be a non-empty string")
+    resolved_dry_run = is_dry_run() if dry_run is None else dry_run
     config = AzureDevOpsConfig.from_state()
+    if organization is not None or project is not None:
+        config = dataclasses.replace(
+            config,
+            organization=organization if organization is not None else config.organization,
+            project=project if project is not None else config.project,
+        )
 
-    if dry_run:
-        print(f"[DRY RUN] Would mark PR {pull_request_id} as draft")
+    if resolved_dry_run:
+        print(f"[DRY RUN] Would mark PR {resolved_pull_request_id} as draft")
         print(f"Org/Project: {config.organization} / {config.project}")
         return
 
     # Verify Azure CLI is available
-    verify_az_cli()
+    try:
+        verify_az_cli()
+    except SystemExit as exc:
+        if exit_on_error:
+            raise
+        raise RuntimeError("Azure CLI (az) or the azure-devops extension is not available.") from exc
 
     # Set PAT for az CLI
     pat = get_pat()
     env = os.environ.copy()
     env["AZURE_DEVOPS_EXT_PAT"] = pat
 
-    print(f"Marking PR {pull_request_id} as draft...")
+    print(f"Marking PR {resolved_pull_request_id} as draft...")
 
     cmd = [
         "az",
@@ -743,7 +789,7 @@ def mark_pull_request_draft() -> None:
         "pr",
         "update",
         "--id",
-        str(pull_request_id),
+        str(resolved_pull_request_id),
         "--organization",
         config.organization,
         "--project",
@@ -758,15 +804,22 @@ def mark_pull_request_draft() -> None:
 
     if result.returncode != 0:
         print(f"Error marking PR as draft: {result.stderr}", file=sys.stderr)
-        sys.exit(1)
+        if exit_on_error:
+            sys.exit(1)
+        raise RuntimeError((result.stderr or "Failed to mark PR as draft").strip())
 
-    pr_data = parse_json_response(result.stdout, "PR response")
-    print(f"PR {pull_request_id} marked as draft successfully.")
+    try:
+        pr_data = parse_json_response(result.stdout, "PR response")
+    except SystemExit as exc:
+        if exit_on_error:
+            raise
+        raise RuntimeError("Failed to parse PR response as JSON.") from exc
+    print(f"PR {resolved_pull_request_id} marked as draft successfully.")
 
     # Display the PR URL
     repo_web_url = pr_data.get("repository", {}).get("webUrl", "")
     if repo_web_url:
-        pull_request_ui_url = f"{repo_web_url}/pullrequest/{pull_request_id}"
+        pull_request_ui_url = f"{repo_web_url}/pullrequest/{resolved_pull_request_id}"
         print(f"PR URL: {pull_request_ui_url}")
 
 

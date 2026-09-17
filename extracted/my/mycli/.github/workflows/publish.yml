@@ -1,4 +1,4 @@
-name: Publish Python Package
+name: Publish Packages
 
 on:
   release:
@@ -32,7 +32,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       with:
         version: "latest"
 
@@ -77,7 +77,7 @@ jobs:
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       with:
         version: "latest"
 
@@ -127,7 +127,7 @@ jobs:
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       with:
         version: 'latest'
 
@@ -141,7 +141,7 @@ jobs:
       run: uv sync --all-extras -p ${{ matrix.python-version }}
 
     - name: Set up MySQL
-      uses: shogo82148/actions-setup-mysql@62da9377d83991fce27b6ed2a397d3306121e41d # v1.53.1
+      uses: shogo82148/actions-setup-mysql@083ec148d28e62f2b24b8f4541693dfe1d50488d # v1.54.0
       with:
         mysql-version: '9.7'
         root-password: root
@@ -230,7 +230,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       with:
         version: "latest"
 
@@ -252,7 +252,7 @@ jobs:
         path: dist/
 
   publish-pypi:
-    name: Publish to PyPI
+    name: Publish Wheel to PyPI
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     needs: [build]
@@ -269,9 +269,11 @@ jobs:
       uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
 
   publish-image:
-    name: Publish to ghcr.io
+    name: Publish Image to ghcr.io
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    # doesn't actually need the results of build, but it makes sense to run this
+    # concurrently with publish-pypi
     needs: [build]
     environment: release
 
@@ -293,11 +295,17 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
     - name: Extract metadata (tags, labels) for Docker
       id: meta
       uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+      env:
+        DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
     - name: Build and push Docker image
       id: push
@@ -306,5 +314,10 @@ jobs:
         context: .
         file: docker/Dockerfile
         push: true
+        platforms: linux/amd64,linux/arm64
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        annotations: ${{ steps.meta.outputs.annotations }}
+        # unclutter the GitHub interface
+        provenance: false
+        sbom: false

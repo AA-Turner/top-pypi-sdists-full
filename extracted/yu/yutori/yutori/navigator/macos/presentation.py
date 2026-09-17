@@ -16,6 +16,7 @@ from typing import Any, TypeVar
 
 from PIL import Image
 
+from ..n2_actions import is_strict_int
 from .overlay_build import OVERLAY_PROTOCOL_VERSION, PreparedMacOSOverlay, load_prepared_macos_overlay
 from .process_lifecycle import (
     cancel_and_drain,
@@ -30,6 +31,8 @@ from .types import (
     MacOSPresentationStatus,
     MacOSStatusMetrics,
     ShellPresentationEvent,
+    is_strict_number,
+    normalize_window_ids,
 )
 
 _READY_TIMEOUT_SECONDS = 15
@@ -161,7 +164,7 @@ class MacOSPresentationError(RuntimeError):
 
 
 def _positive_finite(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value > 0
+    return is_strict_number(value) and math.isfinite(value) and value > 0
 
 
 def _valid_region(value: Any) -> "tuple[float, float, float, float] | None":
@@ -182,9 +185,9 @@ def _valid_probe(value: Any) -> "dict[str, float] | None":
     if not isinstance(value, dict):
         return None
     x, y, size, cells = value.get("x"), value.get("y"), value.get("size"), value.get("cells")
-    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in (x, y, size)):
+    if not all(is_strict_number(v) and math.isfinite(v) for v in (x, y, size)):
         return None
-    if x < 0 or y < 0 or size <= 0 or not isinstance(cells, int) or isinstance(cells, bool) or cells < 2:
+    if x < 0 or y < 0 or size <= 0 or not is_strict_int(cells) or cells < 2:
         return None
     return {"x": float(x), "y": float(y), "size": float(size), "cells": float(cells)}
 
@@ -225,7 +228,7 @@ def _point(arguments: dict[str, Any], *keys: str) -> "tuple[float, float] | None
         if (
             isinstance(value, (list, tuple))
             and len(value) >= 2
-            and all(isinstance(component, (int, float)) and not isinstance(component, bool) for component in value[:2])
+            and all(is_strict_number(component) for component in value[:2])
         ):
             return float(value[0]), float(value[1])
     return None
@@ -488,7 +491,7 @@ class MacOSPresentationController:
         self._exclude_from_capture = exclude_from_capture
         # Window IDs of a host application's own panels: left out of the model's desktop frame the
         # way this host's windows are, while staying visible on screen and in recordings.
-        self._exclude_capture_window_ids = tuple(int(window_id) for window_id in exclude_capture_window_ids)
+        self._exclude_capture_window_ids = normalize_window_ids(exclude_capture_window_ids)
         self._capture_exclusion = "unverified"
         self._capture_source = "driver"
         self._restore_native_cursor = restore_native_cursor

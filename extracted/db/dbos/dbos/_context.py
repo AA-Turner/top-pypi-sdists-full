@@ -6,7 +6,6 @@ import time
 from contextlib import AbstractContextManager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from enum import Enum
 from types import TracebackType
 from typing import (
     TYPE_CHECKING,
@@ -35,17 +34,8 @@ from ._error import DBOSException
 from ._logger import dbos_logger
 from ._tracer import dbos_tracer
 
-
 # These are used to tag OTel traces
-class OperationType(Enum):
-    HANDLER = "handler"
-    WORKFLOW = "workflow"
-    TRANSACTION = "transaction"
-    STEP = "step"
-    PROCEDURE = "procedure"
-
-
-OperationTypes = Literal["handler", "workflow", "transaction", "step", "procedure"]
+OperationTypes = Literal["workflow", "step"]
 
 MaxPriority = 2**31 - 1  # 2,147,483,647
 MinPriority = 1
@@ -65,10 +55,6 @@ class TracedAttributes(TypedDict, total=False):
     name: str
     operationUUID: Optional[str]
     operationType: Optional[OperationTypes]
-    requestID: Optional[str]
-    requestIP: Optional[str]
-    requestURL: Optional[str]
-    requestMethod: Optional[str]
     applicationID: Optional[str]
     applicationVersion: Optional[str]
     executorID: Optional[str]
@@ -127,8 +113,6 @@ class DBOSContext:
         self.curr_step_function_id: int = -1
         # Checkpointed stream reads that have reserved a step but not yet recorded it.
         self.active_stream_reads: int = 0
-        self.curr_tx_function_id: int = -1
-        self.sql_session: Optional[Session] = None
         self.sync_ds_session: Optional[Session] = None
         self.async_ds_session: Optional[AsyncSession] = None
         self.context_spans: list[ContextSpan] = []
@@ -285,14 +269,7 @@ class DBOSContext:
         return len(self.workflow_id) > 0
 
     def is_workflow(self) -> bool:
-        return (
-            len(self.workflow_id) > 0
-            and not self.is_step()
-            and not self.is_transaction()
-        )
-
-    def is_transaction(self) -> bool:
-        return self.sql_session is not None
+        return len(self.workflow_id) > 0 and not self.is_step()
 
     def is_step(self) -> bool:
         return self.curr_step_function_id >= 0
@@ -311,18 +288,6 @@ class DBOSContext:
         self.step_status = None
         self._end_span(exc_value)
 
-    def start_transaction(
-        self, ses: Session, fid: int, attributes: TracedAttributes
-    ) -> None:
-        self.sql_session = ses
-        self.curr_tx_function_id = fid
-        self._start_span(attributes)
-
-    def end_transaction(self, exc_value: Optional[BaseException]) -> None:
-        self.sql_session = None
-        self.curr_tx_function_id = -1
-        self._end_span(exc_value)
-
     def start_sync_ds_transaction(self, ses: Session) -> None:
         self.sync_ds_session = ses
 
@@ -334,12 +299,6 @@ class DBOSContext:
 
     def end_async_ds_transaction(self) -> None:
         self.async_ds_session = None
-
-    def start_handler(self, attributes: TracedAttributes) -> None:
-        self._start_span(attributes)
-
-    def end_handler(self, exc_value: Optional[BaseException]) -> None:
-        self._end_span(exc_value)
 
     """ Return the current DBOS span if any. It must be a span created by DBOS."""
 
@@ -402,14 +361,6 @@ class DBOSContext:
     ) -> None:
         self.authenticated_user = user
         self.authenticated_roles = roles
-        if user is not None and len(self.context_spans) > 0:
-            self.context_spans[-1].span.set_attribute(
-                dbos_tracer._resolve_attribute_name("authenticatedUser"), user
-            )
-            self.context_spans[-1].span.set_attribute(
-                dbos_tracer._resolve_attribute_name("authenticatedUserRoles"),
-                json.dumps(roles) if roles is not None else "",
-            )
 
 
 ##############################################################
@@ -1045,59 +996,6 @@ class EnterDBOSStepRetry:
         if ctx is not None and ctx.step_status is not None:
             ctx.step_status.current_attempt = None
             ctx.step_status.max_attempts = None
-        return False  # Did not handle
-
-
-class EnterDBOSTransaction:
-    def __init__(self, sqls: Session, attributes: TracedAttributes) -> None:
-        self.sqls = sqls
-        self.attributes = attributes
-
-    def __enter__(self) -> DBOSContext:
-        ctx = assert_current_dbos_context()
-        assert ctx.is_workflow()
-        ctx.function_id += 1
-        ctx.start_transaction(self.sqls, ctx.function_id, attributes=self.attributes)
-        return ctx
-
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
-    ) -> Literal[False]:
-        ctx = assert_current_dbos_context()
-        assert ctx.is_transaction()
-        ctx.end_transaction(exc_value)
-        return False  # Did not handle
-
-
-class EnterDBOSHandler:
-    def __init__(self, attributes: TracedAttributes) -> None:
-        self.created_ctx = False
-        self.attributes = attributes
-
-    def __enter__(self) -> EnterDBOSHandler:
-        # Code to create a basic context
-        ctx = get_local_dbos_context()
-        if ctx is None:
-            self.created_ctx = True
-            _set_local_dbos_context(DBOSContext())
-        ctx = assert_current_dbos_context()
-        ctx.start_handler(self.attributes)
-        return self
-
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
-    ) -> Literal[False]:
-        ctx = assert_current_dbos_context()
-        ctx.end_handler(exc_value)
-        # Code to clean up the basic context if we created it
-        if self.created_ctx:
-            _clear_local_dbos_context()
         return False  # Did not handle
 
 

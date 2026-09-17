@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.701"
+__version__ = "1.3.715"
 
 # Define package exports
 __all__ = [
@@ -341,6 +341,7 @@ __all__ = [
     "ClusterExecutionMetric",
     "ClusterExecutionMetrics",
     "ClusterExecutionResult",
+    "ClusterGenerationReap",
     "ClusterGroup",
     "ClusterGroupsResponse",
     "ClusterListStats",
@@ -1742,6 +1743,7 @@ from mixpeek.models.cluster_execution_list_stats import ClusterExecutionListStat
 from mixpeek.models.cluster_execution_metric import ClusterExecutionMetric as ClusterExecutionMetric
 from mixpeek.models.cluster_execution_metrics import ClusterExecutionMetrics as ClusterExecutionMetrics
 from mixpeek.models.cluster_execution_result import ClusterExecutionResult as ClusterExecutionResult
+from mixpeek.models.cluster_generation_reap import ClusterGenerationReap as ClusterGenerationReap
 from mixpeek.models.cluster_group import ClusterGroup as ClusterGroup
 from mixpeek.models.cluster_groups_response import ClusterGroupsResponse as ClusterGroupsResponse
 from mixpeek.models.cluster_list_stats import ClusterListStats as ClusterListStats

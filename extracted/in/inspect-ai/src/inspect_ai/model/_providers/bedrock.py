@@ -2,10 +2,13 @@ import base64
 import json
 import re
 from logging import getLogger
-from typing import Any, AsyncIterator, Literal, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, Tuple, Union, cast
 
 from pydantic import BaseModel, Field
 from typing_extensions import override
+
+if TYPE_CHECKING:
+    from botocore.exceptions import ClientError
 
 from inspect_ai._util._async import current_async_backend
 from inspect_ai._util.constants import DEFAULT_MAX_TOKENS, NO_CONTENT
@@ -341,6 +344,20 @@ CACHE_UNSUPPORTED_CLAUDE = (
 )
 
 
+def bedrock_error_code(ex: "ClientError") -> str:
+    """The AWS error code of a `ClientError`, in shape-name (PascalCase) form.
+
+    A non-streaming error carries the exception shape name
+    (`ThrottlingException`). An error delivered on a ConverseStream event
+    stream is raised by botocore as an `EventStreamError` (a `ClientError`)
+    whose code is the frame's `:exception-type` header — the event union's
+    member name, which is lowercase-first (`throttlingException`) — so the
+    first letter is upper-cased to make both paths comparable.
+    """
+    code = str(ex.response.get("Error", {}).get("Code", "") or "")
+    return code[:1].upper() + code[1:]
+
+
 class BedrockAPI(ModelAPI):
     def __init__(
         self,
@@ -374,7 +391,7 @@ class BedrockAPI(ModelAPI):
         self.read_timeout: int = int(str(model_args.pop("read_timeout", 60)))
         self.connect_timeout: int = int(str(model_args.pop("connect_timeout", 60)))
 
-        # save model_args (filter out inference params that shouldn't go to session.client)
+        # save model_args (filter out inference params that shouldn't go to session.create_client)
         _CLIENT_EXCLUDED_KEYS = {
             "max_tokens",
             "temperature",
@@ -388,20 +405,20 @@ class BedrockAPI(ModelAPI):
             k: v for k, v in model_args.items() if k not in _CLIENT_EXCLUDED_KEYS
         }
 
-        # import aioboto3 on demand
+        # import aiobotocore on demand
         try:
-            import aioboto3
+            from aiobotocore.session import get_session
 
-            verify_required_version("Bedrock API", "aioboto3", "13.0.0")
+            verify_required_version("Bedrock API", "aiobotocore", "2.18.0")
 
             # Create a shared session to be used when generating
-            self.session = aioboto3.Session()
+            self.session = get_session()
 
             # create time tracker
             self._http_hooks = ConverseHooks(self.session, api=self)
 
         except ImportError:
-            raise pip_dependency_error("Bedrock API", ["aioboto3"])
+            raise pip_dependency_error("Bedrock API", ["aiobotocore"])
 
     @override
     def connection_key(self) -> str:
@@ -458,7 +475,7 @@ class BedrockAPI(ModelAPI):
         from botocore.exceptions import ClientError
 
         if isinstance(ex, ClientError):
-            error_code = ex.response.get("Error", {}).get("Code", "")
+            error_code = bedrock_error_code(ex)
             if error_code in self._BEDROCK_THROTTLE_CODES:
                 # AWS doesn't include Retry-After on ThrottlingException.
                 return RetryDecision.rate_limit()
@@ -507,8 +524,7 @@ class BedrockAPI(ModelAPI):
         from botocore.exceptions import ClientError
 
         if isinstance(ex, ClientError):
-            error_code = ex.response.get("Error", {}).get("Code", "")
-            return error_code in [
+            return bedrock_error_code(ex) in [
                 "UnrecognizedClientException",
                 "ExpiredTokenException",
                 "InvalidSignatureException",
@@ -700,15 +716,15 @@ class BedrockAPI(ModelAPI):
         tool_choice: ToolChoice,
         config: GenerateConfig,
     ) -> ModelOutput | tuple[ModelOutput | Exception, ModelCall]:
-        from botocore.config import Config
+        from aiobotocore.config import AioConfig
         from botocore.exceptions import ClientError
 
         # The bedrock client
         request_id = self._http_hooks.start_request()
-        async with self.session.client(  # type: ignore[call-overload]
+        async with self.session.create_client(
             service_name="bedrock-runtime",
             endpoint_url=self.base_url,
-            config=Config(
+            config=AioConfig(
                 read_timeout=self.read_timeout,
                 connect_timeout=self.connect_timeout,
                 retries=dict(mode="adaptive"),
@@ -829,8 +845,7 @@ class BedrockAPI(ModelAPI):
                         # (an explicit streaming=true opt-in still fails loudly)
                         if (
                             self.streaming is None
-                            and ex.response.get("Error", {}).get("Code")
-                            == "AccessDeniedException"
+                            and bedrock_error_code(ex) == "AccessDeniedException"
                         ):
                             warn_once(
                                 logger,
@@ -864,7 +879,7 @@ class BedrockAPI(ModelAPI):
                     self._http_hooks.end_request(request_id),
                 )
                 # Look for an explicit validation exception
-                if ex.response["Error"]["Code"] == "ValidationException":
+                if bedrock_error_code(ex) == "ValidationException":
                     error_message = ex.response["Error"]["Message"].lower()
                     if (
                         "too many input tokens" in error_message
@@ -1050,17 +1065,6 @@ class _StreamContentBlock:
         self.tool_input: list[str] = []
 
 
-# exception members of the ConverseStream event union, mapped to the AWS
-# error codes used by should_retry/is_auth_failure classification
-_CONVERSE_STREAM_ERROR_CODES = {
-    "internalServerException": "InternalServerException",
-    "modelStreamErrorException": "ModelStreamErrorException",
-    "validationException": "ValidationException",
-    "throttlingException": "ThrottlingException",
-    "serviceUnavailableException": "ServiceUnavailableException",
-}
-
-
 async def converse_response_from_stream(
     stream: AsyncIterator[dict[str, Any]],
 ) -> ConverseResponse:
@@ -1073,14 +1077,14 @@ async def converse_response_from_stream(
     string fragments, parsed once the stream completes; reasoning signatures
     and redacted content are dropped, matching the non-streaming response
     model). Usage, metrics, and any guardrail trace arrive on the trailing
-    `metadata` event. Exception members of the event union are raised as
-    `ClientError`s carrying their AWS error code so retry classification
-    behaves as it does for the non-streaming operation. Content deltas are
-    gated on `model_stream_requested()` (see `report_model_stream_delta`);
-    the usage/heartbeat progress channel runs regardless.
+    `metadata` event. Exception members of the event union never arrive here
+    as events: botocore raises them from the iterator as `EventStreamError`
+    (a `ClientError`) whose code is the member name — see
+    `bedrock_error_code` for how retry classification reconciles that with
+    the non-streaming codes. Content deltas are gated on
+    `model_stream_requested()` (see `report_model_stream_delta`); the
+    usage/heartbeat progress channel runs regardless.
     """
-    from botocore.exceptions import ClientError
-
     report_model_stream_start()
     blocks: dict[int, _StreamContentBlock] = {}
     role: ConverseRole = "assistant"
@@ -1091,17 +1095,6 @@ async def converse_response_from_stream(
     trace: dict[str, Any] | None = None
 
     async for event in stream:
-        for member, code in _CONVERSE_STREAM_ERROR_CODES.items():
-            if member in event:
-                raise ClientError(
-                    error_response={
-                        "Error": {
-                            "Code": code,
-                            "Message": (event[member] or {}).get("message", ""),
-                        }
-                    },
-                    operation_name="ConverseStream",
-                )
         if "messageStart" in event:
             role = event["messageStart"].get("role", "assistant")
             report_model_stream_progress()

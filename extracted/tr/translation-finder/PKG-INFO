@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: translation-finder
-Version: 3.4.1
+Version: 3.5.0
 Summary: A translation file finder used in Weblate.
 Home-page: https://weblate.org/
 Download-URL: https://github.com/WeblateOrg/translation-finder

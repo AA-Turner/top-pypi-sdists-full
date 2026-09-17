@@ -29,6 +29,7 @@ from agentic_devtools.cli.ci.credential_roles import (
 from agentic_devtools.cli.ci.due_probe_wakeup import run_due_probe_wakeup
 from agentic_devtools.cli.ci.github_provider import GitHubActionsProvider, _gh_api
 from agentic_devtools.cli.ci.logging_config import setup_logging
+from agentic_devtools.cli.ci.pipeline.session_detector import is_copilot_session_active_via_agent_task
 from agentic_devtools.cli.ci.reconciliation.models import CooldownProbe, CooldownState, ProbeStatus
 from agentic_devtools.cli.ci.reconciliation.queue_store import QueueStore, QueueStoreError
 from agentic_devtools.cli.ci.retry import ProviderRateLimitError, RetryableError
@@ -101,6 +102,165 @@ def _dispatch_with_token(workflow: str, repo: str, default_branch: str, token: s
             return 1, message
         return 2, message
     return 0, ""
+
+
+def auto_approve_waiting_runs(repo: str, token: str) -> int:
+    """Approve same-repository workflow runs waiting for manual approval."""
+    approved_count = 0
+    try:
+        response = _gh_api(f"/repos/{repo}/actions/runs?status=waiting", token=token)
+        data = json.loads(response)
+        workflow_runs = data.get("workflow_runs", [])
+        if not isinstance(workflow_runs, list):
+            raise ValueError("waiting workflow response did not contain a list")
+    except Exception as exc:
+        logger.warning("Could not list waiting workflow runs for %s: %s", repo, exc)
+        return 0
+
+    for run in workflow_runs:
+        if not isinstance(run, dict):
+            continue
+        head_repository = run.get("head_repository")
+        if not isinstance(head_repository, dict) or head_repository.get("full_name") != repo:
+            continue
+        run_id = run.get("id")
+        if not isinstance(run_id, int) or isinstance(run_id, bool) or run_id <= 0:
+            logger.warning("Skipping waiting workflow run with invalid id: %r", run_id)
+            continue
+        try:
+            _gh_api(
+                f"/repos/{repo}/actions/runs/{run_id}/approve",
+                method="POST",
+                token=token,
+            )
+        except Exception as exc:
+            logger.warning("Could not approve waiting workflow run %s: %s", run_id, exc)
+            continue
+        approved_count += 1
+        logger.info("Approved waiting workflow run %s for %s", run_id, repo)
+        print(f"::notice::Approved waiting workflow run {run_id}")
+    return approved_count
+
+
+def _review_has_comments(provider: GitHubActionsProvider, pr_number: int, review: Any) -> bool:
+    """Return whether a COMMENTED review contains body or inline comments."""
+    if isinstance(getattr(review, "body", None), str) and review.body.strip():
+        return True
+    review_id = getattr(review, "id", 0)
+    if not isinstance(review_id, int) or isinstance(review_id, bool) or review_id <= 0:
+        return False
+    try:
+        return bool(provider.list_review_comments(pr_number, review_id))
+    except Exception as exc:
+        logger.warning(
+            "Could not inspect comments for PR #%d review %s: %s",
+            pr_number,
+            review_id,
+            exc,
+        )
+        return False
+
+
+def _workflow_run_pr_number(run: Any) -> int:
+    if isinstance(run, dict):
+        pull_requests = run.get("pull_requests")
+        if isinstance(pull_requests, list):
+            for pull_request in pull_requests:
+                if isinstance(pull_request, dict) and isinstance(pull_request.get("number"), int):
+                    return pull_request["number"]
+        value = run.get("pr_number")
+    else:
+        value = getattr(run, "pr_number", 0)
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def _active_workflow_prs(provider: GitHubActionsProvider) -> set[int] | None:
+    try:
+        try:
+            runs = provider.list_workflow_runs(
+                "ai-pr-loop.yml",
+                window_hours=24,
+                include_dispatch_inputs=True,
+            )
+        except TypeError:
+            runs = provider.list_workflow_runs("ai-pr-loop.yml", window_hours=24)
+    except Exception as exc:
+        logger.warning("Could not inspect active AI PR loop workflow runs: %s", exc)
+        return None
+
+    active_prs: set[int] = set()
+    active_statuses = {"queued", "in_progress", "waiting", "requested"}
+    for run in runs:
+        if isinstance(run, dict):
+            status = run.get("status", "")
+            conclusion = run.get("conclusion")
+        else:
+            status = getattr(run, "status", "")
+            conclusion = getattr(run, "conclusion", "")
+        is_active = status in active_statuses or not conclusion
+        pr_number = _workflow_run_pr_number(run)
+        if is_active and pr_number > 0:
+            active_prs.add(pr_number)
+    return active_prs
+
+
+def find_stalled_unaddressed_reviews(
+    provider: GitHubActionsProvider,
+    repo: str,
+    token: str,
+    max_age_minutes: int = 15,
+) -> list[int]:
+    """Find open PRs whose old actionable reviews have no active processing."""
+    if max_age_minutes < 0:
+        raise ValueError("max_age_minutes must be non-negative")
+    try:
+        eligible_prs = provider.list_eligible_prs(max_prs=None)
+    except Exception as exc:
+        logger.warning("Could not inspect eligible PRs for stalled reviews: %s", exc)
+        return []
+
+    cutoff = _utc_now() - timedelta(minutes=max_age_minutes)
+    candidates: list[int] = []
+    for eligible_pr in eligible_prs:
+        pr_number = getattr(eligible_pr, "number", 0)
+        if not isinstance(pr_number, int) or isinstance(pr_number, bool) or pr_number <= 0:
+            continue
+        try:
+            reviews = provider.list_reviews(pr_number)
+        except Exception as exc:
+            logger.warning("Could not inspect reviews for PR #%d: %s", pr_number, exc)
+            continue
+        has_stalled_review = False
+        for review in reviews:
+            state = getattr(review, "state", "")
+            if state not in {"CHANGES_REQUESTED", "COMMENTED"}:
+                continue
+            submitted_at = _parse_timestamp(getattr(review, "submitted_at", ""))
+            if submitted_at is None or submitted_at >= cutoff:
+                continue
+            if state == "COMMENTED" and not _review_has_comments(provider, pr_number, review):
+                continue
+            has_stalled_review = True
+            break
+        if has_stalled_review:
+            candidates.append(pr_number)
+
+    if not candidates:
+        return []
+    active_workflow_prs = _active_workflow_prs(provider)
+    if active_workflow_prs is None:
+        return []
+    stalled: list[int] = []
+    for pr_number in candidates:
+        try:
+            active_task = is_copilot_session_active_via_agent_task(repo, pr_number, provider=provider)
+        except Exception as exc:
+            logger.warning("Could not inspect active agent task for PR #%d: %s", pr_number, exc)
+            active_task = None
+        if active_task is not False or pr_number in active_workflow_prs:
+            continue
+        stalled.append(pr_number)
+    return stalled
 
 
 def _dispatch_throttler_for_redispatch(repo: str, default_branch: str) -> int:
@@ -710,6 +870,7 @@ def _run_due_probe_only(
     token = require_default_repo_workflow_token("read repository workflow runs")
     default_branch = default_branch_hint or _get_default_branch(repo, token=token)
     latest_run = _get_latest_throttler_run(repo, default_branch, token=token)
+    approved_waiting_runs = auto_approve_waiting_runs(repo, token)
     cooldown_state = _load_cooldown_state(repo)
     if cooldown_state is None:
         cooldown_state = _seed_cooldown_state(latest_run, now_utc)
@@ -722,6 +883,7 @@ def _run_due_probe_only(
         "default_branch": default_branch,
         "decision": "due_probe_only",
         "due_probe_count": due_probe_count,
+        "approved_waiting_runs": approved_waiting_runs,
         "cooldown_active": False,
     }
 
@@ -887,6 +1049,7 @@ def ai_pr_loop_watchdog_command() -> None:
         token = require_default_repo_workflow_token("read repository workflow runs")
         default_branch = args.default_branch or _get_default_branch(repo, token=token)
         latest_run = _get_latest_throttler_run(repo, default_branch, token=token)
+        approved_waiting_runs = 0
 
         due_probe_count = 0
         availability_established = False
@@ -907,6 +1070,7 @@ def ai_pr_loop_watchdog_command() -> None:
             except (QueueStoreError, RuntimeError) as exc:
                 logger.warning("Cooldown availability state unavailable; continuing: %s", exc)
         if not availability_established:
+            approved_waiting_runs = auto_approve_waiting_runs(repo, token)
             print(f"::notice::ai-pr-loop-watchdog dispatch blocked ({availability_reason})")
             print(
                 json.dumps(
@@ -930,7 +1094,37 @@ def ai_pr_loop_watchdog_command() -> None:
         if due_probe_count > 0:
             print(f"::notice::ai-pr-loop-watchdog evaluated {due_probe_count} due probe(s)")
 
+        stalled_prs = find_stalled_unaddressed_reviews(provider, repo, token)
+        if stalled_prs:
+            approved_waiting_runs = auto_approve_waiting_runs(repo, token)
+            _dispatch_throttler(repo, default_branch)
+            print(
+                "::notice::ai-pr-loop-watchdog dispatched ai-pr-loop-throttler.yml "
+                f"for stalled review PRs: {', '.join(str(pr) for pr in stalled_prs)}"
+            )
+            print(
+                json.dumps(
+                    {
+                        "repo": repo,
+                        "default_branch": default_branch,
+                        "decision": "stalled_unaddressed_reviews",
+                        "throttled": False,
+                        "throttle_reason": throttle_reason,
+                        "elapsed_seconds": elapsed_seconds,
+                        "due_probe_count": due_probe_count,
+                        "approved_waiting_runs": approved_waiting_runs,
+                        "stalled_prs": stalled_prs,
+                        "eligible_count": len(stalled_prs),
+                        "dispatched": True,
+                        "availability_established": availability_established,
+                        "availability_reason": availability_reason,
+                    }
+                )
+            )
+            return
+
         if throttled:
+            approved_waiting_runs = auto_approve_waiting_runs(repo, token)
             print(f"::notice::ai-pr-loop-watchdog throttled ({throttle_reason})")
             output = {
                 "repo": repo,
@@ -940,6 +1134,7 @@ def ai_pr_loop_watchdog_command() -> None:
                 "throttle_reason": throttle_reason,
                 "elapsed_seconds": elapsed_seconds,
                 "due_probe_count": due_probe_count,
+                "approved_waiting_runs": approved_waiting_runs,
                 "eligible_count": None,
                 "dispatched": False,
                 "availability_established": availability_established,
@@ -951,6 +1146,7 @@ def ai_pr_loop_watchdog_command() -> None:
         eligible = provider.list_eligible_prs(max_prs=1)
         eligible_count = len(eligible)
         if eligible_count == 0:
+            approved_waiting_runs = auto_approve_waiting_runs(repo, token)
             print("::notice::ai-pr-loop-watchdog no eligible scheduler PRs")
             output = {
                 "repo": repo,
@@ -960,6 +1156,7 @@ def ai_pr_loop_watchdog_command() -> None:
                 "throttle_reason": throttle_reason,
                 "elapsed_seconds": elapsed_seconds,
                 "due_probe_count": due_probe_count,
+                "approved_waiting_runs": approved_waiting_runs,
                 "eligible_count": 0,
                 "dispatched": False,
                 "availability_established": availability_established,
@@ -969,6 +1166,7 @@ def ai_pr_loop_watchdog_command() -> None:
             return
 
         _dispatch_throttler(repo, default_branch)
+        approved_waiting_runs = auto_approve_waiting_runs(repo, token)
         print("::notice::ai-pr-loop-watchdog dispatched ai-pr-loop-throttler.yml")
         output = {
             "repo": repo,
@@ -978,6 +1176,7 @@ def ai_pr_loop_watchdog_command() -> None:
             "throttle_reason": throttle_reason,
             "elapsed_seconds": elapsed_seconds,
             "due_probe_count": due_probe_count,
+            "approved_waiting_runs": approved_waiting_runs,
             "eligible_count": eligible_count,
             "dispatched": True,
             "availability_established": availability_established,

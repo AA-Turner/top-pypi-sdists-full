@@ -6,7 +6,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   pytest:
@@ -24,6 +24,7 @@ jobs:
           ci-sklearn16,
           ci-sklearn17,
           ci-sklearn18,
+          ci-sklearn19,
           ci-sklearn-nightly
         ]
 
@@ -35,7 +36,7 @@ jobs:
       # message and make it available in later steps. This is because we want to
       # check the content of the commit message, but on PRs, it's replaced by an
       # artificial commit message. See https://github.com/skops-dev/skops/pull/147
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{github.event.after}}
@@ -44,9 +45,9 @@ jobs:
           echo PR_COMMIT_MESSAGE=$(git log -1 --pretty=format:\"%s\") >> $GITHUB_ENV
         shell: bash
 
-      - uses: prefix-dev/setup-pixi@v0.9.5
+      - uses: prefix-dev/setup-pixi@v0.10.2
         with:
-          pixi-version: v0.39.5
+          pixi-version: v0.68.0
           environments: ${{ matrix.environment }}
           # we can freeze the environment and manually bump the dependencies to the
           # latest version time to time.
@@ -59,7 +60,7 @@ jobs:
         run: pixi run -e ${{ matrix.environment }} tests
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           env_vars: OS,PYTHON
           fail_ci_if_error: true

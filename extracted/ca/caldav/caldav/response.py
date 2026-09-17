@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote
 
+import icalendar
 from lxml import etree
 from lxml.etree import _Element
 
@@ -200,6 +201,33 @@ def _element_to_value(elem: _Element) -> Any:
         return children_texts
 
     return elem
+
+
+def _merge_calendar_data(earlier: str, later: str) -> str:
+    """Add the components of ``later`` that ``earlier`` does not already hold.
+
+    A component is identified by its name, UID and RECURRENCE-ID, so a
+    response repeated verbatim does not duplicate anything.  A VTIMEZONE has
+    no UID and is identified by its TZID; any other UID-less component by its
+    full content.
+    """
+    merged = icalendar.Calendar.from_ical(earlier)
+
+    def key(component: icalendar.Component) -> tuple:
+        if component.name == "VTIMEZONE":
+            return (component.name, str(component.get("TZID")))
+        uid = component.get("UID")
+        if uid is None:
+            return (component.name, component.to_ical())
+        rid = component.get("RECURRENCE-ID")
+        return (component.name, str(uid), rid.to_ical() if rid else None)
+
+    seen = {key(c) for c in merged.subcomponents}
+    for component in icalendar.Calendar.from_ical(later).subcomponents:
+        if key(component) not in seen:
+            seen.add(key(component))
+            merged.add_component(component)
+    return merged.to_ical().decode()
 
 
 class DAVResponse:
@@ -639,6 +667,43 @@ class DAVResponse:
                 return False
         return True
 
+    def all_statuses_ok(self) -> bool:
+        """True if the multistatus reports success and nothing but success.
+
+        Every status in it - the response-level ones and the ones nested
+        inside ``<propstat>`` alike - has to be a 2xx.  Used to tell a
+        multistatus that merely spells out a success apart from one reporting
+        a failure: a server answering a collection creation with 207 (Bedework
+        5 does, whenever the request carries properties) has created the
+        collection only if no status in the body says otherwise.
+
+        There has to be at least one ``DAV:response``, but a response carrying
+        no status at all does not make the answer a failure.  RFC 4918 section
+        13 requires every response to carry either a ``DAV:status`` or at least
+        one ``DAV:propstat``, and Bedework 5 answers a property-less
+        MKCALENDAR with a response holding nothing but the href of the
+        collection it just created - reading that as a failure raised
+        ``MkcalendarError`` for a calendar that was there.
+
+        This deliberately does not go through ``validate_status()``: a status
+        we do not accept is an answer here, not a parse error.
+        """
+        if self.tree is None:
+            return False
+        responses = [r for r in self._strip_to_multistatus() if r.tag == dav.Response.tag]
+        if not responses:
+            return False
+        for response in responses:
+            for status in response.iter(dav.Status.tag):
+                ## _status_to_code() falls back to 200 for anything it cannot
+                ## parse, which would turn a garbled status into a success
+                parts = (status.text or "").split()
+                if len(parts) < 2 or not parts[1].isdigit():
+                    return False
+                if not 200 <= int(parts[1]) < 300:
+                    return False
+        return True
+
     def _find_objects_and_props(self) -> dict[str, dict[str, _Element]]:
         """Internal implementation of find_objects_and_props without deprecation warning."""
         self.objects: dict[str, dict[str, _Element]] = {}
@@ -670,7 +735,18 @@ class DAVResponse:
             ## with multiple props or in multiple propstats; the 404-skip
             ## quirk is shared with the dataclass parsers via
             ## _collect_prop_elements (code-review §5.7).
-            self.objects[href].update(_collect_prop_elements(propstats))
+            props = _collect_prop_elements(propstats)
+
+            ## RFC 4918 section 14.24 forbids an href to appear twice, but
+            ## Bedework 5 answers an expanded calendar-query with one response
+            ## per recurrence instance, all under the href of the resource.
+            ## Merge the instances rather than let the last one overwrite them.
+            earlier = self.objects[href].get(cdav.CalendarData.tag)
+            later = props.get(cdav.CalendarData.tag)
+            if earlier is not None and later is not None and earlier.text and later.text:
+                later.text = _merge_calendar_data(earlier.text, later.text)
+
+            self.objects[href].update(props)
 
         return self.objects
 

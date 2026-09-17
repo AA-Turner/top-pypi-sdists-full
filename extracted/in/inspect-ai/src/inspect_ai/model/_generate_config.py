@@ -156,6 +156,9 @@ class GenerateConfigArgs(TypedDict, total=False):
     fallback_models: list[str] | None
     """Fallback models tried in order when the model's safety classifiers refuse the request. Anthropic Claude API only (not supported on Bedrock/Vertex/Azure or with batch mode)."""
 
+    fail_on_refusal: bool | None
+    """Raise a `ModelRefusalError` (failing the sample) when the model returns `stop_reason="content_filter"`. Defaults to False."""
+
     verbosity: Literal["low", "medium", "high"] | None
     """Constrains the verbosity of the model's response. Lower values will result in more concise responses, while higher values will result in more verbose responses. GPT 5.x models only (defaults to "medium" for OpenAI models)."""
 
@@ -168,7 +171,7 @@ class GenerateConfigArgs(TypedDict, total=False):
     """Constrains effort on reasoning. Defaults vary by provider and model and not all models support all values (please consult provider documentation for details)."""
 
     reasoning_mode: Literal["standard", "pro"] | None
-    """Reasoning mode. "pro" performs more model work for greater reliability on difficult tasks, at higher latency and token usage. OpenAI GPT-5.6 models only ("standard" is the default; GPT-6 does not support "pro")."""
+    """Reasoning mode. "pro" performs more model work for greater reliability on difficult tasks, at higher latency and token usage. OpenAI GPT-5.6+ models only ("standard" is the default)."""
 
     reasoning_tokens: int | None
     """Maximum number of tokens to use for reasoning. Anthropic Claude models only."""
@@ -286,6 +289,9 @@ class GenerateConfig(BaseModel):
     fallback_models: list[str] | None = Field(default=None)
     """Fallback models tried in order when the model's safety classifiers refuse the request. Anthropic Claude API only (not supported on Bedrock/Vertex/Azure or with batch mode)."""
 
+    fail_on_refusal: bool | None = Field(default=None)
+    """Raise a `ModelRefusalError` (failing the sample) when the model returns `stop_reason="content_filter"`. Defaults to False."""
+
     verbosity: Literal["low", "medium", "high"] | None = Field(default=None)
     """Constrains the verbosity of the model's response. Lower values will result in more concise responses, while higher values will result in more verbose responses. GPT 5.x models only (defaults to "medium" for OpenAI models)."""
 
@@ -300,7 +306,7 @@ class GenerateConfig(BaseModel):
     """Constrains effort on reasoning. Defaults vary by provider and model and not all models support all values (please consult provider documentation for details)."""
 
     reasoning_mode: Literal["standard", "pro"] | None = Field(default=None)
-    """Reasoning mode. "pro" performs more model work for greater reliability on difficult tasks, at higher latency and token usage. OpenAI GPT-5.6 models only ("standard" is the default; GPT-6 does not support "pro")."""
+    """Reasoning mode. "pro" performs more model work for greater reliability on difficult tasks, at higher latency and token usage. OpenAI GPT-5.6+ models only ("standard" is the default)."""
 
     reasoning_tokens: int | None = Field(default=None)
     """Maximum number of tokens to use for reasoning. Anthropic Claude models only."""

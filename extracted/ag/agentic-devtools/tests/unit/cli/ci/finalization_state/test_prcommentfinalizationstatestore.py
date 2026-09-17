@@ -174,6 +174,8 @@ def test_mark_terminal_updates_existing_provider_cache() -> None:
 
 def test_mark_terminal_swallows_provider_errors() -> None:
     provider = MagicMock()
+    provider.get_pr_token_login.return_value = "copilot"
+    provider.list_issue_comments.return_value = []
     provider.post_comment_as_pr_token.side_effect = RuntimeError("boom")
     store = PRCommentFinalizationStateStore(provider)
 
@@ -181,3 +183,101 @@ def test_mark_terminal_swallows_provider_errors() -> None:
         key=FinalizedReviewKey(repository="owner/repo", pr_number=42, review_id=7),
         reason="verified",
     )
+
+
+def test_mark_terminal_handles_comment_search_error() -> None:
+    provider = MagicMock()
+    provider.get_pr_token_login.return_value = "copilot"
+    provider.list_issue_comments.side_effect = RuntimeError("list failed")
+    store = PRCommentFinalizationStateStore(provider)
+
+    store.mark_terminal(
+        key=FinalizedReviewKey(repository="owner/repo", pr_number=42, review_id=102),
+        reason="verified",
+    )
+
+    provider.post_comment_as_pr_token.assert_called_once()
+
+
+def test_mark_terminal_appends_to_legacy_blank_comment_and_adds_header() -> None:
+    provider = MagicMock()
+    provider.get_pr_token_login.return_value = "copilot"
+    legacy_body = '<!-- ai-pr-loop:finalized-review {"repo":"owner/repo","pr":42,"review_id":101} -->'
+    provider.list_issue_comments.return_value = [
+        IssueCommentInfo(id=997, author="copilot", body=legacy_body),
+        IssueCommentInfo(id=998, author="copilot", body="regular text without marker"),
+        IssueCommentInfo(id=999, author="other-user", body="some other comment"),
+    ]
+    store = PRCommentFinalizationStateStore(provider)
+
+    store.mark_terminal(
+        key=FinalizedReviewKey(repository="owner/repo", pr_number=42, review_id=102),
+        reason="verified",
+    )
+
+    provider.update_comment.assert_called_once()
+    updated = provider.update_comment.call_args.args[1]
+    assert "### 🤖 AI PR Loop State & Finalized Reviews" in updated
+    assert "101" in updated
+    assert "102" in updated
+
+
+def test_is_terminal_parses_multiple_markers_in_single_comment() -> None:
+    provider = MagicMock()
+    provider.get_pr_token_login.return_value = "copilot"
+    multi_body = (
+        "### 🤖 AI PR Loop State & Finalized Reviews\n"
+        "<!-- ai-pr-loop:finalized-review not-json -->\n"
+        '<!-- ai-pr-loop:finalized-review {"repo":"owner/repo","pr":42,"review_id":101} -->\n'
+        '<!-- ai-pr-loop:finalized-review {"repo":"owner/repo","pr":42,"review_id":102} -->\n'
+        '<!-- ai-pr-loop:finalized-review {"repo":"owner/repo","pr":42,"review_id":103} -->'
+    )
+    provider.list_issue_comments.return_value = [IssueCommentInfo(id=1, author="copilot", body=multi_body)]
+    store = PRCommentFinalizationStateStore(provider)
+
+    assert store.is_terminal(key=FinalizedReviewKey(repository="owner/repo", pr_number=42, review_id=101)) is True
+    assert store.is_terminal(key=FinalizedReviewKey(repository="owner/repo", pr_number=42, review_id=102)) is True
+    assert store.is_terminal(key=FinalizedReviewKey(repository="owner/repo", pr_number=42, review_id=103)) is True
+    assert store.is_terminal(key=FinalizedReviewKey(repository="owner/repo", pr_number=42, review_id=104)) is False
+
+
+def test_mark_terminal_appends_to_existing_tracking_comment() -> None:
+    provider = MagicMock()
+    provider.get_pr_token_login.return_value = "copilot"
+    existing_body = (
+        "### 🤖 AI PR Loop State & Finalized Reviews\n"
+        "<!-- agdt:ai-pr-loop-tracking -->\n\n"
+        '<!-- ai-pr-loop:finalized-review {"repo":"owner/repo","pr":42,"review_id":101} -->'
+    )
+    provider.list_issue_comments.return_value = [IssueCommentInfo(id=999, author="copilot", body=existing_body)]
+    store = PRCommentFinalizationStateStore(provider)
+
+    store.mark_terminal(
+        key=FinalizedReviewKey(repository="owner/repo", pr_number=42, review_id=102),
+        reason="verified",
+    )
+
+    provider.update_comment.assert_called_once()
+    assert provider.update_comment.call_args.args[0] == 999
+    updated = provider.update_comment.call_args.args[1]
+    assert "101" in updated
+    assert "102" in updated
+    provider.post_comment_as_pr_token.assert_not_called()
+
+
+def test_mark_terminal_creates_comment_with_visible_header_when_none_exists() -> None:
+    provider = MagicMock()
+    provider.get_pr_token_login.return_value = "copilot"
+    provider.list_issue_comments.return_value = []
+    store = PRCommentFinalizationStateStore(provider)
+
+    store.mark_terminal(
+        key=FinalizedReviewKey(repository="owner/repo", pr_number=42, review_id=201),
+        reason="verified",
+    )
+
+    provider.post_comment_as_pr_token.assert_called_once()
+    body = provider.post_comment_as_pr_token.call_args.args[1]
+    assert "### 🤖 AI PR Loop State & Finalized Reviews" in body
+    assert "<!-- agdt:ai-pr-loop-tracking -->" in body
+    assert '"review_id": 201' in body

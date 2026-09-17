@@ -66,7 +66,8 @@ class RelatedDynamoDB(RelatedNoSQL):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "DynamoDB"
+        if self.type_name is UNSET:
+            self.type_name = "DynamoDB"
 
 
 class RelatedDynamoDBAttribute(RelatedDynamoDB):
@@ -81,7 +82,8 @@ class RelatedDynamoDBAttribute(RelatedDynamoDB):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "DynamoDBAttribute"
+        if self.type_name is UNSET:
+            self.type_name = "DynamoDBAttribute"
 
 
 class RelatedDynamoDBTable(RelatedDynamoDB):
@@ -94,19 +96,20 @@ class RelatedDynamoDBTable(RelatedDynamoDB):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "DynamoDBTable" so it serializes correctly
 
-    dynamo_db_table_gsi_count: Union[int, None, UnsetType] = msgspec.field(
-        default=UNSET, name="dynamoDBTableGSICount"
+    dynamo_dbgsi_count: Union[int, None, UnsetType] = msgspec.field(
+        default=UNSET, name="dynamoDBGSICount"
     )
     """Represents the number of global secondary indexes on the table."""
 
-    dynamo_db_table_lsi_count: Union[int, None, UnsetType] = msgspec.field(
-        default=UNSET, name="dynamoDBTableLSICount"
+    dynamo_dblsi_count: Union[int, None, UnsetType] = msgspec.field(
+        default=UNSET, name="dynamoDBLSICount"
     )
     """Represents the number of local secondary indexes on the table."""
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "DynamoDBTable"
+        if self.type_name is UNSET:
+            self.type_name = "DynamoDBTable"
 
 
 class RelatedDynamoDBSecondaryIndex(RelatedDynamoDB):
@@ -119,14 +122,15 @@ class RelatedDynamoDBSecondaryIndex(RelatedDynamoDB):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "DynamoDBSecondaryIndex" so it serializes correctly
 
-    dynamo_db_secondary_index_projection_type: Union[str, None, UnsetType] = (
-        msgspec.field(default=UNSET, name="dynamoDBSecondaryIndexProjectionType")
+    dynamo_db_projection_type: Union[str, None, UnsetType] = msgspec.field(
+        default=UNSET, name="dynamoDBProjectionType"
     )
     """Specifies attributes that are projected from the DynamoDB table into the index."""
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "DynamoDBSecondaryIndex"
+        if self.type_name is UNSET:
+            self.type_name = "DynamoDBSecondaryIndex"
 
 
 class RelatedDynamoDBGlobalSecondaryIndex(RelatedDynamoDB):
@@ -141,7 +145,8 @@ class RelatedDynamoDBGlobalSecondaryIndex(RelatedDynamoDB):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "DynamoDBGlobalSecondaryIndex"
+        if self.type_name is UNSET:
+            self.type_name = "DynamoDBGlobalSecondaryIndex"
 
 
 class RelatedDynamoDBLocalSecondaryIndex(RelatedDynamoDB):
@@ -156,4 +161,5 @@ class RelatedDynamoDBLocalSecondaryIndex(RelatedDynamoDB):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "DynamoDBLocalSecondaryIndex"
+        if self.type_name is UNSET:
+            self.type_name = "DynamoDBLocalSecondaryIndex"

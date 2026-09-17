@@ -1014,7 +1014,10 @@ class casadiTestCase(unittest.TestCase):
 
 
   def check_serialize(self,F,inputs=None):
-      F2 = ca.Function.deserialize(F.serialize({"debug":True}))
+      serialized = F.serialize({"debug":True})
+      from serialization_scheme import validate_serialization
+      validate_serialization(serialized)
+      F2 = ca.Function.deserialize(serialized)
       assert inputs is not None
 
       Fout = F.call(inputs)
@@ -1168,6 +1171,21 @@ class requires_modelicaparser(object):
       return c
     else:
       print("Not available ModelicaParser plugin %s, skipping unittests" % self.n)
+      return None
+
+class requires_onnxbackend(object):
+  def __init__(self,n):
+    self.n = n
+
+  def __call__(self,c):
+    import os
+    if "SKIP_" + self.n.upper() + "_TESTS" in os.environ:
+        return None
+    try:
+      ca.load_onnxbackend(self.n)
+      return c
+    except:
+      print("Not available Onnx backend plugin %s, skipping unittests" % self.n)
       return None
 
 class requiresPlugin(object):

@@ -16,15 +16,20 @@ from ..runtime.backends import BackendError, require_engine_ready, resolve_sourc
 from ..runtime.backends import BackendError, select_engine_backend
 from .config import get_category_from_app_name, get_usecase_from_app_name
 from .core.base import ProcessingContext, ProcessingResult, ProcessingStatus, registry
-from .core.config import AlertConfig, BaseConfig, TrackingConfig, ZoneConfig, config_manager
+from .core.config import AlertConfig, BaseConfig, ConfigValidationError, TrackingConfig, ZoneConfig, config_manager
 from .core.config_utils import create_config_from_template
 from .face_reg.face_recognition import FaceRecognitionEmbeddingUseCase
-from .usecases import AbandonedObjectDetectionUseCase, AccidentDetectionUseCase, AdvancedCustomerServiceUseCase, AgeDetectionUseCase, AgeGenderUseCase, AnimalDetectionUseCase, AntiSpoofingDetectionUseCase, AreaUtilizationUseCase, AssemblyLineUseCase, BananaMonitoringUseCase, BloodCancerDetectionUseCase, BottleDefectDetectionUseCase, BottleDefectUseCase, BurglaryDetectionUseCase, CarDamageDetectionUseCase, CardiomegalyUseCase, CarPartSegmentationUseCase, CellMicroscopyUseCase, ChickenPoseDetectionUseCase, ChildMonitoringUseCase, ClaudePeopleCountingUsecaseUseCase, ColorDetectionUseCase, ConcreteCrackUseCase, CropWeedDetectionUseCase, CrowdDensityHeatMapsUseCase, CrowdflowUseCase, CustomerServiceUseCase, DeepOCSortUseCase, DistractedDriverUseCase, DroneDetectionUseCase, DroneTrafficMonitoringUsecase, DrowsyDriverUseCase, DwellUseCase, EmergencyVehicleUseCase, FaceCoveringDetectionPoseUseCase, FaceEmotionUseCase, FallDetectionUseCase, FashionDetectionUseCase, FastPeopleCountingUseCase, FenceClimbingDetectionUseCase, FenceClimbingPoseGatedDetectionUseCase, FenceClimbingWithZoneUseCase, FieldMappingUseCase, FireSmokeUseCase, FlareAnalysisUseCase, FloodDetectionUseCase, FlowerUseCase, FootFallUseCase, GasLeakDetectionUseCase, GenderDetectionUseCase, GlovesBootsDetectionUseCase, HazardZoneEntryUseCase, HeatMapsUseCase, HistopathologicalCancerDetectionUseCase, HumanActivityUseCase, IllegalParkingDetectionUseCase, IntrusionUseCase, LandslideDetectionUseCase, LaneDetectionUseCase, LeafDiseaseDetectionUseCase, LeafUseCase, LeakDetectionUseCase, LicensePlateAccessControlUseCase, LicensePlateMonitorUseCase, LicensePlateSurveillanceUseCase, LicensePlateUseCase, LiquidLeakDetectionUseCase, LitterDetectionUseCase, LoiteringUseCase, MaskDetectionUseCase, MaskTypeDetectionUseCase, NaturalDisasterUseCase, OvercrowdingDetectionUseCase, PackageDetectionUseCase, ParkingLotAnalyticsUseCase, ParkingSpaceUseCase, ParkingUseCase, PCBDefectUseCase, PedestrianDetectionUseCase, PeopleCountingInZoneUseCase, PeopleCountingUseCase, PeopleTrackingUseCase, PhoneScreenDefectDetectionUseCase, PipeCorrosionDetectionUseCase, PipeGasLeakDetectionUseCase, PipelineDetectionUseCase, PlaqueSegmentationUseCase, PotholeDetectionUseCase, PotholeSegmentationUseCase, PPEComplianceUseCase, PriceTagUseCase, ProximityUseCase, RoadTrafficUseCase, RoadViewSegmentationUseCase, RunningDetectionUseCase, ShelfInventoryUseCase, ShopliftingDetectionUseCase, ShoppingCartUseCase, SkinCancerClassificationUseCase, SmokerDetectionUseCase, SolarPanelUseCase, StoppedVehicleMonitoringUseCase, StreetVendorDetectionUseCase, SusActivityUseCase, TailgatingDetectionUseCase, TheftDetectionUseCase, TrafficSignMonitoringUseCase, UnauthorizedEncampmentDetectionUseCase, UndergroundPipelineDefectUseCase, UnderwaterPlasticUseCase, UnwantedAnimalDetectionUseCase, VegetableDetectionUseCase, VehicleColorDetectionUseCase, VehicleMonitoringDroneViewUseCase, VehicleMonitoringParkingLotUseCase, VehicleMonitoringUseCase, VehicleMonitoringWrongWayUseCase, VehicleSegmentationUseCase, VehicleTypeClassificationUseCase, ViolenceDetectionTestingUseCase, ViolenceDetectionUseCase, WarehouseObjectUseCase, WaterBodyUseCase, WeaponDetectionUseCase, WeaponHumanDetectionUseCase, WeldDefectUseCase, WildLifeMonitoringUseCase, WindmillMaintenanceUseCase, WoundSegmentationUseCase
+from .usecases.age_gender_detection import AgeGenderUseCase
 from .usecases.car_damage_detection import CarDamageConfig
-from .usecases.fr_access_control import FaceRecognitionAccessControlUseCase
-from .usecases.fr_surveillance import FaceRecognitionSurveillanceUseCase
+from .usecases.color_detection import ColorDetectionUseCase
+from .usecases.flare_analysis import FlareAnalysisUseCase
+from .usecases.license_plate_monitoring import LicensePlateMonitorUseCase
+from .usecases.lpr_access_control import LicensePlateAccessControlUseCase
+from .usecases.lpr_surveillance import LicensePlateSurveillanceUseCase
+from .usecases.people_tracking import PeopleTrackingUseCase
 from .usecases.ppe_compliance import PPEComplianceConfig
 from .usecases.ppe_compliance import PPEComplianceConfig
+from .usecases.vehicle_color_detection import VehicleColorDetectionUseCase
 from .utils.geometry_utils import reference_size_from_payload, resolve_frame_dims
 from .utils.legacy_analytics_bridge import legacy_redis_analytics_usecases, publish_legacy_frame_analytics
 from .utils.post_processing_config_client import PostProcessingConfigClient
@@ -230,7 +235,7 @@ class PostProcessor:
         """
         ...
 
-    async def process(self: Any, data: Any, config: Union[Any, Dict[str, Any], str, Any] = {}, input_bytes: Any | None = None, stream_key: str | None = 'default_stream', stream_info: Dict[str, Any] | None = None, context: Any | None = None, custom_post_processing_config: Union[Dict[str, Any], Any, str] | None = None) -> Any:
+    async def process(self: Any, data: Any, config: Union[Any, Dict[str, Any], str, Any] | None = None, input_bytes: Any | None = None, stream_key: str | None = 'default_stream', stream_info: Dict[str, Any] | None = None, context: Any | None = None, custom_post_processing_config: Union[Dict[str, Any], Any, str] | None = None) -> Any:
         """
         Process data using the specified configuration.
         

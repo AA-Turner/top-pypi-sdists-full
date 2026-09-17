@@ -21,6 +21,7 @@ MODEL_TOKENIZER_ALIASES: dict[str, str] = {
     "Qwen/Qwen3.6-35B-A3B-FP8": "Qwen/Qwen3.6-35B-A3B",
     "Qwen/Qwen3.5-397B-A17B-FP8": "Qwen/Qwen3.5-397B-A17B-FP8",
     "nvidia/Kimi-K2.6-NVFP4": "nvidia/Kimi-K2.6-NVFP4",
+    "moonshotai/Kimi-K3": "moonshotai/Kimi-K3",
     "nvidia/GLM-5.1-NVFP4": "nvidia/GLM-5.1-NVFP4",
     "nvidia/GLM-5.2-NVFP4": "nvidia/GLM-5.2-NVFP4",
 }
@@ -47,8 +48,9 @@ def _is_glm5_model(model_name: str) -> bool:
     return "glm-5" in lowered or "glm5" in lowered
 
 
-def _tokenizer_json_path(
+def _tokenizer_asset_path(
     tokenizer_name: str,
+    filename: str,
     *,
     revision: str | None = None,
     local_files_only: bool = False,
@@ -58,12 +60,16 @@ def _tokenizer_json_path(
         if revision is not None:
             raise ValueError("revision cannot be combined with a local tokenizer path")
         if tokenizer_path.is_file():
-            return tokenizer_path
-        return tokenizer_path / "tokenizer.json"
+            return (
+                tokenizer_path
+                if filename == "tokenizer.json"
+                else tokenizer_path.parent / filename
+            )
+        return tokenizer_path / filename
     kwargs: dict[str, Any] = {"revision": revision} if revision is not None else {}
     if local_files_only:
         kwargs["local_files_only"] = True
-    return Path(hf_hub_download(tokenizer_name, "tokenizer.json", **kwargs))
+    return Path(hf_hub_download(tokenizer_name, filename, **kwargs))
 
 
 def _load_glm5_tokenizer(
@@ -74,17 +80,16 @@ def _load_glm5_tokenizer(
 ):
     tokenizer = PreTrainedTokenizerFast(
         tokenizer_file=str(
-            _tokenizer_json_path(
+            _tokenizer_asset_path(
                 tokenizer_name,
+                "tokenizer.json",
                 revision=revision,
                 local_files_only=local_files_only,
             )
         ),
         eos_token="<|endoftext|>",
         pad_token="<|endoftext|>",
-        # GLM-5.1 aliases in River are text-only. These special tokens mirror
-        # the upstream tokenizer vocabulary; the fallback chat template below
-        # intentionally assumes string message content.
+        # Preserve the upstream vocabulary without validating model weights.
         additional_special_tokens=[
             "[MASK]",
             "[gMASK]",
@@ -105,21 +110,12 @@ def _load_glm5_tokenizer(
             "<|end_of_transcription|>",
         ],
     )
-    tokenizer.chat_template = """[gMASK]<sop>
-{%- for msg in messages %}
-{%- if msg.role == 'system' %}
-<|system|>
-{{ msg.content }}
-{%- elif msg.role == 'user' %}
-<|user|>
-{{ msg.content }}
-{%- elif msg.role == 'assistant' %}
-<|assistant|>
-{{ msg.content }}
-{%- endif %}
-{%- endfor %}
-{% if add_generation_prompt %}<|assistant|>
-{% endif %}"""
+    tokenizer.chat_template = _tokenizer_asset_path(
+        tokenizer_name,
+        "chat_template.jinja",
+        revision=revision,
+        local_files_only=local_files_only,
+    ).read_text(encoding="utf-8")
     # ``PreTrainedTokenizerFast`` is initialized from a local tokenizer.json,
     # so retain the resolved Hugging Face source for callers that attest a
     # tokenizer object they already constructed.
@@ -144,8 +140,8 @@ def _load_tokenizer_name(
         )
     except StrictDataclassClassValidationError:
         # Transformers validates newer GLM-5 model configurations before it
-        # resolves the tokenizer implementation. River only needs the local
-        # tokenizer.json for its text-only GLM-5 aliases.
+        # resolves the tokenizer implementation. River only needs the tokenizer assets,
+        # including the checkpoint's tool and multimodal chat template.
         if not _is_glm5_model(tokenizer_name):
             raise
         return _load_glm5_tokenizer(

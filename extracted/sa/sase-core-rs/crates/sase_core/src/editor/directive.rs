@@ -85,6 +85,28 @@ const FINAL_SUGGESTIONS: &[DirectiveSuggestedValue] =
             "Clear the configured finalizer selection for this launch",
     }];
 
+const HOLD_SELECTOR_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
+    DirectiveSuggestedValue {
+        value: "pending",
+        documentation: "Freeze currently waiting or queued targets at arm time",
+    },
+    DirectiveSuggestedValue {
+        value: "future",
+        documentation: "Fence matching launches created after arm time",
+    },
+];
+
+const HOLD_SCOPE_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
+    DirectiveSuggestedValue {
+        value: "project",
+        documentation: "Apply the hold within the selected project",
+    },
+    DirectiveSuggestedValue {
+        value: "host",
+        documentation: "Apply the hold across this host",
+    },
+];
+
 const WAIT_TIME_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
     DirectiveSuggestedValue {
         value: "5m",
@@ -169,8 +191,7 @@ const ALT_FORMS: &[DirectiveSyntaxForm] = &[
     DirectiveSyntaxForm::Colon,
     DirectiveSyntaxForm::Parenthesized,
 ];
-const DOUBLE_COLON: &[DirectiveSyntaxForm] =
-    &[DirectiveSyntaxForm::DoubleColon];
+const PAREN: &[DirectiveSyntaxForm] = &[DirectiveSyntaxForm::Parenthesized];
 const PAREN_DOUBLE_COLON: &[DirectiveSyntaxForm] = &[
     DirectiveSyntaxForm::Parenthesized,
     DirectiveSyntaxForm::DoubleColon,
@@ -319,6 +340,47 @@ const PROC_KEYWORDS: &[DirectiveKeywordSpec] = &[
     },
 ];
 
+const SHOULD_RUN_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
+    DirectiveSuggestedValue {
+        value: "true",
+        documentation: "Keep this prompt segment",
+    },
+    DirectiveSuggestedValue {
+        value: "false",
+        documentation: "Omit this prompt segment before launch planning",
+    },
+];
+
+const IF_KEYWORDS: &[DirectiveKeywordSpec] = &[DirectiveKeywordSpec {
+    name: "should_run",
+    description: "Statically keep or omit this prompt segment",
+    value_role: DirectiveValueRole::Bool,
+    repeatable: false,
+    conflicts_with: &[],
+    suggested_values: SHOULD_RUN_SUGGESTIONS,
+}];
+
+const IF_DIRECTIVE_OFF: DirectiveMetadata = DirectiveMetadata {
+    name: "if",
+    alias: None,
+    description:
+        "Statically omit a prompt segment, or gate launch with a typed predicate when enabled",
+    argument_hint: "(should_run=true|false)",
+    takes_argument: true,
+    allows_multiple: false,
+    syntax_forms: PAREN,
+    positional_role: None,
+    positional_suggestions: &[],
+    keywords: IF_KEYWORDS,
+    dynamic_keyword_role: None,
+};
+
+const IF_DIRECTIVE_ON: DirectiveMetadata = DirectiveMetadata {
+    syntax_forms: PAREN_DOUBLE_COLON,
+    argument_hint: "(should_run=true|false) or :: plus one bash/python fence",
+    ..IF_DIRECTIVE_OFF
+};
+
 const QUEUE_KEYWORDS: &[DirectiveKeywordSpec] = &[
     DirectiveKeywordSpec {
         name: "capacity",
@@ -433,6 +495,41 @@ const QUEUE_BUDGET_KEYWORDS: &[DirectiveKeywordSpec] = &[
         repeatable: false,
         conflicts_with: &["w"],
         suggested_values: QUEUE_WEIGHT_SUGGESTIONS,
+    },
+];
+
+const HOLD_KEYWORDS: &[DirectiveKeywordSpec] = &[
+    DirectiveKeywordSpec {
+        name: "hood",
+        description: "Hold launches in this agent hood",
+        value_role: DirectiveValueRole::Hood,
+        repeatable: true,
+        conflicts_with: &[],
+        suggested_values: &[],
+    },
+    DirectiveKeywordSpec {
+        name: "scope",
+        description: "Choose whether the hold applies to this project or host",
+        value_role: DirectiveValueRole::FreeText,
+        repeatable: false,
+        conflicts_with: &[],
+        suggested_values: HOLD_SCOPE_SUGGESTIONS,
+    },
+    DirectiveKeywordSpec {
+        name: "ttl",
+        description: "Maximum hold duration",
+        value_role: DirectiveValueRole::Duration,
+        repeatable: false,
+        conflicts_with: &[],
+        suggested_values: DURATION_SUGGESTIONS,
+    },
+    DirectiveKeywordSpec {
+        name: "tribe",
+        description: "Hold launches assigned to this user-managed tribe",
+        value_role: DirectiveValueRole::Tribe,
+        repeatable: true,
+        conflicts_with: &[],
+        suggested_values: &[],
     },
 ];
 
@@ -575,6 +672,20 @@ pub const DIRECTIVES: &[DirectiveMetadata] = &[
     },
     QUEUE_DIRECTIVE_OFF,
     DirectiveMetadata {
+        name: "hold",
+        alias: None,
+        description: "Hold selected pre-run agents until this launch settles",
+        argument_hint:
+            ":agent or (agent, pending, future, hood=, tribe=, ttl=, scope=)",
+        takes_argument: true,
+        allows_multiple: true,
+        syntax_forms: COLON_PAREN,
+        positional_role: Some(DirectiveValueRole::Agent),
+        positional_suggestions: HOLD_SELECTOR_SUGGESTIONS,
+        keywords: HOLD_KEYWORDS,
+        dynamic_keyword_role: None,
+    },
+    DirectiveMetadata {
         name: "dispatch",
         alias: None,
         description: "Send this launch to an enrolled remote machine",
@@ -587,20 +698,7 @@ pub const DIRECTIVES: &[DirectiveMetadata] = &[
         keywords: &[],
         dynamic_keyword_role: None,
     },
-    DirectiveMetadata {
-        name: "if",
-        alias: None,
-        description:
-            "Run a fenced Bash or Python admission predicate before launching the next unit",
-        argument_hint: ":: plus one bash or python fence",
-        takes_argument: true,
-        allows_multiple: false,
-        syntax_forms: DOUBLE_COLON,
-        positional_role: None,
-        positional_suggestions: &[],
-        keywords: &[],
-        dynamic_keyword_role: None,
-    },
+    IF_DIRECTIVE_OFF,
     DirectiveMetadata {
         name: "proc",
         alias: None,
@@ -731,12 +829,28 @@ pub fn directive_metadata_with_flags(
     enabled_feature_flags: &[String],
 ) -> Option<&'static DirectiveMetadata> {
     let canonical = canonical_directive_name(raw)?;
+    if canonical == "if" {
+        return Some(if_directive_metadata(enabled_feature_flags));
+    }
     if canonical == "queue" {
         return Some(queue_directive_metadata(enabled_feature_flags));
     }
     DIRECTIVES
         .iter()
         .find(|directive| directive.name == canonical)
+}
+
+pub fn if_directive_metadata(
+    enabled_feature_flags: &[String],
+) -> &'static DirectiveMetadata {
+    if enabled_feature_flags
+        .iter()
+        .any(|value| value == "typed_launch_units")
+    {
+        &IF_DIRECTIVE_ON
+    } else {
+        &IF_DIRECTIVE_OFF
+    }
 }
 
 pub fn queue_directive_metadata(
@@ -762,11 +876,13 @@ pub fn directive_contract_with_flags(
         .map(|metadata| {
             let metadata = if metadata.name == "queue" {
                 queue_directive_metadata(enabled_feature_flags)
+            } else if metadata.name == "if" {
+                if_directive_metadata(enabled_feature_flags)
             } else {
                 metadata
             };
             let mut entry = DirectiveContractEntry::from(metadata);
-            if metadata.name == "queue" {
+            if metadata.name == "queue" || metadata.name == "if" {
                 entry.recipes =
                     crate::editor::wire::directive_snippet_recipes_with_flags(
                         metadata.name,
@@ -825,6 +941,47 @@ pub(crate) fn directive_argument_open_colon_at(
             .contains(&DirectiveSyntaxForm::Parenthesized)
 }
 
+pub(crate) fn directive_argument_open_double_colon_at(
+    text: &str,
+    colon_idx: usize,
+) -> bool {
+    if text.as_bytes().get(colon_idx..colon_idx + 2) != Some(b"::") {
+        return false;
+    }
+    let Some(line_start) = text[..colon_idx]
+        .rfind('\n')
+        .map_or(Some(0), |idx| idx.checked_add(1))
+    else {
+        return false;
+    };
+    let before_colon = &text[line_start..colon_idx];
+    let Some(percent_rel) = before_colon.rfind('%') else {
+        return false;
+    };
+    let percent_idx = line_start + percent_rel;
+    if !directive_left_boundary(text, percent_idx) {
+        return false;
+    }
+    let name = &text[percent_idx + 1..colon_idx];
+    if name.is_empty()
+        || !name
+            .bytes()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == b'_')
+    {
+        return false;
+    }
+    let Some(metadata) = directive_metadata(name) else {
+        return false;
+    };
+    metadata
+        .syntax_forms
+        .contains(&DirectiveSyntaxForm::Parenthesized)
+        && (metadata
+            .syntax_forms
+            .contains(&DirectiveSyntaxForm::DoubleColon)
+            || metadata.name == "clan")
+}
+
 fn directive_left_boundary(text: &str, percent_idx: usize) -> bool {
     if percent_idx == 0 {
         return true;
@@ -848,6 +1005,8 @@ pub fn build_directive_completion_candidates_with_flags(
     for directive in DIRECTIVES {
         let metadata = if directive.name == "queue" {
             queue_directive_metadata(enabled_feature_flags)
+        } else if directive.name == "if" {
+            if_directive_metadata(enabled_feature_flags)
         } else {
             directive
         };
@@ -1156,7 +1315,7 @@ fn keyword_candidate(
 pub(super) fn mixes_positional_and_keyword_clauses(
     metadata: &DirectiveMetadata,
 ) -> bool {
-    matches!(metadata.name, "wait" | "queue")
+    matches!(metadata.name, "wait" | "queue" | "hold")
 }
 
 pub(super) fn wait_queue_keyword_retired(
@@ -1715,6 +1874,7 @@ mod tests {
                 "clan",
                 "wait",
                 "queue",
+                "hold",
                 "dispatch",
                 "if",
                 "proc",
@@ -1810,6 +1970,54 @@ mod tests {
             "queue",
             &[]
         ));
+
+        let hold = contract
+            .iter()
+            .find(|entry| entry.name == "hold")
+            .expect("hold contract");
+        assert_eq!(hold.alias, None);
+        assert_eq!(hold.feature_flag.as_deref(), Some("agent_holds"));
+        assert!(hold.allows_multiple);
+        assert_eq!(
+            hold.syntax_forms,
+            vec![
+                DirectiveSyntaxForm::Colon,
+                DirectiveSyntaxForm::Parenthesized
+            ]
+        );
+        assert_eq!(hold.positional_role, Some(DirectiveValueRole::Agent));
+        assert_eq!(
+            hold.positional_suggestions
+                .iter()
+                .map(|value| value.value.as_str())
+                .collect::<Vec<_>>(),
+            ["pending", "future"]
+        );
+        assert_eq!(
+            hold.keywords
+                .iter()
+                .map(|keyword| (keyword.name.as_str(), keyword.value_role))
+                .collect::<Vec<_>>(),
+            [
+                ("hood", DirectiveValueRole::Hood),
+                ("scope", DirectiveValueRole::FreeText),
+                ("ttl", DirectiveValueRole::Duration),
+                ("tribe", DirectiveValueRole::Tribe),
+            ]
+        );
+        assert!(hold
+            .keywords
+            .iter()
+            .find(|keyword| keyword.name == "hood")
+            .is_some_and(|keyword| keyword.repeatable));
+        assert!(directive_is_hidden_from_name_completion_with_flags(
+            "hold",
+            &[]
+        ));
+        assert!(!directive_is_hidden_from_name_completion_with_flags(
+            "hold",
+            &["agent_holds".to_string()]
+        ));
         assert_eq!(
             wait.keywords
                 .iter()
@@ -1822,23 +2030,40 @@ mod tests {
             .iter()
             .find(|entry| entry.name == "if")
             .expect("if contract");
-        assert_eq!(
-            if_directive.feature_flag.as_deref(),
-            Some("typed_launch_units")
-        );
+        assert_eq!(if_directive.feature_flag.as_deref(), None);
         assert_eq!(
             if_directive.body_kind,
-            crate::DirectiveBodyKind::FencedCode
+            crate::DirectiveBodyKind::OptionalFencedCode
         );
         assert_eq!(
             if_directive.syntax_forms,
-            vec![DirectiveSyntaxForm::DoubleColon]
+            vec![DirectiveSyntaxForm::Parenthesized]
         );
-        assert!(directive_is_hidden_from_name_completion("if"));
+        assert_eq!(
+            if_directive
+                .keywords
+                .iter()
+                .map(|keyword| keyword.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["should_run"]
+        );
+        assert!(!directive_is_hidden_from_name_completion("if"));
         assert!(!directive_is_hidden_from_name_completion_with_flags(
             "if",
             &["typed_launch_units".to_string()]
         ));
+        let flagged_if =
+            directive_contract_with_flags(&["typed_launch_units".to_string()])
+                .into_iter()
+                .find(|entry| entry.name == "if")
+                .expect("flagged if contract");
+        assert_eq!(
+            flagged_if.syntax_forms,
+            vec![
+                DirectiveSyntaxForm::Parenthesized,
+                DirectiveSyntaxForm::DoubleColon
+            ]
+        );
 
         let proc = contract
             .iter()
@@ -1964,17 +2189,23 @@ mod tests {
         assert_eq!(canonical_directive_name("i"), Some("id"));
         assert_eq!(directive_metadata("i").map(|d| d.name), Some("id"));
 
-        for token in ["%id", "%i"] {
-            let completions = build_directive_completion_candidates(token);
-            assert_eq!(completions.candidates.len(), 1, "{token} completion");
-            let candidate = &completions.candidates[0];
-            assert_eq!(candidate.insertion, "%id");
-            assert_eq!(candidate.detail.as_deref(), Some("alias %i"));
-            assert_eq!(
-                candidate.documentation.as_deref(),
-                Some(metadata.description)
-            );
-        }
+        let id_completions = build_directive_completion_candidates("%id");
+        assert_eq!(id_completions.candidates.len(), 1, "%id completion");
+        let candidate = &id_completions.candidates[0];
+        assert_eq!(candidate.insertion, "%id");
+        assert_eq!(candidate.detail.as_deref(), Some("alias %i"));
+        assert_eq!(
+            candidate.documentation.as_deref(),
+            Some(metadata.description)
+        );
+
+        let i_completions = build_directive_completion_candidates("%i");
+        let i_names: Vec<&str> = i_completions
+            .candidates
+            .iter()
+            .map(|candidate| candidate.name.as_str())
+            .collect();
+        assert_eq!(i_names, ["id", "if"]);
 
         let id_args = directive_argument_candidates("id").candidates;
         assert_eq!(id_args.len(), 4);

@@ -33,6 +33,7 @@ from .paginator import (
     ListFailureModeFindingsPaginator,
     ListInputSourcesPaginator,
     ListPoliciesPaginator,
+    ListPolicyEventsPaginator,
     ListReportsPaginator,
     ListResolvedTestRunTargetResourcesPaginator,
     ListResourcesPaginator,
@@ -91,6 +92,8 @@ from .type_defs import (
     DeleteTestSourcesRequestTypeDef,
     DeleteUserJourneyRequestTypeDef,
     DeleteUserJourneyResponseTypeDef,
+    GetDependencyInsightsRequestTypeDef,
+    GetDependencyInsightsResponseTypeDef,
     GetFailureModeFindingRequestTypeDef,
     GetFailureModeFindingResponseTypeDef,
     GetPolicyRequestTypeDef,
@@ -123,6 +126,8 @@ from .type_defs import (
     ListInputSourcesResponseTypeDef,
     ListPoliciesRequestTypeDef,
     ListPoliciesResponseTypeDef,
+    ListPolicyEventsRequestTypeDef,
+    ListPolicyEventsResponseTypeDef,
     ListReportsRequestTypeDef,
     ListReportsResponseTypeDef,
     ListResolvedTestRunTargetResourcesRequestTypeDef,
@@ -161,6 +166,8 @@ from .type_defs import (
     ListUserJourneysRequestTypeDef,
     ListUserJourneysResponseTypeDef,
     PutTestSourcesRequestTypeDef,
+    StartDependencyInsightsRequestTypeDef,
+    StartDependencyInsightsResponseTypeDef,
     StartFailureModeAssessmentRequestTypeDef,
     StartFailureModeAssessmentResponseTypeDef,
     StartTestRunRequestTypeDef,
@@ -444,6 +451,16 @@ class ResilienceHubV2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/client/#delete_user_journey)
         """
 
+    def get_dependency_insights(
+        self, **kwargs: Unpack[GetDependencyInsightsRequestTypeDef]
+    ) -> GetDependencyInsightsResponseTypeDef:
+        """
+        Retrieves the dependency insights generated for a service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_dependency_insights.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/client/#get_dependency_insights)
+        """
+
     def get_failure_mode_finding(
         self, **kwargs: Unpack[GetFailureModeFindingRequestTypeDef]
     ) -> GetFailureModeFindingResponseTypeDef:
@@ -593,6 +610,17 @@ class ResilienceHubV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_policies.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/client/#list_policies)
+        """
+
+    def list_policy_events(
+        self, **kwargs: Unpack[ListPolicyEventsRequestTypeDef]
+    ) -> ListPolicyEventsResponseTypeDef:
+        """
+        Lists events for a resilience policy, including services that started or
+        stopped using it, changes to cross-account sharing, and deletion of the policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_policy_events.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/client/#list_policy_events)
         """
 
     def list_reports(
@@ -792,6 +820,16 @@ class ResilienceHubV2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/client/#put_test_sources)
         """
 
+    def start_dependency_insights(
+        self, **kwargs: Unpack[StartDependencyInsightsRequestTypeDef]
+    ) -> StartDependencyInsightsResponseTypeDef:
+        """
+        Starts generating dependency insights for a service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/start_dependency_insights.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/client/#start_dependency_insights)
+        """
+
     def start_failure_mode_assessment(
         self, **kwargs: Unpack[StartFailureModeAssessmentRequestTypeDef]
     ) -> StartFailureModeAssessmentResponseTypeDef:
@@ -985,6 +1023,17 @@ class ResilienceHubV2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_policies"]
     ) -> ListPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_events"]
+    ) -> ListPolicyEventsPaginator:
         """
         Create a paginator for an operation.
 

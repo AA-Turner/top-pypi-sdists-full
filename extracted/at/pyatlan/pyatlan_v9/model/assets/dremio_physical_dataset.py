@@ -56,6 +56,7 @@ from .dremio_related import (
 )
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
+from .knowledge_related import RelatedKnowledgeFile
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
@@ -183,6 +184,7 @@ class DremioPhysicalDataset(Asset):
     DREMIO_FOLDER: ClassVar[Any] = None
     GCP_DATAPLEX_ASPECT_TYPE_METADATA_ENTITIES: ClassVar[Any] = None
     MEANINGS: ClassVar[Any] = None
+    KNOWLEDGE_LINKED_FILES: ClassVar[Any] = None
     MC_MONITORS: ClassVar[Any] = None
     MC_INCIDENTS: ClassVar[Any] = None
     PARTIAL_CHILD_FIELDS: ClassVar[Any] = None
@@ -500,6 +502,9 @@ class DremioPhysicalDataset(Asset):
 
     meanings: Union[List[RelatedAtlasGlossaryTerm], None, UnsetType] = UNSET
     """Glossary terms that are linked to this asset."""
+
+    knowledge_linked_files: Union[List[RelatedKnowledgeFile], None, UnsetType] = UNSET
+    """Knowledge files linked to this asset."""
 
     mc_monitors: Union[List[RelatedMCMonitor], None, UnsetType] = UNSET
     """Monitors that observe this asset."""
@@ -1020,6 +1025,9 @@ class DremioPhysicalDatasetRelationshipAttributes(AssetRelationshipAttributes):
     meanings: Union[List[RelatedAtlasGlossaryTerm], None, UnsetType] = UNSET
     """Glossary terms that are linked to this asset."""
 
+    knowledge_linked_files: Union[List[RelatedKnowledgeFile], None, UnsetType] = UNSET
+    """Knowledge files linked to this asset."""
+
     mc_monitors: Union[List[RelatedMCMonitor], None, UnsetType] = UNSET
     """Monitors that observe this asset."""
 
@@ -1154,6 +1162,7 @@ _DREMIO_PHYSICAL_DATASET_REL_FIELDS: List[str] = [
     "dremio_folder",
     "gcp_dataplex_aspect_type_metadata_entities",
     "meanings",
+    "knowledge_linked_files",
     "mc_monitors",
     "mc_incidents",
     "partial_child_fields",
@@ -1426,6 +1435,7 @@ def _dremio_physical_dataset_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
+        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -1678,6 +1688,7 @@ DremioPhysicalDataset.GCP_DATAPLEX_ASPECT_TYPE_METADATA_ENTITIES = RelationField
     "gcpDataplexAspectTypeMetadataEntities"
 )
 DremioPhysicalDataset.MEANINGS = RelationField("meanings")
+DremioPhysicalDataset.KNOWLEDGE_LINKED_FILES = RelationField("knowledgeLinkedFiles")
 DremioPhysicalDataset.MC_MONITORS = RelationField("mcMonitors")
 DremioPhysicalDataset.MC_INCIDENTS = RelationField("mcIncidents")
 DremioPhysicalDataset.PARTIAL_CHILD_FIELDS = RelationField("partialChildFields")

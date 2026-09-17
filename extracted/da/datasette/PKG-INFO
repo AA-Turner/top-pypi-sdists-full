@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datasette
-Version: 0.65.4
+Version: 0.65.5
 Summary: An open source multi-tool for exploring and publishing data
 Home-page: https://datasette.io/
 Author: Simon Willison
@@ -22,8 +22,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.9
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: asgiref>=3.2.10
@@ -31,7 +30,7 @@ Requires-Dist: click>=7.1.1
 Requires-Dist: click-default-group>=1.2.3
 Requires-Dist: Jinja2>=2.10.3
 Requires-Dist: hupper>=1.9
-Requires-Dist: httpx>=0.20
+Requires-Dist: httpx<1.0,>=0.20
 Requires-Dist: pluggy>=1.0
 Requires-Dist: uvicorn>=0.11
 Requires-Dist: aiofiles>=0.4

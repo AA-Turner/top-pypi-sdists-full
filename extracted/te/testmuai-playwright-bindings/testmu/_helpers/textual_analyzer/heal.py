@@ -5,11 +5,13 @@ Flow: capture a fresh structured DOM snapshot -> POST the heal endpoint
 stable locator -> page.evaluate(wrap(code), handles).
 
 Returns a HealOutcome on success, or None on any miss (no usable code, a locator
-that won't resolve, or a null/empty result) — the caller then FAILS the step
-(there is no vision fallback for a textual heal).
+that won't resolve, or a null/empty result). A miss is retried with exponential
+backoff (see _HEAL_MAX_ATTEMPTS); once the attempts are spent the caller FAILS the
+step (there is no vision fallback for a textual heal).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass
@@ -28,6 +30,12 @@ _HEAL_HOST = os.environ.get(
 )
 _HEAL_URL = _HEAL_HOST.rstrip("/") + "/api/v1/textual_analyzer/heal"
 _HEAL_TIMEOUT = aiohttp.ClientTimeout(total=60)
+
+# A heal miss is retried: the page may not have settled yet, or the endpoint may have
+# blipped. Exponential backoff between attempts — 1s, then 2s — so a genuinely absent
+# element costs ~3s of waiting rather than a fixed poll.
+_HEAL_MAX_ATTEMPTS = 3
+_HEAL_BACKOFF_BASE_S = 1.0
 
 
 @dataclass
@@ -69,6 +77,36 @@ async def _post_heal(
 
 
 async def run_heal(
+    page, query: str, expected_value: str | None, needs_unit_conversion: bool,
+    condition: str | None = None, previous_code: str | None = None,
+) -> HealOutcome | None:
+    """Heal, retrying a miss up to ``_HEAL_MAX_ATTEMPTS`` times with exponential backoff.
+
+    Every attempt re-captures the DOM and re-POSTs, so a page that simply had not
+    settled by the caller's visibility gate gets another look; a transient endpoint
+    error gets another try. Returns None once the attempts are spent.
+    """
+    for attempt in range(1, _HEAL_MAX_ATTEMPTS + 1):
+        outcome = await _attempt_heal(
+            page, query, expected_value, needs_unit_conversion, condition,
+            previous_code,
+        )
+        if outcome is not None:
+            if attempt > 1:
+                _log.info("[textual_analyzer] heal succeeded on attempt %d/%d",
+                          attempt, _HEAL_MAX_ATTEMPTS)
+            return outcome
+        if attempt < _HEAL_MAX_ATTEMPTS:
+            delay = _HEAL_BACKOFF_BASE_S * (2 ** (attempt - 1))
+            _log.info("[textual_analyzer] heal attempt %d/%d missed -> retry in %.1fs",
+                      attempt, _HEAL_MAX_ATTEMPTS, delay)
+            await asyncio.sleep(delay)
+
+    _log.info("[textual_analyzer] heal missed after %d attempt(s)", _HEAL_MAX_ATTEMPTS)
+    return None
+
+
+async def _attempt_heal(
     page, query: str, expected_value: str | None, needs_unit_conversion: bool,
     condition: str | None = None, previous_code: str | None = None,
 ) -> HealOutcome | None:

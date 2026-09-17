@@ -11,7 +11,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.nn.parameter import Parameter
 from deepspeed.accelerator import get_accelerator
-from deepspeed.module_inject.tp_shard import get_shard_size_list
+from deepspeed.module_inject.tp_shard import AutoTPMeta, get_shard_size_list
 from deepspeed.utils.logging import log_dist_once
 from deepspeed.runtime.zero.utils import is_zero_param
 from abc import ABC, abstractmethod
@@ -39,6 +39,41 @@ def _normalize_uc_shape(value):
     return tuple(value) if value is not None else None
 
 
+def _derive_affine_map(*, tp_world_size, logical_shape, partition_dim, partition_sizes, sub_param_shard_widths,
+                       replicated, unsupported_reason):
+    """Describe this parameter's layout geometrically, from what the layer already knows.
+
+    The layer is the only place the per-rank extents exist: `_freeze_partition_sizes` resolves
+    them while the layer is built, and they are not recoverable later from a shape alone. So a
+    map is derived here rather than where the model-level metadata is collected.
+
+    Returns None when the layout is not describable yet, in which case conversion falls back to
+    the pattern categories.
+    """
+    from deepspeed.checkpoint.affine import replicated_map, contiguous_split_map, sub_param_map
+
+    if unsupported_reason or not logical_shape or not tp_world_size:
+        return None
+
+    if replicated:
+        return replicated_map(logical_shape, tp_world_size)
+
+    if partition_dim is None:
+        return None
+
+    if sub_param_shard_widths:
+        widths = [list(w) for w in sub_param_shard_widths]
+        return sub_param_map(shape=logical_shape,
+                             sub_dim_sizes=[sum(w) for w in widths],
+                             shard_widths=widths,
+                             partition_dim=partition_dim)
+
+    if partition_sizes:
+        return contiguous_split_map(logical_shape, list(partition_sizes), partition_dim)
+
+    return None
+
+
 def _build_param_uc_conversion_meta(*,
                                     partition_type,
                                     partition_dim=None,
@@ -47,13 +82,14 @@ def _build_param_uc_conversion_meta(*,
                                     original_shape=None,
                                     is_bias=False,
                                     replicated=False,
+                                    affine_map=None,
                                     unsupported_reason=None):
     """Build the conversion-facing subset of parameter UC metadata.
 
     This is the only schema that should flow into model-level
     `UNIVERSAL_CHECKPOINT_INFO` via `collect_autotp_universal_checkpoint_info()`.
     """
-    return {
+    meta = {
         'partition_type': partition_type,
         'partition_dim': partition_dim,
         'sub_param_shape': _normalize_uc_shape(sub_param_shape),
@@ -63,6 +99,11 @@ def _build_param_uc_conversion_meta(*,
         'replicated': replicated,
         'unsupported_reason': unsupported_reason,
     }
+    if affine_map is not None:
+        # Only present for a layout that can be described, so the schema an existing
+        # layer publishes is unchanged. Stored as plain scalars like every other field.
+        meta['affine_map'] = affine_map.to_dict()
+    return meta
 
 
 def _build_param_uc_restore_meta(*,
@@ -78,6 +119,7 @@ def _build_param_uc_restore_meta(*,
                                  original_shape=None,
                                  is_bias=False,
                                  replicated=False,
+                                 affine_map=None,
                                  unsupported_reason=None):
     """Build the restore-facing parameter UC metadata.
 
@@ -119,6 +161,7 @@ def _build_param_uc_restore_meta(*,
                                         original_shape=original_shape,
                                         is_bias=is_bias,
                                         replicated=replicated,
+                                        affine_map=affine_map,
                                         unsupported_reason=unsupported_reason),
     }
 
@@ -348,6 +391,27 @@ class TensorParallel_Layer(nn.Module, ABC):
         if kwargs.get('name') is not None:
             self.name = kwargs.get('name')  # Set the layer name if provided.
 
+        # Per-model TP metadata threaded from AutoTP; defaults for layers built outside it
+        # (e.g. the from_weights back-compat constructor).
+        self.tp_meta: AutoTPMeta = kwargs.get('tp_meta') or AutoTPMeta()
+
+    def _assert_compiled_if_deferred(self):
+        """Fail loudly if a deferred layer is executed outside a compiled region.
+
+        defer_collectives_to_compiler switches this layer's collectives off because the AutoTP
+        compile pass promises to emit them into the graph instead. If the forward runs eagerly --
+        TORCH_COMPILE_DISABLE=1, torch._dynamo.config.disable, a fallback to eager after the flag
+        was set -- that promise is not kept and the layer simply stops communicating, producing
+        wrong numbers with no other symptom.
+        """
+        if self.defer_collectives_to_compiler and not torch.compiler.is_compiling():
+            raise RuntimeError(
+                f"{type(self).__name__} has its tensor-parallel collectives deferred to the AutoTP compile "
+                "pass, but its forward is running eagerly, so the collectives would be dropped and the "
+                "results would be silently wrong. This usually means compilation was disabled "
+                "(TORCH_COMPILE_DISABLE / torch._dynamo.config.disable) or fell back to eager after "
+                "engine.compile(). Remove 'autotp' from the DeepCompile passes to run without it.")
+
     @classmethod
     def set_keep_module_on_host(cls, value: bool):
         """
@@ -441,6 +505,13 @@ class TensorParallel_Layer(nn.Module, ABC):
                            unsupported_reason=None):
         if param is None:
             return
+        affine_map = _derive_affine_map(tp_world_size=getattr(self, 'tp_world_size', None),
+                                        logical_shape=logical_shape or original_shape,
+                                        partition_dim=partition_dim,
+                                        partition_sizes=partition_sizes,
+                                        sub_param_shard_widths=sub_param_shard_widths,
+                                        replicated=replicated,
+                                        unsupported_reason=unsupported_reason)
         setattr(
             param, DS_AUTOTP_UC_META,
             _build_param_uc_restore_meta(partition_type=partition_type,
@@ -455,6 +526,7 @@ class TensorParallel_Layer(nn.Module, ABC):
                                          original_shape=original_shape,
                                          is_bias=is_bias,
                                          replicated=replicated,
+                                         affine_map=affine_map,
                                          unsupported_reason=unsupported_reason))
 
     def _mark_uc_metadata(self):
@@ -473,13 +545,11 @@ class TensorParallel_Layer(nn.Module, ABC):
     def _freeze_partition_sizes(self, total_size):
         """Resolve the tensor parallel split of this layer once, while the layer is built.
 
-        ``get_shard_size_list`` reads the process-wide tp_shard globals (``num_kv_heads``,
-        ``tp_grain_size``), which a later ``init_inference`` call or a second AutoTP model
-        overwrites. The split is part of the checkpoint contract, so it is resolved here and
-        every later consumer -- the forward gather, the parameter gather and the checkpoint
-        metadata -- reads the cached value rather than querying those globals again.
+        The split depends on this model's kv-head/grain metadata (``self.tp_meta``), so it is
+        resolved here and every later consumer -- the forward gather, the parameter gather and
+        the checkpoint metadata -- reads the cached value rather than re-deriving it.
         """
-        self._partition_sizes = tuple(get_shard_size_list(total_size, self.tp_world_size, self.name))
+        self._partition_sizes = tuple(get_shard_size_list(total_size, self.tp_world_size, self.tp_meta, self.name))
         return self._partition_sizes
 
     @torch.no_grad()
@@ -595,7 +665,9 @@ def collect_autotp_universal_checkpoint_info(model: nn.Module) -> Dict[str, Any]
     restore-time per-parameter details such as `sub_param_sizes` or
     `target_partition_shape`, which stay on the parameter metadata object.
     """
-    from deepspeed.checkpoint.constants import (AUTOTP_UNSUPPORTED_PARAMETER_PATTERNS, ORIGINAL_VOCAB_SIZE,
+    from deepspeed.checkpoint.affine import AFFINE_MAP_FORMAT_VERSION, replicated_map
+    from deepspeed.checkpoint.constants import (AFFINE_MAP, AFFINE_MAP_PARAMS, AFFINE_MAP_VERSION,
+                                                AUTOTP_UNSUPPORTED_PARAMETER_PATTERNS, ORIGINAL_VOCAB_SIZE,
                                                 PARAMETER_WITH_ROW_PARALLELISM_PATTERNS, PARAMETER_WITH_SUB_PARAMS,
                                                 SUB_PARAM_SHARD_WIDTHS, TP_REPLICATED_PARAMETER_PATTERNS,
                                                 UNIVERSAL_CHECKPOINT_VERSION_KEY, UNIVERSAL_CHECKPOINT_VERSION_VALUE,
@@ -607,6 +679,9 @@ def collect_autotp_universal_checkpoint_info(model: nn.Module) -> Dict[str, Any]
     vocabulary_patterns = []
     parameter_with_sub_params = []
     unsupported_parameter_patterns = {}
+    affine_maps = {}
+    untouched_shapes = {}
+    tp_world_size = None
     original_vocab_size = None
 
     # Tied parameters are reachable under several module attributes, but the optimizer -- and
@@ -618,6 +693,8 @@ def collect_autotp_universal_checkpoint_info(model: nn.Module) -> Dict[str, Any]
         marker = getattr(module, "_mark_uc_metadata", None)
         if marker is not None:
             marker()
+        if tp_world_size is None:
+            tp_world_size = getattr(module, 'tp_world_size', None)
 
         for param_name, param in module.named_parameters(recurse=False):
             full_name = f"{module_name}.{param_name}" if module_name else param_name
@@ -631,13 +708,22 @@ def collect_autotp_universal_checkpoint_info(model: nn.Module) -> Dict[str, Any]
                 # ranks. Classify it as TP-replicated; otherwise it falls through to
                 # the converter's default dim-0 concat and is wrongly expanded (e.g.
                 # LayerNorm/RMSNorm weights [H] -> [H * tp_degree]).
+                #
+                # Such a parameter is describable -- one piece held by every rank -- but the
+                # map needs the tp degree, which only the partitioned layers carry. Record
+                # the shape and build the map once the loop has seen one of them.
                 replicated_patterns.append(pattern)
+                untouched_shapes[pattern] = tuple(param.shape)
                 continue
 
             unsupported_reason = conversion_meta.get('unsupported_reason')
             if unsupported_reason:
                 unsupported_parameter_patterns[pattern] = unsupported_reason
                 continue
+
+            affine_map = conversion_meta.get('affine_map')
+            if affine_map is not None:
+                affine_maps[pattern] = affine_map
 
             if conversion_meta.get('replicated'):
                 replicated_patterns.append(pattern)
@@ -684,6 +770,17 @@ def collect_autotp_universal_checkpoint_info(model: nn.Module) -> Dict[str, Any]
         uc_info[SUB_PARAM_SHARD_WIDTHS] = sub_param_shard_widths
     if original_vocab_size is not None:
         uc_info[ORIGINAL_VOCAB_SIZE] = original_vocab_size
+    if tp_world_size:
+        for pattern, shape in untouched_shapes.items():
+            affine_maps[pattern] = replicated_map(shape, tp_world_size).to_dict()
+
+    if affine_maps:
+        # Published alongside the pattern lists rather than instead of them, so a converter
+        # that predates the map simply does not see the key and takes the categories.
+        uc_info[AFFINE_MAP] = {
+            AFFINE_MAP_VERSION: AFFINE_MAP_FORMAT_VERSION,
+            AFFINE_MAP_PARAMS: affine_maps,
+        }
     return uc_info
 
 
@@ -768,6 +865,7 @@ class LinearAllreduce(TensorParallel_Layer):
         self._mark_uc_metadata()
 
     def forward(self, input):
+        self._assert_compiled_if_deferred()
         output = torch.matmul(input, self.weight.transpose(-1, -2))
         if not self.defer_collectives_to_compiler:
             output = RowParallel.apply(self.mp_group, output, not self.is_training_mode())
@@ -849,6 +947,7 @@ class LinearLayer(TensorParallel_Layer):
         self._mark_uc_metadata()
 
     def forward(self, input):
+        self._assert_compiled_if_deferred()
         if not self.__class__.tp_overlap_comm:
             if getattr(self, 'mp_group', None) is not None and not self.defer_collectives_to_compiler:
                 input = ColumnParallel.apply(self.mp_group, input)
@@ -964,7 +1063,8 @@ class SubParamColumnParallel(LinearLayer):
         self._subparam_sizes = subparam_sizes
         self._subparam_shard_widths = None
         if subparam_sizes is not None:
-            self._subparam_shard_widths = _subparam_shard_widths(subparam_sizes, self.tp_world_size, shard_name)
+            self._subparam_shard_widths = _subparam_shard_widths(subparam_sizes, self.tp_world_size, self.tp_meta,
+                                                                 shard_name)
 
     def _subparam_shape_spec(self, logical_shape):
         shape_spec = list(logical_shape)
@@ -1084,8 +1184,8 @@ class fused_LinearLayer(SubParamColumnParallel):
         self.fused_module = FusedModuleWrapper(kwargs.get('fused_module'))
         # prepare_tp_fused_qkvw takes its own shard sizes without a layer name, so the widths
         # describing its split must be resolved the same way.
-        self._subparam_layout_spec = (fused_qkv_subparam_sizes(kwargs.get('fused_module'),
-                                                               tuple(module.weight.shape)), None)
+        self._subparam_layout_spec = (fused_qkv_subparam_sizes(kwargs.get('fused_module'), tuple(module.weight.shape),
+                                                               kwargs['tp_meta']), None)
         super().__init__(module, mp_group, skip_partition, **kwargs)
 
     def _freeze_partition_sizes(self, total_size):
@@ -1101,7 +1201,8 @@ class fused_LinearLayer(SubParamColumnParallel):
             if param is None:
                 return
 
-            _partition = prepare_tp_fused_qkvw(self.fused_module.module, param, self.tp_world_size, self.tp_index)
+            _partition = prepare_tp_fused_qkvw(self.fused_module.module, param, self.tp_world_size, self.tp_index,
+                                               self.tp_meta)
 
             _partition = self.move(_partition).detach()
 
@@ -1118,13 +1219,15 @@ class conv_LinearLayer(LinearLayer):
             weight = params_list[0]
         elif len(params_list) == 2:
             weight, bias = params_list[0], params_list[1]
-        _partition = weight.data.split(get_shard_size_list(weight.shape[0], self.tp_world_size, self.name),
+        _partition = weight.data.split(get_shard_size_list(weight.shape[0], self.tp_world_size, self.tp_meta,
+                                                           self.name),
                                        dim=1)[self.tp_index]
         _partition = self.move(_partition).detach()
         weight.data = _partition
 
         if bias is not None:
-            _partition = bias.data.split(get_shard_size_list(weight.shape[1], self.tp_world_size, self.name),
+            _partition = bias.data.split(get_shard_size_list(weight.shape[1], self.tp_world_size, self.tp_meta,
+                                                             self.name),
                                          dim=0)[self.tp_index]
             _partition = self.move(_partition).detach()
 
@@ -1141,7 +1244,7 @@ class Yuan_LinearAllreduce(LinearAllreduce):
     @torch.no_grad()
     def _tp_partition(self, params_list):
         weight, bias = shard_value_with_share_qk(params_list[0].data, params_list[1], self.tp_index,
-                                                 self.tp_world_size, False)
+                                                 self.tp_world_size, False, self.tp_meta)
         params_list[0].data = weight
         if bias is not None:
             params_list[1].data = bias
@@ -1175,7 +1278,7 @@ class Yuan_LinearLayer(LinearLayer):
     @torch.no_grad()
     def _tp_partition(self, params_list):
         weight, bias = shard_value_with_share_qk(params_list[0].data, params_list[1], self.tp_index,
-                                                 self.tp_world_size, True)
+                                                 self.tp_world_size, True, self.tp_meta)
         params_list[0].data = self.move(weight).detach()
         if bias is not None:
             params_list[1].data = self.move(bias).detach()
@@ -1220,7 +1323,7 @@ class Conv_LinearALlreduce(LinearAllreduce):
                 return
             param.data = param.data.transpose(-1, -2).contiguous()
 
-            _partition = param.split(get_shard_size_list(param.shape[0], self.tp_world_size, self.name),
+            _partition = param.split(get_shard_size_list(param.shape[0], self.tp_world_size, self.tp_meta, self.name),
                                      dim=1)[self.tp_index]
 
             _partition = self.move(_partition).detach()
@@ -1517,7 +1620,7 @@ def _bias_subparam_shape_spec(output_shape, bias_partition_dim, subparam_sizes):
     return tuple(shape_spec)
 
 
-def _subparam_shard_widths(subparam_sizes, tp_world_size, name=None):
+def _subparam_shard_widths(subparam_sizes, tp_world_size, meta: AutoTPMeta, name=None):
     """Per-rank width of each sub-parameter, as one list per sub-parameter.
 
     Sub-parameters follow the same deterministic split as ordinary layers, so a fused
@@ -1525,7 +1628,7 @@ def _subparam_shard_widths(subparam_sizes, tp_world_size, name=None):
     """
     widths = []
     for size in subparam_sizes:
-        per_rank = get_shard_size_list(size, tp_world_size, name)
+        per_rank = get_shard_size_list(size, tp_world_size, meta, name)
         if min(per_rank) == 0:
             # Those ranks contribute zeros to the row-parallel all-reduce, so the result stays
             # correct and this matches how separate q/k/v projections already behave. Serving
@@ -1664,9 +1767,10 @@ class SubParamLinearLayer(TensorParallel_Layer):
          self._bias_partition_dim) = _infer_subparam_logical_shapes(self._orig_weight_shape, self.shape,
                                                                     self.partition_dim, self.name)
         # Resolve the per-rank widths once, for the same reason _freeze_partition_sizes does:
-        # get_shard_size_list reads process-wide globals that a later model can overwrite.
+        # the split depends on this model's tp_meta.
         self._subparam_shard_widths = _subparam_shard_widths(
-            self._subparam_sizes or (self._logical_shape[self.partition_dim], ), self.tp_world_size, self.name)
+            self._subparam_sizes or (self._logical_shape[self.partition_dim], ), self.tp_world_size, self.tp_meta,
+            self.name)
         self._bias_shape_spec = _bias_subparam_shape_spec(self._output_shape, self._bias_partition_dim,
                                                           self._subparam_sizes)
         if self.bias is not None and self.bias.numel() != _shape_prod(self._output_shape):
@@ -1682,6 +1786,7 @@ class SubParamLinearLayer(TensorParallel_Layer):
         self._mark_uc_metadata()
 
     def forward(self, input):
+        self._assert_compiled_if_deferred()
         if getattr(self, 'mp_group', None) is not None and not self.defer_collectives_to_compiler:
             input = ColumnParallel.apply(self.mp_group, input)
         output = torch.matmul(input, self.weight.transpose(-1, -2))
@@ -1796,9 +1901,10 @@ class SubParamLinearAllreduce(TensorParallel_Layer):
          self._bias_partition_dim) = _infer_subparam_logical_shapes(self._orig_weight_shape, self.shape,
                                                                     self.partition_dim, self.name)
         # Resolve the per-rank widths once, for the same reason _freeze_partition_sizes does:
-        # get_shard_size_list reads process-wide globals that a later model can overwrite.
+        # the split depends on this model's tp_meta.
         self._subparam_shard_widths = _subparam_shard_widths(
-            self._subparam_sizes or (self._logical_shape[self.partition_dim], ), self.tp_world_size, self.name)
+            self._subparam_sizes or (self._logical_shape[self.partition_dim], ), self.tp_world_size, self.tp_meta,
+            self.name)
 
         if self._should_materialize_tp_partition():
             self._tp_partition([self.weight, self.bias])
@@ -1809,6 +1915,7 @@ class SubParamLinearAllreduce(TensorParallel_Layer):
         self._mark_uc_metadata()
 
     def forward(self, input):
+        self._assert_compiled_if_deferred()
         output = torch.matmul(input, self.weight.transpose(-1, -2))
         if not self.defer_collectives_to_compiler:
             output = RowParallel.apply(self.mp_group, output, not self.is_training_mode())

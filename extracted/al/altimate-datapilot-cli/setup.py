@@ -13,7 +13,7 @@ def read(*names, **kwargs):
 
 setup(
     name="altimate-datapilot-cli",
-    version="0.3.6",
+    version="0.3.7",
     license="MIT",
     description="Assistant for Data Teams",
     long_description="{}\n{}".format(
@@ -67,7 +67,7 @@ setup(
         "ruamel.yaml~=0.18.6",
         "tabulate~=0.9.0",
         "requests>=2.31",
-        "sqlglot[c]==30.7.0",
+        "sqlglot[c]==30.11.0",
         "mcp>=1.9.0,<2.0.0",
         "pyperclip~=1.8.2",
         "python-dotenv~=1.0.0",

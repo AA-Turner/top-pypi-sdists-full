@@ -109,6 +109,12 @@ class ISecurityPrice(metaclass=abc.ABCMeta):
         """symbol_properties of the symbol"""
         ...
 
+    @property
+    @abc.abstractmethod
+    def exchange(self) -> QuantConnect.Securities.SecurityExchange:
+        """SecurityExchange of the symbol"""
+        ...
+
     def get_last_data(self) -> QuantConnect.Data.BaseData:
         """
         Get the last price update set to the security.

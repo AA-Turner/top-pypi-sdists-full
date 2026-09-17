@@ -1,0 +1,1329 @@
+
+---
+events:
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineSystem.cmake:205 (message)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      The system is: Darwin - 24.3.0 - arm64
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCCompiler.cmake:123 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Compiling the C compiler identification source file "CMakeCCompilerId.c" failed.
+      Compiler: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/cc 
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      1
+      ld: library 'System' not found
+      cc: error: linker command failed with exit code 1 (use -v to see invocation)
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCCompiler.cmake:123 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+      Compiler: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/cc 
+      Build flags: 
+      Id flags: -c 
+      
+      The output was:
+      0
+      
+      
+      Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "CMakeCCompilerId.o"
+      
+      The C compiler identification is AppleClang, found in:
+        /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/3.30.3/CompilerIdC/CMakeCCompilerId.o
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCXXCompiler.cmake:126 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" failed.
+      Compiler: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ 
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      1
+      ld: library 'c++' not found
+      c++: error: linker command failed with exit code 1 (use -v to see invocation)
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCXXCompiler.cmake:126 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+      Compiler: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ 
+      Build flags: 
+      Id flags: -c 
+      
+      The output was:
+      0
+      
+      
+      Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CMakeCXXCompilerId.o"
+      
+      The CXX compiler identification is AppleClang, found in:
+        /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/3.30.3/CompilerIdCXX/CMakeCXXCompilerId.o
+      
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:74 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:19 (project)"
+    checks:
+      - "Detecting C compiler ABI info"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-CR8Il6"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-CR8Il6"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "CMAKE_C_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-CR8Il6'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_b90cc/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_b90cc.dir/build.make CMakeFiles/cmTC_b90cc.dir/build
+        Building C object CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/cc   -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -v -Wl,-v -MD -MT CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -MF CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o.d -o CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -c /opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeCCompilerABI.c
+        Apple clang version 16.0.0 (clang-1600.0.26.6)
+        Target: arm64-apple-darwin24.3.0
+        Thread model: posix
+        InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
+        cc: warning: -Wl,-v: 'linker' input unused [-Wunused-command-line-argument]
+         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang" -cc1 -triple arm64-apple-macosx11.0.0 -Wundef-prefix=TARGET_OS_ -Wdeprecated-objc-isa-usage -Werror=deprecated-objc-isa-usage -Werror=implicit-function-declaration -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -mframe-pointer=non-leaf -fno-strict-return -ffp-contract=on -fno-rounding-math -funwind-tables=1 -fobjc-msgsend-selector-stubs -target-sdk-version=15.2 -fvisibility-inlines-hidden-static-local-var -fno-modulemap-allow-subdirectory-search -target-cpu apple-m1 -target-feature +v8.5a -target-feature +aes -target-feature +crc -target-feature +dotprod -target-feature +fp-armv8 -target-feature +fp16fml -target-feature +lse -target-feature +ras -target-feature +rcpc -target-feature +rdm -target-feature +sha2 -target-feature +sha3 -target-feature +neon -target-feature +zcm -target-feature +zcz -target-feature +fullfp16 -target-abi darwinpcs -debugger-tuning=lldb -target-linker-version 1115.7.3 -v -fcoverage-compilation-dir=/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-CR8Il6 -resource-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16 -dependency-file CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o.d -skip-unused-modulemap-deps -MT CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -sys-header-deps -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -internal-isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/local/include -internal-isystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include -internal-externc-isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include -internal-externc-isystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -Wno-reorder-init-list -Wno-implicit-int-float-conversion -Wno-c99-designator -Wno-final-dtor-non-final-class -Wno-extra-semi-stmt -Wno-misleading-indentation -Wno-quoted-include-in-framework-header -Wno-implicit-fallthrough -Wno-enum-enum-conversion -Wno-enum-float-conversion -Wno-elaborated-enum-base -Wno-reserved-identifier -Wno-gnu-folding-constant -fdebug-compilation-dir=/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-CR8Il6 -ferror-limit 19 -stack-protector 1 -fstack-check -mdarwin-stkchk-strong-link -fblocks -fencode-extended-block-signature -fregister-global-dtors-with-atexit -fgnuc-version=4.2.1 -fmax-type-align=16 -fcommon -clang-vendor-feature=+disableNonDependentMemberExprInCurrentInstantiation -fno-odr-hash-protocols -clang-vendor-feature=+enableAggressiveVLAFolding -clang-vendor-feature=+revert09abecef7bbf -clang-vendor-feature=+thisNoAlignAttr -clang-vendor-feature=+thisNoNullAttr -clang-vendor-feature=+disableAtImportPrivateFrameworkInImplementationError -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -x c /opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeCCompilerABI.c
+        clang -cc1 version 16.0.0 (clang-1600.0.26.6) default target arm64-apple-darwin24.3.0
+        ignoring nonexistent directory "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/local/include"
+        ignoring nonexistent directory "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/Library/Frameworks"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include
+         /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include
+         /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include
+         /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks (framework directory)
+        End of search list.
+        Linking C executable cmTC_b90cc
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_b90cc.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/cc  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names  -v -Wl,-v CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -o cmTC_b90cc
+        Apple clang version 16.0.0 (clang-1600.0.26.6)
+        Target: arm64-apple-darwin24.3.0
+        Thread model: posix
+        InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
+         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld" -demangle -lto_library /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/libLTO.dylib -dynamic -arch arm64 -platform_version macos 11.0.0 15.2 -syslibroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mllvm -enable-linkonceodr-outlining -o cmTC_b90cc -search_paths_first -headerpad_max_install_names -v CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -lSystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/lib/darwin/libclang_rt.osx.a
+        @(#)PROGRAM:ld PROJECT:ld-1115.7.3
+        BUILD 23:52:02 Dec  5 2024
+        configured to support archs: armv6 armv7 armv7s arm64 arm64e arm64_32 i386 x86_64 x86_64h armv6m armv7k armv7m armv7em
+        will use ld-classic for: armv6 armv7 armv7s i386 armv6m armv7k armv7m armv7em
+        LTO support using: LLVM version 16.0.0 (static support for 29, runtime is 29)
+        TAPI support using: Apple TAPI version 16.0.0 (tapi-1600.0.11.9)
+        Library search paths:
+        	/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib
+        	/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib/swift
+        Framework search paths:
+        	/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:113 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Effective list of requested architectures (possibly empty)  : "arm64"
+      Effective list of architectures found in the ABI info binary: "arm64"
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:182 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Parsed C implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include]
+          add: [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include]
+          add: [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include]
+        end of search list found
+        collapse include dir [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include] ==> [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include]
+        collapse include dir [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include] ==> [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include]
+        collapse include dir [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include] ==> [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include]
+        implicit include dirs: [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include;/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:218 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Parsed C implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(\\.[a-z]+)?|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(\\.[a-z]+)?))("|,| |$)]
+        ignore line: [Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-CR8Il6']
+        ignore line: []
+        ignore line: [Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_b90cc/fast]
+        ignore line: [/Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_b90cc.dir/build.make CMakeFiles/cmTC_b90cc.dir/build]
+        ignore line: [Building C object CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o]
+        ignore line: [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/cc   -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -v -Wl -v -MD -MT CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -MF CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o.d -o CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -c /opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeCCompilerABI.c]
+        ignore line: [Apple clang version 16.0.0 (clang-1600.0.26.6)]
+        ignore line: [Target: arm64-apple-darwin24.3.0]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin]
+        ignore line: [cc: warning: -Wl -v: 'linker' input unused [-Wunused-command-line-argument]]
+        ignore line: [ "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang" -cc1 -triple arm64-apple-macosx11.0.0 -Wundef-prefix=TARGET_OS_ -Wdeprecated-objc-isa-usage -Werror=deprecated-objc-isa-usage -Werror=implicit-function-declaration -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -mframe-pointer=non-leaf -fno-strict-return -ffp-contract=on -fno-rounding-math -funwind-tables=1 -fobjc-msgsend-selector-stubs -target-sdk-version=15.2 -fvisibility-inlines-hidden-static-local-var -fno-modulemap-allow-subdirectory-search -target-cpu apple-m1 -target-feature +v8.5a -target-feature +aes -target-feature +crc -target-feature +dotprod -target-feature +fp-armv8 -target-feature +fp16fml -target-feature +lse -target-feature +ras -target-feature +rcpc -target-feature +rdm -target-feature +sha2 -target-feature +sha3 -target-feature +neon -target-feature +zcm -target-feature +zcz -target-feature +fullfp16 -target-abi darwinpcs -debugger-tuning=lldb -target-linker-version 1115.7.3 -v -fcoverage-compilation-dir=/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-CR8Il6 -resource-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16 -dependency-file CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o.d -skip-unused-modulemap-deps -MT CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -sys-header-deps -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -internal-isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/local/include -internal-isystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include -internal-externc-isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include -internal-externc-isystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -Wno-reorder-init-list -Wno-implicit-int-float-conversion -Wno-c99-designator -Wno-final-dtor-non-final-class -Wno-extra-semi-stmt -Wno-misleading-indentation -Wno-quoted-include-in-framework-header -Wno-implicit-fallthrough -Wno-enum-enum-conversion -Wno-enum-float-conversion -Wno-elaborated-enum-base -Wno-reserved-identifier -Wno-gnu-folding-constant -fdebug-compilation-dir=/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-CR8Il6 -ferror-limit 19 -stack-protector 1 -fstack-check -mdarwin-stkchk-strong-link -fblocks -fencode-extended-block-signature -fregister-global-dtors-with-atexit -fgnuc-version=4.2.1 -fmax-type-align=16 -fcommon -clang-vendor-feature=+disableNonDependentMemberExprInCurrentInstantiation -fno-odr-hash-protocols -clang-vendor-feature=+enableAggressiveVLAFolding -clang-vendor-feature=+revert09abecef7bbf -clang-vendor-feature=+thisNoAlignAttr -clang-vendor-feature=+thisNoNullAttr -clang-vendor-feature=+disableAtImportPrivateFrameworkInImplementationError -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -x c /opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeCCompilerABI.c]
+        ignore line: [clang -cc1 version 16.0.0 (clang-1600.0.26.6) default target arm64-apple-darwin24.3.0]
+        ignore line: [ignoring nonexistent directory "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/local/include"]
+        ignore line: [ignoring nonexistent directory "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/Library/Frameworks"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include]
+        ignore line: [ /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include]
+        ignore line: [ /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include]
+        ignore line: [ /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks (framework directory)]
+        ignore line: [End of search list.]
+        ignore line: [Linking C executable cmTC_b90cc]
+        ignore line: [/opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_b90cc.dir/link.txt --verbose=1]
+        ignore line: [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/cc  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl -search_paths_first -Wl -headerpad_max_install_names  -v -Wl -v CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -o cmTC_b90cc]
+        ignore line: [Apple clang version 16.0.0 (clang-1600.0.26.6)]
+        ignore line: [Target: arm64-apple-darwin24.3.0]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin]
+        link line: [ "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld" -demangle -lto_library /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/libLTO.dylib -dynamic -arch arm64 -platform_version macos 11.0.0 15.2 -syslibroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mllvm -enable-linkonceodr-outlining -o cmTC_b90cc -search_paths_first -headerpad_max_install_names -v CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o -lSystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/lib/darwin/libclang_rt.osx.a]
+          arg [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld] ==> ignore
+          arg [-demangle] ==> ignore
+          arg [-lto_library] ==> ignore, skip following value
+          arg [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/libLTO.dylib] ==> skip value of -lto_library
+          arg [-dynamic] ==> ignore
+          arg [-arch] ==> ignore
+          arg [arm64] ==> ignore
+          arg [-platform_version] ==> ignore
+          arg [macos] ==> ignore
+          arg [11.0.0] ==> ignore
+          arg [15.2] ==> ignore
+          arg [-syslibroot] ==> ignore
+          arg [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk] ==> ignore
+          arg [-mllvm] ==> ignore
+          arg [-enable-linkonceodr-outlining] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_b90cc] ==> ignore
+          arg [-search_paths_first] ==> ignore
+          arg [-headerpad_max_install_names] ==> ignore
+          arg [-v] ==> ignore
+          arg [CMakeFiles/cmTC_b90cc.dir/CMakeCCompilerABI.c.o] ==> ignore
+          arg [-lSystem] ==> lib [System]
+          arg [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/lib/darwin/libclang_rt.osx.a] ==> lib [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/lib/darwin/libclang_rt.osx.a]
+        linker tool for 'C': /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld
+        Library search paths: [;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib/swift]
+        Framework search paths: [;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks]
+        remove lib [System]
+        remove lib [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/lib/darwin/libclang_rt.osx.a]
+        collapse library dir [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib] ==> [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib]
+        collapse library dir [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib/swift] ==> [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib/swift]
+        collapse framework dir [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks] ==> [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks]
+        implicit libs: []
+        implicit objs: []
+        implicit dirs: [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib/swift]
+        implicit fwks: [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CMakeDetermineLinkerId.cmake:40 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:255 (cmake_determine_linker_id)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Running the C compiler's linker: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld" "-v"
+      @(#)PROGRAM:ld PROJECT:ld-1115.7.3
+      BUILD 23:52:02 Dec  5 2024
+      configured to support archs: armv6 armv7 armv7s arm64 arm64e arm64_32 i386 x86_64 x86_64h armv6m armv7k armv7m armv7em
+      will use ld-classic for: armv6 armv7 armv7s i386 armv6m armv7k armv7m armv7em
+      LTO support using: LLVM version 16.0.0 (static support for 29, runtime is 29)
+      TAPI support using: Apple TAPI version 16.0.0 (tapi-1600.0.11.9)
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:74 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:19 (project)"
+    checks:
+      - "Detecting CXX compiler ABI info"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-zYkgmo"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-zYkgmo"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_CXX_SCAN_FOR_MODULES: "OFF"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "CMAKE_CXX_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-zYkgmo'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_97d07/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_97d07.dir/build.make CMakeFiles/cmTC_97d07.dir/build
+        Building CXX object CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++   -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -v -Wl,-v -MD -MT CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -MF CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o.d -o CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -c /opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeCXXCompilerABI.cpp
+        Apple clang version 16.0.0 (clang-1600.0.26.6)
+        Target: arm64-apple-darwin24.3.0
+        Thread model: posix
+        InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
+        c++: warning: -Wl,-v: 'linker' input unused [-Wunused-command-line-argument]
+        ignoring nonexistent directory "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../include/c++/v1"
+         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang" -cc1 -triple arm64-apple-macosx11.0.0 -Wundef-prefix=TARGET_OS_ -Wdeprecated-objc-isa-usage -Werror=deprecated-objc-isa-usage -Werror=implicit-function-declaration -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -mframe-pointer=non-leaf -fno-strict-return -ffp-contract=on -fno-rounding-math -funwind-tables=1 -fobjc-msgsend-selector-stubs -target-sdk-version=15.2 -fvisibility-inlines-hidden-static-local-var -fno-modulemap-allow-subdirectory-search -target-cpu apple-m1 -target-feature +v8.5a -target-feature +aes -target-feature +crc -target-feature +dotprod -target-feature +fp-armv8 -target-feature +fp16fml -target-feature +lse -target-feature +ras -target-feature +rcpc -target-feature +rdm -target-feature +sha2 -target-feature +sha3 -target-feature +neon -target-feature +zcm -target-feature +zcz -target-feature +fullfp16 -target-abi darwinpcs -debugger-tuning=lldb -target-linker-version 1115.7.3 -v -fcoverage-compilation-dir=/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-zYkgmo -resource-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16 -dependency-file CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o.d -skip-unused-modulemap-deps -MT CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -internal-isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1 -internal-isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/local/include -internal-isystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include -internal-externc-isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include -internal-externc-isystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -Wno-reorder-init-list -Wno-implicit-int-float-conversion -Wno-c99-designator -Wno-final-dtor-non-final-class -Wno-extra-semi-stmt -Wno-misleading-indentation -Wno-quoted-include-in-framework-header -Wno-implicit-fallthrough -Wno-enum-enum-conversion -Wno-enum-float-conversion -Wno-elaborated-enum-base -Wno-reserved-identifier -Wno-gnu-folding-constant -fdeprecated-macro -fdebug-compilation-dir=/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-zYkgmo -ferror-limit 19 -stack-protector 1 -fstack-check -mdarwin-stkchk-strong-link -fblocks -fencode-extended-block-signature -fregister-global-dtors-with-atexit -fgnuc-version=4.2.1 -fno-cxx-modules -fcxx-exceptions -fexceptions -fmax-type-align=16 -fcommon -clang-vendor-feature=+disableNonDependentMemberExprInCurrentInstantiation -fno-odr-hash-protocols -clang-vendor-feature=+enableAggressiveVLAFolding -clang-vendor-feature=+revert09abecef7bbf -clang-vendor-feature=+thisNoAlignAttr -clang-vendor-feature=+thisNoNullAttr -clang-vendor-feature=+disableAtImportPrivateFrameworkInImplementationError -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -x c++ /opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeCXXCompilerABI.cpp
+        clang -cc1 version 16.0.0 (clang-1600.0.26.6) default target arm64-apple-darwin24.3.0
+        ignoring nonexistent directory "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/local/include"
+        ignoring nonexistent directory "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/Library/Frameworks"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1
+         /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include
+         /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include
+         /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include
+         /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks (framework directory)
+        End of search list.
+        Linking CXX executable cmTC_97d07
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_97d07.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names  -v -Wl,-v CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_97d07
+        Apple clang version 16.0.0 (clang-1600.0.26.6)
+        Target: arm64-apple-darwin24.3.0
+        Thread model: posix
+        InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
+         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld" -demangle -lto_library /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/libLTO.dylib -dynamic -arch arm64 -platform_version macos 11.0.0 15.2 -syslibroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mllvm -enable-linkonceodr-outlining -o cmTC_97d07 -search_paths_first -headerpad_max_install_names -v CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -lc++ -lSystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/lib/darwin/libclang_rt.osx.a
+        @(#)PROGRAM:ld PROJECT:ld-1115.7.3
+        BUILD 23:52:02 Dec  5 2024
+        configured to support archs: armv6 armv7 armv7s arm64 arm64e arm64_32 i386 x86_64 x86_64h armv6m armv7k armv7m armv7em
+        will use ld-classic for: armv6 armv7 armv7s i386 armv6m armv7k armv7m armv7em
+        LTO support using: LLVM version 16.0.0 (static support for 29, runtime is 29)
+        TAPI support using: Apple TAPI version 16.0.0 (tapi-1600.0.11.9)
+        Library search paths:
+        	/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib
+        	/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib/swift
+        Framework search paths:
+        	/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:113 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Effective list of requested architectures (possibly empty)  : "arm64"
+      Effective list of architectures found in the ABI info binary: "arm64"
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:182 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Parsed CXX implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1]
+          add: [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include]
+          add: [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include]
+          add: [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include]
+        end of search list found
+        collapse include dir [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1] ==> [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1]
+        collapse include dir [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include] ==> [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include]
+        collapse include dir [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include] ==> [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include]
+        collapse include dir [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include] ==> [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include]
+        implicit include dirs: [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1;/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include;/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:218 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Parsed CXX implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(\\.[a-z]+)?|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(\\.[a-z]+)?))("|,| |$)]
+        ignore line: [Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-zYkgmo']
+        ignore line: []
+        ignore line: [Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_97d07/fast]
+        ignore line: [/Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_97d07.dir/build.make CMakeFiles/cmTC_97d07.dir/build]
+        ignore line: [Building CXX object CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o]
+        ignore line: [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++   -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -v -Wl -v -MD -MT CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -MF CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o.d -o CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -c /opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [Apple clang version 16.0.0 (clang-1600.0.26.6)]
+        ignore line: [Target: arm64-apple-darwin24.3.0]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin]
+        ignore line: [c++: warning: -Wl -v: 'linker' input unused [-Wunused-command-line-argument]]
+        ignore line: [ignoring nonexistent directory "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../include/c++/v1"]
+        ignore line: [ "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang" -cc1 -triple arm64-apple-macosx11.0.0 -Wundef-prefix=TARGET_OS_ -Wdeprecated-objc-isa-usage -Werror=deprecated-objc-isa-usage -Werror=implicit-function-declaration -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -mframe-pointer=non-leaf -fno-strict-return -ffp-contract=on -fno-rounding-math -funwind-tables=1 -fobjc-msgsend-selector-stubs -target-sdk-version=15.2 -fvisibility-inlines-hidden-static-local-var -fno-modulemap-allow-subdirectory-search -target-cpu apple-m1 -target-feature +v8.5a -target-feature +aes -target-feature +crc -target-feature +dotprod -target-feature +fp-armv8 -target-feature +fp16fml -target-feature +lse -target-feature +ras -target-feature +rcpc -target-feature +rdm -target-feature +sha2 -target-feature +sha3 -target-feature +neon -target-feature +zcm -target-feature +zcz -target-feature +fullfp16 -target-abi darwinpcs -debugger-tuning=lldb -target-linker-version 1115.7.3 -v -fcoverage-compilation-dir=/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-zYkgmo -resource-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16 -dependency-file CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o.d -skip-unused-modulemap-deps -MT CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -internal-isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1 -internal-isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/local/include -internal-isystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include -internal-externc-isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include -internal-externc-isystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -Wno-reorder-init-list -Wno-implicit-int-float-conversion -Wno-c99-designator -Wno-final-dtor-non-final-class -Wno-extra-semi-stmt -Wno-misleading-indentation -Wno-quoted-include-in-framework-header -Wno-implicit-fallthrough -Wno-enum-enum-conversion -Wno-enum-float-conversion -Wno-elaborated-enum-base -Wno-reserved-identifier -Wno-gnu-folding-constant -fdeprecated-macro -fdebug-compilation-dir=/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-zYkgmo -ferror-limit 19 -stack-protector 1 -fstack-check -mdarwin-stkchk-strong-link -fblocks -fencode-extended-block-signature -fregister-global-dtors-with-atexit -fgnuc-version=4.2.1 -fno-cxx-modules -fcxx-exceptions -fexceptions -fmax-type-align=16 -fcommon -clang-vendor-feature=+disableNonDependentMemberExprInCurrentInstantiation -fno-odr-hash-protocols -clang-vendor-feature=+enableAggressiveVLAFolding -clang-vendor-feature=+revert09abecef7bbf -clang-vendor-feature=+thisNoAlignAttr -clang-vendor-feature=+thisNoNullAttr -clang-vendor-feature=+disableAtImportPrivateFrameworkInImplementationError -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -x c++ /opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [clang -cc1 version 16.0.0 (clang-1600.0.26.6) default target arm64-apple-darwin24.3.0]
+        ignore line: [ignoring nonexistent directory "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/local/include"]
+        ignore line: [ignoring nonexistent directory "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/Library/Frameworks"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1]
+        ignore line: [ /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/include]
+        ignore line: [ /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include]
+        ignore line: [ /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include]
+        ignore line: [ /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks (framework directory)]
+        ignore line: [End of search list.]
+        ignore line: [Linking CXX executable cmTC_97d07]
+        ignore line: [/opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_97d07.dir/link.txt --verbose=1]
+        ignore line: [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl -search_paths_first -Wl -headerpad_max_install_names  -v -Wl -v CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_97d07]
+        ignore line: [Apple clang version 16.0.0 (clang-1600.0.26.6)]
+        ignore line: [Target: arm64-apple-darwin24.3.0]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin]
+        link line: [ "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld" -demangle -lto_library /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/libLTO.dylib -dynamic -arch arm64 -platform_version macos 11.0.0 15.2 -syslibroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mllvm -enable-linkonceodr-outlining -o cmTC_97d07 -search_paths_first -headerpad_max_install_names -v CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o -lc++ -lSystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/lib/darwin/libclang_rt.osx.a]
+          arg [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld] ==> ignore
+          arg [-demangle] ==> ignore
+          arg [-lto_library] ==> ignore, skip following value
+          arg [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/libLTO.dylib] ==> skip value of -lto_library
+          arg [-dynamic] ==> ignore
+          arg [-arch] ==> ignore
+          arg [arm64] ==> ignore
+          arg [-platform_version] ==> ignore
+          arg [macos] ==> ignore
+          arg [11.0.0] ==> ignore
+          arg [15.2] ==> ignore
+          arg [-syslibroot] ==> ignore
+          arg [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk] ==> ignore
+          arg [-mllvm] ==> ignore
+          arg [-enable-linkonceodr-outlining] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_97d07] ==> ignore
+          arg [-search_paths_first] ==> ignore
+          arg [-headerpad_max_install_names] ==> ignore
+          arg [-v] ==> ignore
+          arg [CMakeFiles/cmTC_97d07.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
+          arg [-lc++] ==> lib [c++]
+          arg [-lSystem] ==> lib [System]
+          arg [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/lib/darwin/libclang_rt.osx.a] ==> lib [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/lib/darwin/libclang_rt.osx.a]
+        linker tool for 'CXX': /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld
+        Library search paths: [;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib/swift]
+        Framework search paths: [;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks]
+        remove lib [System]
+        remove lib [/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/16/lib/darwin/libclang_rt.osx.a]
+        collapse library dir [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib] ==> [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib]
+        collapse library dir [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib/swift] ==> [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib/swift]
+        collapse framework dir [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks] ==> [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks]
+        implicit libs: [c++]
+        implicit objs: []
+        implicit dirs: [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/lib/swift]
+        implicit fwks: [/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CMakeDetermineLinkerId.cmake:40 (message)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:255 (cmake_determine_linker_id)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:19 (project)"
+    message: |
+      Running the CXX compiler's linker: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld" "-v"
+      @(#)PROGRAM:ld PROJECT:ld-1115.7.3
+      BUILD 23:52:02 Dec  5 2024
+      configured to support archs: armv6 armv7 armv7s arm64 arm64e arm64_32 i386 x86_64 x86_64h armv6m armv7k armv7m armv7em
+      will use ld-classic for: armv6 armv7 armv7s i386 armv6m armv7k armv7m armv7em
+      LTO support using: LLVM version 16.0.0 (static support for 29, runtime is 29)
+      TAPI support using: Apple TAPI version 16.0.0 (tapi-1600.0.11.9)
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Y9LHEo"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Y9LHEo"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Y9LHEo'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_eb90e/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_eb90e.dir/build.make CMakeFiles/cmTC_eb90e.dir/build
+        Building CXX object CMakeFiles/cmTC_eb90e.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_eb90e.dir/src.cxx.o -MF CMakeFiles/cmTC_eb90e.dir/src.cxx.o.d -o CMakeFiles/cmTC_eb90e.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Y9LHEo/src.cxx
+        Linking CXX executable cmTC_eb90e
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_eb90e.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_eb90e.dir/src.cxx.o -o cmTC_eb90e
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aIt475"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aIt475"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aIt475'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_1a6e4/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_1a6e4.dir/build.make CMakeFiles/cmTC_1a6e4.dir/build
+        Building CXX object CMakeFiles/cmTC_1a6e4.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_1a6e4.dir/src.cxx.o -MF CMakeFiles/cmTC_1a6e4.dir/src.cxx.o.d -o CMakeFiles/cmTC_1a6e4.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aIt475/src.cxx
+        Linking CXX executable cmTC_1a6e4
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1a6e4.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_1a6e4.dir/src.cxx.o -o cmTC_1a6e4
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-du2yL1"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-du2yL1"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-du2yL1'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_f1200/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_f1200.dir/build.make CMakeFiles/cmTC_f1200.dir/build
+        Building CXX object CMakeFiles/cmTC_f1200.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_f1200.dir/src.cxx.o -MF CMakeFiles/cmTC_f1200.dir/src.cxx.o.d -o CMakeFiles/cmTC_f1200.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-du2yL1/src.cxx
+        Linking CXX executable cmTC_f1200
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f1200.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_f1200.dir/src.cxx.o -o cmTC_f1200
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-rzWjmr"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-rzWjmr"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-rzWjmr'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_776f7/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_776f7.dir/build.make CMakeFiles/cmTC_776f7.dir/build
+        Building CXX object CMakeFiles/cmTC_776f7.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_776f7.dir/src.cxx.o -MF CMakeFiles/cmTC_776f7.dir/src.cxx.o.d -o CMakeFiles/cmTC_776f7.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-rzWjmr/src.cxx
+        Linking CXX executable cmTC_776f7
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_776f7.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_776f7.dir/src.cxx.o -o cmTC_776f7
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-GAtTKb"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-GAtTKb"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-GAtTKb'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_e28f1/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_e28f1.dir/build.make CMakeFiles/cmTC_e28f1.dir/build
+        Building CXX object CMakeFiles/cmTC_e28f1.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_e28f1.dir/src.cxx.o -MF CMakeFiles/cmTC_e28f1.dir/src.cxx.o.d -o CMakeFiles/cmTC_e28f1.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-GAtTKb/src.cxx
+        Linking CXX executable cmTC_e28f1
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e28f1.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_e28f1.dir/src.cxx.o -o cmTC_e28f1
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-y7xmp1"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-y7xmp1"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-y7xmp1'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_a3e30/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_a3e30.dir/build.make CMakeFiles/cmTC_a3e30.dir/build
+        Building CXX object CMakeFiles/cmTC_a3e30.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_a3e30.dir/src.cxx.o -MF CMakeFiles/cmTC_a3e30.dir/src.cxx.o.d -o CMakeFiles/cmTC_a3e30.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-y7xmp1/src.cxx
+        Linking CXX executable cmTC_a3e30
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a3e30.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_a3e30.dir/src.cxx.o -o cmTC_a3e30
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-YFu8Rj"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-YFu8Rj"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-YFu8Rj'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_06be6/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_06be6.dir/build.make CMakeFiles/cmTC_06be6.dir/build
+        Building CXX object CMakeFiles/cmTC_06be6.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_06be6.dir/src.cxx.o -MF CMakeFiles/cmTC_06be6.dir/src.cxx.o.d -o CMakeFiles/cmTC_06be6.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-YFu8Rj/src.cxx
+        Linking CXX executable cmTC_06be6
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_06be6.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_06be6.dir/src.cxx.o -o cmTC_06be6
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-oP21mw"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-oP21mw"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-oP21mw'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_9b5c8/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_9b5c8.dir/build.make CMakeFiles/cmTC_9b5c8.dir/build
+        Building CXX object CMakeFiles/cmTC_9b5c8.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_9b5c8.dir/src.cxx.o -MF CMakeFiles/cmTC_9b5c8.dir/src.cxx.o.d -o CMakeFiles/cmTC_9b5c8.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-oP21mw/src.cxx
+        Linking CXX executable cmTC_9b5c8
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_9b5c8.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_9b5c8.dir/src.cxx.o -o cmTC_9b5c8
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-6MiyrI"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-6MiyrI"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-6MiyrI'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_ba6a8/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_ba6a8.dir/build.make CMakeFiles/cmTC_ba6a8.dir/build
+        Building CXX object CMakeFiles/cmTC_ba6a8.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_ba6a8.dir/src.cxx.o -MF CMakeFiles/cmTC_ba6a8.dir/src.cxx.o.d -o CMakeFiles/cmTC_ba6a8.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-6MiyrI/src.cxx
+        Linking CXX executable cmTC_ba6a8
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ba6a8.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_ba6a8.dir/src.cxx.o -o cmTC_ba6a8
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aAutgU"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aAutgU"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aAutgU'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_d6853/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_d6853.dir/build.make CMakeFiles/cmTC_d6853.dir/build
+        Building CXX object CMakeFiles/cmTC_d6853.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_d6853.dir/src.cxx.o -MF CMakeFiles/cmTC_d6853.dir/src.cxx.o.d -o CMakeFiles/cmTC_d6853.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aAutgU/src.cxx
+        Linking CXX executable cmTC_d6853
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d6853.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_d6853.dir/src.cxx.o -o cmTC_d6853
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-7Al0S8"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-7Al0S8"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-7Al0S8'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_31f3c/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_31f3c.dir/build.make CMakeFiles/cmTC_31f3c.dir/build
+        Building CXX object CMakeFiles/cmTC_31f3c.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_31f3c.dir/src.cxx.o -MF CMakeFiles/cmTC_31f3c.dir/src.cxx.o.d -o CMakeFiles/cmTC_31f3c.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-7Al0S8/src.cxx
+        Linking CXX executable cmTC_31f3c
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_31f3c.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_31f3c.dir/src.cxx.o -o cmTC_31f3c
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-5DKZ3H"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-5DKZ3H"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-5DKZ3H'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_d0795/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_d0795.dir/build.make CMakeFiles/cmTC_d0795.dir/build
+        Building CXX object CMakeFiles/cmTC_d0795.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_d0795.dir/src.cxx.o -MF CMakeFiles/cmTC_d0795.dir/src.cxx.o.d -o CMakeFiles/cmTC_d0795.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-5DKZ3H/src.cxx
+        Linking CXX executable cmTC_d0795
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d0795.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_d0795.dir/src.cxx.o -o cmTC_d0795
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Lf4Igm"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Lf4Igm"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Lf4Igm'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_6a1de/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_6a1de.dir/build.make CMakeFiles/cmTC_6a1de.dir/build
+        Building CXX object CMakeFiles/cmTC_6a1de.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_6a1de.dir/src.cxx.o -MF CMakeFiles/cmTC_6a1de.dir/src.cxx.o.d -o CMakeFiles/cmTC_6a1de.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Lf4Igm/src.cxx
+        Linking CXX executable cmTC_6a1de
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_6a1de.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_6a1de.dir/src.cxx.o -o cmTC_6a1de
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-xOCfwq"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-xOCfwq"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-xOCfwq'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_7276e/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_7276e.dir/build.make CMakeFiles/cmTC_7276e.dir/build
+        Building CXX object CMakeFiles/cmTC_7276e.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_7276e.dir/src.cxx.o -MF CMakeFiles/cmTC_7276e.dir/src.cxx.o.d -o CMakeFiles/cmTC_7276e.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-xOCfwq/src.cxx
+        Linking CXX executable cmTC_7276e
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7276e.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_7276e.dir/src.cxx.o -o cmTC_7276e
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-AvNv1m"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-AvNv1m"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-AvNv1m'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_cdb72/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_cdb72.dir/build.make CMakeFiles/cmTC_cdb72.dir/build
+        Building CXX object CMakeFiles/cmTC_cdb72.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_cdb72.dir/src.cxx.o -MF CMakeFiles/cmTC_cdb72.dir/src.cxx.o.d -o CMakeFiles/cmTC_cdb72.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-AvNv1m/src.cxx
+        Linking CXX executable cmTC_cdb72
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_cdb72.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_cdb72.dir/src.cxx.o -o cmTC_cdb72
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-GSFpl3"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-GSFpl3"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-GSFpl3'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_4e687/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_4e687.dir/build.make CMakeFiles/cmTC_4e687.dir/build
+        Building CXX object CMakeFiles/cmTC_4e687.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_4e687.dir/src.cxx.o -MF CMakeFiles/cmTC_4e687.dir/src.cxx.o.d -o CMakeFiles/cmTC_4e687.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-GSFpl3/src.cxx
+        Linking CXX executable cmTC_4e687
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_4e687.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_4e687.dir/src.cxx.o -o cmTC_4e687
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Evcvl8"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Evcvl8"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Evcvl8'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_fb522/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_fb522.dir/build.make CMakeFiles/cmTC_fb522.dir/build
+        Building CXX object CMakeFiles/cmTC_fb522.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_fb522.dir/src.cxx.o -MF CMakeFiles/cmTC_fb522.dir/src.cxx.o.d -o CMakeFiles/cmTC_fb522.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-Evcvl8/src.cxx
+        Linking CXX executable cmTC_fb522
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_fb522.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_fb522.dir/src.cxx.o -o cmTC_fb522
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-PaNfSL"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-PaNfSL"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-PaNfSL'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_6faf0/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_6faf0.dir/build.make CMakeFiles/cmTC_6faf0.dir/build
+        Building CXX object CMakeFiles/cmTC_6faf0.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_6faf0.dir/src.cxx.o -MF CMakeFiles/cmTC_6faf0.dir/src.cxx.o.d -o CMakeFiles/cmTC_6faf0.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-PaNfSL/src.cxx
+        Linking CXX executable cmTC_6faf0
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_6faf0.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_6faf0.dir/src.cxx.o -o cmTC_6faf0
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-eSAYgJ"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-eSAYgJ"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-eSAYgJ'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_ec6df/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_ec6df.dir/build.make CMakeFiles/cmTC_ec6df.dir/build
+        Building CXX object CMakeFiles/cmTC_ec6df.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_ec6df.dir/src.cxx.o -MF CMakeFiles/cmTC_ec6df.dir/src.cxx.o.d -o CMakeFiles/cmTC_ec6df.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-eSAYgJ/src.cxx
+        Linking CXX executable cmTC_ec6df
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ec6df.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_ec6df.dir/src.cxx.o -o cmTC_ec6df
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aZW3ur"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aZW3ur"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aZW3ur'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_74829/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_74829.dir/build.make CMakeFiles/cmTC_74829.dir/build
+        Building CXX object CMakeFiles/cmTC_74829.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_74829.dir/src.cxx.o -MF CMakeFiles/cmTC_74829.dir/src.cxx.o.d -o CMakeFiles/cmTC_74829.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-aZW3ur/src.cxx
+        Linking CXX executable cmTC_74829
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_74829.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_74829.dir/src.cxx.o -o cmTC_74829
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-wm7Ddt"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-wm7Ddt"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-wm7Ddt'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_0cb27/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_0cb27.dir/build.make CMakeFiles/cmTC_0cb27.dir/build
+        Building CXX object CMakeFiles/cmTC_0cb27.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_0cb27.dir/src.cxx.o -MF CMakeFiles/cmTC_0cb27.dir/src.cxx.o.d -o CMakeFiles/cmTC_0cb27.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-wm7Ddt/src.cxx
+        Linking CXX executable cmTC_0cb27
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_0cb27.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_0cb27.dir/src.cxx.o -o cmTC_0cb27
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/Cellar/cmake/3.30.3/share/cmake/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "cmake/draco_flags.cmake:103 (check_cxx_compiler_flag)"
+      - "cmake/draco_flags.cmake:259 (draco_test_cxx_flag)"
+      - "CMakeLists.txt:87 (draco_set_cxx_flags)"
+    directories:
+      source: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-L6O9f4"
+      binary: "/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-L6O9f4"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_OSX_ARCHITECTURES: "arm64"
+      CMAKE_OSX_DEPLOYMENT_TARGET: "11.0"
+      CMAKE_OSX_SYSROOT: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk"
+      CMAKE_POSITION_INDEPENDENT_CODE: "ON"
+    buildResult:
+      variable: "draco_all_cxx_flags_pass"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-L6O9f4'
+        
+        Run Build Command(s): /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_b4a92/fast
+        /Applications/Xcode.app/Contents/Developer/usr/bin/make  -f CMakeFiles/cmTC_b4a92.dir/build.make CMakeFiles/cmTC_b4a92.dir/build
+        Building CXX object CMakeFiles/cmTC_b4a92.dir/src.cxx.o
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -Ddraco_all_cxx_flags_pass  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -fPIE   -Wno-deprecated-declarations -MD -MT CMakeFiles/cmTC_b4a92.dir/src.cxx.o -MF CMakeFiles/cmTC_b4a92.dir/src.cxx.o.d -o CMakeFiles/cmTC_b4a92.dir/src.cxx.o -c /Users/ws9/code/DracoPy/draco/build_arm/CMakeFiles/CMakeScratch/TryCompile-L6O9f4/src.cxx
+        Linking CXX executable cmTC_b4a92
+        /opt/homebrew/Cellar/cmake/3.30.3/bin/cmake -E cmake_link_script CMakeFiles/cmTC_b4a92.dir/link.txt --verbose=1
+        /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -mmacosx-version-min=11.0 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cmTC_b4a92.dir/src.cxx.o -o cmTC_b4a92
+        
+      exitCode: 0
+...

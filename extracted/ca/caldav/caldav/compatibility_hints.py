@@ -47,9 +47,19 @@ class FeatureSet:
 
     TODO: use enums?  TODO: describe the different types  TODO: think more through the different types, consolidate?
       type -> "client-feature", "client-hints", "server-peculiarity", "tests-behaviour", "server-observation", "server-feature" (last is default)
-      support -> "full" (default), "unsupported", "fragile", "quirk", "broken", "ungraceful"
+      support -> "full" (default), "unsupported", "fragile", "quirk", "broken", "ungraceful", "unknown"
 
-    unsupported means that attempts to use the feature will be silently ignored (this may actually be the worst option, as it may cause data loss).  quirk means that the feature is suppored, but special handling needs to be done towards the server.  fragile means that it sometimes works and sometimes not - either it's arbitrary, or we didn't spend enough time doing research into the patterns.  My idea behind broken was that the server should do completely unexpected things.  Probably a lot of things classified as "unsupported" today should rather be classified as "broken".  Some AI-generated code is using"broken".  TODO: look through and clean up.  "ungraceful" means the server will throw some error (this may indeed be the most graceful, as the client may catch the error and handle it in the best possible way).
+    unsupported means that attempts to use the feature will be silently ignored (this may actually be the worst option, as it may cause data loss).
+    quirk means that the feature is supported, but not entirely as expected, and special handling may need to be done towards the server.
+    fragile means that it sometimes works and sometimes not (or works in some cases and not in others) - possibly it's non-deterministic, more likely we need better probes.
+    broken means the server does unexpected things - apparently supporting the feature, but in reality doing things wrongly.  Possibly some of the things classified as "unsupported" today should rather be classified as "broken" (and possibly vice-versa).  TODO: look more into this and clean up.
+    ungraceful means the server will come up with an error (which usually causes the library to raise an error).  ("ungraceful" may in some cases be the best handling as the client may catch the error and handle it in the best possible way - while support level "unsupported", "broken" and "fragile" often may involve data loss).
+    unknown means nobody has probed this yet.  It is the absence of a claim, not a claim that the feature is missing.
+
+    What "fragile" asks of a client depends on what is fragile.  An asynchronous operation is never retried, it is waited out:
+     * On a write operation such as create-calendar or delete-calendar, the write itself is fragile: it may or may not have gone through, and re-issuing it may help.  Calendar.delete() keys its retry-and-poll loop on exactly that.  A create or delete that always goes through but takes a measurable time to settle is a "quirk", not "fragile".
+     * On synchronous-write, it is the "synchronous" part that is fragile, not the write: the server may be asynchronous under the hood but settle too fast to be probed deterministically.  Writes are never re-issued; a read right after one may have to wait (the configured delay) or be retried if it does not show the change yet.  A server where only calendar creation and/or deletion is asynchronous supports synchronous-write, with the async part graded as a "quirk" on create-calendar or delete-calendar.
+    For a server-feature, is_supported(feature) returning a bool is True for "full" and "quirk" only.  "fragile" is True as well when called with accept_fragile=True; "unsupported", "broken", "ungraceful" and "unknown" are all False.  Note in particular that "ungraceful" is False even though the server does respond - the response is an error.
 
     types:
      * client-feature means the client is supposed to do special things (like, rate-limiting).  While the need for rate-limiting may be set by the server, it may not be possible to reliably establish it by probling the server, and the value may differ for different clients.
@@ -241,7 +251,7 @@ class FeatureSet:
             "description": "Server honours the supported-calendar-component-set restriction set at MKCALENDAR time.  When 'full', the server both advertises (or enforces) the restriction; when 'unsupported', the restriction is silently ignored (wrong-type objects can be saved to the calendar).  When 'ungraceful', the MKCALENDAR request itself fails when a component set is specified.",
         },
         "calendar-color": {
-            "description": "Server stores the nonstandard Apple/Mozilla {http://apple.com/ns/ical/}calendar-color property (set with a colour name like 'blue') on a calendar collection.  'full' covers servers that normalise the name to a hex value (the set value still tracks the input); 'broken' is a read-only property (the same value comes back regardless of what is set).  Not described by RFC4791/RFC5545, so a server that rejects or ignores it ('unsupported') is not breaching any RFC.  The default is 'fragile' because the behaviour varies a lot between servers and is rarely worth asserting on.",
+            "description": "Server stores the nonstandard Apple/Mozilla {http://apple.com/ns/ical/}calendar-color property (set with a colour name like 'blue') on a calendar collection.  'full' covers servers that normalise the name to a hex value (the set value still tracks the input); 'broken' is a read-only property (the same value comes back regardless of what is set).  Not described by RFC4791/RFC5545, so a server that rejects or ignores it ('unsupported') is not breaching any RFC.  The default is 'fragile' because the behaviour varies a lot between servers and is rarely worth asserting on (TODO: wouldn't unknown be better?).",
             "default": {"support": "fragile"},
             "note":
 """The real default ought to be False because this is not a part
@@ -277,13 +287,12 @@ hence, "fragile".
                 "delay": "after this number of seconds, we may be reasonably sure that the search results are updated",
             }
         },
-        "write-delay": {
-            "type": "server-peculiarity",
+        "synchronous-write": {
             "default": {"support": "full"},
-            "description": "The server processes write operations (PUT/DELETE/MKCALENDAR/PROPPATCH/...) asynchronously: the request returns success before the change has fully taken effect, so an immediate read-back (of any kind, not just a search) may 404 or return stale data.  A client must wait a bit after every write.  This is the general, write-side counterpart of 'search-cache' (which only delays searches).  'full' (the default) means writes take effect synchronously.",
+            "description": "A write operation is complete and immediately observable when receiving a 2XX-response from the server.  'unsupported' means the server processes writes asynchronously: the change request is received and may be queued up.  For a fast server it may not be possible to reliably observe that it's asynchronous, 'fragile' can be used if the probe is non-deterministic or if a server know to be async is observed to be sync.  A delay can be given, and the test code will sleep with the configured delay after each write operation",
             "extra_keys": {
-                "behaviour": "'delay' to enable the post-write sleep",
-                "delay": "sleep this number of seconds after every write request before relying on the change being visible",
+                "delay": "sleep this number of seconds after every write request before relying on the change being visible.  Ignored when the support is 'full'",
+                "save-load-delay": "observed by caldav-server-tester: seconds until a freshly PUT object could be read back",
             }
         },
         "tests-cleanup-calendar": {
@@ -297,6 +306,9 @@ hence, "fragile".
                 "https://datatracker.ietf.org/doc/html/rfc4791#section-5.3.1",
                 "https://datatracker.ietf.org/doc/html/rfc5689",
             ],
+            "extra_keys": {
+                "behaviour": "'mkcol-required' when MKCALENDAR is refused and the RFC5689 extended MKCOL has to be used instead - the library selects MKCOL for exactly this value.  'empty-207' when the server answers a successful creation with a multistatus whose DAV:response carries neither a DAV:status nor a DAV:propstat, in violation of RFC4918 section 13 (Bedework 5); purely descriptive, the library copes with it either way.  'delayed creation ...' when MKCALENDAR is accepted but the collection materialises later, with the wait in 'delay'.",
+            },
         },
         "create-calendar.auto": {
             "default": { "support": "unsupported" },
@@ -330,7 +342,7 @@ hence, "fragile".
             "links": ["https://datatracker.ietf.org/doc/html/rfc4918#section-15.2"],
         },
         "delete-calendar": {
-            "description": "RFC4791 says nothing about deletion of calendars, so the server implementation is free to choose weather this should be supported or not.  Section 3.2.3.2 in RFC 6638 says that if a calendar is deleted, all the calendarobjectresources on the calendar should also be deleted - but it's a bit unclear if this only applies to scheduling objects or not.  Some calendar servers moves the object to a trashcan rather than deleting it",
+            "description": "RFC4791 says nothing about deletion of calendars, so the server implementation is free to choose weather this should be supported or not.  Section 3.2.3.2 in RFC 6638 says that if a calendar is deleted, all the calendarobjectresources on the calendar should also be deleted - but it's a bit unclear if this only applies to scheduling objects or not.  Some calendar servers moves the object to a trashcan rather than deleting it.  'quirk' is the right grade for a delete that always goes through but takes a measurable time; 'fragile' is a negative status and additionally switches on Calendar.delete()'s retry-and-poll loop, which re-issues the DELETE",
             ## Independent feature (directly probed): the default marks it so the
             ## node uses its own probed value rather than being derived from
             ## .free-namespace.
@@ -352,6 +364,7 @@ hence, "fragile".
             "description": "it's possible to save and load events to the calendar",
             "default": { "support": "full" }
         },
+        "save-load.event.no-summary": {"description": "The server stores a VEVENT without a SUMMARY property.  RFC 5545 section 3.6.1 makes SUMMARY optional.  'ungraceful' when the PUT is refused with an error (Bedework 5 answers 500 missingeventproperty).", "default": {"support": "full"}},
         "save-load.event.recurrences": {"description": "it's possible to save and load recurring events to the calendar - events with an RRULE property set, including recurrence sets", "default": {"support": "full"}},
         "save-load.event.recurrences.count": {"description": "The server will receive and store a recurring event with a count set in the RRULE", "default": {"support": "full"}},
         ## This was Claude's suggestion and it works as of today, the
@@ -364,7 +377,7 @@ hence, "fragile".
         ## information was simply discarded, and the current search behaviour would in
         ## such a case be incorrect if the exception is simply discarded.
         "save-load.event.recurrences.exception": {"description": "When a VCALENDAR containing a master VEVENT (with RRULE) and exception VEVENT(s) (with RECURRENCE-ID) is stored, the server keeps them together as a single calendar object resource. When unsupported, the server splits exception VEVENTs into separate calendar objects, making client-side expansion unreliable (the master expands without knowing about its exceptions)."},
-        "save-load.event.recurrences.exception.reschedule": {"description": "The server accepts a PUT that reschedules an entire recurring event - changing the master VEVENT's DTSTART (re-anchoring the whole series) while detached exception VEVENT(s) (with RECURRENCE-ID) are present and their RECURRENCE-IDs are shifted to line up with the new series.  This is unsupported for Ox, the server rejects such a PUT with 409 Conflict even when a matching If-Match etag is supplied.  Rescheduling a recurring event that has no exceptions still works.  Exercised by save(all_recurrences=True) after changing dtstart/dtend.", "default": {"support": "full"}},
+        "save-load.event.recurrences.exception.reschedule": {"description": "The server accepts a PUT that reschedules an entire recurring event - changing the master VEVENT's DTSTART (re-anchoring the whole series) while detached exception VEVENT(s) (with RECURRENCE-ID) are present and their RECURRENCE-IDs are shifted to line up with the new series.  This is 'ungraceful' for Ox, the server rejects such a PUT with 409 Conflict even when a matching If-Match etag is supplied.  Rescheduling a recurring event that has no exceptions still works.  Exercised by save(all_recurrences=True) after changing dtstart/dtend.", "default": {"support": "full"}},
         "save-load.todo": {
             "description": "it's possible to save and load tasks to the calendar",
             "default": { "support": "full" }
@@ -449,6 +462,11 @@ hence, "fragile".
         "save-load.mutable.if-match-optional": {
             "description": "The If-Match precondition is optional when overwriting an existing calendar object resource: the server accepts a PUT that carries no If-Match etag (i.e. add_event()/save() on an object that was not first fetched).  When 'unsupported', the server requires an If-Match etag for updates and rejects a no-If-Match overwrite with 409 Conflict (e.g. OX App Suite enforces optimistic concurrency).  Such servers still support save-load.mutable via a fetch-then-save (etag-conditional) update; only the blind-overwrite path is affected.",
             "default": {"support": "full"},
+        },
+        "save-load.mutable.if-match-wildcard": {
+            "description": "An overwrite carrying If-Match: * is accepted, and a PUT carrying it to a missing object is refused.  RFC 9110 section 13.1.1 has '*' match any current representation, so it means 'overwrite, but only if the object exists'.  When 'unsupported', the server answers 412 Precondition Failed even though the object is there (Zimbra, Radicale - both compare '*' as a literal etag).  When 'broken', a missing object is created: the condition is backwards (Bedework, 412 on an existing object) or ignored (SOGo).  If-None-Match: * (section 13.1.2) has no feature of its own; the behaviour text notes where it overwrites or refuses to create.  The library sends neither itself.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc9110#section-13.1.1"],
         },
         "search": {
             "description": "calendar MUST support searching for objects using the REPORT method, as specified in RFC4791, section 7",
@@ -614,7 +632,7 @@ hence, "fragile".
             "description": "expanding tasks"
         },
         "search.recurrences.expanded.event": {
-            "description": "exanding events"
+            "description": "exanding events.  'quirk' with a behaviour starting 'response-per-instance' when the server returns each expanded instance in a DAV:response of its own, all under the href of the resource, in violation of RFC4918 section 14.24 (Bedework 5); the library merges them into one calendar-data"
         },
         "search.recurrences.expanded.exception": {
             "description": "Server expand should work correctly also if a recurrence set with exceptions is given"
@@ -706,6 +724,11 @@ hence, "fragile".
             "description": "Server rejects requests with wrong password by returning an authorization error. Some servers may not properly reject wrong passwords in certain configurations."
         },
         "save": {},
+        "save.etag": {
+            "description": "The ETag header of a PUT response is a valid entity-tag (RFC 9110 section 8.8.3: a quoted string, optionally prefixed W/), and a conditional PUT carrying it in If-Match is accepted.  'quirk' with behaviour 'percent-encoded' when the header comes back URL-encoded but the decoded form is accepted - Bedework 5 answers a PUT with ETag: %22...%22 while a GET gives the quoted form, and refuses the encoded form in If-Match with 412.  The library decodes a leading %22, so a client is not affected by that shape; 'broken' when the decoded form is refused too.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc9110#section-8.8.3"],
+        },
         "save.duplicate-uid": {},
         "save.duplicate-uid.cross-calendar": {
             "description": "Server allows events with the same UID to exist in different calendars and treats them as separate entities. Support can be 'full' (allowed), 'ungraceful' (rejected with error), or 'unsupported' (silently ignored or moved). Behaviour 'silently-ignored' means the duplicate is not saved but no error is thrown. Behaviour 'moved-instead-of-copied' means the event is moved from the original calendar to the new calendar (Zimbra behavior)"
@@ -789,6 +812,15 @@ hence, "fragile".
             ## TODO: temp - should be removed
             if feature == 'old_flags':
                 self._old_flags = feature_set[feature]
+                continue
+            if feature == 'write-delay':
+                warnings.warn(
+                    "The 'write-delay' feature is deprecated - use 'synchronous-write', "
+                    "e.g. {'support': 'unsupported', 'delay': 3} for {'behaviour': 'delay', 'delay': 3}",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+                self.copyFeatureSet({'synchronous-write': _from_write_delay(feature_set[feature])}, collapse=False)
                 continue
             try:
                 ## called for the exception, not the return value: an unknown
@@ -1282,6 +1314,16 @@ xandikos = {
     "auto-connect.url": {"domain": "localhost", "scheme": "http", "basepath": "/"},
 
     "scheduling": {"support": "unsupported"},
+
+    ## Every collection reports and takes the same hardcoded component list
+    ## (xandikos/web.py), and the supported-calendar-component-set property has
+    ## no setter - yet MKCALENDAR still answers 201, though RFC 4791 section
+    ## 5.3.1 has it fail when a property cannot be set.  Measured on 0.4.5,
+    ## 2026-09-15.
+    "create-calendar.with-supported-component-types": {
+        "support": "unsupported",
+        "behaviour": "the component set is ignored: a VTODO-only calendar advertises VEVENT, VTODO, VJOURNAL, VFREEBUSY and VAVAILABILITY, and a VEVENT can be saved to it",
+    },
 }
 
 ## This seems to work as of version 3.5.4 of Radicale.
@@ -1293,6 +1335,13 @@ radicale = {
     "search.time-range.comp-type-optional": {"support": "full"},
     "search.is-not-defined": {"support": "full"},
     "search.text.case-sensitive": {"support": "unsupported"},
+    ## radicale/app/put.py compares the If-Match value with the item's etag
+    ## literally, so '*' never matches.  If-None-Match: * is handled right.
+    ## Measured on 3.8.0, 2026-09-15.
+    "save-load.mutable.if-match-wildcard": {
+        "support": "unsupported",
+        "behaviour": "If-Match: * is compared as a literal etag: an overwrite of an existing object is refused with 412",
+    },
     "search.recurrences.includes-implicit.todo.pending": {"support": "fragile", "behaviour": "inconsistent results between runs"},
     "search.recurrences.expanded.todo": {"support": "unsupported"},
     "search.recurrences.expanded.exception": {"support": "full"},
@@ -1305,7 +1354,9 @@ radicale = {
     "calendar-order": {"support": "full"},
 }
 
-## Be aware that nextcloud by default have different rate limits, including how often a user is allowed to create a new calendar.  This may break test runs badly.
+## Nextcloud can be configured a lot.  What particularly affects the compatibility
+## matrix and test runs are rate limits, including how often a user is allowed
+## to create a new calendar.  This may break test runs badly.
 nextcloud = {
     'auto-connect.url': {
         'basepath': '/remote.php/dav',
@@ -1326,15 +1377,30 @@ nextcloud = {
     'search.comp-type.optional': {'support': 'full'},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
     "search.recurrences.includes-implicit.infinite-scope": False,
-    'delete-calendar': {
-        'support': 'fragile',
-        'behaviour': 'Deleting a recently created calendar fails'},
-    'delete-calendar.free-namespace': { ## TODO: not caught by server-tester
-        'behaviour': "deleting a calendar moves it to a trashbin, thrashbin has to be manually 'emptied' from the web-ui before the namespace is freed up",
+    ## Re-verified 2026-09-08 against the docker test server: creating and
+    ## deleting a calendar works, immediately and without an error, and the
+    ## former 'fragile' verdict ('Deleting a recently created calendar fails')
+    ## could not be reproduced.  No delay observed either, unlike Cyrus, so
+    ## 'full' rather than the 'quirk' recorded there.
+    'delete-calendar': {'support': 'full'},
+    ## For a regular installation, there is a trashbin problem,
+    ## a deleted calendar's id is only available after things have been cleared
+    ## out from the trashbin - hence `delete-calendar.free-namespace` should be
+    ## set to unsupported.  However, the docker test container in this project
+    ## has the trashbin disabled by setup_nextcloud.sh.  The grade here is
+    ## "fragile" - as in "varies by deployment".  There is never any fragility
+    ## for a specific installation.
+    ## A DELETE carrying 'X-NC-CalDAV-No-Trashbin: 1' skips the
+    ## trashbin, but only for a whole calendar, not for its objects: the
+    ## plugin sets a calendar-level flag, and only Calendar::delete() reads it.
+    ## https://github.com/nextcloud/server/blob/19acca6a7fd45b1bfb76952659809f858b6cd6de/apps/dav/lib/CalDAV/Trashbin/Plugin.php
+    ## https://github.com/nextcloud/server/blob/19acca6a7fd45b1bfb76952659809f858b6cd6de/apps/dav/lib/CalDAV/Calendar.php
+    'delete-calendar.free-namespace': {
+        'behaviour': "with the trashbin enabled (the default), deleting a calendar moves it to a trashbin, the trashbin has to be manually 'emptied' from the web-ui before the namespace is freed up",
         'support': 'fragile',
     },
-    # Calendar deletion goes to trashbin so delete-and-recreate doesn't give a
-    # fresh empty calendar.  Wipe objects instead of deleting the calendar itself.
+    # On an install with the trashbin enabled, delete-and-recreate doesn't give
+    # a fresh empty calendar.  Wipe objects instead of deleting the calendar itself.
     "test-calendar": {"cleanup-regime": "wipe-calendar"},
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
     #'save-load.todo.mixed-calendar': {'support': 'unsupported'}, ## Why?  It started complaining about this just recently.
@@ -1348,10 +1414,10 @@ nextcloud = {
     'scheduling.schedule-tag': False,
 }
 
-## TODO: Latest - mismatch between config and test script in delete-calendar.free-namespace ... and create-calendar.set-displayname?
 ecloud = nextcloud | {
     #'search.is-not-defined': {'support': 'unsupported'}, ## observed to work at 4bc0de765a2b53e6f223e0b9ac51c653bac11fb7 (caldav) / 3cae24cf99da1702b851b5a74a9b88c8e5317dad (server checker)
     #'search.text.case-sensitive': {'support': 'unsupported'}, ## observed to work at 4bc0de765a2b53e6f223e0b9ac51c653bac11fb7 (caldav) / 3cae24cf99da1702b851b5a74a9b88c8e5317dad (server checker)
+    'delete-calendar.free-namespace': False,
     ## TODO: this applies only to test runs, not to ordinary usage
     'rate-limit': {
         'enable': True,
@@ -1374,12 +1440,26 @@ zimbra = {
     ## Genuinely returns matching objects for a comp-type-less query that carries
     ## a time-range (verified: the event is returned, not just "no error").
     'search.time-range.comp-type-optional': {'support': 'full'},
-    'delete-calendar': {'support': 'fragile', 'behaviour': 'may move to trashbin instead of deleting immediately'},
+    ## Re-verified 2026-09-08 against the docker test server: the calendar is
+    ## deleted immediately and the id is free for re-use afterwards; the former
+    ## 'may move to trashbin instead of deleting immediately' could not be
+    ## reproduced.  Unlike Cyrus, no delay has been observed here yet: 'full'
+    ## rather than 'quirk', since a delay too small to observe cannot be told
+    ## from none at all - an actual observation is what should put a 'quirk'
+    ## here, as it did for Cyrus.
+    'delete-calendar': {'support': 'full'},
+    ## The re-use half of the same observation, recorded rather than left to the
+    ## implicit default.
+    'delete-calendar.free-namespace': {'support': 'full'},
     ## This is a zimbra bug when creating calendars with a display
     ## name.  Now mitigated in the calendar creation code.
     #'save-load.get-by-url': {'support': 'fragile', 'behaviour': '404 most of the time - but sometimes 200.  Weird, should be investigated more'},
     ## Zimbra treats same-UID events across calendars as aliases of the same event
     'save.duplicate-uid.cross-calendar': {'support': 'unsupported'},
+    ## '*' is compared as a literal etag, so If-Match: * never holds and
+    ## If-None-Match: * always does.  Measured 2026-09-15 against the docker
+    ## image and, repeatedly, an external Zimbra.
+    'save-load.mutable.if-match-wildcard': {'support': 'unsupported', 'behaviour': 'If-None-Match: * overwrote an existing object'},
     ## Zimbra DOES apply a display name set at creation (the name sticks, so
     ## set-displayname is 'full') - but it couples the display name to the
     ## calendar URL.  MKCALENDAR lands the calendar at the requested cal_id path;
@@ -1466,10 +1546,16 @@ zimbra = {
     "calendar-order": {"support": "full"},
 }
 
-bedework = {
+## Measured against the `ioggstream/bedework:latest` docker image, which is
+## a quickstart-3.10.3 tree on openjdk-8 and was built 2018-11-05 - the image
+## cannot even be rebuilt, as the quickstart zip its Dockerfile fetches from
+## dev.bedework.org is gone.  Upstream Bedework is alive and well past this:
+## 5.0.0 was released 2025-09-04.  Nothing here has been checked against 4.x or
+## 5.x, hence the version-stamped name - a plain `bedework` would be claiming
+## far more than we have measured.
+bedework_3_10_3 = {
     ## If tests are yielding unexpected results, try to increase this:
     'search-cache': {'behaviour': 'delay', 'delay': 3},
-    'scheduling.auto-schedule': {'support': 'unknown'},
     'scheduling.calendar-user-address-set': {'support': 'full'},
     'scheduling.freebusy-query': {'support': 'full'},
     'scheduling.mailbox': {'support': 'full'},
@@ -1511,9 +1597,157 @@ bedework = {
     'save-load.icalendar.related-to': {'support': 'broken', 'behaviour': 'first RELATED-TO line is preserved but subsequent RELATED-TO lines are stripped'},
     ## Bedework omits DAV:resourcetype from an allprop PROPFIND response.
     "propfind.allprop.resourcetype": {"support": "unsupported"},
+    ## If-Match: * is backwards here as on 5.0.0; the PUT etag is not encoded yet.
+    "save-load.mutable.if-match-wildcard": {
+        "support": "broken",
+        "behaviour": "If-Match: * holds backwards: refused with 412 on an existing object, and creates a missing object",
+    },
     ## (The old 'duplicates_not_allowed' flag was stale: Bedework does store a
     ## second event with the same content under a different UID, so
     ## save.duplicate-event is left at the default "full".)
+}
+
+## Bedework 5.0.0, measured 2026-09-12 with caldav-server-tester against the
+## locally built image in the caldav repo
+## (tests/docker-test-servers/bedework/), demo user `vbede`.  Several full runs;
+## where they disagreed the difference is noted below.  This is a different
+## server from `bedework_3_10_3` in every way that matters - it creates and
+## deletes calendars, its sync-token and text search behave differently - so
+## nothing is inherited from that profile.
+bedework_5_0_0 = {
+    ## Writes are asynchronous: a read-back issued immediately after a PUT may
+    ## 404 or hand back the pre-write copy.  That is what separated the two
+    ## measurement runs - save-load.mutable came out "broken" (modification not
+    ## reflected after save and reload) in one and "full" in the other, and the
+    ## timezone probe's load() 404ed on a resource the PUT had just accepted.
+    ## The delay is what makes the rest of this profile reproducible.  Yet the
+    ## synchronous-write probe itself - one PUT, one direct GET - reads the
+    ## object back at once (save-load-delay 0, 2026-09-13), so it is too fast
+    ## to catch reliably: fragile, not unsupported.
+    "synchronous-write": {"support": "fragile", "delay": 3},
+
+    ## MKCALENDAR works, but a successful one that sets no properties is
+    ## answered with a 207 whose DAV:response carries neither a DAV:status nor
+    ## a DAV:propstat - just the href of the collection it created.  RFC4918
+    ## section 13 requires one or the other, so there is nothing in the answer
+    ## that says the creation succeeded; the collection is nevertheless there,
+    ## and the same request over raw HTTP answers 201.  Recorded so the
+    ## deviation is written down somewhere; nothing in the library keys off it.
+    ## (A caldav older than this measurement read that body as a failure and
+    ## fell back to the extended MKCOL, which is why an early run of the tester
+    ## reported this as 'mkcol-required'.)
+    "create-calendar": {"support": "quirk", "behaviour": "empty-207"},
+    ## Spelled out so the parent's "quirk" does not bleed down into them.
+    "create-calendar.auto": {"support": "unsupported"},
+    "create-calendar.set-displayname": {"support": "full"},
+    "create-calendar.stable-url": {"support": "full"},
+    ## Not RFC properties; Bedework stores the Apple colour but not the order.
+    "calendar-color": {"support": "full"},
+    "calendar-order": {"support": "unsupported"},
+
+    ## Bedework collections are typed, by default they can hold only
+    ## VEVENT, anything else is 403.  Bedework does not support
+    ## creating task lists or journal lists through the CalDAV
+    ## protocol.  Both MKCALENDAR and extended MKCOL answer "200 ok"
+    ## for CALDAV:supported-calendar-component-set and then ignore it.
+    ## A PROPPATCH of the same property afterwards is a 403.  Details,
+    ## ref https://github.com/Bedework/bedework/issues/5#issuecomment-5652203366
+    "create-calendar.with-supported-component-types": {
+        "support": "unsupported",
+        "behaviour": "the restriction is accepted with a 200 ok propstat and then ignored; the collection is VEVENT-only",
+    },
+    ## So whether Bedework stores tasks is unknown rather than unsupported: the
+    ## server has a task collection type, a CalDAV client just cannot make one.
+    ## What was measured is that a VTODO does not go into an event calendar;
+    ## together with the ignored component set that leaves a client nowhere to
+    ## put a task.  The children inherit "unknown".  The same goes for journals.
+    "save-load.todo": {"support": "unknown"},
+    "save-load.todo.mixed-calendar": {"support": "unsupported"},
+    "save-load.journal": {"support": "unknown"},
+    "save-load.journal.mixed-calendar": {"support": "unsupported"},
+    ## Not measured either: the tester had no tasks to search for.  A Bedework
+    ## user with a working `tasks` collection may well see this work.
+    "search.time-range.todo": {"support": "unknown"},
+
+    "save-load.event.recurrences.exception": {"support": "unsupported"},
+    ## Seen 2026-09-13 in testChangeAttendeeStatusWithEmailGiven, which only
+    ## started running once save-load.mutable.attendee-partstat came out full.
+    "save-load.event.no-summary": {
+        "support": "ungraceful",
+        "behaviour": "a VEVENT without SUMMARY is refused with 500 missingeventproperty, though RFC 5545 section 3.6.1 makes SUMMARY optional",
+    },
+    ## Expansion itself is right, but every instance comes back in a
+    ## DAV:response of its own under the same href, which RFC4918 section
+    ## 14.24 forbids.  Until the library merged them, all but the last
+    ## instance of a resource were silently dropped (2026-09-13).
+    "search.recurrences.expanded.event": {
+        "support": "quirk",
+        "behaviour": "response-per-instance: each expanded instance comes in a DAV:response of its own, all under the same href, in violation of RFC 4918 section 14.24",
+    },
+    ## Spelled out so the "quirk" above does not bleed into them via the parent.
+    "search.recurrences.expanded.exception": {"support": "full"},
+    "search.recurrences.expanded.todo": {"support": "unknown"},
+    ## Unchanged from 3.10.3, and still the open question in the tester's
+    ## docs/TODO.md.
+    "save-load.icalendar.related-to": {
+        "support": "broken",
+        "behaviour": "first RELATED-TO line preserved but subsequent RELATED-TO lines are stripped",
+    },
+    ## bw-webdav WebdavNsIntf.putContent URL-encodes the header, GetMethod does
+    ## not, and CaldavBWIntf.putEvent compares If-Match as a raw string.  The
+    ## library decodes it.  Before it did, every second save() raised
+    ## ETagMismatchError, which had graded save.duplicate-uid.cross-calendar
+    ## "ungraceful" and save-load.mutable.attendee-partstat "unsupported"; both
+    ## are full.
+    "save.etag": {"support": "quirk", "behaviour": "percent-encoded"},
+    ## 412 on an existing object, 201 on a missing one (measured 2026-09-15).
+    "save-load.mutable.if-match-wildcard": {
+        "support": "broken",
+        "behaviour": "If-Match: * holds backwards: refused with 412 on an existing object, and creates a missing object",
+    },
+
+    "non-existing-raises-not-found.collection": {
+        "support": "unsupported",
+        "behaviour": "a non-existing calendar raises ReportError instead of NotFoundError",
+    },
+    "principal-search": {"support": "ungraceful"},
+
+    ## Works for CATEGORIES and CLASS, not for DTEND; the children are spelled
+    ## out so the parent's "fragile" does not bleed down into them.
+    "search.is-not-defined": {"support": "fragile"},
+    "search.is-not-defined.category": {"support": "full"},
+    "search.is-not-defined.class": {"support": "full"},
+    "search.is-not-defined.dtend": {"support": "unsupported"},
+    ## Better than this feature's "unsupported" default: a time-range query
+    ## with no comp-type filter does return the objects in range.
+    "search.time-range.comp-type-optional": {"support": "full"},
+    ## No text-match matches anything on a text property: a match on SUMMARY
+    ## comes back empty for i;octet, i;ascii-casemap and i;unicode-casemap
+    ## alike, on the full property value as well as on a substring.  The verdict
+    ## goes on the parent, which its children inherit - with only the children
+    ## set it resolved to its default "full", which claimed a text search
+    ## Bedework cannot do and silently disarmed the deliberate
+    ## skip_unless_support("search.text") that keeps testEditSingleRecurrence
+    ## off this server.  (A CLASS match does work, but only under
+    ## i;ascii-casemap.)
+    "search.text": {"support": "unsupported"},
+    "search.time-range.alarm": {"support": "unsupported"},
+
+    ## Until the library decoded the PUT etag, the sync-token probe aborted on an
+    ## ETagMismatchError from its own setup.  Measured 2026-09-13 after that:
+    ## the token is a timestamp of second precision (data:,20260913T125156Z-1d6a),
+    ## and a change made in the same second as the token was handed out is not
+    ## reported (0/5 with no pause, 3/3 after 1.5s).  The tester graded it plain
+    ## "full" because its own modification happens to land a second later.  A
+    ## delete is never reported, pause or not (0/11).
+    "sync-token": {"support": "full", "behaviour": "time-based"},
+    "sync-token.delete": {
+        "support": "unsupported",
+        "behaviour": "the sync-collection report after a delete listed no changes",
+    },
+    ## One account is configured, so the cross-user half of scheduling is
+    ## untested; the server advertises scheduling and the mailboxes are there.
+    "scheduling.auto-schedule": {"support": "unknown"},
 }
 
 baikal =  { ## version 0.10.1
@@ -1530,7 +1764,6 @@ baikal =  { ## version 0.10.1
     'save-load.journal.mixed-calendar': {'support': 'unsupported'},
     'principal-search': {'support': 'ungraceful'},
     'principal-search.by-name.self': {'support': 'unsupported'},
-    'principal-search.list-all': {'support': 'ungraceful'},
     #'sync-token.delete': {'support': 'unsupported'}, ## Perhaps on some older servers?
     ## extra properties not specified in RFC4791/RFC5545
     "calendar-color": {"support": "full"},
@@ -1554,9 +1787,22 @@ cyrus = {
     "save.duplicate-uid.cross-calendar": {"support": "ungraceful"},
     # Ephemeral Docker container: wipe objects but keep calendar (avoids UID conflicts)
     "test-calendar": {"cleanup-regime": "wipe-calendar"},
+    ## Calendar deletion has a very small fragility on Cyrus, one that
+    ## does not matter for ordinary users, but it matters when running
+    ## tests - if a calendar is deleted, recreated under the same URL
+    ## and then deleted again within a very short timeframe - then the
+    ## server gives 500 internal server error.  Due to this it's
+    ## flagged as 'fragile'.  Retry after one second (on the docker
+    ## test server on my laptop) and it works.
+    ## Reported upstream, with the root cause (the DELETED.* mailbox name
+    ## carries a whole-second timestamp, so two deletes of one name inside
+    ## the same second collide): https://github.com/cyrusimap/cyrus-imapd/issues/6383
     'delete-calendar': {
         'support': 'fragile',
-        'behaviour': 'Deleting a recently created calendar fails'},
+        'behaviour': 'deleting a calendar re-created on a just-deleted cal_id answers 500 for ~1s before it succeeds',
+        'delay': 1,
+    },
+    'delete-calendar.free-namespace': {'support': 'full'},
     # Cyrus changes the Schedule-Tag even on attendee PARTSTAT-only updates,
     # violating RFC6638 section 3.2 which requires the tag to remain stable.
     "scheduling.schedule-tag.stable-partstat": {"support": "unsupported"},
@@ -1594,7 +1840,6 @@ davical = {
     "search.time-range.alarm": { "support": "unsupported" },
     'sync-token': {'support': 'fragile'},
     'principal-search': {'support': 'unsupported'},
-    'principal-search.list-all': {'support': 'unsupported'},
     ## DAViCal skips VTODOs without DTSTART in date-range searches.
     'search.time-range.todo.no-dtstart': {'support': 'unsupported'},
     "old_flags": [
@@ -1681,6 +1926,17 @@ sogo = {
         "support": "ungraceful",
         "behaviour": "Search by name failed: ReportError at '501 Not Implemented - <?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\">\n<body><h3>An error occurred during object publishing</h3><p>did not find the specified REPORT</p></body>\n</html>\n', reason no reason",
     },
+    ## Both '*' conditions are ignored: If-Match: * creates a missing object and
+    ## If-None-Match: * overwrites an existing one (measured 2026-09-15).
+    "save-load.mutable.if-match-wildcard": {
+        "support": "broken",
+        "behaviour": "If-Match: * is ignored: it created a missing object (201); If-None-Match: * overwrote an existing object",
+    },
+    ## Measured 2026-09-15.
+    "create-calendar.with-supported-component-types": {
+        "support": "unsupported",
+        "behaviour": "the component set is ignored: a VTODO-only calendar advertises VEVENT, VFREEBUSY and VTODO, and a VEVENT can be saved to it",
+    },
     # Ephemeral Docker container: wipe objects (delete-calendar fragile)
     'test-calendar': {'cleanup-regime': 'wipe-calendar'},
 
@@ -1753,6 +2009,7 @@ robur = {
     'test-calendar': {'cleanup-regime': 'wipe-calendar'},
     "sync-token": {"support": "ungraceful"},
     "get-supported-components": {"support": "unsupported"},
+    "save.etag": {'support': 'broken', 'behaviour': "malformed etag 'a22ccfb2985aed13f50b4991a110d32253fd99aa'"},
 }
 
 posteo = {
@@ -1852,9 +2109,11 @@ ccs = {
     "search.time-range.alarm": {"support": "unsupported"},
     ## Recurrence expansion actually works within the (near-future) search window;
     ## this was previously reported "unsupported" only because the test fixtures
-    ## lived in year 2000, which CCS's min-date-time restriction hid.  Only infinite
-    ## scope (far-future) remains unsupported.
-    "search.recurrences.includes-implicit.infinite-scope": {"support": "unsupported"},
+    ## lived in year 2000, which CCS's min-date-time restriction hid.  Only the
+    ## far-future (infinite-scope) probe still fails, and CCS rejects it outright
+    ## with a 403 max-date-time - an error rather than a silent non-answer, so
+    ## "ungraceful", the same grading its old-dates entries already carry.
+    "search.recurrences.includes-implicit.infinite-scope": {"support": "ungraceful"},
     ## search.recurrences.expanded.todo was 'unsupported'; 'full' observed
     ## 2026-08-26.  The declaration dated from when the probe searched the
     ## *event* calendar for the recurring todo, so a server that keeps tasks
@@ -1975,8 +2234,6 @@ purelymail = {
     ## was: ungraceful - observed unsupported 2026-02 (for .old-dates)
     'search.time-range.todo': {'support': 'fragile'},
     'principal-search': {'support': 'ungraceful'},
-    'principal-search.by-name.self': {'support': 'ungraceful'},
-    'principal-search.list-all': {'support': 'ungraceful'},
     'auto-connect.url': {
         'basepath': '/webdav/',
         'domain': 'purelymail.com',
@@ -2092,10 +2349,19 @@ ox = {
     ## "unsupported" (silently ignored), not "broken".  Confirmed by direct probe
     ## 2026-06-09.  Contrast bedework, which drops the todos (data loss = broken).
     'search.comp-type': {'support': 'unsupported'},
-    ## Text search (case-sensitive, case-insensitive, substring) now works in OX.
+    ## Text search (case-insensitive, substring) now works in OX.
     ## Confirmed full 2026-06-13.  Category search remains unsupported.
     'search.text': {'support': 'full'},
     'search.text.category': {'support': 'unsupported'},
+    ## The i;octet collation is ignored.  A direct probe 2026-09-15 sent
+    ## <text-match collation="i;octet">Simple</text-match>, and "Simple" and
+    ## "SIMPLE" both matched "simple event ...".  This probe has been flapping:
+    ## declared unsupported until b5e26c4c (2026-06-15) dropped it as working,
+    ## and observed unsupported in three runs out of three on 2026-09-15.
+    'search.text.case-sensitive': {
+        'support': 'unsupported',
+        'behaviour': 'the i;octet collation is ignored: a case-sensitive search matches case-insensitively',
+    },
     ## Recurrence searching: the sliding window hides far-past/far-future
     ## occurrences, but implicit expansion of *datetime* events and server-side
     ## expansion of exceptions work within the window (detectable now that the
@@ -2103,7 +2369,6 @@ ox = {
     ## datetime-event server-side expansion, and infinite scope remain unsupported.
     ## (event and exception expansion are left at the default "full".)
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
-    'search.recurrences.includes-implicit.todo.pending': {'support': 'unsupported'},
     'search.recurrences.includes-implicit.infinite-scope': {'support': 'unsupported'},
     'search.recurrences.expanded.event': {'support': 'unsupported'},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
@@ -2111,7 +2376,9 @@ ox = {
     ## 409 Conflict once detached exceptions exist - even with a matching If-Match
     ## etag.  Shifting the DTSTART of an exception-free recurring event still works.
     ## Confirmed by direct probe 2026-06-14.
-    'save-load.event.recurrences.exception.reschedule': {'support': 'unsupported'},
+    ## 409 Conflict on the PUT - an error the caller can catch, not a silent
+    ## non-answer, so 'ungraceful' rather than 'unsupported'.
+    'save-load.event.recurrences.exception.reschedule': {'support': 'ungraceful', 'behaviour': "PutError at '409 Conflict'"},
     ## OX ignores the time-range on VTODO queries and returns every task
     'search.time-range.todo.strict': {'support': 'broken'},
     ## OX silently ignores the is-not-defined prop-filter and returns the whole
@@ -2119,17 +2386,12 @@ ox = {
     ## search still returns the categorised event; a no_class search still
     ## returns the CONFIDENTIAL event).  Same "filter ignored" behaviour as
     ## search.comp-type above - silently ignored, hence unsupported.
+    ## (DTEND included.)
     'search.is-not-defined': {'support': 'unsupported'},
-    'search.is-not-defined.category': {'support': 'unsupported'},
-    'search.is-not-defined.class': {'support': 'unsupported'},
-    ## is-not-defined for DTEND is not supported
-    'search.is-not-defined.dtend': {'support': 'unsupported'},
     ## Freebusy queries are not supported (returns 400)
     'freebusy-query': {'support': 'ungraceful'},
     ## Principal search not supported
     'principal-search': {'support': 'unsupported'},
-    'principal-search.by-name.self': {'support': 'unsupported'},
-    'principal-search.list-all': {'support': 'unsupported'},
     ## Cross-calendar duplicate UID test fails (AuthorizationError creating second calendar)
     'save.duplicate-uid.cross-calendar': {'support': 'ungraceful'},
     'save-load.icalendar.related-to': {'support': 'broken'},
@@ -2166,7 +2428,7 @@ infomaniak = {
     ## before the change is queryable, so an immediate read-back 404s or returns
     ## stale data for several seconds.  This is server-wide (not just searches),
     ## so we sleep after every write rather than only before searches.
-    'write-delay': {'behaviour': 'delay', 'delay': 16},
+    'synchronous-write': {'support': 'unsupported', 'delay': 16},
     ## VJOURNAL is not supported.
     'save-load.journal': {'support': 'unsupported'},
     ## Calendar colour/order work once the post-write delay is honoured (the
@@ -2175,7 +2437,6 @@ infomaniak = {
     ## returned the stale value, an artifact of the asynchronous writes above.
     ## Set explicitly to 'full' since the feature default is the weaker 'fragile'.
     'calendar-color': {'support': 'full'},
-    'calendar-color.hex': {'support': 'full'},
     'calendar-order': {'support': 'full'},
     ## The CALDAV comp-filter is silently ignored: a calendar-query that requests
     ## one component type returns the calendar's whole contents regardless (a
@@ -2192,7 +2453,6 @@ infomaniak = {
     ## VTODO recurrence searching is not supported (datetime VEVENT recurrence
     ## search, including server-side expand and infinite scope, works fine).
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
-    'search.recurrences.includes-implicit.todo.pending': {'support': 'unsupported'},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
     ## Scheduling is advertised and the calendar-user-address-set and scheduling
     ## mailbox are present, but the server never returns a Schedule-Tag (neither
@@ -2202,13 +2462,15 @@ infomaniak = {
     ## Principal search is effectively unsupported (lists nothing / errors out).
     'principal-search': {'support': 'ungraceful'},
     'principal-search.by-name.self': {'support': 'unsupported'},
-    'principal-search.list-all': {'support': 'ungraceful'},
     ## This was added 2026-08-28.  I believe the compatibility tests have passed
     ## before.  I don't think this part of the test suite has changed.  It could
     ## be that the behaviour has changed at the server side.  418 was originally an
     ## April joke and may mean anything ... but it's sometimes used as a rate-limit
     ## response.  However, it seems to consistently break exactly here.
-    'sync-token': {'support': 'ungraceful', 'behaviour': "418 I'm a teapot"},
+    ## The removed member comes back with status 418 inside the multistatus, which
+    ## caldav's _validate_status turns into a ResponseError - the sync raises rather
+    ## than silently coming back wrong, hence "ungraceful".
+    'sync-token.delete': {'support': 'ungraceful', 'behaviour': "418 I'm a teapot"},
 }
 
 # fmt: on
@@ -2303,3 +2565,30 @@ def at_spelling_is_significant(features: Any) -> bool:
     encoded on the way out.
     """
     return not at_spellings_are_aliased(features)
+
+
+def write_delay(features: Any) -> float:
+    """Seconds to sleep after every write request before reading the change back.
+
+    Read off ``synchronous-write``: its ``delay``, unless writes are declared
+    synchronous.  An asynchronous server with no ``delay`` given yields 0 -
+    nobody has said how long to wait, and guessing would slow every write.
+    """
+    if features is None:
+        return 0
+    node = features.is_supported("synchronous-write", dict)
+    if node.get("support", "full") == "full":
+        return 0
+    return node.get("delay", 0)
+
+
+def _from_write_delay(value: Any) -> Any:
+    """Translate a value of the deprecated ``write-delay`` peculiarity."""
+    if not isinstance(value, dict):
+        return value
+    if value.get("behaviour") != "delay":
+        return {"support": "full"}
+    new = {"support": "unsupported"}
+    if "delay" in value:
+        new["delay"] = value["delay"]
+    return new

@@ -10,6 +10,12 @@ from __future__ import annotations
 
 from typing import Final
 
+from matrx_scraper.cloud_browser.profile_archive_policy import (
+    ARCHIVE_EXCLUDE_NAMES,
+    ARCHIVE_EXCLUDE_PREFIXES,
+    ARCHIVE_EXCLUDE_SUFFIXES,
+)
+
 # ── Format / shape versions ──────────────────────────────────────────────
 MANIFEST_VERSION: Final[int] = 1
 ARCHIVE_FORMAT: Final[str] = "tar+zstd:v1"
@@ -46,27 +52,6 @@ SUPPORTED_ARCHIVE_FORMATS: Final[frozenset[str]] = frozenset({ARCHIVE_FORMAT})
 # ── Profile archive contents (part of PROFILE_FORMAT_VERSION) ─────────────
 # Always excluded — large, regenerable, and carrying page content the audit
 # policy never sanctioned. Prefix match against archive-root-relative paths.
-ARCHIVE_EXCLUDE_PREFIXES: Final[tuple[str, ...]] = (
-    "Crashpad/",
-    "GrShaderCache/",
-    "ShaderCache/",
-    "GPUCache/",
-    "Code Cache/",
-    "Default/Code Cache/",
-    "Default/GPUCache/",
-    "Default/Service Worker/CacheStorage/",
-    "Default/Service Worker/ScriptCache/",
-    "component_crx_cache/",
-    "Default/optimization_guide",
-    "Default/Cache/",
-)
-# Exact singleton / lock names excluded regardless of location.
-ARCHIVE_EXCLUDE_NAMES: Final[frozenset[str]] = frozenset(
-    {"SingletonLock", "SingletonCookie", "SingletonSocket"}
-)
-# Suffixes excluded regardless of location.
-ARCHIVE_EXCLUDE_SUFFIXES: Final[tuple[str, ...]] = (".lock",)
-
 # Members whose presence a verification archive-probe (V4) asserts.
 EXPECTED_ARCHIVE_MEMBERS: Final[tuple[str, ...]] = ("Default", "Local State")
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: angr-data
-Version: 0.1.0.post1
+Version: 0.1.1
 Summary: Data files (function and type prototype definitions) for angr, released as a separate package so they do not bloat every angr release
 License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://angr.io/

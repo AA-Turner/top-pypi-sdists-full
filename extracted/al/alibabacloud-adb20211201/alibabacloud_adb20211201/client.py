@@ -17458,6 +17458,96 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.list_aps_webhook_with_options_async(request, runtime)
 
+    def list_knowledge_files_with_options(
+        self,
+        request: main_models.ListKnowledgeFilesRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ListKnowledgeFilesResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_ids):
+            query['FileIds'] = request.file_ids
+        if not DaraCore.is_null(request.page):
+            query['Page'] = request.page
+        if not DaraCore.is_null(request.page_size):
+            query['PageSize'] = request.page_size
+        if not DaraCore.is_null(request.status):
+            query['Status'] = request.status
+        if not DaraCore.is_null(request.user):
+            query['User'] = request.user
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListKnowledgeFiles',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListKnowledgeFilesResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def list_knowledge_files_with_options_async(
+        self,
+        request: main_models.ListKnowledgeFilesRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ListKnowledgeFilesResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_ids):
+            query['FileIds'] = request.file_ids
+        if not DaraCore.is_null(request.page):
+            query['Page'] = request.page
+        if not DaraCore.is_null(request.page_size):
+            query['PageSize'] = request.page_size
+        if not DaraCore.is_null(request.status):
+            query['Status'] = request.status
+        if not DaraCore.is_null(request.user):
+            query['User'] = request.user
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListKnowledgeFiles',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListKnowledgeFilesResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def list_knowledge_files(
+        self,
+        request: main_models.ListKnowledgeFilesRequest,
+    ) -> main_models.ListKnowledgeFilesResponse:
+        runtime = RuntimeOptions()
+        return self.list_knowledge_files_with_options(request, runtime)
+
+    async def list_knowledge_files_async(
+        self,
+        request: main_models.ListKnowledgeFilesRequest,
+    ) -> main_models.ListKnowledgeFilesResponse:
+        runtime = RuntimeOptions()
+        return await self.list_knowledge_files_with_options_async(request, runtime)
+
     def list_knowledge_tags_with_options(
         self,
         request: main_models.ListKnowledgeTagsRequest,

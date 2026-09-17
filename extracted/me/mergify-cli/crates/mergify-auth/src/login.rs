@@ -13,12 +13,19 @@ use mergify_core::credentials::Location;
 use serde::Serialize;
 use url::Url;
 
+use crate::browser::Browser;
 use crate::device;
 use crate::identity;
+use crate::machine;
 
 pub struct LoginOptions<'a> {
     pub api_url: Option<&'a str>,
     pub store: &'a CredentialStore,
+    /// Where to open the approval page, or `None` for
+    /// `--no-browser`. Opening it is a convenience: the URL is
+    /// printed either way, and a browser that will not open does
+    /// not fail the login.
+    pub browser: Option<&'a dyn Browser>,
 }
 
 /// What `auth login` produced, for the JSON rendering `Output`
@@ -29,6 +36,9 @@ struct LoginResult {
     api_url: String,
     login: Option<String>,
     stored_in: String,
+    /// The environment variable that will be used *instead of* the
+    /// credential just stored, if one is set.
+    overridden_by: Option<String>,
 }
 
 /// Run the `auth login` command.
@@ -45,8 +55,16 @@ pub async fn run(opts: LoginOptions<'_>, output: &mut dyn Output) -> Result<(), 
     // store, so this costs nothing.
     let previous = opts.store.get(&api_url)?;
 
-    let authorization = device::authorize(&client).await?;
-    output.status(&instructions(&authorization))?;
+    // The machine's own name, so the approval page's Token name
+    // field defaults to this machine instead of to the client name
+    // every machine shares — the page's own helper text already asks
+    // the user to name it after the machine. Optional: a machine
+    // that cannot name itself, or a deployment that predates the
+    // field, falls back to that shared default.
+    let device_name = machine::name().await;
+    let authorization = device::authorize(&client, device_name.as_deref()).await?;
+    let opened = open_verification_page(opts.browser, verification_url(&authorization));
+    output.status(&instructions(&authorization, opened))?;
 
     let token = device::poll(
         &client,
@@ -78,7 +96,7 @@ pub async fn run(opts: LoginOptions<'_>, output: &mut dyn Output) -> Result<(), 
     // working, or on a reprovisioned box — would otherwise leak one
     // per login until they hit the cap and only the dashboard could
     // clear it.
-    if let Some(previous) = previous
+    if let Some(previous) = &previous
         && let Err(e) = device::revoke(&client, &previous.credential.token).await
     {
         // Out loud, not a debug line. This is the leak the block
@@ -98,7 +116,30 @@ pub async fn run(opts: LoginOptions<'_>, output: &mut dyn Output) -> Result<(), 
     // trade worth making.
     let login = identity::login_name(api_url.clone(), &credential.token).await;
 
-    emit(output, &api_url, login.as_deref(), &location)
+    // `login` is the moment the user is actually watching. Telling
+    // them here that something in their shell outranks what they
+    // just approved is the difference between a puzzling 403 an hour
+    // later and one line now — and `auth status`, which says the
+    // same thing, is a command they have no reason to run after a
+    // login that appeared to succeed.
+    //
+    // With one correction: when the variable holds the credential
+    // this login just replaced and revoked, "commands use it
+    // instead" is worse than no note at all. Re-logging in with the
+    // token exported is the obvious way to reach this.
+    let overriding = auth::overriding_env_var();
+    let overriding = match &previous {
+        Some(previous) if auth::overriding_env_var_holds(&previous.credential.token) => {
+            output.status(
+                "Warning: MERGIFY_TOKEN holds the credential this login replaced, which has \
+                 been revoked. Unset it so Mergify commands use the new one.",
+            )?;
+            None
+        }
+        _ => overriding,
+    };
+
+    emit(output, &api_url, login.as_deref(), &location, overriding)
 }
 
 /// Ask the server to revoke a token this machine could not store,
@@ -114,15 +155,51 @@ async fn revoke_quietly(client: &mergify_core::HttpClient, token: &str) {
     }
 }
 
-/// What the user has to do, on stderr, while the poll loop waits.
-fn instructions(authorization: &device::Authorization) -> String {
-    let theme = mergify_tui::Theme::detect();
-    let url = authorization
+/// The page the user approves on: the one with the code already
+/// filled in when the server offers it (RFC 8628 §3.3.1), the plain
+/// one otherwise. Both the browser and the printed instructions go
+/// through here, so what opens and what is on screen cannot drift
+/// apart.
+fn verification_url(authorization: &device::Authorization) -> &str {
+    authorization
         .verification_uri_complete
         .as_deref()
-        .unwrap_or(&authorization.verification_uri);
+        .unwrap_or(&authorization.verification_uri)
+}
+
+/// Try to put the approval page in front of the user, and report
+/// whether it worked so the instructions can say something true.
+///
+/// Returns rather than fails, always. A CI runner, a container and
+/// an SSH session have no browser to open, and none of that is a
+/// reason to refuse a login whose whole design is that the approval
+/// happens somewhere else.
+fn open_verification_page(browser: Option<&dyn Browser>, url: &str) -> bool {
+    let Some(browser) = browser else { return false };
+    match browser.open(url) {
+        Ok(()) => true,
+        Err(e) => {
+            tracing::debug!(error = %e, "could not open the verification page");
+            false
+        }
+    }
+}
+
+/// What the user has to do, on stderr, while the poll loop waits.
+///
+/// The URL is printed whether or not a browser took it: a spawned
+/// opener is not a window on screen, and the terminal is the only
+/// place the user can be sure to find the address again.
+fn instructions(authorization: &device::Authorization, opened: bool) -> String {
+    let theme = mergify_tui::Theme::detect();
+    let url = verification_url(authorization);
+    let open = if opened {
+        "Opening your browser to authorize the Mergify CLI. If nothing opens, go to:"
+    } else {
+        "Open this URL to authorize the Mergify CLI:"
+    };
     format!(
-        "Open this URL to authorize the Mergify CLI:\n\n    {url}\n\n\
+        "{open}\n\n    {url}\n\n\
          and confirm this code:\n\n    {bold}{code}{reset}\n\n\
          Waiting for approval…",
         bold = theme.bold.render(),
@@ -146,11 +223,13 @@ fn emit(
     api_url: &Url,
     login: Option<&str>,
     location: &Location,
+    overriding: Option<&'static str>,
 ) -> Result<(), CliError> {
     let result = LoginResult {
         api_url: api_url.to_string(),
         login: login.map(str::to_owned),
         stored_in: location.to_string(),
+        overridden_by: overriding.map(str::to_owned),
     };
     let theme = mergify_tui::Theme::detect();
     output.emit(&result, &mut |w: &mut dyn Write| {
@@ -164,7 +243,17 @@ fn emit(
             green = theme.green.render(),
             reset = theme.reset,
         )?;
-        writeln!(w, "Credential stored in {location}.")
+        writeln!(w, "Credential stored in {location}.")?;
+        if let Some(name) = overriding {
+            writeln!(
+                w,
+                "\n{warn}Note:{reset} {name} is set, so Mergify commands use it instead of \
+                 the credential you just stored. Unset it to use this login.",
+                warn = theme.warn.render(),
+                reset = theme.reset,
+            )?;
+        }
+        Ok(())
     })?;
     Ok(())
 }
@@ -193,6 +282,44 @@ mod tests {
             ),
             expires_in: Some(600),
             interval: Some(0),
+        }
+    }
+
+    /// A browser that records instead of opening one, so the suite
+    /// never puts a window on the screen of whoever ran it.
+    struct RecordingBrowser {
+        opened: std::sync::Mutex<Vec<String>>,
+        works: bool,
+    }
+
+    impl RecordingBrowser {
+        fn working() -> Self {
+            Self {
+                opened: std::sync::Mutex::new(Vec::new()),
+                works: true,
+            }
+        }
+
+        fn broken() -> Self {
+            Self {
+                opened: std::sync::Mutex::new(Vec::new()),
+                works: false,
+            }
+        }
+
+        fn opened(&self) -> Vec<String> {
+            self.opened.lock().unwrap().clone()
+        }
+    }
+
+    impl crate::browser::Browser for RecordingBrowser {
+        fn open(&self, url: &str) -> std::io::Result<()> {
+            self.opened.lock().unwrap().push(url.to_string());
+            if self.works {
+                Ok(())
+            } else {
+                Err(std::io::Error::other("no browser here"))
+            }
         }
     }
 
@@ -249,6 +376,7 @@ mod tests {
                 LoginOptions {
                     api_url: Some(&server.uri()),
                     store: &store,
+                    browser: None,
                 },
                 &mut captured.output,
             )
@@ -288,6 +416,7 @@ mod tests {
                 LoginOptions {
                     api_url: Some(&server.uri()),
                     store: &store,
+                    browser: None,
                 },
                 &mut captured.output,
             )
@@ -304,6 +433,38 @@ mod tests {
         });
     }
 
+    // The note has to reach the user from `run`, not merely be
+    // printable by the renderer: a `MERGIFY_TOKEN` in the shell
+    // makes every command ignore the credential this one just
+    // stored, and `login` is the last moment anybody is watching.
+    #[test]
+    fn login_reports_an_overriding_env_var() {
+        let (dir, store) = file_store();
+        let mut captured = Captured::human();
+        let stdout = with_mergify_token(Some("env-token"), async {
+            let server = MockServer::start().await;
+            mount_flow(&server, true).await;
+            run(
+                LoginOptions {
+                    api_url: Some(&server.uri()),
+                    store: &store,
+                    browser: None,
+                },
+                &mut captured.output,
+            )
+            .await
+            .unwrap();
+            captured.stdout()
+        });
+
+        assert!(stdout.contains("Logged in to"), "got {stdout:?}");
+        assert!(
+            stdout.contains("MERGIFY_TOKEN is set, so Mergify commands use it"),
+            "got {stdout:?}",
+        );
+        drop(dir);
+    }
+
     // A deployment too old to serve `/v1/user` still logs in; it just
     // cannot say whose credential it minted.
     #[test]
@@ -318,6 +479,7 @@ mod tests {
                 LoginOptions {
                     api_url: Some(&server.uri()),
                     store: &store,
+                    browser: None,
                 },
                 &mut captured.output,
             )
@@ -366,6 +528,7 @@ mod tests {
                 LoginOptions {
                     api_url: Some(&server.uri()),
                     store: &store,
+                    browser: None,
                 },
                 &mut captured.output,
             )
@@ -400,6 +563,7 @@ mod tests {
                 LoginOptions {
                     api_url: Some(&server.uri()),
                     store: &store,
+                    browser: None,
                 },
                 &mut captured.output,
             )
@@ -446,6 +610,7 @@ mod tests {
                 LoginOptions {
                     api_url: Some(&server.uri()),
                     store: &store,
+                    browser: None,
                 },
                 &mut captured.output,
             )
@@ -460,6 +625,55 @@ mod tests {
             let stderr = captured.stderr();
             assert!(stderr.contains("could not be revoked"), "got {stderr:?}");
             assert!(stderr.contains("CLI Tokens"), "got {stderr:?}");
+        });
+        drop(dir);
+    }
+
+    // Re-logging in with the old credential exported: the variable
+    // now holds a revoked token, so "commands use it instead" would
+    // send the user off with a dead one.
+    #[test]
+    fn login_says_to_unset_an_env_var_holding_the_replaced_credential() {
+        let (dir, store) = file_store();
+        with_mergify_token(Some("mut_previous"), async {
+            let server = MockServer::start().await;
+            mount_flow(&server, true).await;
+            Mock::given(method("POST"))
+                .and(path("/v1/oauth/revoke"))
+                .respond_with(ResponseTemplate::new(200))
+                .expect(1)
+                .mount(&server)
+                .await;
+            let api_url = Url::parse(&server.uri()).unwrap();
+            store
+                .set(
+                    &api_url,
+                    &Credential {
+                        token: "mut_previous".to_string(),
+                        expires_at: None,
+                    },
+                )
+                .unwrap();
+            let mut captured = Captured::human();
+
+            run(
+                LoginOptions {
+                    api_url: Some(&server.uri()),
+                    store: &store,
+                    browser: None,
+                },
+                &mut captured.output,
+            )
+            .await
+            .unwrap();
+
+            let stderr = captured.stderr();
+            assert!(
+                stderr.contains("holds the credential this login replaced"),
+                "got {stderr:?}",
+            );
+            let stdout = captured.stdout();
+            assert!(!stdout.contains("Note:"), "got {stdout:?}");
         });
         drop(dir);
     }
@@ -494,6 +708,7 @@ mod tests {
                 LoginOptions {
                     api_url: Some(&server.uri()),
                     store: &store,
+                    browser: None,
                 },
                 &mut captured.output,
             )
@@ -513,12 +728,161 @@ mod tests {
     fn the_instructions_fall_back_to_the_plain_verification_url() {
         let mut authorization = authorization();
         authorization.verification_uri_complete = None;
-        let rendered = instructions(&authorization);
+        let rendered = instructions(&authorization, false);
         assert!(
             rendered.contains("https://dashboard.mergify.com/device\n"),
             "got {rendered:?}",
         );
         assert!(rendered.contains("BCDF-GHJK"), "got {rendered:?}");
+    }
+
+    // The same page the user is told to open is the one that opens:
+    // the pre-filled one, so the code they are comparing is already
+    // in the field.
+    #[test]
+    fn login_opens_the_verification_page() {
+        with_mergify_token(None, async {
+            let server = MockServer::start().await;
+            mount_flow(&server, true).await;
+            let (dir, store) = file_store();
+            let browser = RecordingBrowser::working();
+            let mut captured = Captured::human();
+
+            run(
+                LoginOptions {
+                    api_url: Some(&server.uri()),
+                    store: &store,
+                    browser: Some(&browser),
+                },
+                &mut captured.output,
+            )
+            .await
+            .unwrap();
+
+            assert_eq!(
+                browser.opened(),
+                ["https://dashboard.mergify.com/device?user_code=BCDF-GHJK"],
+            );
+            let stderr = captured.stderr();
+            assert!(stderr.contains("Opening your browser"), "got {stderr:?}");
+            // Still printed, always: a spawned opener is not a
+            // window on screen, and this is where the user looks.
+            assert!(
+                stderr.contains("https://dashboard.mergify.com/device?user_code=BCDF-GHJK"),
+                "got {stderr:?}",
+            );
+            drop(dir);
+        });
+    }
+
+    // Opening is a convenience, and the machines that cannot do it
+    // — a CI runner, a container, an SSH session — are the ones the
+    // device grant exists for.
+    #[test]
+    fn a_browser_that_will_not_open_does_not_fail_the_login() {
+        with_mergify_token(None, async {
+            let server = MockServer::start().await;
+            mount_flow(&server, true).await;
+            let (dir, store) = file_store();
+            let browser = RecordingBrowser::broken();
+            let mut captured = Captured::human();
+
+            run(
+                LoginOptions {
+                    api_url: Some(&server.uri()),
+                    store: &store,
+                    browser: Some(&browser),
+                },
+                &mut captured.output,
+            )
+            .await
+            .unwrap();
+
+            let api_url = Url::parse(&server.uri()).unwrap();
+            assert_eq!(
+                store.get(&api_url).unwrap().unwrap().credential.token,
+                "mut_secret",
+            );
+            let stderr = captured.stderr();
+            assert!(
+                stderr.contains("Open this URL to authorize"),
+                "a browser that did not open must not be claimed to have opened, got {stderr:?}",
+            );
+            assert!(
+                stderr.contains("https://dashboard.mergify.com/device?user_code=BCDF-GHJK"),
+                "got {stderr:?}",
+            );
+            drop(dir);
+        });
+    }
+
+    // The wiring, not the renderer: `device_name` has to leave this
+    // command on the grant request, or the approval page goes back
+    // to naming every machine "Mergify CLI". Asserted against what
+    // this machine actually calls itself, so the test says the same
+    // thing on a laptop and in a container with no `hostname`.
+    #[test]
+    fn login_tells_the_server_which_machine_asked() {
+        with_mergify_token(None, async {
+            let server = MockServer::start().await;
+            mount_flow(&server, true).await;
+            let (dir, store) = file_store();
+            let mut captured = Captured::human();
+
+            run(
+                LoginOptions {
+                    api_url: Some(&server.uri()),
+                    store: &store,
+                    browser: None,
+                },
+                &mut captured.output,
+            )
+            .await
+            .unwrap();
+
+            let requests = server.received_requests().await.unwrap();
+            let grant = requests
+                .iter()
+                .find(|r| r.url.path() == "/v1/oauth/device/code")
+                .expect("the grant request");
+            let body = String::from_utf8_lossy(&grant.body);
+            match crate::machine::name().await {
+                Some(_) => assert!(body.contains("device_name="), "got {body:?}"),
+                None => assert_eq!(body, "client_id=mergify-cli", "got {body:?}"),
+            }
+            drop(dir);
+        });
+    }
+
+    // `--no-browser`: nothing is spawned, and the instructions go
+    // back to telling the user to open the URL themselves.
+    #[test]
+    fn no_browser_tells_the_user_to_open_the_url() {
+        with_mergify_token(None, async {
+            let server = MockServer::start().await;
+            mount_flow(&server, true).await;
+            let (dir, store) = file_store();
+            let mut captured = Captured::human();
+
+            run(
+                LoginOptions {
+                    api_url: Some(&server.uri()),
+                    store: &store,
+                    browser: None,
+                },
+                &mut captured.output,
+            )
+            .await
+            .unwrap();
+
+            let stderr = captured.stderr();
+            assert!(
+                stderr.contains("Open this URL to authorize"),
+                "got {stderr:?}",
+            );
+            assert!(!stderr.contains("Opening your browser"), "got {stderr:?}");
+            drop(dir);
+        });
     }
 
     #[test]

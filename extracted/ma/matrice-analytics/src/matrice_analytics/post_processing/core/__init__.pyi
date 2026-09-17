@@ -128,6 +128,7 @@ from ..usecases.weld_defect_detection import WeldDefectConfig
 from ..usecases.wildlife_monitoring import WildLifeMonitoringConfig
 from ..usecases.windmill_maintenance import WindmillMaintenanceConfig
 from ..usecases.wound_segmentation import WoundConfig
+from ._usecase_table import USE_CASE_TABLE
 from .base import ConfigProtocol
 from .config import AlertConfig, CustomerServiceConfig, IntrusionConfig, LineConfig, PeopleCountingConfig, PeopleTrackingConfig, ProximityConfig, TrackingConfig, ZoneConfig, config_manager
 
@@ -863,6 +864,11 @@ class ProcessorProtocol:
 # From base
 class ProcessorRegistry:
     # Registry for processors and use cases.
+    #
+    #     Use cases may be registered either eagerly (a class object) or lazily (a
+    #     ``"module:ClassName"`` spec resolved on first lookup).  Lazy registration is
+    #     what keeps ``import matrice_analytics.post_processing`` from executing the
+    #     whole use-case catalogue -- see ``core/_usecase_table.py``.
 
     def __init__(self: Any) -> None:
         """
@@ -895,6 +901,8 @@ class ProcessorRegistry:
     def list_use_cases(self: Any) -> Dict[str, List[str]]:
         """
         List all registered use cases by category.
+        
+                Answers from the catalogue; imports nothing.
         """
         ...
 
@@ -907,6 +915,21 @@ class ProcessorRegistry:
     def register_use_case(self: Any, category: str, name: str, use_case_class: Any[Any]) -> None:
         """
         Register a use case class.
+        """
+        ...
+
+    def register_use_case_lazy(self: Any, category: str, name: str, spec: str) -> None:
+        """
+        Register a use case by ``"module:ClassName"``, loaded on first lookup.
+        
+                ``module`` is an absolute module path, e.g.
+                ``"matrice_analytics.post_processing.usecases.people_counting:PeopleCountingUseCase"``.
+        """
+        ...
+
+    def register_use_cases_lazy(self: Any, table: Dict[str, Dict[str, str]]) -> None:
+        """
+        Seed the registry from a whole ``category -> {name: spec}`` catalogue.
         """
         ...
 
@@ -924,6 +947,15 @@ class ResultFormat:
     TRACKING: str
     UNKNOWN: str
 
+
+# From base
+class UseCaseLoadError:
+    # A registered use case exists in the catalogue but its module would not load.
+    #
+    #     Subclasses :class:`ImportError` so existing ``except ImportError`` handlers --
+    #     including the one ml-codebases wraps its analytics import in -- keep working.
+
+    ...
 
 # From config
 class AlertConfig:
@@ -1690,4 +1722,4 @@ class ZoneConfig:
         ...
 
 
-from . import base, config, config_utils
+from . import _usecase_table, base, config, config_utils

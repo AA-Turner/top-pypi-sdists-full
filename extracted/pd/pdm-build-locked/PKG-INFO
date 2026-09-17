@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pdm-build-locked
-Version: 0.3.7
+Version: 0.3.8
 Summary:     pdm-build-locked is a pdm plugin to add locked packages as additional optional dependency groups to the distribution metadata
 Keywords: pdm,plugin
 Author-Email: sigma67 <sigma67.github@gmail.com>, Frost Ming <me@frostming.com>
@@ -36,6 +36,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Requires-Dist: tomli; python_version < "3.11"
+Requires-Dist: packaging
 Description-Content-Type: text/x-rst
 
 pdm-build-locked: Publish locked dependencies

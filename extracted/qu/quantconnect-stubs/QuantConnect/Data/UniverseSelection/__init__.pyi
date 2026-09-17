@@ -28,6 +28,8 @@ QuantConnect_Data_UniverseSelection__EventContainer_Callable = typing.TypeVar("Q
 QuantConnect_Data_UniverseSelection__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Data_UniverseSelection__EventContainer_ReturnType")
 QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T")
 QuantConnect_Data_UniverseSelection_FundamentalService_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_FundamentalService_Get_T")
+QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T")
+QuantConnect_Data_UniverseSelection_UniverseDecorator_TryGetUnderlying_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_UniverseDecorator_TryGetUnderlying_T")
 QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T")
 QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T")
 QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T")
@@ -1754,8 +1756,32 @@ class UniversePythonWrapper(QuantConnect.Data.UniverseSelection.Universe):
         ...
 
 
+class _Typed_UniverseExtensions_TryGetUniverse(typing.Generic[QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T]):
+    """"""
+
+    @overload
+    def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, result: typing.Optional[QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T]) -> typing.Tuple[bool, QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T]:
+        """
+        Gets the given universe as the requested type, checking the universe it decorates, if any
+        
+        :param universe: The universe to check
+        :param result: The universe as the requested type, if any
+        :returns: True if the universe, or one it decorates, is of the requested type.
+        """
+        ...
+
+
+class _UniverseExtensions_TryGetUniverse:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T]) -> QuantConnect.Data.UniverseSelection._Typed_UniverseExtensions_TryGetUniverse[QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T]:
+        ...
+
+
 class UniverseExtensions(System.Object):
     """Provides extension methods for the Universe class"""
+
+    try_get_universe: QuantConnect.Data.UniverseSelection._UniverseExtensions_TryGetUniverse
 
     @staticmethod
     def chained_to(first: QuantConnect.Data.UniverseSelection.Universe, second: QuantConnect.Data.UniverseSelection.Universe, configuration_per_symbol: bool) -> QuantConnect.Data.UniverseSelection.Universe:
@@ -1814,6 +1840,27 @@ class UniverseExtensions(System.Object):
         ...
 
 
+class _Typed_UniverseDecorator_TryGetUnderlying(typing.Generic[QuantConnect_Data_UniverseSelection_UniverseDecorator_TryGetUnderlying_T]):
+    """"""
+
+    @overload
+    def __call__(self, underlying: typing.Optional[QuantConnect_Data_UniverseSelection_UniverseDecorator_TryGetUnderlying_T]) -> typing.Tuple[bool, QuantConnect_Data_UniverseSelection_UniverseDecorator_TryGetUnderlying_T]:
+        """
+        Gets the decorated universe as the given type, unwrapping nested decorators
+        
+        :param underlying: The decorated universe as the given type, if any
+        :returns: True if the decorated universe, or one it decorates, is of the given type.
+        """
+        ...
+
+
+class _UniverseDecorator_TryGetUnderlying:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_UniverseDecorator_TryGetUnderlying_T]) -> QuantConnect.Data.UniverseSelection._Typed_UniverseDecorator_TryGetUnderlying[QuantConnect_Data_UniverseSelection_UniverseDecorator_TryGetUnderlying_T]:
+        ...
+
+
 class UniverseDecorator(QuantConnect.Data.UniverseSelection.Universe, metaclass=abc.ABCMeta):
     """
     Provides an implementation of UniverseSelection.Universe that redirects all calls to a
@@ -1843,6 +1890,10 @@ class UniverseDecorator(QuantConnect.Data.UniverseSelection.Universe, metaclass=
     @property
     def securities(self) -> System.Collections.Concurrent.ConcurrentDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe.Member]:
         """Gets the internal security collection used to define membership in this universe"""
+        ...
+
+    @property
+    def try_get_underlying(self) -> QuantConnect.Data.UniverseSelection._UniverseDecorator_TryGetUnderlying:
         ...
 
     def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe) -> None:

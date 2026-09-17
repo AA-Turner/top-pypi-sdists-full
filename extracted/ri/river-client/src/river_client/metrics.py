@@ -231,7 +231,10 @@ class RunMetricsLogger:
                         return None
                     self._condition.wait()
                     continue
-                if self._flush_requested and self._next_attempt_at is None:
+                if self._flush_requested:
+                    # A flush interrupts the periodic timer. Retry deadlines
+                    # still apply while a failed batch remains in flight.
+                    self._next_attempt_at = None
                     self._inflight = self._take_batch()
                     return self._inflight
                 if self._next_attempt_at is None:

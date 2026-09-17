@@ -2,13 +2,25 @@
 
 from __future__ import annotations
 
-import os
 import contextlib
+import os
+import re
 from pathlib import Path
 from typing import Iterator
 
-from .source_map import detect_format, build_source_map, closest_entry
 from ._jsonpath import extract_jsonpath, jsonpath_to_pointer
+from .source_map import detect_format, locate_pointer, Location
+
+POSITIONAL_RE = re.compile(r"at line (\d+), column (\d+)")
+
+
+def extract_positional_reference(msg: str) -> Location | None:
+    if m := POSITIONAL_RE.search(msg):
+        return Location(
+            line=int(m.group(1)) - 1, column=int(m.group(2)) - 1, position=0
+        )
+    return None
+
 
 __all__ = ["ParseError", "ParseContext"]
 
@@ -50,28 +62,47 @@ def ParseContext(
         yield
     except Exception as exc:
         message = str(exc)
+        path = Path(filename)
+
         # This is focused on msgspec-style exceptions, which use JSONPath for
-        # some reason.  If there are other formats we know can be raised,
-        # adjust this.
+        # some reason.
         jsonpath = extract_jsonpath(message)
         if jsonpath is None:
-            raise
+            # These are raised by toml decoding
+            loc = extract_positional_reference(message)
+            if loc is None:
+                raise ParseError(
+                    f"{filename}: {exc!r}", filename=filename, line=1
+                ) from exc
+
+            raise ParseError(
+                f"{path}:{loc.line + 1}:{loc.column + 1}: {message}",
+                filename=path,
+                line=loc.line + 1,
+                column=loc.column + 1,
+            ) from exc
 
         try:
             pointer = jsonpath_to_pointer(jsonpath)
-        except ValueError:  # pragma: no cover
-            raise exc
+        except ValueError:
+            raise ParseError(
+                f"{filename}: {exc!r}", filename=filename, line=1
+            ) from exc
 
-        path = Path(filename)
-        fmt = format or detect_format(path)
-        assert fmt is not None
+        fmt = format.lower() if format else detect_format(path)
+        if fmt == "yml":
+            fmt = "yaml"
+        if fmt not in ("json", "toml", "yaml"):
+            raise ParseError(
+                f"{filename}: {exc!r}", filename=filename, line=1
+            ) from exc
 
         source = data if data is not None else path.read_bytes()
-        source_map = build_source_map(source, fmt)
-
-        entry = closest_entry(source_map, pointer)
-        if entry is None:  # pragma: no cover
-            raise exc
+        entry = locate_pointer(source, fmt, pointer)
+        if entry is None:
+            raise ParseError(
+                f"{filename}: {exc!r}", filename=filename, line=1
+            ) from exc
 
         loc = entry.value_start
         # Lines are 0-based in source maps; convert to 1-based for humans.

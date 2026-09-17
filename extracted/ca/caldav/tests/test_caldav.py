@@ -53,8 +53,9 @@ _config = load_test_server_config()
 rfc6638_users = _config.get("rfc6638_users", [])
 from caldav import Calendar, DAVObject, Event, FreeBusy, Principal, Todo
 from caldav.compatibility_hints import (
-    incompatibility_description,
-)  ## TEMP - should be removed in the future
+    incompatibility_description,  ## TEMP - should be removed in the future
+    write_delay,
+)
 from caldav.davclient import CONNKEYS, DAVClient, DAVResponse
 from caldav.elements import cdav, dav, ical
 from caldav.lib import error
@@ -1320,7 +1321,7 @@ def _delay_decorator(f, t=20):
     return foo
 
 
-## HTTP methods that change server state.  A "write-delay" server settles each of
+## HTTP methods that change server state.  A server without "synchronous-write" settles each of
 ## these asynchronously, so we sleep AFTER every such request to let the change
 ## become visible before the test reads it back (the general, write-side
 ## counterpart of the search-cache delay, which only delays searches).
@@ -1414,12 +1415,12 @@ class RepeatedFunctionalTestsBaseClass:
         if foo.get("behaviour") == "delay":
             Calendar._search = Calendar.search
             Calendar.search = _delay_decorator(Calendar.search, t=foo["delay"])
-        foo = self.is_supported("write-delay", dict)
-        if foo.get("behaviour") == "delay":
+        delay = write_delay(self.caldav.features)
+        if delay:
             ## Every write goes through the client request(); sleep after the
             ## write verbs so the asynchronous change has settled before read-back.
             ## Instance-level wrap (like rate-limit), torn down with the client.
-            self.caldav.request = _write_delay_decorator(self.caldav.request, t=foo["delay"])
+            self.caldav.request = _write_delay_decorator(self.caldav.request, t=delay)
 
         if False and self.check_compatibility_flag("no-current-user-principal"):
             self.principal = Principal(client=self.caldav, url=self.server_params["principal_url"])
@@ -1563,7 +1564,13 @@ class RepeatedFunctionalTestsBaseClass:
         Delegates core create-or-find logic to fixture_helpers.get_or_create_test_calendar,
         handling test-infrastructure concerns (caching, cleanup, cal_id defaults) here.
         """
-        from .fixture_helpers import get_or_create_test_calendar
+        from .fixture_helpers import component_set_unobtainable, get_or_create_test_calendar
+
+        reason = component_set_unobtainable(
+            self.caldav, kwargs.get("supported_calendar_component_set")
+        )
+        if reason:
+            pytest.skip(reason)
 
         if not self.is_supported("create-calendar"):
             if not self._default_calendar:
@@ -1686,9 +1693,15 @@ class RepeatedFunctionalTestsBaseClass:
         fe = self.caldav.features
 
         mismatches = fe.compare(fo)
-        assert not mismatches, "compatibility mismatches:\n" + "\n".join(
-            f"  {m['feature']}: declared {m['expected']!r}, observed {m['observed']!r}"
+        ## pytest's short test summary shows only the first line of the
+        ## message, so the first mismatch has to go on that line
+        lines = [
+            f"{m['feature']}: declared {m['expected']!r}, observed {m['observed']!r}"
             for m in mismatches
+        ]
+        assert not mismatches, (
+            f"{len(mismatches)} compatibility mismatch(es): {lines[0]}\n"
+            + "\n".join(f"  {line}" for line in lines)
         )
 
     def testSupport(self):
@@ -2045,8 +2058,11 @@ END:VCALENDAR"""
         self.skip_unless_support("save-load.mutable.attendee-partstat")
         c = self._fixCalendar()
 
+        ## A SUMMARY, since some servers refuse an event without one
+        ## (save-load.event.no-summary) and this test is about PARTSTAT.
         event = c.add_event(
             uid="test1",
+            summary="attendee status test",
             dtstart=datetime(2015, 10, 10, 8, 7, 6),
             dtend=datetime(2015, 10, 10, 9, 7, 6),
             ical_fragment="ATTENDEE;ROLE=OPT-PARTICIPANT;PARTSTAT=TENTATIVE:MAILTO:testuser@example.com",
@@ -2288,6 +2304,7 @@ END:VCALENDAR"""
         """
         It should be possible to save a task and retrieve it by uid
         """
+        self.skip_unless_support("save-load.todo")
         c = self._fixCalendar(supported_calendar_component_set=["VTODO"])
         c.add_todo(summary="Some test task with a well-known uid", uid="well_known_1")
         foo = c.get_object_by_uid("well_known_1")

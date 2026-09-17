@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tooluniverse
-Version: 1.4.1
+Version: 1.5.0
 Summary: A comprehensive collection of scientific tools for Agentic AI, offering integration with the ToolUniverse SDK and MCP Server to support advanced scientific workflows.
 Author-email: Shanghua Gao <shanghuagao@gmail.com>
 Project-URL: Homepage, https://github.com/mims-harvard/ToolUniverse
@@ -8,6 +8,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests>=2.32.0
+Requires-Dist: boltz-api<0.47.0,>=0.46.0
 Requires-Dist: numpy>=2.2.0
 Requires-Dist: sympy>=1.12.0
 Requires-Dist: graphql-core>=3.2.0
@@ -16,9 +17,7 @@ Requires-Dist: uvicorn>=0.36.0
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: epam.indigo>=1.34.0
 Requires-Dist: networkx>=3.4.0
-Requires-Dist: openai>=1.107.0
 Requires-Dist: pyyaml>=6.0.0
-Requires-Dist: google-genai>=1.36.0
 Requires-Dist: mcp[cli]<2.0.0,>=1.29.0
 Requires-Dist: fastmcp<4.0.0,>=3.4.5
 Requires-Dist: xmltodict>=1.0.0
@@ -26,6 +25,8 @@ Requires-Dist: lxml>=6.0.0
 Requires-Dist: huggingface_hub>=0.34.0
 Requires-Dist: jsonpath-ng>=1.6.0
 Requires-Dist: rcsb-api>=1.4.0
+Requires-Dist: websockets>=13.0
+Requires-Dist: urllib3>=1.26
 Requires-Dist: scipy>=1.7.0
 Requires-Dist: pandas>=2.2.3
 Requires-Dist: openpyxl>=3.1.0
@@ -37,13 +38,20 @@ Requires-Dist: flask>=2.0.0
 Requires-Dist: aiohttp
 Requires-Dist: beautifulsoup4>=4.12.0
 Requires-Dist: python-dotenv>=1.0.0
-Requires-Dist: markitdown[all]>=0.1.0
+Requires-Dist: markitdown[audio-transcription,az-doc-intel,docx,outlook,pdf,pptx,xls,xlsx,youtube-transcription]>=0.1.0
 Requires-Dist: psutil>=5.9.0
 Requires-Dist: ddgs>=9.0.0
 Requires-Dist: pip>=25.3
 Requires-Dist: jsonschema>=4.23.0
 Provides-Extra: pdf
 Requires-Dist: pymupdf>=1.24.3; extra == "pdf"
+Provides-Extra: ocr
+Requires-Dist: easyocr>=1.7; extra == "ocr"
+Requires-Dist: python-docx>=1.1; extra == "ocr"
+Provides-Extra: openai
+Requires-Dist: openai>=1.107.0; extra == "openai"
+Provides-Extra: gemini
+Requires-Dist: google-genai>=1.36.0; extra == "gemini"
 Provides-Extra: client
 Requires-Dist: requests>=2.32.0; extra == "client"
 Requires-Dist: pydantic>=2.11.0; extra == "client"
@@ -64,6 +72,7 @@ Requires-Dist: pytest-xdist>=3.0; extra == "dev"
 Requires-Dist: pytest-html>=3.0; extra == "dev"
 Requires-Dist: requests-mock>=1.12.1; extra == "dev"
 Requires-Dist: ruff>=0.14.5; extra == "dev"
+Requires-Dist: tooluniverse[gemini,openai]; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx>=4.0; extra == "docs"
 Requires-Dist: furo>=2024.8.6; extra == "docs"
@@ -113,7 +122,7 @@ Provides-Extra: bioinformatics
 Requires-Dist: biopython>=1.80; extra == "bioinformatics"
 Requires-Dist: freesasa>=2.2.0; extra == "bioinformatics"
 Provides-Extra: all
-Requires-Dist: tooluniverse[bioinformatics,dev,docs,embedding,graph,ml,space,visualization]; extra == "all"
+Requires-Dist: tooluniverse[bioinformatics,dev,docs,embedding,gemini,graph,ml,openai,space,visualization]; extra == "all"
 Provides-Extra: build
 Requires-Dist: pyinstaller>=6.0.0; extra == "build"
 Dynamic: license-file
@@ -134,6 +143,12 @@ Dynamic: license-file
 [//]: # (mcp-name: io.github.mims-harvard/tooluniverse)
 
 ## Install
+
+> [!IMPORTANT]
+> **Claude Desktop extension showing "Failed — Server disconnected"?** The copy of ToolUniverse in
+> Claude Desktop's built-in Extensions directory is an old build that cannot start. Remove it, then
+> use either option below — both install a working version.
+> Details and status: [#585](https://github.com/mims-harvard/ToolUniverse/issues/585)
 
 **AI agent (recommended)** — open your AI agent and run:
 ```

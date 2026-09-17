@@ -343,3 +343,22 @@ def test_concurrent_api_calls_do_not_crash():
             f.result()
 
     s.close()
+
+
+@util.min_libcurl(7, 57, 0)
+def test_share_setopt_lock_data_connect():
+    s = pycurl.CurlShare()
+    s.setopt(pycurl.SH_SHARE, pycurl.LOCK_DATA_CONNECT)
+
+
+@util.min_libcurl(7, 61, 0)
+@util.only_psl
+def test_share_setopt_lock_data_psl():
+    s = pycurl.CurlShare()
+    s.setopt(pycurl.SH_SHARE, pycurl.LOCK_DATA_PSL)
+
+
+@util.min_libcurl(7, 88, 0)
+def test_share_setopt_lock_data_hsts():
+    s = pycurl.CurlShare()
+    s.setopt(pycurl.SH_SHARE, pycurl.LOCK_DATA_HSTS)

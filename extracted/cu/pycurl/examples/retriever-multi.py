@@ -31,7 +31,7 @@ try:
             urls = fp.readlines()
     if len(sys.argv) >= 3:
         num_conn = int(sys.argv[2])
-except:
+except (ValueError, IndexError):
     print("Usage: %s <file with URLs to fetch> [<# of concurrent connections>]" % sys.argv[0])
     raise SystemExit
 

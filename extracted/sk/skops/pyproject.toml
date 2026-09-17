@@ -57,14 +57,24 @@ Repository = "http://github.com/skops-dev/skops"
 Issues = "http://github.com/skops-dev/skops/issues"
 Changelog = "https://skops.readthedocs.io/en/stable/changes.html"
 
-[tool.black]
-line-length = 88
-target_version = ['py310', 'py311', 'py312']
-preview = true
-
 [tool.ruff]
-# all rules can be found here: https://beta.ruff.rs/docs/rules/
+line-length = 88
+extend-exclude = [
+    # locally installed pixi environments
+    ".pixi",
+    # These markdown files are data (model card template and test fixtures) and
+    # must be kept verbatim; ruff would otherwise format the python code blocks in
+    # them.
+    "skops/card/default_template.md",
+    "skops/card/tests/examples",
+]
+
+[tool.ruff.lint]
+# all rules can be found here: https://docs.astral.sh/ruff/rules/
 select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["skops"]
 
 [tool.pytest.ini_options]
 doctest_optionflags = "NORMALIZE_WHITESPACE ELLIPSIS"
@@ -76,6 +86,8 @@ filterwarnings = [
     # sklearn1.8 deprecates this class
     "ignore:Class PassiveAggressiveClassifier is deprecated:FutureWarning",
     "ignore:Class PassiveAggressiveRegressor is deprecated:FutureWarning",
+    # sklearn nightly still imports the deprecated scipy.stats.mstats (scipy 2.0)
+    "ignore:`scipy.stats.mstats` is deprecated:DeprecationWarning",
 ]
 addopts = "--cov=skops --cov-report=term-missing --doctest-modules"
 
@@ -86,10 +98,13 @@ omit = [
     "skops/conftest.py",
 ]
 
-[tool.mypy]
-exclude = "(\\w+/)*test_\\w+\\.py$|spaces/skops_model_card_creator|old"
-ignore_missing_imports = true
-no_implicit_optional = true
+[tool.pyrefly]
+project-includes = ["skops", "examples", "scripts", "docs/conf.py"]
+# Replace imports that cannot be resolved (e.g. numpy, scikit-learn, which are not
+# installed in the pre-commit environment) with `Any` instead of erroring.
+ignore-missing-imports = ["*"]
+# The `legacy` preset is the one pyrefly recommends for projects migrating from mypy.
+preset = "legacy"
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
@@ -122,9 +137,8 @@ fairlearn = ">=0.7.0"
 [tool.pixi.feature.tests.dependencies]
 pytest = ">=7"
 pytest-cov = ">=2.9.0"
-flake8 = ">=3.8.2"
-types-requests = ">=2.28.5"
 flaky = ">=3.7.0"
+pandoc = ">=3.6.4"
 rich = ">=12"
 matplotlib = ">=3.3"
 pandas = ">=1"
@@ -202,12 +216,21 @@ python = "~=3.13.0"
 
 [tool.pixi.feature.sklearn18.dependencies]
 scikit-learn = "~=1.8.0"
-fairlearn = "~=0.12.0"
+fairlearn = "~=0.14.0"
 pandas = "~=2.3.0"
 numpy = "~=2.4.0"
-scipy = "~=1.16.0"
-# catboost = ">=1.0"
-# TODO: catboost does not support python 3.14 - issue https://github.com/catboost/catboost/issues/2989
+scipy = "~=1.17.0"
+catboost = ">=1.0"
+quantile-forest = "~=1.4.0"
+python = "~=3.14.0"
+
+[tool.pixi.feature.sklearn19.dependencies]
+scikit-learn = "~=1.9.0"
+fairlearn = "~=0.14.0"
+pandas = "~=3.0.0"
+numpy = "~=2.5.0"
+scipy = "~=1.18.0"
+catboost = ">=1.0"
 quantile-forest = "~=1.4.0"
 python = "~=3.14.0"
 
@@ -225,7 +248,7 @@ extra-index-urls = ["https://pypi.anaconda.org/scientific-python-nightly-wheels/
 
 [tool.pixi.feature.sklearn-nightly.pypi-dependencies]
 # The version value here needs to be exact, hence == instead of ~=
-scikit-learn = "==1.9.dev0"
+scikit-learn = "==1.10.dev0"
 fairlearn = "*"
 pandas = "*"
 numpy = "*"
@@ -248,4 +271,5 @@ ci-sklearn15 = ["rich", "tests", "lint", "sklearn15"]
 ci-sklearn16 = ["rich", "tests", "lint", "sklearn16"]
 ci-sklearn17 = ["rich", "tests", "lint", "sklearn17"]
 ci-sklearn18 = ["rich", "tests", "lint", "sklearn18"]
+ci-sklearn19 = ["rich", "tests", "lint", "sklearn19"]
 ci-sklearn-nightly = ["rich", "tests", "lint", "sklearn-nightly"]

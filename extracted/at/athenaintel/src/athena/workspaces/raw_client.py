@@ -15,6 +15,8 @@ from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.default_visibility import DefaultVisibility
+from ..types.presence_resolve_response_out import PresenceResolveResponseOut
+from ..types.presence_token_response_out import PresenceTokenResponseOut
 from ..types.update_workspace_disclaimer_in import UpdateWorkspaceDisclaimerIn
 from ..types.update_workspace_tool_registry_tool_in import UpdateWorkspaceToolRegistryToolIn
 from ..types.workspace_configuration_response_out import WorkspaceConfigurationResponseOut
@@ -172,6 +174,140 @@ class RawWorkspacesClient:
                         ),
                     ),
                 )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def create_presence_token(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[PresenceTokenResponseOut]:
+        """
+        Admin only. Mint a short-lived, read-only Keryx token for a workspace's live presence feed (the awareness room the People page renders). The token is bound to the calling user, so Keryx narrows every frame to the documents that user may open; it can never publish presence or write document content. Requires the presence roster to be enabled for the deployment and opted in for the workspace. Computer-asset sandbox credentials are refused: call with the viewing user's own token.
+
+        Parameters
+        ----------
+        workspace_id : str
+            The workspace whose presence feed to read.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[PresenceTokenResponseOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/workspaces/{jsonable_encoder(workspace_id)}/presence-token",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    PresenceTokenResponseOut,
+                    parse_obj_as(
+                        type_=PresenceTokenResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def resolve_presence(
+        self,
+        workspace_id: str,
+        *,
+        asset_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        include_members: typing.Optional[bool] = OMIT,
+        include_projects: typing.Optional[bool] = OMIT,
+        project_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        session_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[PresenceResolveResponseOut]:
+        """
+        Admin only. Resolve the guids a presence feed carries into display titles, asset kinds, and project membership, and optionally list the projects and members of the workspace. Every id is checked against the calling user's own read permission as an ordinary member; anything the caller could not open is omitted rather than reported. Same gates as the presence-token mint.
+
+        Parameters
+        ----------
+        workspace_id : str
+            The workspace whose presence feed to read.
+
+        asset_ids : typing.Optional[typing.Sequence[str]]
+            Asset guids from presence contexts of type asset.
+
+        include_members : typing.Optional[bool]
+            Also list the workspace's members (name, email, avatar) so the app can name people by their attested user id rather than the self-reported slot.
+
+        include_projects : typing.Optional[bool]
+            Also list every project the caller may open in this workspace, each with the linked documents the caller may open.
+
+        project_ids : typing.Optional[typing.Sequence[str]]
+            Project guids from coarse presence contexts or from a visible context's projects annotation.
+
+        session_ids : typing.Optional[typing.Sequence[str]]
+            Thread ids from presence contexts of type session (what an open chat publishes). Each resolves to the workspace's session asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[PresenceResolveResponseOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/workspaces/{jsonable_encoder(workspace_id)}/presence/resolve",
+            method="POST",
+            json={
+                "asset_ids": asset_ids,
+                "include_members": include_members,
+                "include_projects": include_projects,
+                "project_ids": project_ids,
+                "session_ids": session_ids,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    PresenceResolveResponseOut,
+                    parse_obj_as(
+                        type_=PresenceResolveResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -522,6 +658,140 @@ class AsyncRawWorkspacesClient:
                         ),
                     ),
                 )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def create_presence_token(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[PresenceTokenResponseOut]:
+        """
+        Admin only. Mint a short-lived, read-only Keryx token for a workspace's live presence feed (the awareness room the People page renders). The token is bound to the calling user, so Keryx narrows every frame to the documents that user may open; it can never publish presence or write document content. Requires the presence roster to be enabled for the deployment and opted in for the workspace. Computer-asset sandbox credentials are refused: call with the viewing user's own token.
+
+        Parameters
+        ----------
+        workspace_id : str
+            The workspace whose presence feed to read.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[PresenceTokenResponseOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/workspaces/{jsonable_encoder(workspace_id)}/presence-token",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    PresenceTokenResponseOut,
+                    parse_obj_as(
+                        type_=PresenceTokenResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def resolve_presence(
+        self,
+        workspace_id: str,
+        *,
+        asset_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        include_members: typing.Optional[bool] = OMIT,
+        include_projects: typing.Optional[bool] = OMIT,
+        project_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        session_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[PresenceResolveResponseOut]:
+        """
+        Admin only. Resolve the guids a presence feed carries into display titles, asset kinds, and project membership, and optionally list the projects and members of the workspace. Every id is checked against the calling user's own read permission as an ordinary member; anything the caller could not open is omitted rather than reported. Same gates as the presence-token mint.
+
+        Parameters
+        ----------
+        workspace_id : str
+            The workspace whose presence feed to read.
+
+        asset_ids : typing.Optional[typing.Sequence[str]]
+            Asset guids from presence contexts of type asset.
+
+        include_members : typing.Optional[bool]
+            Also list the workspace's members (name, email, avatar) so the app can name people by their attested user id rather than the self-reported slot.
+
+        include_projects : typing.Optional[bool]
+            Also list every project the caller may open in this workspace, each with the linked documents the caller may open.
+
+        project_ids : typing.Optional[typing.Sequence[str]]
+            Project guids from coarse presence contexts or from a visible context's projects annotation.
+
+        session_ids : typing.Optional[typing.Sequence[str]]
+            Thread ids from presence contexts of type session (what an open chat publishes). Each resolves to the workspace's session asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[PresenceResolveResponseOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/workspaces/{jsonable_encoder(workspace_id)}/presence/resolve",
+            method="POST",
+            json={
+                "asset_ids": asset_ids,
+                "include_members": include_members,
+                "include_projects": include_projects,
+                "project_ids": project_ids,
+                "session_ids": session_ids,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    PresenceResolveResponseOut,
+                    parse_obj_as(
+                        type_=PresenceResolveResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),

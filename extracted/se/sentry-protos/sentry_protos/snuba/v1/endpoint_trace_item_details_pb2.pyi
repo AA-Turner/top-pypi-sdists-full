@@ -29,10 +29,16 @@ class TraceItemDetailsRequest(google.protobuf.message.Message):
     ITEM_ID_FIELD_NUMBER: builtins.int
     TRACE_ID_FIELD_NUMBER: builtins.int
     FILTER_FIELD_NUMBER: builtins.int
+    ROUTING_HINT_FIELD_NUMBER: builtins.int
     item_id: builtins.str
     """required: the ID (hex string) of the item you are looking for"""
     trace_id: builtins.str
     """required: the trace ID of the item."""
+    routing_hint: builtins.str
+    """optional, the routing_hint from the TraceItemTableResponse the item was
+    returned in. Without it, items older than the standard retention period
+    may not be found. Clients should not inspect, construct, or modify it.
+    """
     @property
     def meta(self) -> sentry_protos.snuba.v1.request_common_pb2.RequestMeta: ...
     @property
@@ -44,9 +50,10 @@ class TraceItemDetailsRequest(google.protobuf.message.Message):
         item_id: builtins.str = ...,
         trace_id: builtins.str = ...,
         filter: sentry_protos.snuba.v1.trace_item_filter_pb2.TraceItemFilter | None = ...,
+        routing_hint: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["filter", b"filter", "meta", b"meta"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["filter", b"filter", "item_id", b"item_id", "meta", b"meta", "trace_id", b"trace_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["filter", b"filter", "item_id", b"item_id", "meta", b"meta", "routing_hint", b"routing_hint", "trace_id", b"trace_id"]) -> None: ...
 
 global___TraceItemDetailsRequest = TraceItemDetailsRequest
 

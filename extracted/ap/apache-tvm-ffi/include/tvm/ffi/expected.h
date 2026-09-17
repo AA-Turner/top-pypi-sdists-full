@@ -27,6 +27,8 @@
 #include <tvm/ffi/any.h>
 #include <tvm/ffi/error.h>
 
+#include <sstream>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -75,6 +77,12 @@ Unexpected(E) -> Unexpected<E>;
 
 template <typename T>
 class Expected;
+
+/// \cond Doxygen_Suppress
+/*! \brief Whether an Expected success value can reuse another success value's storage. */
+template <typename T, typename U>
+inline constexpr bool type_subsumes_v<Expected<T>, Expected<U>> = type_subsumes_v<T, U>;
+/// \endcond
 
 namespace details {
 
@@ -178,17 +186,19 @@ class Expected {
             typename = std::enable_if_t<!std::is_void_v<U> &&
                                         (type_subsumes_v<T, U> || std::is_convertible_v<U, T>)>>
   // NOLINTNEXTLINE(google-explicit-constructor,runtime/explicit)
-  TVM_FFI_INLINE Expected(Expected<U> other) {
-    if constexpr (type_subsumes_v<T, U>) {
-      // data_ holds a T or an Error. Subsumption proves the source representation already
-      // satisfies that invariant, so the Any moves without inspecting its state. Do not make
-      // this unconditional: value() reads back through MoveFromAnyAfterCheck<T>, whose check is
-      // the success/error state, not the type.
-      data_ = std::move(other.data_);
-    } else {
-      data_ = other.is_err() ? Any(std::move(other).error()) : Any(T(std::move(other).value()));
-    }
-  }
+  TVM_FFI_INLINE Expected(Expected<U> other)
+      : data_([&other]() {
+          if constexpr (type_subsumes_v<T, U>) {
+            // data_ holds a T or an Error. Subsumption proves the source representation already
+            // satisfies that invariant, so adopt the raw storage without inspecting its state.
+            // Do not make this unconditional: value() checks the success/error state, not the type.
+            return details::AnyUnsafe::MoveTVMFFIAnyRawToAny(
+                details::AnyUnsafe::MoveAnyToTVMFFIAny(std::move(other.data_)));
+          } else {
+            return other.is_err() ? Any(std::move(other).error())
+                                  : Any(T(std::move(other).value()));
+          }
+        }()) {}
 
   /*!
    * \brief Implicit constructor from an error.
@@ -232,6 +242,48 @@ class Expected {
       return details::AnyUnsafe::MoveFromAnyAfterCheck<T>(std::move(data_));
     }
     throw details::AnyUnsafe::MoveFromAnyAfterCheck<Error>(std::move(data_));
+  }
+
+  /*!
+   * \brief Strictly reinterpret the success value as U, or return an error.
+   * \tparam U An unqualified owning storage type, excluding Error and its subclasses and void.
+   * \return A copy of the stored value or existing error, or TypeError on a type mismatch.
+   * \note This function does not perform value conversions. The source is preserved.
+   */
+  template <typename U, typename = std::enable_if_t<
+                            std::is_same_v<U, std::decay_t<U>> && !std::is_base_of_v<Error, U> &&
+                            (TypeTraits<U>::storage_enabled || std::is_same_v<U, Any>)>>
+  TVM_FFI_INLINE Expected<U> as_or_error() const& {
+    if (TVM_FFI_PREDICT_FALSE(data_.type_index() != TypeIndex::kTVMFFIError &&
+                              !details::AnyUnsafe::CheckAnyStrict<U>(data_))) {
+      // Conversion-failure diagnostics may try fallback conversions, so use the stored type key.
+      return Error("TypeError",
+                   "Cannot treat type `" + data_.GetTypeKey() + "` as type `" +
+                       details::Type2Str<U>::v() + "`",
+                   "");
+    }
+    return Expected<U>(UnsafeInit{}, details::AnyUnsafe::MoveAnyToTVMFFIAny(Any(data_)));
+  }
+
+  /*!
+   * \brief Strictly reinterpret the success value as U, or return an error, moving the storage.
+   * \tparam U An unqualified owning storage type, excluding Error and its subclasses and void.
+   * \return The moved stored value or existing error, or TypeError on a type mismatch.
+   * \note This function does not perform value conversions. A type mismatch preserves the source.
+   */
+  template <typename U, typename = std::enable_if_t<
+                            std::is_same_v<U, std::decay_t<U>> && !std::is_base_of_v<Error, U> &&
+                            (TypeTraits<U>::storage_enabled || std::is_same_v<U, Any>)>>
+  TVM_FFI_INLINE Expected<U> as_or_error() && {
+    if (TVM_FFI_PREDICT_FALSE(data_.type_index() != TypeIndex::kTVMFFIError &&
+                              !details::AnyUnsafe::CheckAnyStrict<U>(data_))) {
+      // Conversion-failure diagnostics may try fallback conversions, so use the stored type key.
+      return Error("TypeError",
+                   "Cannot treat type `" + data_.GetTypeKey() + "` as type `" +
+                       details::Type2Str<U>::v() + "`",
+                   "");
+    }
+    return Expected<U>(UnsafeInit{}, details::AnyUnsafe::MoveAnyToTVMFFIAny(std::move(data_)));
   }
 
   /*! \brief Returns the contained error, or throws RuntimeError if is_ok(). */
@@ -633,6 +685,121 @@ struct TypeTraits<Expected<void>> : public TypeTraitsBase {
            R"(,{"type":"ffi.Error"}]})";
   }
 };
+
+// check macros for expected land
+// RET_ means the macro contains return; UNEXPECTED is a value and the caller writes return.
+// While guards preserve an enclosing if/else. Errors record file/line/function only, without
+// a stack walk.
+namespace details {
+
+class UnexpectedBuilder {
+ public:
+  UnexpectedBuilder(const char* kind, const char* file, int line, const char* function)
+      : kind_(kind), file_(file), line_(line), function_(function) {}
+
+  template <typename T>
+  UnexpectedBuilder&& operator<<(T&& value) && {
+    stream_ << std::forward<T>(value);
+    return std::move(*this);
+  }
+
+  UnexpectedBuilder&& operator<<(std::ostream& (*manipulator)(std::ostream&)) && {
+    manipulator(stream_);
+    return std::move(*this);
+  }
+
+  // NOLINTNEXTLINE(google-explicit-constructor,runtime/explicit)
+  operator Unexpected<Error>() && {
+    std::ostringstream backtrace;
+    backtrace << "  File \"" << file_ << "\", line " << line_ << ", in " << function_ << '\n';
+    return Unexpected(Error(kind_, stream_.str(), backtrace.str()));
+  }
+
+  template <typename T>
+  // NOLINTNEXTLINE(google-explicit-constructor,runtime/explicit)
+  operator Expected<T>() && {
+    // A return expression cannot chain builder -> Unexpected -> Expected conversions.
+    return static_cast<Unexpected<Error>>(std::move(*this));
+  }
+
+ private:
+  const char* kind_;
+  const char* file_;
+  int line_;
+  const char* function_;
+  std::ostringstream stream_;
+};
+
+}  // namespace details
+
+/*!
+ * \brief Build a streamed error for an Unexpected or Expected return value.
+ *
+ * Records file, line, and function without walking the stack. The caller writes the return;
+ * the builder's streaming and conversions are rvalue-only. Allocations and user-defined
+ * streaming may still throw.
+ *
+ * \code{.cpp}
+ * Expected<int> Fail() {
+ *   return TVM_FFI_UNEXPECTED(ValueError) << "invalid input";
+ * }
+ * \endcode
+ */
+#define TVM_FFI_UNEXPECTED(ErrorKind) \
+  ::tvm::ffi::details::UnexpectedBuilder(#ErrorKind, __FILE__, __LINE__, TVM_FFI_FUNC_SIG)
+
+/*!
+ * \brief Return a streamed error when the condition is false.
+ *
+ * RET_ macros contain the return. The condition is evaluated once; streaming is evaluated only
+ * on failure. The while guard preserves an enclosing if/else. \sa TVM_FFI_UNEXPECTED
+ *
+ * \code{.cpp}
+ * Expected<int> Divide(int x, int y) {
+ *   TVM_FFI_RET_CHECK(y != 0, ValueError) << "zero divisor";
+ *   return x / y;
+ * }
+ * \endcode
+ */
+#define TVM_FFI_RET_CHECK(cond, ErrorKind) \
+  while (TVM_FFI_PREDICT_FALSE(!(cond)))   \
+  return TVM_FFI_UNEXPECTED(ErrorKind) << "Check failed: (" #cond ") is false: "
+
+/// \cond Doxygen_Suppress
+#define TVM_FFI_RET_CHECK_BINARY_OP(name, op, x, y, ErrorKind)               \
+  while (auto __tvm_ffi_log_err = /* NOLINT(bugprone-reserved-identifier) */ \
+         ::tvm::ffi::details::LogCheck##name(x, y))                          \
+  return TVM_FFI_UNEXPECTED(ErrorKind)                                       \
+         << "Check failed: " << #x " " #op " " #y << (*__tvm_ffi_log_err) << ": "
+/// \endcond
+
+/*! \brief Return an error if x < y is false, evaluating each operand once. */
+#define TVM_FFI_RET_CHECK_LT(x, y, ErrorKind) TVM_FFI_RET_CHECK_BINARY_OP(_LT, <, x, y, ErrorKind)
+/*! \brief Return an error if x > y is false, evaluating each operand once. */
+#define TVM_FFI_RET_CHECK_GT(x, y, ErrorKind) TVM_FFI_RET_CHECK_BINARY_OP(_GT, >, x, y, ErrorKind)
+/*! \brief Return an error if x <= y is false, evaluating each operand once. */
+#define TVM_FFI_RET_CHECK_LE(x, y, ErrorKind) TVM_FFI_RET_CHECK_BINARY_OP(_LE, <=, x, y, ErrorKind)
+/*! \brief Return an error if x >= y is false, evaluating each operand once. */
+#define TVM_FFI_RET_CHECK_GE(x, y, ErrorKind) TVM_FFI_RET_CHECK_BINARY_OP(_GE, >=, x, y, ErrorKind)
+/*! \brief Return an error if x == y is false, evaluating each operand once. */
+#define TVM_FFI_RET_CHECK_EQ(x, y, ErrorKind) TVM_FFI_RET_CHECK_BINARY_OP(_EQ, ==, x, y, ErrorKind)
+/*! \brief Return an error if x != y is false, evaluating each operand once. */
+#define TVM_FFI_RET_CHECK_NE(x, y, ErrorKind) TVM_FFI_RET_CHECK_BINARY_OP(_NE, !=, x, y, ErrorKind)
+
+/*! \brief Check a condition with TVM_FFI_RET_CHECK, returning InternalError on failure. */
+#define TVM_FFI_RET_ICHECK(x) TVM_FFI_RET_CHECK(x, InternalError)
+/*! \brief Check x < y, returning InternalError on failure. */
+#define TVM_FFI_RET_ICHECK_LT(x, y) TVM_FFI_RET_CHECK_LT(x, y, InternalError)
+/*! \brief Check x > y, returning InternalError on failure. */
+#define TVM_FFI_RET_ICHECK_GT(x, y) TVM_FFI_RET_CHECK_GT(x, y, InternalError)
+/*! \brief Check x <= y, returning InternalError on failure. */
+#define TVM_FFI_RET_ICHECK_LE(x, y) TVM_FFI_RET_CHECK_LE(x, y, InternalError)
+/*! \brief Check x >= y, returning InternalError on failure. */
+#define TVM_FFI_RET_ICHECK_GE(x, y) TVM_FFI_RET_CHECK_GE(x, y, InternalError)
+/*! \brief Check x == y, returning InternalError on failure. */
+#define TVM_FFI_RET_ICHECK_EQ(x, y) TVM_FFI_RET_CHECK_EQ(x, y, InternalError)
+/*! \brief Check x != y, returning InternalError on failure. */
+#define TVM_FFI_RET_ICHECK_NE(x, y) TVM_FFI_RET_CHECK_NE(x, y, InternalError)
 
 }  // namespace ffi
 }  // namespace tvm

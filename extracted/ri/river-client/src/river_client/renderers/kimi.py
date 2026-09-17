@@ -33,6 +33,8 @@ its processor's output.
 
 from __future__ import annotations
 
+from river_client.images import Image
+
 import json
 import math
 import re
@@ -372,7 +374,7 @@ class KimiRenderer(Renderer):
 
     def image_chunk(
         self,
-        data: bytes,
+        data: Image,
         *,
         format: str = "png",
         height: int | None = None,
@@ -494,6 +496,13 @@ class KimiRenderer(Renderer):
     ) -> str:
         return self.build_sample_prompt(messages, tools=tools).prompt
 
+    def build_continuation_prompt(
+        self, messages: list[Message], *, last_stop: str | None
+    ) -> SamplePrompt:
+        suffix = self.build_sample_prompt(messages)
+        prefix = "" if last_stop == _IM_END else _IM_END
+        return SamplePrompt(prefix + suffix.prompt, suffix.images, suffix.image_formats)
+
     def build_sample_prompt(
         self,
         messages: list[Message],
@@ -510,7 +519,7 @@ class KimiRenderer(Renderer):
         placeholder per image.
         """
         parts: list[str] = [self._tool_declare_section(tools)]
-        images: list[bytes] = []
+        images: list[Image] = []
         image_formats: list[str] = []
 
         last_user_index = self._last_user_index(messages)
@@ -540,7 +549,7 @@ class KimiRenderer(Renderer):
     def _render_parts_for_sample(
         self,
         message: Message,
-        images: list[bytes],
+        images: list[Image],
         image_formats: list[str],
     ) -> str:
         content = message["content"]
@@ -568,13 +577,21 @@ class KimiRenderer(Renderer):
 
     # ── Response parsing ─────────────────────────────────────────────
 
-    def parse_response(self, text: str) -> ParsedResponse:
+    def parse_response(
+        self, text: str, *, tools: list[ToolSpec] | None = None
+    ) -> ParsedResponse:
         """Parse sampled text into a structured assistant Message."""
         stop_found = text.endswith(_IM_END)
         if stop_found:
             text = text[: -len(_IM_END)]
 
-        text = _restore_prefilled_think(text)
+        # Unlike general message content, sampled text starts after this
+        # renderer's generation prefill. A missing closing tag leaves that
+        # reasoning block open, even if the completion emits no tags at all.
+        if self.thinking and not text.startswith("<think>"):
+            text = "<think>" + text
+        else:
+            text = _restore_prefilled_think(text)
 
         tool_results: list[ToolCall | UnparsedToolCall] = []
         section_match = _TOOL_SECTION_RE.search(text)

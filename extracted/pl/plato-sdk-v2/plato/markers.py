@@ -129,6 +129,13 @@ class WorkspaceMarker:
             default NFS ``-o`` string on agent mounts (NFS transport only),
             e.g. ``"sync"`` for write-through workspaces that another VM
             tails live.
+        pin_to_agent_vm: Keep this workspace on the agent VM even when the
+            agent runs with ``sandbox_tools_only``, which otherwise mounts
+            every workspace on the sandbox. For state the agent *CLI process*
+            writes itself (transcripts, compaction summaries) rather than
+            through its file tools, since that process runs on the agent VM
+            wherever its tools act. Never set it on a workspace the agent is
+            meant to edit.
     """
 
     DEFAULT_DVCIGNORE: tuple[str, ...] = (
@@ -155,6 +162,7 @@ class WorkspaceMarker:
         commit_strategy: Literal["manifest", "archive"] = "manifest",
         readonly: bool = False,
         nfs_mount_options: str = "",
+        pin_to_agent_vm: bool = False,
     ):
         self.kind = "workspace"
         self.description = description
@@ -172,3 +180,5 @@ class WorkspaceMarker:
         # workspace (NFS transport only), e.g. "sync" for write-through
         # workspaces another VM tails live.
         self.nfs_mount_options = nfs_mount_options
+        # Stays on the agent VM under sandbox_tools_only — see the docstring.
+        self.pin_to_agent_vm = pin_to_agent_vm

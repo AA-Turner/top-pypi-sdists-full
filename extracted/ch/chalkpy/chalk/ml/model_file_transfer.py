@@ -49,6 +49,18 @@ class FileInfo(NamedTuple):
     file_hash: bytes
 
 
+def _presigned_upload_headers(presigned_url: str, content_type: Optional[str] = None) -> Dict[str, str]:
+    headers = {}
+    if content_type is not None:
+        headers["Content-Type"] = content_type
+
+    hostname = urlparse(presigned_url).hostname or ""
+    if hostname.endswith(".blob.core.windows.net"):
+        headers["x-ms-blob-type"] = "BlockBlob"
+
+    return headers
+
+
 class FileUploader(ABC):
     def __init__(self, config: SourceConfig):
         self.config = config
@@ -87,9 +99,13 @@ class LocalFileUploader(FileUploader):
             file_hash = hashlib.sha256(file_data).digest()
             filesize_kb = ceil(os.path.getsize(file_path) / 1024.0)
 
-            put_response = requests.put(presigned_url, data=file_data)
+            put_response = requests.put(
+                presigned_url,
+                data=file_data,
+                headers=_presigned_upload_headers(presigned_url),
+            )
 
-            if put_response.status_code != 200:
+            if not 200 <= put_response.status_code < 300:
                 raise RuntimeError(
                     f"Failed to upload local file {file_path} to presigned URL: "
                     + f"{put_response.status_code} {put_response.text}"
@@ -149,10 +165,13 @@ class S3FileUploader(FileUploader):
             put_response = requests.put(
                 presigned_url,
                 data=file_data,
-                headers={"Content-Type": response.get("ContentType", "application/octet-stream")},
+                headers=_presigned_upload_headers(
+                    presigned_url,
+                    response.get("ContentType", "application/octet-stream"),
+                ),
             )
 
-            if put_response.status_code != 200:
+            if not 200 <= put_response.status_code < 300:
                 raise RuntimeError(
                     f"Failed to upload to presigned URL for {filename}: "
                     + f"{put_response.status_code} {put_response.text}"
@@ -207,9 +226,13 @@ class GCSFileUploader(FileUploader):
             filesize_kb = ceil(len(file_data) / 1024.0)
 
             content_type = blob.content_type or "application/octet-stream"
-            put_response = requests.put(presigned_url, data=file_data, headers={"Content-Type": content_type})
+            put_response = requests.put(
+                presigned_url,
+                data=file_data,
+                headers=_presigned_upload_headers(presigned_url, content_type),
+            )
 
-            if put_response.status_code != 200:
+            if not 200 <= put_response.status_code < 300:
                 raise RuntimeError(
                     f"Failed to upload to presigned URL for {filename}: "
                     + f"{put_response.status_code} {put_response.text}"

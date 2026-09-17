@@ -20,23 +20,30 @@ from typing import Annotated, Any
 from urllib.parse import quote_plus
 
 import httpx
-from fastmcp import Context
-from fastmcp.tools import tool
 from pydantic import Field
 
 from ha_mcp import __version__
+from ha_mcp._vendor.fastmcp import Context
+from ha_mcp._vendor.fastmcp.server.dependencies import get_http_headers
+from ha_mcp._vendor.fastmcp.tools import tool
 
 from .._version import get_version, is_embedded, is_running_in_addon
 from ..client.supervisor_client import make_supervisor_httpx_client
 from ..config import Settings, get_global_settings
+from ..errors import create_validation_error
 from ..utils.usage_logger import (
     AVG_LOG_ENTRIES_PER_TOOL,
     get_recent_logs,
     get_startup_logs,
 )
 from .component_api import get_component_caps
-from .helpers import log_tool_usage, register_tool_methods
-from .util_helpers import ANSI_ESCAPE_RE, JSON_STRING_COERCION, project_fields
+from .helpers import log_tool_usage, raise_tool_error, register_tool_methods
+from .util_helpers import (
+    ANSI_ESCAPE_RE,
+    JSON_STRING_COERCION,
+    parse_string_list_param,
+    project_fields,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -352,19 +359,20 @@ def _extract_client_info(ctx: Context | None) -> dict[str, str]:
     The MCP ``initialize`` handshake carries a ``clientInfo`` Implementation
     object (``name``/``version``/optional ``title``). FastMCP exposes the
     underlying server session as ``ctx.session``; the MCP SDK's
-    ``ServerSession`` keeps the parsed initialize params on ``client_params``.
-    The attribute name on the parsed Pydantic model is ``clientInfo`` in
-    ``mcp`` 1.24.x (the version this project pins) — we also fall back to
-    ``client_info`` to stay forward-compatible with SDK versions that switch
-    to snake_case.
+    ``ServerSession`` keeps the parsed initialize params on ``client_params``;
+    on the 2026-07-28 protocol the SDK synthesizes them from the request's
+    ``_meta`` when it carries both client info and capabilities. An
+    older-protocol client over stateless HTTP sends client info only in
+    ``initialize``, so the request's ``User-Agent`` is the fallback there,
+    marked as such in ``title``.
 
     Returns ``{"name": ..., "version": ..., "title": ...}``. ``name`` and
     ``version`` fall back to ``"unknown"`` when the client didn't send them;
     ``title`` falls back to the empty string so callers can distinguish "not
     sent" from a real title without false-positive aside rendering.
 
-    Returns an empty dict if no context is available (tool invoked outside an
-    MCP request, e.g. unit tests) so the bug-report path stays robust. The
+    Returns an empty dict when there is no context, or no client info and no
+    ``User-Agent`` (e.g. stdio), so the bug-report path stays robust. The
     log level is intentionally INFO, not DEBUG: this catch is the only signal
     we'd get if FastMCP/MCP SDK shape drifts in a future release, and silent
     drift would hide a regression for months.
@@ -376,15 +384,13 @@ def _extract_client_info(ctx: Context | None) -> dict[str, str]:
         params = (
             getattr(session, "client_params", None) if session is not None else None
         )
-        if params is None:
-            return {}
-        # Try the camelCase attribute (mcp 1.24.x) first, then snake_case so
-        # we keep working if the SDK switches the alias direction.
-        client = getattr(params, "clientInfo", None) or getattr(
-            params, "client_info", None
+        client = (
+            getattr(params, "client_info", None) or getattr(params, "clientInfo", None)
+            if params is not None
+            else None
         )
         if client is None:
-            return {}
+            return _client_info_from_user_agent()
         return {
             "name": getattr(client, "name", None) or "unknown",
             "version": getattr(client, "version", None) or "unknown",
@@ -397,6 +403,21 @@ def _extract_client_info(ctx: Context | None) -> dict[str, str]:
             type(e).__name__,
         )
         return {}
+
+
+def _client_info_from_user_agent() -> dict[str, str]:
+    """``{"name", "version", "title"}`` from the HTTP ``User-Agent``, or ``{}``."""
+    user_agent = get_http_headers(include={"user-agent"}).get("user-agent", "").strip()
+    if not user_agent:
+        return {}
+    product = user_agent.split()[0]
+    name, _, version = product.partition("/")
+    logger.debug("No MCP client info on the request; using User-Agent %r", product)
+    return {
+        "name": name or "unknown",
+        "version": version or "unknown",
+        "title": "from HTTP User-Agent",
+    }
 
 
 def _format_client_info_for_template(info: dict[str, str]) -> str:
@@ -948,6 +969,19 @@ class BugReportTools:
           usual cause, and refreshing the MCP connection is the fix
         - `suggested_title`, `duplicate_check_urls`, `anonymization_guide`
         """
+        # Validate fields= before anything is collected: the projection at the
+        # end was the only parse, outside any ValueError handler, so a
+        # malformed value reached FastMCP as a bare exception after the whole
+        # report had been assembled.
+        parsed_fields: list[str] | None = None
+        if fields is not None:
+            try:
+                parsed_fields = parse_string_list_param(
+                    fields, "fields", allow_csv=True
+                )
+            except ValueError as exc:
+                raise_tool_error(create_validation_error(str(exc), parameter="fields"))
+
         # Detect installation method, platform, and runtime config.
         install_method = _detect_installation_method()
         platform_info = _detect_platform()
@@ -1166,7 +1200,7 @@ class BugReportTools:
                 "CRITICAL: Always ANONYMIZE the report BEFORE presenting it in markdown code blocks!"
             ),
         }
-        return project_fields(result, fields)
+        return project_fields(result, parsed_fields)
 
 
 def register_bug_report_tools(mcp: Any, client: Any, **kwargs: Any) -> None:

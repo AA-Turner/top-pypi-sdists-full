@@ -31,7 +31,7 @@ try:
             urls = fp.readlines()
     if len(sys.argv) >= 3:
         num_conn = int(sys.argv[2])
-except:
+except (ValueError, IndexError):
     print("Usage: %s <file with URLs to fetch> [<# of concurrent connections>]" % sys.argv[0])
     raise SystemExit
 
@@ -76,7 +76,7 @@ class WorkerThread(threading.Thread):
                 curl.setopt(pycurl.WRITEDATA, fp)
                 try:
                     curl.perform()
-                except:
+                except Exception:
                     import traceback
                     traceback.print_exc(file=sys.stderr)
                     sys.stderr.flush()

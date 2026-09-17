@@ -24,17 +24,20 @@ class CellosaurusSearchTool(BaseTool):
         offset = arguments.get("offset", 0)
         size = arguments.get("size", 20)
 
-        if not q:
+        if q is None or not str(q).strip():
             return {"status": "error", "error": "`q` parameter is required."}
 
-        return self._search_cell_lines(q, offset, size)
+        return self._search_cell_lines(str(q).strip(), offset, size)
 
     def _search_cell_lines(self, query, offset, size):
         """
         Search Cellosaurus cell lines using the /search/cell-line endpoint.
         """
         try:
-            params = {"q": query.strip(), "offset": offset, "size": size}
+            # Cellosaurus search is Solr-backed: page size is ``rows`` and
+            # the cursor is ``start``. The tool's public ``size`` / ``offset``
+            # names are preserved; ``size`` and ``offset`` are ignored by the API.
+            params = {"q": query.strip(), "start": offset, "rows": size}
 
             url = f"{self.base_url}/search/cell-line"
             headers = {"Accept": "application/json"}

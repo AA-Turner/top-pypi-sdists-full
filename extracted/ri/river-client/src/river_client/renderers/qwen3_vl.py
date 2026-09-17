@@ -16,6 +16,8 @@ from what its processor produces.
 
 from __future__ import annotations
 
+from river_client.images import Image
+
 import math
 from typing import cast
 
@@ -186,7 +188,7 @@ class Qwen35VLRenderer(Qwen35Renderer):
 
     def image_chunk(
         self,
-        data: bytes,
+        data: Image,
         *,
         format: str = "png",
         height: int | None = None,
@@ -438,6 +440,13 @@ class Qwen35VLRenderer(Qwen35Renderer):
 
     # ── Inference rendering ──────────────────────────────────────────
 
+    def build_continuation_prompt(
+        self, messages: list[Message], *, last_stop: str | None
+    ) -> SamplePrompt:
+        suffix = self._render_sample_messages(messages)
+        prefix = ("" if last_stop == _IM_END else _IM_END) + "\n"
+        return SamplePrompt(prefix + suffix.prompt, suffix.images, suffix.image_formats)
+
     def build_sample_prompt(
         self,
         messages: list[Message],
@@ -459,10 +468,12 @@ class Qwen35VLRenderer(Qwen35Renderer):
                 system_prompt=self._extract_system_prompt(msgs),
             )
             msgs = self._replace_or_prepend_system(msgs, tool_msg)
-        msgs = self._apply_reasoning_effort(msgs)
+        return self._render_sample_messages(self._apply_reasoning_effort(msgs))
 
+    def _render_sample_messages(self, msgs: list[Message]) -> SamplePrompt:
+        """Render turns without injecting initial system instructions."""
         prompt_parts: list[str] = []
-        images: list[bytes] = []
+        images: list[Image] = []
         image_formats: list[str] = []
 
         last_user_index = self._last_user_index(msgs)
@@ -506,7 +517,7 @@ class Qwen35VLRenderer(Qwen35Renderer):
     def _render_content_for_sample(
         self,
         message: Message,
-        images: list[bytes],
+        images: list[Image],
         image_formats: list[str],
         *,
         is_reasoning_turn: bool,

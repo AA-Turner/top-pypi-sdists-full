@@ -29,7 +29,8 @@ import numpy
 import numpy as np
 import unittest
 from types import *
-from helpers import *
+from numpy import array
+from helpers import args, casadiTestCase, codegen_check_digits, memory_heavy, requires_conic, requires_nlpsol
 import itertools
 import copy
 from casadi.tools import capture_stdout
@@ -109,6 +110,9 @@ libmad_codegen = {"extralibs": ["Mad"], "std": "c99",
 if "SKIP_MADNLP_TESTS" not in os.environ and ca.has_nlpsol("madnlp"):
   solvers.append(("madnlp",{"madnlp": {}},{"codegen": libmad_codegen,"discrete":False}))
 
+if "SKIP_CONOPT_TESTS" not in os.environ and ca.has_nlpsol("conopt"):
+   solvers.append(("conopt",{"conopt":{"Tol_Feas_Min":1e-9, "Tol_Optimality":1e-9}},{"codegen": False,"discrete":False}))
+
 print(solvers)
 
 class NLPtests(casadiTestCase):
@@ -161,6 +165,75 @@ class NLPtests(casadiTestCase):
     solver_in["lbg"]=[-10]
     solver_in["ubg"]=[10]
     solver_out = solver(**solver_in)
+
+  def test_affine_constant_terms(self):
+    # Report f and g including affine constant terms.
+    x = ca.SX.sym("x")
+
+    for Solver, solver_options, aux_options in solvers:
+      if Solver == "bonmin":
+        solver_options = dict(solver_options, calc_g=True)
+      self.message("affine objective with a constant term: " + str(Solver))
+      solver = ca.nlpsol("mysolver", Solver, {'x': x, 'f': 2*x + 7}, solver_options)
+      solver_out = solver(x0=0, lbx=-10, ubx=10)
+      self.checkarray(solver_out["x"], ca.DM([-10]), digits=6)
+      self.checkarray(solver_out["f"], ca.DM([-13]), digits=6)
+
+      self.message("fully linear constraint with a constant term: " + str(Solver))
+      solver = ca.nlpsol("mysolver", Solver, {'x': x, 'f': (x-3)**2, 'g': x + 5},
+                         solver_options)
+      solver_out = solver(x0=0, lbg=0, ubg=0)
+      self.checkarray(solver_out["x"], ca.DM([-5]), digits=6)
+      self.checkarray(solver_out["g"], ca.DM([0]), digits=6)
+
+      self.message("fully linear range constraint with a constant term: " + str(Solver))
+      solver = ca.nlpsol("mysolver", Solver, {'x': x, 'f': (x-3)**2, 'g': x + 5},
+                         solver_options)
+      solver_out = solver(x0=0, lbg=0, ubg=1)
+      self.checkarray(solver_out["x"], ca.DM([-4]), digits=6)
+      self.checkarray(solver_out["g"], ca.DM([1]), digits=6)
+
+  @requires_nlpsol("conopt")
+  def test_conopt_constant_constraints(self):
+    x = ca.SX.sym("x")
+    p = ca.SX.sym("p")
+    for other in [ca.SX.zeros(0, 1), x*x, x]:
+      g = ca.vertcat(other, p)
+      solver = ca.nlpsol("solver", "conopt", {'x': x, 'p': p, 'f': (x-2)**2, 'g': g},
+                         {"error_on_fail": False, "print_time": False})
+      for solver in [solver, ca.Function.deserialize(solver.serialize())]:
+        for value, lower, upper in [(5, -10, 10), (5, 0, 0), (0, 0, 0),
+                                     (5, 4, 6), (5, -inf, inf)]:
+          with self.subTest(other=str(other), value=value, lower=lower, upper=upper):
+            result = solver(x0=1, p=value,
+                            lbg=[-10]*other.numel() + [lower],
+                            ubg=[10]*other.numel() + [upper])
+            self.assertEqual(solver.stats()["success"], lower <= value <= upper)
+            self.checkarray(result["g"][-1], ca.DM(value))
+            if solver.stats()["success"]:
+              self.checkarray(result["x"], ca.DM(2), digits=6)
+
+  @requires_nlpsol("conopt")
+  def test_conopt_evaluation_errors(self):
+    x = ca.SX.sym("x")
+    p = ca.SX.sym("p")
+    cases = [
+      (ca.sqrt(x+p), x, 0),
+      ((x-1)**2, ca.sqrt(x+p), 0),
+      (p*x, x, inf),
+      ((x-1)**2, p*x, inf),
+      ((x-1)**2, p, float("nan")),
+    ]
+    for f, g, bad_p in cases:
+      solver = ca.nlpsol("solver", "conopt", {'x': x, 'p': p, 'f': f, 'g': g},
+                         {"error_on_fail": False, "print_time": False})
+      for value in [1, bad_p, 1]:
+        with self.subTest(f=str(f), g=str(g), p=value):
+          solver(x0=0, p=value, lbx=0, ubx=2, lbg=-10, ubg=10)
+          stats = solver.stats()
+          self.assertEqual(stats["success"], value == 1)
+          self.assertEqual(stats["unified_return_status"],
+                           "SOLVER_RET_SUCCESS" if value == 1 else "SOLVER_RET_NAN")
 
   @memory_heavy()
   def test_nonregular_point(self):

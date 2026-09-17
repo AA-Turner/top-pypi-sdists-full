@@ -15,6 +15,7 @@ from microsoft_teams.api import (
     Account,
     ActivityBase,
     ActivityParams,
+    AgenticIdentity,
     ApiClient,
     ClientCredentials,
     ConversationAccount,
@@ -35,7 +36,7 @@ from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalSto
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
 
-from .activity_sender import ActivitySender
+from .activity_send import send_or_update_activity
 from .app_events import EventManager
 from .app_oauth import OauthHandlers
 from .app_plugins import PluginProcessor
@@ -55,12 +56,15 @@ from .events import (
 from .http import FastAPIAdapter
 from .http.adapter import HttpRequest, HttpResponse
 from .http.http_server import HttpServer
+from .oauth_flow import DEFAULT_OAUTH_CARD_TEXT, DEFAULT_SIGN_IN_BUTTON_TEXT, OAuthFlow, OAuthFlowRegistry
 from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
-from .token_manager import TokenManager
-from .utils import create_graph_client
+from .state import create_state_loader
+from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN, TokenManager
+from .token_provider import AppTokenProvider
+from .utils import create_graph_client, derive_graph_base_url
 from .utils.thread import to_threaded_conversation_id
 
 version = importlib.metadata.version("microsoft-teams-apps")
@@ -90,10 +94,13 @@ class App(ActivityHandlerMixin):
 
         self.storage = self.options.storage or LocalStorage()
 
+        self._state_loader = create_state_loader(self.options.state, self.storage)
+
         self.http_client = self._init_http_client()
 
         self._events = EventEmitter[EventType]()
         self._router = ActivityRouter()
+        self._oauth_registry = OAuthFlowRegistry()
 
         self.credentials = self._init_credentials()
 
@@ -101,6 +108,7 @@ class App(ActivityHandlerMixin):
             credentials=self.credentials,
             cloud=self.cloud,
         )
+        self._token_provider = AppTokenProvider(self._token_manager, self.cloud)
 
         self.container = Container()
         self.container.set_provider("storage", providers.Object(self.storage))
@@ -111,9 +119,10 @@ class App(ActivityHandlerMixin):
 
         self.api = ApiClient(
             service_url,
-            self.http_client.clone(ClientOptions(token=self._get_bot_token)),
+            self.http_client.clone(),
             self.options.api_client_settings,
             cloud=self.cloud,
+            token_provider=self._token_provider,
         )
 
         plugins: List[PluginBase] = list(self.options.plugins)
@@ -126,9 +135,6 @@ class App(ActivityHandlerMixin):
         self._port: Optional[int] = None
         self._initialized = False
 
-        # initialize ActivitySender for sending activities
-        self.activity_sender = ActivitySender(self.http_client.clone(ClientOptions(token=self._get_bot_token)))
-
         # initialize all event, activity, and plugin processors
         self.activity_processor = ActivityProcessor(
             self._router,
@@ -136,11 +142,16 @@ class App(ActivityHandlerMixin):
             self.storage,
             self.options.default_connection_name,
             self.http_client,
-            self._token_manager,
+            self._token_provider,
+            self._get_graph_token,
+            self._get_agentic_graph_token,
             self.options.api_client_settings,
-            self.activity_sender,
             self.cloud,
+            derive_graph_base_url(self.cloud),
             fetch_user_token=self.options.fetch_user_token,
+            agent365_baggage_options=self.options.telemetry.get("agent365") if self.options.telemetry else None,
+            state_loader=self._state_loader,
+            oauth_registry=self._oauth_registry,
         )
         self.event_manager = EventManager(self._events)
         self.activity_processor.event_manager = self.event_manager
@@ -153,6 +164,7 @@ class App(ActivityHandlerMixin):
         oauth_handlers = OauthHandlers(
             default_connection_name=self.options.default_connection_name,
             event_emitter=self._events,
+            oauth_registry=self._oauth_registry,
         )
         self.on_signin_token_exchange(oauth_handlers.sign_in_token_exchange)
         self.on_signin_verify_state(oauth_handlers.sign_in_verify_state)
@@ -188,6 +200,11 @@ class App(ActivityHandlerMixin):
         if not self.credentials:
             return None
         return self.credentials.client_id
+
+    @property
+    def token_provider(self) -> AppTokenProvider:
+        """Token source for resources the SDK does not call automatically."""
+        return self._token_provider
 
     async def initialize(self) -> None:
         """
@@ -292,7 +309,14 @@ class App(ActivityHandlerMixin):
             self._events.emit("error", ErrorEvent(error, context={"method": "stop"}))
             raise
 
-    async def send(self, conversation_id: str, activity: str | ActivityParams | AdaptiveCard):
+    async def send(
+        self,
+        conversation_id: str,
+        activity: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
+    ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
         Sends to the exact conversation ID provided. For channel threads,
@@ -308,7 +332,7 @@ class App(ActivityHandlerMixin):
 
         conversation_ref = ConversationReference(
             channel_id="msteams",
-            service_url=self.api.service_url,
+            service_url=service_url or self.api.service_url,
             bot=Account(id=self.id),
             conversation=ConversationAccount(id=conversation_id),
         )
@@ -320,7 +344,39 @@ class App(ActivityHandlerMixin):
         else:
             activity = activity
 
-        return await self.activity_sender.send(activity, conversation_ref)
+        return await send_or_update_activity(
+            self.api,
+            activity,
+            conversation_ref,
+            agentic_identity=agentic_identity,
+        )
+
+    def get_agentic_identity(
+        self,
+        agentic_app_id: Optional[str] = None,
+        agentic_user_id: Optional[str] = None,
+        *,
+        tenant_id: Optional[str] = None,
+        agentic_app_blueprint_id: Optional[str] = None,
+    ) -> AgenticIdentity:
+        """Get an AgenticIdentity for API calls.
+
+        When ``agentic_app_blueprint_id`` is omitted, it defaults to the app's own
+        client/app id (``self.id``).
+        """
+        resolved_tenant_id = tenant_id or (self.credentials.tenant_id if self.credentials else None)
+        if resolved_tenant_id is None:
+            raise ValueError("tenant_id is required to get an agentic identity")
+
+        resolved_blueprint_id = agentic_app_blueprint_id or self.id
+        if resolved_blueprint_id is None:
+            raise ValueError("agentic_app_blueprint_id is required to get an agentic identity")
+        return AgenticIdentity(
+            agentic_app_blueprint_id=resolved_blueprint_id,
+            agentic_app_id=agentic_app_id,
+            agentic_user_id=agentic_user_id,
+            tenant_id=resolved_tenant_id,
+        )
 
     @overload
     async def reply(
@@ -328,6 +384,9 @@ class App(ActivityHandlerMixin):
         conversation_id: str,
         message_id: str,
         activity: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     @overload
@@ -335,6 +394,9 @@ class App(ActivityHandlerMixin):
         self,
         conversation_id: str,
         message_id: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity: ...
 
     async def reply(  # type: ignore[reportInconsistentOverload]
@@ -342,6 +404,9 @@ class App(ActivityHandlerMixin):
         conversation_id: str,
         message_id: str | ActivityParams | AdaptiveCard = "",
         activity: str | ActivityParams | AdaptiveCard | None = None,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
         """Send an activity proactively to a conversation, optionally as a threaded reply.
 
@@ -362,13 +427,113 @@ class App(ActivityHandlerMixin):
         if activity is not None:
             if not isinstance(message_id, str):
                 raise TypeError("message_id must be a string when activity is provided")
-            return await self.send(to_threaded_conversation_id(conversation_id, message_id), activity)
+            return await self.send(
+                to_threaded_conversation_id(conversation_id, message_id),
+                activity,
+                service_url=service_url,
+                agentic_identity=agentic_identity,
+            )
 
-        return await self.send(conversation_id, message_id)
+        return await self.send(
+            conversation_id,
+            message_id,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
     def use(self, middleware: Callable[[ActivityContext[ActivityBase]], Awaitable[None]]) -> None:
         """Add middleware to run on all activities."""
         self.router.add_handler(lambda _: True, middleware)
+
+    def add_oauth_flow(
+        self,
+        connection_name: str,
+        *,
+        oauth_card_text: str = DEFAULT_OAUTH_CARD_TEXT,
+        sign_in_button_text: str = DEFAULT_SIGN_IN_BUTTON_TEXT,
+    ) -> OAuthFlow:
+        """Register an OAuth connection and return its object.
+
+        Args:
+            connection_name: The OAuth connection name configured on the bot.
+            oauth_card_text: Default text shown on the OAuth card for this flow.
+            sign_in_button_text: Default sign-in button label for this flow.
+
+        Returns:
+            The registered ``OAuthFlow``.
+
+        Notes:
+            Registering a flow turns on per-turn state automatically when the
+            ``state`` option was omitted, because connection-less callbacks need
+            somewhere to record which connection a sign-in started on. Pass
+            ``state=True`` or a ``StateOptions`` to choose the storage yourself,
+            or ``state=False`` to opt out — an explicit choice is never
+            overridden. With state off, pending hints fall back to a bounded
+            process-local cache, so a callback handled by another instance
+            cannot be attributed.
+
+            Connection-less verify-state callbacks probe hinted flows first,
+            then the remaining registered flows and legacy default connection.
+            Sign-in failures use pending silent-SSO hints for attribution and
+            notify registered flows as a fallback. Token-exchange callbacks
+            carry their connection name and route correctly without state.
+
+        Raises:
+            ValueError: if a flow for this connection is already registered
+                (connection names are case-insensitive).
+        """
+        flow = self._oauth_registry.add(
+            OAuthFlow(
+                connection_name,
+                oauth_card_text=oauth_card_text,
+                sign_in_button_text=sign_in_button_text,
+            )
+        )
+        # Only after the registry accepts it: a rejected duplicate must not be
+        # able to switch state on as a side effect.
+        self._enable_state_for_oauth_if_unset()
+        return flow
+
+    def _enable_state_for_oauth_if_unset(self) -> None:
+        """Turn on per-turn state for OAuth when the app did not say either way.
+
+        A registered flow needs durable pending attribution to route
+        connection-less ``signin/verifyState`` and ``signin/failure`` callbacks,
+        so state defaults on once a flow exists — matching the C# and TypeScript
+        SDKs. ``options.state`` still records what the caller passed: ``None``
+        means "unset", and anything else, including ``False``, is an explicit
+        decision this leaves alone. An already-resolved loader is also left
+        alone, so registering a second flow does not rebuild it.
+        """
+        if self.options.state is not None or self._state_loader is not None:
+            return
+
+        self._state_loader = create_state_loader(True, self.storage)
+        self.activity_processor.state_loader = self._state_loader
+        logger.debug(
+            "Enabled per-turn state because an OAuth flow was registered and no state option was set. "
+            "Pass state=False to opt out, or state=True/StateOptions to choose the storage."
+        )
+
+    def get_oauth_flow(self, connection_name: str) -> OAuthFlow:
+        """Retrieve a previously registered OAuth flow by connection name.
+
+        Args:
+            connection_name: The OAuth connection name (case-insensitive).
+
+        Returns:
+            The registered ``OAuthFlow``.
+
+        Raises:
+            ValueError: if no flow is registered for this connection.
+        """
+        flow = self._oauth_registry.get(connection_name)
+        if flow is None:
+            registered = ", ".join(f.connection_name for f in self._oauth_registry.values()) or "<none>"
+            raise ValueError(
+                f"No OAuth flow registered for connection '{connection_name}'. Registered connections: {registered}."
+            )
+        return flow
 
     def _init_http_client(self) -> Client:
         """Initialize the HTTP client from options or create a default one.
@@ -573,7 +738,6 @@ class App(ActivityHandlerMixin):
                 ctx = FunctionContext(
                     id=self.id,
                     api=self.api,
-                    activity_sender=self.activity_sender,
                     data=request["body"],
                     **client_context.__dict__,
                 )
@@ -596,10 +760,37 @@ class App(ActivityHandlerMixin):
                 await plugin.on_stop()
 
     async def _get_bot_token(self):
-        return await self._token_manager.get_bot_token()
+        return await self._token_provider.get_app_token()
 
     async def _get_graph_token(self, tenant_id: Optional[str] = None) -> Optional[TokenProtocol]:
-        return await self._token_manager.get_graph_token(tenant_id)
+        return await self._token_provider.get_app_token(
+            self.cloud.graph_scope,
+            tenant_id or (self.credentials.tenant_id if self.credentials else None) or DEFAULT_TENANT_FOR_GRAPH_TOKEN,
+        )
+
+    async def _get_agentic_graph_token(
+        self, identity: AgenticIdentity, tenant_id: Optional[str] = None
+    ) -> Optional[TokenProtocol]:
+        """
+        Acquire a Graph token for an Agentic User, via the federated identity exchange the token manager already
+        performs.
+
+        Separate from `_get_graph_token` because the identity differs, not merely the scope: this reads as the agent,
+        so it sees the files shared with the agent rather than everything the app may read.
+        """
+        if not identity.agentic_app_id or not identity.agentic_user_id:
+            return None
+
+        return await self._token_provider.get_agentic_user_token(
+            self.cloud.graph_scope,
+            identity.agentic_app_id,
+            identity.agentic_user_id,
+            # The identity's own tenant wins when the platform sends one, then the tenant the activity arrived from.
+            # The fallback to the app's configured tenant is deliberately not repeated here: `TokenManager` applies it
+            # in `_resolve_tenant_id` and raises when neither is available, which is a better failure than silently
+            # acquiring in the wrong directory.
+            identity.tenant_id or tenant_id,
+        )
 
     def get_app_graph(self, tenant_id: Optional[str] = None) -> "GraphServiceClient":
         """

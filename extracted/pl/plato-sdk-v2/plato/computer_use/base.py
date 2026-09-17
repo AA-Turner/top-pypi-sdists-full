@@ -113,6 +113,9 @@ class ToolResult:
     output: str | None = None
     error: str | None = None
     base64_image: str | None = None
+    # Set alongside ``base64_image`` when the bytes are not a desktop PNG frame -
+    # an image file read off the sandbox keeps its own type (jpeg, gif, webp).
+    media_type: str | None = None
 
 
 def _truncate_middle(text: str, limit: int) -> str:

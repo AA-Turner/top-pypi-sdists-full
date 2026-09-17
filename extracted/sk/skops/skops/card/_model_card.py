@@ -193,7 +193,7 @@ class TableSection(Section):
             self._is_pandas_df = False
 
         if self._is_pandas_df:
-            ncols = len(self.table.columns)  # type: ignore
+            ncols = len(self.table.columns)  # pyrefly: ignore[missing-attribute]
         else:
             ncols = len(self.table)
         if ncols == 0:
@@ -218,7 +218,7 @@ class TableSection(Section):
 
     def __repr__(self) -> str:
         if self._is_pandas_df:
-            nrows, ncols = self.table.shape  # type: ignore
+            nrows, ncols = self.table.shape  # pyrefly: ignore[missing-attribute]
         else:
             # table cannot be empty, so no checks needed here
             ncols = len(self.table)
@@ -771,10 +771,6 @@ class Card:
 
         """
         model_plot_div = re.sub(r"\n\s+", "", str(estimator_html_repr(model)))
-        if model_plot_div.count("sk-top-container") == 1:
-            model_plot_div = model_plot_div.replace(
-                "sk-top-container", 'sk-top-container" style="overflow: auto;'
-            )
 
         if description:
             content = f"{description}\n\n{model_plot_div}"
@@ -1049,7 +1045,7 @@ class Card:
             ax,
             x=permutation_importances.importances[sorted_importances_idx].T,
             tick_labels=columns[sorted_importances_idx],
-            vert="horizontal",
+            orientation="horizontal",
         )
         ax.set_title(plot_name)
         ax.set_xlabel("Decrease in Score")
@@ -1067,7 +1063,7 @@ class Card:
     ) -> Self:
         """
         Add a :class:`fairlearn.metrics.MetricFrame` table to the model card.
-        The table contains the difference, group_ma, group_min, and ratio for
+        The table contains the difference, group_max, group_min, and ratio for
         each metric.
 
         Parameters
@@ -1081,7 +1077,6 @@ class Card:
         transpose: bool, default=True
             Whether to transpose the table or not.
 
-
         description : str | None (default=None)
             An optional description to be added before the table.
 
@@ -1091,10 +1086,10 @@ class Card:
             The model card with the metric frame added.
 
         Notes
-        --------
+        -----
         You can check `fairlearn's documentation
-        <https://fairlearn.org/v0.8/user_guide/assessment/index.html>`__ on how to
-        work with `MetricFrame`s.
+        <https://fairlearn.org/v0.14/user_guide/assessment/index.html>`__ on how to
+        work with :class:`~fairlearn.metrics.MetricFrame` objects.
 
         """
         frame_dict = {
@@ -1312,8 +1307,9 @@ class Card:
         Returns
         -------
         toc : str
-            The table of contents for the model card formatted as a markdown string.
-            Example:
+            The table of contents for the model card formatted as a markdown
+            string, for example::
+
                 - Model description
                     - Intended uses & limitations
                     - Training Procedure

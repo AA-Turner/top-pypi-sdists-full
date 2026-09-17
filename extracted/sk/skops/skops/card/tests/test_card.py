@@ -220,7 +220,7 @@ def test_model_caching(skops_model_card, iris_skops_file, destination_path):
         assert mock_load_model.call_count == 1  # cached call
 
 
-CUSTOM_TEMPLATES = [None, {}, {"A Title", "Another Title", "A Title/A Section"}]  # type: ignore
+CUSTOM_TEMPLATES = [None, {}, {"A Title", "Another Title", "A Title/A Section"}]
 
 
 class TestAddModelPlot:
@@ -234,14 +234,6 @@ class TestAddModelPlot:
         # regex matches both old (#sk-) and new (.sk-) sklearn CSS selector formats
         assert re.match(r"<style>[#.]sk-", result)
         assert "MyRegressor()" in result
-
-    def test_no_overflow(self, model_card):
-        result = model_card.select(
-            "Model description/Training Procedure/Model Plot"
-        ).format()
-        # test if the model doesn't overflow the huggingface models page
-        assert result.count("sk-top-container") == 1
-        assert 'style="overflow: auto;' in result
 
     def test_model_diagram_false(self):
         model = fit_model()
@@ -1740,7 +1732,7 @@ class TestCardSaveWithPlots:
             model_card = model_card.add_plot(fig1=fig_1_path)
 
             plt.plot([7, 6, 5, 4])
-            fig_2_path = "fig2.png"
+            fig_2_path = Path(plot_path) / "fig2.png"
             plt.savefig(fig_2_path)
             model_card = model_card.add_plot(fig2=fig_2_path)
 

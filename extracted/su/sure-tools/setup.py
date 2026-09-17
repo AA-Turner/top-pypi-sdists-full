@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='SURE-tools',
-    version='4.18.25',
+    version='4.18.26',
     description='Succinct Representation of Single Cells',
     long_description=long_description,
     long_description_content_type="text/markdown",

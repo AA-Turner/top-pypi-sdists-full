@@ -10,8 +10,9 @@ import pytest
 import sqlalchemy as sa
 
 import dbos._conductor.protocol as p
-from dbos import DBOS, DBOSClient, Queue, WorkflowHandle
+from dbos import DBOS, DBOSClient, DBOSConfig, Queue, WorkflowHandle
 from dbos._error import DBOSException
+from dbos._queue import _INTERNAL_QUEUE_CONSTRUCTION
 from dbos._schemas.system_database import SystemSchema
 from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams
 
@@ -84,6 +85,10 @@ def insert_foreign_workflow(
                 queue_name=queue_name,
                 created_at=1,
                 updated_at=1,
+                # Terminal rows carry completed_at, as ones written by DBOS itself do
+                completed_at=(
+                    None if status in ("PENDING", "ENQUEUED", "DELAYED") else 1
+                ),
                 priority=0,
                 application_name=application_name,
                 inputs='{"args": [], "kwargs": {}}',
@@ -118,7 +123,7 @@ def insert_foreign_step(
 def test_runtime_stamps_everything_it_writes(dbos: DBOS) -> None:
     """Workflows, whatever queue they target, and the metadata rows that route them.
     Ownership never consults the queue, which for the internal one is shared."""
-    served = Queue("served-queue")
+    served = DBOS.register_queue("served-queue")
 
     @DBOS.workflow()
     def wf() -> int:
@@ -162,18 +167,27 @@ def test_runtime_stamps_everything_it_writes(dbos: DBOS) -> None:
     ] == [APP_NAME]
 
 
-def test_destroy_clears_the_application_identity(dbos: DBOS) -> None:
-    """Identity is set at launch, so a relaunch under another name must not
-    inherit this one from the process."""
+def test_relaunch_replaces_the_application_identity(
+    dbos: DBOS, config: DBOSConfig
+) -> None:
+    """Identity is set at launch, so a relaunch under another name replaces this
+    one. Destroy leaves it alone: resetting it there raced checkpoints still in
+    flight, which then stamped workflows with an identity no executor recovers."""
     assert GlobalParams.app_name == APP_NAME
-    DBOS.destroy()
-    assert GlobalParams.app_name is None
+    DBOS.destroy(destroy_registry=True)
+    assert GlobalParams.app_name == APP_NAME
+    config["name"] = OTHER_APP
+    DBOS(config=config)
+    # Construction leaves the name alone; launch is the only writer.
+    assert GlobalParams.app_name == APP_NAME
+    DBOS.launch()
+    assert GlobalParams.app_name == OTHER_APP
 
 
 def test_explicit_application_name_wins(dbos: DBOS, client: DBOSClient) -> None:
     """Naming a target is the only way to enqueue across applications, from either
     the runtime or a client."""
-    Queue("override-queue")
+    DBOS.register_queue("override-queue")
 
     @DBOS.workflow()
     def wf() -> int:
@@ -197,7 +211,7 @@ def test_client_without_identity_writes_unclaimed_rows(
 ) -> None:
     """A nameless client writes unclaimed rows, which whichever application runs
     them then claims, so the unclaimed partition drains on its own."""
-    Queue("adopt-queue")
+    DBOS.register_queue("adopt-queue")
 
     @DBOS.workflow()
     def wf() -> int:
@@ -394,7 +408,7 @@ def test_observability_filters_include_unclaimed_rows(
 def test_claiming_skips_another_applications_workflows(dbos: DBOS) -> None:
     """Dequeue and recovery, the two ways a row gets picked up. Both collide across
     applications by default, so only ownership separates them."""
-    queue = Queue("shared-name-queue")
+    queue = DBOS.register_queue("shared-name-queue")
 
     @DBOS.workflow()
     def wf() -> int:
@@ -439,9 +453,10 @@ def test_claiming_skips_another_applications_workflows(dbos: DBOS) -> None:
     assert "foreign-pending" not in [p.workflow_id for p in pending]
 
 
-def test_bulk_operations_spare_another_application(dbos: DBOS) -> None:
-    """Both take own plus unclaimed rows. Unclaimed are included deliberately:
-    excluding them would leak every pre-upgrade row forever."""
+def test_bulk_operations_across_applications(dbos: DBOS) -> None:
+    """The two bulk operations scope differently. Timing out cancels running work,
+    so it takes own plus unclaimed rows only; retention is system-wide."""
+    from dbos._sys_db import DEFAULT_GC_BATCH_SIZE
     from dbos._workflow_commands import global_timeout
 
     @DBOS.workflow()
@@ -465,11 +480,16 @@ def test_bulk_operations_spare_another_application(dbos: DBOS) -> None:
     assert status_of(dbos, "unclaimed-inflight") == "CANCELLED"
 
     dbos._sys_db.garbage_collect(
-        cutoff_epoch_timestamp_ms=cutoff, rows_threshold=None, batch_size=None
+        cutoff_epoch_timestamp_ms=cutoff,
+        rows_threshold=None,
+        batch_size=DEFAULT_GC_BATCH_SIZE,
     )
-    assert workflow_exists(dbos, "foreign-old")
+    # Retention spans every application, so the peer's old terminal row goes too.
+    assert not workflow_exists(dbos, "foreign-old")
     assert not workflow_exists(dbos, "unclaimed-old")
     assert not workflow_exists(dbos, handle.workflow_id)
+    # Still keyed on status, so a peer's in-flight row survives whoever sweeps.
+    assert status_of(dbos, "foreign-inflight") == "ENQUEUED"
 
 
 def test_unclaimed_rows_belong_to_every_application(
@@ -539,7 +559,10 @@ def test_unclaimed_rows_belong_to_every_application(
     }
 
     # A read-through handle picks up ownership along with the rest of the row.
-    handle = Queue("theirs-queue", database_backed_queue=True)
+    # Built directly, the way enqueue_workflow does, so nothing is read until asked.
+    handle = Queue(
+        "theirs-queue", database_backed_queue=True, token=_INTERNAL_QUEUE_CONSTRUCTION
+    )
     assert handle.application_name is None
     assert handle.concurrency is None
     assert handle.application_name == OTHER_APP
@@ -767,8 +790,6 @@ def test_conflicting_names_across_applications_raise(
                 worker_concurrency=None,
                 rate_limit_max=None,
                 rate_limit_period_sec=None,
-                priority_enabled=False,
-                partition_queue=False,
                 polling_interval_sec=1.0,
                 update_existing=update_existing,
             )
@@ -908,8 +929,6 @@ def test_two_applications_share_one_system_database(dbos: DBOS, config: Any) -> 
                 worker_concurrency=None,
                 rate_limit_max=None,
                 rate_limit_period_sec=None,
-                priority_enabled=False,
-                partition_queue=False,
                 polling_interval_sec=1.0,
                 update_existing=True,
             )
@@ -921,7 +940,7 @@ def test_two_applications_share_one_system_database(dbos: DBOS, config: Any) -> 
             assert application_name_of(dbos, handle.workflow_id) == name
 
         # Each application dequeues its own work and only its own.
-        internal = Queue(INTERNAL_QUEUE_NAME, database_backed_queue=True)
+        internal = dbos._registry.get_internal_queue()
         for name in names:
             dequeued = peers[name].start_queued_workflows(
                 internal, f"exec-{name}", f"version-{name}", None, 0
@@ -1044,6 +1063,8 @@ def test_rename_rejects_names_an_application_could_not_use(dbos: DBOS) -> None:
         dbos._sys_db.rename_application(OTHER_APP, "No Spaces Allowed")
     with pytest.raises(DBOSException, match="Invalid application name"):
         dbos._sys_db.rename_application(OTHER_APP, "ab")
+    with pytest.raises(DBOSException, match="Invalid application name"):
+        dbos._sys_db.rename_application(OTHER_APP, "a" * 257)
     with pytest.raises(DBOSException, match="already holds that name"):
         dbos._sys_db.rename_application(OTHER_APP, OTHER_APP)
     with pytest.raises(DBOSException, match="cannot be empty"):

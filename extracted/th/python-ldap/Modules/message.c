@@ -67,6 +67,7 @@ LDAPmessage_to_python(LDAP *ld, LDAPMessage *m, int add_ctrls,
         rc = ldap_get_entry_controls(ld, entry, &serverctrls);
         if (rc) {
             Py_DECREF(result);
+            Py_DECREF(attrdict);
             ldap_msgfree(m);
             ldap_memfree(dn);
             return LDAPerror(ld);
@@ -78,6 +79,7 @@ LDAPmessage_to_python(LDAP *ld, LDAPMessage *m, int add_ctrls,
 
             ldap_set_option(ld, LDAP_OPT_ERROR_NUMBER, &err);
             Py_DECREF(result);
+            Py_DECREF(attrdict);
             ldap_msgfree(m);
             ldap_memfree(dn);
             ldap_controls_free(serverctrls);
@@ -94,6 +96,17 @@ LDAPmessage_to_python(LDAP *ld, LDAPMessage *m, int add_ctrls,
             struct berval **bvals;
 
             pyattr = PyUnicode_FromString(attr);
+            if (pyattr == NULL) {
+                Py_DECREF(attrdict);
+                Py_DECREF(result);
+                if (ber != NULL)
+                    ber_free(ber, 0);
+                ldap_msgfree(m);
+                ldap_memfree(attr);
+                ldap_memfree(dn);
+                Py_XDECREF(pyctrls);
+                return NULL;
+            }
 
             bvals = ldap_get_values_len(ld, entry, attr);
 
@@ -139,11 +152,12 @@ LDAPmessage_to_python(LDAP *ld, LDAPMessage *m, int add_ctrls,
                     PyObject *valuestr;
 
                     valuestr = LDAPberval_to_object(bvals[i]);
-                    if (PyList_Append(valuelist, valuestr) == -1) {
+                    if (valuestr == NULL ||
+                            PyList_Append(valuelist, valuestr) == -1) {
                         Py_DECREF(pyattr);
                         Py_DECREF(attrdict);
                         Py_DECREF(result);
-                        Py_DECREF(valuestr);
+                        Py_XDECREF(valuestr);
                         Py_DECREF(valuelist);
                         if (ber != NULL)
                             ber_free(ber, 0);
@@ -165,6 +179,7 @@ LDAPmessage_to_python(LDAP *ld, LDAPMessage *m, int add_ctrls,
         pydn = PyUnicode_FromString(dn);
         if (pydn == NULL) {
             Py_DECREF(result);
+            Py_DECREF(attrdict);
             ldap_msgfree(m);
             ldap_memfree(dn);
             return NULL;
@@ -221,6 +236,14 @@ LDAPmessage_to_python(LDAP *ld, LDAPMessage *m, int add_ctrls,
             for (i = 0; refs[i] != NULL; i++) {
                 /* A referal is a distinguishedName => unicode */
                 PyObject *refstr = PyUnicode_FromString(refs[i]);
+                if (refstr == NULL) {
+                    Py_DECREF(reflist);
+                    Py_DECREF(result);
+                    ber_memvfree((void **)refs);
+                    ldap_msgfree(m);
+                    Py_XDECREF(pyctrls);
+                    return NULL;
+                }
 
                 PyList_Append(reflist, refstr);
                 Py_DECREF(refstr);
@@ -275,6 +298,7 @@ LDAPmessage_to_python(LDAP *ld, LDAPMessage *m, int add_ctrls,
                 ber_bvfree(retdata);
                 if (valuestr == NULL) {
                     ldap_memfree(retoid);
+                    Py_DECREF(pyctrls);
                     Py_DECREF(result);
                     ldap_msgfree(m);
                     return NULL;
@@ -284,6 +308,7 @@ LDAPmessage_to_python(LDAP *ld, LDAPMessage *m, int add_ctrls,
                 ldap_memfree(retoid);
                 if (pyoid == NULL) {
                     Py_DECREF(valuestr);
+                    Py_DECREF(pyctrls);
                     Py_DECREF(result);
                     ldap_msgfree(m);
                     return NULL;
@@ -291,6 +316,9 @@ LDAPmessage_to_python(LDAP *ld, LDAPMessage *m, int add_ctrls,
 
                 valtuple = Py_BuildValue("(NNN)", pyoid, valuestr, pyctrls);
                 if (valtuple == NULL) {
+                    Py_DECREF(pyoid);
+                    Py_DECREF(valuestr);
+                    Py_DECREF(pyctrls);
                     Py_DECREF(result);
                     ldap_msgfree(m);
                     return NULL;

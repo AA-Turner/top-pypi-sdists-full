@@ -41,7 +41,8 @@ class RelatedCloud(RelatedAsset):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "Cloud"
+        if self.type_name is UNSET:
+            self.type_name = "Cloud"
 
 
 class RelatedAWS(RelatedCloud):
@@ -83,7 +84,8 @@ class RelatedAWS(RelatedCloud):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "AWS"
+        if self.type_name is UNSET:
+            self.type_name = "AWS"
 
 
 class RelatedAzure(RelatedCloud):
@@ -110,7 +112,8 @@ class RelatedAzure(RelatedCloud):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "Azure"
+        if self.type_name is UNSET:
+            self.type_name = "Azure"
 
 
 class RelatedGoogle(RelatedCloud):
@@ -132,7 +135,7 @@ class RelatedGoogle(RelatedCloud):
     google_project_id: Union[str, None, UnsetType] = UNSET
     """ID of the project in which the asset exists."""
 
-    google_project_number: Union[int, None, UnsetType] = UNSET
+    cloud_project_number: Union[int, None, UnsetType] = UNSET
     """Number of the project in which the asset exists."""
 
     google_location: Union[str, None, UnsetType] = UNSET
@@ -149,4 +152,5 @@ class RelatedGoogle(RelatedCloud):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "Google"
+        if self.type_name is UNSET:
+            self.type_name = "Google"

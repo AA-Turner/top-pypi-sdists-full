@@ -2,7 +2,7 @@ name: SpecKit Copilot PR Normalizer
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review, edited]
+    types: [opened, synchronize, ready_for_review, edited, labeled]
 
 concurrency:
   group: speckit-normalizer-${{ github.event.pull_request.number }}
@@ -18,191 +18,35 @@ jobs:
     name: Normalize Copilot PR
     runs-on: ubuntu-latest
     if: >-
-      github.event.pull_request.user.login == 'copilot-swe-agent[bot]' ||
-      (startsWith(github.event.pull_request.head.ref, 'copilot/') &&
-      (github.actor == 'Copilot' || github.actor == 'copilot-swe-agent[bot]') &&
-      github.event.pull_request.user.login == 'copilot-swe-agent[bot]')
+      github.event.pull_request.user.login == 'copilot-swe-agent[bot]' &&
+      (
+        contains(github.event.pull_request.labels.*.name, 'speckit:spec') ||
+        contains(github.event.pull_request.body || '', 'speckit:agent-assigned schema_version=1 engine=cloud-agent') ||
+        contains(github.event.pull_request.labels.*.name, 'speckit:phase-1') ||
+        contains(github.event.pull_request.labels.*.name, 'speckit:phase-2') ||
+        contains(github.event.pull_request.labels.*.name, 'speckit:phase-3') ||
+        contains(github.event.pull_request.labels.*.name, 'speckit:phase-4') ||
+        contains(github.event.pull_request.labels.*.name, 'speckit:phase-5')
+      )
     steps:
+      - name: Checkout Repository (Normalizer Script)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+
       - name: Resolve SpecKit metadata and labels
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN || secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
           script: |
-            const pr = context.payload.pull_request;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const markerRegex = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=([1-3]) hierarchy=(epic|feature|task) correlation_id=([0-9a-fA-F-]+)\s*-->/i;
-            const issueReferenceRegex = /(?:Relates to|Closes) #(\d+)/i;
-            const trustedAssociations = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
-            const supportedLevels = new Set(['epic', 'feature', 'task']);
-            const phaseLabelRegex = /^speckit:phase-(\d+)$/;
-            const levelLabelRegex = /^speckit:level-(epic|feature|task)$/;
-            const existingLabelNames = (pr.labels || []).map(label => label.name || '');
-            const phaseLabels = existingLabelNames.filter(name => phaseLabelRegex.test(name));
-            const levelLabels = existingLabelNames.filter(name => levelLabelRegex.test(name));
-            const markerMatch = (pr.body || '').match(markerRegex);
-            const issueReferenceMatch = (pr.body || '').match(issueReferenceRegex);
-            const existingPhase = phaseLabels.map(name => name.match(phaseLabelRegex))[0];
-            const existingLevel = levelLabels.map(name => name.match(levelLabelRegex))[0];
-            const issueNumber = markerMatch
-              ? Number(markerMatch[1])
-              : (issueReferenceMatch ? Number(issueReferenceMatch[1]) : 0);
-            const phase = markerMatch ? Number(markerMatch[2]) : Number(existingPhase?.[1] || 0);
-            const level = (markerMatch?.[3] || existingLevel?.[1] || '').toLowerCase();
-            const correlationId = markerMatch?.[4] || 'none';
-            const gateFailed = /gate_status\s*:\s*failed\b/i.test(pr.body || '') ||
-              existingLabelNames.includes('speckit:gate-failed');
-            const failureMarker = `<!-- speckit:agent-pr-normalizer-failure pr=${pr.number} -->`;
-            const statusMarker = `<!-- speckit:agent-pr-normalizer pr=${pr.number} correlation_id=${correlationId} -->`;
-
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner, repo, issue_number: pr.number, per_page: 100,
-            });
-            const hasComment = marker => comments.some(comment => (comment.body || '').includes(marker));
-
-            const removeIssueTracking = async (number, resolvedPhase) => {
-              if (!number) return;
-              const labels = resolvedPhase
-                ? [`speckit:agent-assigned-phase-${resolvedPhase}`, 'speckit:processing']
-                : ['speckit:processing'];
-              for (const name of labels) {
-                try {
-                  await github.rest.issues.removeLabel({
-                    owner, repo, issue_number: number, name,
-                  });
-                } catch (error) {
-                  if (error.status !== 404) {
-                    core.warning(`Could not remove ${name} from issue #${number}: ${error.message}`);
-                  }
-                }
-              }
-            };
-
-            const postDiagnostic = async (message, sourceIssueNumber = 0, resolvedPhase = 0) => {
-              await github.rest.issues.addLabels({
-                owner, repo, issue_number: pr.number, labels: ['speckit:failed'],
-              });
-              if (!hasComment(failureMarker)) {
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number: pr.number,
-                  body: `${failureMarker}\n\n## ⚠️ SpecKit Copilot PR normalization failed\n\n${message}`,
-                });
-              }
-              if (sourceIssueNumber) {
-                await removeIssueTracking(sourceIssueNumber, resolvedPhase);
-                try {
-                  await github.rest.issues.addLabels({
-                    owner, repo, issue_number: sourceIssueNumber, labels: ['speckit:failed'],
-                  });
-                } catch (error) {
-                  core.warning(`Could not mark source issue #${sourceIssueNumber} as failed: ${error.message}`);
-                }
-                try {
-                  const sourceComments = await github.paginate(github.rest.issues.listComments, {
-                    owner, repo, issue_number: sourceIssueNumber, per_page: 100,
-                  });
-                  if (!sourceComments.some(comment => (comment.body || '').includes(failureMarker))) {
-                    await github.rest.issues.createComment({
-                      owner, repo, issue_number: sourceIssueNumber,
-                      body: `${failureMarker}\n\n## ⚠️ SpecKit Copilot PR normalization failed\n\n${message}`,
-                    });
-                  }
-                } catch (error) {
-                  core.warning(`Could not post diagnostic on source issue #${sourceIssueNumber}: ${error.message}`);
-                }
-              }
-            };
-
-            if (new Set(phaseLabels.map(name => name.match(phaseLabelRegex)[1])).size > 1 ||
-                new Set(levelLabels.map(name => name.match(levelLabelRegex)[1])).size > 1) {
-              await postDiagnostic(
-                'The PR has conflicting SpecKit phase or level labels; exactly one distinct phase and level is required.',
-                issueNumber,
-                phase,
-              );
-              return;
-            }
-
-            if (!issueNumber || phase < 1 || phase > 3 || !supportedLevels.has(level)) {
-              await postDiagnostic(
-                'The PR must contain a valid `speckit:agent-assigned` marker or `Relates to #N`/`Closes #N` reference together with phase 1-3 and valid level metadata.',
-                issueNumber,
-                phase,
-              );
-              return;
-            }
-            if (markerMatch && issueReferenceMatch && Number(issueReferenceMatch[1]) !== issueNumber) {
-              await postDiagnostic(
-                `The marker references issue #${issueNumber}, but the PR body references issue #${issueReferenceMatch[1]}.`,
-                issueNumber,
-                phase,
-              );
-              return;
-            }
-
-            if (markerMatch) {
-              let authoritativeMarker = null;
-              try {
-                const sourceComments = await github.paginate(github.rest.issues.listComments, {
-                  owner, repo, issue_number: issueNumber, per_page: 100,
-                });
-                authoritativeMarker = sourceComments
-                  .filter(comment => trustedAssociations.has(comment.author_association || ''))
-                  .map(comment => ({
-                    comment,
-                    match: (comment.body || '').match(markerRegex),
-                  }))
-                  .filter(entry => entry.match
-                    && Number(entry.match[1]) === issueNumber
-                    && Number(entry.match[2]) === phase)
-                  .sort((a, b) => new Date(b.comment.created_at) - new Date(a.comment.created_at))
-                  .at(0)?.match;
-              } catch (error) {
-                await postDiagnostic(`Could not validate the source issue marker: ${error.message}`, issueNumber, phase);
-                return;
-              }
-              if (!authoritativeMarker) {
-                await postDiagnostic(
-                  `No trusted source issue comment matched correlation ID \`${correlationId}\` for issue #${issueNumber}, phase ${phase}.`,
-                  issueNumber,
-                  phase,
-                );
-                return;
-              }
-            }
-
-            const requiredLabels = [`speckit:phase-${phase}`, `speckit:level-${level}`, 'speckit:spec'];
-            if (gateFailed) requiredLabels.push('speckit:gate-failed');
-            await github.rest.issues.addLabels({
-              owner, repo, issue_number: pr.number, labels: requiredLabels,
-            });
-            await removeIssueTracking(issueNumber, phase);
-            for (const number of [pr.number, issueNumber]) {
-              try {
-                await github.rest.issues.removeLabel({
-                  owner, repo, issue_number: number, name: 'speckit:failed',
-                });
-              } catch (error) {
-                if (error.status !== 404) {
-                  core.warning(`Could not clear speckit:failed from #${number}: ${error.message}`);
-                }
-              }
-            }
-
-            if (!hasComment(statusMarker)) {
-              await github.rest.issues.createComment({
-                owner, repo, issue_number: pr.number,
-                body: [
-                  statusMarker,
-                  '',
-                  `✅ **SpecKit Copilot PR normalized**`,
-                  '',
-                  `- Issue: #${issueNumber}`,
-                  `- Phase: ${phase}`,
-                  `- Level: ${level}`,
-                  `- Correlation ID: \`${correlationId}\``,
-                  `- Gate status: ${gateFailed ? 'failed' : 'passed or not declared'}`,
-                ].join('\n'),
-              });
-            }
-            core.info(`Normalized PR #${pr.number} for issue #${issueNumber}, phase ${phase}, level ${level}`);
+            const path = require('path');
+            const { run } = require(path.join(
+              process.env.GITHUB_WORKSPACE,
+              '.github',
+              'scripts',
+              'speckit-trigger',
+              'normalize-copilot-pr.js'
+            ));
+            await run({ github, context, core, pr: context.payload.pull_request });

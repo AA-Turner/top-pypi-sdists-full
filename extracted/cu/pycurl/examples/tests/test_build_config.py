@@ -6,7 +6,7 @@ import zlib
 from io import BytesIO
 
 c = pycurl.Curl()
-c.setopt(c.URL, 'http://pycurl.io')
+c.setopt(c.URL, 'https://pycurl.github.io')
 #c.setopt(c.ENCODING, 'deflate')
 c.setopt(c.HTTPHEADER, ['Accept-Encoding: deflate'])
 body = BytesIO()

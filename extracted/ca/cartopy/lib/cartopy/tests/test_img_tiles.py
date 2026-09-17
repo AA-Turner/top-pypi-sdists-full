@@ -4,17 +4,26 @@
 # See LICENSE in the root of the repository for full licensing details.
 
 import hashlib
+import io
 import os
 import types
 import warnings
 
 import numpy as np
 from numpy.testing import assert_array_almost_equal as assert_arr_almost
+from PIL import Image
 import pytest
-import shapely.geometry as sgeom
+import shapely
+
+from cartopy.tests.conftest import _HAS_PYKDTREE_OR_SCIPY
+
+
+if not _HAS_PYKDTREE_OR_SCIPY:
+    pytest.skip('pykdtree or scipy is required', allow_module_level=True)
 
 from cartopy import config
 import cartopy.crs as ccrs
+from cartopy.io import _ensure_tile_form
 import cartopy.io.img_tiles as cimgt
 import cartopy.io.ogc_clients as ogc
 
@@ -93,7 +102,7 @@ def test_google_tile_styles():
 def test_google_wts():
     gt = cimgt.GoogleTiles()
 
-    ll_target_domain = sgeom.box(-15, 50, 0, 60)
+    ll_target_domain = shapely.box(-15, 50, 0, 60)
     multi_poly = gt.crs.project_geometry(ll_target_domain, ccrs.PlateCarree())
     target_domain = multi_poly.geoms[0]
 
@@ -119,6 +128,77 @@ def test_google_wts():
     assert_arr_almost(gt.tileextent((8, 9, 4)), KNOWN_EXTENTS[(8, 9, 4)])
 
 
+@pytest.mark.parametrize("mode,info,expected", [
+    ("RGB", {}, "RGB"),
+    ("RGBA", {}, "RGBA"),
+    ("LA", {}, "RGBA"),
+    ("RGBa", {}, "RGBA"),
+    ("La", {}, "RGBA"),
+    ("L", {}, "RGB"),
+    ("P", {}, "RGB"),
+    ("P", {"transparency": 0}, "RGBA"),
+    ("LAB", {}, "RGB"),
+])
+def test_ensure_tile_form_auto_detect(mode, info, expected):
+    img = Image.new(mode, (1, 1))
+    img.info.update(info)
+    assert _ensure_tile_form(img).mode == expected
+
+
+@pytest.mark.parametrize("desired_tile_form", ["RGB", "RGBA"])
+def test_ensure_tile_form_explicit(desired_tile_form):
+    img = Image.new("P", (1, 1))
+    assert _ensure_tile_form(img, desired_tile_form).mode == desired_tile_form
+
+
+def _png_bytes(mode, color):
+    img = Image.new(mode, (2, 2), color)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _fake_urlopen(img_bytes):
+    class _Response:
+        def read(self):
+            return img_bytes
+
+        def close(self):
+            pass
+
+    def urlopen(request, *args, **kwargs):
+        return _Response()
+
+    return urlopen
+
+
+def test_get_image_auto_detects_tile_form(monkeypatch):
+    gt = cimgt.GoogleTiles()
+    assert gt.desired_tile_form is None
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        _fake_urlopen(_png_bytes("RGB", (255, 0, 0))))
+    img, _, _ = gt.get_image((0, 0, 0))
+    assert img.mode == "RGB"
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        _fake_urlopen(_png_bytes("RGBA", (255, 0, 0, 128))))
+    img, _, _ = gt.get_image((0, 0, 0))
+    assert img.mode == "RGBA"
+
+
+def test_get_image_explicit_tile_form_overrides_detection(monkeypatch):
+    gt = cimgt.GoogleTiles(desired_tile_form="RGB")
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        _fake_urlopen(_png_bytes("RGBA", (255, 0, 0, 128))))
+    img, _, _ = gt.get_image((0, 0, 0))
+    assert img.mode == "RGB"
+
+
 def test_tile_bbox_y0_at_south_pole():
     tms = cimgt.MapQuestOpenAerial()
 
@@ -130,7 +210,7 @@ def test_tile_bbox_y0_at_south_pole():
 def test_tile_find_images():
     gt = cimgt.GoogleTiles()
     # Test the find_images method on a GoogleTiles instance.
-    ll_target_domain = sgeom.box(-10, 50, 10, 60)
+    ll_target_domain = shapely.box(-10, 50, 10, 60)
     multi_poly = gt.crs.project_geometry(ll_target_domain, ccrs.PlateCarree())
     target_domain = multi_poly.geoms[0]
 
@@ -143,7 +223,7 @@ def test_image_for_domain():
     gt = cimgt.GoogleTiles()
     gt._image_url = types.MethodType(GOOGLE_IMAGE_URL_REPLACEMENT, gt)
 
-    ll_target_domain = sgeom.box(-10, 50, 10, 60)
+    ll_target_domain = shapely.box(-10, 50, 10, 60)
     multi_poly = gt.crs.project_geometry(ll_target_domain, ccrs.PlateCarree())
     target_domain = multi_poly.geoms[0]
 
@@ -160,7 +240,7 @@ def test_image_for_domain():
 def test_quadtree_wts():
     qt = cimgt.QuadtreeTiles()
 
-    ll_target_domain = sgeom.box(-15, 50, 0, 60)
+    ll_target_domain = shapely.box(-15, 50, 0, 60)
     multi_poly = qt.crs.project_geometry(ll_target_domain, ccrs.PlateCarree())
     target_domain = multi_poly.geoms[0]
 
@@ -346,7 +426,7 @@ def test_wmts_cache(cache_dir, tmp_path):
     # URI = 'https://map1c.vis.earthdata.nasa.gov/wmts-geo/wmts.cgi'
     # layer_name = 'VIIRS_CityLights_2012'
     URI = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/WMTS/1.0.0/WMTSCapabilities.xml'
-    layer_name='USGSImageryOnly'
+    layer_name = 'USGSImageryOnly'
     projection = ccrs.PlateCarree()
 
     # Fetch tiles and save them in the cache
@@ -424,7 +504,7 @@ def test_cache(cache_dir, tmp_path):
         gt = cimgt.GoogleTiles(cache=tmpdir_str)
     gt._image_url = types.MethodType(GOOGLE_IMAGE_URL_REPLACEMENT, gt)
 
-    ll_target_domain = sgeom.box(-10, 50, 10, 60)
+    ll_target_domain = shapely.box(-10, 50, 10, 60)
     multi_poly = gt.crs.project_geometry(ll_target_domain, ccrs.PlateCarree())
     target_domain = multi_poly.geoms[0]
 

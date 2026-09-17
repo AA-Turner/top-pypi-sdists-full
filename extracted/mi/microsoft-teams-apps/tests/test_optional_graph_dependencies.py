@@ -16,14 +16,14 @@ from microsoft_teams.api.auth.cloud_environment import (
     CloudEnvironment,
 )
 from microsoft_teams.apps.routing.activity_context import ActivityContext
-from microsoft_teams.apps.utils.graph import _derive_graph_base_url
+from microsoft_teams.apps.utils.graph import derive_graph_base_url
 
 
 class TestDeriveGraphBaseUrl:
     """Tests for the cloud -> Graph base URL derivation used by create_graph_client."""
 
     def test_none_cloud_returns_none(self) -> None:
-        assert _derive_graph_base_url(None) is None
+        assert derive_graph_base_url(None) is None
 
     @pytest.mark.parametrize(
         "cloud,expected",
@@ -35,7 +35,7 @@ class TestDeriveGraphBaseUrl:
         ],
     )
     def test_preset_cloud_derives_base_url(self, cloud: CloudEnvironment, expected: str) -> None:
-        assert _derive_graph_base_url(cloud) == expected
+        assert derive_graph_base_url(cloud) == expected
 
     def test_non_url_scope_returns_none(self, caplog: pytest.LogCaptureFixture) -> None:
         # Construct a cloud whose graph_scope isn't a URL.
@@ -43,7 +43,7 @@ class TestDeriveGraphBaseUrl:
             graph_scope = "user.read"
 
         with caplog.at_level("WARNING"):
-            assert _derive_graph_base_url(_FakeCloud()) is None  # type: ignore[arg-type]
+            assert derive_graph_base_url(_FakeCloud()) is None  # type: ignore[arg-type]
         assert any("not a URL" in record.message for record in caplog.records)
 
     def test_empty_scope_returns_none_no_warning(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -51,7 +51,7 @@ class TestDeriveGraphBaseUrl:
             graph_scope = ""
 
         with caplog.at_level("WARNING"):
-            assert _derive_graph_base_url(_FakeCloud()) is None  # type: ignore[arg-type]
+            assert derive_graph_base_url(_FakeCloud()) is None  # type: ignore[arg-type]
         assert not any("not a URL" in record.message for record in caplog.records)
 
 
@@ -65,8 +65,6 @@ class TestOptionalGraphDependencies:
         mock_storage = MagicMock()
         mock_api = MagicMock()
         mock_conversation_ref = MagicMock()
-        mock_activity_sender = MagicMock()
-        mock_activity_sender.create_stream.return_value = MagicMock()
         mock_app_token = MagicMock()  # Provide an app token for graph access
 
         return ActivityContext(
@@ -78,7 +76,6 @@ class TestOptionalGraphDependencies:
             conversation_ref=mock_conversation_ref,
             is_signed_in=False,
             connection_name="test-connection",
-            activity_sender=mock_activity_sender,
             app_token=mock_app_token,  # This is needed for app_graph to work
             cloud=PUBLIC,
         )
@@ -126,7 +123,6 @@ class TestOptionalGraphDependencies:
             conversation_ref=MagicMock(),
             is_signed_in=False,  # Not signed in
             connection_name="test-connection",
-            activity_sender=MagicMock(),
             app_token=None,
             cloud=PUBLIC,
         )
@@ -146,7 +142,6 @@ class TestOptionalGraphDependencies:
             conversation_ref=MagicMock(),
             is_signed_in=True,  # Signed in but no token
             connection_name="test-connection",
-            activity_sender=MagicMock(),
             app_token=None,
             cloud=PUBLIC,
         )
@@ -166,7 +161,6 @@ class TestOptionalGraphDependencies:
             conversation_ref=MagicMock(),
             is_signed_in=False,
             connection_name="test-connection",
-            activity_sender=MagicMock(),
             app_token=None,  # No app token
             cloud=PUBLIC,
         )

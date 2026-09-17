@@ -34,14 +34,16 @@ Example usage:
 # the server, so it must exist on the partially-initialized module. Also the
 # version source for hatch (`[tool.hatch.version]` in pyproject.toml) and
 # the release-tag guard in `.github/workflows/river-client-release.yml`.
-__version__ = "0.9.1"
+__version__ = "0.11.0"
 
+from river_client.images import ImageHandle
 from river_client.client import (
     Client,
     Model,
     Session,
     SessionContext,
 )
+from river_client.images import ImageStore
 from river_client.metrics import RunMetricsLogger
 from river_client.tokenizers import (
     MODEL_TOKENIZER_ALIASES,
@@ -54,30 +56,48 @@ from river_client.types import (
     CapacityError,
     ChatCompleteResult,
     Checkpoint,
+    Deployment,
+    DeploymentReplicas,
     ExpertRouting,
     ForwardResult,
     LoraConfig,
     ModelNotFoundError,
     OptimStepResult,
+    PolicyVersion,
     PendingOp,
     PendingSample,
     PromotedStreamingReplica,
     RiverConnectionError,
     RiverError,
     SessionHeartbeatError,
+    ServerCapabilities,
     RiverTimeoutError,
     Sample,
     TrainingDataArtifact,
     TrainingDataAttestation,
 )
 
+from river_client.sampling import (
+    PendingSamplingBatch,
+    SamplingCompletion,
+    SamplingResultCollector,
+)
+
+from river_client import rl
+
 __all__ = [
+    "ServerCapabilities",
+    "ImageHandle",
+    "ImageStore",
+    "rl",
     "AuthenticationError",
     "AttestedTrainingDataArtifact",
     "CapacityError",
     "ChatCompleteResult",
     "Checkpoint",
     "Client",
+    "Deployment",
+    "DeploymentReplicas",
     "ExpertRouting",
     "ForwardResult",
     "LoraConfig",
@@ -85,8 +105,12 @@ __all__ = [
     "MODEL_TOKENIZER_ALIASES",
     "ModelNotFoundError",
     "OptimStepResult",
+    "PolicyVersion",
     "PendingOp",
     "PendingSample",
+    "PendingSamplingBatch",
+    "SamplingCompletion",
+    "SamplingResultCollector",
     "PromotedStreamingReplica",
     "RiverConnectionError",
     "RiverError",

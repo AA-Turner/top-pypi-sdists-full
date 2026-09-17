@@ -29,6 +29,7 @@ class ApplyMode(str, Enum):
     """
     CREATE_ONLY = 'create_only'
     CREATE_MISSING = 'create_missing'
+    UPSERT = 'upsert'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

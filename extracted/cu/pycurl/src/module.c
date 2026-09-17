@@ -30,6 +30,9 @@ PYCURL_INTERNAL PyTypeObject *p_CurlShare_Type = NULL;
 PYCURL_INTERNAL PyTypeObject *p_CurlMime_Type = NULL;
 PYCURL_INTERNAL PyTypeObject *p_CurlMimePart_Type = NULL;
 #endif
+#ifdef HAVE_CURL_URL
+PYCURL_INTERNAL PyTypeObject *p_CurlUrl_Type = NULL;
+#endif
 #ifdef HAVE_CURL_7_19_6_OPTS
 PYCURL_INTERNAL PyObject *khkey_type = NULL;
 #endif
@@ -437,6 +440,9 @@ PyMODINIT_FUNC PyInit__pycurl(void)
     assert(Curl_Type.tp_weaklistoffset > 0);
     assert(CurlMulti_Type.tp_weaklistoffset > 0);
     assert(CurlShare_Type.tp_weaklistoffset > 0);
+#ifdef HAVE_CURL_URL
+    assert(CurlUrl_Type.tp_weaklistoffset > 0);
+#endif
 
     /* Check the version, as this has caused nasty problems in
      * some cases. */
@@ -528,6 +534,9 @@ PYCURL_IGNORE_DEPRECATED_END
     p_CurlMime_Type = &CurlMime_Type;
     p_CurlMimePart_Type = &CurlMimePart_Type;
 #endif
+#ifdef HAVE_CURL_URL
+    p_CurlUrl_Type = &CurlUrl_Type;
+#endif
     Py_SET_TYPE(&Curl_Type, &PyType_Type);
     Py_SET_TYPE(&CurlSlist_Type, &PyType_Type);
     Py_SET_TYPE(&CurlHttppost_Type, &PyType_Type);
@@ -536,6 +545,9 @@ PYCURL_IGNORE_DEPRECATED_END
 #ifdef HAVE_CURL_MIME
     Py_SET_TYPE(&CurlMime_Type, &PyType_Type);
     Py_SET_TYPE(&CurlMimePart_Type, &PyType_Type);
+#endif
+#ifdef HAVE_CURL_URL
+    Py_SET_TYPE(&CurlUrl_Type, &PyType_Type);
 #endif
 
     /* Create the module and add the functions */
@@ -559,6 +571,11 @@ PYCURL_IGNORE_DEPRECATED_END
         goto error;
 
     if (PyType_Ready(&CurlMimePart_Type) < 0)
+        goto error;
+#endif
+
+#ifdef HAVE_CURL_URL
+    if (PyType_Ready(&CurlUrl_Type) < 0)
         goto error;
 #endif
 
@@ -623,6 +640,9 @@ PYCURL_IGNORE_DEPRECATED_END
 #ifdef HAVE_CURL_MIME
     insobj2_modinit(d, NULL, "CurlMime", (PyObject *) p_CurlMime_Type);
     insobj2_modinit(d, NULL, "CurlMimePart", (PyObject *) p_CurlMimePart_Type);
+#endif
+#ifdef HAVE_CURL_URL
+    insobj2_modinit(d, NULL, "CurlUrl", (PyObject *) p_CurlUrl_Type);
 #endif
 
     /**
@@ -1123,9 +1143,11 @@ PYCURL_IGNORE_DEPRECATED_END
     insint_c(d, "PROXY_SSLVERSION", CURLOPT_PROXY_SSLVERSION);
     insint_c(d, "PROXY_SSL_CIPHER_LIST", CURLOPT_PROXY_SSL_CIPHER_LIST);
     insint_c(d, "PROXY_SSL_OPTIONS", CURLOPT_PROXY_SSL_OPTIONS);
+PYCURL_IGNORE_DEPRECATED_BEGIN
     insint_c(d, "PROXY_TLSAUTH_TYPE", CURLOPT_PROXY_TLSAUTH_TYPE);
     insint_c(d, "PROXY_TLSAUTH_USERNAME", CURLOPT_PROXY_TLSAUTH_USERNAME);
     insint_c(d, "PROXY_TLSAUTH_PASSWORD", CURLOPT_PROXY_TLSAUTH_PASSWORD);
+PYCURL_IGNORE_DEPRECATED_END
 #endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 71, 0)
     insint_c(d, "PROXY_ISSUERCERT", CURLOPT_PROXY_ISSUERCERT);
@@ -1234,11 +1256,28 @@ PYCURL_IGNORE_DEPRECATED_END
 # if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 44, 0)
     insint_c(d, "SSLOPT_NO_REVOKE", CURLSSLOPT_NO_REVOKE);
 # endif
+# if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 68, 0)
+    insint_c(d, "SSLOPT_NO_PARTIALCHAIN", CURLSSLOPT_NO_PARTIALCHAIN);
+# endif
+# if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 70, 0)
+    insint_c(d, "SSLOPT_REVOKE_BEST_EFFORT", CURLSSLOPT_REVOKE_BEST_EFFORT);
+# endif
+# if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 71, 0)
+    insint_c(d, "SSLOPT_NATIVE_CA", CURLSSLOPT_NATIVE_CA);
+# endif
+# if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 77, 0)
+    insint_c(d, "SSLOPT_AUTO_CLIENT_CERT", CURLSSLOPT_AUTO_CLIENT_CERT);
+# endif
+# if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 11, 0)
+    insint_c(d, "SSLOPT_EARLYDATA", CURLSSLOPT_EARLYDATA);
+# endif
 #endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 21, 4)
+PYCURL_IGNORE_DEPRECATED_BEGIN
     insint_c(d, "TLSAUTH_TYPE", CURLOPT_TLSAUTH_TYPE);
     insint_c(d, "TLSAUTH_USERNAME", CURLOPT_TLSAUTH_USERNAME);
     insint_c(d, "TLSAUTH_PASSWORD", CURLOPT_TLSAUTH_PASSWORD);
+PYCURL_IGNORE_DEPRECATED_END
 #endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 45, 0)
     insint_c(d, "DEFAULT_PROTOCOL", CURLOPT_DEFAULT_PROTOCOL);
@@ -1250,6 +1289,77 @@ PYCURL_IGNORE_DEPRECATED_END
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 62, 0)
     insint_c(d, "DOH_URL", CURLOPT_DOH_URL);
 #endif
+#ifdef HAVE_CURLOPT_CURLU
+    /* pass a CurlUrl to an easy handle instead of a URL string */
+    insint_c(d, "CURLU", CURLOPT_CURLU);
+#endif
+
+    /* curl URL API: parts for CurlUrl.getpart()/setpart() (7.62.0+) */
+#ifdef HAVE_CURL_URL
+    insint(d, "UPART_URL", CURLUPART_URL);
+    insint(d, "UPART_SCHEME", CURLUPART_SCHEME);
+    insint(d, "UPART_USER", CURLUPART_USER);
+    insint(d, "UPART_PASSWORD", CURLUPART_PASSWORD);
+    insint(d, "UPART_OPTIONS", CURLUPART_OPTIONS);
+    insint(d, "UPART_HOST", CURLUPART_HOST);
+    insint(d, "UPART_PORT", CURLUPART_PORT);
+    insint(d, "UPART_PATH", CURLUPART_PATH);
+    insint(d, "UPART_QUERY", CURLUPART_QUERY);
+    insint(d, "UPART_FRAGMENT", CURLUPART_FRAGMENT);
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 65, 0)
+    insint(d, "UPART_ZONEID", CURLUPART_ZONEID);
+#endif
+    /* curl URL API flags. These are #define macros, so each is guarded on its
+     * own definition rather than on a libcurl version number. */
+#ifdef CURLU_DEFAULT_PORT
+    insint(d, "U_DEFAULT_PORT", CURLU_DEFAULT_PORT);
+#endif
+#ifdef CURLU_NO_DEFAULT_PORT
+    insint(d, "U_NO_DEFAULT_PORT", CURLU_NO_DEFAULT_PORT);
+#endif
+#ifdef CURLU_DEFAULT_SCHEME
+    insint(d, "U_DEFAULT_SCHEME", CURLU_DEFAULT_SCHEME);
+#endif
+#ifdef CURLU_NON_SUPPORT_SCHEME
+    insint(d, "U_NON_SUPPORT_SCHEME", CURLU_NON_SUPPORT_SCHEME);
+#endif
+#ifdef CURLU_PATH_AS_IS
+    insint(d, "U_PATH_AS_IS", CURLU_PATH_AS_IS);
+#endif
+#ifdef CURLU_DISALLOW_USER
+    insint(d, "U_DISALLOW_USER", CURLU_DISALLOW_USER);
+#endif
+#ifdef CURLU_URLDECODE
+    insint(d, "U_URLDECODE", CURLU_URLDECODE);
+#endif
+#ifdef CURLU_URLENCODE
+    insint(d, "U_URLENCODE", CURLU_URLENCODE);
+#endif
+#ifdef CURLU_APPENDQUERY
+    insint(d, "U_APPENDQUERY", CURLU_APPENDQUERY);
+#endif
+#ifdef CURLU_GUESS_SCHEME
+    insint(d, "U_GUESS_SCHEME", CURLU_GUESS_SCHEME);
+#endif
+#ifdef CURLU_NO_AUTHORITY
+    insint(d, "U_NO_AUTHORITY", CURLU_NO_AUTHORITY);
+#endif
+#ifdef CURLU_ALLOW_SPACE
+    insint(d, "U_ALLOW_SPACE", CURLU_ALLOW_SPACE);
+#endif
+#ifdef CURLU_PUNYCODE
+    insint(d, "U_PUNYCODE", CURLU_PUNYCODE);
+#endif
+#ifdef CURLU_PUNY2IDN
+    insint(d, "U_PUNY2IDN", CURLU_PUNY2IDN);
+#endif
+#ifdef CURLU_GET_EMPTY
+    insint(d, "U_GET_EMPTY", CURLU_GET_EMPTY);
+#endif
+#ifdef CURLU_NO_GUESS_SCHEME
+    insint(d, "U_NO_GUESS_SCHEME", CURLU_NO_GUESS_SCHEME);
+#endif
+#endif /* URL API, 7.62.0+ */
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 64, 0)
     insint_c(d, "HTTP09_ALLOWED", CURLOPT_HTTP09_ALLOWED);
 #endif
@@ -1407,6 +1517,12 @@ PYCURL_IGNORE_DEPRECATED_END
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 8, 0)
     insint_c(d, "ECH", CURLOPT_ECH);
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 73, 0)
+    insint_c(d, "SSL_EC_CURVES", CURLOPT_SSL_EC_CURVES);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 14, 0)
+    insint_c(d, "SSL_SIGNATURE_ALGORITHMS", CURLOPT_SSL_SIGNATURE_ALGORITHMS);
+#endif
 
     /* curl_TimeCond: constants for setopt(TIMECONDITION, x) */
     insint_c(d, "TIMECONDITION_NONE", CURL_TIMECOND_NONE);
@@ -1471,6 +1587,12 @@ PYCURL_IGNORE_DEPRECATED_END
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 72, 0)
     insint_c(d, "EFFECTIVE_METHOD", CURLINFO_EFFECTIVE_METHOD);
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 52, 0)
+    insint_c(d, "SCHEME", CURLINFO_SCHEME);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 76, 0)
+    insint_c(d, "INFO_REFERER", CURLINFO_REFERER);
+#endif
     /* same as CURLINFO_RESPONSE_CODE */
     insint_c(d, "HTTP_CODE", CURLINFO_HTTP_CODE);
     insint_c(d, "RESPONSE_CODE", CURLINFO_RESPONSE_CODE);
@@ -1528,6 +1650,15 @@ PYCURL_IGNORE_DEPRECATED_END
 #ifdef HAVE_CURL_7_19_4_OPTS
     insint_c(d, "CONDITION_UNMET", CURLINFO_CONDITION_UNMET);
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 52, 0)
+    insint_c(d, "PROXY_SSL_VERIFYRESULT", CURLINFO_PROXY_SSL_VERIFYRESULT);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 73, 0)
+    insint_c(d, "PROXY_ERROR", CURLINFO_PROXY_ERROR);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 7, 0)
+    insint_c(d, "USED_PROXY", CURLINFO_USED_PROXY);
+#endif
 
 /* CURLINFO_*_T constants */
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 55, 0)
@@ -1550,6 +1681,13 @@ PYCURL_IGNORE_DEPRECATED_END
     insint_c(d, "STARTTRANSFER_TIME_T", CURLINFO_STARTTRANSFER_TIME_T);
     insint_c(d, "TOTAL_TIME_T", CURLINFO_TOTAL_TIME_T);
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 66, 0)
+    insint_c(d, "RETRY_AFTER", CURLINFO_RETRY_AFTER);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 2, 0)
+    insint_c(d, "CONN_ID", CURLINFO_CONN_ID);
+    insint_c(d, "XFER_ID", CURLINFO_XFER_ID);
+#endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 6, 0)
     insint_c(d, "QUEUE_TIME_T", CURLINFO_QUEUE_TIME_T);
 #endif
@@ -1558,6 +1696,9 @@ PYCURL_IGNORE_DEPRECATED_END
 #endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 11, 0)
     insint_c(d, "EARLYDATA_SENT_T", CURLINFO_EARLYDATA_SENT_T);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 20, 0)
+    insint_c(d, "SIZE_DELIVERED", CURLINFO_SIZE_DELIVERED);
 #endif
 
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 20, 0)
@@ -1757,6 +1898,9 @@ PYCURL_IGNORE_DEPRECATED_END
 #endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 61, 0)
     insint_s(d, "LOCK_DATA_PSL", CURL_LOCK_DATA_PSL);
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 88, 0)
+    insint_s(d, "LOCK_DATA_HSTS", CURL_LOCK_DATA_HSTS);
 #endif
 
     /* Initialize callback locks if ssl is enabled */

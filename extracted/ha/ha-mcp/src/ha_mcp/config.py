@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     # Tool configuration
     fuzzy_threshold: int = Field(60, alias="FUZZY_THRESHOLD")
 
+    # Optional process-wide outer tool-call concurrency. Zero preserves the
+    # existing unlimited behavior; constrained installs can opt into queuing.
+    ha_tool_concurrency: int = Field(0, ge=0, le=32, alias="HA_TOOL_CONCURRENCY")
+
     # Smart-search config-fetch time budgets (seconds). Bound how long
     # ha_search spends fetching automation/script/scene
     # definitions during the per-id fallback before reporting a partial
@@ -96,6 +100,12 @@ class Settings(BaseSettings):
         10, alias="HAMCP_INDIVIDUAL_FETCH_BATCH_SIZE"
     )
 
+    # Optional preflight bounds for recorder queries. Disabled by default to
+    # preserve the established ha_get_history request contract.
+    enable_history_query_guardrails: bool = Field(
+        False, alias="HAMCP_ENABLE_HISTORY_QUERY_GUARDRAILS"
+    )
+
     # Backup tool configuration
     backup_hint: str = Field("normal", alias="BACKUP_HINT")
 
@@ -113,6 +123,12 @@ class Settings(BaseSettings):
     # Development/Debug configuration
     debug: bool = Field(False, alias="DEBUG")
     log_level: str = Field("INFO", alias="LOG_LEVEL")
+
+    # Opt-in HTTP experiments, applied at app construction (restart required).
+    http_transport_diagnostics: bool = Field(
+        False, alias="HAMCP_HTTP_TRANSPORT_DIAGNOSTICS"
+    )
+    http_json_response: bool = Field(False, alias="HAMCP_HTTP_JSON_RESPONSE")
 
     # MCP Server configuration
     mcp_server_name: str = Field("ha-mcp", alias="MCP_SERVER_NAME")
@@ -400,7 +416,7 @@ class Settings(BaseSettings):
 
     # Backup directory override. Empty ("") resolves at runtime to a
     # deployment-mode default: ``/data/ha_mcp_backups`` in the add-on,
-    # otherwise ``${XDG_DATA_HOME:-~/.local/share}/ha_mcp/backups``.
+    # otherwise ``<data dir>/backups`` (see ``backup_manager._resolve_default_dir``).
     auto_backup_dir: str = Field("", alias="HAMCP_BACKUP_DIR")
 
     # Calendar event backups query an ahead-of-now window to locate the
@@ -776,8 +792,8 @@ FEATURE_FLAG_FIELDS: tuple[FeatureFlagField, ...] = (
 )
 
 # Override-file location is the same data dir that holds tool_config.json
-# (resolved via ``utils.data_paths.get_data_dir`` — addon ``/data``,
-# ``HA_MCP_CONFIG_DIR``, ``XDG_DATA_HOME``, or a tmpdir fallback).
+# (resolved via ``utils.data_paths.get_data_dir`` — ``HA_MCP_CONFIG_DIR``,
+# addon ``/data``, ``~/.ha-mcp``, or a tmpdir fallback).
 # Imported lazily inside helpers to avoid a circular import at module
 # load.
 _FEATURE_FLAG_OVERRIDE_FILENAME = "feature_flags.json"
@@ -890,6 +906,16 @@ ADVANCED_SETTINGS_FIELDS: tuple[AdvancedField, ...] = (
         True,
     ),
     # Operations.
+    AdvancedField(
+        "enable_history_query_guardrails",
+        "HAMCP_ENABLE_HISTORY_QUERY_GUARDRAILS",
+        bool,
+        "operations",
+        True,
+    ),
+    AdvancedField(
+        "ha_tool_concurrency", "HA_TOOL_CONCURRENCY", int, "operations", True
+    ),
     AdvancedField("backup_hint", "BACKUP_HINT", str, "operations", True),
     AdvancedField("enable_websocket", "ENABLE_WEBSOCKET", bool, "operations", True),
     # Dashboard-screenshot engine URL (#1538): docker/.env users could set
@@ -920,6 +946,16 @@ ADVANCED_SETTINGS_FIELDS: tuple[AdvancedField, ...] = (
     AdvancedField("environment", "ENVIRONMENT", str, "diagnostics", True),
     AdvancedField("log_level", "LOG_LEVEL", str, "diagnostics", True),
     AdvancedField("debug", "DEBUG", bool, "diagnostics", True),
+    AdvancedField(
+        "http_transport_diagnostics",
+        "HAMCP_HTTP_TRANSPORT_DIAGNOSTICS",
+        bool,
+        "diagnostics",
+        True,
+    ),
+    AdvancedField(
+        "http_json_response", "HAMCP_HTTP_JSON_RESPONSE", bool, "diagnostics", True
+    ),
     # Settings UI sidecar (stdio-only). 0 (default) = first spawn picks a
     # free port and later spawns reuse it via ui.state (#2131); a value
     # pins a preferred fixed port instead (best-effort, #1587).
@@ -1000,6 +1036,7 @@ _ADVANCED_SETTINGS_BOUNDS: dict[str, tuple[float, float]] = {
     "scene_config_time_budget": (1.0, 600.0),
     "individual_config_timeout": (1.0, 600.0),
     "individual_fetch_batch_size": (1, 100),
+    "ha_tool_concurrency": (1, 32),
     "code_mode_max_duration": (1.0, 300.0),
     "code_mode_max_memory": (1_048_576, 268_435_456),
     "code_mode_max_recursion": (1, 10_000),
@@ -1015,6 +1052,7 @@ _ADVANCED_SETTINGS_BOUNDS: dict[str, tuple[float, float]] = {
 # emits min=sentinel so the number input can still express "off"; the
 # override-apply and UI-POST paths accept the sentinel OR the bounded range.
 _ADVANCED_SETTINGS_SENTINELS: dict[str, int] = {
+    "ha_tool_concurrency": 0,
     "sidecar_pin_port": 0,
 }
 
@@ -1036,6 +1074,7 @@ _ADVANCED_SETTINGS_CHOICES: dict[str, tuple[str, ...]] = {
 # batches addon-origin writes and POSTs them via Supervisor.
 ADDON_SYNCED_ADVANCED_FIELDS: tuple[str, ...] = (
     "backup_hint",
+    "ha_tool_concurrency",
     "verify_ssl",
 )
 
@@ -1548,7 +1587,10 @@ _EMBEDDED_CONNECTION: dict[str, str | bool] = {}
 
 
 def set_embedded_connection(
-    url: str, token: str, verify_ssl: bool | None = None
+    url: str,
+    token: str,
+    verify_ssl: bool | None = None,
+    config_dir: str | None = None,
 ) -> None:
     """Register the in-process HA connection for embedded mode.
 
@@ -1572,6 +1614,14 @@ def set_embedded_connection(
     for 127.0.0.1, so verification on the loopback connection can only fail.
     ``None`` (the default, and what pre-#1890 components pass implicitly)
     leaves ``Settings.verify_ssl`` alone.
+
+    ``config_dir`` is Home Assistant's own configuration directory (#2329).
+    Embedded mode is its only writer and it is read back through
+    :func:`get_embedded_config_dir` alone — deliberately NOT a ``Settings``
+    field, so no env var or override file can point it anywhere. It lets an
+    in-process server read a blueprint's on-disk YAML directly instead of
+    routing the read through the component, and grants nothing an external
+    server could not already reach.
     """
     _EMBEDDED_CONNECTION["url"] = url
     _EMBEDDED_CONNECTION["token"] = token
@@ -1579,8 +1629,23 @@ def set_embedded_connection(
         _EMBEDDED_CONNECTION.pop("verify_ssl", None)
     else:
         _EMBEDDED_CONNECTION["verify_ssl"] = verify_ssl
+    if config_dir is None:
+        _EMBEDDED_CONNECTION.pop("config_dir", None)
+    else:
+        _EMBEDDED_CONNECTION["config_dir"] = config_dir
     if _settings is not None:
         _apply_embedded_connection(_settings)
+
+
+def get_embedded_config_dir() -> str | None:
+    """Home Assistant's configuration directory, when running embedded.
+
+    ``None`` outside embedded mode, and on an embedded install whose component
+    predates the ``config_dir`` keyword. Consumers must treat it as an optional
+    capability and fall back to their component / service path.
+    """
+    config_dir = _EMBEDDED_CONNECTION.get("config_dir")
+    return config_dir if isinstance(config_dir, str) and config_dir else None
 
 
 def _reset_embedded_connection() -> None:
@@ -1630,8 +1695,8 @@ BACKUP_OVERRIDE_FIELDS: tuple[BackupOverrideField, ...] = (
 )
 
 # Override-file location is the same data dir that holds tool_config.json
-# (resolved via ``utils.data_paths.get_data_dir`` — addon ``/data``,
-# ``HA_MCP_CONFIG_DIR``, ``XDG_DATA_HOME``, or a tmpdir fallback).
+# (resolved via ``utils.data_paths.get_data_dir`` — ``HA_MCP_CONFIG_DIR``,
+# addon ``/data``, ``~/.ha-mcp``, or a tmpdir fallback).
 # Imported lazily inside helpers to avoid a circular import at module
 # load (``utils.data_paths`` imports from ``_version`` which imports
 # from ``config`` transitively in some test layouts).

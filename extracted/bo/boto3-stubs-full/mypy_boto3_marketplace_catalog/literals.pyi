@@ -111,6 +111,7 @@ ResaleAuthorizationSortByType = Literal[
     "AvailabilityEndDate",
     "CreatedDate",
     "EntityId",
+    "IssuerAccountId",
     "LastModifiedDate",
     "ManufacturerAccountId",
     "ManufacturerLegalName",
@@ -120,6 +121,8 @@ ResaleAuthorizationSortByType = Literal[
     "ProductName",
     "ResellerAccountID",
     "ResellerLegalName",
+    "ResellerRole",
+    "SourceAuthorization",
     "Status",
 ]
 ResaleAuthorizationStatusStringType = Literal["Active", "Draft", "Restricted"]

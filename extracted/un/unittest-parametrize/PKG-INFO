@@ -1,29 +1,28 @@
 Metadata-Version: 2.4
 Name: unittest-parametrize
-Version: 1.8.0
+Version: 1.9.0
 Summary: Parametrize tests within unittest TestCases.
+Keywords: unittest
+Author: Adam Johnson
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT
-Project-URL: Changelog, https://github.com/adamchainz/unittest-parametrize/blob/main/CHANGELOG.rst
-Project-URL: Funding, https://adamj.eu/books/
-Project-URL: Repository, https://github.com/adamchainz/unittest-parametrize
-Keywords: unittest
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
+Project-URL: Changelog, https://github.com/adamchainz/unittest-parametrize/blob/main/CHANGELOG.rst
+Project-URL: Funding, https://adamj.eu/books/
+Project-URL: Repository, https://github.com/adamchainz/unittest-parametrize
 Description-Content-Type: text/x-rst
-License-File: LICENSE
-Requires-Dist: typing-extensions; python_version < "3.10"
-Dynamic: license-file
 
 ====================
 unittest-parametrize
@@ -60,7 +59,7 @@ Install with:
 
     python -m pip install unittest-parametrize
 
-Python 3.9 to 3.14 supported.
+Python 3.10 to 3.15 supported.
 
 Usage
 =====
@@ -125,6 +124,8 @@ If you only need a single parameter, you can provide values without wrapping the
         def test_equal(self, x: int) -> None:
             self.assertEqual(x, x)
 
+Tuples are the exception, since they are always read as one value per argument.
+To use tuples as single parameter values, wrap each one in a ``param``, like ``param((1, 2))``.
 
 Provide argument names as separate strings
 ------------------------------------------
@@ -195,6 +196,8 @@ You can see these names when running the tests:
     Ran 2 tests in 0.000s
 
     OK
+
+(By the way, avoid using a ``set`` or other unordered collection for parameter values, as that will assign different names to each test value between runs, due to `Python’s hash randomization <https://docs.python.org/3/reference/datamodel.html#object.__hash__:~:text=the%20%5F%5Fhash%5F%5F%28%29%20values>`__.)
 
 You can customize these names in several ways:
 
@@ -308,7 +311,7 @@ Passing a callable as the ``ids`` argument
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``ids`` argument can also be a callable, which unittest-parametrize calls once per parameter value.
-The callable can return a string for that value, or ``None`` to use the default index suffix.
+The callable can return a string for that value, or ``None`` to fall back to the value’s string representation.
 The values are then joined with underscores to form the full suffix.
 
 For example:
@@ -348,6 +351,90 @@ For example:
     Ran 2 tests in 0.000s
 
     OK
+
+Passing ``str`` names each test after its parameter values, like pytest does by default:
+
+.. code-block:: python
+
+    from unittest_parametrize import ParametrizedTestCase, parametrize
+
+
+    class SquareTests(ParametrizedTestCase):
+        @parametrize(
+            "x,expected",
+            [
+                (1, 1),
+                (2, 4),
+            ],
+            ids=str,
+        )
+        def test_square(self, x: int, expected: int) -> None:
+            self.assertEqual(x**2, expected)
+
+…yields:
+
+.. code-block:: console
+
+    $ python -m unittest t.py -v
+    test_square_1_1 (t.SquareTests.test_square_1_1) ... ok
+    test_square_2_4 (t.SquareTests.test_square_2_4) ... ok
+
+    ----------------------------------------------------------------------
+    Ran 2 tests in 0.000s
+
+    OK
+
+This works for values whose string representations are valid Python identifier suffixes, so mostly numbers and simple strings.
+
+Skip a parameter set, or expect it to fail
+------------------------------------------
+
+``param()`` takes two optional parameters to modify the generated test:
+
+* ``skip`` - accepts a reason string to skip that parameter set’s test with |unittest.skip()|__.
+
+  .. |unittest.skip()| replace:: ``unittest.skip()``
+  __ https://docs.python.org/3/library/unittest.html#unittest.skip
+
+* ``expected_failure=True`` - marks that parameter set’s test as expected to fail with |unittest.expectedFailure|__.
+
+  .. |unittest.expectedFailure| replace:: ``unittest.expectedFailure``
+  __ https://docs.python.org/3/library/unittest.html#unittest.expectedFailure
+
+For example:
+
+.. code-block:: python
+
+    from unittest_parametrize import ParametrizedTestCase, param, parametrize
+
+
+    class SquareTests(ParametrizedTestCase):
+        @parametrize(
+            "x,expected",
+            [
+                param(1, 1, id="one"),
+                param(2, 5, id="two", expected_failure=True),
+                param(3, 9, id="three", skip="slow, see #123"),
+            ],
+        )
+        def test_square(self, x: int, expected: int) -> None:
+            self.assertEqual(x**2, expected)
+
+Yielding:
+
+.. code-block:: console
+
+    $ python -m unittest t.py -v
+    test_square_one (t.SquareTests.test_square_one) ... ok
+    test_square_three (t.SquareTests.test_square_three) ... skipped 'slow, see #123'
+    test_square_two (t.SquareTests.test_square_two) ... expected failure
+
+    ----------------------------------------------------------------------
+    Ran 3 tests in 0.001s
+
+    OK (skipped=1, expected failures=1)
+
+A parameter set cannot be both, since skipping it means it never runs.
 
 Use with other test decorators
 ------------------------------
@@ -488,6 +575,28 @@ In this case, try using a `dataclass <https://docs.python.org/3/library/dataclas
             self.assertEqual(sp.x**2, sp.expected)
 
 This way, each parameter is type-checked and named, improving safety and readability.
+
+Differences from pytest
+-----------------------
+
+The API mirrors ``@pytest.mark.parametrize``, but parametrized tests here are real methods on the test case, created at class definition time.
+That is what makes them work with any test runner, and it is also where the differences come from:
+
+* Test names use an underscore suffix, like ``test_square_0``, rather than pytest’s bracketed ``test_square[1-1]``, since they have to be valid Python identifiers.
+  For the same reason, IDs must be valid Python identifier suffixes.
+
+* Default IDs are indexes rather than being generated from the parameter values.
+  Pass ``ids=str`` for names closer to pytest’s, as above.
+
+* ``@parametrize`` is not stackable, so there is no cross-product of two decorators.
+  Build the product yourself, as above.
+
+* ``@parametrize`` does not work as a class decorator, so it cannot parametrize every test in a test case at once.
+  Apply a shared decorator to each method, as above.
+
+* There are no fixtures, so there is no equivalent of pytest’s ``indirect`` parametrization.
+
+* There is no marker system, so ``param`` takes ``skip`` and ``expected_failure`` directly rather than pytest’s general ``marks`` argument.
 
 History
 =======

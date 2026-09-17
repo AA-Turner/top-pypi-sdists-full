@@ -1057,6 +1057,7 @@ def main() -> None:
         public_url=CLOUD_MCP_PREVIEW_PUBLIC_URL,
         oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        min_instances=MIN_INSTANCES,
         extra_envs=[
             *_cloud_mcp_auth_envs(),
             *_cloud_mcp_storage_envs(cloud_mcp_preview_firestore),

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from typing import Dict, List, Union
 
-import msgspec
 from msgspec import UNSET, UnsetType
 
 from .referenceable_related import RelatedReferenceable
@@ -50,7 +49,8 @@ class RelatedSnowflake(RelatedSQL):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "Snowflake"
+        if self.type_name is UNSET:
+            self.type_name = "Snowflake"
 
 
 class RelatedSnowflakeDynamicTable(RelatedSnowflake):
@@ -68,7 +68,8 @@ class RelatedSnowflakeDynamicTable(RelatedSnowflake):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeDynamicTable"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeDynamicTable"
 
 
 class RelatedSnowflakePipe(RelatedSnowflake):
@@ -84,7 +85,7 @@ class RelatedSnowflakePipe(RelatedSnowflake):
     definition: Union[str, None, UnsetType] = UNSET
     """SQL definition of this pipe."""
 
-    snowflake_pipe_is_auto_ingest_enabled: Union[bool, None, UnsetType] = UNSET
+    snowflake_is_auto_ingest_enabled: Union[bool, None, UnsetType] = UNSET
     """Whether auto-ingest is enabled for this pipe (true) or not (false)."""
 
     snowflake_pipe_notification_channel_name: Union[str, None, UnsetType] = UNSET
@@ -92,7 +93,8 @@ class RelatedSnowflakePipe(RelatedSnowflake):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakePipe"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakePipe"
 
 
 class RelatedSnowflakeStage(RelatedSnowflake):
@@ -105,21 +107,22 @@ class RelatedSnowflakeStage(RelatedSnowflake):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "SnowflakeStage" so it serializes correctly
 
-    snowflake_stage_external_location: Union[str, None, UnsetType] = UNSET
+    snowflake_external_location: Union[str, None, UnsetType] = UNSET
     """The URL or cloud storage path specifying the external location where the stage data files are stored. This is NULL for internal stages."""
 
-    snowflake_stage_external_location_region: Union[str, None, UnsetType] = UNSET
+    snowflake_external_location_region: Union[str, None, UnsetType] = UNSET
     """The geographic region identifier where the external stage is located in cloud storage. This is NULL for internal stages."""
 
-    snowflake_stage_storage_integration: Union[str, None, UnsetType] = UNSET
+    snowflake_storage_integration: Union[str, None, UnsetType] = UNSET
     """The name of the storage integration associated with the stage; NULL for internal stages or stages that do not use a storage integration."""
 
-    snowflake_stage_type: Union[str, None, UnsetType] = UNSET
+    snowflake_type: Union[str, None, UnsetType] = UNSET
     """Categorization of the stage type in Snowflake, which can be 'Internal Named' or 'External Named', indicating whether the stage storage is within Snowflake or in external cloud storage."""
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeStage"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeStage"
 
 
 class RelatedSnowflakeStream(RelatedSnowflake):
@@ -132,24 +135,25 @@ class RelatedSnowflakeStream(RelatedSnowflake):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "SnowflakeStream" so it serializes correctly
 
-    snowflake_stream_type: Union[str, None, UnsetType] = UNSET
+    snowflake_type: Union[str, None, UnsetType] = UNSET
     """Type of this stream, for example: standard, append-only, insert-only, etc."""
 
-    snowflake_stream_source_type: Union[str, None, UnsetType] = UNSET
+    snowflake_source_type: Union[str, None, UnsetType] = UNSET
     """Type of the source of this stream."""
 
-    snowflake_stream_mode: Union[str, None, UnsetType] = UNSET
+    snowflake_mode: Union[str, None, UnsetType] = UNSET
     """Mode of this stream."""
 
-    snowflake_stream_is_stale: Union[bool, None, UnsetType] = UNSET
+    snowflake_is_stale: Union[bool, None, UnsetType] = UNSET
     """Whether this stream is stale (true) or not (false)."""
 
-    snowflake_stream_stale_after: Union[int, None, UnsetType] = UNSET
+    snowflake_stale_after: Union[int, None, UnsetType] = UNSET
     """Time (epoch) after which this stream will be stale, in milliseconds."""
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeStream"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeStream"
 
 
 class RelatedSnowflakeTag(RelatedSnowflake):
@@ -164,7 +168,8 @@ class RelatedSnowflakeTag(RelatedSnowflake):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeTag"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeTag"
 
 
 class RelatedSnowflakeAIModelContext(RelatedSnowflake):
@@ -179,7 +184,8 @@ class RelatedSnowflakeAIModelContext(RelatedSnowflake):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeAIModelContext"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeAIModelContext"
 
 
 class RelatedSnowflakeAIModelVersion(RelatedSnowflake):
@@ -192,34 +198,25 @@ class RelatedSnowflakeAIModelVersion(RelatedSnowflake):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "SnowflakeAIModelVersion" so it serializes correctly
 
-    snowflake_ai_model_version_name: Union[str, None, UnsetType] = msgspec.field(
-        default=UNSET, name="snowflakeAIModelVersionName"
-    )
+    snowflake_name: Union[str, None, UnsetType] = UNSET
     """Version part of the model name."""
 
-    snowflake_ai_model_version_type: Union[str, None, UnsetType] = msgspec.field(
-        default=UNSET, name="snowflakeAIModelVersionType"
-    )
+    snowflake_type: Union[str, None, UnsetType] = UNSET
     """The type of the model version."""
 
-    snowflake_ai_model_version_aliases: Union[List[str], None, UnsetType] = (
-        msgspec.field(default=UNSET, name="snowflakeAIModelVersionAliases")
-    )
+    snowflake_aliases: Union[List[str], None, UnsetType] = UNSET
     """The aliases for the model version."""
 
-    snowflake_ai_model_version_metrics: Union[Dict[str, str], None, UnsetType] = (
-        msgspec.field(default=UNSET, name="snowflakeAIModelVersionMetrics")
-    )
+    snowflake_metrics: Union[Dict[str, str], None, UnsetType] = UNSET
     """Metrics for an individual experiment."""
 
-    snowflake_ai_model_version_functions: Union[List[str], None, UnsetType] = (
-        msgspec.field(default=UNSET, name="snowflakeAIModelVersionFunctions")
-    )
+    snowflake_functions: Union[List[str], None, UnsetType] = UNSET
     """Functions used in the model version."""
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeAIModelVersion"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeAIModelVersion"
 
 
 class RelatedSnowflakeSemanticView(RelatedSnowflake):
@@ -237,7 +234,8 @@ class RelatedSnowflakeSemanticView(RelatedSnowflake):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeSemanticView"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeSemanticView"
 
 
 class RelatedSnowflakeSemanticLogicalTable(RelatedSnowflake):
@@ -267,7 +265,8 @@ class RelatedSnowflakeSemanticLogicalTable(RelatedSnowflake):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeSemanticLogicalTable"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeSemanticLogicalTable"
 
 
 class RelatedSnowflakeSemanticFact(RelatedSnowflake):
@@ -294,7 +293,8 @@ class RelatedSnowflakeSemanticFact(RelatedSnowflake):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeSemanticFact"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeSemanticFact"
 
 
 class RelatedSnowflakeSemanticDimension(RelatedSnowflake):
@@ -321,7 +321,8 @@ class RelatedSnowflakeSemanticDimension(RelatedSnowflake):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeSemanticDimension"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeSemanticDimension"
 
 
 class RelatedSnowflakeSemanticMetric(RelatedSnowflake):
@@ -357,7 +358,8 @@ class RelatedSnowflakeSemanticMetric(RelatedSnowflake):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeSemanticMetric"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeSemanticMetric"
 
 
 class RelatedSnowflakeListing(RelatedSnowflake):
@@ -370,57 +372,58 @@ class RelatedSnowflakeListing(RelatedSnowflake):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "SnowflakeListing" so it serializes correctly
 
-    snowflake_listing_title: Union[str, None, UnsetType] = UNSET
+    snowflake_title: Union[str, None, UnsetType] = UNSET
     """Snowflake's source-truthful title for the listing. Distinct from `name` (the non-human-readable Snowflake identifier)."""
 
-    snowflake_listing_subtitle: Union[str, None, UnsetType] = UNSET
+    snowflake_subtitle: Union[str, None, UnsetType] = UNSET
     """Marketplace subtitle of the listing."""
 
-    snowflake_listing_uniform_listing_locator: Union[str, None, UnsetType] = UNSET
+    snowflake_uniform_listing_locator: Union[str, None, UnsetType] = UNSET
     """Uniform Listing Locator (ULL) of the listing."""
 
-    snowflake_listing_state: Union[str, None, UnsetType] = UNSET
+    snowflake_state: Union[str, None, UnsetType] = UNSET
     """Publication state of the listing."""
 
-    snowflake_listing_distribution: Union[str, None, UnsetType] = UNSET
+    snowflake_distribution: Union[str, None, UnsetType] = UNSET
     """Distribution scope of the listing (organization-internal vs external marketplace/exchange)."""
 
-    snowflake_listing_is_share: Union[bool, None, UnsetType] = UNSET
+    snowflake_is_share: Union[bool, None, UnsetType] = UNSET
     """Whether this listing wraps a data share (true) or not (false)."""
 
-    snowflake_listing_is_application: Union[bool, None, UnsetType] = UNSET
+    snowflake_is_application: Union[bool, None, UnsetType] = UNSET
     """Whether this listing wraps a Snowflake Native App (true) or not (false)."""
 
-    snowflake_listing_application_package: Union[str, None, UnsetType] = UNSET
+    snowflake_application_package: Union[str, None, UnsetType] = UNSET
     """Application package name when this listing wraps a Native App."""
 
-    snowflake_listing_categories: Union[List[str], None, UnsetType] = UNSET
+    snowflake_categories: Union[List[str], None, UnsetType] = UNSET
     """Discovery categories assigned to the listing."""
 
-    snowflake_listing_data_attributes: Union[str, None, UnsetType] = UNSET
+    snowflake_data_attributes: Union[str, None, UnsetType] = UNSET
     """Data properties of the listing (refresh rate, history, freshness window) as a JSON blob emitted by Snowflake."""
 
-    snowflake_listing_terms: Union[str, None, UnsetType] = UNSET
+    snowflake_terms: Union[str, None, UnsetType] = UNSET
     """Terms of service for the listing."""
 
-    snowflake_listing_profile: Union[str, None, UnsetType] = UNSET
+    snowflake_profile: Union[str, None, UnsetType] = UNSET
     """External Snowflake provider profile attached to the listing."""
 
-    snowflake_listing_support_contact: Union[str, None, UnsetType] = UNSET
+    snowflake_support_contact: Union[str, None, UnsetType] = UNSET
     """Contact info for the listing."""
 
-    snowflake_listing_resharing: Union[str, None, UnsetType] = UNSET
+    snowflake_resharing: Union[str, None, UnsetType] = UNSET
     """Resharing configuration for the listing."""
 
-    snowflake_listing_auto_fulfillment: Union[str, None, UnsetType] = UNSET
+    snowflake_auto_fulfillment: Union[str, None, UnsetType] = UNSET
     """Auto-fulfillment configuration for the listing."""
 
-    snowflake_listing_targets: Union[str, None, UnsetType] = UNSET
+    snowflake_targets: Union[str, None, UnsetType] = UNSET
     """Distribution targets of the listing (accounts, regions) as a JSON blob emitted by Snowflake."""
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeListing"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeListing"
 
 
 class RelatedSnowflakeShare(RelatedSnowflake):
@@ -433,21 +436,22 @@ class RelatedSnowflakeShare(RelatedSnowflake):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "SnowflakeShare" so it serializes correctly
 
-    snowflake_share_kind: Union[str, None, UnsetType] = UNSET
+    snowflake_kind: Union[str, None, UnsetType] = UNSET
     """Direction of the share (inbound or outbound)."""
 
-    snowflake_share_owner_account: Union[str, None, UnsetType] = UNSET
+    snowflake_owner_account: Union[str, None, UnsetType] = UNSET
     """Account that owns the share. Drives the share qualified name."""
 
-    snowflake_share_target_accounts: Union[List[str], None, UnsetType] = UNSET
+    snowflake_target_accounts: Union[List[str], None, UnsetType] = UNSET
     """Consumer accounts targeted by the share."""
 
-    snowflake_share_listing_global_name: Union[str, None, UnsetType] = UNSET
+    snowflake_listing_global_name: Union[str, None, UnsetType] = UNSET
     """Global name of the listing this share is bound to."""
 
-    snowflake_share_secure_object: Union[bool, None, UnsetType] = UNSET
+    snowflake_secure_object: Union[bool, None, UnsetType] = UNSET
     """Whether only secure objects are allowed in this share (true) or not (false)."""
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SnowflakeShare"
+        if self.type_name is UNSET:
+            self.type_name = "SnowflakeShare"

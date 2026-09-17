@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from openrouter.generations import Generations
     from openrouter.guardrails import Guardrails
     from openrouter.images import Images
+    from openrouter.interns import Interns
     from openrouter.models_ import Models
     from openrouter.oauth import OAuth
     from openrouter.observability import Observability
@@ -43,6 +44,7 @@ if TYPE_CHECKING:
     from openrouter.scim import Scim
     from openrouter.stt import STT
     from openrouter.tts import TTS
+    from openrouter.vault import Vault
     from openrouter.video_generation import VideoGeneration
     from openrouter.workspaces import Workspaces
 
@@ -85,6 +87,8 @@ class OpenRouter(BaseSDK):
     r"""Guardrails endpoints"""
     images: "Images"
     r"""Images endpoints"""
+    interns: "Interns"
+    r"""Create, inspect, update, provision, suspend and delete OpenRouter interns through an API key."""
     api_keys: "APIKeys"
     r"""API key management endpoints"""
     models: "Models"
@@ -104,6 +108,8 @@ class OpenRouter(BaseSDK):
     beta: "Beta"
     scim: "Scim"
     r"""Management endpoints for SCIM group-to-workspace mappings, authenticated with a management key. These are not the SCIM 2.0 connector endpoints for your identity provider. In your identity provider, enter the SCIM endpoint URL shown when you enable provisioning under Settings > Members > SCIM Mappings. See https://openrouter.ai/docs/guides/features/scim-mappings#set-up-provisioning."""
+    vault: "Vault"
+    r"""Store host-bound secrets for a workspace or for one intern. Scope is selected by the API key. Responses return metadata only, never secret values. See https://openrouter.ai/docs/guides/ori/vault."""
     video_generation: "VideoGeneration"
     r"""Video Generation endpoints"""
     workspaces: "Workspaces"
@@ -126,6 +132,7 @@ class OpenRouter(BaseSDK):
         "generations": ("openrouter.generations", "Generations"),
         "guardrails": ("openrouter.guardrails", "Guardrails"),
         "images": ("openrouter.images", "Images"),
+        "interns": ("openrouter.interns", "Interns"),
         "api_keys": ("openrouter.api_keys", "APIKeys"),
         "models": ("openrouter.models_", "Models"),
         "observability": ("openrouter.observability", "Observability"),
@@ -136,6 +143,7 @@ class OpenRouter(BaseSDK):
         "responses": ("openrouter.responses", "Responses"),
         "beta": ("openrouter.beta", "Beta"),
         "scim": ("openrouter.scim", "Scim"),
+        "vault": ("openrouter.vault", "Vault"),
         "video_generation": ("openrouter.video_generation", "VideoGeneration"),
         "workspaces": ("openrouter.workspaces", "Workspaces"),
     }

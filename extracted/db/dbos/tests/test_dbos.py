@@ -19,7 +19,6 @@ from dbos import (
     DBOS,
     DBOSConfig,
     EnqueueOptions,
-    Queue,
     SendMessage,
     SetWorkflowID,
     SetWorkflowTimeout,
@@ -31,11 +30,7 @@ from dbos import (
 # Private API because this is a test
 from dbos._client import DBOSClient
 from dbos._context import assert_current_dbos_context, get_local_dbos_context
-from dbos._error import (
-    DBOSAwaitedWorkflowCancelledError,
-    DBOSConflictingRegistrationError,
-    DBOSException,
-)
+from dbos._error import DBOSAwaitedWorkflowCancelledError, DBOSException
 from dbos._schemas.system_database import SystemSchema
 from dbos._sys_db import _dbos_null_topic
 from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams
@@ -43,7 +38,7 @@ from tests.conftest import retry_until_success, set_workflow_status, using_sqlit
 
 
 def test_simple_workflow(dbos: DBOS) -> None:
-    txn_counter: int = 0
+    other_step_counter: int = 0
     wf_counter: int = 0
     step_counter: int = 0
 
@@ -51,19 +46,18 @@ def test_simple_workflow(dbos: DBOS) -> None:
     def test_workflow(var: str, var2: str) -> str:
         nonlocal wf_counter
         wf_counter += 1
-        res = test_transaction(var2)
+        res = test_other_step(var2)
         res2 = test_step(var)
         DBOS.logger.info("I'm test_workflow " + var + var2)
         return res + res2
 
-    @DBOS.transaction(isolation_level="SERIALIZABLE")
-    def test_transaction(var2: str) -> str:
+    @DBOS.step()
+    def test_other_step(var2: str) -> str:
         assert DBOS.step_id == 1
-        rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-        nonlocal txn_counter
-        txn_counter += 1
-        DBOS.logger.info("I'm test_transaction " + var2)
-        return var2 + str(rows[0][0])
+        nonlocal other_step_counter
+        other_step_counter += 1
+        DBOS.logger.info("I'm test_other_step " + var2)
+        return var2 + "1"
 
     @DBOS.step()
     def test_step(var: str) -> str:
@@ -87,7 +81,7 @@ def test_simple_workflow(dbos: DBOS) -> None:
     assert wf_counter == 2
     with SetWorkflowID(wfuuid):
         assert test_workflow("alice", "alice") == "alice1alice"
-    assert txn_counter == 2  # Only increment once
+    assert other_step_counter == 2  # Only increment once
     assert step_counter == 2  # Only increment once
     assert wf_counter == 2  # Only increment once
 
@@ -194,19 +188,18 @@ def test_child_workflow(dbos: DBOS) -> None:
 
 
 def test_child_workflow_assigned_id(dbos: DBOS) -> None:
-    txn_counter: int = 0
+    other_step_counter: int = 0
 
-    @DBOS.transaction()
-    def test_transaction(var: str) -> str:
-        nonlocal txn_counter
-        txn_counter += 1
-        rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-        return var + str(rows[0][0])
+    @DBOS.step()
+    def test_other_step(var: str) -> str:
+        nonlocal other_step_counter
+        other_step_counter += 1
+        return var + "1"
 
     @DBOS.workflow()
     def child_with_assigned_id(var: str) -> str:
         assert DBOS.workflow_id == "assigned_child_id"
-        return test_transaction(var)
+        return test_other_step(var)
 
     @DBOS.workflow()
     def parent_with_assigned_child() -> str:
@@ -218,12 +211,12 @@ def test_child_workflow_assigned_id(dbos: DBOS) -> None:
             res2 = handle.get_result()
         return res1 + res2
 
-    # Run twice - transaction should only execute once due to idempotency
+    # Run twice - the step should only execute once due to idempotency
     original_parent_id = str(uuid.uuid4())
     with SetWorkflowID(original_parent_id):
         assert parent_with_assigned_child() == "first1first1"
     assert parent_with_assigned_child() == "first1first1"
-    assert txn_counter == 1  # Transaction only ran once
+    assert other_step_counter == 1  # The step only ran once
 
     # Verify the assigned child has parent_workflow_id set
     child_status = DBOS.get_workflow_status("assigned_child_id")
@@ -232,23 +225,15 @@ def test_child_workflow_assigned_id(dbos: DBOS) -> None:
 
 
 def test_exception_workflow(dbos: DBOS) -> None:
-    txn_counter: int = 0
+    other_step_counter: int = 0
     wf_counter: int = 0
     step_counter: int = 0
-    bad_txn_counter: int = 0
 
-    @DBOS.transaction()
-    def exception_transaction(var: str) -> str:
-        nonlocal txn_counter
-        txn_counter += 1
+    @DBOS.step()
+    def exception_other_step(var: str) -> str:
+        nonlocal other_step_counter
+        other_step_counter += 1
         raise Exception(var)
-
-    @DBOS.transaction()
-    def bad_transaction() -> None:
-        nonlocal bad_txn_counter
-        bad_txn_counter += 1
-        # Make sure we record this error in the database
-        DBOS.sql_session.execute(sa.text("selct abc from c;")).fetchall()
 
     @DBOS.step()
     def exception_step(var: str) -> str:
@@ -263,7 +248,7 @@ def test_exception_workflow(dbos: DBOS) -> None:
         err1 = None
         err2 = None
         try:
-            exception_transaction("test error")
+            exception_other_step("test error")
         except Exception as e:
             err1 = e
 
@@ -274,10 +259,6 @@ def test_exception_workflow(dbos: DBOS) -> None:
         assert err1 is not None and err2 is not None
         assert str(err1) == str(err2)
 
-        try:
-            bad_transaction()
-        except Exception as e:
-            assert "syntax error" in str(e)
         raise err1
 
     with pytest.raises(Exception) as exc_info:
@@ -296,9 +277,8 @@ def test_exception_workflow(dbos: DBOS) -> None:
         with SetWorkflowID(wfuuid):
             exception_workflow()
     assert "test error" == str(exc_info.value)
-    assert txn_counter == 2  # Only increment once
+    assert other_step_counter == 2  # Only increment once
     assert step_counter == 2  # Only increment once
-    assert bad_txn_counter == 2  # Only increment once
 
     # Starting a failed workflow by ID surfaces its recorded error, not a new run
     with SetWorkflowID(wfuuid):
@@ -310,15 +290,14 @@ def test_exception_workflow(dbos: DBOS) -> None:
 
 
 def test_temp_workflow(dbos: DBOS) -> None:
-    txn_counter: int = 0
+    other_step_counter: int = 0
     step_counter: int = 0
 
-    @DBOS.transaction()
-    def test_transaction(var2: str) -> str:
-        rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-        nonlocal txn_counter
-        txn_counter += 1
-        return var2 + str(rows[0][0])
+    @DBOS.step()
+    def test_other_step(var2: str) -> str:
+        nonlocal other_step_counter
+        other_step_counter += 1
+        return var2 + "1"
 
     @DBOS.step()
     def test_step(var: str) -> str:
@@ -331,9 +310,10 @@ def test_temp_workflow(dbos: DBOS) -> None:
         return test_step(var)
 
     assert get_local_dbos_context() is None
-    res = test_transaction("var2")
+    res = DBOS.start_workflow(test_other_step, "var2").get_result()
     assert res == "var21"
     assert get_local_dbos_context() is None
+    # Called directly, a step outside a workflow runs as a plain function
     res = test_step("var")
     assert res == "var"
 
@@ -344,7 +324,7 @@ def test_temp_workflow(dbos: DBOS) -> None:
     assert wfi1
     assert wfi1["name"].startswith("<temp>")
 
-    assert txn_counter == 1
+    assert other_step_counter == 1
     assert step_counter == 1
 
     res = call_step("var2")
@@ -353,14 +333,14 @@ def test_temp_workflow(dbos: DBOS) -> None:
 
 
 def test_temp_workflow_errors(dbos: DBOS) -> None:
-    txn_counter: int = 0
+    other_step_counter: int = 0
     step_counter: int = 0
     retried_step_counter: int = 0
 
-    @DBOS.transaction()
-    def test_transaction(var2: str) -> str:
-        nonlocal txn_counter
-        txn_counter += 1
+    @DBOS.step()
+    def test_other_step(var2: str) -> str:
+        nonlocal other_step_counter
+        other_step_counter += 1
         raise Exception(var2)
 
     @DBOS.step()
@@ -376,7 +356,7 @@ def test_temp_workflow_errors(dbos: DBOS) -> None:
         raise ValueError(var)
 
     with pytest.raises(Exception) as exc_info:
-        test_transaction("tval")
+        test_other_step("tval")
     assert "tval" == str(exc_info.value)
 
     with pytest.raises(Exception) as exc_info:
@@ -386,37 +366,35 @@ def test_temp_workflow_errors(dbos: DBOS) -> None:
     with pytest.raises(ValueError) as exc_info:
         test_retried_step("rval")
 
-    assert txn_counter == 1
+    assert other_step_counter == 1
     assert step_counter == 1
     assert retried_step_counter == 1
 
 
 def test_recovery_workflow(dbos: DBOS) -> None:
-    txn_counter: int = 0
-    txn_return_none_counter: int = 0
+    other_step_counter: int = 0
+    other_step_return_none_counter: int = 0
     wf_counter: int = 0
 
     @DBOS.workflow()
     def test_workflow(var: str, var2: str) -> str:
         nonlocal wf_counter
         wf_counter += 1
-        res = test_transaction(var2)
-        should_be_none = test_transaction_return_none()
+        res = test_other_step(var2)
+        should_be_none = test_other_step_return_none()
         assert should_be_none is None
         return res + var
 
-    @DBOS.transaction()
-    def test_transaction(var2: str) -> str:
-        rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-        nonlocal txn_counter
-        txn_counter += 1
-        return var2 + str(rows[0][0])
+    @DBOS.step()
+    def test_other_step(var2: str) -> str:
+        nonlocal other_step_counter
+        other_step_counter += 1
+        return var2 + "1"
 
-    @DBOS.transaction()
-    def test_transaction_return_none() -> None:
-        nonlocal txn_return_none_counter
-        DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-        txn_return_none_counter += 1
+    @DBOS.step()
+    def test_other_step_return_none() -> None:
+        nonlocal other_step_return_none_counter
+        other_step_return_none_counter += 1
         return
 
     wfuuid = str(uuid.uuid4())
@@ -431,13 +409,13 @@ def test_recovery_workflow(dbos: DBOS) -> None:
             .where(SystemSchema.workflow_status.c.workflow_uuid == wfuuid)
         )
 
-    # Recovery should execute the workflow again but skip the transaction
+    # Recovery should execute the workflow again but skip the step
     workflow_handles = DBOS._recover_pending_workflows()
     assert len(workflow_handles) == 1
     assert workflow_handles[0].get_result() == "bob1bob"
     assert wf_counter == 2
-    assert txn_counter == 1
-    assert txn_return_none_counter == 1
+    assert other_step_counter == 1
+    assert other_step_return_none_counter == 1
 
     # Test that there was a recovery attempt of this
     stat = workflow_handles[0].get_status()
@@ -660,7 +638,7 @@ def test_recovery_workflow_step(dbos: DBOS) -> None:
             .where(SystemSchema.workflow_status.c.workflow_uuid == wfuuid)
         )
 
-    # Recovery should execute the workflow again but skip the transaction
+    # Recovery should execute the workflow again but skip the step
     workflow_handles = DBOS._recover_pending_workflows()
     assert len(workflow_handles) == 1
     assert workflow_handles[0].get_result() == "bob"
@@ -718,19 +696,17 @@ def test_workflow_returns_none(dbos: DBOS) -> None:
 
 
 def test_recovery_temp_workflow(dbos: DBOS) -> None:
-    txn_counter: int = 0
+    other_step_counter: int = 0
 
-    @DBOS.transaction()
-    def test_transaction(var2: str) -> str:
-        rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-        nonlocal txn_counter
-        txn_counter += 1
-        return var2 + str(rows[0][0])
+    @DBOS.step()
+    def test_other_step(var2: str) -> str:
+        nonlocal other_step_counter
+        other_step_counter += 1
+        return var2 + "1"
 
     wfuuid = str(uuid.uuid4())
     with SetWorkflowID(wfuuid):
-        res = test_transaction("bob")
-        assert res == "bob1"
+        assert DBOS.start_workflow(test_other_step, "bob").get_result() == "bob1"
 
     wfs = DBOS.list_workflows()
     assert len(wfs) == 1
@@ -748,7 +724,7 @@ def test_recovery_temp_workflow(dbos: DBOS) -> None:
             .where(SystemSchema.workflow_status.c.workflow_uuid == wfuuid)
         )
 
-    # Recovery should execute the workflow again but skip the transaction
+    # Recovery should execute the workflow again but skip the step
     workflow_handles = DBOS._recover_pending_workflows()
     assert len(workflow_handles) == 1
     assert workflow_handles[0].get_result() == "bob1"
@@ -762,7 +738,7 @@ def test_recovery_temp_workflow(dbos: DBOS) -> None:
     assert wfi["name"].startswith("<temp>")
     assert wfi["status"] == "SUCCESS"
 
-    assert txn_counter == 1
+    assert other_step_counter == 1
 
 
 def test_recovery_thread(config: DBOSConfig) -> None:
@@ -813,22 +789,21 @@ def test_recovery_thread(config: DBOSConfig) -> None:
 
 
 def test_start_workflow(dbos: DBOS) -> None:
-    txn_counter: int = 0
+    other_step_counter: int = 0
     wf_counter: int = 0
 
     @DBOS.workflow()
     def test_workflow(var: str, var2: str) -> str:
         nonlocal wf_counter
         wf_counter += 1
-        res = test_transaction(var2)
+        res = test_other_step(var2)
         return res + var
 
-    @DBOS.transaction()
-    def test_transaction(var2: str) -> str:
-        rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-        nonlocal txn_counter
-        txn_counter += 1
-        return var2 + str(rows[0][0])
+    @DBOS.step()
+    def test_other_step(var2: str) -> str:
+        nonlocal other_step_counter
+        other_step_counter += 1
+        return var2 + "1"
 
     wfuuid = str(uuid.uuid4())
     with SetWorkflowID(wfuuid):
@@ -845,7 +820,7 @@ def test_start_workflow(dbos: DBOS) -> None:
         assert test_workflow("bob", "bob") == "bob1bob"
         context = assert_current_dbos_context()
         assert not context.is_within_workflow()
-    assert txn_counter == 1
+    assert other_step_counter == 1
     assert wf_counter == 1
 
 
@@ -1669,22 +1644,20 @@ def test_nonserializable_values(dbos: DBOS) -> None:
     def invalid_return() -> str:
         return "literal"
 
-    @DBOS.transaction()
-    def test_ns_transaction(var2: str) -> str:
-        rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-        return invalid_return  #  type: ignore
+    @DBOS.step()
+    def test_ns_other_step(var2: str) -> str:
+        return invalid_return  # type: ignore
 
     @DBOS.step()
     def test_ns_step(var: str) -> str:
-        return invalid_return  #  type: ignore
+        return invalid_return  # type: ignore
 
     @DBOS.workflow()
     def test_ns_wf(var: str) -> str:
-        return invalid_return  #  type: ignore
+        return invalid_return  # type: ignore
 
-    @DBOS.transaction()
-    def test_reg_transaction(var2: str) -> str:
-        rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
+    @DBOS.step()
+    def test_reg_other_step(var2: str) -> str:
         return var2
 
     @DBOS.step()
@@ -1693,31 +1666,31 @@ def test_nonserializable_values(dbos: DBOS) -> None:
 
     @DBOS.workflow()
     def test_reg_wf(var: str) -> str:
-        return test_reg_step(var) + test_reg_transaction(var)
+        return test_reg_step(var) + test_reg_other_step(var)
 
     @DBOS.workflow()
     def test_ns_event(var: str) -> str:
         DBOS.set_event("aaa", invalid_return)
-        return test_reg_step(var) + test_reg_transaction(var)
+        return test_reg_step(var) + test_reg_other_step(var)
 
     @DBOS.workflow()
     def test_bad_wf1(var: str) -> str:
-        return test_reg_step(invalid_return) + test_reg_transaction(var)  # type: ignore
+        return test_reg_step(invalid_return) + test_reg_other_step(var)  # type: ignore
 
     @DBOS.workflow()
     def test_bad_wf2(var: str) -> str:
-        return test_reg_step(var) + test_reg_transaction(invalid_return)  # type: ignore
+        return test_reg_step(var) + test_reg_other_step(invalid_return)  # type: ignore
 
     @DBOS.workflow()
     def test_bad_wf3(var: str) -> str:
-        return test_ns_transaction(var)
+        return test_ns_other_step(var)
 
     @DBOS.workflow()
     def test_bad_wf4(var: str) -> str:
         return test_ns_step(var)
 
     with pytest.raises(Exception):
-        test_ns_transaction("h")
+        DBOS.start_workflow(test_ns_other_step, "h").get_result()
     with pytest.raises(Exception):
         test_ns_wf("g")
 
@@ -1783,18 +1756,13 @@ def test_debug_logging(
     def step_function(message: str) -> str:
         return f"Step: {message}"
 
-    @DBOS.transaction()
-    def transaction_function(message: str) -> str:
-        return f"Transaction: {message}"
-
     @DBOS.workflow()
     def test_workflow() -> str:
         dbos.set_event("test_event", "event_value")
         step_result = step_function("Hello")
-        transaction_result = transaction_function("World")
         dbos.send(dest_wfid, "test_message", topic="test_topic")
         dbos.sleep(1)
-        return ", ".join([step_result, transaction_result])
+        return step_result
 
     @DBOS.workflow()
     def test_workflow_dest() -> str:
@@ -1813,14 +1781,10 @@ def test_debug_logging(
     with SetWorkflowID(wfid):
         result1 = test_workflow()
 
-    assert result1 == "Step: Hello, Transaction: World"
+    assert result1 == "Step: Hello"
     assert (
         "Running step" in caplog.text
         and f"name: {step_function.__qualname__}" in caplog.text
-    )
-    assert (
-        "Running transaction" in caplog.text
-        and f"name: {transaction_function.__qualname__}" in caplog.text
     )
     assert "Running sleep" in caplog.text
     assert "Running set_event" in caplog.text
@@ -1873,6 +1837,83 @@ def test_destroy_semantics(dbos: DBOS, config: DBOSConfig) -> None:
     assert wf.get_result() == var
 
 
+def test_deferred_poller(config: DBOSConfig, cleanup_test_databases: None) -> None:
+    DBOS.destroy(destroy_registry=True)
+    dbos = DBOS(config=config)
+
+    poller_started = threading.Event()
+    deferred_stop = threading.Event()
+
+    def deferred_poller(stop_event: threading.Event) -> None:
+        poller_started.set()
+        stop_event.wait()
+
+    dbos._registry.register_poller(deferred_stop, deferred_poller, deferred_stop)
+    # Deferred, so it must not run until launch
+    assert not poller_started.is_set()
+
+    try:
+        DBOS.launch()
+        assert deferred_stop in dbos.background_thread_stop_events
+
+        def check_poller_started() -> None:
+            assert poller_started.is_set()
+
+        retry_until_success(check_poller_started)
+        assert not deferred_stop.is_set()
+    finally:
+        DBOS.destroy(destroy_registry=True)
+    # Destroy stops the deferred poller
+    assert deferred_stop.is_set()
+
+
+def test_destroy_preserves_the_process_identity(
+    config: DBOSConfig, cleanup_test_databases: None
+) -> None:
+    """Shutdown leaves the identity a checkpoint stamps rows with alone.
+
+    Resetting it raced work still in flight: a dequeue reads the identity only
+    once it is about to write, so one landing during shutdown claimed workflows
+    for "local", which the replacement executor never recovers."""
+    executor_id = "test-executor"
+    config["executor_id"] = executor_id
+    DBOS.destroy(destroy_registry=True)
+    dbos = DBOS(config=config)
+
+    @DBOS.workflow()
+    def enqueued_workflow() -> None:
+        pass
+
+    DBOS.launch()
+    app_version = GlobalParams.app_version
+    # Long poll: this test dequeues by hand, at the moment of its choosing.
+    queue = DBOS.register_queue("test-shutdown-queue", polling_interval_sec=3600)
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        queue.enqueue(enqueued_workflow)
+
+    # As the queue worker does: resolve the system database, then read the
+    # identity when the claim is written. Shut down in between.
+    sys_db = dbos._sys_db
+    DBOS.destroy()
+    assert GlobalParams.executor_id == executor_id
+    assert GlobalParams.app_version == app_version
+    sys_db.start_queued_workflows(
+        queue, GlobalParams.executor_id, GlobalParams.app_version, None, 0
+    )
+
+    status = sys_db.get_workflow_status(wfid)
+    assert status is not None
+    assert status["status"] == WorkflowStatusString.PENDING.value
+    # Claimed for this executor, so its replacement recovers the workflow.
+    assert status["executor_id"] == executor_id
+    assert status["app_version"] == app_version
+    assert sys_db.get_pending_workflows(executor_id, app_version) != []
+    # Dispose the pool the claim above re-created, and drop the registry this test filled.
+    sys_db.destroy()
+    DBOS.destroy(destroy_registry=True)
+
+
 @pytest.mark.asyncio
 async def test_destroy_semantics_async(dbos: DBOS, config: DBOSConfig) -> None:
 
@@ -1897,37 +1938,25 @@ async def test_destroy_semantics_async(dbos: DBOS, config: DBOSConfig) -> None:
     assert await wf.get_result() == var
 
 
-def test_double_decoration(dbos: DBOS) -> None:
-    with pytest.raises(
-        DBOSConflictingRegistrationError,
-        match="is already registered with a conflicting function type",
-    ):
-
-        @DBOS.step()
-        @DBOS.transaction()
-        def my_function() -> None:
-            pass
-
-        my_function()
-
-
 def test_duplicate_registration(
-    dbos: DBOS, caplog: pytest.LogCaptureFixture, config: DBOSConfig
+    dbos: DBOS,
+    caplog: pytest.LogCaptureFixture,
+    config: DBOSConfig,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    original_propagate = logging.getLogger("dbos").propagate
     caplog.set_level(logging.WARNING, "dbos")
-    logging.getLogger("dbos").propagate = True
+    monkeypatch.setattr(logging.getLogger("dbos"), "propagate", True)
 
-    @DBOS.transaction()
-    def my_transaction() -> None:
+    @DBOS.step()
+    def my_first_step() -> None:
         pass
 
-    @DBOS.transaction()
-    def my_transaction() -> None:
+    @DBOS.step()
+    def my_first_step() -> None:
         pass
 
     assert (
-        "Duplicate registration of function 'test_duplicate_registration.<locals>.my_transaction'"
+        "Duplicate registration of function 'test_duplicate_registration.<locals>.my_first_step'"
         in caplog.text
     )
 
@@ -1947,12 +1976,12 @@ def test_duplicate_registration(
     @DBOS.workflow()
     def my_workflow() -> None:
         my_step()
-        my_transaction()
+        my_first_step()
 
     @DBOS.workflow()
     def my_workflow() -> None:
         my_step()
-        my_transaction()
+        my_first_step()
 
     assert (
         "Duplicate registration of function 'test_duplicate_registration.<locals>.my_workflow'"
@@ -1962,9 +1991,6 @@ def test_duplicate_registration(
     DBOS.destroy()
     DBOS(config=config)
     DBOS.launch()
-
-    # Reset logging
-    logging.getLogger("dbos").propagate = original_propagate
 
 
 def test_app_version(
@@ -1997,8 +2023,10 @@ def test_app_version(
     created_versions = [version_one]
 
     DBOS.destroy(destroy_registry=True)
-    assert DBOS.application_version == ""
+    # Shutdown leaves the identity alone; constructing the next DBOS clears it.
+    assert DBOS.application_version == version_one
     dbos = DBOS(config=config)
+    assert DBOS.application_version == ""
 
     @DBOS.workflow()
     def workflow_one(x: int) -> int:
@@ -2042,6 +2070,16 @@ def test_app_version(
     created_versions.append(version_three)
 
     del os.environ["DBOS__APPVERSION"]
+
+    # An exported but empty DBOS__VMID is an unset one: the executor ID is "local"
+    os.environ["DBOS__VMID"] = ""
+    DBOS.destroy(destroy_registry=True)
+    assert GlobalParams.executor_id == "local"
+    DBOS(config=config)
+    DBOS.launch()
+    assert DBOS.executor_id == "local"
+    created_versions.append(DBOS.application_version)
+    del os.environ["DBOS__VMID"]
 
     # Verify that version and executor ID can be overriden with a config parameter
     version_four = str(uuid.uuid4())
@@ -2114,12 +2152,8 @@ def test_app_version(
 
     # ── Test version CRUD via Client API ─────────────────────────
 
-    assert config["application_database_url"] is not None
     assert config["system_database_url"] is not None
-    client = DBOSClient(
-        application_database_url=config["application_database_url"],
-        system_database_url=config["system_database_url"],
-    )
+    client = DBOSClient(system_database_url=config["system_database_url"])
 
     # Verify client sees exactly the same versions
     client_versions = client.list_application_versions()
@@ -2220,6 +2254,32 @@ def test_recovery_appversion(config: DBOSConfig) -> None:
 
     # Clean up the environment variable
     del os.environ["DBOS__VMID"]
+
+
+def test_conductor_key_keeps_cloud_executor_id(
+    config: DBOSConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DBOS__VMID", "cloud-vm")
+
+    # Off DBOS Cloud, Conductor assigns its own executor ID
+    DBOS.destroy(destroy_registry=True)
+    DBOS(config=config, conductor_key="test-key", conductor_url="ws://127.0.0.1:1")
+    DBOS.launch()
+    assert DBOS.executor_id != "cloud-vm"
+    uuid.UUID(DBOS.executor_id)
+
+    # On DBOS Cloud the platform names the process, and a key passed in code is not used
+    monkeypatch.setattr(GlobalParams, "dbos_cloud", True)
+    # DBOS Cloud always provides these; cloud mode takes the name and system database from them
+    monkeypatch.setenv("DBOS_APP_NAME", config["name"])
+    sys_db_url = config["system_database_url"]
+    assert sys_db_url is not None
+    monkeypatch.setenv("DBOS_SYSTEM_DATABASE_URL", sys_db_url)
+    DBOS.destroy(destroy_registry=True)
+    DBOS(config=config, conductor_key="test-key", conductor_url="ws://127.0.0.1:1")
+    DBOS.launch()
+    assert DBOS.executor_id == "cloud-vm"
+    DBOS.destroy(destroy_registry=True)
 
 
 def test_workflow_timeout(dbos: DBOS) -> None:
@@ -2348,7 +2408,6 @@ def test_timeout_cleanup_on_destroy(dbos: DBOS, config: DBOSConfig) -> None:
 def test_custom_names(dbos: DBOS) -> None:
     workflow_name = "workflow_name"
     step_name = "step_name"
-    txn_name = "txn_name"
     DBOS.register_queue("test-queue")
 
     @DBOS.workflow(name=workflow_name)
@@ -2370,16 +2429,6 @@ def test_custom_names(dbos: DBOS) -> None:
 
     handle = DBOS.enqueue_workflow("test-queue", step)
     assert handle.get_status().name == f"<temp>.{step_name}"
-    assert handle.get_result() == handle.workflow_id
-
-    @DBOS.transaction(name=txn_name)
-    def txn() -> str:
-        workflow_id = DBOS.workflow_id
-        assert workflow_id is not None
-        return workflow_id
-
-    handle = DBOS.enqueue_workflow("test-queue", txn)
-    assert handle.get_status().name == f"<temp>.{txn_name}"
     assert handle.get_result() == handle.workflow_id
 
     # Verify we can declare another workflow with the same function name
@@ -2482,50 +2531,6 @@ def test_destroy(dbos: DBOS, config: DBOSConfig) -> None:
         handle.get_result()
 
 
-def test_without_appdb(config: DBOSConfig, cleanup_test_databases: None) -> None:
-    DBOS.destroy(destroy_registry=True)
-    config["application_database_url"] = None
-    dbos = DBOS(config=config)
-    DBOS.launch()
-    assert dbos._app_db is None
-
-    @DBOS.step()
-    def step() -> None:
-        return
-
-    @DBOS.workflow()
-    def workflow() -> str:
-        step()
-        step()
-        step()
-        assert DBOS.workflow_id
-        return DBOS.workflow_id
-
-    wfid = workflow()
-    assert wfid
-    steps = DBOS.list_workflow_steps(wfid)
-    assert len(steps) == 3
-    for s in steps:
-        assert s["function_name"] == step.__qualname__
-    forked_handle = DBOS.fork_workflow(wfid, start_step=1)
-    assert forked_handle.get_result() == forked_handle.workflow_id
-
-    @DBOS.transaction()
-    def transaction() -> None:
-        return
-
-    with pytest.raises(AssertionError):
-        transaction()
-
-    DBOS.destroy(destroy_registry=True)
-
-    client = DBOSClient(system_database_url=config["system_database_url"])
-    steps = client.list_workflow_steps(wfid)
-    assert len(steps) == 3
-    for s in steps:
-        assert s["function_name"] == step.__qualname__
-
-
 def test_custom_database(
     config: DBOSConfig, db_engine: sa.Engine, cleanup_test_databases: None
 ) -> None:
@@ -2556,13 +2561,13 @@ def test_custom_database(
     ready_evt = threading.Event()
     send_evt = threading.Event()
 
-    @DBOS.transaction()
-    def transaction() -> None:
+    @DBOS.step()
+    def first_step() -> None:
         return
 
     @DBOS.workflow()
     def recv_workflow() -> Any:
-        transaction()
+        first_step()
         DBOS.set_event(key, val)
         ready_evt.set()
         send_evt.wait()
@@ -2576,18 +2581,15 @@ def test_custom_database(
     assert len(DBOS.list_workflows()) == 1
     steps = DBOS.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 4
-    assert "transaction" in steps[0]["function_name"]
+    assert "first_step" in steps[0]["function_name"]
     DBOS.destroy(destroy_registry=True)
 
     # Test custom database with client
-    client = DBOSClient(
-        system_database_url=config["system_database_url"],
-        application_database_url=config["application_database_url"],
-    )
+    client = DBOSClient(system_database_url=config["system_database_url"])
     assert len(client.list_workflows()) == 1
     steps = client.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 4
-    assert "transaction" in steps[0]["function_name"]
+    assert "first_step" in steps[0]["function_name"]
 
 
 def test_custom_schema(
@@ -2613,13 +2615,13 @@ def test_custom_schema(
     ready_evt = threading.Event()
     send_evt = threading.Event()
 
-    @DBOS.transaction()
-    def transaction() -> None:
+    @DBOS.step()
+    def first_step() -> None:
         return
 
     @DBOS.workflow()
     def recv_workflow() -> Any:
-        transaction()
+        first_step()
         DBOS.set_event(key, val)
         ready_evt.set()
         send_evt.wait()
@@ -2633,19 +2635,18 @@ def test_custom_schema(
     assert len(DBOS.list_workflows()) == 1
     steps = DBOS.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 4
-    assert "transaction" in steps[0]["function_name"]
+    assert "first_step" in steps[0]["function_name"]
     DBOS.destroy(destroy_registry=True)
 
     # Test custom schema with client
     client = DBOSClient(
         system_database_url=config["system_database_url"],
-        application_database_url=config["application_database_url"],
         dbos_system_schema=config["dbos_system_schema"],
     )
     assert len(client.list_workflows()) == 1
     steps = client.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 4
-    assert "transaction" in steps[0]["function_name"]
+    assert "first_step" in steps[0]["function_name"]
     # A live client would outlive the teardown drop and reconnect to the next test's database
     client.destroy()
 
@@ -2659,7 +2660,6 @@ def test_custom_engine(
     # Needs a dropped database: it asserts launch fails before the database exists.
     DBOS.destroy(destroy_registry=True)
     assert config["system_database_url"]
-    config["application_database_url"] = None
     system_database_url = config["system_database_url"]
 
     # Create a custom engine
@@ -3353,7 +3353,7 @@ async def test_workflow_wrapped_by_custom_decorator(
 
         return decorator
 
-    queue = Queue("wrapped_workflow_queue")
+    queue = await DBOS.register_queue_async("wrapped_workflow_queue")
 
     # @DBOS.workflow() on top: DBOS registers the task_meta wrapper, so the hooks
     # run both on direct invocation and on recovery.

@@ -28,6 +28,14 @@ from .errors import (
     AlexapyPyotpInvalidKey,
 )
 from .helpers import hide_email, hide_serial, obfuscate
+from .secureauth import (
+    AuthTerminalError,
+    AuthTransientError,
+    DeviceCredentials,
+    EnrollmentError,
+    EnrollmentFlow,
+    TokenManager,
+)
 
 pkg = Path(__file__).absolute().parent.name
 logger = logging.getLogger(pkg)
@@ -53,7 +61,13 @@ __all__ = [
     "AlexapyLoginCloseRequested",
     "AlexapyLoginError",
     "AlexapyPyotpInvalidKey",
+    "AuthTerminalError",
+    "AuthTransientError",
+    "DeviceCredentials",
+    "EnrollmentError",
+    "EnrollmentFlow",
     "HTTP2EchoClient",
+    "TokenManager",
     "WebsocketEchoClient",
     "hide_email",
     "hide_serial",

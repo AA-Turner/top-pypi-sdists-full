@@ -1,11 +1,12 @@
 # built-in dependencies
 import time
-from typing import Any, Dict, Optional, Union, List, Tuple, IO, cast
+from typing import Any, Dict, Optional, Union, List, Tuple, IO, cast, Callable
 import math
 
 # 3rd party dependencies
 import numpy as np
 from numpy.typing import NDArray
+
 
 # project dependencies
 from deepface.modules import representation, detection, modeling
@@ -22,14 +23,13 @@ from deepface.modules.exceptions import (
 
 logger = Logger()
 
-
 # pylint: disable=too-many-positional-arguments, no-else-return
 def verify(
     img1_path: Union[str, NDArray[Any], List[float], IO[bytes]],
     img2_path: Union[str, NDArray[Any], List[float], IO[bytes]],
     model_name: str = "VGG-Face",
     detector_backend: str = "opencv",
-    distance_metric: str = "cosine",
+    distance_metric: Union[str, Callable] = "cosine", # type: ignore[type-arg]
     enforce_detection: bool = True,
     align: bool = True,
     expand_percentage: int = 0,
@@ -62,8 +62,9 @@ def verify(
             'yolov11s', 'yolov11m', 'yolov11l', 'yolov12n', 'yolov12s', 'yolov12m', 'yolov12l'
             'centerface' or 'skip' (default is opencv)
 
-        distance_metric (string): Metric for measuring similarity. Options: 'cosine',
-            'euclidean', 'euclidean_l2', 'angular' (default is cosine).
+        distance_metric (string or callable): Metric for measuring similarity. Options: 'cosine',
+            'euclidean', 'euclidean_l2', 'angular' (default is cosine). Alternatively, a custom
+            callable taking two embeddings and returning a distance.
 
         enforce_detection (boolean): If no face is detected in an image, raise an exception.
             Set to False to avoid the exception for low-resolution images (default is True).
@@ -113,6 +114,9 @@ def verify(
 
         - 'time' (float): Time taken for the verification process in seconds.
     """
+
+    if not isinstance(distance_metric, str) and threshold is None:
+        raise ValueError("Threshold must be specified when using custom distance metrics")
 
     tic = time.time()
 
@@ -210,6 +214,7 @@ def verify(
 
     # find the face pair with minimum distance
     pretuned_threshold = find_threshold(model_name, distance_metric)
+
     threshold = threshold or pretuned_threshold
     distance = float(min_distance)
     confidence = find_confidence(
@@ -433,7 +438,7 @@ def l2_normalize(
 def find_distance(
     alpha_embedding: Union[NDArray[Any], List[float]],
     beta_embedding: Union[NDArray[Any], List[float]],
-    distance_metric: str,
+    distance_metric: Union[str, Callable] = "cosine", # type: ignore[type-arg]
 ) -> Union[np.float64, NDArray[Any]]:
     """
     Wrapper to find the distance between vectors based on the specified distance metric.
@@ -441,15 +446,20 @@ def find_distance(
     Args:
         alpha_embedding (np.ndarray or list): 1st vector or batch of vectors.
         beta_embedding (np.ndarray or list): 2nd vector or batch of vectors.
-        distance_metric (str): The type of distance to compute
-            ('cosine', 'euclidean', 'euclidean_l2', or 'angular').
+        distance_metric (str or callable): The type of distance to compute
+            ('cosine', 'euclidean', 'euclidean_l2', or 'angular'), or a custom
+            callable taking two embeddings and returning a distance.
 
     Returns:
         np.float64 or np.ndarray: The calculated distance(s).
     """
-    # Convert inputs to numpy arrays if necessary
+    # Convert inputs to numpy arrays up front so both the custom-callable
+    # branch and the built-in metrics below operate on consistent types.
     alpha_embedding = np.asarray(alpha_embedding)
     beta_embedding = np.asarray(beta_embedding)
+
+    if not isinstance(distance_metric, str):
+        return distance_metric(alpha_embedding, beta_embedding) # type: ignore[no-any-return]
 
     # Ensure that both embeddings are either 1D or 2D
     if alpha_embedding.ndim != beta_embedding.ndim or alpha_embedding.ndim not in (1, 2):
@@ -471,21 +481,28 @@ def find_distance(
         distance = find_euclidean_distance(normalized_alpha, normalized_beta)
     else:
         raise ValueError("Invalid distance_metric passed - ", distance_metric)
+
     return np.round(distance, 6)
 
 
-def find_threshold(model_name: str, distance_metric: str) -> float:
+def find_threshold(
+        model_name: str,
+        distance_metric: Union[str, Callable] = "cosine") -> float: # type: ignore[type-arg]
     """
     Retrieve pre-tuned threshold values for a model and distance metric pair
     Args:
         model_name (str): Model for face recognition. Options: VGG-Face, Facenet, Facenet512,
             OpenFace, DeepFace, DeepID, Dlib, ArcFace, SFace and GhostFaceNet (default is VGG-Face).
-        distance_metric (str): distance metric name. Options are cosine, euclidean
-            euclidean_l2 and angular.
+        distance_metric (str or callable): distance metric name. Options are cosine, euclidean
+            euclidean_l2 and angular. If a custom callable is passed, 0.0 is returned since no
+            pre-tuned threshold exists for it.
     Returns:
         threshold (float): threshold value for that model name and distance metric
             pair. Distances less than this threshold will be classified same person.
     """
+    if not isinstance(distance_metric, str):
+        return 0.0
+
     if thresholds.get(model_name) is None:
         raise ValueError(f"Model {model_name} is not supported. ")
 
@@ -523,7 +540,10 @@ def __sigmoid(z: float) -> float:
 
 
 def find_confidence(
-    distance: float, model_name: str, distance_metric: str, verified: bool
+    distance: float,
+    model_name: str,
+    verified: bool,
+    distance_metric: Union[str, Callable] = "cosine", # type: ignore[type-arg]
 ) -> float:
     """
     Using pre-built logistic regression model, find confidence value from distance.
@@ -535,8 +555,9 @@ def find_confidence(
     Args:
         model_name (str): Model for face recognition. Options: VGG-Face, Facenet, Facenet512,
             OpenFace, DeepFace, DeepID, Dlib, ArcFace, SFace and GhostFaceNet (default is VGG-Face).
-        distance_metric (str): distance metric name. Options are cosine, euclidean
-            euclidean_l2 and angular.
+        distance_metric (str or callable): distance metric name. Options are cosine, euclidean
+            euclidean_l2 and angular. If a custom callable is passed, no pre-tuned confidence
+            config exists, so a neutral 51/49 confidence is returned.
         verified (bool): True if the images are classified as same person,
             False if different persons.
     Returns:
@@ -548,6 +569,9 @@ def find_confidence(
     """
     if distance <= 0:
         return 100.0 if verified else 0.0
+
+    if not isinstance(distance_metric, str):
+        return 51 if verified else 49
 
     if confidences.get(model_name) is None:
         return 51 if verified else 49

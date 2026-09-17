@@ -49,6 +49,7 @@ from flash_attn.cute.flash_bwd_sm120 import FlashAttentionBackwardSm120
 from flash_attn.cute.flash_bwd_postprocess import (
     FlashAttentionBackwardPostprocess,
     LearnableSinkBwdTensors,
+    DSinkReduceKernel,
 )
 from flash_attn.cute.flash_fwd_combine import FlashAttentionForwardCombine
 from flash_attn.cute.flash_fwd_mla_sm100 import FlashAttentionMLAForwardSm100
@@ -246,11 +247,22 @@ def _tile_size_bwd_sm90(head_dim, head_dim_v, causal, local, sparse_block_size_q
                 num_wg=2,
             )
     else:
-        # hdim 256
+        # hdim 256. The smem dQaccum staging buffer (64 KB) leaves no room for the C++ FA3
+        # tile (64x80, 2-stage Q); 64x48 is the largest tile_n that fits a 2-stage Q pipeline,
+        # and dKV_swapAB (hdim on WGMMA's M axis) is what allows tile_n=48. It also rounds
+        # tile_hdim to 64, which is what makes head_dim in (192, 256) compile.
+        if sparse_block_size_q is not None:
+            # Block sparsity derives its KV block size from n_block_size; keep it at 64.
+            return BwdConfig(
+                m_block_size=64, n_block_size=64,
+                num_stages_Q=1, num_stages_dO=1, num_stages_PdS=1,
+                SdP_swapAB=False, dKV_swapAB=False, dQ_swapAB=False,
+                AtomLayoutMSdP=1, AtomLayoutNdKV=1, AtomLayoutMdQ=1,
+            )
         return BwdConfig(
-            m_block_size=64, n_block_size=64,
-            num_stages_Q=1, num_stages_dO=1, num_stages_PdS=1,
-            SdP_swapAB=False, dKV_swapAB=False, dQ_swapAB=False,
+            m_block_size=64, n_block_size=48,
+            num_stages_Q=2, num_stages_dO=1, num_stages_PdS=1,
+            SdP_swapAB=False, dKV_swapAB=True, dQ_swapAB=False,
             AtomLayoutMSdP=1, AtomLayoutNdKV=1, AtomLayoutMdQ=1,
         )
 
@@ -741,12 +753,9 @@ def _flash_attn_fwd(
             if learnable_sink is None:
                 lse.fill_(float("-inf"))
             else:
-                assert qv is None
-                lse.copy_(
-                    learnable_sink[None, :, None]
-                    if cu_seqlens_q is None
-                    else learnable_sink[:, None]
-                )
+                # Empty rows have lse == sink (see softmax.apply_learnable_sink). Heads are the
+                # last dim for the qv layout (lse_shape above) and second-to-last otherwise.
+                lse.copy_(learnable_sink if qv is not None else learnable_sink[:, None])
         return out, lse, None, None
 
     if is_fp8:
@@ -780,12 +789,47 @@ def _flash_attn_fwd(
     if arch // 10 in [8, 12]:
         num_threads = 128
 
+    # Preserve the caller's hint.
+    host_max_seqlen_q = max_seqlen_q if not torch.is_tensor(max_seqlen_q) else None
+    use_dedicated_hd256_kernel = arch // 10 in [10, 11] and head_dim == 256 and head_dim_v == 256
+    if use_dedicated_hd256_kernel or (arch // 10 in [10, 11] and cu_seqlens_q is not None):
+        max_seqlen_q = host_max_seqlen_q
+    if (
+        use_dedicated_hd256_kernel
+        or (arch // 10 in [10, 11] and cu_seqlens_k is not None)
+    ) and torch.is_tensor(max_seqlen_k):
+        max_seqlen_k = None
     if max_seqlen_q is None:
         max_seqlen_q = seqlen_q if cu_seqlens_q is None else total_q
     if max_seqlen_k is None:
-        max_seqlen_k = seqlen_k
+        # Bound each sequence by its page-table row, not the shared pool.
+        max_seqlen_k = (
+            page_table.shape[1] * page_size
+            if use_dedicated_hd256_kernel and page_table is not None
+            else seqlen_k
+        )
     if cu_seqlens_k is None and seqused_k is None:
         min_seqlen_k = seqlen_k
+
+    if use_dedicated_hd256_kernel and page_table is not None:
+        # The kernel derives KV capacity from the page-table width. Normalize
+        # both before config selection, cache-key construction and tensor conversion.
+        required_pages = (max_seqlen_k + page_size - 1) // page_size
+        assert page_table.shape[1] >= required_pages, (
+            f"SM100 hd256 2CTA paged KV requires page_table to cover max_seqlen_k="
+            f"{max_seqlen_k}, i.e. at least ceil({max_seqlen_k} / {page_size}) = "
+            f"{required_pages} pages, got page_table.shape[1]={page_table.shape[1]}"
+        )
+        if max_seqlen_k % page_size != 0:
+            # seqused_k must mask the extra tokens introduced by page rounding.
+            assert seqused_k is not None, (
+                f"SM100 hd256 2CTA paged KV rounds max_seqlen_k up to the page "
+                f"boundary ({max_seqlen_k} -> {required_pages * page_size}); pass "
+                f"seqused_k with the per-batch KV lengths so the tail inside the "
+                f"last page is masked, or pass a page-aligned max_seqlen_k"
+            )
+        page_table = page_table[:, :required_pages]
+        max_seqlen_k = required_pages * page_size
 
     fwd_cfg = _get_fwd_config(
         arch=arch,
@@ -839,8 +883,6 @@ def _flash_attn_fwd(
         and (tile_m % qhead_per_kvhead == 0 or not pack_gqa)
     )
 
-    # hd=256 2CTA forward uses dedicated kernel (Blackwell family)
-    use_dedicated_hd256_kernel = arch // 10 in [10, 11] and head_dim == 256 and head_dim_v == 256
     use_2cta_instrs = use_2cta_instrs or use_dedicated_hd256_kernel
 
     if softcap is not None:
@@ -925,7 +967,6 @@ def _flash_attn_fwd(
         assert tile_n == 128
 
         assert not is_split_kv, "split kv not supported with qv"
-        assert learnable_sink is None
         assert softcap is None
         assert score_mod is None
         assert mask_mod is None
@@ -1086,6 +1127,7 @@ def _flash_attn_fwd(
         not torch.is_tensor(max_m_blocks_leq_one)
         and max_m_blocks_leq_one
         and not is_split_kv
+        and (cu_seqlens_q is None or host_max_seqlen_q is not None)
     )
 
     # CuTe keeps stride-zero modes static when marking layouts dynamic.
@@ -1166,6 +1208,7 @@ def _flash_attn_fwd(
         sparse_kv,
         disable_sparse_kv_bitmask,
         fa_logging.get_fa_log_level(),
+        use_dedicated_hd256_kernel and cu_seqlens_q is not None and host_max_seqlen_q is None,
     )
 
     if compile_key not in _flash_attn_fwd.compile_cache:
@@ -1315,20 +1358,14 @@ def _flash_attn_fwd(
                         "SM100 forward with head_dim=256 does not support block sparsity"
                     assert learnable_sink is None, \
                         "SM100 forward with head_dim=256 does not support learnable_sink"
-                    assert seqused_q is None and seqused_k is None, \
-                        "SM100 forward with head_dim=256 does not support seqused_q/seqused_k"
-                    if page_table is not None:
-                        assert max_seqlen_k % page_size == 0, (
-                            f"SM100 hd256 2CTA paged KV requires max_seqlen_k divisible by "
-                            f"page_size ({page_size}), got max_seqlen_k={max_seqlen_k}"
-                        )
-                        assert page_table.shape[1] == max_seqlen_k // page_size, (
-                            f"SM100 hd256 2CTA paged KV requires page_table.shape[1] == "
-                            f"max_seqlen_k // page_size ({max_seqlen_k} // {page_size} = "
-                            f"{max_seqlen_k // page_size}), got {page_table.shape[1]}; "
-                            f"pass page_table[:, :{max_seqlen_k // page_size}] to slice to "
-                            f"the actual sequence length"
-                        )
+                    # The dedicated kernel derives K/V load offsets from
+                    # cu_seqlens_q; varlen-packed K without varlen Q would be
+                    # silently mis-addressed, so reject it loudly.
+                    assert cu_seqlens_k is None or cu_seqlens_q is not None, \
+                        "SM100 forward with head_dim=256 requires cu_seqlens_q when cu_seqlens_k is used"
+                    # The paged-KV extent/page-table contract is normalized
+                    # up front (see the page_table block above), so it holds by
+                    # construction here.
                     # pack_gqa is an auto-selected optimization; disable it for hd256 kernel
                     pack_gqa = False
 
@@ -1409,7 +1446,8 @@ def _flash_attn_fwd(
                 page_table_tensor,
                 window_size_left,
                 window_size_right,
-                current_stream,
+                learnable_sink=learnable_sink_tensor,
+                stream=current_stream,
                 options="--enable-tvm-ffi",
             )
         else:
@@ -1436,6 +1474,12 @@ def _flash_attn_fwd(
                 sparse_tensors,
                 AuxData(cute_aux_tensors, aux_scalars),
             ])
+            if use_dedicated_hd256_kernel:
+                compile_args.append(
+                    Int32(host_max_seqlen_q)
+                    if cu_seqlens_q is not None and host_max_seqlen_q is not None
+                    else None
+                )
             if arch // 10 in [10, 11] and not use_dedicated_hd256_kernel:
                 compile_args.extend([
                     num_splits_dynamic_tensor,
@@ -1490,6 +1534,7 @@ def _flash_attn_fwd(
                 page_table,
                 window_size_left,
                 window_size_right,
+                learnable_sink,
             )
         else:
             call_args = [
@@ -1525,6 +1570,12 @@ def _flash_attn_fwd(
                 else None,
                 AuxData(aux_tensors, aux_scalars),
             ])
+            if use_dedicated_hd256_kernel:
+                call_args.append(
+                    host_max_seqlen_q
+                    if cu_seqlens_q is not None
+                    else None
+                )
             if arch // 10 in [10, 11] and not use_dedicated_hd256_kernel:
                 call_args.extend([
                     num_splits_dynamic,
@@ -1874,16 +1925,18 @@ def _flash_attn_bwd(
     if learnable_sink is not None:
         assert arch // 10 in [9, 10, 11], "Learnable sink backward is supported on SM90 and SM100/SM110"
         assert lse is not None, "learnable_sink backward requires LSE"
-        if q.numel() == 0 or k.numel() == 0:
-            dq = torch.zeros_like(q) if dq is None else dq.zero_()
-            dk = torch.zeros_like(k) if dk is None else dk.zero_()
-            dv = torch.zeros_like(v) if dv is None else dv.zero_()
-            dsink = (
-                dlse.sum(dim=(0, 2) if dlse.ndim == 3 else 1).to(learnable_sink.dtype)
-                if dlse is not None
-                else torch.zeros_like(learnable_sink)
-            )
-            return dq, dk, dv, dsink
+    if q.numel() == 0 or k.numel() == 0:
+        dq = torch.zeros_like(q) if dq is None else dq.zero_()
+        dk = torch.zeros_like(k) if dk is None else dk.zero_()
+        dv = torch.zeros_like(v) if dv is None else dv.zero_()
+        if learnable_sink is None:
+            return dq, dk, dv
+        dsink = (
+            dlse.sum(dim=(0, 2) if dlse.ndim == 3 else 1).to(learnable_sink.dtype)
+            if dlse is not None
+            else torch.zeros_like(learnable_sink)
+        )
+        return dq, dk, dv, dsink
     sparse_q = None
     kv_subtile_factor = 1
     if block_sparse_tensors is not None:
@@ -1977,6 +2030,16 @@ def _flash_attn_bwd(
         cluster_size = 2 if use_2cta_instrs else 1
 
     use_dedicated_hd256_kernel = arch // 10 in [10, 11] and head_dim == 256 and head_dim_v == 256
+    if (
+        use_dedicated_hd256_kernel
+        or (arch // 10 in [10, 11] and cu_seqlens_q is not None)
+    ) and torch.is_tensor(max_seqlen_q):
+        max_seqlen_q = None
+    if (
+        use_dedicated_hd256_kernel
+        or (arch // 10 in [10, 11] and cu_seqlens_k is not None)
+    ) and torch.is_tensor(max_seqlen_k):
+        max_seqlen_k = None
     if use_dedicated_hd256_kernel:
         assert learnable_sink is None, (
             "SM100 backward with head_dim=256 does not support learnable_sink"
@@ -2174,7 +2237,11 @@ def _flash_attn_bwd(
     # hd=256 2CTA backward has its own internal postprocess for dK/dV.
     dKV_postprocess = qhead_per_kvhead > 1 and not use_dedicated_hd256_kernel
     if dKV_postprocess:
-        head_dim_v_rounded = (head_dim_v + 32 - 1) // 32 * 32
+        # Same rounding as the kernel's tile_hdimv and the postprocess (64 with dKV_swapAB on
+        # SM90): the GQA epilogue reduces tile_n * tile_hdimv fp32 values per block.
+        head_dim_v_rounded = (
+            (head_dim_v + hdim_multiple_of - 1) // hdim_multiple_of * hdim_multiple_of
+        )
         if cu_seqlens_k is None:
             dk_accum = torch.zeros(
                 batch_size,
@@ -2392,6 +2459,8 @@ def _flash_attn_bwd(
             single_q_block,
             single_k_block,
             cu_total_m_blocks_k is not None,
+            use_dedicated_hd256_kernel and cu_seqlens_q is not None and max_seqlen_q is None,
+            use_dedicated_hd256_kernel and cu_seqlens_k is not None and max_seqlen_k is None,
         )
 
     if compile_key not in _flash_attn_bwd.compile_cache:
@@ -2558,6 +2627,17 @@ def _flash_attn_bwd(
         ]
         if not use_dedicated_hd256_kernel:
             compile_args.append(cu_total_m_blocks_k_tensor)
+        else:
+            compile_args.extend(
+                (
+                    Int32(max_seqlen_q)
+                    if cu_seqlens_q is not None and max_seqlen_q is not None
+                    else None,
+                    Int32(max_seqlen_k)
+                    if cu_seqlens_k is not None and max_seqlen_k is not None
+                    else None,
+                )
+            )
         compile_args.append(current_stream)
 
         # TODO: check @can_implement
@@ -2602,6 +2682,17 @@ def _flash_attn_bwd(
         ]
         if not use_dedicated_hd256_kernel:
             call_args.append(cu_total_m_blocks_k)
+        else:
+            call_args.extend(
+                (
+                    max_seqlen_q
+                    if cu_seqlens_q is not None
+                    else None,
+                    max_seqlen_k
+                    if cu_seqlens_k is not None
+                    else None,
+                )
+            )
         _flash_attn_bwd.compile_cache[compile_key](*call_args)
     # Postprocess: convert dq_accum from float32 to dq in bf16/fp16
     # hd=256 2CTA backward has its own internal postprocess, skip here.
@@ -2660,6 +2751,35 @@ def _flash_attn_bwd(
 _flash_attn_bwd.compile_cache = get_jit_cache("bwd")
 
 
+def _bwd_dsink_reduce(
+    dpsum: torch.Tensor, lse: torch.Tensor, learnable_sink: torch.Tensor
+) -> torch.Tensor:
+    """dsink for backward passes with head-minor (…, nheads) dpsum/lse and no postprocess kernel."""
+    nheads = learnable_sink.shape[0]
+    dpsum, lse = dpsum.reshape(-1, nheads), lse.reshape(-1, nheads)
+    dsink = torch.empty_like(learnable_sink)
+    compile_key = torch2cute_dtype_map[learnable_sink.dtype]
+    if compile_key not in _bwd_dsink_reduce.compile_cache:
+        sink_tensor, dsink_tensor = [
+            to_cute_tensor(t, assumed_align=4, leading_dim=0) for t in (learnable_sink, dsink)
+        ]
+        _bwd_dsink_reduce.compile_cache[compile_key] = cute.compile(
+            DSinkReduceKernel(),
+            to_cute_tensor(dpsum),
+            to_cute_tensor(lse),
+            sink_tensor,
+            dsink_tensor,
+            cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True),
+            options="--enable-tvm-ffi",
+        )
+    if not is_fake_mode():
+        _bwd_dsink_reduce.compile_cache[compile_key](dpsum, lse, learnable_sink, dsink)
+    return dsink
+
+
+_bwd_dsink_reduce.compile_cache = get_jit_cache("bwd_dsink")
+
+
 def _flash_attn_bwd_sparse_mla(
     q: Optional[torch.Tensor],
     k: Optional[torch.Tensor],
@@ -2689,7 +2809,7 @@ def _flash_attn_bwd_sparse_mla(
     dk: Optional[torch.Tensor] = None,
     dv: Optional[torch.Tensor] = None,
     dqv: Optional[torch.Tensor] = None,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
     fake_mode = is_fake_mode()
     arch = _get_device_arch()
     assert arch // 10 in [10, 11], "Unsupported compute capability. Supported: 10.x, 11.x"
@@ -2703,7 +2823,6 @@ def _flash_attn_bwd_sparse_mla(
     assert nheads_kv == 1 and qhead_per_kvhead == 128, f"sparse MLA bwd: only MQA 128 supported for now"
     assert gather_kv_length % 128 == 0, f"sparse MLA bwd: {gather_kv_length=} must be divisible by 128"
     assert deterministic is False, "sparse MLA bwd: deterministic mode not yet supported"
-    assert learnable_sink is None, "sparse MLA bwd: learnable sink not yet supported"
     assert seqused_q is None and seqused_k is None, "sparse MLA bwd: seqused_q,k not yet supported"
 
     if softmax_scale is None:
@@ -2813,7 +2932,6 @@ def _flash_attn_bwd_sparse_mla(
         seqused_k is None,
         q is not None,
         gather_kv_length,
-        learnable_sink is not None,
         disable_sparse_kv_bitmask,
     )
 
@@ -2824,10 +2942,9 @@ def _flash_attn_bwd_sparse_mla(
             cu_seqlens_k_tensor,
             seqused_q_tensor,
             seqused_k_tensor,
-            learnable_sink_tensor,
         ) = [
             to_cute_tensor(t, assumed_align=4, leading_dim=0)
-            for t in (cu_seqlens_q, cu_seqlens_k, seqused_q, seqused_k, learnable_sink)
+            for t in (cu_seqlens_q, cu_seqlens_k, seqused_q, seqused_k)
         ]
         (
             v_tensor,
@@ -2905,7 +3022,8 @@ def _flash_attn_bwd_sparse_mla(
     
     # return dk, dv in float32: all-reduce across sequence-parallel ranks must happen
     # before downcasting to avoid rounding error during inter-rank grad accumulation
-    return dq, dk, dv, dqv
+    dsink = _bwd_dsink_reduce(dpsum, lse, learnable_sink) if learnable_sink is not None else None
+    return dq, dk, dv, dqv, dsink
 
 _flash_attn_bwd_sparse_mla.compile_cache = get_jit_cache("bwd_dsa")
 
@@ -3157,7 +3275,7 @@ class FlashAttnFunc(torch.autograd.Function):
         if dout is None:
             dout = torch.zeros_like(out)
         if qv is not None:
-            dq, dk, dv, dqv = _flash_attn_bwd_sparse_mla(
+            dq, dk, dv, dqv, dsink = _flash_attn_bwd_sparse_mla(
                 q,
                 k,
                 v,
@@ -3168,13 +3286,14 @@ class FlashAttnFunc(torch.autograd.Function):
                 p,
                 row_max,
                 gather_kv_indices,
+                learnable_sink=learnable_sink,
                 softmax_scale=ctx.softmax_scale,
                 causal=ctx.causal,
             )
             if ctx.shared_kv:
-                return dqv, dv, None, None, *((None,) * 30)
+                return dqv, dv, None, None, None, None, None, None, dsink, *((None,) * 12)
             else:
-                return dq, dk, dv, dqv, *((None,) * 30)
+                return dq, dk, dv, dqv, None, None, None, None, dsink, *((None,) * 12)
         else:
             bwd_result = _flash_attn_bwd(
                 q,
@@ -3325,7 +3444,7 @@ class FlashAttnVarlenFunc(torch.autograd.Function):
         if dout is None:
             dout = torch.zeros_like(out)
         if qv is not None:
-            dq, dk, dv, dqv = _flash_attn_bwd_sparse_mla(
+            dq, dk, dv, dqv, dsink = _flash_attn_bwd_sparse_mla(
                 q,
                 k,
                 v,
@@ -3336,6 +3455,7 @@ class FlashAttnVarlenFunc(torch.autograd.Function):
                 p,
                 row_max,
                 gather_kv_indices,
+                learnable_sink=learnable_sink,
                 softmax_scale=ctx.softmax_scale,
                 causal=ctx.causal,
                 cu_seqlens_q=cu_seqlens_q,
@@ -3347,9 +3467,9 @@ class FlashAttnVarlenFunc(torch.autograd.Function):
                 min_seqlen_k=ctx.min_seqlen_k,
             )
             if ctx.shared_kv:
-                return dqv, dv, None, None, *((None,) * 31)
+                return dqv, dv, None, None, *((None,) * 12), dsink, *((None,) * 14)
             else:
-                return dq, dk, dv, dqv, *((None,) * 31)
+                return dq, dk, dv, dqv, *((None,) * 12), dsink, *((None,) * 14)
         else:
             bwd_result = _flash_attn_bwd(
                 q,
@@ -3494,6 +3614,11 @@ def flash_attn_varlen_func(
         so we arrange for nheads as the contiguous mode for better vectorization.
 
     gather_kv_indices: used for topk sparsity with MLA absorption kernel.
+
+    max_seqlen_q/k: optional scalar length bounds. With Blackwell cumulative
+        lengths, tensor hints are not read on the host. HD256 uses flat grids
+        for omitted/tensor hints and rectangular grids for host integers.
+        Integer bounds must cover every CUDA graph replay.
 
     min_seqlen_k: for varlen, specifies the minimum kv sequence length for any batch.
         Used with gather_kv_indices to determine if we need oob masking.

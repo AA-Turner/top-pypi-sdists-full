@@ -4,7 +4,7 @@ Data loading and processing utilities for reports and predictions.
 
 import glob
 import os
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 import pandas as pd
 from pydantic import ValidationError
@@ -13,7 +13,7 @@ from evalscope.api.evaluator import CacheManager, ReviewResult
 from evalscope.constants import DataCollection
 from evalscope.metrics.semantics import format_metric_value
 from evalscope.metrics.semantics.ranking import bounded_quality_ratio
-from evalscope.report import Report, ReportKey, ReportRef, get_data_frame, get_report_list
+from evalscope.report import Report, ReportKey, ReportRef, get_report_list
 from evalscope.utils.io_utils import OutputsStructure, jsonl_to_list, yaml_to_dict
 from evalscope.utils.logger import get_logger
 
@@ -95,9 +95,9 @@ def get_acc_report_df(report_list: List[Report]) -> pd.DataFrame:
                     }
                     data_dict.append(item)
         else:
-            # `primary_metric` is the declared `role=primary` metric, or the inferred headline
-            # when the benchmark declared none (see `Report._find_primary_metric`). It is only
-            # `None` for a report with no metric at all, which then shows no score.
+            # `primary_metric` is the metric the report named as its conclusion. It is `None` for a
+            # report with no metric, and also when no single metric could be named -- such a row
+            # shows no score rather than borrowing one from another metric.
             primary_metric = report.primary_metric
             item = {
                 ReportKey.model_name: report.model_name,
@@ -418,12 +418,15 @@ def _build_prediction_row(
     extracted_prediction = score.extracted_prediction
     main_value = score.main_value
 
+    target = review_result.target
+    gold = target[0] if target and len(target) == 1 else target or '*No Gold Provided*'
+
     return {
         'Index': str(review_result.index),
         'Input': review_result.messages_markdown.replace('\n', '\n\n'),  # for markdown
         'Metadata': sample_score.sample_metadata,
         'Generated': prediction or '',  # Ensure no None value
-        'Gold': review_result.target or '*No Gold Provided*',
+        'Gold': gold,
         'Pred': (extracted_prediction if extracted_prediction != prediction else '*Same as Generated*')
         or '',  # Ensure no None value
         'Score': score.model_dump(exclude_none=True),

@@ -18,6 +18,7 @@ Usage::
         ListFailureModeFindingsPaginator,
         ListInputSourcesPaginator,
         ListPoliciesPaginator,
+        ListPolicyEventsPaginator,
         ListReportsPaginator,
         ListResolvedTestRunTargetResourcesPaginator,
         ListResourcesPaginator,
@@ -55,6 +56,7 @@ Usage::
     list_failure_mode_findings_paginator: ListFailureModeFindingsPaginator = client.get_paginator("list_failure_mode_findings")
     list_input_sources_paginator: ListInputSourcesPaginator = client.get_paginator("list_input_sources")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
+    list_policy_events_paginator: ListPolicyEventsPaginator = client.get_paginator("list_policy_events")
     list_reports_paginator: ListReportsPaginator = client.get_paginator("list_reports")
     list_resolved_test_run_target_resources_paginator: ListResolvedTestRunTargetResourcesPaginator = client.get_paginator("list_resolved_test_run_target_resources")
     list_resources_paginator: ListResourcesPaginator = client.get_paginator("list_resources")
@@ -83,6 +85,7 @@ from .paginator import (
     ListFailureModeFindingsPaginator,
     ListInputSourcesPaginator,
     ListPoliciesPaginator,
+    ListPolicyEventsPaginator,
     ListReportsPaginator,
     ListResolvedTestRunTargetResourcesPaginator,
     ListResourcesPaginator,
@@ -119,6 +122,7 @@ __all__ = (
     "ListFailureModeFindingsPaginator",
     "ListInputSourcesPaginator",
     "ListPoliciesPaginator",
+    "ListPolicyEventsPaginator",
     "ListReportsPaginator",
     "ListResolvedTestRunTargetResourcesPaginator",
     "ListResourcesPaginator",

@@ -6,19 +6,15 @@ for agent evaluation using auto-detection with optional overrides.
 
 Features:
 - Auto-detects Databricks profiles or local SQLite
-- Search experiments by name (post-processes `mlflow experiments list` output)
+- Search experiments by name using MLflow Python API
 - Single command instead of multiple CLI calls
 - Creates experiments if they don't exist
-
-Note: Uses MLflow CLI commands underneath (`mlflow experiments list`, `mlflow experiments create`).
-For direct CLI usage, see MLflow documentation.
 """
 
 import argparse
 import os
 import subprocess
 import sys
-from pathlib import Path
 
 
 def parse_arguments():
@@ -41,74 +37,64 @@ def parse_arguments():
 def check_mlflow_installed() -> bool:
     """Check if MLflow >=3.6.0 is installed."""
     try:
-        result = subprocess.run(["mlflow", "--version"], capture_output=True, text=True, check=True)
-        version = result.stdout.strip().split()[-1]
+        import mlflow
+
+        version = mlflow.__version__
         print(f"✓ MLflow {version} is installed")
         return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except ImportError:
         print("✗ MLflow is not installed")
         print("  Install with: uv pip install mlflow")
         return False
 
 
+def ensure_backend_plugin(tracking_uri: str) -> None:
+    """Ensure the backend plugin for the chosen tracking URI is installed.
+
+    SageMaker Managed MLflow uses an ARN tracking URI
+    (arn:aws:sagemaker:<region>:<acct>:mlflow-app/<id> or .../mlflow-tracking-server/<name>),
+    which only works when the `sagemaker-mlflow` plugin is installed (it registers the
+    `arn` tracking scheme). Without it, set_tracking_uri(<arn>) raises
+    UnsupportedModelRegistryStoreURIException. Like check_mlflow_installed(), this reports
+    the fix rather than installing the plugin.
+    """
+    if tracking_uri.startswith("arn:aws:sagemaker:"):
+        try:
+            import sagemaker_mlflow  # noqa: F401
+
+            print("✓ sagemaker-mlflow plugin installed (SageMaker Managed MLflow)")
+        except ImportError:
+            print("✗ SageMaker Managed MLflow detected but sagemaker-mlflow is not installed")
+            print("  Install with: pip install sagemaker-mlflow")
+            sys.exit(1)
+
+
 def detect_databricks_profiles() -> list[str]:
-    """Detect available Databricks profiles."""
+    """Detect available and valid Databricks profiles.
+
+    Returns:
+        List of profile names that have Valid=YES
+    """
     try:
         result = subprocess.run(
             ["databricks", "auth", "profiles"], capture_output=True, text=True, check=True
         )
         lines = result.stdout.strip().split("\n")
-        # Skip first line (header: "Name      Host                      Valid")
-        # and filter empty lines
-        return [line.strip() for line in lines[1:] if line.strip()]
+        # Skip header line: "Name        Host                      Valid"
+        profiles = []
+        for line in lines[1:]:
+            if not line.strip():
+                continue
+            # Parse columns: Name, Host, Valid
+            parts = line.split()
+            if len(parts) >= 3:
+                name = parts[0]
+                valid = parts[-1]  # Last column is Valid (YES/NO)
+                if valid.upper() == "YES":
+                    profiles.append(name)
+        return profiles
     except (subprocess.CalledProcessError, FileNotFoundError):
         return []
-
-
-def check_databricks_auth(profile: str) -> bool:
-    """Check if a Databricks profile is authenticated."""
-    try:
-        # Try a simple API call to check auth
-        result = subprocess.run(
-            ["databricks", "auth", "env", "-p", profile], capture_output=True, text=True, check=True
-        )
-        return "DATABRICKS_TOKEN" in result.stdout or "DATABRICKS_HOST" in result.stdout
-    except subprocess.CalledProcessError:
-        return False
-
-
-def start_local_mlflow_server(port: int = 5050) -> bool:
-    """Start local MLflow server in the background."""
-    print(f"\nStarting local MLflow server on port {port}...")
-
-    try:
-        # Create mlruns directory if it doesn't exist
-        Path("./mlruns").mkdir(exist_ok=True)
-
-        # Start server in background
-        cmd = [
-            "mlflow",
-            "server",
-            "--port",
-            str(port),
-            "--backend-store-uri",
-            "sqlite:///mlflow.db",
-            "--default-artifact-root",
-            "./mlruns",
-        ]
-
-        print(f"  Command: {' '.join(cmd)}")
-        print("  Running in background...")
-
-        # Note: In production, you might want to use nohup or subprocess.Popen with proper detachment
-        print("\n  To start the server manually, run:")
-        print(f"    {' '.join(cmd)} &")
-        print(f"\n  Server will be available at: http://127.0.0.1:{port}")
-
-        return True
-    except Exception as e:
-        print(f"✗ Error starting server: {e}")
-        return False
 
 
 def auto_detect_tracking_uri() -> str:
@@ -171,61 +157,46 @@ def configure_tracking_uri(args_uri: str | None = None) -> str:
     return auto_detect_tracking_uri()
 
 
-def list_experiments(tracking_uri: str) -> list[dict]:
-    """List available experiments."""
+def list_experiments(tracking_uri: str, max_results: int = 100) -> list[dict]:
+    """List available experiments using MLflow Python API.
+
+    Args:
+        tracking_uri: MLflow tracking URI
+        max_results: Maximum number of experiments to return
+
+    Returns:
+        List of dicts with 'id' and 'name' keys
+    """
     try:
-        env = os.environ.copy()
-        env["MLFLOW_TRACKING_URI"] = tracking_uri
+        import mlflow
 
-        result = subprocess.run(
-            ["mlflow", "experiments", "list"], capture_output=True, text=True, check=True, env=env
-        )
+        mlflow.set_tracking_uri(tracking_uri)
+        experiments = mlflow.search_experiments(max_results=max_results)
 
-        # Parse output (simplified)
-        lines = result.stdout.strip().split("\n")
-        experiments = []
-
-        for line in lines[2:]:  # Skip header
-            if line.strip():
-                parts = [p.strip() for p in line.split("|") if p.strip()]
-                if len(parts) >= 2:
-                    exp_id = parts[0]
-                    name = parts[1]
-                    experiments.append({"id": exp_id, "name": name})
-
-        return experiments
+        return [{"id": exp.experiment_id, "name": exp.name} for exp in experiments]
     except Exception as e:
         print(f"✗ Error listing experiments: {e}")
         return []
 
 
 def create_experiment(tracking_uri: str, name: str) -> str | None:
-    """Create a new experiment."""
+    """Create a new experiment using MLflow Python API.
+
+    Args:
+        tracking_uri: MLflow tracking URI
+        name: Name for the new experiment
+
+    Returns:
+        Experiment ID if created successfully, None otherwise
+    """
     try:
-        env = os.environ.copy()
-        env["MLFLOW_TRACKING_URI"] = tracking_uri
+        import mlflow
 
-        result = subprocess.run(
-            ["mlflow", "experiments", "create", "-n", name],
-            capture_output=True,
-            text=True,
-            check=True,
-            env=env,
-        )
-
-        # Extract experiment ID from output
-        for line in result.stdout.split("\n"):
-            if "Experiment" in line and "created" in line:
-                # Try to extract ID
-                words = line.split()
-                for i, word in enumerate(words):
-                    if word.lower() == "id" and i + 1 < len(words):
-                        return words[i + 1].strip()
-
-        # If can't parse, return None (but experiment was created)
-        return None
-    except subprocess.CalledProcessError as e:
-        print(f"✗ Error creating experiment: {e.stderr}")
+        mlflow.set_tracking_uri(tracking_uri)
+        exp_id = mlflow.create_experiment(name)
+        return str(exp_id)
+    except Exception as e:
+        print(f"✗ Error creating experiment: {e}")
         return None
 
 
@@ -265,7 +236,7 @@ def configure_experiment_id(
 
     # Priority 3: Create new experiment if --create and --experiment-name provided
     if create_new and args_exp_name:
-        print(f"✓ Creating experiment: {args_exp_name}")
+        print(f"Creating experiment: {args_exp_name}")
         exp_id = create_experiment(tracking_uri, args_exp_name)
         if exp_id:
             print(f"✓ Experiment created with ID: {exp_id}")
@@ -282,7 +253,7 @@ def configure_experiment_id(
 
     # Priority 4: Search for experiment by name if provided
     if args_exp_name:
-        print(f"✓ Searching for experiment: {args_exp_name}")
+        print(f"Searching for experiment: {args_exp_name}")
         experiments = list_experiments(tracking_uri)
         for exp in experiments:
             if exp["name"] == args_exp_name:
@@ -291,7 +262,7 @@ def configure_experiment_id(
 
         # Not found - fail with clear message
         print(f"✗ Experiment '{args_exp_name}' not found")
-        print("  Use --create flag to create it: --experiment-name '{args_exp_name}' --create")
+        print(f"  Use --create flag to create it: --experiment-name '{args_exp_name}' --create")
         sys.exit(1)
 
     # Priority 5: Auto-select first available experiment
@@ -329,6 +300,9 @@ def main():
 
     # Configure tracking URI (auto-detects if not provided)
     tracking_uri = configure_tracking_uri(args.tracking_uri)
+
+    # Ensure the backend plugin (e.g. sagemaker-mlflow for SageMaker ARN URIs) is installed
+    ensure_backend_plugin(tracking_uri)
 
     # Configure experiment ID (auto-detects if not provided)
     experiment_id = configure_experiment_id(

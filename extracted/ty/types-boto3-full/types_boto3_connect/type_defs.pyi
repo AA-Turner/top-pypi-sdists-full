@@ -335,6 +335,7 @@ __all__ = (
     "CompleteAttachedFileUploadRequestTypeDef",
     "ConditionTypeDef",
     "ConnectionDataTypeDef",
+    "ContactAnalysisReferenceTypeDef",
     "ContactAnalysisTypeDef",
     "ContactConfigurationTypeDef",
     "ContactDataRequestTypeDef",
@@ -2161,6 +2162,14 @@ NumberConditionTypeDef = TypedDict(
         "ComparisonType": NotRequired[NumberComparisonTypeType],
     },
 )
+
+class ContactAnalysisReferenceTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Value: NotRequired[str]
+    Status: NotRequired[ReferenceStatusType]
+    Arn: NotRequired[str]
+    AnalyticsMode: NotRequired[AnalyticsModeType]
+    IsRedacted: NotRequired[bool]
 
 class ContactConfigurationTypeDef(TypedDict):
     ContactId: str
@@ -7322,6 +7331,7 @@ class ReferenceSummaryTypeDef(TypedDict):
     Number: NotRequired[NumberReferenceTypeDef]
     Date: NotRequired[DateReferenceTypeDef]
     Email: NotRequired[EmailReferenceTypeDef]
+    ContactAnalysis: NotRequired[ContactAnalysisReferenceTypeDef]
 
 class ReplicationConfigurationTypeDef(TypedDict):
     ReplicationStatusSummaryList: NotRequired[list[ReplicationStatusSummaryTypeDef]]

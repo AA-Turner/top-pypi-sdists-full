@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydoll-python
-Version: 2.26.0
+Version: 2.27.0
 Summary: Pydoll is a library for automating chromium-based browsers without a WebDriver, offering realistic interactions.
 License-File: LICENSE
 Author: Thalison Fernandes
@@ -72,6 +72,15 @@ You have probably watched a scraper work on your machine, then hit a wall of cap
     <td valign="middle">
       <b><a href="http://serpapi.com/?utm_source=github_sponsorship&utm_campaign=pydoll">SerpApi</a></b><br />
       <sub>Web Search API for your AI apps. Available in Markdown and JSON for any integration.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="300" align="center" valign="middle">
+      <a href="https://www.ipcook.com/?ref=16NLS&utm_source=github&utm_medium=referral&utm_campaign=pydoll"><img src="public/images/ipcook-banner.png" width="280" alt="IPCook" /></a>
+    </td>
+    <td valign="middle">
+      <b><a href="https://www.ipcook.com/?ref=16NLS&utm_source=github&utm_medium=referral&utm_campaign=pydoll">IPcook</a></b><br />
+      <sub>Residential proxies for stealth browser automation: 55M+ IPs in 185+ locations, rotating &amp; sticky sessions, city-level targeting, HTTP &amp; SOCKS5, 99.99% uptime, sub-0.5s responses, pay-as-you-go traffic that never expires. Use <code>WELCOME20</code> for 20% off.</sub>
     </td>
   </tr>
   <tr>

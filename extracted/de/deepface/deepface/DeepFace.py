@@ -1,8 +1,7 @@
 # common dependencies
 import os
 import warnings
-import logging
-from typing import Any, Dict, IO, List, Union, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, IO, List, Union, Optional, Sequence, Tuple, cast, Callable
 
 # this has to be set before importing tensorflow
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
@@ -11,13 +10,13 @@ os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
 # 3rd party dependencies
 from numpy.typing import NDArray
+
 import pandas as pd
-import tensorflow as tf
 from lightphe import LightPHE
 from lightdsa import LightDSA
 
 # package dependencies
-from deepface.commons import package_utils, folder_utils
+from deepface.commons import backend_utils, package_utils, folder_utils
 from deepface.commons.logger import Logger
 from deepface.modules import (
     modeling,
@@ -32,19 +31,44 @@ from deepface.modules import (
 )
 from deepface import __version__
 
+
 logger = Logger()
+
+# -----------------------------------
+# warn users about upcoming changes in backend installation.
+
+if "_DEPRECATION_WARNING_SHOWN" not in globals():
+    global _DEPRECATION_WARNING_SHOWN # pylint: disable=global-at-module-level
+    _DEPRECATION_WARNING_SHOWN = True
+    logger.warn(
+        "\n"
+        + "=" * 70 + "\n"
+        " ⚠️ DEPRECATION WARNING:\n"
+        " Running 'pip install deepface' alone will no longer be sufficient and will\n"
+        " NOT install a default backend in an upcoming major release.\n\n"
+        " Currently, TensorFlow is included by default, but this behavior will be deprecated.\n"
+        " Please explicitly specify your preferred backend engine when installing:\n\n"
+        "   -> pip install deepface[tensorflow]\n"
+        "   -> pip install deepface[pytorch]\n\n"
+        " Otherwise, you will encounter 'module not found' errors.\n"
+        + "=" * 70 + "\n"
+    )
 
 # -----------------------------------
 # configurations for dependencies
 
-# users should install tf_keras package if they are using tf 2.16 or later versions
-package_utils.validate_for_keras3()
-
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-tf_version = package_utils.get_tf_major_version()
-if tf_version == 2:
-    tf.get_logger().setLevel(logging.ERROR)
+
+# deepface runs either on tensorflow or on pytorch, and it does not import the one it
+# does not run on. see deepface.commons.backend_utils for the way that is decided.
+backend_engine = backend_utils.get_backend_engine()
+logger.debug(f"deepface will run on {backend_engine}")
+
+if backend_engine == backend_utils.TENSORFLOW:
+    # users should install tf_keras package if they are using tf 2.16 or later versions
+    package_utils.validate_for_keras3()
+    package_utils.configure_tensorflow_logging()
 # -----------------------------------
 
 # create required folders if necessary to store model weights
@@ -77,7 +101,7 @@ def verify(
     img2_path: Union[str, NDArray[Any], IO[bytes], List[float]],
     model_name: str = "VGG-Face",
     detector_backend: str = "opencv",
-    distance_metric: str = "cosine",
+    distance_metric: Union[str, Callable] = "cosine", # type: ignore[type-arg]
     enforce_detection: bool = True,
     align: bool = True,
     expand_percentage: int = 0,
@@ -282,7 +306,7 @@ def find(
     img_path: Union[str, NDArray[Any], IO[bytes]],
     db_path: str,
     model_name: str = "VGG-Face",
-    distance_metric: str = "cosine",
+    distance_metric: Union[str, Callable] = "cosine", # type: ignore[type-arg]
     enforce_detection: bool = True,
     detector_backend: str = "opencv",
     align: bool = True,
@@ -760,7 +784,7 @@ def register(
             Options: base, raw, Facenet, Facenet2018, VGGFace, VGGFace2, ArcFace (default is base).
         anti_spoofing (boolean): Flag to enable anti spoofing (default is False).
         database_type (str): Type of database to register identities. Options: 'postgres', 'mongo',
-            'weaviate', 'neo4j', 'pgvector', 'pinecone' (default is 'postgres').
+            'weaviate', 'neo4j', 'pgvector', 'pinecone', 'milvus', 'qdrant' (default is 'postgres').
         connection_details (dict or str): Connection details for the database.
         connection (Any): Existing database connection object. If provided, this connection
             will be used instead of creating a new one.
@@ -773,6 +797,8 @@ def register(
             - DEEPFACE_WEAVIATE_URI
             - DEEPFACE_NEO4J_URI
             - DEEPFACE_PINECONE_API_KEY
+            - DEEPFACE_MILVUS_URI
+            - DEEPFACE_QDRANT_URI
     Returns:
         result (dict): A dictionary containing registration results with following keys.
             - inserted (int): Number of embeddings successfully registered to the database.
@@ -844,7 +870,7 @@ def search(
         search_method (str): Method to use for searching identities. Options: 'exact', 'ann'.
             To use ann search, you must run build_index function first to create the index.
         database_type (str): Type of database to search identities. Options: 'postgres', 'mongo',
-            'weaviate', 'neo4j', 'pgvector', 'pinecone' (default is 'postgres').
+            'weaviate', 'neo4j', 'pgvector', 'pinecone', 'milvus', 'qdrant' (default is 'postgres').
         connection_details (dict or str): Connection details for the database.
         connection (Any): Existing database connection object. If provided, this connection
             will be used instead of creating a new one.
@@ -857,6 +883,8 @@ def search(
             - DEEPFACE_WEAVIATE_URI
             - DEEPFACE_NEO4J_URI
             - DEEPFACE_PINECONE_API_KEY
+            - DEEPFACE_MILVUS_URI
+            - DEEPFACE_QDRANT_URI
     Returns:
         results (List[pd.DataFrame]):
             A list of pandas dataframes or a list of dicts. Each dataframe or dict corresponds
@@ -919,7 +947,8 @@ def build_index(
     - Use this function after registering all identities to the database.
     - This function is resumable, run again whenever new identities are added to the db.
     - Vector databases handle indexing internally, so you don't need to use this function
-        when using a vector database ('weaviate', 'neo4j', 'pgvector', 'pinecone')
+        when using a vector database
+        ('weaviate', 'neo4j', 'pgvector', 'pinecone', 'milvus', 'qdrant')
         as database_type.
 
     Args:
@@ -934,7 +963,7 @@ def build_index(
         max_neighbors_per_node (int): Maximum number of neighbors per node in the index
             (default is 32).
         database_type (str): Type of database to build index. Options: 'postgres', 'mongo',
-            'weaviate', 'neo4j', 'pgvector', 'pinecone' (default is 'postgres').
+            'weaviate', 'neo4j', 'pgvector', 'pinecone', 'milvus', 'qdrant' (default is 'postgres').
         connection (Any): Existing database connection object. If provided, this connection
             will be used instead of creating a new one.
         connection_details (dict or str): Connection details for the database.
@@ -947,6 +976,8 @@ def build_index(
             - DEEPFACE_WEAVIATE_URI
             - DEEPFACE_NEO4J_URI
             - DEEPFACE_PINECONE_API_KEY
+            - DEEPFACE_MILVUS_URI
+            - DEEPFACE_QDRANT_URI
     """
     return datastore.build_index(
         model_name=model_name,

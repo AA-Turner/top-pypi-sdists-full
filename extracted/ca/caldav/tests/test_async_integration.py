@@ -18,7 +18,7 @@ import pytest
 import pytest_asyncio
 
 from caldav import Event, FreeBusy, Todo
-from caldav.compatibility_hints import FeatureSet
+from caldav.compatibility_hints import FeatureSet, write_delay
 from caldav.lib import error
 
 from .test_caldav import (
@@ -59,7 +59,7 @@ def _async_delay_decorator(f, t=20):
     return wrapper
 
 
-## HTTP methods that change server state; a "write-delay" server settles each of
+## HTTP methods that change server state; a server without "synchronous-write" settles each of
 ## these asynchronously, so we sleep AFTER every such request (the write-side
 ## counterpart of the search-cache delay, which only delays searches).
 _WRITE_HTTP_METHODS = frozenset(
@@ -245,11 +245,10 @@ class AsyncFunctionalTestsBaseClass:
                 _async_delay_decorator(AsyncCalendar.search, t=delay),
             )
 
-        ## Apply write-delay (sleep after every write) for asynchronous servers.
+        ## Sleep after every write for servers without synchronous writes.
         ## Wrapped on the client instance, so monkeypatch reverts it after the test.
-        write_delay_config = client.features.is_supported("write-delay", dict)
-        if write_delay_config.get("behaviour") == "delay":
-            delay = write_delay_config.get("delay", 10)
+        delay = write_delay(client.features)
+        if delay:
             monkeypatch.setattr(
                 client,
                 "request",
@@ -288,7 +287,16 @@ class AsyncFunctionalTestsBaseClass:
         own name, docstring and cal_id while the create/wipe/teardown logic
         lives in exactly one place - see fixture_helpers.afix_calendar.
         """
-        from .fixture_helpers import afix_calendar, arelease_calendar, atry_principal
+        from .fixture_helpers import (
+            afix_calendar,
+            arelease_calendar,
+            atry_principal,
+            component_set_unobtainable,
+        )
+
+        reason = component_set_unobtainable(async_client, supported_calendar_component_set)
+        if reason:
+            pytest.skip(reason)
 
         principal = await atry_principal(async_client)
         calendar, created = await afix_calendar(
@@ -325,7 +333,15 @@ class AsyncFunctionalTestsBaseClass:
         calendar is used.  The calendar is reused across tests via a stable cal_id
         rather than being deleted and recreated, avoiding trashbin accumulation on
         servers like Nextcloud.
+
+        Skips when the server cannot store a task at all, so that every test
+        taking this fixture skips rather than failing on the PUT: Bedework 5 hands
+        out a calendar happily (it accepts the component set with a "200 ok"
+        propstat and then ignores it, ref
+        create-calendar.with-supported-component-types) and answers the VTODO PUT
+        with a 403.
         """
+        self.skip_unless_support("save-load.todo")
         ## Servers that can't hold VEVENTs and VTODOs in the same calendar
         ## (e.g. Zimbra, OX) need a component-restricted one.
         component_set = None if self.is_supported("save-load.todo.mixed-calendar") else ["VTODO"]
@@ -1901,6 +1917,7 @@ class AsyncFunctionalTestsBaseClass:
     async def test_set_calendar_properties(self, async_client: Any) -> None:
         """get_properties/set_properties round-trip for DisplayName."""
         from caldav.elements import dav
+        from caldav.lib import error
 
         from .fixture_helpers import afix_calendar, arelease_calendar, atry_principal
 
@@ -1926,14 +1943,18 @@ class AsyncFunctionalTestsBaseClass:
             cal_id="pythoncaldav-async-props-test",
             calendar_name="AsyncYep",
         )
+        assert c is not None, "no test calendar could be created or found"
         try:
-            ## Given the skips above (delete-calendar, create-calendar and
-            ## set-displayname/stable-url support) a fresh calendar must have been
-            ## created.  If it wasn't, the server regressed on a feature it
-            ## advertises as supported - that is a failure, not a reason to skip,
-            ## which is how the pre-consolidation version of this test behaved
-            ## (make_calendar() simply raised).
-            assert created, "server advertises delete- and create-calendar, but no fresh calendar"
+            ## A fresh calendar is only guaranteed where deletion frees the URL.
+            ## On a trashbin server (Nextcloud) the calendar from the previous run
+            ## is reused, so only the creation cannot be checked there - but it
+            ## still has to be this test's own calendar, not a fallback.
+            if self.is_supported("delete-calendar.free-namespace"):
+                ## Here a reused calendar means the server regressed on a
+                ## feature it advertises - a failure, not a reason to skip.
+                assert created, "server frees the namespace on delete, but no fresh calendar"
+            else:
+                assert "pythoncaldav-async-props-test" in str(c.url)
             props = await c.get_properties([dav.DisplayName()])
             assert "AsyncYep" == props[dav.DisplayName.tag]
 
@@ -1941,6 +1962,17 @@ class AsyncFunctionalTestsBaseClass:
             props = await c.get_properties([dav.DisplayName()])
             assert props[dav.DisplayName.tag] == "hooray-async"
         finally:
+            ## Put the name back, as testSetCalendarProperties does, so a
+            ## calendar reused by the next run starts from "AsyncYep" and the
+            ## rename above is a real change rather than a no-op.
+            try:
+                await c.set_properties([dav.DisplayName("AsyncYep")])
+            except error.PropsetError:
+                ## Best-effort cleanup only: the assertion of interest has
+                ## already run above.  Some servers reject setting the display
+                ## name (PropsetError); if so there's nothing to restore and
+                ## nothing actionable to do here, so swallow it silently.
+                pass
             await arelease_calendar(async_client, c, created)
 
     # ==================== Group F – Regressions ====================
@@ -2036,8 +2068,11 @@ END:VCALENDAR
         ## direct PUT (403 Forbidden) and require iTIP scheduling instead.
         self.skip_unless_support("save-load.mutable.attendee-partstat")
         c = async_calendar
+        ## A SUMMARY, since some servers refuse an event without one
+        ## (save-load.event.no-summary) and this test is about PARTSTAT.
         event = await c.add_event(
             uid="test1",
+            summary="attendee status test",
             dtstart=datetime(2015, 10, 10, 8, 7, 6),
             dtend=datetime(2015, 10, 10, 9, 7, 6),
             ical_fragment="ATTENDEE;ROLE=OPT-PARTICIPANT;PARTSTAT=TENTATIVE:MAILTO:testuser@example.com",
@@ -2299,9 +2334,10 @@ END:VCALENDAR"""
         events = await c.get_events()
         assert len(events) == cnt
 
+    @pytest.mark.parametrize("klass", ["Calendar", "Event"])
     @pytest.mark.asyncio
-    async def test_create_event_from_ical(self, async_calendar: Any) -> None:
-        """Add event from icalendar.Calendar and icalendar.Event objects."""
+    async def test_create_event_from_ical(self, async_calendar: Any, klass: str) -> None:
+        """Add event from an icalendar.Calendar or an icalendar.Event object."""
         self.skip_unless_support("save-load.event")
         c = async_calendar
         try:
@@ -2319,12 +2355,16 @@ END:VCALENDAR"""
         )
         icalcal.add_component(icalevent)
 
-        for obj in [icalcal, icalevent]:
-            await c.add_event(obj)
-            events = await c.get_events()
-            assert any(e.icalendar_component["uid"] == "ctuid1" for e in events), (
-                f"Event with uid ctuid1 not found after adding {type(obj).__name__}"
-            )
+        ## Both the Calendar object and the Event object should be accepted.
+        ## They are tested one at a time, on a fresh calendar - putting both to
+        ## the same URL would change the VCALENDAR-level UID of an existing
+        ## calendar object resource, which some servers refuse (i.e. Stalwart).
+        obj = {"Calendar": icalcal, "Event": icalevent}[klass]
+        await c.add_event(obj)
+        events = await c.get_events()
+        assert any(e.icalendar_component["uid"] == "ctuid1" for e in events), (
+            f"Event with uid ctuid1 not found after adding {klass}"
+        )
 
     @pytest.mark.asyncio
     async def test_set_due(self, async_task_list: Any) -> None:

@@ -23,9 +23,10 @@ authors = [
 ]
 dependencies = [
     "tomli; python_version < \"3.11\"",
+    "packaging",
 ]
 requires-python = ">=3.9"
-version = "0.3.7"
+version = "0.3.8"
 
 [project.license]
 file = "LICENSE"

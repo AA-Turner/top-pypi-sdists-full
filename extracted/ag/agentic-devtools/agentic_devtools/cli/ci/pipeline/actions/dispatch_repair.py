@@ -329,6 +329,7 @@ class DispatchRepairAction:
     """
 
     runs_after_invalidation = True
+    runs_on_prior_failure: bool = True
 
     @property
     def name(self) -> str:

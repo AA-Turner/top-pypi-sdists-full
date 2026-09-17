@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: oidc-provider-mock
-Version: 0.4.6
+Version: 0.4.7
 Summary: OpenID Connect provider server for testing authentication
 Project-URL: Homepage, https://github.com/geigerzaehler/oidc-provider-mock
 Project-URL: Documentation, https://github.com/geigerzaehler/oidc-provider-mock
@@ -27,7 +27,7 @@ Requires-Python: >=3.12
 Requires-Dist: authlib>=1.5
 Requires-Dist: flask>=3.1
 Requires-Dist: htpy>=25.2.0
-Requires-Dist: httpx>=0.26
+Requires-Dist: httpx2>=2.0
 Requires-Dist: joserfc>=1.0.3
 Requires-Dist: pydantic>=2.3
 Requires-Dist: pyyaml>=6.0.1
@@ -88,7 +88,7 @@ def oidc_server():
 
 def test_auth_code_login(client: flask.testing.FlaskClient, oidc_server: str):
     # Add OIDC claims for the user we want to authenticate
-    response = httpx.put(
+    response = httpx2.put(
         f"{oidc_server}/users/{quote('alice@example.com')}",
         json={"email": "alice@example.com", "name": "Alice", "custom": ["foo", "bar"]},
     )
@@ -99,7 +99,7 @@ def test_auth_code_login(client: flask.testing.FlaskClient, oidc_server: str):
     assert response.location
 
     # Authorize the client by POSTing to the authorization URL.
-    response = httpx.post(response.location, data={"sub": "alice@example.com"})
+    response = httpx2.post(response.location, data={"sub": "alice@example.com"})
 
     # Go back to the client with the authorization code
     assert response.has_redirect_location
@@ -122,7 +122,7 @@ def test_auth_code_login_playwright(
     live_server: LiveServer, oidc_server: str, page: Page
 ):
     # Let the OIDC provider know about the user’s email and name
-    response = httpx.put(
+    response = httpx2.put(
         f"{oidc_server}/users/{quote('alice@example.com')}",
         json={"email": "alice@example.com", "name": "Alice"},
     )

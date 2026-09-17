@@ -150,6 +150,26 @@ async def test_resolver_failure_runs_and_screams(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_absorbed_resolution_failure_files_only_the_unheld_finding(monkeypatch) -> None:
+    """A seedless workflow step runs, so it must not also claim it refused."""
+    rows: list[dict[str, Any]] = []
+
+    def _record_error(error, **fields):
+        rows.append({"error": str(error), **fields})
+        return None
+
+    from matrx_ai import _ext
+
+    monkeypatch.setitem(_ext._registry, "record_error", _record_error)
+    _install(RuntimeError("no Holder at any rung"), monkeypatch)
+
+    held = await hold_step(dict(STEP), spec_type="ai.llm", consumer="ai.llm.chat")
+
+    assert held.config["model"] == "author-model"
+    assert [row["kind"] for row in rows] == [MANDATE_HOLDER_UNBOUND_KIND]
+
+
+@pytest.mark.asyncio
 async def test_step_resolves_the_mandate_and_stamps_the_holder(monkeypatch) -> None:
     asked = _install(MandateResolution(source=_Source()), monkeypatch)
 

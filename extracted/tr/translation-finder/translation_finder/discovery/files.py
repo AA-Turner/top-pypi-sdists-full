@@ -21,6 +21,7 @@ from ruamel.yaml.error import YAMLError, YAMLFutureWarning
 from translation_finder.api import register_discovery
 
 from .base import (
+    FORMAT_SNIFF_MAX_BYTES,
     BaseDiscovery,
     EncodingDiscovery,
     EnglishVariantsDiscovery,
@@ -42,7 +43,6 @@ LARAVEL_BYTES_RE = re.compile(
     re.MULTILINE,
 )
 GWT_PLURAL_RE = re.compile(r"^[^#!\s][^:=\n]*\[[a-zA-Z_]+\]\s*[:=]", re.MULTILINE)
-FORMAT_SNIFF_MAX_BYTES = 1024 * 1024
 CSV_DIALECT_SNIFF_MAX_CHARS = 1024
 CSV_SAMPLE_ROWS = 100
 SIMPLE_CSV_COLUMNS = 2
@@ -400,10 +400,12 @@ class XliffDiscovery(BaseDiscovery):
         content, _complete = sample
         # Check for XLIFF 2.0 first
         if b'version="2.0"' in content or b'version="2.1"' in content:
+            result["file_format"] = "xliff2"
+            params = result.setdefault("file_format_params", {})
             if b"<pc" in content or b"<sc" in content or b"<ec" in content:
-                result["file_format"] = "xliff2-placeables"
+                params["xliff_placeables"] = "placeables"
             else:
-                result["file_format"] = "xliff2"
+                params["xliff_placeables"] = "plain"
         elif b'restype="x-gettext' in content:
             result["file_format"] = "poxliff"
         elif (
@@ -413,7 +415,8 @@ class XliffDiscovery(BaseDiscovery):
         ):
             result["file_format"] = "apple-xliff"
         elif b"<x " not in content and b"<g " not in content:
-            result["file_format"] = "plainxliff"
+            result["file_format"] = "xliff"
+            result.setdefault("file_format_params", {})["xliff_placeables"] = "plain"
 
 
 @register_discovery

@@ -21,6 +21,7 @@ from .basesdk import AsyncBaseSDK, BaseSDK
 from .sdkconfiguration import SDKConfiguration
 from . import errors, models, types, utils
 from ._hooks import AfterParseErrorContext, HookContext, ResponseContext
+from ._internal import AsyncInternal, Internal
 from .files import AsyncFiles, Files
 from .types import OptionalNullable, UNSET, environments, interactions
 from .types.environments import (
@@ -42,6 +43,7 @@ class Environments(BaseSDK):
     def with_streaming_response(self):
         return EnvironmentsWithStreamingResponse(self)
 
+    internal: Internal
     files: Files
 
     def __init__(
@@ -52,6 +54,7 @@ class Environments(BaseSDK):
         self._init_sdks()
 
     def _init_sdks(self):
+        self.internal = Internal(self.sdk_configuration, parent_ref=self.parent_ref)
         self.files = Files(self.sdk_configuration, parent_ref=self.parent_ref)
 
     def list_environments(
@@ -801,6 +804,10 @@ class EnvironmentsWithRawResponse:
         )
 
     @property
+    def internal(self):
+        return self._sdk.internal.with_raw_response
+
+    @property
     def files(self):
         return self._sdk.files.with_raw_response
 
@@ -822,6 +829,10 @@ class EnvironmentsWithStreamingResponse:
         )
 
     @property
+    def internal(self):
+        return self._sdk.internal.with_streaming_response
+
+    @property
     def files(self):
         return self._sdk.files.with_streaming_response
 
@@ -835,6 +846,7 @@ class AsyncEnvironments(AsyncBaseSDK):
     def with_streaming_response(self):
         return AsyncEnvironmentsWithStreamingResponse(self)
 
+    internal: AsyncInternal
     files: AsyncFiles
 
     def __init__(
@@ -845,6 +857,9 @@ class AsyncEnvironments(AsyncBaseSDK):
         self._init_sdks()
 
     def _init_sdks(self):
+        self.internal = AsyncInternal(
+            self.sdk_configuration, parent_ref=self.parent_ref
+        )
         self.files = AsyncFiles(self.sdk_configuration, parent_ref=self.parent_ref)
 
     async def list_environments(
@@ -1606,6 +1621,10 @@ class AsyncEnvironmentsWithRawResponse:
         )
 
     @property
+    def internal(self):
+        return self._sdk.internal.with_raw_response
+
+    @property
     def files(self):
         return self._sdk.files.with_raw_response
 
@@ -1625,6 +1644,10 @@ class AsyncEnvironmentsWithStreamingResponse:
         self.get_environment = response_helpers.async_to_streamed_response_wrapper(
             sdk.get_environment, "extra_headers"
         )
+
+    @property
+    def internal(self):
+        return self._sdk.internal.with_streaming_response
 
     @property
     def files(self):

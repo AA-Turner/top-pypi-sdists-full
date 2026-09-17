@@ -32,6 +32,7 @@ class ResourceResultStatus(str, Enum):
     FAILED = 'failed'
     EXISTS = 'exists'
     DRIFTED = 'drifted'
+    UPDATED = 'updated'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

@@ -44,6 +44,9 @@ class TestResourceResult(unittest.TestCase):
                 drift = [
                     ''
                     ],
+                refused = [
+                    ''
+                    ],
                 drift_not_compared = [
                     ''
                     ]

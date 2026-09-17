@@ -133,6 +133,7 @@ def instantiate_api(
             ),
         ],
         health_check=health_check,  # type: ignore [arg-type]
+        add_metrics=settings.enable_metrics,
     )
 
     return api
@@ -160,10 +161,9 @@ def run():
         uvicorn.run(
             "stac_fastapi.pgstac.app:create_app",
             factory=True,
-            host=settings.app_host,
-            port=settings.app_port,
+            host="0.0.0.0",
+            port=8000,
             log_level="info",
-            reload=settings.reload,
             root_path=settings.uvicorn_root_path,
         )
     except ImportError as e:

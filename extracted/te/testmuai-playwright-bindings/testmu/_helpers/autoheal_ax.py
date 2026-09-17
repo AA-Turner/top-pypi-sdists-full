@@ -35,8 +35,6 @@ from testmu._helpers.ax_tree import (
 
 _log = logging.getLogger("testmu")
 
-_HOST = os.getenv("TESTMU_AI_API_HOST", "https://kaneai-api.lambdatest.com/v16-server")
-_URL = _HOST.rstrip("/") + "/api/v1/AH2/autoheal"
 _TIMEOUT = aiohttp.ClientTimeout(total=60)
 _VALID = frozenset({"click", "select", "type", "scroll"})
 
@@ -123,7 +121,9 @@ async def run_locator_heal(
             # the locator as role/structure only. Only sent when True.
             "reprobe": reprobe,
         }
-        resp = await _post_ax_heal(_URL, body, _TIMEOUT)
+        resp = await _post_ax_heal(
+            _config.get_ai_api_host().rstrip("/") + "/api/v1/AH2/autoheal", body, _TIMEOUT
+        )
         if not resp or not resp.get("ref"):
             return None
         confidence = float(resp.get("confidence", 0.0))

@@ -89,6 +89,7 @@ from .util import (
     clear_generation_params,
     client_json_schema,
     client_request_object,
+    client_request_string,
     relax_tool_choice_for_withheld,
     resolve_generate_config,
     resolve_inspect_model,
@@ -111,7 +112,13 @@ async def inspect_anthropic_api_request_impl(
 ) -> Message | BetaMessage:
     # resolve model
     bridge_model_name = str(json_data["model"])
-    model = resolve_inspect_model(bridge_model_name, bridge.model_aliases, bridge.model)
+    model = resolve_inspect_model(
+        bridge_model_name,
+        bridge.model_aliases,
+        bridge.model,
+        model_resolver=bridge.model_resolver,
+        provider="anthropic",
+    )
 
     # tools
     anthropic_tools: list[ToolParamDef] | None = json_data.get("tools", None)
@@ -467,16 +474,11 @@ def tool_choice_from_anthropic_tool_choice(
         case "none":
             return "none"
         case "tool":
-            # `ToolFunction` is an unvalidated dataclass, so a non-string name
-            # would serialize into the `ModelEvent` and fail transcript
-            # read-back (and a missing one raised a status-less `KeyError`).
-            name = tool_choice.get("name", None)
-            if not isinstance(name, str):
-                raise BridgePolicyError(
-                    "invalid request field in bridged request (tool_choice.name: "
-                    f"input should be a string, got {type(name).__name__})"
+            return ToolFunction(
+                name=client_request_string(
+                    tool_choice.get("name", None), "tool_choice.name"
                 )
-            return ToolFunction(name=name)
+            )
         case invalid:
             # A missing or unknown `type` previously fell through silently
             # (or raised a status-less `KeyError`); answer the 400 the real

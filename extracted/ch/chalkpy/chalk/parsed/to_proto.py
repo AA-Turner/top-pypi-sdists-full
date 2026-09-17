@@ -1829,6 +1829,8 @@ class ToProtoConverter:
             observation_sampling_strategy=observation_sampling_strategy,
             background_compaction=view.background_compaction,
         )
+        if view.features is not None:
+            kwargs["features"] = list(view.features)
         if view.lower_bound is not None:
             kwargs["lower_bound"] = datetime_to_proto_timestamp(view.lower_bound)
         if view.lookback_retention_period is not None:

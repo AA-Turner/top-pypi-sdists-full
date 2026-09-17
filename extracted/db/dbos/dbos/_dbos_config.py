@@ -1,7 +1,6 @@
 import math
 import os
 import re
-from importlib import resources
 from typing import Any, Dict, List, Literal, Optional, TypedDict, cast
 
 import sqlalchemy as sa
@@ -11,9 +10,6 @@ from sqlalchemy import make_url
 from dbos._serialization import Serializer
 
 from ._error import DBOSInitializationError
-from ._logger import dbos_logger
-from ._schemas.system_database import SystemSchema
-from ._utils import GlobalParams
 
 DBOS_CONFIG_PATH = "dbos-config.yaml"
 
@@ -25,18 +21,14 @@ class DBOSConfig(TypedDict, total=False):
     Attributes:
         name (str): Application name
         system_database_url (str): Connection string for the DBOS system database. Defaults to sqlite:///{name} if not provided.
-        application_database_url (str): Connection string for the DBOS application database, in which DBOS @Transaction functions run. Optional. Should be the same type of database (SQLite or Postgres) as the system database.
-        database_url (str): (DEPRECATED) Database connection string
         sys_db_pool_size (int): System database pool size
         sys_db_polling_concurrency (int): Maximum number of DB-backed polling reads (from wait operations such as get_result, recv, get_event, and read_stream) that may run concurrently against the system database pool. This keeps high-fan-out polling from checking out every pool connection and starving control-plane operations such as enqueue/dequeue, status writes, recovery, and cancellation. Defaults to half the system database pool size (minimum 1). Set to a non-positive value to disable the limiter.
-        db_engine_kwargs (Dict[str, Any]): SQLAlchemy engine kwargs (See https://docs.sqlalchemy.org/en/20/core/engines.html#sqlalchemy.create_engine)
+        db_engine_kwargs (Dict[str, Any]): SQLAlchemy engine kwargs for the system database engine (See https://docs.sqlalchemy.org/en/20/core/engines.html#sqlalchemy.create_engine)
         log_level (str): Log level
         otlp_log_level: Optional[str]: log level specficially for OTLP logging (if enabled); must be no less severe than log_level
         console_log_level: Optional[str]: log level specficially for console logging; must be no less severe than log_level
         otlp_traces_endpoints: List[str]: OTLP traces endpoints
         otlp_logs_endpoints: List[str]: OTLP logs endpoints
-        admin_port (int): (DEPRECATED) Port of the DBOS admin server. Has no effect unless run_admin_server is True. The admin server is deprecated and will be removed in a future version of DBOS.
-        run_admin_server (bool): (DEPRECATED) Whether to run the DBOS admin server. Defaults to False (True in DBOS Cloud). The admin server is deprecated and will be removed in a future version of DBOS.
         otlp_attributes (dict[str, str]): A set of custom attributes to apply OTLP-exported logs and traces
         application_version (str): Application version
         executor_id (str): Executor ID, used to identify the application instance in distributed environments
@@ -51,6 +43,7 @@ class DBOSConfig(TypedDict, total=False):
         run_migrations (bool): Whether to create and migrate the system database on launch. Defaults to True. Set to False for a process that must not alter the schema, such as one whose database role cannot run DDL, or a deployment that migrates out of band with `dbos migrate`. Launch then verifies the schema instead: a system database that is missing, or behind the version this build requires, fails launch rather than being created or migrated.
         notification_listener_polling_interval_sec (float): Polling interval in seconds for the notification listener background process. Defaults to 1.0. Minimum value is 0.001. Lower values can speed up test execution.
         notification_coalesce_sec (float): Interval in seconds for coalescing LISTEN/NOTIFY notifications (streams and events) pushed off the write path. Bounds read latency and caps the rate of notifying commits independent of write throughput. Defaults to 0.01. Minimum value is 0.001.
+        observability_query_timeout_sec (float): Statement timeout, in seconds, for read-only observability queries against the system database. Defaults to 30.0.
         scheduler_polling_interval_sec (float): Polling interval in seconds for the scheduler thread to detect new workflow schedules. Defaults to 30.0.
         kafka_queue_polling_interval_sec (float): Polling interval in seconds for the internal queues on which Kafka consumer workflows run (_dbos_kafka_queue and _dbos_kafka_ordered_queue). Defaults to 1.0. Minimum value is 0.001.
         otel_attribute_format (Literal["legacy", "semconv"]): How span attribute names are emitted to OTLP.
@@ -62,8 +55,6 @@ class DBOSConfig(TypedDict, total=False):
 
     name: str
     system_database_url: Optional[str]
-    application_database_url: Optional[str]
-    database_url: Optional[str]
     sys_db_pool_size: Optional[int]
     sys_db_polling_concurrency: Optional[int]
     db_engine_kwargs: Optional[Dict[str, Any]]
@@ -72,8 +63,6 @@ class DBOSConfig(TypedDict, total=False):
     console_log_level: Optional[str]
     otlp_traces_endpoints: Optional[List[str]]
     otlp_logs_endpoints: Optional[List[str]]
-    admin_port: Optional[int]
-    run_admin_server: Optional[bool]
     otlp_attributes: Optional[dict[str, str]]
     application_version: Optional[str]
     executor_id: Optional[str]
@@ -90,6 +79,7 @@ class DBOSConfig(TypedDict, total=False):
     max_executor_threads: Optional[int]
     notification_listener_polling_interval_sec: Optional[float]
     notification_coalesce_sec: Optional[float]
+    observability_query_timeout_sec: Optional[float]
     scheduler_polling_interval_sec: Optional[float]
     kafka_queue_polling_interval_sec: Optional[float]
     otel_attribute_format: Optional[Literal["legacy", "semconv"]]
@@ -98,11 +88,10 @@ class DBOSConfig(TypedDict, total=False):
 class RuntimeConfig(TypedDict, total=False):
     start: List[str]
     setup: Optional[List[str]]
-    admin_port: Optional[int]
-    run_admin_server: Optional[bool]
     max_executor_threads: Optional[int]
     notification_listener_polling_interval_sec: Optional[float]
     notification_coalesce_sec: Optional[float]
+    observability_query_timeout_sec: Optional[float]
     scheduler_polling_interval_sec: Optional[float]
     kafka_queue_polling_interval_sec: Optional[float]
 
@@ -143,24 +132,40 @@ class ConfigFile(TypedDict, total=False):
     name: str
     runtimeConfig: RuntimeConfig
     database: DatabaseConfig
-    database_url: Optional[str]
     system_database_url: Optional[str]
     telemetry: Optional[TelemetryConfig]
-    env: Dict[str, str]
     system_database_engine: Optional[sa.Engine]
     dbos_system_schema: Optional[str]
     use_listen_notify: bool
     run_migrations: bool
 
 
-def _default_run_admin_server() -> bool:
-    # The admin server is deprecated and off by default, except in DBOS Cloud, which depends on it.
-    return GlobalParams.dbos_cloud
+def _validate_observability_query_timeout_sec(value: Optional[float]) -> None:
+    # Reject NaN/inf: the timeout becomes an integer number of milliseconds.
+    if value is not None and not math.isfinite(value):
+        raise DBOSInitializationError(
+            f"observability_query_timeout_sec must be a finite number, got {value}"
+        )
+
+
+# Removed in DBOS 3.0 along with the application database.
+REMOVED_DATABASE_URL_KEYS = ("database_url", "application_database_url")
+
+
+def _reject_removed_database_url_keys(config: DBOSConfig) -> None:
+    for key in REMOVED_DATABASE_URL_KEYS:
+        if not config.get(key):
+            continue
+        raise DBOSInitializationError(
+            f"DBOSConfig sets {key}, which was removed in DBOS 3.0 along with the "
+            "application database. Use system_database_url instead."
+        )
 
 
 def translate_dbos_config_to_config_file(config: DBOSConfig) -> ConfigFile:
     if "name" not in config:
         raise DBOSInitializationError(f"Configuration must specify an application name")
+    _reject_removed_database_url_keys(config)
 
     translated_config: ConfigFile = {
         "name": config["name"],
@@ -179,12 +184,6 @@ def translate_dbos_config_to_config_file(config: DBOSConfig) -> ConfigFile:
     if db_config:
         translated_config["database"] = db_config
 
-    # Use application_database_url instead of the deprecated database_url if provided
-    if "database_url" in config:
-        translated_config["database_url"] = config.get("database_url")
-    elif "application_database_url" in config:
-        translated_config["database_url"] = config.get("application_database_url")
-
     if "system_database_url" in config:
         translated_config["system_database_url"] = config.get("system_database_url")
 
@@ -192,15 +191,7 @@ def translate_dbos_config_to_config_file(config: DBOSConfig) -> ConfigFile:
         translated_config["dbos_system_schema"] = config.get("dbos_system_schema")
 
     # Runtime config
-    translated_config["runtimeConfig"] = {
-        "run_admin_server": _default_run_admin_server()
-    }
-    if "admin_port" in config:
-        translated_config["runtimeConfig"]["admin_port"] = config["admin_port"]
-    if "run_admin_server" in config:
-        translated_config["runtimeConfig"]["run_admin_server"] = config[
-            "run_admin_server"
-        ]
+    translated_config["runtimeConfig"] = {}
     if "max_executor_threads" in config:
         translated_config["runtimeConfig"]["max_executor_threads"] = config[
             "max_executor_threads"
@@ -223,6 +214,12 @@ def translate_dbos_config_to_config_file(config: DBOSConfig) -> ConfigFile:
                 f"notification_coalesce_sec must be a finite number at least 0.001 seconds, got {coalesce}"
             )
         translated_config["runtimeConfig"]["notification_coalesce_sec"] = coalesce
+    if "observability_query_timeout_sec" in config:
+        query_timeout = config["observability_query_timeout_sec"]
+        _validate_observability_query_timeout_sec(query_timeout)
+        translated_config["runtimeConfig"][
+            "observability_query_timeout_sec"
+        ] = query_timeout
     if "scheduler_polling_interval_sec" in config:
         translated_config["runtimeConfig"]["scheduler_polling_interval_sec"] = config[
             "scheduler_polling_interval_sec"
@@ -287,59 +284,22 @@ def translate_dbos_config_to_config_file(config: DBOSConfig) -> ConfigFile:
     return translated_config
 
 
-def _substitute_env_vars(content: str, silent: bool = False) -> str:
-
-    # Regex to match ${DOCKER_SECRET:SECRET_NAME} style placeholders for Docker secrets
-    secret_regex = r"\$\{DOCKER_SECRET:([^}]+)\}"
+def _substitute_env_vars(content: str) -> str:
     # Regex to match ${VAR_NAME} style placeholders for environment variables
-    env_regex = r"\$\{(?!DOCKER_SECRET:)([^}]+)\}"
+    env_regex = r"\$\{([^}]+)\}"
 
     def replace_env_func(match: re.Match[str]) -> str:
-        var_name = match.group(1)
-        value = os.environ.get(
-            var_name, ""
-        )  # If the env variable is not set, return an empty string
-        if value == "" and not silent:
-            dbos_logger.warning(
-                f"Variable {var_name} would be substituted from the process environment into dbos-config.yaml, but is not defined"
-            )
-        return value
+        # If the env variable is not set, return an empty string
+        return os.environ.get(match.group(1), "")
 
-    def replace_secret_func(match: re.Match[str]) -> str:
-        secret_name = match.group(1)
-        try:
-            # Docker secrets are stored in /run/secrets/
-            secret_path = f"/run/secrets/{secret_name}"
-            if os.path.exists(secret_path):
-                with open(secret_path, "r") as f:
-                    return f.read().strip()
-            elif not silent:
-                dbos_logger.warning(
-                    f"Docker secret {secret_name} would be substituted from /run/secrets/{secret_name}, but the file does not exist"
-                )
-            return ""
-        except Exception as e:
-            if not silent:
-                dbos_logger.warning(
-                    f"Error reading Docker secret {secret_name}: {str(e)}"
-                )
-            return ""
-
-    # First replace Docker secrets
-    content = re.sub(secret_regex, replace_secret_func, content)
-    # Then replace environment variables
     return re.sub(env_regex, replace_env_func, content)
 
 
 def load_config(
     config_file_path: str = DBOS_CONFIG_PATH,
-    *,
-    silent: bool = False,
 ) -> ConfigFile:
     """
     Load the DBOS `ConfigFile` from the specified path (typically `dbos-config.yaml`).
-
-    The configuration is also validated against the configuration file schema.
 
     Args:
         config_file_path (str): The path to the yaml configuration file.
@@ -351,41 +311,26 @@ def load_config(
 
     with open(config_file_path, "r") as file:
         content = file.read()
-        substituted_content = _substitute_env_vars(content, silent=silent)
+        substituted_content = _substitute_env_vars(content)
         data = yaml.safe_load(substituted_content)
 
     if not isinstance(data, dict):
         raise DBOSInitializationError(
             f"dbos-config.yaml must contain a dictionary, not {type(data)}"
         )
-    data = cast(Dict[str, Any], data)
-
-    # Special case: convert logsEndpoint and tracesEndpoint from strings to lists of strings, if present
-    if "telemetry" in data and "OTLPExporter" in data["telemetry"]:
-        if "logsEndpoint" in data["telemetry"]["OTLPExporter"]:
-            data["telemetry"]["OTLPExporter"]["logsEndpoint"] = [
-                data["telemetry"]["OTLPExporter"]["logsEndpoint"]
-            ]
-        if "tracesEndpoint" in data["telemetry"]["OTLPExporter"]:
-            data["telemetry"]["OTLPExporter"]["tracesEndpoint"] = [
-                data["telemetry"]["OTLPExporter"]["tracesEndpoint"]
-            ]
-
     return cast(ConfigFile, data)
 
 
 def process_config(
     *,
     data: ConfigFile,
-    silent: bool = False,
 ) -> ConfigFile:
     """
-    If a database_url is provided, pass it as is in the config.
+    If a system_database_url is provided, pass it as is in the config.
 
     Else, default to SQLite.
 
     Also build SQL Alchemy "kwargs" base on user input + defaults.
-    Specifically, db_engine_kwargs takes precedence over app_db_pool_size
     """
 
     if "name" not in data:
@@ -393,7 +338,7 @@ def process_config(
 
     if not _is_valid_app_name(data["name"]):
         raise DBOSInitializationError(
-            f'Invalid app name {data["name"]}.  App names must be between 3 and 30 characters long and contain only lowercase letters, numbers, dashes, and underscores.'
+            f'Invalid app name {data["name"]}.  App names must be between 3 and 256 characters long and contain only lowercase letters, numbers, dashes, and underscores.'
         )
 
     if data.get("telemetry") is None:
@@ -405,40 +350,11 @@ def process_config(
     if logs.get("logLevel") is None:
         logs["logLevel"] = "INFO"
 
-    # Handle admin server config
-    if not data.get("runtimeConfig"):
-        data["runtimeConfig"] = {
-            "run_admin_server": _default_run_admin_server(),
-        }
-    elif "run_admin_server" not in data["runtimeConfig"]:
-        data["runtimeConfig"]["run_admin_server"] = _default_run_admin_server()
-
     # Ensure database dict exists
     data.setdefault("database", {})
     connect_timeout = None
 
-    # Process the application database URL, if provided
-    if data.get("database_url"):
-        # Parse the db string and check required fields
-        assert data["database_url"] is not None
-        assert is_valid_database_url(data["database_url"])
-
-        url = make_url(data["database_url"])
-
-        # Gather connect_timeout from the URL if provided. It should be used in engine kwargs if not provided there (instead of our default)
-        connect_timeout_str = url.query.get("connect_timeout")
-        if connect_timeout_str is not None:
-            assert isinstance(
-                connect_timeout_str, str
-            ), "connect_timeout must be a string and defined once in the URL"
-            if connect_timeout_str.isdigit():
-                connect_timeout = int(connect_timeout_str)
-
-    if (
-        data.get("system_database_engine")
-        and not data.get("system_database_url")
-        and not data.get("database_url")
-    ):
+    if data.get("system_database_engine") and not data.get("system_database_url"):
         engine = data.get("system_database_engine")
         assert engine is not None
         if "sqlite" in engine.dialect.name:
@@ -456,7 +372,7 @@ def process_config(
 
         url = make_url(data["system_database_url"])
 
-        # Gather connect_timeout from the URL if provided. It should be used in engine kwargs if not provided there (instead of our default). This overrides a timeout from the application database, if any.
+        # Gather connect_timeout from the URL if provided. It should be used in engine kwargs if not provided there (instead of our default)
         connect_timeout_str = url.query.get("connect_timeout")
         if connect_timeout_str is not None:
             assert isinstance(
@@ -465,29 +381,10 @@ def process_config(
             if connect_timeout_str.isdigit():
                 connect_timeout = int(connect_timeout_str)
 
-    # If an application database URL is provided but not the system database URL,
-    # construct the system database URL.
-    if data.get("database_url") and not data.get("system_database_url"):
-        assert data["database_url"]
-        if data["database_url"].startswith("sqlite"):
-            data["system_database_url"] = data["database_url"]
-        else:
-            url = make_url(data["database_url"])
-            assert url.database
-            url = url.set(database=f"{url.database}{SystemSchema.sysdb_suffix}")
-            data["system_database_url"] = url.render_as_string(hide_password=False)
-
-    # If a system database URL is provided but not an application database URL,
-    # do not create an application database.
-    if data.get("system_database_url") and not data.get("database_url"):
-        assert data["system_database_url"]
-        data["database_url"] = None
-
-    # If neither URL is provided, use a default SQLite system database URL.
-    if not data.get("database_url") and not data.get("system_database_url"):
-        _app_db_name = _app_name_to_db_name(data["name"])
-        data["system_database_url"] = f"sqlite:///{_app_db_name}.sqlite"
-        data["database_url"] = None
+    # If no URL is provided, use a default SQLite system database URL.
+    if not data.get("system_database_url"):
+        _sys_db_name = _app_name_to_db_name(data["name"])
+        data["system_database_url"] = f"sqlite:///{_sys_db_name}.sqlite"
 
     configure_db_engine_parameters(data["database"], connect_timeout=connect_timeout)
 
@@ -499,7 +396,7 @@ def configure_db_engine_parameters(
     data: DatabaseConfig, connect_timeout: Optional[int] = None
 ) -> None:
     """
-    Configure SQLAlchemy engine parameters for both user and system databases.
+    Configure SQLAlchemy engine parameters for the system database.
 
     If provided, sys_db_pool_size will take precedence over user_kwargs for the system db engine.
 
@@ -507,8 +404,7 @@ def configure_db_engine_parameters(
         data: Configuration dictionary containing database settings
     """
 
-    # Configure user database engine parameters
-    default_engine_kwargs: dict[str, Any] = {
+    engine_kwargs: dict[str, Any] = {
         "connect_args": {"application_name": "dbos_transact"},
         "pool_timeout": 30,
         "max_overflow": 0,
@@ -518,31 +414,29 @@ def configure_db_engine_parameters(
     # If user-provided kwargs are present, use them instead
     custom_engine_kwargs = data.get("db_engine_kwargs")
     if custom_engine_kwargs is not None:
-        default_engine_kwargs.update(custom_engine_kwargs)
+        engine_kwargs.update(custom_engine_kwargs)
 
     # If user-provided kwargs do not contain connect_timeout, check if their URL did (this function connect_timeout parameter).
     # Else default to 10
-    if "connect_args" not in default_engine_kwargs:
-        default_engine_kwargs["connect_args"] = {}
-    if "connect_timeout" not in default_engine_kwargs["connect_args"]:
-        default_engine_kwargs["connect_args"]["connect_timeout"] = (
+    if "connect_args" not in engine_kwargs:
+        engine_kwargs["connect_args"] = {}
+    if "connect_timeout" not in engine_kwargs["connect_args"]:
+        engine_kwargs["connect_args"]["connect_timeout"] = (
             connect_timeout if connect_timeout else 10
         )
 
     # If NullPool is specified, remove pool parameters
     if custom_engine_kwargs and custom_engine_kwargs.get("poolclass") == sa.NullPool:
-        del default_engine_kwargs["pool_timeout"]
-        del default_engine_kwargs["max_overflow"]
-        del default_engine_kwargs["pool_size"]
-        del default_engine_kwargs["pool_pre_ping"]
+        del engine_kwargs["pool_timeout"]
+        del engine_kwargs["max_overflow"]
+        del engine_kwargs["pool_size"]
+        del engine_kwargs["pool_pre_ping"]
 
-    # Configure system database engine parameters. User-provided sys_db_pool_size takes precedence
-    system_engine_kwargs = default_engine_kwargs.copy()
+    # User-provided sys_db_pool_size takes precedence
     if data.get("sys_db_pool_size") is not None:
-        system_engine_kwargs["pool_size"] = data["sys_db_pool_size"]
+        engine_kwargs["pool_size"] = data["sys_db_pool_size"]
 
-    data["db_engine_kwargs"] = default_engine_kwargs
-    data["sys_db_engine_kwargs"] = system_engine_kwargs
+    data["sys_db_engine_kwargs"] = engine_kwargs
 
 
 def is_valid_database_url(database_url: str) -> bool:
@@ -561,7 +455,7 @@ def is_valid_database_url(database_url: str) -> bool:
 
 def _is_valid_app_name(name: str) -> bool:
     name_len = len(name)
-    if name_len < 3 or name_len > 30:
+    if name_len < 3 or name_len > 256:
         return False
     match = re.match("^[a-z0-9-_]+$", name)
     return True if match != None else False
@@ -573,29 +467,19 @@ def _app_name_to_db_name(app_name: str) -> str:
 
 
 def overwrite_config(provided_config: ConfigFile) -> ConfigFile:
-    # Load the DBOS configuration file and force the use of:
-    # 1. The application and system database url provided by DBOS_DATABASE_URL and DBOS_SYSTEM_DATABASE_URL
-    # 2. OTLP traces endpoints (add the config data to the provided config)
-    # 3. Use the application name from the file. This is a defensive measure to ensure the application name is whatever it was registered with in the cloud
-    # 4. Remove admin_port is provided in code
-    # 5. Remove env vars if provided in code
-    # Optimistically assume that expected fields in config_from_file are present
+    # In DBOS Cloud, force the settings the platform exports as environment variables:
+    # 1. The application name from DBOS_APP_NAME, so it matches the name registered in the cloud
+    # 2. The system database url provided by DBOS_SYSTEM_DATABASE_URL
+    # 3. OTLP endpoints from DBOS__OTLP_TRACES_ENDPOINT and DBOS__OTLP_LOGS_ENDPOINT, added to any provided in code
 
-    config_from_file = load_config()
-    # Be defensive
-    if config_from_file is None:
-        return provided_config
-
-    # Set the application name to the cloud app name
-    provided_config["name"] = config_from_file["name"]
-
-    # Use the DBOS Cloud application and system database URLs
-    db_url = os.environ.get("DBOS_DATABASE_URL")
-    if db_url is None:
+    app_name = os.environ.get("DBOS_APP_NAME")
+    if app_name is None:
         raise DBOSInitializationError(
-            "DBOS_DATABASE_URL environment variable is not set. This is required to connect to the database."
+            "DBOS_APP_NAME environment variable is not set. This is required to identify the application in DBOS Cloud."
         )
-    provided_config["database_url"] = db_url
+    provided_config["name"] = app_name
+
+    # Use the DBOS Cloud system database URL
     system_db_url = os.environ.get("DBOS_SYSTEM_DATABASE_URL")
     if system_db_url is None:
         raise DBOSInitializationError(
@@ -619,65 +503,14 @@ def overwrite_config(provided_config: ConfigFile) -> ConfigFile:
                 "logsEndpoint": [],
             }
 
-    # This is a super messy from a typing perspective.
-    # Some of ConfigFile keys are optional -- but in practice they'll always be present in hosted environments
-    # So, for Mypy, we have to (1) check the keys are present in config_from_file and (2) cast telemetry/otlp_exporters to Dict[str, Any]
-    # (2) is required because, even tho we resolved these keys earlier, mypy doesn't remember that
-    if (
-        config_from_file.get("telemetry")
-        and config_from_file["telemetry"]
-        and config_from_file["telemetry"].get("OTLPExporter")
-    ):
-
-        telemetry = cast(Dict[str, Any], provided_config["telemetry"])
-        otlp_exporter = cast(Dict[str, Any], telemetry["OTLPExporter"])
-
-        # Merge the logsEndpoint and tracesEndpoint lists from the file with what we have
-        source_otlp = config_from_file["telemetry"]["OTLPExporter"]
-        if source_otlp:
-            tracesEndpoint = source_otlp.get("tracesEndpoint")
-            if tracesEndpoint:
-                otlp_exporter["tracesEndpoint"].extend(tracesEndpoint)
-            logsEndpoint = source_otlp.get("logsEndpoint")
-            if logsEndpoint:
-                otlp_exporter["logsEndpoint"].extend(logsEndpoint)
-
-    # Runtime config
-    if "runtimeConfig" in provided_config:
-        if "admin_port" in provided_config["runtimeConfig"]:
-            del provided_config["runtimeConfig"][
-                "admin_port"
-            ]  # Admin port is expected to be 3001 (the default in dbos/_admin_server.py::__init__ ) by DBOS Cloud
-        if "run_admin_server" in provided_config["runtimeConfig"]:
-            del provided_config["runtimeConfig"]["run_admin_server"]
-
-    # Env should be set from the hosting provider (e.g., DBOS Cloud)
-    if "env" in provided_config:
-        del provided_config["env"]
+    # Cast because mypy doesn't track that telemetry and OTLPExporter were resolved above
+    telemetry = cast(Dict[str, Any], provided_config["telemetry"])
+    otlp_exporter = cast(Dict[str, Any], telemetry["OTLPExporter"])
+    traces_endpoint = os.environ.get("DBOS__OTLP_TRACES_ENDPOINT")
+    if traces_endpoint:
+        otlp_exporter["tracesEndpoint"].append(traces_endpoint)
+    logs_endpoint = os.environ.get("DBOS__OTLP_LOGS_ENDPOINT")
+    if logs_endpoint:
+        otlp_exporter["logsEndpoint"].append(logs_endpoint)
 
     return provided_config
-
-
-def get_system_database_url(config: ConfigFile) -> str:
-    if "system_database_url" in config and config["system_database_url"] is not None:
-        return config["system_database_url"]
-    else:
-        assert config["database_url"] is not None
-        if config["database_url"].startswith("sqlite"):
-            return config["database_url"]
-        app_db_url = make_url(config["database_url"])
-        assert app_db_url.database is not None
-        sys_db_name = app_db_url.database + SystemSchema.sysdb_suffix
-        return app_db_url.set(database=sys_db_name).render_as_string(
-            hide_password=False
-        )
-
-
-def get_application_database_url(config: ConfigFile) -> str | None:
-    # For backwards compatibility, the application database URL is "database_url"
-    if config.get("database_url"):
-        assert config["database_url"]
-        return config["database_url"]
-    else:
-        # If the application database URL is not specified, return None
-        return None

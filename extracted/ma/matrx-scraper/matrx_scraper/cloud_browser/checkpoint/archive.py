@@ -19,13 +19,13 @@ import zstandard
 
 from .constants import (
     ARCHIVE_CHUNK_BYTES,
-    ARCHIVE_EXCLUDE_NAMES,
-    ARCHIVE_EXCLUDE_PREFIXES,
-    ARCHIVE_EXCLUDE_SUFFIXES,
     EXPECTED_ARCHIVE_MEMBERS,
     ZSTD_LEVEL,
 )
 from .errors import CaptureError, VerificationError
+from matrx_scraper.cloud_browser.profile_archive_policy import (
+    is_profile_archive_path_excluded,
+)
 
 
 @dataclass(frozen=True)
@@ -36,24 +36,8 @@ class ArchiveResult:
 
 
 def _is_excluded(rel_path: str) -> bool:
-    """rel_path uses forward slashes, relative to the archive root."""
-    name = rel_path.rsplit("/", 1)[-1]
-    if name in ARCHIVE_EXCLUDE_NAMES:
-        return True
-    if any(name.endswith(s) for s in ARCHIVE_EXCLUDE_SUFFIXES):
-        return True
-    # A prefix like "Default/GPUCache/" matches the tree rooted there, whether the
-    # path starts with it or contains it as a path segment ("/Default/GPUCache/…").
-    padded = f"/{rel_path}"
-    for prefix in ARCHIVE_EXCLUDE_PREFIXES:
-        seg = prefix.rstrip("/")
-        if (
-            rel_path.startswith(prefix)
-            or f"/{seg}/" in f"{padded}/"
-            or padded.startswith(f"/{seg}/")
-        ):
-            return True
-    return False
+    """Backward-compatible alias for the shared worker/checkpoint policy."""
+    return is_profile_archive_path_excluded(rel_path)
 
 
 def archive_profile(profile_dir: Path, dest_path: Path) -> ArchiveResult:

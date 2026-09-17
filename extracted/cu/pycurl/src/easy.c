@@ -183,13 +183,24 @@ assert_curl_state(const CurlObject *self)
 PYCURL_INTERNAL int
 check_curl_state(const CurlObject *self, int flags, const char *name)
 {
+    PyThreadState *callback_state;
+
     assert_curl_state(self);
     if ((flags & PYCURL_REQUIRE_HANDLE) && self->handle == NULL) {
         PyErr_Format(ErrorObject, "cannot invoke %s() - no curl handle", name);
         return -1;
     }
-    if ((flags & PYCURL_REQUIRE_NOT_RUNNING) && pycurl_get_thread_state(self) != NULL) {
+    callback_state = pycurl_get_thread_state(self);
+    if ((flags & PYCURL_REQUIRE_NOT_RUNNING) && callback_state != NULL) {
         PyErr_Format(ErrorObject, "cannot invoke %s() - perform() is currently running", name);
+        return -1;
+    }
+    if ((flags & PYCURL_REQUIRE_SAME_THREAD)
+        && callback_state != NULL
+        && PyThreadState_Get() != callback_state) {
+        PyErr_Format(ErrorObject,
+            "cannot invoke %s() - perform() is currently running "
+            "on another thread", name);
         return -1;
     }
     return 0;
@@ -320,6 +331,10 @@ do_curl_duphandle(CurlObject *self, PyObject *Py_UNUSED(ignored))
     CurlObject *dup;
     int res;
     int *ptr;
+
+    if (check_curl_state(self, PYCURL_REQUIRE_HANDLE, "duphandle") != 0) {
+        return NULL;
+    }
 
     /* Allocate python curl object */
     subtype = Py_TYPE(self);
@@ -466,6 +481,9 @@ do_curl_duphandle(CurlObject *self, PyObject *Py_UNUSED(ignored))
 
     /* Assign and incref ca certs related references */
     dup->ca_certs_obj = Py_XNewRef(self->ca_certs_obj);
+    if (dup->ca_certs_obj != NULL) {
+        curl_easy_setopt(dup->handle, CURLOPT_SSL_CTX_DATA, dup);
+    }
 
     /* Assign and incref every curl_slist allocated by setopt */
     dup->httpheader = (CurlSlistObject *)Py_XNewRef((PyObject *)self->httpheader);
@@ -500,6 +518,9 @@ do_curl_duphandle(CurlObject *self, PyObject *Py_UNUSED(ignored))
          */
         curlmime_duphandle_incref_data_cb_owners(self->mimepost_obj);
     }
+#endif
+#ifdef HAVE_CURLOPT_CURLU
+    dup->curl_url = Py_XNewRef(self->curl_url);
 #endif
 
     /* Success - return cloned object */
@@ -601,6 +622,15 @@ util_curl_xdecref(CurlObject *self, int flags, CURL *handle)
         }
         /* Decrement refcounts for mimepost object. */
         Py_CLEAR(self->mimepost_obj);
+    }
+#endif
+
+#ifdef HAVE_CURLOPT_CURLU
+    if (flags & PYCURL_MEMGROUP_CURLU) {
+        if (self->curl_url != NULL && handle != NULL) {
+            (void)curl_easy_setopt(handle, CURLOPT_CURLU, NULL);
+        }
+        Py_CLEAR(self->curl_url);
     }
 #endif
 
@@ -800,6 +830,9 @@ do_curl_traverse(CurlObject *self, visitproc visit, void *arg)
 
 #ifdef HAVE_CURL_MIME
     VISIT(self->mimepost_obj);
+#endif
+#ifdef HAVE_CURLOPT_CURLU
+    VISIT(self->curl_url);
 #endif
 
     VISIT(self->ca_certs_obj);

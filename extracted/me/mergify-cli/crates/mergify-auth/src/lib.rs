@@ -1,5 +1,7 @@
 //! `mergify auth` — the Mergify-issued, per-user credential.
 //!
+//! - [`browser`] — putting the approval page in front of the user,
+//!   which is a convenience the login never depends on.
 //! - [`device`] — the OAuth 2.0 device authorization grant
 //!   (RFC 8628) against the Mergify API, which is how the CLI gets
 //!   a credential without ever handling a password or a GitHub
@@ -7,16 +9,20 @@
 //! - [`identity`] — `GET /v1/user`, the only way to turn a
 //!   credential into an account name and the only way to tell a
 //!   live one from a revoked one.
+//! - [`machine`] — the hostname a login sends so the approval page
+//!   can name the machine asking.
 //! - [`login`] / [`logout`] / [`status`] — the three commands.
 //!
 //! The credential itself is stored by
 //! [`mergify_core::CredentialStore`]; this crate obtains it,
 //! revokes it, and reports on it.
 
+pub mod browser;
 pub mod device;
 pub mod identity;
 pub mod login;
 pub mod logout;
+pub mod machine;
 pub mod status;
 
 #[cfg(test)]

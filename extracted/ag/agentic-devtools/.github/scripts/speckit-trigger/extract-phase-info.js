@@ -8,12 +8,34 @@ const SUPPORTED_CLOUD_PHASES = new Set([1, 2, 3]);
 const HIERARCHY_LEVEL_PATTERN = /^level:[ \t]*(?:"([^"]*)"|'([^']*)'|([^#\n]*?))(?:[ \t]+#.*)?[ \t]*$/;
 const CLOUD_MARKER_PATTERN = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=([1-3]) hierarchy=(epic|feature|task) correlation_id=([0-9a-fA-F-]+)\s*-->/;
 const CLOUD_AGENT_LOGINS = new Set(['copilot-swe-agent', 'copilot-swe-agent[bot]']);
-const TRUSTED_MARKER_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+// `author_association` describes a commenter's *repo role*, not the credential that
+// authored the comment — any current OWNER/MEMBER/COLLABORATOR could post this exact
+// marker text as an ordinary comment and have it mistaken for automation output. The
+// normalizer workflow posts its status comments through `github-script` using
+// `SPECKIT_PR_TOKEN`, `COPILOT_GITHUB_TOKEN`, or `DEFAULT_CLASSIC_REPO_WORKFLOW_PAT`
+// (see `.github/workflows/speckit-agent-pr-normalizer.yml`), all of which are classic
+// PATs GitHub attributes to their owning account rather than `github-actions[bot]`.
+// `SPECKIT_PR_TOKEN` and `DEFAULT_CLASSIC_REPO_WORKFLOW_PAT` are documented as owned by
+// `AMARSNIK_swica` (`.github/workflows/README.md`, `docs/ci-secrets.md`), the same
+// identity already trusted for equivalent PAT-authored automation output elsewhere in
+// this repo (`TRUSTED_SYNTHETIC_USERS` in `.github/workflows/synthetic-copilot-review.yml`).
+// Trust that exact login instead of the broader association set, while continuing to
+// accept the legacy `github-actions[bot]` / `BOT` shape for comments posted before this
+// change. `agdt-assign-speckit-agent` posts source-issue assignment markers through the
+// same PAT-owner identity, so `loadTrustedIssueMarkers()` below reuses this same check
+// rather than trusting the marker's author_association.
+const TRUSTED_NORMALIZER_LOGINS = new Set(['AMARSNIK_swica']);
 const PHASE_LABEL_PATTERN = /^speckit:phase-([1-5])$/;
 const HIERARCHY_LABEL_PATTERN = /^speckit:level-(epic|feature|task)$/;
 const NORMALIZER_SUCCESS_PATTERN = /<!--\s*speckit:agent-pr-normalizer pr=(\d+) correlation_id=([0-9a-fA-F-]+|none)\s*-->/;
 function isCloudAgentLogin(login) {
   return typeof login === 'string' && CLOUD_AGENT_LOGINS.has(login.toLowerCase());
+}
+
+function isTrustedNormalizerComment(comment) {
+  return comment.user?.login === 'github-actions[bot]'
+    || comment.author_association === 'BOT'
+    || TRUSTED_NORMALIZER_LOGINS.has(comment.user?.login || '');
 }
 function expectedCloudBaseRef(issueNumber, phase, hierarchyLevel) {
   if (phase === 2) {
@@ -45,7 +67,7 @@ function getSuccessfulNormalization(comments, prNumber) {
     const match = body.match(NORMALIZER_SUCCESS_PATTERN);
     return match
       && Number(match[1]) === prNumber
-      && (comment.user?.login === 'github-actions[bot]' || comment.author_association === 'BOT')
+      && isTrustedNormalizerComment(comment)
       ? { comment, phase: Number(body.match(/^- Phase: ([1-5])$/m)?.[1] || 0) }
       : null;
   }).find(Boolean);
@@ -54,6 +76,26 @@ function getSuccessfulNormalization(comments, prNumber) {
 
 function hasSuccessfulNormalization(comments, prNumber) {
   return Boolean(getSuccessfulNormalization(comments, prNumber));
+}
+
+// A `correlation_id=none` normalizer success comment only proves the PR was
+// markerless the moment the normalizer ran. It cannot distinguish a PR that
+// was *always* markerless (a genuine legacy Copilot PR) from one that was
+// previously normalized against a real `speckit:agent-assigned` marker whose
+// UUID correlation is still visible in an earlier normalizer comment, but
+// whose body marker (and possibly phase label) was later stripped. Only the
+// former should be trusted through the markerless fallback path.
+function hasPriorCorrelatedNormalization(comments, prNumber) {
+  return comments.some(comment => {
+    const body = comment.body || '';
+    const match = body.match(NORMALIZER_SUCCESS_PATTERN);
+    return Boolean(
+      match
+      && Number(match[1]) === prNumber
+      && match[2] !== 'none'
+      && isTrustedNormalizerComment(comment)
+    );
+  });
 }
 
 function analyzeChangedFiles(changedFiles, labeledLevel, core) {
@@ -281,7 +323,12 @@ async function loadTrustedIssueMarkers(github, context, issueNumber) {
     .map(comment => ({ comment, match: (comment.body || '').match(CLOUD_MARKER_PATTERN) }))
     .filter(entry => {
       if (!entry.match) return false;
-      return TRUSTED_MARKER_ASSOCIATIONS.has(entry.comment?.author_association || '');
+      // `agdt-assign-speckit-agent` posts this exact assignment marker using the same
+      // PAT-owner identity (`SPECKIT_PR_TOKEN` / `COPILOT_GITHUB_TOKEN`) the normalizer
+      // uses for its status comments, so the same exact-identity check applies here —
+      // an arbitrary OWNER/MEMBER/COLLABORATOR must not be able to forge or resurrect
+      // an assignment marker just by holding a privileged repo role.
+      return isTrustedNormalizerComment(entry.comment);
     })
     .sort((a, b) => new Date(b.comment.created_at) - new Date(a.comment.created_at));
 }
@@ -504,16 +551,27 @@ async function run({ github, context, core, workflowDispatchPhase, workflowDispa
       }
     }
   }
+  if (cloudMarkerMatch && !trustedCloudMarker) {
+    core.setFailed('Could not extract phase number from PR labels or cloud-agent marker: non-authoritative cloud-agent marker');
+    return;
+  }
   const completedPhaseMatch = findFirstLabelMatch(labels, /^speckit:phase-(\d+)$/);
   let normalizationSuccess = null;
-  if (!completedPhaseMatch && /^copilot\/.+/.test(pr.head?.ref || '') && pr.number) {
+  if (!completedPhaseMatch && !cloudMarkerMatch && /^copilot\/.+/.test(pr.head?.ref || '') && pr.number) {
     const comments = await github.paginate(github.rest.issues.listComments, {
       owner: context.repo.owner,
       repo: context.repo.repo,
       issue_number: pr.number,
       per_page: 100,
     });
-    normalizationSuccess = getSuccessfulNormalization(comments, pr.number);
+    if (!hasPriorCorrelatedNormalization(comments, pr.number)) {
+      normalizationSuccess = getSuccessfulNormalization(comments, pr.number);
+    } else {
+      core.warning(
+        `PR #${pr.number} has no current cloud-agent marker but comment history shows a prior ` +
+        'UUID-correlated normalization; treating as a superseded assignment rather than a legacy markerless PR.'
+      );
+    }
   }
   let completedPhase = 0;
   if (completedPhaseMatch) {
@@ -524,6 +582,19 @@ async function run({ github, context, core, workflowDispatchPhase, workflowDispa
   } else if (normalizationSuccess?.phase) {
     completedPhase = normalizationSuccess.phase;
     core.info(`No speckit:phase-N label found; using successful normalizer phase ${completedPhase}`);
+  } else if (
+    !cloudMarkerMatch
+    && (pr.body || '').includes('speckit:agent-assigned schema_version=1 engine=cloud-agent')
+  ) {
+    core.warning(
+      `PR #${pr.number} only quotes the cloud-agent marker prefix; skipping phase progression.`
+    );
+    core.setOutput('next_phase', '0');
+    core.setOutput('issue_number', '0');
+    core.setOutput('completed_phase', '0');
+    core.setOutput('next_phase_name', '');
+    core.setOutput('merged_pr_url', '');
+    return;
   } else {
     core.setFailed('Could not extract phase number from PR labels or cloud-agent marker');
     return;
@@ -684,7 +755,11 @@ async function run({ github, context, core, workflowDispatchPhase, workflowDispa
           per_page: 100,
         });
       const hasFailedLabel = labels.includes('speckit:failed');
-      if (!hasFailedLabel && hasSuccessfulNormalization(comments, pr.number)) {
+      if (
+        !hasFailedLabel
+        && !hasPriorCorrelatedNormalization(comments, pr.number)
+        && hasSuccessfulNormalization(comments, pr.number)
+      ) {
         issueNumber = issueNumberFromBranchOrBody;
         core.info(`Using normalized Copilot branch '${headRef}' for issue #${issueNumber}`);
       } else {

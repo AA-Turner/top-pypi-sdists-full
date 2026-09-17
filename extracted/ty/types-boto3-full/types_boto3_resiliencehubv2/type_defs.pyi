@@ -33,15 +33,20 @@ from .literals import (
     DependencyCriticalityType,
     DependencyDiscoveryInputType,
     DependencyDiscoveryStatusType,
+    DependencyInsightsErrorCodeType,
+    DependencyInsightsStatusType,
     EksLabelSelectorOperatorType,
     FailureCategoryType,
     FindingSeverityType,
     FindingStatusType,
     InputSourceTypeType,
+    InsightsCategoryType,
     MultiAzDisasterRecoveryApproachType,
     MultiRegionDisasterRecoveryApproachType,
     ParameterTypeType,
     PolicyComponentType,
+    PolicyDisassociationReasonType,
+    PolicyEventTypeType,
     PolicyValueSourceType,
     QueryGranularityType,
     ReportGenerationErrorCodeType,
@@ -124,6 +129,7 @@ __all__ = (
     "DeleteUserJourneyRequestTypeDef",
     "DeleteUserJourneyResponseTypeDef",
     "DependencyDiscoveryConfigTypeDef",
+    "DependencyInsightTypeDef",
     "DependencySummaryTypeDef",
     "DisasterRecoverySourceTypeDef",
     "EdgePropertySummaryTypeDef",
@@ -142,6 +148,8 @@ __all__ = (
     "FailedReportOutputTypeDef",
     "FindingSummaryTypeDef",
     "FindingTypeDef",
+    "GetDependencyInsightsRequestTypeDef",
+    "GetDependencyInsightsResponseTypeDef",
     "GetFailureModeFindingRequestTypeDef",
     "GetFailureModeFindingResponseTypeDef",
     "GetPolicyRequestTypeDef",
@@ -186,6 +194,9 @@ __all__ = (
     "ListPoliciesRequestPaginateTypeDef",
     "ListPoliciesRequestTypeDef",
     "ListPoliciesResponseTypeDef",
+    "ListPolicyEventsRequestPaginateTypeDef",
+    "ListPolicyEventsRequestTypeDef",
+    "ListPolicyEventsResponseTypeDef",
     "ListReportsRequestPaginateTypeDef",
     "ListReportsRequestTypeDef",
     "ListReportsRequestWaitTypeDef",
@@ -251,6 +262,13 @@ __all__ = (
     "PermissionModelOutputTypeDef",
     "PermissionModelTypeDef",
     "PermissionModelUnionTypeDef",
+    "PolicyAttachedToServiceMetadataTypeDef",
+    "PolicyDeletedMetadataTypeDef",
+    "PolicyDetachedFromServiceMetadataTypeDef",
+    "PolicyEventDetailsTypeDef",
+    "PolicyEventMetadataTypeDef",
+    "PolicyEventTypeDef",
+    "PolicySharingRevokedMetadataTypeDef",
     "PolicySummaryTypeDef",
     "PolicyTypeDef",
     "PutTestSourcesRequestTypeDef",
@@ -296,6 +314,8 @@ __all__ = (
     "ServiceTypeDef",
     "ServiceWorkflowUpdatedMetadataTypeDef",
     "SloSourceTypeDef",
+    "StartDependencyInsightsRequestTypeDef",
+    "StartDependencyInsightsResponseTypeDef",
     "StartFailureModeAssessmentRequestTypeDef",
     "StartFailureModeAssessmentResponseTypeDef",
     "StartTestRunRequestTypeDef",
@@ -557,6 +577,10 @@ class DependencyDiscoveryConfigTypeDef(TypedDict):
     eligibleResourceCount: NotRequired[int]
     message: NotRequired[str]
 
+class DependencyInsightTypeDef(TypedDict):
+    category: InsightsCategoryType
+    description: str
+
 class DisasterRecoverySourceTypeDef(TypedDict):
     value: NotRequired[str]
     policyName: NotRequired[str]
@@ -629,6 +653,9 @@ class ObservabilityRecommendationTypeDef(TypedDict):
 
 class TestingRecommendationTypeDef(TypedDict):
     suggestedChanges: NotRequired[list[str]]
+
+class GetDependencyInsightsRequestTypeDef(TypedDict):
+    serviceArn: str
 
 class GetFailureModeFindingRequestTypeDef(TypedDict):
     findingId: str
@@ -706,6 +733,7 @@ ListInputSourcesRequestTypeDef = TypedDict(
 )
 
 class ListPoliciesRequestTypeDef(TypedDict):
+    accountId: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -882,6 +910,20 @@ class ObservabilityAlarmSummaryTypeDef(TypedDict):
     accountId: str
     createdAt: NotRequired[datetime]
 
+class PolicyAttachedToServiceMetadataTypeDef(TypedDict):
+    serviceArn: NotRequired[str]
+    accountId: NotRequired[str]
+
+class PolicyDeletedMetadataTypeDef(TypedDict):
+    affectedServiceCount: NotRequired[int]
+
+class PolicyDetachedFromServiceMetadataTypeDef(TypedDict):
+    serviceArn: NotRequired[str]
+    accountId: NotRequired[str]
+
+class PolicySharingRevokedMetadataTypeDef(TypedDict):
+    affectedServiceCount: NotRequired[int]
+
 class QueryDataPointTypeDef(TypedDict):
     timestamp: datetime
     queryCount: int
@@ -942,10 +984,15 @@ class ServiceFunctionUpdatedMetadataTypeDef(TypedDict):
 class ServicePolicyAssociatedMetadataTypeDef(TypedDict):
     policyName: NotRequired[str]
     policyArn: NotRequired[str]
+    policyOwnerAccountId: NotRequired[str]
+    policySource: NotRequired[PolicyValueSourceType]
 
 class ServicePolicyDisassociatedMetadataTypeDef(TypedDict):
     policyName: NotRequired[str]
     policyArn: NotRequired[str]
+    policyOwnerAccountId: NotRequired[str]
+    policySource: NotRequired[PolicyValueSourceType]
+    reason: NotRequired[PolicyDisassociationReasonType]
 
 class ServiceResourcesAssociatedMetadataTypeDef(TypedDict):
     resourceCount: NotRequired[int]
@@ -971,6 +1018,10 @@ class ServiceWorkflowUpdatedMetadataTypeDef(TypedDict):
 class ServiceReferenceTypeDef(TypedDict):
     serviceId: NotRequired[str]
     serviceName: NotRequired[str]
+
+class StartDependencyInsightsRequestTypeDef(TypedDict):
+    serviceArn: str
+    clientToken: NotRequired[str]
 
 class StartFailureModeAssessmentRequestTypeDef(TypedDict):
     serviceArn: str
@@ -1184,6 +1235,10 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class StartDependencyInsightsResponseTypeDef(TypedDict):
+    status: DependencyInsightsStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class StartFailureModeAssessmentResponseTypeDef(TypedDict):
     assessmentId: str
     serviceArn: str
@@ -1223,6 +1278,7 @@ class CreatePolicyRequestTypeDef(TypedDict):
     multiAz: NotRequired[MultiAzTargetsTypeDef]
     multiRegion: NotRequired[MultiRegionTargetsTypeDef]
     dataRecovery: NotRequired[DataRecoveryTargetsTypeDef]
+    sharingEnabled: NotRequired[bool]
     kmsKeyId: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     clientToken: NotRequired[str]
@@ -1234,6 +1290,8 @@ class PolicySummaryTypeDef(TypedDict):
     multiAz: NotRequired[MultiAzTargetsTypeDef]
     multiRegion: NotRequired[MultiRegionTargetsTypeDef]
     dataRecovery: NotRequired[DataRecoveryTargetsTypeDef]
+    sharingEnabled: NotRequired[bool]
+    organizationId: NotRequired[str]
     associatedServiceCount: NotRequired[int]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
@@ -1246,6 +1304,8 @@ class PolicyTypeDef(TypedDict):
     multiAz: NotRequired[MultiAzTargetsTypeDef]
     multiRegion: NotRequired[MultiRegionTargetsTypeDef]
     dataRecovery: NotRequired[DataRecoveryTargetsTypeDef]
+    sharingEnabled: NotRequired[bool]
+    organizationId: NotRequired[str]
     kmsKeyId: NotRequired[str]
     tags: NotRequired[dict[str, str]]
     associatedServiceCount: NotRequired[int]
@@ -1267,6 +1327,7 @@ class UpdatePolicyRequestTypeDef(TypedDict):
     multiAz: NotRequired[MultiAzTargetsTypeDef]
     multiRegion: NotRequired[MultiRegionTargetsTypeDef]
     dataRecovery: NotRequired[DataRecoveryTargetsTypeDef]
+    sharingEnabled: NotRequired[bool]
 
 class CreateServiceFunctionResponseTypeDef(TypedDict):
     serviceFunction: ServiceFunctionTypeDef
@@ -1345,6 +1406,15 @@ class ServiceSummaryTypeDef(TypedDict):
     accountId: NotRequired[str]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+
+class GetDependencyInsightsResponseTypeDef(TypedDict):
+    overview: str
+    insights: list[DependencyInsightTypeDef]
+    status: DependencyInsightsStatusType
+    createdAt: datetime
+    errorCode: DependencyInsightsErrorCodeType
+    errorMessage: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ServiceTopologyEdgeSummaryTypeDef(TypedDict):
     sourceResourceIdentifier: str
@@ -1434,6 +1504,7 @@ ListInputSourcesRequestPaginateTypeDef = TypedDict(
 )
 
 class ListPoliciesRequestPaginateTypeDef(TypedDict):
+    accountId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListReportsRequestPaginateTypeDef(TypedDict):
@@ -1565,6 +1636,21 @@ class ListFailureModeAssessmentsRequestWaitTypeDef(TypedDict):
     nextToken: NotRequired[str]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
+class ListPolicyEventsRequestPaginateTypeDef(TypedDict):
+    policyArn: str
+    eventTypes: NotRequired[Sequence[PolicyEventTypeType]]
+    startTime: NotRequired[TimestampTypeDef]
+    endTime: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPolicyEventsRequestTypeDef(TypedDict):
+    policyArn: str
+    eventTypes: NotRequired[Sequence[PolicyEventTypeType]]
+    startTime: NotRequired[TimestampTypeDef]
+    endTime: NotRequired[TimestampTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
 class ListServiceEventsRequestPaginateTypeDef(TypedDict):
     serviceArn: str
     eventTypes: NotRequired[Sequence[ServiceEventTypeType]]
@@ -1648,6 +1734,12 @@ class ListUserJourneysResponseTypeDef(TypedDict):
     userJourneySummaries: list[UserJourneySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class PolicyEventMetadataTypeDef(TypedDict):
+    policyAttachedToService: NotRequired[PolicyAttachedToServiceMetadataTypeDef]
+    policyDetachedFromService: NotRequired[PolicyDetachedFromServiceMetadataTypeDef]
+    policySharingRevoked: NotRequired[PolicySharingRevokedMetadataTypeDef]
+    policyDeleted: NotRequired[PolicyDeletedMetadataTypeDef]
 
 class QueryRangeTypeDef(TypedDict):
     startTime: datetime
@@ -1803,6 +1895,11 @@ class UpdateFailureModeFindingResponseTypeDef(TypedDict):
     finding: FindingTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class PolicyEventDetailsTypeDef(TypedDict):
+    title: str
+    description: str
+    eventMetadata: NotRequired[PolicyEventMetadataTypeDef]
+
 class DependencySummaryTypeDef(TypedDict):
     dependencyId: str
     serviceArn: str
@@ -1907,6 +2004,14 @@ InputSourceSummaryTypeDef = TypedDict(
 )
 EksLabelSelectorUnionTypeDef = Union[EksLabelSelectorTypeDef, EksLabelSelectorOutputTypeDef]
 
+class PolicyEventTypeDef(TypedDict):
+    eventId: str
+    timestamp: datetime
+    eventType: PolicyEventTypeType
+    policyArn: str
+    actor: EventActorTypeDef
+    eventDetails: PolicyEventDetailsTypeDef
+
 class ListDependenciesResponseTypeDef(TypedDict):
     dependencySummaries: list[DependencySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2001,6 +2106,11 @@ class EksSourceTypeDef(TypedDict):
     clusterArn: str
     namespaces: Sequence[str]
     labelSelector: NotRequired[EksLabelSelectorUnionTypeDef]
+
+class ListPolicyEventsResponseTypeDef(TypedDict):
+    events: list[PolicyEventTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class CreateServiceResponseTypeDef(TypedDict):
     service: ServiceTypeDef

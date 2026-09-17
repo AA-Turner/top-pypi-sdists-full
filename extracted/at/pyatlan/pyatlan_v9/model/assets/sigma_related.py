@@ -61,7 +61,8 @@ class RelatedSigma(RelatedBI):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "Sigma"
+        if self.type_name is UNSET:
+            self.type_name = "Sigma"
 
 
 class RelatedSigmaDataElement(RelatedSigma):
@@ -85,7 +86,8 @@ class RelatedSigmaDataElement(RelatedSigma):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SigmaDataElement"
+        if self.type_name is UNSET:
+            self.type_name = "SigmaDataElement"
 
 
 class RelatedSigmaDataElementField(RelatedSigma):
@@ -98,7 +100,7 @@ class RelatedSigmaDataElementField(RelatedSigma):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "SigmaDataElementField" so it serializes correctly
 
-    sigma_data_element_field_is_hidden: Union[bool, None, UnsetType] = UNSET
+    sigma_is_hidden: Union[bool, None, UnsetType] = UNSET
     """Whether this field is hidden (true) or not (false)."""
 
     sigma_data_element_field_formula: Union[str, None, UnsetType] = UNSET
@@ -106,7 +108,8 @@ class RelatedSigmaDataElementField(RelatedSigma):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SigmaDataElementField"
+        if self.type_name is UNSET:
+            self.type_name = "SigmaDataElementField"
 
 
 class RelatedSigmaDataset(RelatedSigma):
@@ -119,12 +122,13 @@ class RelatedSigmaDataset(RelatedSigma):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "SigmaDataset" so it serializes correctly
 
-    sigma_dataset_column_count: Union[int, None, UnsetType] = UNSET
+    sigma_column_count: Union[int, None, UnsetType] = UNSET
     """Number of columns in this dataset."""
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SigmaDataset"
+        if self.type_name is UNSET:
+            self.type_name = "SigmaDataset"
 
 
 class RelatedSigmaDatasetColumn(RelatedSigma):
@@ -145,7 +149,8 @@ class RelatedSigmaDatasetColumn(RelatedSigma):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SigmaDatasetColumn"
+        if self.type_name is UNSET:
+            self.type_name = "SigmaDatasetColumn"
 
 
 class RelatedSigmaPage(RelatedSigma):
@@ -163,7 +168,8 @@ class RelatedSigmaPage(RelatedSigma):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SigmaPage"
+        if self.type_name is UNSET:
+            self.type_name = "SigmaPage"
 
 
 class RelatedSigmaWorkbook(RelatedSigma):
@@ -181,7 +187,8 @@ class RelatedSigmaWorkbook(RelatedSigma):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SigmaWorkbook"
+        if self.type_name is UNSET:
+            self.type_name = "SigmaWorkbook"
 
 
 class RelatedSigmaDataModel(RelatedSigma):
@@ -217,7 +224,8 @@ class RelatedSigmaDataModel(RelatedSigma):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SigmaDataModel"
+        if self.type_name is UNSET:
+            self.type_name = "SigmaDataModel"
 
 
 class RelatedSigmaDataModelColumn(RelatedSigma):
@@ -244,4 +252,5 @@ class RelatedSigmaDataModelColumn(RelatedSigma):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "SigmaDataModelColumn"
+        if self.type_name is UNSET:
+            self.type_name = "SigmaDataModelColumn"

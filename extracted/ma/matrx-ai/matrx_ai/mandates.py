@@ -251,7 +251,12 @@ def _capture_user_input(value: Any) -> str | None:
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
-async def resolve_mandate_by_key(mandate_key: str, *, consumer: str) -> MandateResolution:
+async def resolve_mandate_by_key(
+    mandate_key: str,
+    *,
+    consumer: str,
+    report_failure: bool = True,
+) -> MandateResolution:
     """Ask the host WHICH agent a mandate KEY points at, or refuse.
 
     THE one resolution door. Two kinds of consumer arrive here and both must
@@ -274,6 +279,11 @@ async def resolve_mandate_by_key(mandate_key: str, *, consumer: str) -> MandateR
 
     Raises :class:`MandateResolutionUnavailable` when no resolver is installed or
     the resolver fails. It NEVER answers from an id frozen in code.
+
+    ``report_failure`` is false only for a consumer that deliberately absorbs an
+    unfulfilled mandate and emits its own truthful durable finding.  That avoids
+    filing a second ``mandate_resolution_failed`` row which falsely says the run
+    was refused after the consumer completed it on its authored configuration.
     """
     if not mandate_key:
         raise MandateResolutionUnavailable("<none>", consumer, "no mandate_key was given")
@@ -288,7 +298,8 @@ async def resolve_mandate_by_key(mandate_key: str, *, consumer: str) -> MandateR
     try:
         resolution = await _MANDATE_RESOLVER(mandate_key)
     except Exception as exc:
-        await _report_resolution_failure(mandate_key=mandate_key, consumer=consumer, exc=exc)
+        if report_failure:
+            await _report_resolution_failure(mandate_key=mandate_key, consumer=consumer, exc=exc)
         raise MandateResolutionUnavailable(
             mandate_key,
             consumer,

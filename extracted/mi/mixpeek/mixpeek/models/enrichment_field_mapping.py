@@ -27,7 +27,7 @@ class EnrichmentFieldMapping(BaseModel):
     """
     Maps a cluster result field to a document enrichment field.  Similar to InputMapping pattern used throughout Mixpeek.
     """ # noqa: E501
-    source_field: StrictStr = Field(description="Field from cluster results to include. Available fields: cluster_id, cluster_label, distance_to_centroid, member_count, keywords, x, y, z (visualization coords), metadata.*")
+    source_field: StrictStr = Field(description="Field from cluster results to include. Available fields: cluster_id, cluster_label, distance_to_centroid, member_count, keywords, x, y, z (visualization coords), metadata.*. cluster_id is the run's cluster index (cl_0, cl_1, ...); an execution with a filters override writes it qualified by that partition (<partition>:cl_0), so partitions of one cluster never share a value.")
     target_field: StrictStr = Field(description="Target field name in enriched document. Example: 'category_id' for cluster_id, 'product_category' for cluster_label")
     __properties: ClassVar[List[str]] = ["source_field", "target_field"]
 

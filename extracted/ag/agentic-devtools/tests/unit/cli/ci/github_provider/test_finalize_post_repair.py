@@ -85,6 +85,16 @@ def _build_sdk_client_for_response(response: str) -> tuple[MagicMock, MagicMock]
     return mock_copilot, mock_session_module
 
 
+@pytest.fixture(autouse=True)
+def _mock_network_defaults_for_finalize():
+    with (
+        patch.object(GitHubActionsProvider, "list_pr_issue_events", return_value=[]),
+        patch.object(GitHubActionsProvider, "list_pr_session_summaries", return_value=[]),
+        patch.object(GitHubActionsProvider, "get_pr_token_login", return_value="copilot-swe-agent[bot]"),
+    ):
+        yield
+
+
 class TestFinalizePostRepair:
     """Tests for post-repair finalization orchestration."""
 
@@ -164,9 +174,14 @@ class TestFinalizePostRepair:
         mock_post_comment.assert_called_once()
 
     @patch.object(GitHubActionsProvider, "post_comment_as_pr_token")
+    @patch.object(GitHubActionsProvider, "list_pr_session_summaries", return_value=[])
+    @patch.object(GitHubActionsProvider, "list_pr_issue_events", return_value=[])
+    @patch.object(GitHubActionsProvider, "get_pr_token_login", return_value="copilot-swe-agent[bot]")
     @patch.object(GitHubActionsProvider, "list_issue_comments", return_value=[])
     @patch.object(GitHubActionsProvider, "_list_unresolve_reply_parent_comment_ids", return_value=set())
     @patch.object(GitHubActionsProvider, "list_review_thread_states", return_value={})
+    @patch.object(GitHubActionsProvider, "_fetch_latest_thread_comment_author_login_by_comment_id", return_value={})
+    @patch.object(GitHubActionsProvider, "_fetch_latest_thread_comment_body_by_comment_id", return_value={})
     @patch.object(GitHubActionsProvider, "_fetch_outdated_by_comment_id", return_value={})
     @patch.object(GitHubActionsProvider, "_verify_comments_via_tiered_engine", return_value={})
     @patch("agentic_devtools.cli.ci.github_provider._resolve_review_threads")
@@ -187,9 +202,14 @@ class TestFinalizePostRepair:
         mock_resolve,
         mock_verify_batch,
         _mock_outdated,
+        _mock_latest_body,
+        _mock_latest_author,
         _mock_thread_states,
         _mock_unresolve,
         _mock_issue_comments,
+        _mock_get_pr_token_login,
+        _mock_issue_events,
+        _mock_session_summaries,
         _mock_post_comment,
     ) -> None:
         mock_list_reviews.return_value = [
@@ -219,9 +239,14 @@ class TestFinalizePostRepair:
         assert "<!-- ai-pr-loop:finalized-review" in _mock_post_comment.call_args.args[1]
 
     @patch.object(GitHubActionsProvider, "post_comment_as_pr_token")
+    @patch.object(GitHubActionsProvider, "list_pr_session_summaries", return_value=[])
+    @patch.object(GitHubActionsProvider, "list_pr_issue_events", return_value=[])
+    @patch.object(GitHubActionsProvider, "get_pr_token_login", return_value="copilot-swe-agent[bot]")
     @patch.object(GitHubActionsProvider, "list_issue_comments", return_value=[])
     @patch.object(GitHubActionsProvider, "_list_unresolve_reply_parent_comment_ids", return_value=set())
     @patch.object(GitHubActionsProvider, "list_review_thread_states", return_value={})
+    @patch.object(GitHubActionsProvider, "_fetch_latest_thread_comment_author_login_by_comment_id", return_value={})
+    @patch.object(GitHubActionsProvider, "_fetch_latest_thread_comment_body_by_comment_id", return_value={})
     @patch.object(GitHubActionsProvider, "_fetch_outdated_by_comment_id", return_value={})
     @patch.object(GitHubActionsProvider, "_verify_comments_via_tiered_engine")
     @patch("agentic_devtools.cli.ci.github_provider._resolve_review_threads")
@@ -244,9 +269,14 @@ class TestFinalizePostRepair:
         mock_resolve,
         mock_verify_batch,
         _mock_outdated,
+        _mock_latest_body,
+        _mock_latest_author,
         _mock_thread_states,
         _mock_unresolve,
         _mock_issue_comments,
+        _mock_get_pr_token_login,
+        _mock_issue_events,
+        _mock_session_summaries,
         _mock_post_comment,
     ) -> None:
         mock_load_state.return_value = MagicMock(verdict=ResolutionVerdict.ABANDONED)
@@ -1932,6 +1962,158 @@ class TestFinalizePostRepair:
         assert mock_gh_api.call_count == 2
 
     @patch("agentic_devtools.cli.ci.github_provider._gh_api")
+    @patch.dict(
+        os.environ,
+        {
+            "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-123",
+            "AGDT_USE_AGENT_TASKS_API": "1",
+            "GITHUB_ACTOR": "github-actions[bot]",
+        },
+        clear=False,
+    )
+    def test_dispatch_repair_uses_agent_tasks_api_when_enabled(self, mock_gh_api) -> None:
+        mock_gh_api.side_effect = [
+            json.dumps(
+                {
+                    "number": 42,
+                    "title": "PR 42",
+                    "base": {"ref": "main"},
+                    "head": {"ref": "feature/x", "sha": "abc123def456"},
+                }
+            ),  # get_pr_metadata
+            json.dumps({"id": 9999, "html_url": "https://github.com/owner/repo/tasks/task-123"}),  # post agent task
+            json.dumps(
+                [
+                    {
+                        "id": 888,
+                        "body": "<!-- agdt:ai-pr-loop-summary -->\n#### 🤖 AI PR Loop Run",
+                        "user": {"login": "github-actions[bot]"},
+                    }
+                ]
+            ),  # list_issue_comments in _find_active_summary_comment
+            json.dumps({"id": 888}),  # update_comment
+            "{}",  # _reply_to_review_comment
+        ]
+        provider = GitHubActionsProvider(repo="owner/repo")
+        result = provider.dispatch_repair(
+            pr_number=42,
+            head_sha="abc123def456",
+            repair_type="review",
+            failed_checks=[],
+            review_comments=[
+                ReviewCommentInfo(id=-1, body="suppressed", path="f.py", html_url=""),
+                ReviewCommentInfo(id=301, body="fix me", path="f.py", html_url="http://url"),
+            ],
+            review_id=99,
+        )
+        assert result == 1
+        # Second call was POST to /agents/repos/owner/repo/tasks
+        assert mock_gh_api.call_args_list[1].args[0] == "/agents/repos/owner/repo/tasks"
+        assert mock_gh_api.call_args_list[1].kwargs["method"] == "POST"
+        assert mock_gh_api.call_args_list[3].args[0] == "/repos/owner/repo/issues/comments/888"
+        # Fifth call was reply to comment 301
+        assert mock_gh_api.call_args_list[4].args[0] == "/repos/owner/repo/pulls/42/comments/301/replies"
+
+    @patch("agentic_devtools.cli.ci.github_provider._gh_api")
+    @patch.dict(
+        os.environ,
+        {
+            "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-123",
+            "AGDT_USE_AGENT_TASKS_API": "1",
+            "GITHUB_ACTOR": "github-actions[bot]",
+        },
+        clear=False,
+    )
+    def test_dispatch_repair_uses_agent_tasks_api_reply_failure_is_non_fatal(self, mock_gh_api) -> None:
+        mock_gh_api.side_effect = [
+            json.dumps(
+                {
+                    "number": 42,
+                    "title": "PR 42",
+                    "base": {"ref": "main"},
+                    "head": {"ref": "feature/x", "sha": "abc123def456"},
+                }
+            ),
+            json.dumps({"id": 9999, "html_url": "https://github.com/owner/repo/tasks/task-123"}),
+            "[]",
+            RuntimeError("reply failed"),
+        ]
+        provider = GitHubActionsProvider(repo="owner/repo")
+        result = provider.dispatch_repair(
+            pr_number=42,
+            head_sha="abc123def456",
+            repair_type="review",
+            failed_checks=[],
+            review_comments=[ReviewCommentInfo(id=302, body="fix me", path="f.py", html_url="http://url")],
+            review_id=99,
+        )
+        assert result == 1
+
+    @patch("agentic_devtools.cli.ci.github_provider._gh_api")
+    @patch.dict(
+        os.environ,
+        {
+            "DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-123",
+            "AGDT_USE_AGENT_TASKS_API": "1",
+            "GITHUB_ACTOR": "github-actions[bot]",
+        },
+        clear=False,
+    )
+    def test_dispatch_repair_uses_agent_tasks_api_without_summary(self, mock_gh_api) -> None:
+        mock_gh_api.side_effect = [
+            json.dumps(
+                {
+                    "number": 42,
+                    "title": "PR 42",
+                    "base": {"ref": "main"},
+                    "head": {"ref": "feature/x", "sha": "abc123def456"},
+                }
+            ),
+            json.dumps({"id": 9999, "html_url": "", "url": ""}),
+            "[]",  # summary not found
+        ]
+        provider = GitHubActionsProvider(repo="owner/repo")
+        result = provider.dispatch_repair(
+            pr_number=42,
+            head_sha="abc123def456",
+            repair_type="review",
+            failed_checks=[],
+            review_comments=[],
+            review_id=99,
+        )
+        assert result == 1
+        assert mock_gh_api.call_args_list[1].args[0] == "/agents/repos/owner/repo/tasks"
+        assert mock_gh_api.call_args_list[1].kwargs["method"] == "POST"
+
+    @patch("agentic_devtools.cli.ci.github_provider._gh_api")
+    @patch.dict(
+        os.environ, {"DEFAULT_CLASSIC_REPO_WORKFLOW_PAT": "token-123", "AGDT_USE_AGENT_TASKS_API": "1"}, clear=False
+    )
+    def test_dispatch_repair_agent_tasks_api_fallback_to_comment(self, mock_gh_api) -> None:
+        mock_gh_api.side_effect = [
+            json.dumps(
+                {
+                    "number": 42,
+                    "title": "PR 42",
+                    "base": {"ref": "main"},
+                    "head": {"ref": "feature/x", "sha": "abc123def456"},
+                }
+            ),  # get_pr_metadata
+            RuntimeError("Agent Tasks API 404"),  # agent task creation fails
+            json.dumps({"id": 777}),  # fallback to _post_repair_comment
+        ]
+        provider = GitHubActionsProvider(repo="owner/repo")
+        result = provider.dispatch_repair(
+            pr_number=42,
+            head_sha="abc123def456",
+            repair_type="review",
+            failed_checks=[],
+            review_comments=[],
+            review_id=99,
+        )
+        assert result == 777
+
+    @patch("agentic_devtools.cli.ci.github_provider._gh_api")
     @patch("agentic_devtools.cli.ci.github_provider._parse_paginated_json")
     def test_list_review_comments_returns_review_comment_info(self, mock_parse, mock_gh_api) -> None:
         mock_gh_api.return_value = "[]"
@@ -2979,6 +3161,10 @@ class TestFinalizePostRepairThreadResolutionMissing:
 
 class TestFinalizePostRepairTentativeLifecycle:
     @patch.object(GitHubActionsProvider, "post_comment_as_pr_token")
+    @patch.object(GitHubActionsProvider, "list_pr_session_summaries", return_value=[])
+    @patch.object(GitHubActionsProvider, "list_pr_issue_events", return_value=[])
+    @patch.object(GitHubActionsProvider, "get_pr_token_login", return_value="copilot-swe-agent[bot]")
+    @patch.object(GitHubActionsProvider, "list_issue_comments", return_value=[])
     @patch.object(GitHubActionsProvider, "_list_unresolve_reply_parent_comment_ids")
     @patch("agentic_devtools.cli.ci.github_provider.clear_resolution_state")
     @patch.object(GitHubActionsProvider, "_verify_comments_via_tiered_engine")
@@ -3009,6 +3195,10 @@ class TestFinalizePostRepairTentativeLifecycle:
         mock_verify_batch,
         mock_clear_state,
         mock_unresolve,
+        _mock_issue_comments,
+        _mock_get_pr_token_login,
+        _mock_issue_events,
+        _mock_session_summaries,
         mock_post_comment,
     ) -> None:
         mock_list_reviews.return_value = [
@@ -3061,6 +3251,10 @@ class TestFinalizePostRepairTentativeLifecycle:
     @patch("agentic_devtools.cli.ci.github_provider.save_resolution_state")
     @patch("agentic_devtools.cli.ci.github_provider.mark_abandoned")
     @patch("agentic_devtools.cli.ci.github_provider.load_resolution_state")
+    @patch.object(GitHubActionsProvider, "list_pr_session_summaries", return_value=[])
+    @patch.object(GitHubActionsProvider, "list_pr_issue_events", return_value=[])
+    @patch.object(GitHubActionsProvider, "get_pr_token_login", return_value="copilot-swe-agent[bot]")
+    @patch.object(GitHubActionsProvider, "list_issue_comments", return_value=[])
     @patch.object(GitHubActionsProvider, "_verify_comments_via_tiered_engine")
     @patch.object(GitHubActionsProvider, "list_review_thread_states", return_value={})
     @patch.object(GitHubActionsProvider, "_fetch_latest_thread_comment_author_login_by_comment_id", return_value={})
@@ -3085,6 +3279,10 @@ class TestFinalizePostRepairTentativeLifecycle:
         mock_fetch_latest_author,
         mock_thread_states,
         mock_verify_batch,
+        _mock_issue_comments,
+        _mock_get_pr_token_login,
+        _mock_issue_events,
+        _mock_session_summaries,
         mock_load_state,
         mock_mark_abandoned,
         mock_save_state,
@@ -3139,6 +3337,10 @@ class TestFinalizePostRepairTentativeLifecycle:
     @patch("agentic_devtools.cli.ci.github_provider.save_resolution_state")
     @patch("agentic_devtools.cli.ci.github_provider.mark_abandoned")
     @patch("agentic_devtools.cli.ci.github_provider.load_resolution_state")
+    @patch.object(GitHubActionsProvider, "list_pr_session_summaries", return_value=[])
+    @patch.object(GitHubActionsProvider, "list_pr_issue_events", return_value=[])
+    @patch.object(GitHubActionsProvider, "get_pr_token_login", return_value="copilot-swe-agent[bot]")
+    @patch.object(GitHubActionsProvider, "list_issue_comments", return_value=[])
     @patch.object(GitHubActionsProvider, "_verify_comments_via_tiered_engine")
     @patch.object(GitHubActionsProvider, "list_review_thread_states", return_value={})
     @patch.object(GitHubActionsProvider, "_fetch_latest_thread_comment_author_login_by_comment_id", return_value={})
@@ -3163,6 +3365,10 @@ class TestFinalizePostRepairTentativeLifecycle:
         mock_fetch_latest_author,
         mock_thread_states,
         mock_verify_batch,
+        _mock_issue_comments,
+        _mock_get_pr_token_login,
+        _mock_issue_events,
+        _mock_session_summaries,
         mock_load_state,
         mock_mark_abandoned,
         mock_save_state,
@@ -3219,6 +3425,11 @@ class TestFinalizePostRepairTentativeLifecycle:
 class TestFinalizePostRepairAlreadyResolvedFilter:
     """Tests that already-resolved threads are skipped by finalize_post_repair."""
 
+    @patch.object(GitHubActionsProvider, "post_comment_as_pr_token")
+    @patch.object(GitHubActionsProvider, "list_pr_session_summaries", return_value=[])
+    @patch.object(GitHubActionsProvider, "list_pr_issue_events", return_value=[])
+    @patch.object(GitHubActionsProvider, "get_pr_token_login", return_value="copilot-swe-agent[bot]")
+    @patch.object(GitHubActionsProvider, "list_issue_comments", return_value=[])
     @patch.object(GitHubActionsProvider, "_list_unresolve_reply_parent_comment_ids")
     @patch.object(GitHubActionsProvider, "_verify_comments_via_tiered_engine")
     @patch("agentic_devtools.cli.ci.github_provider._resolve_review_threads")
@@ -3245,6 +3456,11 @@ class TestFinalizePostRepairAlreadyResolvedFilter:
         mock_resolve,
         mock_verify_batch,
         mock_unresolve,
+        _mock_issue_comments,
+        _mock_get_pr_token_login,
+        _mock_issue_events,
+        _mock_session_summaries,
+        mock_post_comment,
     ) -> None:
         """Threads already resolved (e.g., manually) are skipped by finalize_post_repair."""
         mock_list_reviews.return_value = [
@@ -3290,6 +3506,8 @@ class TestFinalizePostRepairAlreadyResolvedFilter:
         # Comment 101 should NOT be counted as unresolved
         assert result.resolved_count == 1
         assert result.unresolved_count == 0
+        mock_post_comment.assert_called_once()
+        assert "<!-- ai-pr-loop:finalized-review" in mock_post_comment.call_args.args[1]
 
     @patch.object(GitHubActionsProvider, "_list_unresolve_reply_parent_comment_ids")
     @patch.object(GitHubActionsProvider, "_verify_comments_via_tiered_engine")

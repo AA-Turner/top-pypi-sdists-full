@@ -127,6 +127,28 @@ class TakeOverAutomationCommitAction:
         except Exception as exc:
             if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
                 raise
+            if "Head SHA changed before Copilot takeover" in str(exc):
+                logger.warning(
+                    "PR #%d: takeover skipped due to concurrent branch update: %s",
+                    snapshot.pr_number,
+                    exc,
+                )
+                return ActionResult(
+                    name=self.name,
+                    decision=ActionDecision.SKIP,
+                    details=f"Takeover skipped: branch HEAD moved concurrently ({exc})",
+                    definitive_no_mutation=True,
+                    preserves_diff_fingerprint=True,
+                )
+            logger.error("PR #%d: takeover failed: %s", snapshot.pr_number, exc)
+            return ActionResult(
+                name=self.name,
+                decision=ActionDecision.FAILED,
+                error=str(exc),
+                details="reclaim_copilot_commit failed",
+            )
+            if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
+                raise
             logger.error("PR #%d: takeover failed: %s", snapshot.pr_number, exc)
             return ActionResult(
                 name=self.name,

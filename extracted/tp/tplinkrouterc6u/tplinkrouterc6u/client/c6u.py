@@ -248,11 +248,15 @@ class TplinkBaseRouter(AbstractRouter, TplinkRequest):
         self._sysauth = None
         self._data_block = 'data'
         self._smart_network = True
+        self._wan_ipv4_dynamic = True
         self._easymesh = True
         self._perf_status = True
         self._url_firmware = 'admin/firmware?form=upgrade&operation=read'
         self._url_ipv4_reservations = 'admin/dhcps?form=reservation&operation=load'
         self._url_ipv4_dhcp_leases = 'admin/dhcps?form=client&operation=load'
+        self._url_ipv4_dhcps = 'admin/dhcps?form=setting&operation=read'
+        self._url_ipv4_dhcps_write = 'admin/dhcps?form=setting&operation=write'
+        self._url_wan_ipv4_dynamic = 'admin/network?form=wan_ipv4_dynamic'
         self._url_smart_network = 'admin/smart_network?form=game_accelerator&operation=loadDevice'
         self._url_easymesh_device_list = 'admin/easymesh_network?form=get_mesh_device_list_all&operation=read'
         self._url_openvpn = 'admin/openvpn?form=config&operation=read'
@@ -262,7 +266,6 @@ class TplinkBaseRouter(AbstractRouter, TplinkRequest):
         self._url_vpn_client_enable = 'admin/vpn?form=enable'
         self._url_vpn_client_server = 'admin/vpn?form=server'
         self._url_vpn_client_user_list = 'admin/vpn?form=vpn_user_list'
-        self._url_ipv4_dhcps = 'admin/dhcps?form=setting'
         referer = '{}/webpages/index.html'.format(self.host)
         self._headers_request = {'Referer': referer, 'Origin': self.host}
         self._headers_login = {'Referer': referer, 'Content-Type': 'application/x-www-form-urlencoded'}
@@ -483,6 +486,18 @@ class TplinkBaseRouter(AbstractRouter, TplinkRequest):
         except Exception:
             # WiFi might be disabled on the router, skip wireless statistics
             pass
+
+        # Get WAN connected status (for DHCP release/renew)
+        if self._wan_ipv4_dynamic and data.get('wan_ipv4_conntype') == 'dhcp':
+            try:
+                wan_ipv4_dyn_response = self.request(
+                    f'{self._url_wan_ipv4_dynamic}&operation=read', 'operation=read')
+                if wan_ipv4_dyn_response:
+                    status.ewan_connected = wan_ipv4_dyn_response.get('conn_status') == 'connected'
+                else:
+                    self._wan_ipv4_dynamic = False
+            except Exception:
+                self._wan_ipv4_dynamic = False
 
         easymesh_device_list = None
         if self._easymesh:
@@ -780,18 +795,20 @@ class TplinkBaseRouter(AbstractRouter, TplinkRequest):
 
     def set_ipv4_dhcps(self, enable: bool) -> None:
         data = self.request(self._url_ipv4_dhcps, 'operation=read')
-        payload = urlencode({
+        payload = {
             'operation': 'write',
             'enable': 'on' if enable else 'off',
-            'leasetime': data.get('leasetime', ''),
-            'pri_dns': data.get('pri_dns', ''),
-            'snd_dns': data.get('snd_dns', ''),
-            'gateway': data.get('gateway', ''),
-            'ipaddr_start': data.get('ipaddr_start', ''),
-            'ipaddr_end': data.get('ipaddr_end', ''),
-            'domain': data.get('domain', ''),
-        })
-        self.request(self._url_ipv4_dhcps, payload)
+        }
+        for key in ('leasetime', 'pri_dns', 'snd_dns', 'gateway', 'ipaddr_start', 'ipaddr_end', 'domain'):
+            value = data.get(key, '')
+            if value != '':
+                payload[key] = value
+        self.request(self._url_ipv4_dhcps_write, urlencode(payload))
+
+    def set_ewan_connect(self, enable: bool) -> None:
+        """Renew (`True`) or release (`False`) Ethernet WAN DHCP lease. WAN must be DHCP."""
+        op = 'renew' if enable else 'release'
+        self.request(f'{self._url_wan_ipv4_dynamic}&operation={op}', f'operation={op}')
 
     @staticmethod
     def _str2bool(v) -> bool | None:
@@ -864,6 +881,8 @@ class TplinkRouter(TplinkEncryption, TplinkRouterJson):
         self._url_pptpd = 'admin/pptpd?form=config'
         self._url_vpnconn_openvpn = 'admin/vpnconn?form=config'
         self._url_vpnconn_pptpd = 'admin/vpnconn?form=config'
+        self._url_ipv4_dhcps = 'admin/dhcps?form=setting'
+        self._url_ipv4_dhcps_write = 'admin/dhcps?form=setting'
 
 
 class TplinkRouterV1_11(TplinkRouterJson):

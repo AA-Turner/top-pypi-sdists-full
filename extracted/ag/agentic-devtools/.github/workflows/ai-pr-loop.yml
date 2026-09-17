@@ -104,6 +104,7 @@ jobs:
           REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
           AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
           AGDT_ALLOW_PRIVILEGED_PATHS: "1"
+          AGDT_USE_AGENT_TASKS_API: "1"
           AGDT_OPERATION_ID: ${{ inputs.operation_id }}
           TRIGGER_REASON: ${{ inputs.trigger_reason }}
         run: |
@@ -111,7 +112,7 @@ jobs:
           agdt-ai-pr-loop
           exit_code=$?; set -e
           echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
-          if [[ "$exit_code" -eq 1 || "$exit_code" -eq 5 || "$exit_code" -eq 6 ]]; then
+          if [[ "$exit_code" -eq 1 || "$exit_code" -eq 3 || "$exit_code" -eq 5 || "$exit_code" -eq 6 ]]; then
             echo "::notice::ai-pr-loop exited with control-flow code ${exit_code}; treating as non-fatal."
             exit 0
           fi

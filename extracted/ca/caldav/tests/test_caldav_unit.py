@@ -3990,6 +3990,92 @@ class TestDAVClientCredentialPrecedence:
         assert client.password == b"s3cret"
 
 
+class TestRepeatedHrefCalendarData:
+    """RFC 4918 section 14.24 forbids an href to appear in more than one
+    DAV:response, but Bedework 5 answers an expanded calendar-query with one
+    response per recurrence instance, all under the href of the resource."""
+
+    @staticmethod
+    def _response(recurrence_id: str) -> str:
+        return f"""  <DAV:response>
+    <DAV:href>/ucaldav/user/vbede/cal/yearly.ics</DAV:href>
+    <DAV:propstat>
+      <DAV:prop>
+    <calendar-data content-type="text/calendar"><![CDATA[BEGIN:VCALENDAR
+PRODID://Bedework.org//BedeWork V3.14//EN
+VERSION:2.0
+BEGIN:VEVENT
+RECURRENCE-ID;VALUE=DATE:{recurrence_id}
+DTEND;VALUE=DATE:{int(recurrence_id) + 1}
+DTSTAMP:20260913T141843Z
+DTSTART;VALUE=DATE:{recurrence_id}
+SUMMARY:yearly
+UID:yearly
+END:VEVENT
+END:VCALENDAR
+]]></calendar-data>
+      </DAV:prop>
+      <DAV:status>HTTP/1.1 200 ok</DAV:status>
+    </DAV:propstat>
+  </DAV:response>
+"""
+
+    def _calendar_data(self, *recurrence_ids: str) -> str:
+        xml = (
+            '<DAV:multistatus xmlns="urn:ietf:params:xml:ns:caldav" xmlns:DAV="DAV:">\n'
+            + "".join(self._response(rid) for rid in recurrence_ids)
+            + "</DAV:multistatus>"
+        )
+        result = MockedDAVResponse(xml).expand_simple_props(props=[cdav.CalendarData()])
+        assert list(result) == ["/ucaldav/user/vbede/cal/yearly.ics"]
+        return result["/ucaldav/user/vbede/cal/yearly.ics"][cdav.CalendarData.tag]
+
+    def test_instances_are_merged(self) -> None:
+        cal = icalendar.Calendar.from_ical(self._calendar_data("20261102", "20271102"))
+        recurrence_ids = [str(e["RECURRENCE-ID"].to_ical(), "ascii") for e in cal.walk("VEVENT")]
+        assert recurrence_ids == ["20261102", "20271102"]
+
+    def test_repeated_instance_is_not_duplicated(self) -> None:
+        cal = icalendar.Calendar.from_ical(self._calendar_data("20261102", "20261102"))
+        assert len(cal.walk("VEVENT")) == 1
+
+    @staticmethod
+    def _with_timezone(tzid: str, uid: str) -> str:
+        return (
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\n"
+            f"BEGIN:VTIMEZONE\r\nTZID:{tzid}\r\n"
+            "BEGIN:STANDARD\r\nDTSTART:19701025T030000\r\n"
+            "TZOFFSETFROM:+0200\r\nTZOFFSETTO:+0100\r\nEND:STANDARD\r\n"
+            "END:VTIMEZONE\r\n"
+            f"BEGIN:VEVENT\r\nUID:{uid}\r\nDTSTAMP:20260913T141843Z\r\n"
+            f"DTSTART;TZID={tzid}:20261102T100000\r\nSUMMARY:{uid}\r\nEND:VEVENT\r\n"
+            "END:VCALENDAR\r\n"
+        )
+
+    def test_distinct_timezones_are_all_kept(self) -> None:
+        from caldav.response import _merge_calendar_data
+
+        merged = _merge_calendar_data(
+            self._with_timezone("Europe/Oslo", "a"),
+            self._with_timezone("America/New_York", "b"),
+        )
+        tzids = sorted(
+            str(tz["TZID"]) for tz in icalendar.Calendar.from_ical(merged).walk("VTIMEZONE")
+        )
+        assert tzids == ["America/New_York", "Europe/Oslo"]
+
+    def test_repeated_timezone_is_not_duplicated(self) -> None:
+        from caldav.response import _merge_calendar_data
+
+        merged = _merge_calendar_data(
+            self._with_timezone("Europe/Oslo", "a"),
+            self._with_timezone("Europe/Oslo", "b"),
+        )
+        cal = icalendar.Calendar.from_ical(merged)
+        assert len(cal.walk("VTIMEZONE")) == 1
+        assert len(cal.walk("VEVENT")) == 2
+
+
 class TestPropstatStatusValidation:
     """Gate finding F7: a failing propstat status must raise, not vanish.
 
@@ -4282,3 +4368,147 @@ class TestAdoptCanonicalUrl:
         )
         asyncio.run(calendar._async_adopt_canonical_url("My Calendar"))
         assert str(calendar.url) == self.REQUESTED
+
+
+class TestWrappedComponentHasNoCalendarUid:
+    """A bare icalendar component handed to caldav is wrapped in a VCALENDAR.
+    That wrapper must not carry an RFC 7986 UID of its own: servers that treat
+    the calendar-level UID as the identity of the calendar object resource
+    (Stalwart does) will see a randomly generated new UID on every save and
+    reject the PUT with 412 no-uid-conflict."""
+
+    def test_setting_a_bare_component_adds_no_calendar_uid(self) -> None:
+        ievent = icalendar.Event()
+        ievent.add("uid", "ctuid1")
+        ievent.add("dtstart", datetime(2026, 10, 10, 15, 15))
+
+        event = Event()
+        event.icalendar_instance = ievent
+
+        assert "UID" not in event.icalendar_instance
+        assert event.icalendar_component["UID"] == "ctuid1"
+
+    def test_two_wraps_yield_identical_data(self) -> None:
+        """Saving the same component twice must produce byte-identical data --
+        a fresh random calendar-level UID per wrap is what breaks the second
+        PUT."""
+        ievent = icalendar.Event()
+        ievent.add("uid", "ctuid1")
+        ievent.add("dtstart", datetime(2026, 10, 10, 15, 15))
+
+        first = Event()
+        first.icalendar_instance = ievent
+        second = Event()
+        second.icalendar_instance = ievent
+
+        assert first.data == second.data
+
+
+class TestMkcalendarMultistatus:
+    """A ``207 Multi-Status`` where every status is a success means the
+    calendar was created.
+
+    RFC 4791 section 5.3.1 has MKCALENDAR answer ``201 Created`` on success and
+    reserves the multistatus for the case where the collection could not be
+    created or a property could not be set.  Bedework 5 answers 207
+    unconditionally as soon as the request carries properties -- every propstat
+    ``200 ok``, the collection created, the display name set.  Insisting on 201
+    turned that into a ``MkcalendarError`` for a calendar that was in fact
+    there.  A multistatus that reports a real failure must still raise.
+    """
+
+    URL = "http://cal.example.com/dav/user/mycal/"
+
+    def _multistatus(self, status: str) -> str:
+        return (
+            '<multistatus xmlns="DAV:">\n'
+            "  <response>\n"
+            "    <href>/dav/user/mycal</href>\n"
+            "    <propstat>\n"
+            "      <prop><displayname/></prop>\n"
+            f"      <status>{status}</status>\n"
+            "    </propstat>\n"
+            "  </response>\n"
+            "</multistatus>\n"
+        )
+
+    def _save_calendar(self, mocked, status_code: int, content: str) -> Calendar:
+        mocked().status_code = status_code
+        mocked().reason = "Multi-Status"
+        mocked().headers = {"Content-Type": "text/xml"}
+        mocked().content = content
+        client = DAVClient(url="http://cal.example.com/dav/")
+        calendar_set = CalendarSet(client, url="http://cal.example.com/dav/user/")
+        calendar = Calendar(client, parent=calendar_set, name="My Calendar", id="mycal")
+        return calendar.save()
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_all_ok_multistatus_is_a_created_calendar(self, mocked) -> None:
+        calendar = self._save_calendar(mocked, 207, self._multistatus("HTTP/1.1 200 ok"))
+        assert str(calendar.url) == self.URL
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_201_is_still_accepted(self, mocked) -> None:
+        calendar = self._save_calendar(mocked, 201, "")
+        assert str(calendar.url) == self.URL
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_failing_propstat_still_raises(self, mocked) -> None:
+        with pytest.raises(error.MkcalendarError):
+            self._save_calendar(mocked, 207, self._multistatus("HTTP/1.1 403 Forbidden"))
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_unexpected_status_still_raises(self, mocked) -> None:
+        """Only 201 and an all-success 207 mean "created"; the 200 some
+        servers might answer with is not a status we have ever accepted."""
+        with pytest.raises(error.MkcalendarError):
+            self._save_calendar(mocked, 200, "")
+
+    def _statusless_multistatus(self) -> str:
+        """Bedework 5's answer to a MKCALENDAR that sets no properties.
+
+        RFC 4918 section 13 requires a ``DAV:response`` to carry either a
+        ``DAV:status`` or at least one ``DAV:propstat``; this one carries
+        neither, just the href of the collection it created.
+        """
+        return (
+            '<multistatus xmlns="DAV:">\n'
+            "  <response>\n"
+            "    <href>/dav/user/mycal</href>\n"
+            "  </response>\n"
+            "</multistatus>\n"
+        )
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_statusless_response_is_a_created_calendar(self, mocked) -> None:
+        """Nothing in the body says the creation failed, and the collection is
+        there afterwards - verified against Bedework 5.0.0, where the same
+        request through raw HTTP answers 201."""
+        calendar = self._save_calendar(mocked, 207, self._statusless_multistatus())
+        assert str(calendar.url) == self.URL
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_empty_multistatus_still_raises(self, mocked) -> None:
+        """A multistatus with no response at all reports nothing about any
+        collection, so it cannot be read as a success."""
+        with pytest.raises(error.MkcalendarError):
+            self._save_calendar(mocked, 207, '<multistatus xmlns="DAV:"></multistatus>\n')
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_statusless_response_beside_a_failing_one_still_raises(self, mocked) -> None:
+        content = (
+            '<multistatus xmlns="DAV:">\n'
+            "  <response>\n"
+            "    <href>/dav/user/mycal</href>\n"
+            "  </response>\n"
+            "  <response>\n"
+            "    <href>/dav/user/mycal</href>\n"
+            "    <propstat>\n"
+            "      <prop><displayname/></prop>\n"
+            "      <status>HTTP/1.1 403 Forbidden</status>\n"
+            "    </propstat>\n"
+            "  </response>\n"
+            "</multistatus>\n"
+        )
+        with pytest.raises(error.MkcalendarError):
+            self._save_calendar(mocked, 207, content)

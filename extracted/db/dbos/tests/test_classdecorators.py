@@ -1,18 +1,24 @@
+import importlib
 import logging
+import os
+import sys
 import threading
 import time
 import uuid
+from types import ModuleType
 from typing import Callable, Optional
 
 import pytest
 import sqlalchemy as sa
 
 # Public API
-from dbos import DBOS, DBOSConfiguredInstance, Queue, SetWorkflowID
+from dbos import DBOS, DBOSConfiguredInstance, SetWorkflowID
 
 # Private API used because this is a test
 from dbos._context import DBOSContextEnsure, assert_current_dbos_context
+from dbos._dbos import _get_or_create_dbos_registry
 from dbos._dbos_config import DBOSConfig
+from dbos._error import DBOSException
 from tests.conftest import queue_entries_are_cleaned_up, set_workflow_status
 
 
@@ -49,7 +55,10 @@ def test_required_roles(dbos: DBOS) -> None:
         )
 
         ctx.authenticated_roles = ["a", "b", "c", "user"]
-        tfunc("bare-ctx")
+        wfid = str(uuid.uuid4())
+        with SetWorkflowID(wfid):
+            tfunc("bare-ctx")
+        assert DBOS.retrieve_workflow(wfid).get_status().assumed_role == "user"
 
 
 def test_required_roles_class(dbos: DBOS) -> None:
@@ -196,7 +205,7 @@ def test_required_roles_class(dbos: DBOS) -> None:
 def test_simple_workflow_static(dbos: DBOS) -> None:
     @DBOS.dbos_class()
     class DBOSTestClassStatic:
-        txn_counter: int = 0
+        other_step_counter: int = 0
         wf_counter: int = 0
         step_counter: int = 0
 
@@ -204,18 +213,17 @@ def test_simple_workflow_static(dbos: DBOS) -> None:
         @DBOS.workflow()
         def test_workflow(var: str, var2: str) -> str:
             DBOSTestClassStatic.wf_counter += 1
-            res = DBOSTestClassStatic.test_transaction(var2)
+            res = DBOSTestClassStatic.test_other_step(var2)
             res2 = DBOSTestClassStatic.test_step(var)
             DBOS.logger.info("I'm test_workflow")
             return res + res2
 
         @staticmethod
-        @DBOS.transaction()
-        def test_transaction(var2: str) -> str:
-            rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-            DBOSTestClassStatic.txn_counter += 1
-            DBOS.logger.info("I'm test_transaction")
-            return var2 + str(rows[0][0])
+        @DBOS.step()
+        def test_other_step(var2: str) -> str:
+            DBOSTestClassStatic.other_step_counter += 1
+            DBOS.logger.info("I'm test_other_step")
+            return var2 + "1"
 
         @staticmethod
         @DBOS.step()
@@ -227,7 +235,7 @@ def test_simple_workflow_static(dbos: DBOS) -> None:
     assert DBOSTestClassStatic.test_workflow("bob", "bob") == "bob1bob"
     wfh = dbos.start_workflow(DBOSTestClassStatic.test_workflow, "bob", "bob")
     assert wfh.get_result() == "bob1bob"
-    assert DBOSTestClassStatic.txn_counter == 2
+    assert DBOSTestClassStatic.other_step_counter == 2
     assert DBOSTestClassStatic.wf_counter == 2
     assert DBOSTestClassStatic.step_counter == 2
 
@@ -235,7 +243,7 @@ def test_simple_workflow_static(dbos: DBOS) -> None:
 def test_simple_workflow_class(dbos: DBOS) -> None:
     @DBOS.dbos_class()
     class DBOSTestClassClass:
-        txn_counter: int = 0
+        other_step_counter: int = 0
         wf_counter: int = 0
         step_counter: int = 0
 
@@ -243,18 +251,17 @@ def test_simple_workflow_class(dbos: DBOS) -> None:
         @DBOS.workflow()
         def test_workflow(cls, var: str, var2: str) -> str:
             DBOSTestClassClass.wf_counter += 1
-            res = DBOSTestClassClass.test_transaction(var2)
+            res = DBOSTestClassClass.test_other_step(var2)
             res2 = DBOSTestClassClass.test_step(var)
             DBOS.logger.info("I'm test_workflow")
             return res + res2
 
         @classmethod
-        @DBOS.transaction()
-        def test_transaction(cls, var2: str) -> str:
-            rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-            DBOSTestClassClass.txn_counter += 1
-            DBOS.logger.info("I'm test_transaction")
-            return var2 + str(rows[0][0])
+        @DBOS.step()
+        def test_other_step(cls, var2: str) -> str:
+            DBOSTestClassClass.other_step_counter += 1
+            DBOS.logger.info("I'm test_other_step")
+            return var2 + "1"
 
         @classmethod
         @DBOS.step()
@@ -266,7 +273,7 @@ def test_simple_workflow_class(dbos: DBOS) -> None:
     assert DBOSTestClassClass.test_workflow("bob", "bob") == "bob1bob"
     wfh = dbos.start_workflow(DBOSTestClassClass.test_workflow, "bob", "bob")
     assert wfh.get_result() == "bob1bob"
-    assert DBOSTestClassClass.txn_counter == 2
+    assert DBOSTestClassClass.other_step_counter == 2
     assert DBOSTestClassClass.wf_counter == 2
     assert DBOSTestClassClass.step_counter == 2
 
@@ -288,24 +295,23 @@ def test_simple_workflow_inst(dbos: DBOS) -> None:
     class DBOSTestClassInst(DBOSConfiguredInstance):
         def __init__(self) -> None:
             super().__init__("bob")
-            self.txn_counter: int = 0
+            self.other_step_counter: int = 0
             self.wf_counter: int = 0
             self.step_counter: int = 0
 
         @DBOS.workflow()
         def test_workflow(self, var: str, var2: str) -> str:
             self.wf_counter += 1
-            res = self.test_transaction(var2)
+            res = self.test_other_step(var2)
             res2 = self.test_step(var)
             DBOS.logger.info("I'm test_workflow")
             return res + res2
 
-        @DBOS.transaction()
-        def test_transaction(self, var2: str) -> str:
-            rows = DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
-            self.txn_counter += 1
-            DBOS.logger.info("I'm test_transaction")
-            return var2 + str(rows[0][0])
+        @DBOS.step()
+        def test_other_step(self, var2: str) -> str:
+            self.other_step_counter += 1
+            DBOS.logger.info("I'm test_other_step")
+            return var2 + "1"
 
         @DBOS.step()
         def test_step(self, var: str) -> str:
@@ -327,7 +333,7 @@ def test_simple_workflow_inst(dbos: DBOS) -> None:
     assert stat.class_name and "DBOSTestClassInst" in stat.class_name
 
     assert wfh.get_result() == "bob1bob"
-    assert inst.txn_counter == 2
+    assert inst.other_step_counter == 2
     assert inst.wf_counter == 2
     assert inst.step_counter == 2
 
@@ -336,7 +342,7 @@ def test_forgotten_decorator(dbos: DBOS) -> None:
     class DBOSTestRegErr(DBOSConfiguredInstance):
         def __init__(self) -> None:
             super().__init__("bob")
-            self.txn_counter: int = 0
+            self.other_step_counter: int = 0
             self.wf_counter: int = 0
             self.step_counter: int = 0
 
@@ -816,7 +822,7 @@ def test_class_classmethod_queue_recovery(dbos: DBOS) -> None:
     assert queue_entries_are_cleaned_up(dbos)
 
 
-def test_inst_txn(dbos: DBOS) -> None:
+def test_inst_step_method(dbos: DBOS) -> None:
     wfid = str(uuid.uuid4())
 
     @DBOS.dbos_class()
@@ -826,8 +832,8 @@ def test_inst_txn(dbos: DBOS) -> None:
             self.multiply: Callable[[int], int] = lambda x: x * multiplier
             super().__init__("test_class")
 
-        @DBOS.transaction()
-        def transaction(self, x: int) -> int:
+        @DBOS.step()
+        def step(self, x: int) -> int:
             return self.multiply(x)
 
     input = 2
@@ -835,12 +841,12 @@ def test_inst_txn(dbos: DBOS) -> None:
     inst = TestClass(multiplier)
 
     with SetWorkflowID(wfid):
-        assert inst.transaction(input) == input * multiplier
+        assert DBOS.start_workflow(inst.step, input).get_result() == input * multiplier
     status = DBOS.retrieve_workflow(wfid).get_status()
     assert status.class_name and "TestClass" in status.class_name
     assert status.config_name == "test_class"
 
-    handle = DBOS.start_workflow(inst.transaction, input)
+    handle = DBOS.start_workflow(inst.step, input)
     assert handle.get_result() == input * multiplier
     status = handle.get_status()
     assert status.class_name and "TestClass" in status.class_name
@@ -1006,3 +1012,93 @@ def test_class_with_only_steps(dbos: DBOS) -> None:
     steps = DBOS.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 2
     assert steps[1]["output"] == steps[1]["output"] == input * 2
+
+
+def _fresh_import(module_name: str) -> ModuleType:
+    """Import a module, re-running its decorators even if it is already cached."""
+    sys.modules.pop(module_name, None)
+    return importlib.import_module(module_name)
+
+
+def test_duplicate_workflow_name_across_modules(dbos: DBOS) -> None:
+    """A registered name is the durable identity recovery resolves, so two
+    genuinely different functions cannot both claim one."""
+    # Imported fresh so the decorators run against this test's registry
+    # regardless of what an earlier test already pulled into sys.modules.
+    _fresh_import("tests.dupname_workflows1")
+
+    with pytest.raises(DBOSException) as exc_info:
+        _fresh_import("tests.dupname_workflowsa")
+
+    assert "duplicated_workflow_name" in str(exc_info.value)
+    assert "dupname_workflows1.py" in str(exc_info.value)
+    assert "dupname_workflowsa.py" in str(exc_info.value)
+
+    # The first registration is the one that survives -- the guarantee the durable
+    # name depends on, and the reason the raise precedes the registry writes.
+    registered = _get_or_create_dbos_registry().workflow_info_map[
+        "duplicated_workflow_name"
+    ]
+    assert getattr(registered, "__wrapped__")(1) == "one:1"
+
+
+def test_same_file_imported_under_two_names_warns(
+    dbos: DBOS, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One file reached under two module names is a re-registration, not a
+    collision: the function objects differ but the code came from one place."""
+    caplog.set_level(logging.WARNING, "dbos")
+    monkeypatch.setattr(logging.getLogger("dbos"), "propagate", True)
+    try:
+        first = _fresh_import("tests.dupname_workflows1")
+        # The same file, reached again as a top-level module: a second, distinct
+        # sys.modules entry built from one source file.
+        monkeypatch.syspath_prepend(os.path.dirname(__file__))
+        second = _fresh_import("dupname_workflows1")
+
+        assert second is not first
+        # Identity would wrongly reject this; the shared code origin is what makes
+        # it a re-registration.
+        assert second.duplicated_workflow_name is not first.duplicated_workflow_name
+        assert (
+            "Duplicate registration of function 'duplicated_workflow_name'"
+            in caplog.text
+        )
+    finally:
+        sys.modules.pop("dupname_workflows1", None)
+
+
+def test_module_reload_warns(
+    dbos: DBOS, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reloading a module re-runs its decorators against the same source. That is
+    a re-registration and must keep warning rather than raise."""
+    caplog.set_level(logging.WARNING, "dbos")
+    monkeypatch.setattr(logging.getLogger("dbos"), "propagate", True)
+
+    module = _fresh_import("tests.dupname_workflows1")
+    importlib.reload(module)
+
+    assert (
+        "Duplicate registration of function 'duplicated_workflow_name'" in caplog.text
+    )
+
+
+def test_duplicate_step_name_warns(
+    dbos: DBOS, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only workflows are checked. A step's registered function is a library-local
+    closure, and the sync and async ones live at different lines of _core.py, so
+    comparing their origins would report two DBOS internals as two user functions."""
+    caplog.set_level(logging.WARNING, "dbos")
+    monkeypatch.setattr(logging.getLogger("dbos"), "propagate", True)
+
+    @DBOS.step(name="duplicated_step_name")
+    def step_one() -> str:
+        return "one"
+
+    @DBOS.step(name="duplicated_step_name")
+    async def step_two() -> str:
+        return "two"
+
+    assert "Duplicate registration of function 'duplicated_step_name'" in caplog.text

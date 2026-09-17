@@ -7,7 +7,6 @@ from sqlalchemy import (
     Column,
     Float,
     ForeignKey,
-    Index,
     Integer,
     MetaData,
     PrimaryKeyConstraint,
@@ -25,7 +24,6 @@ class SystemSchema:
     ### System table schema
     # Real schema is applied per-engine via schema_translate_map.
     metadata_obj = MetaData(schema=SCHEMA_PLACEHOLDER)
-    sysdb_suffix = "_dbos_sys"
 
     workflow_status = Table(
         "workflow_status",
@@ -80,92 +78,29 @@ class SystemSchema:
         Column("is_debounced", Boolean, nullable=False, server_default="false"),
         # Owning application. NULL means unclaimed: any application may read and claim the row.
         Column("application_name", Text, nullable=True),
-        Index("workflow_status_created_at_index", "created_at"),
-        Index(
-            "idx_workflow_status_delayed",
-            "delay_until_epoch_ms",
-            postgresql_where=text("status = 'DELAYED'"),
-            sqlite_where=text("status = 'DELAYED'"),
-        ),
-        Index(
-            "idx_workflow_status_pending",
-            "created_at",
-            postgresql_where=text("status = 'PENDING'"),
-            sqlite_where=text("status = 'PENDING'"),
-        ),
-        Index(
-            "idx_workflow_status_failed",
-            "status",
-            "created_at",
-            postgresql_where=text(
-                "status IN ('ERROR', 'CANCELLED', 'MAX_RECOVERY_ATTEMPTS_EXCEEDED')"
-            ),
-            sqlite_where=text(
-                "status IN ('ERROR', 'CANCELLED', 'MAX_RECOVERY_ATTEMPTS_EXCEEDED')"
-            ),
-        ),
-        Index(
-            "idx_workflow_status_in_flight",
-            "queue_name",
-            "status",
-            "priority",
-            "created_at",
-            postgresql_where=text("status IN ('ENQUEUED', 'PENDING')"),
-            sqlite_where=text("status IN ('ENQUEUED', 'PENDING')"),
-        ),
-        Index(
-            "idx_workflow_status_rate_limited",
-            "queue_name",
-            "started_at_epoch_ms",
-            postgresql_where=text("rate_limited = TRUE"),
-            sqlite_where=text("rate_limited = TRUE"),
-        ),
-        Index(
-            "idx_workflow_status_completed_at",
-            "completed_at",
-            postgresql_where=text("completed_at IS NOT NULL"),
-            sqlite_where=text("completed_at IS NOT NULL"),
-        ),
-        Index(
-            "idx_workflow_status_started_at",
-            "started_at_epoch_ms",
-            postgresql_where=text("started_at_epoch_ms IS NOT NULL"),
-            sqlite_where=text("started_at_epoch_ms IS NOT NULL"),
-        ),
-        # Postgres-only; the SQLite migrations do not create this index
-        Index(
-            "idx_workflow_status_attributes",
-            "attributes",
-            postgresql_using="gin",
-            postgresql_where=text("attributes IS NOT NULL"),
-        ),
-        Index(
-            "idx_workflow_status_schedule_name",
-            "schedule_name",
-            postgresql_where=text("schedule_name IS NOT NULL"),
-            sqlite_where=text("schedule_name IS NOT NULL"),
-        ),
-        Index(
-            "uq_workflow_status_dedup_id",
-            "queue_name",
-            "deduplication_id",
-            unique=True,
-            postgresql_where=text("deduplication_id IS NOT NULL"),
-            sqlite_where=text("deduplication_id IS NOT NULL"),
-        ),
+    )
+
+    workflow_input = Table(
+        "workflow_input",
+        metadata_obj,
+        Column("workflow_uuid", Text, primary_key=True),
+        Column("inputs", Text, nullable=True),
+        Column("retention_timestamp", BigInteger, nullable=False),
+    )
+
+    workflow_output = Table(
+        "workflow_output",
+        metadata_obj,
+        Column("workflow_uuid", Text, primary_key=True),
+        Column("output", Text, nullable=True),
+        Column("error", Text, nullable=True),
+        Column("retention_timestamp", BigInteger, nullable=False),
     )
 
     operation_outputs = Table(
         "operation_outputs",
         metadata_obj,
-        Column(
-            "workflow_uuid",
-            Text,
-            ForeignKey(
-                "workflow_status.workflow_uuid", onupdate="CASCADE", ondelete="CASCADE"
-            ),
-            nullable=False,
-        ),
+        Column("workflow_uuid", Text, nullable=False),
         Column("function_id", Integer, nullable=False),
         Column("function_name", Text, nullable=False),
         Column("output", Text, nullable=True),
@@ -176,12 +111,10 @@ class SystemSchema:
         Column("serialization", Text()),
         # Denormalized from the parent so step observability filters without a join.
         Column("application_name", Text, nullable=True),
+        # Sweep order only: the payload sweep deletes by absence of a status row, so
+        # this bounds what a round scans rather than deciding what it may delete.
+        Column("retention_timestamp", BigInteger, nullable=False),
         PrimaryKeyConstraint("workflow_uuid", "function_id"),
-        Index(
-            "idx_operation_outputs_completed_at_function_name",
-            "completed_at_epoch_ms",
-            "function_name",
-        ),
     )
 
     notifications = Table(
@@ -212,7 +145,6 @@ class SystemSchema:
         ),
         Column("serialization", Text()),
         Column("consumed", Boolean, nullable=False, server_default="false"),
-        Index("idx_workflow_topic", "destination_uuid", "topic"),
     )
 
     workflow_events = Table(
@@ -303,24 +235,8 @@ class SystemSchema:
             BigInteger,
             nullable=False,
         ),
-        # Owning application. NULL means unclaimed; version_name's global uniqueness is being retired for the indexes below, so no write may infer it as an ON CONFLICT arbiter.
+        # Owning application. NULL means unclaimed; version_name's global uniqueness is being retired for per-owner unique indexes, so no write may infer it as an ON CONFLICT arbiter.
         Column("application_name", Text, nullable=True),
-        # Two partial indexes, not one composite: NULL owners would otherwise be free to duplicate.
-        Index(
-            "uq_application_versions_owner_version",
-            "application_name",
-            "version_name",
-            unique=True,
-            postgresql_where=text("application_name IS NOT NULL"),
-            sqlite_where=text("application_name IS NOT NULL"),
-        ),
-        Index(
-            "uq_application_versions_unclaimed_version",
-            "version_name",
-            unique=True,
-            postgresql_where=text("application_name IS NULL"),
-            sqlite_where=text("application_name IS NULL"),
-        ),
     )
 
     queues = Table(
@@ -337,6 +253,8 @@ class SystemSchema:
         Column("worker_concurrency", Integer, nullable=True),
         Column("rate_limit_max", Integer, nullable=True),
         Column("rate_limit_period_sec", Float, nullable=True),
+        # Legacy columns, written for other SDKs but no longer read: every queue
+        # is a priority queue, and partitioning follows the partition_* limits.
         Column("priority_enabled", Boolean, nullable=False, server_default="false"),
         Column("partition_queue", Boolean, nullable=False, server_default="false"),
         # Any of these being set means the queue is partitioned; each applies per partition.

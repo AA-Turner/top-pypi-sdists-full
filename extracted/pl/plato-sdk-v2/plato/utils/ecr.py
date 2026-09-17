@@ -75,6 +75,49 @@ def _retag_via_chronos(
     return True, None
 
 
+def _image_digest_via_chronos(
+    chronos_url: str, endpoint: str, tag: str, api_key: str
+) -> tuple[bool, str | None, str | None]:
+    """GET the digest of an image tag from a Chronos image-digest endpoint.
+
+    Read-only: Chronos describes the image with its own ECS task credentials,
+    so the caller needs no local AWS access and nothing in ECR is touched.
+
+    Returns ``(True, digest_or_None, None)`` when Chronos answered — ``None``
+    meaning the tag does not exist — or ``(False, None, reason)`` when the
+    lookup itself failed (network error, endpoint not deployed, auth), so the
+    caller can fall back rather than mistake "couldn't ask" for "absent".
+    """
+    chronos_url = chronos_url.rstrip("/")
+    url = f"{chronos_url}{endpoint}"
+    try:
+        response = httpx.get(url, params={"tag": tag}, headers={"X-API-Key": api_key}, timeout=30.0)
+    except httpx.HTTPError as e:
+        reason = f"request to {url} failed: {e!r}"
+        logger.warning("Chronos image digest %s", reason)
+        return False, None, reason
+    if response.status_code != 200:
+        reason = f"{url} returned HTTP {response.status_code}: {response.text.strip()}"
+        logger.warning("Chronos image digest %s", reason)
+        return False, None, reason
+    digest = response.json().get("image_digest")
+    return True, (str(digest) if digest else None), None
+
+
+def get_world_image_digest_via_chronos(
+    chronos_url: str, package_name: str, tag: str, api_key: str
+) -> tuple[bool, str | None, str | None]:
+    """Digest of a world image tag via Chronos — see ``_image_digest_via_chronos``."""
+    return _image_digest_via_chronos(chronos_url, f"/api/worlds/{package_name}/image-digest", tag, api_key)
+
+
+def get_agent_image_digest_via_chronos(
+    chronos_url: str, package_name: str, tag: str, api_key: str
+) -> tuple[bool, str | None, str | None]:
+    """Digest of an agent image tag via Chronos — see ``_image_digest_via_chronos``."""
+    return _image_digest_via_chronos(chronos_url, f"/api/agents/{package_name}/image-digest", tag, api_key)
+
+
 def retag_image_via_chronos(
     chronos_url: str, package_name: str, source_tag: str, target_tag: str, api_key: str
 ) -> tuple[bool, str | None]:
@@ -350,39 +393,66 @@ def build_and_push(
     return result.returncode == 0
 
 
-def get_image_digest(repository: str, tag: str) -> str | None:
-    """Get the digest of an image tag in ECR. Returns None if not found."""
+class ImageLookupError(Exception):
+    """The local ECR lookup could not be performed (no aws CLI, no credentials, AWS error).
+
+    Distinct from the tag simply not existing, which is a ``None`` result.
+    """
+
+
+def describe_image_digest(repository: str, tag: str) -> str | None:
+    """Digest of ``repository:tag`` via the local aws CLI; ``None`` if the tag does not exist.
+
+    Raises :class:`ImageLookupError` when the lookup itself fails, so callers
+    that must know (e.g. ``--wheel-only``) never mistake "couldn't ask" for "absent".
+    """
     import json
 
-    result = subprocess.run(
-        [
-            "aws",
-            "ecr",
-            "describe-images",
-            "--repository-name",
-            repository,
-            "--image-ids",
-            f"imageTag={tag}",
-            "--region",
-            ECR_REGION,
-            "--output",
-            "json",
-        ],
-        capture_output=True,
-        text=True,
-        env=_clean_aws_env(),
-    )
+    try:
+        result = subprocess.run(
+            [
+                "aws",
+                "ecr",
+                "describe-images",
+                "--repository-name",
+                repository,
+                "--image-ids",
+                f"imageTag={tag}",
+                "--region",
+                ECR_REGION,
+                "--output",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
+            env=_clean_aws_env(),
+        )
+    except FileNotFoundError as e:
+        raise ImageLookupError("aws CLI not found") from e
     if result.returncode != 0:
-        return None
+        if "ImageNotFoundException" in result.stderr:
+            return None
+        raise ImageLookupError(result.stderr.strip() or f"aws ecr describe-images exited {result.returncode}")
 
     try:
         data = json.loads(result.stdout)
-        images = data.get("imageDetails", [])
-        if images:
-            return images[0].get("imageDigest")
-    except Exception:
-        pass
+    except ValueError as e:
+        raise ImageLookupError(f"unparseable aws ecr describe-images output: {e}") from e
+    images = data.get("imageDetails", [])
+    if images:
+        return images[0].get("imageDigest")
     return None
+
+
+def get_image_digest(repository: str, tag: str) -> str | None:
+    """Digest of an image tag in ECR, or ``None`` if absent *or* if the lookup failed.
+
+    Use :func:`describe_image_digest` when the difference matters.
+    """
+    try:
+        return describe_image_digest(repository, tag)
+    except ImageLookupError:
+        return None
 
 
 def retag_image(repository: str, source_tag: str, target_tag: str) -> bool:

@@ -1,6 +1,8 @@
 """Auto-generated stub for module: base."""
 from typing import Any, Dict, List, Optional, Set, Union
 
+from ._usecase_table import USE_CASE_TABLE
+
 # Constants
 logger: Any
 registry: Any
@@ -305,6 +307,11 @@ class ProcessorProtocol:
 
 class ProcessorRegistry:
     # Registry for processors and use cases.
+    #
+    #     Use cases may be registered either eagerly (a class object) or lazily (a
+    #     ``"module:ClassName"`` spec resolved on first lookup).  Lazy registration is
+    #     what keeps ``import matrice_analytics.post_processing`` from executing the
+    #     whole use-case catalogue -- see ``core/_usecase_table.py``.
 
     def __init__(self: Any) -> None:
         """
@@ -337,6 +344,8 @@ class ProcessorRegistry:
     def list_use_cases(self: Any) -> Dict[str, List[str]]:
         """
         List all registered use cases by category.
+        
+                Answers from the catalogue; imports nothing.
         """
         ...
 
@@ -352,6 +361,21 @@ class ProcessorRegistry:
         """
         ...
 
+    def register_use_case_lazy(self: Any, category: str, name: str, spec: str) -> None:
+        """
+        Register a use case by ``"module:ClassName"``, loaded on first lookup.
+        
+                ``module`` is an absolute module path, e.g.
+                ``"matrice_analytics.post_processing.usecases.people_counting:PeopleCountingUseCase"``.
+        """
+        ...
+
+    def register_use_cases_lazy(self: Any, table: Dict[str, Dict[str, str]]) -> None:
+        """
+        Seed the registry from a whole ``category -> {name: spec}`` catalogue.
+        """
+        ...
+
 class ResultFormat:
     # Supported result formats.
 
@@ -364,3 +388,10 @@ class ResultFormat:
     TRACKING: str
     UNKNOWN: str
 
+class UseCaseLoadError:
+    # A registered use case exists in the catalogue but its module would not load.
+    #
+    #     Subclasses :class:`ImportError` so existing ``except ImportError`` handlers --
+    #     including the one ml-codebases wraps its analytics import in -- keep working.
+
+    ...

@@ -4,7 +4,8 @@ import gc
 import threading
 import time
 import uuid
-from typing import Any, Dict, List, Optional, cast
+from pathlib import Path
+from typing import Any, AsyncGenerator, Dict, List, Optional, cast
 
 import pytest
 import sqlalchemy as sa
@@ -13,7 +14,6 @@ import sqlalchemy as sa
 from dbos import (
     DBOS,
     DBOSConfig,
-    Queue,
     SendMessage,
     SetWorkflowID,
     SetWorkflowTimeout,
@@ -21,7 +21,6 @@ from dbos import (
 )
 from dbos._context import assert_current_dbos_context, get_local_dbos_context
 from dbos._dbos import WorkflowHandle
-from dbos._dbos_config import ConfigFile
 from dbos._error import (
     DBOSAwaitedWorkflowCancelledError,
     DBOSException,
@@ -34,7 +33,7 @@ from tests.conftest import retry_until_success, retry_until_success_async
 
 @pytest.mark.asyncio
 async def test_async_workflow(dbos: DBOS) -> None:
-    txn_counter: int = 0
+    other_step_counter: int = 0
     wf_counter: int = 0
     step_counter: int = 0
 
@@ -42,7 +41,7 @@ async def test_async_workflow(dbos: DBOS) -> None:
     async def test_workflow(var1: str, var2: str) -> str:
         nonlocal wf_counter
         wf_counter += 1
-        res1 = await asyncio.to_thread(test_transaction, var1)
+        res1 = await asyncio.to_thread(test_other_step, var1)
         res2 = await test_step(var2)
         DBOS.logger.info("I'm test_workflow")
         return res1 + res2
@@ -54,36 +53,35 @@ async def test_async_workflow(dbos: DBOS) -> None:
         DBOS.logger.info("I'm test_step")
         return var + f"step{step_counter}"
 
-    @DBOS.transaction(isolation_level="SERIALIZABLE")
-    def test_transaction(var: str) -> str:
-        rows = (DBOS.sql_session.execute(sa.text("SELECT 1"))).fetchall()
-        nonlocal txn_counter
-        txn_counter += 1
-        DBOS.logger.info("I'm test_transaction")
-        return var + f"txn{txn_counter}{rows[0][0]}"
+    @DBOS.step()
+    def test_other_step(var: str) -> str:
+        nonlocal other_step_counter
+        other_step_counter += 1
+        DBOS.logger.info("I'm test_other_step")
+        return var + f"other{other_step_counter}1"
 
     wfuuid = f"test_async_workflow-{time.time_ns()}"
     with SetWorkflowID(wfuuid):
         result = await test_workflow("alice", "bob")
-        assert result == "alicetxn11bobstep1"
+        assert result == "aliceother11bobstep1"
 
     with SetWorkflowID(wfuuid):
         result = await test_workflow("alice", "bob")
-        assert result == "alicetxn11bobstep1"
+        assert result == "aliceother11bobstep1"
 
     assert wf_counter == 1  # Completed replay does not re-run the body (#762)
     assert step_counter == 1
-    assert txn_counter == 1
+    assert other_step_counter == 1
 
     # Test DBOS.start_workflow_async
     handle = await DBOS.start_workflow_async(test_workflow, "alice", "bob")
-    assert (await handle.get_result()) == "alicetxn21bobstep2"
+    assert (await handle.get_result()) == "aliceother21bobstep2"
 
     # Test DBOS.start_workflow. Not recommended for async workflows,
     # but needed for backwards compatibility.
     def fn() -> None:
         sync_handle = DBOS.start_workflow(test_workflow, "alice", "bob")
-        assert sync_handle.get_result() == "alicetxn31bobstep3"  # type: ignore
+        assert sync_handle.get_result() == "aliceother31bobstep3"  # type: ignore
 
     await asyncio.to_thread(fn)
 
@@ -94,7 +92,7 @@ async def test_async_workflow(dbos: DBOS) -> None:
 
 @pytest.mark.asyncio
 async def test_async_step(dbos: DBOS) -> None:
-    txn_counter: int = 0
+    other_step_counter: int = 0
     wf_counter: int = 0
     step_counter: int = 0
 
@@ -102,7 +100,7 @@ async def test_async_step(dbos: DBOS) -> None:
     async def test_workflow(var1: str, var2: str) -> str:
         nonlocal wf_counter
         wf_counter += 1
-        res1 = await asyncio.to_thread(test_transaction, var1)
+        res1 = await asyncio.to_thread(test_other_step, var1)
         res2 = await test_step(var2)
         DBOS.logger.info("I'm test_workflow")
         return res1 + res2
@@ -115,26 +113,25 @@ async def test_async_step(dbos: DBOS) -> None:
         DBOS.logger.info("I'm test_step")
         return var + f"step{step_counter}"
 
-    @DBOS.transaction(isolation_level="SERIALIZABLE")
-    def test_transaction(var: str) -> str:
-        rows = (DBOS.sql_session.execute(sa.text("SELECT 1"))).fetchall()
-        nonlocal txn_counter
-        txn_counter += 1
-        DBOS.logger.info("I'm test_transaction")
-        return var + f"txn{txn_counter}{rows[0][0]}"
+    @DBOS.step()
+    def test_other_step(var: str) -> str:
+        nonlocal other_step_counter
+        other_step_counter += 1
+        DBOS.logger.info("I'm test_other_step")
+        return var + f"other{other_step_counter}1"
 
     wfuuid = f"test_async_step-{time.time_ns()}"
     with SetWorkflowID(wfuuid):
         result = await test_workflow("alice", "bob")
-        assert result == "alicetxn11bobstep1"
+        assert result == "aliceother11bobstep1"
 
     with SetWorkflowID(wfuuid):
         result = await test_workflow("alice", "bob")
-        assert result == "alicetxn11bobstep1"
+        assert result == "aliceother11bobstep1"
 
     assert wf_counter == 1  # Completed replay does not re-run the body (#762)
     assert step_counter == 1
-    assert txn_counter == 1
+    assert other_step_counter == 1
 
 
 @pytest.mark.asyncio
@@ -565,19 +562,6 @@ async def test_sleep(dbos: DBOS) -> None:
     assert sleep_counter == 1
 
 
-def test_async_tx_raises(config: ConfigFile) -> None:
-
-    with pytest.raises(DBOSException) as exc_info:
-
-        @DBOS.transaction()
-        async def test_async_tx() -> None:
-            pass
-
-    assert "is a coroutine function" in str(exc_info.value)
-    # destroy call needed to avoid "functions were registered but DBOS() was not called" warning
-    DBOS.destroy(destroy_registry=True)
-
-
 @pytest.mark.asyncio
 async def test_start_workflow_async(dbos: DBOS) -> None:
     wf_counter: int = 0
@@ -649,6 +633,73 @@ async def test_retrieve_workflow_async(dbos: DBOS) -> None:
     wfstatus = await handle.get_status()
     assert wfstatus.status == "SUCCESS"
     assert wfstatus.workflow_id == wfuuid
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("waiter_timeout", [False, True], ids=["cancel", "timeout"])
+@pytest.mark.parametrize("workflow_fails", [False, True], ids=["success", "error"])
+async def test_result_waiter_cancellation_isolated(
+    dbos: DBOS, waiter_timeout: bool, workflow_fails: bool
+) -> None:
+    """Cancelling one result waiter must not poison a shared workflow handle."""
+    started = asyncio.Event()
+    release = asyncio.Event()
+    executions = 0
+
+    @DBOS.workflow()
+    async def workflow() -> str:
+        nonlocal executions
+        executions += 1
+        started.set()
+        await release.wait()
+        if workflow_fails:
+            raise ValueError("workflow failed")
+        return "completed"
+
+    handle = await DBOS.start_workflow_async(workflow)
+    await asyncio.wait_for(started.wait(), timeout=5)
+    waiting = asyncio.Event()
+
+    async def wait_for_result() -> str:
+        waiting.set()
+        return await handle.get_result()
+
+    other_waiter = asyncio.create_task(wait_for_result())
+    await asyncio.wait_for(waiting.wait(), timeout=5)
+    try:
+        if waiter_timeout:
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(handle.get_result(), timeout=0.01)
+        else:
+            waiting.clear()
+            cancelled_waiter = asyncio.create_task(wait_for_result())
+            await asyncio.wait_for(waiting.wait(), timeout=5)
+            cancelled_waiter.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await cancelled_waiter
+
+        assert not other_waiter.done()
+        release.set()
+        if workflow_fails:
+            with pytest.raises(ValueError, match="workflow failed"):
+                await asyncio.wait_for(other_waiter, timeout=5)
+            with pytest.raises(ValueError, match="workflow failed"):
+                await handle.get_result()
+        else:
+            assert await asyncio.wait_for(other_waiter, timeout=5) == "completed"
+            assert await handle.get_result() == "completed"
+
+        assert executions == 1
+        status = await handle.get_status()
+        assert status.status == ("ERROR" if workflow_fails else "SUCCESS")
+    finally:
+        release.set()
+        await asyncio.gather(other_waiter, return_exceptions=True)
+        # A cancelled handle must not leave its underlying workflow running at teardown.
+        stored: WorkflowHandleAsync[str] = await DBOS.retrieve_workflow_async(
+            handle.get_workflow_id()
+        )
+        await asyncio.gather(stored.get_result(), return_exceptions=True)
 
 
 def test_unawaited_workflow(dbos: DBOS) -> None:
@@ -1321,6 +1372,58 @@ def test_destroy_from_adopted_main_loop_does_not_deadlock(
     )
     if scenario_error:
         raise scenario_error[0]
+
+
+@pytest.mark.parametrize("adopt_main_loop", [False, True], ids=["owned", "adopted"])
+def test_destroy_finalizes_only_owned_async_generators(
+    config: DBOSConfig,
+    cleanup_test_databases: None,
+    tmp_path: Path,
+    adopt_main_loop: bool,
+) -> None:
+    resource = (tmp_path / "stream.txt").open("w")
+
+    async def source() -> AsyncGenerator[str, None]:
+        try:
+            yield "ready"
+        finally:
+            # Stream cleanup may need the event loop for another await.
+            await asyncio.sleep(0)
+            resource.close()
+
+    stream = source()
+
+    @DBOS.workflow()
+    async def consume_one() -> str:
+        # Keep the suspended stream alive so garbage collection cannot mask
+        # whether runtime shutdown actually finalizes it.
+        return await anext(stream)
+
+    DBOS(config=config)
+    try:
+        if adopt_main_loop:
+
+            async def scenario() -> None:
+                DBOS.launch()
+                handle = await DBOS.start_workflow_async(consume_one)
+                assert await handle.get_result() == "ready"
+                DBOS.destroy()
+                # An application-owned loop and its streams remain usable.
+                assert not resource.closed
+                await stream.aclose()
+
+            asyncio.run(scenario())
+        else:
+            DBOS.launch()
+            handle = cast(WorkflowHandle[str], DBOS.start_workflow(consume_one))
+            assert handle.get_result() == "ready"
+            assert not resource.closed
+            DBOS.destroy()
+            assert resource.closed
+    finally:
+        DBOS.destroy(destroy_registry=True)
+        asyncio.run(stream.aclose())
+        resource.close()
 
 
 @pytest.mark.asyncio

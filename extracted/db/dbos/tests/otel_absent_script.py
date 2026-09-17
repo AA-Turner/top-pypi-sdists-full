@@ -30,12 +30,11 @@ def main() -> None:
     # Imported here, not at module scope: the blocker must be in place first.
     import sqlalchemy as sa
 
-    from dbos import DBOS, DBOSConfig, Queue, SetWorkflowAttributes
+    from dbos import DBOS, DBOSConfig, SetWorkflowAttributes
     from dbos._schemas.system_database import SystemSchema
 
     config: DBOSConfig = {
         "name": "otel-absent-app",
-        "application_database_url": f"sqlite:///{sqlite_path}",
         "system_database_url": f"sqlite:///{sqlite_path}",
         # Default in production; spelled out because it is the whole point of this script.
         "enable_otlp": False,
@@ -52,7 +51,7 @@ def main() -> None:
         return a_step()
 
     DBOS.launch()
-    queue = Queue("otel_absent_queue")
+    queue = DBOS.register_queue("otel_absent_queue")
 
     # The executor path: start_workflow captures the caller's otel context.
     assert DBOS.start_workflow(a_workflow).get_result() == "stepped"

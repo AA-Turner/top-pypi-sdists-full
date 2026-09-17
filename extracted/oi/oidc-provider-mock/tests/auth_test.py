@@ -1,9 +1,10 @@
 """Tests the authorization code flow via direct HTTP requests."""
 
 import re
+import urllib.parse
 from typing import Any
 
-import httpx
+import httpx2
 import pytest
 from faker import Faker
 
@@ -26,7 +27,7 @@ def test_auth_success(oidc_server: str):
 
     client = OidcClient.register(oidc_server, redirect_uri=redirect_uri)
 
-    response = httpx.post(
+    response = httpx2.post(
         client.authorization_url(state=state, nonce=nonce),
         data={"sub": subject},
     )
@@ -49,14 +50,14 @@ def test_user_endpoint_claims_in_tokens(oidc_server: str):
     subject = faker.email()
     state = faker.password()
 
-    httpx.put(
+    httpx2.put(
         f"{oidc_server}/users/{subject}",
         json={"custom": "CLAIM"},
     ).raise_for_status()
 
     client = fake_client(issuer=oidc_server)
 
-    response = httpx.post(
+    response = httpx2.post(
         client.authorization_url(state=state),
         data={"sub": subject},
     )
@@ -80,7 +81,7 @@ def test_preconfigured_claims_in_tokens(oidc_server: str):
 
     client = fake_client(issuer=oidc_server)
 
-    response = httpx.post(
+    response = httpx2.post(
         client.authorization_url(state=state),
         data={"sub": "alice"},
     )
@@ -111,14 +112,14 @@ def test_include_all_claims(oidc_server: str):
         "phone": faker.phone_number(),
     }
 
-    httpx.put(f"{oidc_server}/users/{subject}", json=claims).raise_for_status()
+    httpx2.put(f"{oidc_server}/users/{subject}", json=claims).raise_for_status()
 
     client = fake_client(
         issuer=oidc_server,
         scope="openid profile email address phone",
     )
 
-    response = httpx.post(
+    response = httpx2.post(
         client.authorization_url(state=state),
         data={"sub": subject},
     )
@@ -141,18 +142,27 @@ def test_include_all_claims(oidc_server: str):
     assert user_info["phone"] == claims["phone"]
 
 
-def test_auth_denied(oidc_server: str):
+def test_auth_denied(oidc_server: str, subtests: pytest.Subtests):
     state = faker.password()
 
     client = fake_client(oidc_server)
 
-    response = httpx.post(
-        client.authorization_url(state=faker.password()),
+    response = httpx2.post(
+        client.authorization_url(state=state),
         data={"action": "deny"},
     )
 
-    with pytest.raises(AuthorizationError, match=r"access_denied"):
-        client.fetch_token(response.headers["location"], state=state)
+    return_url = response.headers["location"]
+    with subtests.test("regression test: errors should contain the state= parameter"):
+        parsed_url = urllib.parse.urlsplit(return_url)
+        qs = urllib.parse.parse_qs(parsed_url.query)
+        assert qs["state"] == [state]
+
+    with (
+        subtests.test("auth should fail"),
+        pytest.raises(AuthorizationError, match=r"access_denied"),
+    ):
+        client.fetch_token(return_url, state=state)
 
 
 @use_provider_config(require_nonce=True)
@@ -161,7 +171,7 @@ def test_nonce_required_error(oidc_server: str):
 
     client = fake_client(oidc_server)
     auth_url = client.authorization_url(state=state)
-    token_data = httpx.post(auth_url, data={"sub": faker.email()})
+    token_data = httpx2.post(auth_url, data={"sub": faker.email()})
     with pytest.raises(
         AuthorizationError,
         match=re.compile(
@@ -172,6 +182,6 @@ def test_nonce_required_error(oidc_server: str):
 
     nonce = faker.password()
     auth_url = client.authorization_url(state=state, nonce=nonce)
-    token_data = httpx.post(auth_url, data={"sub": faker.email()})
+    token_data = httpx2.post(auth_url, data={"sub": faker.email()})
     token_data = client.fetch_token(token_data.headers["location"], state=state)
     assert token_data.claims["nonce"] == nonce

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harmonypy
-Version: 2.0.0
+Version: 2.0.2
 Summary: Batch correction for single-cell data using the Harmony algorithm with a C++ Armadillo backend.
 Keywords: harmony,batch-correction,integration,single-cell,bioinformatics
 Author-Email: Kamil Slowikowski <kslowikowski@gmail.com>, John Arevalo <johnarevalo@gmail.com>
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: C++
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Project-URL: Homepage, https://github.com/slowkow/harmonypy

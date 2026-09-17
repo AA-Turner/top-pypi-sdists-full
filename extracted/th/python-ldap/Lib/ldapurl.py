@@ -4,7 +4,7 @@ ldapurl - handling of LDAP URLs as described in RFC 4516
 See https://www.python-ldap.org/ for details.
 """
 
-__version__ = '3.4.7'
+__version__ = '3.4.8'
 
 __all__ = [
   # constants
@@ -16,6 +16,7 @@ __all__ = [
   'LDAPUrlExtension','LDAPUrlExtensions','LDAPUrl'
 ]
 
+import html
 from collections.abc import MutableMapping
 from urllib.parse import quote, unquote
 
@@ -387,9 +388,9 @@ class LDAPUrl:
         if not isinstance(hrefTarget, str):
             raise TypeError("hrefTarget must be str, not "
                             + type(hrefTarget).__name__)
-        target = ' target="%s"' % hrefTarget
+        target = ' target="%s"' % html.escape(hrefTarget, quote=True)
     return '<a{} href="{}{}">{}</a>'.format(
-        target, urlPrefix, self.unparse(), hrefText
+        target, html.escape(urlPrefix, quote=True), html.escape(self.unparse(), quote=True), html.escape(hrefText, quote=False)
     )
 
   def __str__(self):

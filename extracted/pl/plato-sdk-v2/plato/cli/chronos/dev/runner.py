@@ -525,7 +525,7 @@ class DevRunner:
         """Create a session in Chronos for OTel traces."""
         import httpx
 
-        world_config = self.config.world.config or {}
+        world_config = self.config.world.to_session_payload()
         tags = list({*self.config.tags, "dev"})
         body = CreateSessionRequest(
             world_name=self.config.world.package or "",
@@ -999,11 +999,11 @@ class DevRunner:
                         update={"world": self.config.world.model_copy(update={"config": world_config})}
                     )
                     self._force_fresh_next_run = False
-                # Resolve ${VAR} placeholders the local env couldn't fill from
-                # the Chronos analyzer-env (org + user scope) — the same
-                # backend resolution `chronos test` and `launch` use. Local
-                # values (Config.from_file expands from the shell/.env) win;
-                # the backend fills the rest.
+                # Resolve ${VAR} placeholders the local env couldn't fill by
+                # asking Chronos for each referenced secret by name, which
+                # resolves it the way a launch does (org-wide, overlaid by
+                # the caller's own). Local values (Config.from_file expands
+                # from the shell/.env) win; Chronos fills the rest.
                 if self.config.world.config:
                     await resolve_config_env_vars(self.config.world.config, self.api_key)
                 # Copy previously resolved agent images

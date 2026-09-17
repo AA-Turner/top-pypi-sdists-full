@@ -8,10 +8,17 @@ unexpanded image marker in a rendered training prompt into River image chunks.
 
 from __future__ import annotations
 
+from river_client.images import Image
+
 import json
 import math
 import re
 from typing import Any, cast
+
+from jsonschema.exceptions import ValidationError
+from jsonschema.protocols import Validator
+from jsonschema.validators import validator_for
+from referencing import Registry
 
 from river_client.renderers.base import (
     ContentPart,
@@ -28,8 +35,8 @@ from river_client.renderers.base import (
     ToolCall,
     ToolCallFunction,
     ToolSpec,
-    TrainOnWhat,
     TrainingExample,
+    TrainOnWhat,
     UnparsedToolCall,
     _ChunkBuilder,
     _truncate_chunks_to_length,
@@ -54,13 +61,35 @@ _ARG_VALUE_CLOSE = "</arg_value>"
 _TOOL_NAME_RE = re.compile(r"[A-Za-z_]\w*", re.ASCII)
 
 
-def _parse_glm53_tool_call(body: str, raw_text: str) -> ToolCall | UnparsedToolCall:
+def _decode_glm53_argument(raw: str, validator: Validator) -> Any:
+    """Preserve valid strings; otherwise decode and validate a JSON value.
+
+    GLM has no string/non-string marker. When a union accepts both the raw
+    string and its JSON interpretation, prefer the string to preserve its
+    contents. Nested values are validated, not recursively coerced.
+    """
+    if validator.is_valid(raw):
+        return raw
+    value = json.loads(raw)
+    if isinstance(value, str):
+        # GLM string values are verbatim, not JSON-quoted. Do not strip quotes
+        # to make a string satisfy an enum/pattern it originally violated.
+        validator.validate(raw)
+    # Python accepts NaN, Infinity, and overflowing floats as JSON; tools must
+    # receive standard JSON, including inside nested objects and arrays.
+    json.dumps(value, allow_nan=False)
+    validator.validate(value)
+    return value
+
+
+def _parse_glm53_tool_call(
+    body: str, raw_text: str, tools: list[ToolSpec] | None
+) -> ToolCall | UnparsedToolCall:
     """Parse GLM's ``name<arg_key>key</arg_key>...`` call dialect.
 
-    Argument values deliberately stay strings. The checkpoint's template has
-    no type marker: it writes strings verbatim and serializes non-strings as
-    JSON, so decoding values that merely *look* like JSON would change a
-    subsequent template render.
+    The template writes strings verbatim and non-strings as JSON without type
+    markers. Tool parameter schemas disambiguate them. Without a matching
+    parameter schema, preserve the raw string.
     """
     body = body.strip()
     first_arg = body.find(_ARG_KEY_OPEN)
@@ -79,7 +108,19 @@ def _parse_glm53_tool_call(body: str, raw_text: str) -> ToolCall | UnparsedToolC
             function=ToolCallFunction(name=name, arguments="{}"),
         )
 
-    arguments: dict[str, str] = {}
+    tool = next((tool for tool in tools or [] if tool["name"] == name), None)
+    validator = None
+    properties = {}
+    if tool is not None:
+        schema = tool["parameters"]
+        validator_class = validator_for(schema)
+        validator_class.check_schema(schema)
+        # Resolve local $defs, but never fetch external references while
+        # parsing a completion. Invalid schemas are caller configuration errors.
+        validator = validator_class(schema, registry=Registry())
+        properties = schema.get("properties", {})
+
+    arguments: dict[str, Any] = {}
     remaining = body[first_arg:]
     while remaining.strip():
         if not remaining.startswith(_ARG_KEY_OPEN):
@@ -108,7 +149,19 @@ def _parse_glm53_tool_call(body: str, raw_text: str) -> ToolCall | UnparsedToolC
             return UnparsedToolCall(
                 raw_text=raw_text, error=f"Duplicate GLM argument name: {key}"
             )
-        arguments[key] = remaining[len(_ARG_VALUE_OPEN) : value_end]
+        raw_value = remaining[len(_ARG_VALUE_OPEN) : value_end]
+        if validator is not None and key in properties:
+            try:
+                arguments[key] = _decode_glm53_argument(
+                    raw_value, validator.evolve(schema=properties[key])
+                )
+            except (ValueError, ValidationError) as exc:
+                return UnparsedToolCall(
+                    raw_text=raw_text,
+                    error=f"Invalid GLM argument {name}.{key}: {exc}",
+                )
+        else:
+            arguments[key] = raw_value
         remaining = remaining[value_end + len(_ARG_VALUE_CLOSE) :].lstrip()
 
     return ToolCall(
@@ -125,6 +178,7 @@ def parse_glm53_content_blocks(
     content: str,
     *,
     thinking: bool | None = None,
+    tools: list[ToolSpec] | None = None,
 ) -> tuple[list[ContentPart], list[ToolCall | UnparsedToolCall]]:
     """Parse a GLM-5.3 Flash completion into reasoning, text, and tools.
 
@@ -133,6 +187,11 @@ def parse_glm53_content_blocks(
     thinking mode; a bare tool call selects non-thinking mode. This keeps the
     public parser useful for both checkpoint-template defaults while the
     renderer itself always passes its configured mode.
+
+    ``tools`` supplies the same unwrapped ToolSpec definitions used for prompt
+    rendering. Declared parameter values are decoded and validated against
+    their schemas; undeclared values remain raw strings. Ambiguous unions
+    prefer a valid raw string. Invalid values become UnparsedToolCall entries.
     """
     if thinking is None:
         thinking = (
@@ -188,7 +247,7 @@ def parse_glm53_content_blocks(
             return parts, tool_results
         raw_text = remainder[open_at : close_at + len(_TOOL_CALL_CLOSE)]
         tool_results.append(
-            _parse_glm53_tool_call(remainder[body_start:close_at], raw_text)
+            _parse_glm53_tool_call(remainder[body_start:close_at], raw_text, tools)
         )
         position = close_at + len(_TOOL_CALL_CLOSE)
     text_after = remainder[position:]
@@ -272,6 +331,7 @@ class Glm53FlashRenderer(Renderer):
         tokenizer: Tokenizer,
         *,
         thinking: bool = True,
+        reasoning_effort: str = "max",
         strip_thinking_from_history: bool = False,
         patch_size: int = DEFAULT_PATCH_SIZE,
         merge_size: int = DEFAULT_MERGE_SIZE,
@@ -279,6 +339,9 @@ class Glm53FlashRenderer(Renderer):
         max_image_tokens: int = DEFAULT_MAX_IMAGE_TOKENS,
     ) -> None:
         super().__init__(tokenizer)
+        if reasoning_effort not in ("low", "high", "max"):
+            raise ValueError("GLM-5.3 Flash reasoning_effort must be low, high or max")
+        self.reasoning_effort = reasoning_effort
         if patch_size <= 0 or merge_size <= 0:
             raise ValueError("GLM image patch_size and merge_size must be positive")
         self.patch_size = patch_size
@@ -316,7 +379,7 @@ class Glm53FlashRenderer(Renderer):
 
     def image_chunk(
         self,
-        data: bytes,
+        data: Image,
         *,
         format: str = "png",
         height: int | None = None,
@@ -418,6 +481,7 @@ class Glm53FlashRenderer(Renderer):
             tokenize=False,
             add_generation_prompt=add_generation_prompt,
             tools=tools,
+            reasoning_effort=self.reasoning_effort,
             enable_thinking=self.thinking,
             clear_thinking=self.strip_thinking_from_history,
         )
@@ -434,17 +498,6 @@ class Glm53FlashRenderer(Renderer):
         while index < min(len(left), len(right)) and left[index] == right[index]:
             index += 1
         return index
-
-    @staticmethod
-    def _common_suffix_length(left: list[int], right: list[int], prefix: int) -> int:
-        length = 0
-        while (
-            length < len(left) - prefix
-            and length < len(right) - prefix
-            and left[-1 - length] == right[-1 - length]
-        ):
-            length += 1
-        return length
 
     def build_prompt_str(
         self,
@@ -470,8 +523,34 @@ class Glm53FlashRenderer(Renderer):
             image_formats=[part["format"] for part in image_parts],
         )
 
+    def build_continuation_prompt(
+        self, messages: list[Message], *, last_stop: str | None
+    ) -> SamplePrompt:
+        """Render new observations without repeating the template's global preamble.
+
+        A synthetic user anchor lets the tokenizer render its own role framing
+        and generation prefix. It never sees or rewrites sampled assistant text.
+        Tool results arrive in call order from the environment runner.
+        """
+        rendered, image_parts = self._render_messages(messages)
+        anchor = [{"role": "user", "content": ""}]
+        prefix = self._apply_template(anchor, add_generation_prompt=False)
+        prompt = self._apply_template(anchor + rendered, add_generation_prompt=True)
+        if not prompt.startswith(prefix):
+            raise ValueError("GLM chat template rewrites the continuation anchor")
+        prompt = prompt[len(prefix) :]
+        if last_stop in (_OBSERVATION, "<|user|>") and prompt.startswith(last_stop):
+            prompt = prompt[len(last_stop) :]
+        return SamplePrompt(
+            prompt=prompt,
+            images=[part["image"] for part in image_parts],
+            image_formats=[part["format"] for part in image_parts],
+        )
+
     def get_stop_strings(self) -> list[str]:
-        stops = [_OBSERVATION]
+        # The checkpoint's generation_config declares observation, user, and EOS
+        # as turn terminators. User may be retained in the native token stream.
+        stops = [_OBSERVATION, "<|user|>"]
         eos_token = getattr(self.tokenizer, "eos_token", None)
         if isinstance(eos_token, str) and eos_token and eos_token not in stops:
             stops.append(eos_token)
@@ -479,7 +558,9 @@ class Glm53FlashRenderer(Renderer):
             stops.append(_EOS)
         return stops
 
-    def parse_response(self, text: str) -> ParsedResponse:
+    def parse_response(
+        self, text: str, *, tools: list[ToolSpec] | None = None
+    ) -> ParsedResponse:
         stop_found = False
         for stop in self.get_stop_strings():
             if text.endswith(stop):
@@ -487,7 +568,9 @@ class Glm53FlashRenderer(Renderer):
                 stop_found = True
                 break
 
-        parts, tool_results = parse_glm53_content_blocks(text, thinking=self.thinking)
+        parts, tool_results = parse_glm53_content_blocks(
+            text, thinking=self.thinking, tools=tools
+        )
         message: Message = {"role": "assistant", "content": parts if parts else ""}
         tool_calls = [result for result in tool_results if "function" in result]
         unparsed = [result for result in tool_results if "error" in result]
@@ -518,7 +601,25 @@ class Glm53FlashRenderer(Renderer):
         ]
         last_assistant_index = assistant_indexes[-1] if assistant_indexes else -1
 
-        for index in assistant_indexes:
+        # Work backwards so inserting a stop cannot shift earlier turn offsets.
+        # Training examples contain completed messages; the checkpoint template
+        # omits answer EOS and only emits observation when tool results follow.
+        for index in reversed(assistant_indexes):
+            turn_end = self._training_turn_end(rendered, index, tools=tools)
+            content_end, terminator_end = self._turn_terminator_range(
+                full_ids, turn_end
+            )
+            if terminator_end is None:
+                stop = (
+                    _OBSERVATION
+                    if rendered[index].get("tool_calls")
+                    else getattr(self.tokenizer, "eos_token", None) or _EOS
+                )
+                stop_ids = self._encode(stop)
+                full_ids[content_end:content_end] = stop_ids
+                weights[content_end:content_end] = [0.0] * len(stop_ids)
+                terminator_end = content_end + len(stop_ids)
+
             if train_on == TrainOnWhat.LAST_ASSISTANT and index != last_assistant_index:
                 continue
             if train_on not in (TrainOnWhat.LAST_ASSISTANT, TrainOnWhat.ALL_ASSISTANT):
@@ -535,14 +636,12 @@ class Glm53FlashRenderer(Renderer):
                     without_content, add_generation_prompt=False, tools=tools
                 )
             )
-            prefix = self._common_prefix_length(full_ids, without_ids)
-            suffix = self._common_suffix_length(full_ids, without_ids, prefix)
-            generated_end = len(full_ids) - suffix
-            content_end, terminator_end = self._turn_terminator_range(
-                full_ids, generated_end
-            )
+            # Bound the diff by this turn: removing calls can also change the
+            # template's ordering of later tool results. Empty answers can have
+            # no content diff at all, but still need a trainable stop.
+            prefix = min(self._common_prefix_length(full_ids, without_ids), content_end)
             weights[prefix:content_end] = [1.0] * (content_end - prefix)
-            if train_on_eos and terminator_end is not None:
+            if train_on_eos:
                 weights[content_end:terminator_end] = [1.0] * (
                     terminator_end - content_end
                 )
@@ -588,25 +687,50 @@ class Glm53FlashRenderer(Renderer):
             model_input=model_input,
         )
 
+    def _training_turn_end(
+        self,
+        messages: list[dict[str, Any]],
+        index: int,
+        *,
+        tools: list[ToolSpec] | None,
+    ) -> int:
+        """Locate an assistant boundary using the checkpoint's own template."""
+        prefix = messages[: index + 1]
+        clear_history = self.strip_thinking_from_history and any(
+            message["role"] == "user" for message in messages[index + 1 :]
+        )
+        if clear_history:
+            # Keep the full conversation's reasoning-clearing behavior when
+            # rendering a prefix that would otherwise end before the last user.
+            prefix.append({"role": "user", "content": ""})
+        text = self._apply_template(prefix, add_generation_prompt=False, tools=tools)
+        if clear_history:
+            text = text.removesuffix("<|user|>")
+        return len(self._encode(text))
+
     def _turn_terminator_range(
-        self, input_ids: list[int], generated_end: int
+        self, input_ids: list[int], turn_end: int
     ) -> tuple[int, int | None]:
-        """Return the content end and adjacent stop range for one assistant turn."""
+        """Preserve an adjacent stop before inferring a missing terminator.
+
+        Inline and unparsed tool calls need not have structured ``tool_calls``.
+        Their observation token, including a following tool-result header, is
+        already the handoff terminator and must not be preceded by an EOS.
+        """
+        stop_sequences = [self._encode(stop) for stop in self.get_stop_strings()]
+        for stop_ids in stop_sequences:
+            if stop_ids and input_ids[turn_end - len(stop_ids) : turn_end] == stop_ids:
+                return turn_end - len(stop_ids), turn_end
         for stop in self.get_stop_strings():
+            # A following user header belongs to the environment, not to this
+            # assistant answer. It is a sampling stop but cannot replace the
+            # missing answer EOS in a rendered training conversation.
+            if stop == "<|user|>":
+                continue
             stop_ids = self._encode(stop)
-            if (
-                stop_ids
-                and input_ids[generated_end - len(stop_ids) : generated_end] == stop_ids
-            ):
-                return generated_end - len(stop_ids), generated_end
-        for stop in self.get_stop_strings():
-            stop_ids = self._encode(stop)
-            if (
-                stop_ids
-                and input_ids[generated_end : generated_end + len(stop_ids)] == stop_ids
-            ):
-                return generated_end, generated_end + len(stop_ids)
-        return generated_end, None
+            if stop_ids and input_ids[turn_end : turn_end + len(stop_ids)] == stop_ids:
+                return turn_end, turn_end + len(stop_ids)
+        return turn_end, None
 
 
 __all__ = [

@@ -109,7 +109,7 @@ class TestReplyFormatter:
         assert "[low]" in reply
         assert "**Tier**: engine_fallback" in reply
         assert "HEAD change" in reply
-        assert "re-evaluated" in reply
+        assert "finalized" in reply
 
     def test_format_unconfirmed_commit_change_reply_with_real_tier(self) -> None:
         formatter = ReplyFormatter()
@@ -126,7 +126,7 @@ class TestReplyFormatter:
         assert "**Tier**: sdk_evaluation_fallback" in reply
         assert "SDK fallback produced an ambiguous result." in reply
         assert "**Model**: claude-sonnet-4.6" in reply
-        assert "re-evaluated" in reply
+        assert "finalized" in reply
 
     def test_format_unconfirmed_commit_change_reply_includes_resolution_basis(self) -> None:
         formatter = ReplyFormatter()

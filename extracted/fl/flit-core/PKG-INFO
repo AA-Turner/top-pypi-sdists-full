@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: flit_core
-Version: 4.0.2
+Version: 4.1.0
 Summary: Distribution-building parts of Flit. See flit package for more information
 Author-email: Thomas Kluyver & contributors <thomas@kluyver.me.uk>
 Requires-Python: >=3.8

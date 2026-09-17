@@ -1,4 +1,5 @@
 import sys
+import warnings
 from io import BytesIO
 
 import pycurl
@@ -32,6 +33,44 @@ def test_integer_value_for_string_option(curl):
 def test_float_value_for_integer_option(curl):
     with pytest.raises(TypeError):
         curl.setopt(pycurl.VERBOSE, 1.0)
+
+
+BLOB_OPTIONS = [
+    name
+    for name in (
+        # libcurl 7.71.0
+        "SSLCERT_BLOB",
+        "SSLKEY_BLOB",
+        "PROXY_SSLCERT_BLOB",
+        "PROXY_SSLKEY_BLOB",
+        "ISSUERCERT_BLOB",
+        "PROXY_ISSUERCERT_BLOB",
+        # libcurl 7.77.0
+        "CAINFO_BLOB",
+        "PROXY_CAINFO_BLOB",
+    )
+    if hasattr(pycurl, name)
+]
+
+
+@pytest.mark.parametrize("value", [12345, True, 1.5], ids=["int", "bool", "float"])
+@pytest.mark.parametrize("name", BLOB_OPTIONS)
+def test_unsupported_value_for_blob_option(curl, name, value):
+    with pytest.raises(
+        TypeError,
+        match=(
+            "^blob option value must be a byte string, ASCII-only Unicode "
+            "string, or a buffer object$"
+        ),
+    ):
+        curl.setopt(getattr(pycurl, name), value)
+
+
+@pytest.mark.skipif(not BLOB_OPTIONS, reason="libcurl without blob options")
+def test_noncontiguous_buffer_for_blob_option(curl):
+    option = getattr(pycurl, BLOB_OPTIONS[0])
+    with pytest.raises(BufferError):
+        curl.setopt(option, memoryview(bytearray(b"abcdefgh"))[::2])
 
 
 def test_httpheader_list(curl):
@@ -146,9 +185,59 @@ def test_httpheader_replace_cycle(app, curl):
     assert io.getvalue() == b"d"
 
 
+def test_httppost_non_text_field_name(curl):
+    with (
+        pytest.warns(DeprecationWarning, match="HTTPPOST is deprecated; use MIMEPOST"),
+        pytest.raises(
+            TypeError,
+            match=(
+                r"^list or tuple must contain a byte string or Unicode string "
+                r"with ASCII code points only as first element$"
+            ),
+        ),
+    ):
+        curl.setopt(pycurl.HTTPPOST, [(1, b"value")])
+
+
 def test_httpheader_replace_refcount(curl):
     first = ["x-test: first"]
     before = sys.getrefcount(first)
     curl.setopt(pycurl.HTTPHEADER, first)
     curl.setopt(pycurl.HTTPHEADER, ["x-test: second"])
     assert sys.getrefcount(first) == before
+
+
+def test_httppost_multiple_options_do_not_leak(curl):
+    form = [
+        (
+            "field",
+            [pycurl.FORM_CONTENTS, "v" * 64, pycurl.FORM_CONTENTTYPE, "text/plain"],
+        )
+    ]
+
+    def set_form(n):
+        for _ in range(n):
+            curl.setopt(pycurl.HTTPPOST, form)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        set_form(200)
+        before = sys.getallocatedblocks()
+        set_form(1000)
+        assert sys.getallocatedblocks() - before < 100
+
+
+def test_httppost_bufferptr_stays_pinned(curl):
+    payload = bytes(32)
+    buffer_form = [
+        ("field", [pycurl.FORM_BUFFER, "name.txt", pycurl.FORM_BUFFERPTR, payload])
+    ]
+    before = sys.getrefcount(payload)
+
+    with pytest.warns(DeprecationWarning, match="HTTPPOST is deprecated"):
+        curl.setopt(pycurl.HTTPPOST, buffer_form)
+    assert sys.getrefcount(payload) == before + 1
+
+    with pytest.warns(DeprecationWarning, match="HTTPPOST is deprecated"):
+        curl.setopt(pycurl.HTTPPOST, [("field", [pycurl.FORM_CONTENTS, "other"])])
+    assert sys.getrefcount(payload) == before

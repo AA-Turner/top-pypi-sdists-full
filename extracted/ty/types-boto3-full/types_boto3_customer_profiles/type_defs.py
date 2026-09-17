@@ -456,6 +456,7 @@ __all__ = (
     "RangeTypeDef",
     "ReadinessTypeDef",
     "RecommendationDiversityConfigTypeDef",
+    "RecommendationMetadataTypeDef",
     "RecommendationTypeDef",
     "RecommenderConfigOutputTypeDef",
     "RecommenderConfigTypeDef",
@@ -467,6 +468,7 @@ __all__ = (
     "RecommenderSchemaFieldTypeDef",
     "RecommenderSchemaSummaryTypeDef",
     "RecommenderSummaryTypeDef",
+    "RecommenderTypeDef",
     "RecommenderUpdateTypeDef",
     "ResponseMetadataTypeDef",
     "ResultsSummaryTypeDef",
@@ -481,6 +483,8 @@ __all__ = (
     "ScheduledTriggerPropertiesTypeDef",
     "SearchProfilesRequestTypeDef",
     "SearchProfilesResponseTypeDef",
+    "SearchRecommendationsRequestTypeDef",
+    "SearchRecommendationsResponseTypeDef",
     "SegmentDefinitionItemTypeDef",
     "SegmentGroupOutputTypeDef",
     "SegmentGroupStructureTypeDef",
@@ -1635,6 +1639,10 @@ class ValueRangeTypeDef(TypedDict):
     End: int
 
 
+class RecommendationMetadataTypeDef(TypedDict):
+    Columns: NotRequired[Sequence[str]]
+
+
 class S3SourcePropertiesTypeDef(TypedDict):
     BucketName: str
     BucketPrefix: NotRequired[str]
@@ -2419,6 +2427,12 @@ class GetProfileRecommendationsRequestTypeDef(TypedDict):
     DiversityConfig: NotRequired[RecommendationDiversityConfigTypeDef]
 
 
+class RecommenderTypeDef(TypedDict):
+    Name: str
+    Filters: NotRequired[Sequence[RecommenderFilterTypeDef]]
+    PromotionalFilters: NotRequired[Sequence[RecommenderPromotionalFilterTypeDef]]
+
+
 class PutSegmentSubscriptionRequestTypeDef(TypedDict):
     DomainName: str
     SegmentDefinitionName: str
@@ -2737,6 +2751,12 @@ class GetProfileRecommendationsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class SearchRecommendationsResponseTypeDef(TypedDict):
+    ProfileId: str
+    Recommendations: list[RecommendationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class BatchGetCalculatedAttributeForProfileRequestTypeDef(TypedDict):
     CalculatedAttributeName: str
     DomainName: str
@@ -2919,6 +2939,18 @@ class GetObjectTypeAttributeStatisticsResponseTypeDef(TypedDict):
     Statistics: GetObjectTypeAttributeStatisticsStatsTypeDef
     CalculatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SearchRecommendationsRequestTypeDef(TypedDict):
+    DomainName: str
+    KeyName: str
+    KeyValues: Sequence[str]
+    Recommender: RecommenderTypeDef
+    CandidateIds: NotRequired[Sequence[str]]
+    Context: NotRequired[Mapping[str, str]]
+    Diversity: NotRequired[RecommendationDiversityConfigTypeDef]
+    Metadata: NotRequired[RecommendationMetadataTypeDef]
+    MaxRecommendations: NotRequired[int]
 
 
 class RuleBasedMatchingRequestTypeDef(TypedDict):

@@ -10,8 +10,94 @@
 #include <numeric>
 #include <set>
 #include <sstream>
+#include <stdexcept>
 
 namespace harmony {
+
+bool objective_converged(float obj_old, float obj_new, float epsilon) {
+    if (!std::isfinite(obj_old) || !std::isfinite(obj_new) || !std::isfinite(epsilon))
+        return false;
+    if (obj_old == 0.0f) return obj_new == 0.0f;
+
+    float delta = (obj_old - obj_new) / std::abs(obj_old);
+    return delta >= 0.0f && delta < epsilon;
+}
+
+MATTYPE assignment_logits(
+    const MATTYPE& distances,
+    const VECTYPE& sigma,
+    const MATTYPE& E,
+    const MATTYPE& O,
+    const VECTYPE& theta,
+    const arma::Mat<arma::uword>& batch_ids
+) {
+    MATTYPE logits = -distances;
+    logits.each_col() /= sigma;
+
+    MATTYPE log_diversity = arma::log((2 * E) + 1) - arma::log(O + E + 1);
+    log_diversity.each_row() %= theta.t();
+    for (arma::uword c = 0; c < batch_ids.n_rows; ++c) {
+        for (arma::uword j = 0; j < batch_ids.n_cols; ++j) {
+            logits.col(j) += log_diversity.col(batch_ids(c, j));
+        }
+    }
+    return logits;
+}
+
+ROWTYPE exponentiate_shifted_logits(MATTYPE& logits) {
+    logits.each_row() -= arma::max(logits, 0);
+    logits = arma::exp(logits);
+    return arma::sum(logits, 0);
+}
+
+[[noreturn]] void Harmony::numerical_error(const char* stage, const char* invariant) const {
+    std::ostringstream oss;
+    oss << "Harmony numerical error during " << stage << ": " << invariant
+        << " (sigma=[";
+    for (arma::uword i = 0; i < sigma.n_elem; ++i) {
+        if (i > 0) oss << ", ";
+        oss << sigma(i);
+    }
+    oss << "], theta=[";
+    for (arma::uword i = 0; i < theta.n_elem; ++i) {
+        if (i > 0) oss << ", ";
+        oss << theta(i);
+    }
+    oss << "], block_size=" << block_size << ", K=" << K << ", N=" << N << ")";
+    throw std::runtime_error(oss.str());
+}
+
+void Harmony::check_assignment_normalizers(const ROWTYPE& normalizers, const char* stage) const {
+    if (!normalizers.is_finite() || normalizers.min() <= 0.0f)
+        numerical_error(stage, "assignment normalizers must be finite and positive");
+}
+
+void Harmony::normalize_log_assignments(MATTYPE& logits, const char* stage) const {
+    ROWTYPE normalizers = exponentiate_shifted_logits(logits);
+    check_assignment_normalizers(normalizers, stage);
+    logits.each_row() /= normalizers;
+}
+
+void Harmony::check_state(const char* stage) const {
+    if (!R.is_finite()) numerical_error(stage, "assignments must be finite");
+    if (R.min() < 0.0f) numerical_error(stage, "assignments must be nonnegative");
+
+    ROWTYPE assignment_sums = arma::sum(R, 0);
+    if (!assignment_sums.is_finite() || arma::abs(assignment_sums - 1.0f).max() > 1e-4f)
+        numerical_error(stage, "assignment columns must sum to one");
+
+    auto all_finite = [](const std::vector<float>& values) {
+        return std::all_of(values.begin(), values.end(), [](float value) {
+            return std::isfinite(value);
+        });
+    };
+    if (!all_finite(objective_harmony) || !all_finite(objective_kmeans) ||
+        !all_finite(objective_kmeans_dist) || !all_finite(objective_kmeans_entropy) ||
+        !all_finite(objective_kmeans_cross))
+        numerical_error(stage, "objectives must be finite");
+
+    if (!Z_corr.is_finite()) numerical_error(stage, "corrected coordinates must be finite");
+}
 
 // =========================================================================
 // Custom kernels
@@ -134,7 +220,7 @@ Harmony::Harmony(
     }
 
     if (B_vec.size() > 1) {
-        covariate_bounds.resize(B_vec.size() - 1);
+        covariate_bounds.resize(B_vec.size());
         std::partial_sum(B_vec.begin(), B_vec.end(), covariate_bounds.begin());
     } else {
         covariate_bounds.push_back(B_vec.front());
@@ -145,8 +231,10 @@ Harmony::Harmony(
 
     if (verbose && log_fn) log_fn("Computing initial centroids...");
     init_cluster();
+    check_state("initialization");
     if (verbose && log_fn) log_fn("Initialization complete.");
     harmonize(max_iter_harmony, verbose);
+    check_state("return");
 }
 
 void Harmony::build_batch_structures(const arma::Mat<int64_t>& batch_of_cell) {
@@ -230,8 +318,7 @@ void Harmony::init_cluster() {
 
     R = -dist_mat;
     R.each_col() /= sigma;
-    R = arma::exp(R);
-    R.each_row() /= arma::sum(R, 0);
+    normalize_log_assignments(R, "initialization");
 
     E = arma::sum(R, 1) * Pr_b.t();
     O.zeros();
@@ -304,8 +391,7 @@ void Harmony::cluster() {
         dist_mat = 2.0f * (1.0f - Y.t() * Z_corr);
         R = -dist_mat;
         R.each_col() /= sigma;
-        R = arma::exp(R);
-        R.each_row() /= arma::sum(R, 0);
+        normalize_log_assignments(R, "cluster initialization");
         E = arma::sum(R, 1) * Pr_b.t();
         O.zeros();
         scatter_add_O(R, batch_ids, 1.0f);
@@ -315,6 +401,7 @@ void Harmony::cluster() {
     for (int i = 0; i < max_iter_kmeans; ++i) {
         update_R();
         compute_objective();
+        check_state("assignment update");
 
         if (i > window_size) {
             if (check_convergence(0)) {
@@ -357,8 +444,6 @@ void Harmony::update_R() {
         unsigned idx_max = ((i + 1) * cells_per_block) - 1;
         if (i == n_blocks - 1) idx_max = N - 1;
         if (idx_min >= static_cast<unsigned>(N)) break;
-        unsigned block_n = idx_max - idx_min + 1;
-
         auto Rcells = R.submat(0, idx_min, R.n_rows - 1, idx_max);
         auto dist_matcells = dist_mat.submat(0, idx_min, dist_mat.n_rows - 1, idx_max);
         arma::Mat<arma::uword> block_ids = batch_ids_shuf.cols(idx_min, idx_max);
@@ -366,22 +451,10 @@ void Harmony::update_R() {
         E -= arma::sum(Rcells, 1) * Pr_b.t();
         scatter_add_O(Rcells, block_ids, -1.0f);
 
-        Rcells = -dist_matcells;
-        Rcells.each_col() /= sigma;
-        Rcells = arma::exp(Rcells);
-        Rcells = arma::normalise(Rcells, 1, 0);
-
-        // Gather-multiply diversity for each covariate
-        MATTYPE div_ratio = harmony_pow(((2*E) + 1) / (O + E + 1), theta);
-        for (int c = 0; c < n_covariates; ++c) {
-            for (unsigned j = 0; j < block_n; ++j) {
-                unsigned b = block_ids(c, j);
-                float* col = Rcells.colptr(j);
-                const float* src = div_ratio.colptr(b);
-                for (int ki = 0; ki < K; ++ki) col[ki] *= src[ki];
-            }
-        }
-        Rcells = arma::normalise(Rcells, 1, 0);
+        // E and O stay frozen while every cell in this block is reassigned.
+        MATTYPE logits = assignment_logits(dist_matcells, sigma, E, O, theta, block_ids);
+        normalize_log_assignments(logits, "assignment update");
+        Rcells = logits;
 
         E += arma::sum(Rcells, 1) * Pr_b.t();
         scatter_add_O(Rcells, block_ids, 1.0f);
@@ -413,7 +486,7 @@ bool Harmony::check_convergence(int i_type) {
         if (objective_harmony.size() < 2) return false;
         float obj_old = objective_harmony[objective_harmony.size() - 2];
         float obj_new = objective_harmony[objective_harmony.size() - 1];
-        return (obj_old - obj_new) / std::abs(obj_old) < epsilon_harmony;
+        return objective_converged(obj_old, obj_new, epsilon_harmony);
     }
     return true;
 }
@@ -422,8 +495,52 @@ bool Harmony::check_convergence(int i_type) {
 // moe_correct_ridge
 // =========================================================================
 
+/**
+ * Prepare ridge terms for groups that share cells, such as lab A and Monday.
+ * Include their overlap in the fit, but count each cell once in overall totals.
+ *
+ * cov_mat contains the group totals. Add the overlap weights and recompute
+ * its intercept weight before adding the ridge penalty.
+ * Zero working weights for cells outside the groups in keep, then return
+ * the retained cells' weighted coordinate sum.
+ */
+VECTYPE Harmony::prepare_multi_covariate_ridge(
+    MATTYPE& cov_mat, ROWTYPE& weights, const std::vector<unsigned>& keep
+) const {
+    // Map retained groups to matrix rows; zero marks an excluded group.
+    std::vector<unsigned> batch_row(B, 0);
+    for (unsigned i = 0; i < keep.size(); ++i)
+        batch_row[keep[i]] = i + 1;
+
+    cov_mat(0, 0) = 0;
+    for (int j = 0; j < N; ++j) {
+        bool selected = false;
+        for (int c = 0; c < n_covariates; ++c) {
+            unsigned row = batch_row[batch_ids(c, j)];
+            if (row == 0) continue;
+            selected = true;
+            for (int other = c + 1; other < n_covariates; ++other) {
+                unsigned col = batch_row[batch_ids(other, j)];
+                if (col == 0) continue;
+                cov_mat(row, col) += weights(j);
+                cov_mat(col, row) += weights(j);
+            }
+        }
+        // Count each cell once, even if it belongs to several retained groups.
+        if (selected) {
+            cov_mat(0, 0) += weights(j);
+        } else {
+            weights(j) = 0;
+        }
+    }
+
+    // Zero weights exclude cells without copying their coordinates.
+    return Z_orig * weights.t();
+}
+
 void Harmony::moe_correct_ridge() {
     Z_corr = Z_orig;
+    const bool multiple_covariates = B_vec.size() > 1;
 
     for (int k = 0; k < K; ++k) {
         VECTYPE avg_R = O.row(k).t() / batch_sizes;
@@ -488,10 +605,17 @@ void Harmony::moe_correct_ridge() {
             cov_mat(i + 1, 0) = Ok(i);
             cov_mat(i + 1, i + 1) = Ok(i);
         }
+
+        // Work on a copy so masking does not change the cluster assignments.
+        ROWTYPE Rk = R.row(k);
+        VECTYPE z_sum_all(d, arma::fill::zeros);
+        if (multiple_covariates) {
+            z_sum_all = prepare_multi_covariate_ridge(cov_mat, Rk, keep);
+        }
         cov_mat += arma::diagmat(lamb_vec);
 
         MATTYPE inv_cov;
-        if (B_vec.size() > 1) {
+        if (multiple_covariates) {
             inv_cov = arma::inv(cov_mat);
         } else {
             VECTYPE ac = -cov_mat.row(0).as_col();
@@ -506,17 +630,15 @@ void Harmony::moe_correct_ridge() {
             inv_cov.diag() += b;
         }
 
-        ROWTYPE Rk = R.row(k);
         unsigned n_batches = all_qualify ? B : n_keep;
 
         std::vector<VECTYPE> z_sums(n_batches);
-        VECTYPE z_sum_all(d, arma::fill::zeros);
 
         for (unsigned i = 0; i < n_batches; ++i) {
             unsigned b = all_qualify ? i : keep[i];
             const arma::uvec& idx = batch_index[b];
             z_sums[i] = Z_orig.cols(idx) * arma::conv_to<VECTYPE>::from(Rk.cols(idx).t());
-            z_sum_all += z_sums[i];
+            if (!multiple_covariates) z_sum_all += z_sums[i];
         }
 
         W = inv_cov.unsafe_col(0) * z_sum_all.t();

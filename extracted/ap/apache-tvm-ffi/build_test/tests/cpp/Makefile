@@ -209,6 +209,30 @@ extra/test_access_path_repr.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_access_path_repr.cc.s
 .PHONY : extra/test_access_path_repr.cc.s
 
+extra/test_big_int.o: extra/test_big_int.cc.o
+.PHONY : extra/test_big_int.o
+
+# target to build an object file
+extra/test_big_int.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_big_int.cc.o
+.PHONY : extra/test_big_int.cc.o
+
+extra/test_big_int.i: extra/test_big_int.cc.i
+.PHONY : extra/test_big_int.i
+
+# target to preprocess a source file
+extra/test_big_int.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_big_int.cc.i
+.PHONY : extra/test_big_int.cc.i
+
+extra/test_big_int.s: extra/test_big_int.cc.s
+.PHONY : extra/test_big_int.s
+
+# target to generate assembly for a file
+extra/test_big_int.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_big_int.cc.s
+.PHONY : extra/test_big_int.cc.s
+
 extra/test_c_env_api.o: extra/test_c_env_api.cc.o
 .PHONY : extra/test_c_env_api.o
 
@@ -545,6 +569,30 @@ test_base.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_base.cc.s
 .PHONY : test_base.cc.s
 
+test_big_int.o: test_big_int.cc.o
+.PHONY : test_big_int.o
+
+# target to build an object file
+test_big_int.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_big_int.cc.o
+.PHONY : test_big_int.cc.o
+
+test_big_int.i: test_big_int.cc.i
+.PHONY : test_big_int.i
+
+# target to preprocess a source file
+test_big_int.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_big_int.cc.i
+.PHONY : test_big_int.cc.i
+
+test_big_int.s: test_big_int.cc.s
+.PHONY : test_big_int.s
+
+# target to generate assembly for a file
+test_big_int.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_big_int.cc.s
+.PHONY : test_big_int.cc.s
+
 test_device.o: test_device.cc.o
 .PHONY : test_device.o
 
@@ -688,6 +736,30 @@ test_expected.s: test_expected.cc.s
 test_expected.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_expected.cc.s
 .PHONY : test_expected.cc.s
+
+test_expected_checks.o: test_expected_checks.cc.o
+.PHONY : test_expected_checks.o
+
+# target to build an object file
+test_expected_checks.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_expected_checks.cc.o
+.PHONY : test_expected_checks.cc.o
+
+test_expected_checks.i: test_expected_checks.cc.i
+.PHONY : test_expected_checks.i
+
+# target to preprocess a source file
+test_expected_checks.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_expected_checks.cc.i
+.PHONY : test_expected_checks.cc.i
+
+test_expected_checks.s: test_expected_checks.cc.s
+.PHONY : test_expected_checks.s
+
+# target to generate assembly for a file
+test_expected_checks.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_expected_checks.cc.s
+.PHONY : test_expected_checks.cc.s
 
 test_function.o: test_function.cc.o
 .PHONY : test_function.o
@@ -1090,6 +1162,9 @@ help:
 	@echo "... extra/test_access_path_repr.o"
 	@echo "... extra/test_access_path_repr.i"
 	@echo "... extra/test_access_path_repr.s"
+	@echo "... extra/test_big_int.o"
+	@echo "... extra/test_big_int.i"
+	@echo "... extra/test_big_int.s"
 	@echo "... extra/test_c_env_api.o"
 	@echo "... extra/test_c_env_api.i"
 	@echo "... extra/test_c_env_api.s"
@@ -1132,6 +1207,9 @@ help:
 	@echo "... test_base.o"
 	@echo "... test_base.i"
 	@echo "... test_base.s"
+	@echo "... test_big_int.o"
+	@echo "... test_big_int.i"
+	@echo "... test_big_int.s"
 	@echo "... test_device.o"
 	@echo "... test_device.i"
 	@echo "... test_device.s"
@@ -1150,6 +1228,9 @@ help:
 	@echo "... test_expected.o"
 	@echo "... test_expected.i"
 	@echo "... test_expected.s"
+	@echo "... test_expected_checks.o"
+	@echo "... test_expected_checks.i"
+	@echo "... test_expected_checks.s"
 	@echo "... test_function.o"
 	@echo "... test_function.i"
 	@echo "... test_function.s"

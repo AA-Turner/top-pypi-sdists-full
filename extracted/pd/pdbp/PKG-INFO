@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdbp
-Version: 1.8.2
+Version: 1.8.3
 Summary: pdbp (Pdb+): A drop-in replacement for pdb and pdbpp.
 Home-page: https://github.com/mdmintz/pdbp
 Author: Michael Mintz
@@ -46,7 +46,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pygments>=2.19.2
-Requires-Dist: tabcompleter>=1.4.0
+Requires-Dist: tabcompleter>=1.4.1
 Requires-Dist: colorama>=0.4.6; platform_system == "Windows"
 Dynamic: author
 Dynamic: author-email

@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 
+from caldav import compatibility_hints
 from caldav.compatibility_hints import FeatureSet
 from caldav.lib import error
 
@@ -21,6 +22,7 @@ from .fixture_helpers import (
     _get_or_create_impl,
     afix_calendar,
     arelease_calendar,
+    component_set_unobtainable,
 )
 
 
@@ -61,9 +63,10 @@ class FakePrincipal:
     """Principal that only lets a calendar be created once, like a real server.
 
     A second MKCALENDAR at the same cal_id fails with ``MkcalendarError``, which
-    is what a server whose calendars cannot be deleted (Synology, Nextcloud)
-    replies with on the second run of a test - 405 "a collection already exists
-    at that location".
+    is what a server that does not free the cal_id on delete (Synology, which
+    refuses the DELETE; Nextcloud, which trashbins the calendar) replies with on
+    the second run of a test - 405 "a collection already exists at that
+    location".
     """
 
     def __init__(self, existing: dict[str, FakeCalendar] | None = None) -> None:
@@ -130,10 +133,12 @@ async def test_afix_calendar_creates_and_names() -> None:
 async def test_afix_calendar_reuses_and_wipes_when_calendar_cannot_be_deleted() -> None:
     """A leftover calendar on a no-delete server is reused and emptied.
 
-    This is the Synology/Nextcloud (and jeanes) case: ``delete()`` degrades to a
-    no-op wipe, so the leftover calendar survives and the MKCALENDAR that
-    follows 405s.  The helper must hand back that calendar, emptied, rather than
-    letting the MkcalendarError escape.
+    This is the Synology/Nextcloud (and jeanes) case - ``delete-calendar
+    .free-namespace`` false, whether because the DELETE is refused or because
+    the calendar only moves to a trashbin: ``delete()`` degrades to a no-op
+    wipe, so the leftover calendar survives and the MKCALENDAR that follows
+    405s.  The helper must hand back that calendar, emptied, rather than letting
+    the MkcalendarError escape.
     """
     leftover = FakeCalendar(url="http://dav.example.com/testcal/", n_objects=3)
     client = FakeClient({"delete-calendar": False})
@@ -294,3 +299,35 @@ async def test_afix_calendar_drops_name_for_component_restricted_calendar() -> N
     assert principal.make_calendar_calls == [
         {"cal_id": "testcal-tasks", "supported_calendar_component_set": ["VTODO"]}
     ]
+
+
+IGNORED = {"create-calendar.with-supported-component-types": False}
+
+
+@pytest.mark.parametrize(
+    ("hints", "comp_set", "unobtainable"),
+    [
+        ({}, ["VTODO"], False),
+        ({}, None, False),
+        ## The restriction is ignored, but tasks go into an event calendar anyway.
+        (IGNORED, ["VTODO"], False),
+        ## Zimbra: no mixing, but a VTODO-only calendar is honoured.
+        ({"save-load.todo.mixed-calendar": False}, ["VTODO"], False),
+        ## Bedework 5: neither, so there is nowhere to put a task.
+        (IGNORED | {"save-load.todo.mixed-calendar": False}, ["VTODO"], True),
+        (IGNORED | {"save-load.todo.mixed-calendar": False}, ["VJOURNAL"], False),
+        (IGNORED | {"save-load.journal.mixed-calendar": False}, ["VJOURNAL"], True),
+        (IGNORED | {"save-load.todo.mixed-calendar": False}, ["VEVENT", "VTODO"], False),
+    ],
+)
+def test_component_set_unobtainable(
+    hints: dict, comp_set: list[str] | None, unobtainable: bool
+) -> None:
+    """A restricted calendar is out of reach only when the restriction is ignored
+    *and* the component cannot share a calendar with events."""
+    assert bool(component_set_unobtainable(FakeClient(hints), comp_set)) is unobtainable
+
+
+def test_bedework_5_has_nowhere_to_put_a_task() -> None:
+    client = FakeClient(compatibility_hints.bedework_5_0_0)
+    assert component_set_unobtainable(client, ["VTODO"])

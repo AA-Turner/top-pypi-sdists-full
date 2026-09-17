@@ -1,13 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: energyquantified
-Version: 0.15.1
+Version: 0.17
 Summary: Energy Quantified Time series API client.
 Home-page: https://github.com/energyquantified/eq-python-client
 Author: Energy Quantified AS
-License: UNKNOWN
 Project-URL: Documentation, https://energyquantified-python.readthedocs.io
 Project-URL: Source, https://github.com/energyquantified/eq-python-client
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -27,6 +25,21 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: requests<3,>=2.31
+Requires-Dist: pytz
+Requires-Dist: tzlocal
+Requires-Dist: python-dateutil<2.10,>=2.8.0
+Requires-Dist: websocket-client<2,>=1.5.1
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Energy Quantified Python Client
 
@@ -114,5 +127,3 @@ Read the Docs.
 
 The Energy Quantified Python client is licensed under the
 [Apache License version 2.0](https://opensource.org/licenses/Apache-2.0).
-
-

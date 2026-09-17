@@ -1,5 +1,9 @@
 Metadata-Version: 2.4
 Name: capi_param_builder_python
-Version: 1.3.0
+Version: 1.3.2
 Summary: Parameter builder SDK for Conversion API events
+License: LICENSE.txt
+License-File: LICENSE
+Dynamic: license
+Dynamic: license-file
 Dynamic: summary

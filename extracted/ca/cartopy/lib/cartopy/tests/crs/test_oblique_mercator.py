@@ -8,9 +8,10 @@ Tests for the Oblique Mercator projection.
 """
 
 from copy import deepcopy
-from typing import Dict, List, NamedTuple, Tuple
+from typing import NamedTuple
 
 import numpy as np
+import pyproj
 import pytest
 
 import cartopy.crs as ccrs
@@ -49,11 +50,11 @@ class TestCrsArgs:
     class ParamTuple(NamedTuple):
         id: str
         crs_kwargs: dict
-        proj_kwargs: Dict[str, str]
-        expected_a: Tuple[float, float]
-        expected_b: Tuple[float, float]
+        proj_kwargs: dict[str, str]
+        expected_a: tuple[float, float]
+        expected_b: tuple[float, float]
 
-    param_list: List[ParamTuple] = [
+    param_list: list[ParamTuple] = [
         ParamTuple(
             "default",
             dict(),
@@ -105,6 +106,13 @@ class TestCrsArgs:
             (35364.23322, 5615460.21872),
         ),
         ParamTuple(
+            "gamma",
+            dict(azimuth=40.0, gamma=10.0),
+            dict(alpha="40.0", gamma="10.0"),
+            (-2858342.5567, 5224575.9255),
+            (-2537638.5498, 5292899.6039),
+        ),
+        ParamTuple(
             "combo",
             dict(
                 azimuth=90.0,
@@ -128,7 +136,7 @@ class TestCrsArgs:
             (-4138080.80706, 1631302.04295),
         ),
     ]
-    param_ids: List[str] = [p.id for p in param_list]
+    param_ids: list[str] = [p.id for p in param_list]
 
     @pytest.fixture(autouse=True, params=param_list, ids=param_ids)
     def make_variant_inputs(self, request) -> None:
@@ -166,7 +174,7 @@ class TestCrsArgs:
 def oblique_variants(
     oblique_mercator,
     rotated_mercator,
-) -> Tuple[ccrs.ObliqueMercator, ccrs.ObliqueMercator, ccrs.ObliqueMercator]:
+) -> tuple[ccrs.ObliqueMercator, ccrs.ObliqueMercator, ccrs.ObliqueMercator]:
     """Setup three ObliqueMercator objects, two identical, for eq testing."""
     default = oblique_mercator
     alt_1 = rotated_mercator
@@ -192,3 +200,40 @@ def test_nan(oblique_mercator, plate_carree, reverse_coord):
         coord = tuple(reversed(coord))
     res = oblique_mercator.transform_point(*coord, src_crs=plate_carree)
     assert np.all(np.isnan(res))
+
+
+@pytest.mark.parametrize("azimuth, expected",
+                         [(90.0, 89.999), (-90.0, -90.001), (270.0, 269.999),
+                          (450.0, 449.999), (-270.0, -270.001)])
+def test_singular_azimuth_nudged(azimuth, expected):
+    """Azimuths PROJ cannot build are nudged; see ObliqueMercator.__init__."""
+    crs = ccrs.ObliqueMercator(azimuth=azimuth)
+    assert float(crs.proj4_params["alpha"]) == pytest.approx(expected)
+
+
+def test_gamma_matches_epsg_3375():
+    """GDM2000 / Peninsular Malaysia RSO quotes alpha and gamma 0.1 deg apart.
+
+    EPSG:3375 puts its false origin at the projection centre where cartopy
+    puts it at the natural origin, so a correct definition differs from EPSG
+    by one constant offset; the spread of those offsets is the real error.
+    """
+    wgs84 = pyproj.CRS("EPSG:4326")
+    points = [(101.7, 3.1), (103.0, 5.5), (100.5, 6.5), (104.0, 1.5)]
+    reference = pyproj.Transformer.from_crs(
+        wgs84, pyproj.CRS("EPSG:3375"), always_xy=True)
+
+    def spread(**kwargs):
+        crs = ccrs.ObliqueMercator(
+            central_longitude=102.25, central_latitude=4.0,
+            scale_factor=0.99984, azimuth=323.0257964666667,
+            globe=ccrs.Globe(ellipse="GRS80"), **kwargs)
+        ours = pyproj.Transformer.from_crs(
+            wgs84, pyproj.CRS(crs.proj4_init), always_xy=True)
+        offsets = (np.array([reference.transform(*p) for p in points])
+                   - np.array([ours.transform(*p) for p in points]))
+        return np.abs(offsets - offsets.mean(axis=0)).max()
+
+    assert spread(gamma=323.1301023611111) < 1e-6
+    # Without gamma, PROJ defaults it to alpha and the map comes out turned.
+    assert spread() > 100.0

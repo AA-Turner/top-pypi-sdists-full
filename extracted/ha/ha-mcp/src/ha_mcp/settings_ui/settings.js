@@ -1438,7 +1438,7 @@ const BACKUP_FIELD_LABELS = {
   },
   auto_backup_dir: {
     label: 'Backup directory override',
-    help: 'Empty = default (/data/ha_mcp_backups in the App (add-on), $XDG_DATA_HOME/ha_mcp/backups otherwise). Override with an absolute path.',
+    help: 'Leave empty for the default: /data/ha_mcp_backups in the App (add-on), otherwise the backups/ subdirectory of the ha-mcp data directory; an install that already holds snapshots under the earlier default keeps using it. The directory in use is shown in the backup status. Or enter an absolute path.',
   },
   auto_backup_calendar_lookahead_days: {
     label: 'Calendar lookahead (days)',
@@ -1818,6 +1818,58 @@ function renderBackups() {
   });
 }
 
+function backupRestoreOutcomeMessage(outcome = {}) {
+  let message;
+  if (outcome.apply_status === 'not_applied') {
+    message = t('backup.restore.not_applied', {}, 'Restore was not applied. Nothing was changed.');
+  } else if (outcome.apply_status === 'applied') {
+    if (outcome.verification_status === 'mismatched') {
+      message = t('backup.restore.mismatched', {}, 'Restore was applied, but the current configuration does not match the backup.');
+    } else if (outcome.verification_status === 'matched') {
+      message = t('backup.restore.verified', {}, 'Restore was applied and verified.');
+    } else {
+      message = t('backup.restore.unverified', {}, 'Restore was applied, but verification is unavailable.');
+    }
+  } else {
+    message = t('backup.restore.unknown', {}, 'Whether this restore changed Home Assistant could not be confirmed. Inspect the current configuration and backup list before retrying.');
+  }
+  const reasons = {
+    unsupported_form: t('backup.restore.reason.unsupported_form', {}, 'Home Assistant did not provide a form suitable for this restore.'),
+    unsupported_fields: t('backup.restore.reason.unsupported_fields', {}, 'Some snapshot fields are not accepted by the current form.'),
+    validation_failed: t('backup.restore.reason.validation_failed', {}, 'Home Assistant rejected the restored configuration as invalid.'),
+    flow_aborted: t('backup.restore.reason.flow_aborted', {}, 'Home Assistant aborted the restore flow.'),
+  };
+  if (Object.hasOwn(reasons, outcome.reason)) {
+    message += '\n\n' + reasons[outcome.reason];
+    if (Array.isArray(outcome.fields) && outcome.fields.length) {
+      message += '\n' + t('backup.restore.fields', {fields: outcome.fields.join(', ')}, 'Fields: ' + outcome.fields.join(', '));
+    }
+  }
+  if (outcome.restore_mode === 'recreated') {
+    const result = outcome.result || outcome;
+    const entryId = outcome.entry_id || result.entry_id;
+    if (entryId) {
+      message += '\n\n' + t('backup.restore.recreated_entry', {entry_id: entryId}, 'Recreated config entry: ' + entryId);
+    }
+    const mapping = outcome.entity_id_mapping || result.entity_id_mapping || {};
+    if (mapping.restored_entity_id) {
+      message += '\n' + t('backup.restore.entity_mapping', {created: mapping.created_entity_id, restored: mapping.restored_entity_id}, 'Entity ID: ' + mapping.created_entity_id + ' → ' + mapping.restored_entity_id);
+    } else if (mapping.target_entity_id) {
+      message += '\n' + t('backup.restore.entity_mapping_unknown', {created: mapping.created_entity_id, target: mapping.target_entity_id}, 'Entity rename could not be confirmed: ' + mapping.created_entity_id + ' → ' + mapping.target_entity_id + '. Inspect the new entry before retrying.');
+    }
+    if (result.entity_ids_restored === false) {
+      message += '\n' + t('backup.restore.mapping_unavailable', {}, 'This snapshot has no entity mapping; the recreated helper may have a new entity ID.');
+    }
+  }
+  if (outcome.conflicting_entity_id) {
+    message += '\n' + t('backup.restore.entity_collision', {entity_id: outcome.conflicting_entity_id}, 'The saved entity ID ' + outcome.conflicting_entity_id + ' is already in use and was not overwritten.');
+  }
+  if (outcome.safety_backup) {
+    message += '\n\n' + t('backup.restore.safety', {name: outcome.safety_backup}, 'Safety backup: ' + outcome.safety_backup + '. Inspect the current configuration before restoring this safety backup to recover the previous state.');
+  }
+  return message;
+}
+
 async function backupAction(act, name) {
   // Each branch wraps its fetch+json in try/catch so a network drop or an
   // HTML error body (json() throwing) surfaces a visible toast instead of
@@ -1849,22 +1901,51 @@ async function backupAction(act, name) {
       showToast(t('backup.errors.diff', {name, message: String(err)}, 'Could not diff backup "' + name + '": ' + String(err)), {isError: true});
     }
   } else if (act === 'restore') {
-    if (!confirm(t('backup.confirm.restore', {name}, 'Restore ' + name + '?\n\nThis will overwrite the current entity state. A safety backup of the current state is taken first.'))) return;
+    if (!confirm(t('backup.confirm.restore', {name}, 'Restore ' + name + '?\n\nThis overwrites existing configuration or recreates a deleted Template helper. Existing Template helpers require a fresh safety backup. Other restores use the current auto-backup settings and may proceed without a new safety backup.'))) return;
+    let stage = 'request';
+    let httpStatus = null;
     try {
       const resp = await fetch('./api/settings/backups/' + encodeURIComponent(name) + '/restore', {method: 'POST'});
+      httpStatus = resp.status;
+      stage = 'response_json';
       const data = await resp.json();
-      if (!resp.ok) { alert(t('backup.errors.restore_detail', {detail: JSON.stringify(data)}, 'Restore failed: ' + JSON.stringify(data))); return; }
+      stage = 'outcome';
+      if (!resp.ok || !data.success) {
+        const outcome = data.data || {};
+        let message = backupRestoreOutcomeMessage(outcome);
+        if (data.error?.message) message += '\n\n' + data.error.message;
+        alert(message);
+        if (outcome.safety_backup || outcome.apply_status !== 'not_applied') await loadBackups();
+        return;
+      }
       const safetyBackup = data.data && data.data.safety_backup ? data.data.safety_backup : t('common.none', {}, '(none)');
-      alert(t('backup.restored', {name: safetyBackup}, 'Restored. Safety backup: ' + safetyBackup));
-      loadBackups();
+      alert(data.data?.restore_mode === 'recreated'
+        ? backupRestoreOutcomeMessage(data.data)
+        : t('backup.restored', {name: safetyBackup}, 'Restored. Safety backup: ' + safetyBackup));
+      await loadBackups();
     } catch (err) {
-      showToast(t('backup.errors.restore', {name, message: String(err)}, 'Restore of "' + name + '" failed: ' + String(err)), {isError: true});
+      // JSON parse errors can contain the upstream body. Retain the failure
+      // stage/type/status for diagnosis without logging raw errors or options.
+      const errorType = ['TypeError', 'SyntaxError', 'AbortError', 'NetworkError', 'TimeoutError'].includes(err?.name) ? err.name : 'Error';
+      console.warn('Backup restore response unavailable',
+        'stage=' + stage, 'error_type=' + errorType,
+        'http_status=' + (Number.isInteger(httpStatus) ? httpStatus : null));
+      const message = backupRestoreOutcomeMessage();
+      showToast(t('backup.errors.restore', {name, message}, 'Restore of "' + name + '" failed: ' + message), {isError: true});
+      await loadBackups();
     }
   } else if (act === 'delete') {
     if (!confirm(t('backup.confirm.delete', {name}, 'Delete ' + name + '? This cannot be undone.'))) return;
     try {
       const resp = await fetch('./api/settings/backups/' + encodeURIComponent(name), {method: 'DELETE'});
-      if (!resp.ok) { const d = await resp.json(); alert(t('backup.errors.delete_detail', {detail: JSON.stringify(d)}, 'Delete failed: ' + JSON.stringify(d))); return; }
+      if (!resp.ok) {
+        const data = await resp.json();
+        const detail = data.data?.reason === 'snapshot_in_use'
+          ? t('backup.delete.in_use', {}, 'This backup is in use. Retry after the active capture or restore finishes.')
+          : data.error?.message || JSON.stringify(data);
+        alert(t('backup.errors.delete_detail', {detail}, 'Delete failed: ' + detail));
+        return;
+      }
       loadBackups();
     } catch (err) {
       showToast(t('backup.errors.delete', {name, message: String(err)}, 'Delete of "' + name + '" failed: ' + String(err)), {isError: true});
@@ -1882,11 +1963,25 @@ async function bulkDeleteBackups() {
   if (days) params.set('older_than_days', days);
   if (!params.toString()) { alert(t('backup.bulk.filter_required', {}, 'Set at least one filter (Domain, Entity, or age in days).')); return; }
   if (!confirm(t('backup.bulk.confirm', {filters: params.toString()}, 'Delete all backups matching: ' + params.toString() + '?'))) return;
-  const resp = await fetch('./api/settings/backups?' + params.toString(), {method: 'DELETE'});
-  const data = await resp.json();
-  if (!resp.ok) { alert(t('backup.errors.bulk_delete', {detail: JSON.stringify(data)}, 'Bulk delete failed: ' + JSON.stringify(data))); return; }
-  alert(t('backup.bulk.deleted', {count: data.count || 0}, 'Deleted ' + (data.count || 0) + ' backup(s)'));
-  loadBackups();
+  try {
+    const resp = await fetch('./api/settings/backups?' + params.toString(), {method: 'DELETE'});
+    const data = await resp.json();
+    if (!resp.ok) { alert(t('backup.errors.bulk_delete', {detail: JSON.stringify(data)}, 'Bulk delete failed: ' + JSON.stringify(data))); return; }
+    const deleted = data.count || 0;
+    const failed = Array.isArray(data.failed) ? data.failed : [];
+    let message = failed.length
+      ? t('backup.bulk.partial', {deleted, failed: failed.length}, 'Deleted ' + deleted + ' backup(s); failed to delete ' + failed.length + ' backup(s).')
+      : t('backup.bulk.deleted', {count: deleted}, 'Deleted ' + deleted + ' backup(s)');
+    const inUse = failed.filter(name => data.failure_reasons?.[name] === 'snapshot_in_use').length;
+    if (inUse) {
+      message += '\n\n' + t('backup.bulk.in_use', {count: inUse}, inUse + ' backup(s) are in use. Retry after the active capture or restore finishes.');
+    }
+    alert(message);
+  } catch {
+    const detail = t('backup.bulk.unknown', {}, 'The deletion result could not be confirmed. Check the backup list before retrying.');
+    showToast(t('backup.errors.bulk_delete', {detail}, 'Bulk delete failed: ' + detail), {isError: true});
+  }
+  await loadBackups();
 }
 
 // Focus management for the snapshot modal (WAI-ARIA APG dialog pattern):
@@ -2451,6 +2546,8 @@ function renderAdvancedSubRows(parentEl, section, cssClass, lockedByGate) {
     );
     const row = document.createElement('div');
     row.className = 'feature-row ' + cssClass + (lockedByGate ? ' dimmed' : '');
+    const multiline = f.field === 'extra_yaml_write_keys';
+    if (multiline) row.classList.add('yaml-keys-editor');
 
     const info = document.createElement('div');
     info.className = 'feature-info';
@@ -2494,7 +2591,11 @@ function renderAdvancedSubRows(parentEl, section, cssClass, lockedByGate) {
     control.className = 'feature-control';
     const disabled = !f.editable || lockedByGate;
     let inputEl;
-    if (f.type === 'int' || f.type === 'float') {
+    if (multiline) {
+      inputEl = document.createElement('textarea');
+      inputEl.rows = 4;
+      inputEl.value = String(f.value ?? '').split(',').map(s => s.trim()).filter(Boolean).join('\n');
+    } else if (f.type === 'int' || f.type === 'float') {
       inputEl = document.createElement('input');
       inputEl.type = 'number';
       inputEl.value = f.value;
@@ -2514,6 +2615,7 @@ function renderAdvancedSubRows(parentEl, section, cssClass, lockedByGate) {
       let v;
       if (f.type === 'int') v = parseInt(inputEl.value, 10);
       else if (f.type === 'float') v = parseFloat(inputEl.value);
+      else if (multiline) v = inputEl.value.split(/[,\r\n]+/).map(s => s.trim()).filter(Boolean).join(',');
       else v = inputEl.value;
       commitAdvancedEdit(f.field, v);
     });
@@ -3868,12 +3970,14 @@ const ADVANCED_FIELD_META = {
   timeout:             { label: "HA request timeout (s)",      help: "Per-request HTTP timeout. Range 1–600. Restart required." },
   max_retries:         { label: "HA request max retries",      help: "Retry budget per failed REST call. Range 0–20. Restart required." },
   verify_ssl:          { label: "Verify SSL certificates",     help: "Skip TLS verification only on trusted networks (self-signed certs, hostname mismatch). Restart required." },
+  ha_tool_concurrency: { label: "Home Assistant tool concurrency", help: "Optional limit on outer Home Assistant tool calls across all MCP sessions. Internal REST, WebSocket, and per-tool fan-out concurrency is unchanged. 0 keeps unlimited behavior. A call waiting for capacity fails after 60 seconds. Range 0–32. Restart required." },
   fuzzy_threshold:     { label: "Fuzzy-search threshold",      help: "Lower = looser entity match. Range 0–100." },
   automation_config_time_budget: { label: "Automation config time budget (s)", help: "Max seconds deep search spends fetching automation configs before returning a partial result. Raise on instances with many automations. Range 1–600. Restart required." },
   script_config_time_budget:     { label: "Script config time budget (s)",     help: "Max seconds deep search spends fetching script configs before returning a partial result. Range 1–600. Restart required." },
   scene_config_time_budget:      { label: "Scene config time budget (s)",      help: "Max seconds deep search spends fetching scene configs before returning a partial result. Range 1–600. Restart required." },
   individual_config_timeout:     { label: "Per-request config fetch timeout (s)", help: "Timeout for each individual automation/script/scene config fetch during deep search. On HA servers that serve config reads serially, raise this and/or lower the batch size so queued requests don't time out. Values above the HA request timeout (HA_TIMEOUT, default 30) have no extra effect — the HTTP client gives up first. Range 1–600. Restart required." },
   individual_fetch_batch_size:   { label: "Config fetch batch size",          help: "How many per-id config fetches deep search issues concurrently. Lower toward 1 on HA servers that serve config reads serially (symptom: 'timed out' partial-result warnings). Range 1–100. Restart required." },
+  enable_history_query_guardrails: { label: "History query guardrails",         help: "Reject recorder queries that exceed conservative entity and time-range budgets. Disabled by default." },
   backup_hint:         { label: "Backup-hint level",           help: "Tunes how strongly the LLM is prompted to take a full-HA snapshot before risky writes." },
   dashboard_screenshot_engine_url: { label: "Dashboard screenshot engine URL", help: "Base URL of the screenshot engine (e.g. http://puppet:10000). Leave blank to auto-discover the Puppet App (add-on) via the Supervisor (HA OS / Supervised). Only used when the Dashboard Screenshot beta feature is enabled. Takes effect without a restart." },
   enable_websocket:    { label: "Enable WebSocket",            help: "WebSocket-based state monitoring. Disabling falls back to polling; many tools degrade. Restart required." },
@@ -3884,12 +3988,14 @@ const ADVANCED_FIELD_META = {
   environment:         { label: "Environment",                 help: "'development' or 'production'. Affects logging verbosity. Restart required." },
   log_level:           { label: "Log level",                   help: "DEBUG/INFO/WARNING/ERROR/CRITICAL. Set once at startup; restart required." },
   debug:               { label: "Debug mode",                  help: "Verbose request logging. Logs sensitive data; do not enable in production. Restart required." },
+  http_transport_diagnostics: { label: "HTTP transport diagnostics", help: "Experimental. Automatically enable INFO logging for HTTP diagnostics while the server runs, without payloads or credentials. Other loggers are unchanged; explicit Home Assistant logger overrides and filters still apply. Does not confirm client receipt. HTTP only; restart required." },
+  http_json_response: { label: "JSON responses instead of streaming", help: "Experimental. Return a single JSON response instead of an SSE stream. Affects all HTTP clients on this server and disables streamed progress for these responses. HTTP only; restart required." },
   code_mode_max_duration:    { label: "Code-mode max duration (s)",   help: "Wall-clock budget per sandbox run. Range 1–300. Restart required." },
   code_mode_max_memory:      { label: "Code-mode max memory (bytes)", help: "RSS cap per sandbox run. Range 1 MB–256 MB. Restart required." },
   code_mode_max_recursion:   { label: "Code-mode max recursion",      help: "Recursion-depth cap per sandbox run. Restart required." },
   code_mode_max_invocations: { label: "Code-mode max invocations",    help: "API/tool-call cap per sandbox run. Restart required." },
   code_mode_saved_tools_path:{ label: "Saved-tools path",              help: "JSON file where ha_manage_custom_tool persists saved tools across restarts. Restart required." },
-  extra_yaml_write_keys:     { label: "Extra YAML write keys",        help: "Comma-separated top-level keys ha_config_set_yaml may write in addition to the built-in ones, for YAML-first integrations on this install (e.g. alert2). Keys that redefine Home Assistant's own trust boundary can never be added and are ignored. Requires custom component 1.2.4 or newer." },
+  extra_yaml_write_keys:     { label: "Extra YAML write keys",        help: "Extra top-level keys ha_config_set_yaml may write in addition to the built-in ones, for YAML-first integrations on this install (e.g. alert2). Enter one key per line or separate keys with commas. Keys that redefine Home Assistant's own trust boundary can never be added and are ignored. Requires custom component 1.2.4 or newer." },
   sidecar_pin_port:    { label: "Settings UI sidecar port",    help: "0 picks a free port on first start and keeps it for later restarts; 1024–65535 pins a preferred port (falls back to a free one if taken). Restart required." },
   enable_dev_mode:     { label: "Developer mode",               help: "⚠ DANGER: registers hidden developer tools (ha_dev_manage_server, ha_dev_manage_settings) that let AI agents change server settings and replace the running server version (e.g. install a PR build). For development and testing only. Restart required." },
   dev_tools_security_policy_access: { label: "Dev tools security policy access", help: "⚠ DANGER: while developer mode is on, lets the developer tools rewrite tool security policies, add or remove per-tool approval gates, and approve or deny pending approvals on your behalf — an AI agent can accept its own gated calls. For policy testing only. Takes effect without a restart." },
@@ -3902,8 +4008,10 @@ const ADVANCED_FIELD_META = {
 // is per-request.
 const ADVANCED_RESTART_REQUIRED = new Set([
   "timeout", "max_retries", "verify_ssl",
+  "ha_tool_concurrency",
   "enabled_tool_modules", "enable_websocket",
   "log_level", "debug",
+  "http_transport_diagnostics", "http_json_response",
   "mcp_server_name", "mcp_server_version", "environment",
   // fuzzy_threshold is read once by SmartSearchTools at the
   // lazy-init singleton (tools/smart_search/) — changes

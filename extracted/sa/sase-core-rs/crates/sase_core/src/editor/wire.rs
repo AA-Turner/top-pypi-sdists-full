@@ -381,6 +381,60 @@ pub struct XpromptAssistEntry {
     pub memory_type: Option<MemoryTierWire>,
 }
 
+/// Prompt surface that owns an argument span.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum XpromptArgumentSource {
+    Xprompt,
+    Directive,
+}
+
+/// Byte-addressed invocation or directive name span shared by editor frontends.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct XpromptCallNameSpan {
+    pub start: usize,
+    pub end: usize,
+    pub source: XpromptArgumentSource,
+    /// Canonical call name. For directive aliases this may differ from the
+    /// authored bytes covered by `start..end`.
+    pub call_name: String,
+}
+
+/// Frontend-neutral role for one xprompt or directive argument span.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum XpromptArgumentSpanRole {
+    ArgDelimiter,
+    ArgKey,
+    ArgAssign,
+    ArgValue,
+    ArgValueString,
+    ArgValueNumber,
+    ArgValueBool,
+}
+
+/// Catalog-aware validity classification for an argument span.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum XpromptArgumentSpanValidity {
+    Ok,
+    UnknownKey,
+    TypeMismatch,
+    DuplicateKey,
+    Unresolvable,
+}
+
+/// Byte-addressed argument span shared by editor frontends.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct XpromptArgumentSpan {
+    pub start: usize,
+    pub end: usize,
+    pub role: XpromptArgumentSpanRole,
+    pub validity: XpromptArgumentSpanValidity,
+    pub source: XpromptArgumentSource,
+    pub call_name: String,
+}
+
 /// Allowed surface syntax for one directive. Classifiers must not advertise
 /// keywords in a form the runtime treats as positional-only.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -405,6 +459,7 @@ pub enum DirectiveValueRole {
     Clan,
     Family,
     Tribe,
+    Hood,
     Bead,
     PathOrExecutable,
     Bool,
@@ -592,7 +647,8 @@ impl From<&DirectiveMetadata> for DirectiveContractEntry {
 /// Feature flag that gates a directive, if any.
 pub fn directive_feature_flag(name: &str) -> Option<&'static str> {
     match name {
-        "if" | "proc" => Some("typed_launch_units"),
+        "hold" => Some("agent_holds"),
+        "proc" => Some("typed_launch_units"),
         _ => None,
     }
 }
@@ -600,7 +656,7 @@ pub fn directive_feature_flag(name: &str) -> Option<&'static str> {
 /// How a named directive binds its executable body.
 pub fn directive_body_kind(name: &str) -> DirectiveBodyKind {
     match name {
-        "if" => DirectiveBodyKind::FencedCode,
+        "if" => DirectiveBodyKind::OptionalFencedCode,
         "proc" => DirectiveBodyKind::OptionalFencedCode,
         _ => DirectiveBodyKind::None,
     }
@@ -609,7 +665,7 @@ pub fn directive_body_kind(name: &str) -> DirectiveBodyKind {
 /// One-line synopsis used by hover and completion documentation.
 pub fn directive_synopsis(metadata: &DirectiveMetadata) -> &'static str {
     match metadata.name {
-        "if" => "%if:: plus exactly one bash or python fence; attaches to the next launch unit",
+        "if" => "%if(should_run=true|false) omits disabled segments; %if:: gates admission when typed launch units are enabled",
         "proc" => "%proc(\"cmd\"), %proc(bash=|python=), or %proc:: plus one fence",
         _ => metadata.argument_hint,
     }
@@ -619,8 +675,8 @@ pub fn directive_synopsis(metadata: &DirectiveMetadata) -> &'static str {
 pub fn directive_examples(name: &str) -> &'static [&'static str] {
     match name {
         "if" => &[
-            "%if::\n\n```bash\ntest -f pyproject.toml\n```",
-            "%if::\n\n```python\nraise SystemExit(0)\n```",
+            "%if(should_run=true)",
+            "%if(should_run=false)",
         ],
         "proc" => &[
             "%proc(\"just check\")",
@@ -637,6 +693,12 @@ pub fn directive_examples(name: &str) -> &'static [&'static str] {
             "%queue(capacity=5)",
             "%q(p=20)",
             "%queue(capacity=5, priority=20)",
+        ],
+        "hold" => &[
+            "%hold:planner",
+            "%hold:@nightly",
+            "%hold(pending, future, ttl=90m)",
+            "%hold(hood=sase-11l, scope=host)",
         ],
         _ => &[],
     }
@@ -707,6 +769,25 @@ pub fn directive_snippet_recipes_with_flags(
                 ),
             ]
         }
+        "hold" => vec![
+            colon_recipe("hold", "agent"),
+            recipe(
+                "%hold(pending, future)",
+                "directive snippet",
+                "%hold(${1|pending,future|})$0",
+                "%hold($1)$0",
+                "%hold(pending)",
+                "Hold selected pre-run agents until this launch settles.",
+            ),
+            recipe(
+                "%hold(hood=..., ttl=...)",
+                "directive snippet",
+                "%hold(hood=${1:hood}, ttl=${2:90m})$0",
+                "%hold(hood=$1, ttl=$2)$0",
+                "%hold(hood=hood, ttl=90m)",
+                "Hold a hood with an explicit TTL.",
+            ),
+        ],
         "wait" => vec![
             colon_recipe("wait", "value"),
             recipe(
@@ -794,24 +875,38 @@ pub fn directive_snippet_recipes_with_flags(
                 "Select finalizer instances.",
             ),
         ],
-        "if" => vec![
-            recipe(
+        "if" => {
+            let mut recipes = vec![recipe(
+                "%if(should_run=...)",
+                "directive snippet",
+                "%if(should_run=${1|true,false|})$0",
+                "%if(should_run=$1)$0",
+                "%if(should_run=true)",
+                "Keep or omit this prompt segment before launch planning.",
+            )];
+            if enabled_feature_flags
+                .iter()
+                .any(|value| value == "typed_launch_units")
+            {
+                recipes.push(recipe(
                 "%if:: bash",
                 "typed launch unit snippet",
                 "%if::\n\n```bash\n${1:test -f pyproject.toml}\n```$0",
                 "%if::\n\n```bash\n$1\n```$0",
                 "%if::\n\n```bash\n\n```",
                 "Attach a bash guard to the next launch unit.",
-            ),
-            recipe(
+            ));
+                recipes.push(recipe(
                 "%if:: python",
                 "typed launch unit snippet",
                 "%if::\n\n```python\n${1:raise SystemExit(0)}\n```$0",
                 "%if::\n\n```python\n$1\n```$0",
                 "%if::\n\n```python\n\n```",
                 "Attach a Python guard to the next launch unit.",
-            ),
-        ],
+            ));
+            }
+            recipes
+        }
         "proc" => vec![
             recipe(
                 "%proc(\"...\")",
@@ -878,6 +973,7 @@ fn directive_metadata_supports_colon(name: &str) -> bool {
             | "clan"
             | "wait"
             | "queue"
+            | "hold"
             | "repeat"
             | "auto"
             | "final"

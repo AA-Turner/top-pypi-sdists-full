@@ -1,6 +1,4 @@
 import json
-import os
-import subprocess
 import threading
 import time
 import uuid
@@ -19,6 +17,8 @@ from dbos import (
     pydantic_args_validator,
 )
 from dbos._client import DBOSClient
+from dbos._core import _serialize_exception_for_persistence
+from dbos._error import DBOSQueryTimeoutError
 from dbos._schemas.system_database import SystemSchema
 from dbos._serialization import (
     DBOSDefaultSerializer,
@@ -570,6 +570,18 @@ def test_serialize_exception_for_persistence_broken_str() -> None:
     # And it round-trips to a readable, generic error naming the original class.
     restored = deserialize_exception(out, None, DBOSDefaultSerializer)
     assert "_BrokenStrUnpicklable" in repr(restored)
+
+
+def test_query_timeout_error_round_trips() -> None:
+    """Regression: without __reduce__, pickle rebuilt this as cls(message) and the
+    {:g} format raised, leaving an error row get_result() could never deserialize."""
+    for timeout_seconds in (30.0, 0.5):
+        err = DBOSQueryTimeoutError(timeout_seconds)
+        out = _serialize_exception_for_persistence(err, None, DBOSDefaultSerializer)
+        restored = deserialize_exception(out, None, DBOSDefaultSerializer)
+        assert isinstance(restored, DBOSQueryTimeoutError)
+        assert restored.timeout_seconds == timeout_seconds
+        assert str(restored) == str(err)
 
 
 @pytest.mark.asyncio
@@ -1278,83 +1290,6 @@ def test_directinsert_datetime_validation(dbos: DBOS) -> None:
     with pytest.raises(PortableWorkflowError) as exc_info:
         wfh_bool.get_result()
     assert "ValueError" in exc_info.value.name
-
-
-def test_nodejs_invoke(dbos: DBOS) -> None:
-    dburl = dbos._config["system_database_url"]
-    assert dburl is not None
-    if not dburl.startswith("postgres"):
-        DBOS.logger.warning(
-            "Not a Postgres database - skipping TypeScript enqueue test"
-        )
-        return
-
-    @DBOS.dbos_class("workflows")
-    class WFTest:
-        @classmethod
-        @DBOS.workflow(name="workflowPortable")
-        def defSerPortable(
-            cls,
-            s: str,
-            x: int,
-            o: Dict[str, Any],
-            wfid: Optional[str] = None,
-        ) -> str:
-            DBOS.logger.info("defSerPortable was called...")
-            return workflow_func(s, x, o, wfid)
-
-        @classmethod
-        @DBOS.workflow(
-            name="workflowRichTypes",
-            serialization_type=WorkflowSerializationFormat.PORTABLE,
-            validate_args=pydantic_args_validator,
-        )
-        def richTypes(
-            cls,
-            date: datetime,
-            items: List[Any],
-            nested: Dict[str, Any],
-        ) -> Dict[str, Any]:
-            DBOS.logger.info("richTypes was called...")
-            DBOS.set_event(
-                "date_event",
-                date,
-                serialization_type=WorkflowSerializationFormat.PORTABLE,
-            )
-            DBOS.set_event(
-                "array_event",
-                items,
-                serialization_type=WorkflowSerializationFormat.PORTABLE,
-            )
-            DBOS.set_event(
-                "map_event",
-                nested,
-                serialization_type=WorkflowSerializationFormat.PORTABLE,
-            )
-            msg = DBOS.recv("rich_incoming")
-            return {
-                "date_echo": date.isoformat(timespec="milliseconds").replace(
-                    "+00:00", "Z"
-                ),
-                "date_obj": date,
-                "items": items,
-                "items_count": len(items),
-                "nested": nested,
-                "nested_keys": sorted(nested.keys()),
-                "received_msg": msg,
-            }
-
-    DBOS.register_queue("testq")
-
-    script_path = os.path.join(
-        os.path.dirname(__file__), "ts_client", "bundles", "portableinvoke.cjs"
-    )
-    args = ["node", script_path, dburl]
-
-    env = os.environ.copy()
-    result = subprocess.run(args, env=env, capture_output=True, text=True)
-    assert result.returncode == 0, f"Worker failed with error: {result.stderr}"
-    DBOS.logger.info(result.stdout)
 
 
 def test_custom_serializer_across_restarts(

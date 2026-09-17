@@ -32,7 +32,7 @@ jobs:
           fetch-tags: true
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
           cache-dependency-glob: '**/pyproject.toml'
@@ -41,7 +41,7 @@ jobs:
         run: |
           # We run tests against "." and not the tests directory as we test the README
           # and documentation.
-          uv run --extra=dev pytest -s -vvv --cov-fail-under=100 --cov=src/ --cov=tests .
+          uv run --group=dev pytest -s -vvv --cov-fail-under=100 --cov=src/ --cov=tests .
         env:
           UV_PYTHON: ${{ matrix.python-version }}
 

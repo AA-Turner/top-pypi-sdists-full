@@ -1,6 +1,6 @@
 [project]
 name = "oidc-provider-mock"
-version = "0.4.6"
+version = "0.4.7"
 description = "OpenID Connect provider server for testing authentication"
 authors = [{ name = "Thomas Scholtes", email = "geigerzaehler@axiom.fm" }]
 readme = "README.md"
@@ -33,7 +33,7 @@ classifiers = [
 dependencies = [
   "authlib>=1.5",
   "flask>=3.1",
-  "httpx>=0.26",
+  "httpx2>=2.0",
   "htpy>=25.2.0",
   "joserfc>=1.0.3",
   "pydantic>=2.3",
@@ -58,21 +58,21 @@ dev = [
   "flask-oidc~=2.4",
   "httpx~=0.28.1",
   "myst-parser~=5.0",
-  "pyright==1.1.410",
+  "pyright==1.1.414",
   "pytest-cov~=7.0",
   "pytest-flask~=1.3",
-  "pytest-playwright~=0.7.2",
-  "pytest-randomly~=4.0",
+  "pytest-playwright~=0.9.0",
+  "pytest-randomly~=5.0",
   "pytest-watcher~=0.6.3",
   "pytest~=9.0",
-  "ruff==0.15.16",
+  "ruff==0.16.7",
   "shibuya~=2026.1",
   "sphinx-autobuild~=2025.8",
   "sphinx~=9.1",
   "typeguard~=4.4",
   "freezegun~=1.5",
   "ipython~=9.10",
-  "inline-snapshot~=0.34.1"
+  "inline-snapshot~=0.35.3"
 ]
 
 
@@ -130,20 +130,20 @@ extend-select = [
 ]
 ignore = [
   # Pyright checks for unused imports and does it better.
-  "F401",
+  "unused-import",
   # contextlib.suppress() is less explicit
-  "SIM105",
+  "suppressible-exception",
   # ternary is often less readable
-  "SIM108",
+  "if-else-block-instead-of-if-exp",
   # Ignore ambigious unicode characters
-  "RUF001",
-  "RUF002",
-  "RUF003",
+  "ambiguous-unicode-character-string",
+  "ambiguous-unicode-character-docstring",
+  "ambiguous-unicode-character-comment",
   # ClassVar annotations are to verbose
-  "RUF012",
+  "mutable-class-default",
   # It’s ok to reimplement operators in lambdas. The lambda is more explicit and
   # easier to understand.
-  "FURB118",
+  "reimplemented-operator",
 ]
 
 [tool.pyright]

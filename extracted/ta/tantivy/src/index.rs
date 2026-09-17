@@ -158,15 +158,21 @@ impl IndexWriter {
         py.detach(move || Ok(self.inner()?.commit_opstamp()))
     }
 
-    #[deprecated(
-        note = "This method is deprecated and will be removed in the future. Use either delete_documents_by_term, or delete_documents_by_query."
-    )]
+    /// Deprecated alias of `delete_documents_by_term`. Calling it emits a
+    /// `DeprecationWarning`; use `delete_documents_by_term` or
+    /// `delete_documents_by_query` instead.
     fn delete_documents(
         &mut self,
         py: Python,
         field_name: &str,
         field_value: &Bound<PyAny>,
     ) -> PyResult<u64> {
+        PyErr::warn(
+            py,
+            &py.get_type::<exceptions::PyDeprecationWarning>(),
+            c"delete_documents is deprecated; use delete_documents_by_term or delete_documents_by_query instead",
+            1,
+        )?;
         self.delete_documents_by_term(py, field_name, field_value)
     }
 
@@ -473,6 +479,36 @@ impl Index {
         })
     }
 
+    /// Check whether the index stored at `path` can be opened by this version
+    /// of tantivy.
+    ///
+    /// Tantivy stores the index format version in each segment file. When that
+    /// version falls outside the range supported by the installed tantivy, the
+    /// index cannot be opened. This method reports that without raising, so a
+    /// caller can decide how to handle an incompatible index (for example, by
+    /// rebuilding it).
+    ///
+    /// Args:
+    ///     path (str): The directory containing the index.
+    ///
+    /// Returns True if the index is compatible, False if it was built with an
+    /// unsupported index format version.
+    ///
+    /// Raises ValueError if no index could be found at the given path or if it
+    /// could not be read for any other reason.
+    #[staticmethod]
+    fn is_compatible(py: Python, path: &str) -> PyResult<bool> {
+        py.detach(move || {
+            match tv::Index::open_in_dir(path)
+                .and_then(|index| index.reader().map(|_| ()))
+            {
+                Ok(()) => Ok(true),
+                Err(tv::TantivyError::IncompatibleIndex(_)) => Ok(false),
+                Err(e) => Err(to_pyerr(e)),
+            }
+        })
+    }
+
     /// The schema of the current index.
     #[getter]
     fn schema(&self, py: Python) -> Schema {
@@ -513,6 +549,8 @@ impl Index {
     ///
     ///     allow_regexes: If true, allow regexes in queries.
     #[pyo3(signature = (query, default_field_names = None, field_boosts = HashMap::new(), fuzzy_fields = HashMap::new(), conjunction_by_default = false, allow_regexes = false))]
+    // Each argument is a distinct keyword in the exposed Python API.
+    #[allow(clippy::too_many_arguments)]
     pub fn parse_query(
         &self,
         py: Python,
@@ -569,6 +607,8 @@ impl Index {
     ///
     /// Raises ValueError if a field in `default_field_names` is not defined or marked as indexed.
     #[pyo3(signature = (query, default_field_names = None, field_boosts = HashMap::new(), fuzzy_fields = HashMap::new(), conjunction_by_default = false, allow_regexes = false))]
+    // Each argument is a distinct keyword in the exposed Python API.
+    #[allow(clippy::too_many_arguments)]
     pub fn parse_query_lenient(
         &self,
         py: Python,

@@ -125,6 +125,14 @@ class AgentWorkspaceMount:
     git_raise_on_conflict: bool = False
     audit_run_id: str | None = None
     audit_key: str | None = None
+    # Mount this on the agent VM even under ``sandbox_tools_only``, which
+    # otherwise puts every workspace on the sandbox. For state the agent *CLI
+    # process* writes itself rather than through its file tools — transcripts,
+    # compaction summaries — because that process runs on the agent VM no
+    # matter where its tools act. A workspace the agent is meant to edit must
+    # never set this: it would leave the file tools looking at the sandbox
+    # while the mount sits elsewhere.
+    on_agent_vm: bool = False
 
     @classmethod
     def from_workspace(cls, workspace: Workspace) -> AgentWorkspaceMount:
@@ -142,6 +150,7 @@ class AgentWorkspaceMount:
             transport_kind=transport_kind,
             transport=transport,
             git_sync=git_sync,
+            on_agent_vm=workspace.pin_to_agent_vm,
         )
 
     @property
@@ -158,6 +167,13 @@ class AgentWorkspaceMount:
 
     def with_agent_path(self, agent_path: str) -> AgentWorkspaceMount:
         return replace(self, agent_path=agent_path)
+
+    def pinned_to_agent_vm(self) -> AgentWorkspaceMount:
+        """Keep this mount on the agent VM even under ``sandbox_tools_only``.
+
+        See :attr:`on_agent_vm`.
+        """
+        return replace(self, on_agent_vm=True)
 
     def with_git_options(
         self,

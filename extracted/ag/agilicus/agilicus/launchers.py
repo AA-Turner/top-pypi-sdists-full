@@ -173,6 +173,8 @@ def add_interceptor_rule(
     allow_value_regex_list=[],
     disallow_name_exact_list=[],
     disallow_value_regex_list=[],
+    no_follow_name_exact_list=[],
+    no_follow_value_regex_list=[],
     **kwargs,
 ):
     org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
@@ -193,12 +195,20 @@ def add_interceptor_rule(
     for regex in disallow_value_regex_list:
         disallow_commands.append(agilicus.InterceptorCommand(value_regex=regex))
 
+    no_follow_commands = []
+    for name in no_follow_name_exact_list:
+        no_follow_commands.append(agilicus.InterceptorCommand(name_exact=name))
+
+    for regex in no_follow_value_regex_list:
+        no_follow_commands.append(agilicus.InterceptorCommand(value_regex=regex))
+
     resource = apiclient.launchers_api.get_launcher(id, org_id=org_id)
 
     _initialize_interceptor_config(resource)
 
     resource.spec.config.interceptor_config.allow_list.extend(allow_commands)
     resource.spec.config.interceptor_config.disallow_list.extend(disallow_commands)
+    resource.spec.config.interceptor_config.no_follow_list.extend(no_follow_commands)
 
     return apiclient.launchers_api.replace_launcher(id, launcher=resource).to_dict()
 
@@ -272,6 +282,9 @@ def _initialize_interceptor_config(launcher):
     if not launcher.spec.config.interceptor_config.disallow_list:
         launcher.spec.config.interceptor_config.disallow_list = []
 
+    if not launcher.spec.config.interceptor_config.no_follow_list:
+        launcher.spec.config.interceptor_config.no_follow_list = []
+
 
 def remove_name(interceptor_command_list, name):
     new_list = []
@@ -297,6 +310,8 @@ def remove_interceptor_rule(
     allow_value_regex_list=[],
     disallow_name_exact_list=[],
     disallow_value_regex_list=[],
+    no_follow_name_exact_list=[],
+    no_follow_value_regex_list=[],
     **kwargs,
 ):
     org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
@@ -326,6 +341,14 @@ def remove_interceptor_rule(
         resource.spec.config.interceptor_config.disallow_list = remove_regex(
             resource.spec.config.interceptor_config.disallow_list, regex
         )
+
+    no_follow_list = resource.spec.config.interceptor_config.no_follow_list
+    for name in no_follow_name_exact_list:
+        no_follow_list = remove_name(no_follow_list, name)
+
+    for regex in no_follow_value_regex_list:
+        no_follow_list = remove_regex(no_follow_list, regex)
+    resource.spec.config.interceptor_config.no_follow_list = no_follow_list
 
     return apiclient.launchers_api.replace_launcher(id, launcher=resource).to_dict()
 

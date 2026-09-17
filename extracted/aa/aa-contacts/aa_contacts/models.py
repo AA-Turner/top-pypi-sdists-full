@@ -51,7 +51,7 @@ class General(models.Model):  # noqa: DJ008
 
 class ContactTokenQueryset(models.QuerySet):
     def with_valid_tokens(self):
-        valid_tokens = Token.objects.all().require_valid()
+        valid_tokens = Token.objects.filter(pk__in=self.values("token")).require_valid()
         return self.filter(token__in=valid_tokens)
 
 

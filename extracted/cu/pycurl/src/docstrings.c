@@ -244,6 +244,11 @@ Corresponds to `curl_easy_pause`_ in libcurl. The argument should be\n\
 derived from the ``PAUSE_RECV``, ``PAUSE_SEND``, ``PAUSE_ALL`` and\n\
 ``PAUSE_CONT`` constants.\n\
 \n\
+``pause()`` may be called from inside one of this handle's callbacks\n\
+or from the thread running the transfer. Calls from other threads while\n\
+``perform()`` is running are rejected with ``pycurl.error``, as libcurl\n\
+does not support them.\n\
+\n\
 Raises pycurl.error exception upon failure.\n\
 \n\
 .. _curl_easy_pause: https://curl.haxx.se/libcurl/c/curl_easy_pause.html";
@@ -418,6 +423,13 @@ values of different types:\n\
 \n\
     c.setopt(pycurl.URL, \"http://www.python.org/\")\n\
     c.setopt(pycurl.URL, b\"http://www.python.org/\")\n\
+\n\
+- Blob options, that is the ``*_BLOB`` options, accept the same values as\n\
+  string options, plus any object supporting the buffer protocol such as\n\
+  ``bytearray``, ``memoryview`` or ``array.array``. The value is copied, so\n\
+  it does not have to be kept alive. Example::\n\
+\n\
+    c.setopt(pycurl.SSLCERT_BLOB, memoryview(certificate))\n\
 \n\
 - ``HTTP200ALIASES``, ``HTTPHEADER``, ``POSTQUOTE``, ``PREQUOTE``,\n\
   ``PROXYHEADER`` and\n\
@@ -1229,4 +1241,92 @@ Example usage::\n\
     s.unshare(pycurl.LOCK_DATA_COOKIE)\n\
 \n\
 Raises pycurl.error exception upon failure.";
+
+PYCURL_INTERNAL const char url_doc[] = "CurlUrl(url=None, flags=0) -> New CurlUrl object\n\
+\n\
+Create a :ref:`curlurlobject` wrapping a libcurl ``CURLU`` URL handle.\n\
+\n\
+Without arguments the handle is empty. If *url* is given it is parsed with\n\
+``setpart(UPART_URL, url, flags)``, so *flags* may be any combination of the\n\
+``U_*`` constants.\n\
+\n\
+The component properties (``scheme``, ``host``, ``port``, ``path``, ``query``,\n\
+``fragment``, ``user``, ``password``, ``options`` and, on libcurl 7.65.0 or\n\
+later, ``zoneid``) read and write the URL parts. A getter returns ``None`` when\n\
+the part is absent. Assigning ``None`` or using ``del`` removes it. For control\n\
+over encoding and other flags use :py:meth:`~pycurl.CurlUrl.getpart` and\n\
+:py:meth:`~pycurl.CurlUrl.setpart`.\n\
+\n\
+A ``CurlUrl`` can be passed to a :ref:`Curl object <curlobject>` through the\n\
+``CURLU`` option.\n\
+\n\
+Corresponds to `curl_url`_ in libcurl. Requires libcurl 7.62.0 or later.\n\
+\n\
+Example::\n\
+\n\
+    u = pycurl.CurlUrl(\"https://example.com/path?a=1\")\n\
+    u.host = \"example.org\"\n\
+    curl.setopt(pycurl.CURLU, u)\n\
+\n\
+:param url: an optional URL string to parse into the new handle.\n\
+:param int flags: ``U_*`` flags controlling how *url* is parsed.\n\
+\n\
+.. _curl_url: https://curl.se/libcurl/c/curl_url.html";
+
+PYCURL_INTERNAL const char url_fragment_doc[] = "The fragment, or ``None`` if the URL has no fragment. Corresponds to\n\
+``CURLUPART_FRAGMENT``.";
+
+PYCURL_INTERNAL const char url_getpart_doc[] = "getpart(part, flags=0) -> str or None\n\
+\n\
+Return one URL component, or ``None`` when it is absent.\n\
+\n\
+*part* is one of the ``UPART_*`` constants. *flags* is a combination of the\n\
+``U_*`` constants, for example ``U_URLDECODE``. Errors other than an absent\n\
+part raise ``pycurl.error``.\n\
+\n\
+Corresponds to `curl_url_get`_ in libcurl.\n\
+\n\
+.. _curl_url_get: https://curl.se/libcurl/c/curl_url_get.html";
+
+PYCURL_INTERNAL const char url_host_doc[] = "The host name, or ``None`` if the URL has no host. An IPv6 address is returned\n\
+in brackets, as it appears in the URL. Corresponds to ``CURLUPART_HOST``.";
+
+PYCURL_INTERNAL const char url_options_doc[] = "The options from the URL userinfo, or ``None`` if not set. Corresponds to\n\
+``CURLUPART_OPTIONS``.";
+
+PYCURL_INTERNAL const char url_password_doc[] = "The password from the URL userinfo, or ``None`` if not set. Corresponds to\n\
+``CURLUPART_PASSWORD``.";
+
+PYCURL_INTERNAL const char url_path_doc[] = "The URL path, or ``None`` if not set. Corresponds to ``CURLUPART_PATH``.";
+
+PYCURL_INTERNAL const char url_port_doc[] = "The port as a string, or ``None`` if the URL has no port. Assigning an int is\n\
+also accepted. Corresponds to ``CURLUPART_PORT``.";
+
+PYCURL_INTERNAL const char url_query_doc[] = "The query string, or ``None`` if the URL has no query. Corresponds to\n\
+``CURLUPART_QUERY``.";
+
+PYCURL_INTERNAL const char url_scheme_doc[] = "The URL scheme, or ``None`` if the URL has no scheme. Corresponds to\n\
+``CURLUPART_SCHEME``.";
+
+PYCURL_INTERNAL const char url_setpart_doc[] = "setpart(part, value, flags=0) -> None\n\
+\n\
+Set one URL component.\n\
+\n\
+*part* is one of the ``UPART_*`` constants. *value* is a string or bytes, or\n\
+``None`` to remove the part. *flags* is a combination of the ``U_*`` constants,\n\
+for example ``U_URLENCODE`` or ``U_APPENDQUERY``. On failure ``pycurl.error``\n\
+is raised.\n\
+\n\
+Corresponds to `curl_url_set`_ in libcurl.\n\
+\n\
+.. _curl_url_set: https://curl.se/libcurl/c/curl_url_set.html";
+
+PYCURL_INTERNAL const char url_url_doc[] = "The full URL as a string, or ``None`` if it is incomplete. Corresponds to\n\
+``CURLUPART_URL``.";
+
+PYCURL_INTERNAL const char url_user_doc[] = "The user name from the URL userinfo, or ``None`` if not set. Corresponds to\n\
+``CURLUPART_USER``.";
+
+PYCURL_INTERNAL const char url_zoneid_doc[] = "The IPv6 zone id, or ``None`` if not set. Corresponds to ``CURLUPART_ZONEID``.\n\
+Requires libcurl 7.65.0 or later.";
 

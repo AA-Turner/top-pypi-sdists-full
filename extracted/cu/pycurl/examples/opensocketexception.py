@@ -16,7 +16,7 @@ def opensocket(curl, purpose, curl_address):
     return s
 
 c = pycurl.Curl()
-c.setopt(c.URL, 'http://pycurl.io')
+c.setopt(c.URL, 'https://pycurl.github.io')
 c.exception = None
 c.setopt(c.OPENSOCKETFUNCTION,
     lambda purpose, address: opensocket(c, purpose, address))

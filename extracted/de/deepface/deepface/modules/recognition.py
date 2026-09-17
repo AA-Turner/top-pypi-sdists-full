@@ -1,7 +1,7 @@
 # built-in dependencies
 import os
 import pickle
-from typing import List, Union, Optional, Dict, Any, Set, IO, cast, Tuple
+from typing import List, Union, Optional, Dict, Any, Set, IO, cast, Tuple, Callable
 import time
 import ast
 
@@ -15,6 +15,7 @@ from lightdsa import LightDSA
 # project dependencies
 from deepface.commons import image_utils
 from deepface.modules import representation, detection, verification
+
 from deepface.modules.exceptions import (
     ImgNotFound,
     PathNotFound,
@@ -32,7 +33,7 @@ def find(
     img_path: Union[str, NDArray[Any], IO[bytes]],
     db_path: str,
     model_name: str = "VGG-Face",
-    distance_metric: str = "cosine",
+    distance_metric: Union[str, Callable] = "cosine", # type: ignore[type-arg]
     enforce_detection: bool = True,
     detector_backend: str = "opencv",
     align: bool = True,
@@ -61,8 +62,9 @@ def find(
         model_name (str): Model for face recognition. Options: VGG-Face, Facenet, Facenet512,
             OpenFace, DeepFace, DeepID, Dlib, ArcFace, SFace and GhostFaceNet (default is VGG-Face).
 
-        distance_metric (string): Metric for measuring similarity. Options: 'cosine',
-            'euclidean', 'euclidean_l2', 'angular'.
+        distance_metric (string or callable): Metric for measuring similarity. Options: 'cosine',
+            'euclidean', 'euclidean_l2', 'angular'. Alternatively, a custom callable taking two
+            embeddings and returning a distance.
 
         enforce_detection (boolean): If no face is detected in an image, raise an exception.
             Default is True. Set to False to avoid the exception for low-resolution images.
@@ -144,6 +146,8 @@ def find(
             - 'confidence': Confidence score indicating the likelihood that the faces belong to
                     the same individual. This is calculated based on the distance and the threshold.
     """
+    if not isinstance(distance_metric, str) and threshold is None:
+        raise ValueError("Threshold must be specified when using custom distance metrics")
 
     tic = time.time()
 
@@ -519,7 +523,7 @@ def find_batched(
     representations: List[Dict[str, Any]],
     source_objs: List[Dict[str, Any]],
     model_name: str = "VGG-Face",
-    distance_metric: str = "cosine",
+    distance_metric: Union[str, Callable] = "cosine", # type: ignore[type-arg]
     enforce_detection: bool = True,
     align: bool = True,
     threshold: Optional[float] = None,
@@ -551,8 +555,9 @@ def find_batched(
         model_name (str): Model for face recognition. Options: VGG-Face, Facenet, Facenet512,
             OpenFace, DeepFace, DeepID, Dlib, ArcFace, SFace and GhostFaceNet (default is VGG-Face).
 
-        distance_metric (string): Metric for measuring similarity. Options: 'cosine',
-            'euclidean', 'euclidean_l2', 'angular'.
+        distance_metric (string or callable): Metric for measuring similarity. Options: 'cosine',
+            'euclidean', 'euclidean_l2', 'angular'. Alternatively, a custom callable taking two
+            embeddings and returning a distance.
 
         enforce_detection (boolean): If no face is detected in an image, raise an exception.
             Default is True. Set to False to avoid the exception for low-resolution images.
@@ -587,6 +592,7 @@ def find_batched(
             A list where each element corresponds to a source face and
             contains a list of dictionaries with matching faces.
     """
+
     embeddings_list = []
     valid_mask_lst = []
     metadata: Set[str] = set()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1029
+Version: 0.4.1031
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -220,6 +220,9 @@ geocif_runner.run(cfg_geocif)
 from geocif.agmet import geoagmet
 geoagmet.run(cfg_geocif)
 
+from geocif import season_monitor
+season_monitor.run(cfg_geocif)  # pixel-level growing-season onset monitor (see below)
+
 from geocif import analysis
 analysis.run(cfg_geocif)
 
@@ -305,6 +308,175 @@ nothing else. Interval level, coverage, sample sizes and units provenance live
 in the companion CSVs (and the run log), so they can be quoted in the
 surrounding text rather than shrinking the plotting area.
 
+### Season monitor
+
+`geocif.season_monitor` answers one question about the season that is starting
+right now, per **pixel** rather than per region: has onset happened, is it early
+or late against the 1981-2025 record, and where it has not happened, what the
+record says the chance is that it still arrives in the next 14 / 28 days. It
+reads geoprepare's daily intermediate rasters directly (CHIRPS rainfall, `etref`,
+CHIRTS tmax/tmin on the global 0.05 deg grid) and rasterizes the GEOGLAM Crop
+Monitor calendar per pixel, so it never touches the region-mean EO CSVs. It is a
+standalone monitoring product: **it writes no CID rows, no ML features and
+nothing the yield pipeline reads.**
+
+Each pixel gets one of six states — `BEFORE_WINDOW` (the search window has not
+opened yet), `NOT_STARTED` (open, no candidate), `FALSE_START` (every candidate
+invalidated, none pending), `PROVISIONAL` (the latest candidate is still inside
+its validation window), `CONFIRMED` (a candidate survived, onset established) and
+`NO_ONSET` (season end plus validation passed with nothing confirmed) — plus the
+onset anomaly, the days already past the climatological median, the conditional
+onset probabilities, trailing 10/30-day rain and its percentile, the current dry
+run, and how many candidates have already failed.
+
+**Onset** is 20 mm of rain in 3 days that is *not* followed by a 10-day dry spell
+(days below 1 mm) anywhere in the next 30 days; a candidate whose 30-day
+look-ahead is not fully observed yet stays `PROVISIONAL` rather than being
+confirmed early. **Cessation** runs a real daily soil-water bucket from onset
+onwards — `S = min(max(S + P - PET, 0), soil_whc)`, capped at the water holding
+capacity and floored at zero — and fires on the first run of 5 consecutive empty
+days, never earlier than `min_season_days` after onset and never later than the
+next season's planting start.
+
+**Two settings move in opposite directions on the time axis and are easy to
+confuse.** `search_start_days_before_planting` (default 30) opens the *observed*
+scan 30 days **before** the calendar planting start, so rain that arrives early
+is not censored. The 16-day CHIRPS-GEFS forecast extends the same series
+**forward** past the as-of day. One looks back at the start of the window, the
+other looks ahead at its end; a forecast trigger is reported next to the state and
+never changes it.
+
+Days are stored as **days since that pixel's own calendar planting start**, not
+day-of-year. Negative values are therefore normal (the search opens before
+planting), and a cross-year season — Zimbabwe maize planted in November, harvested
+in May — needs no wrap correction anywhere.
+
+**PET.** Cessation uses reference ET where it exists, otherwise Hargreaves from
+CHIRTS **multiplied by a per-pixel monthly calibration factor** (cached beside the
+climatology as `pet_calibration.tif`). Raw Hargreaves measured -0.5 to -1.9 mm/day
+biased against `etref` over Kenya, with near-zero spatial correlation; the
+out-of-sample monthly factor takes that to -0.17 mm/day and a correlation of 0.66.
+This is not academic: `etref` has been stalled at source since 2026-07-07, so the
+current season runs entirely on the calibrated fallback. Onset is unaffected — it
+is rain only.
+
+**Inputs are refreshed at run start.** `refresh_datasets` (default CHIRPS and
+CHIRPS-GEFS) is handed to geoprepare's own dataset modules before anything is
+scored, so a monitor run is one call rather than a download step plus a run. The
+refresh skips itself when another `geodownload.run` is already in flight or the
+refresh lock file is under 6 h old, and it never raises: a failure is logged and
+the monitor proceeds on whatever is on disk. Set `refresh_datasets = []` to skip
+it entirely.
+
+Configure under `[SEASON_MONITOR]` in `geocif.txt`. Every key is optional — the
+defaults below are what you get with no section at all:
+
+```ini
+[SEASON_MONITOR]
+precip_threshold = 20.0        ; mm in the accumulation window
+window_days = 3                ; length of that window
+dry_spell_days = 10            ; consecutive dry days that invalidate a candidate
+dry_day_threshold = 1.0        ; mm; a day below this is dry
+validation_days = 30           ; look-ahead a candidate must survive
+search_start_days_before_planting = 30   ; observed scan opens this far BEFORE planting
+soil_whc = 100.0               ; mm root-zone water holding capacity (the bucket cap)
+min_season_days = 60           ; earliest cessation after onset; per-crop: min_season_days_maize = 90
+empty_persist_days = 5         ; consecutive empty-bucket days that call cessation
+cessation_grace_days = 60      ; scan past harvest; also capped at the next planting start
+forecast_days = 16             ; CHIRPS-GEFS horizon, extending the series FORWARD
+use_forecast = True
+refresh_datasets = ['CHIRPS', 'CHIRPS-GEFS']   ; [] = no refresh
+bbox_buffer = 0.5              ; degrees added around the country bounds
+mask_to_cropland = True        ; computed on every land pixel, masked at display time
+climatology_start_year = 1981
+climatology_end_year = 2025
+min_valid_years = 20           ; years needed before a climatology statistic is kept
+rebuild_climatology = False    ; True = rebuild even when the params hash matches
+n_workers = 8                  ; process / thread pool size
+countries = ['kenya']          ; unset = [DEFAULT] countries
+seasons_kenya = [1, 2]         ; per-country; unset = [country] seasons
+```
+The **per-zone start-of-season report** is a stage of the same run. For each
+crop-calendar zone it answers, over a window centred on the calendar planting
+date: how often has the season started historically, when, and how does the one
+now running compare. It is a pure aggregation of the cached per-year onset
+rasters, so it adds no computation, and it writes a `zones/` subtree with a
+six-panel chart of every year against the window, a bar chart of how often each
+zone starts on time, and three tables.
+
+One rule matters more than the rest: keep `zone_report_window_days` well below
+`search_start_days_before_planting`. When the two are equal, an onset that
+arrived before the search opened is reported AT the search boundary and cannot
+be told apart from one that happened exactly there, so the in-window share
+becomes a floor rather than a measurement. Measured on Kenya maize season 1 at a
+30-day lead with a 30-day window: 82 % of West and 75 % of Rift Valley cropland
+was censored that way, while the four eastern zones were at 0 %. The shipped
+default is a 60-day lead against a 30-day window, leaving 30 days of margin.
+`share_censored` appears in every table and the search boundary is drawn on the
+chart, so the case is visible whenever it arises.
+
+`seasons_<country>` exists because `[country] seasons` is shared with the CID,
+extract and merge pipelines, which need a merged CSV per season; adding a
+secondary season there would send them looking for files that do not exist. The
+monitor reads rasters and the crop calendar directly, so it needs no such file.
+Kenya season 2 is the October-February short rains.
+
+
+```python
+from geocif import season_monitor
+season_monitor.run(cfg_geocif)                       # everything from [SEASON_MONITOR]
+season_monitor.run(cfg_geocif, as_of="2026-09-14")   # any config key, plus as_of, overrides the file
+# CLI equivalent:
+#   python -m geocif.season_monitor --config geobase.txt --config countries.txt \
+#     --config crops.txt --config geocif.txt [--as-of YYYY-MM-DD] [--country kenya] \
+#     [--no-refresh] [--no-forecast] [--rebuild-climatology] [--workers 8]
+```
+
+The as-of date is the last CHIRPS day actually on disk unless `--as-of` overrides
+it, and every raster tag, map title and table column states it. Each active
+(country, crop, season) runs in its own `try/except`, so one bad combination is
+logged and the rest still publish.
+
+```
+{dir_output}/{project}/ml/analysis/{Month_DD_YYYY}/season_monitor/{country}/{crop}/s{season}_hy{harvest_year}/
+├── rasters/   one GeoTIFF per monitor layer, {layer}_{country}_{crop}_s{season}_hy{YEAR}_asof{YYYYMMDD}.tif
+├── maps/      season_state, onset_anomaly_days, days_past_median, p_onset_28d,
+│              rain_30d_percentile, fcst_trigger_days (+ lookup_plots_csvs.csv)
+├── csvs/      one companion CSV per map, plus status_area_... (cropland-area share per
+│              state, by Admin 1) and onset_summary_... (by Admin 1 and by calendar zone)
+└── climatology/{maps,csvs}/   the 1981-2025 reference set: onset_median, onset_p75_minus_p25,
+                               eos_median, lgs_median, false_start_rate, onset_n_valid
+
+{dir_output}/{project}/phenology/climatology/{country}/{crop}/s{season}/   cache, NOT date-stamped
+```
+
+The harvest year is in the directory and in every file name because two of them
+can be active on the same day: a season stays open until harvest plus the
+validation window while the next one's search has already begun, which overlaps
+for any calendar spanning 305 days or more (DRC maize spans 472, Mexico maize
+639). Without the year the later season silently overwrote the earlier one.
+
+The cache is keyed by a params hash over the algorithm parameters, the year list
+and the grid, so a changed setting rebuilds it and an unchanged one is a no-op —
+there is nothing to invalidate by hand. A cache is only reused when it also
+holds every year it was asked for, so years lost to a transient outage are
+retried rather than frozen out, and it is refused outright if it was built with
+different parameters (an anomaly measured against the wrong reference is a
+systematic bias with nothing on the map to reveal it).
+
+**Status: nothing has run on the cluster yet.** The numbers here come from an
+offline prototype comparison against the existing region-mean path. Aggregated
+back up to Admin 1, per-pixel onset matched the region-mean series to within a
+median of 1.6 days for Kenya maize 2024 (89 % of regions within 7 days,
+correlation 0.93). The gain shows up where the region mean flattens: for three
+Zimbabwe provinces the region series reports a flat "no onset" while the pixel
+field reports 0 %, 21 % and 21 % of cropland already started.
+
+**No prose on the canvas.** Each map title carries the country, the crop, the
+layer, the admin level of the outlines and the data-through date — nothing
+else. Pixel distributions, per-state area shares, sample sizes and units live
+in the companion CSVs.
+
 ### Cropmask optimizers
 
 Two consumers of `geoprepare` extraction outputs that tune the cropland mask used downstream. Run *after* the corresponding geoprepare extractor has written its outputs.
@@ -384,13 +556,18 @@ geocif supports the following model types (configured via `models` in `[DEFAULT]
 | BNN | `bnn` | Bayesian NN (Ma et al. 2021 RSE): variational two-headed torch net with native heteroscedastic prediction intervals |
 | Mitra-v2 | `mitra` | In-context tabular foundation model (arXiv:2609.04540, Apache-2.0 weights); 1,000-bin regression head gives native prediction intervals; `geocif[mitra]` extra |
 | Mitra-v2 fine-tuned | `mitra_ft` | Same checkpoint under the released 50-step fine-tune — minutes per fold, GPU recommended |
+| TabFM-GSA | `tabfm_gsa` | GSA sampler with Google Research TabFM as the local in-context estimator; GPU strongly recommended |
+| TabICL-GSA | `tabicl_gsa` | GSA sampler with TabICL as the local in-context estimator. Note it gets **conformal** intervals, not TabICL's native quantiles — GSA's function backend returns point predictions only |
+| Causilo | `causilo` | Pretrained tabular foundation model (Nums AI); 999 native quantiles give native prediction intervals; `geocif[causilo]` extra. **Weights are non-commercial research only — see the licensing note below** |
 | GPR | `gpr` | sklearn Gaussian process regression |
 | Median | `median` | Median baseline |
 | Analog | `analog` | Analogous year baseline |
 
-The three spatial models (`pygrf`, `tabpfn_gsa`, and `geospaNN`) read region
-centroids from the `lat`/`lon` feature columns and therefore require
-`[ML] include_lat_lon_as_feature = True`. Each new model needs its own
+The spatial models (`pygrf`, `tabpfn_gsa`, `tabfm_gsa`, `tabicl_gsa`, and
+`geospaNN`) read region centroids from the `lat`/`lon` feature columns and
+therefore require `[ML] include_lat_lon_as_feature = True` — geocif fails fast
+at setup if it is unset, because otherwise every region's fit raises inside the
+per-region catch and the run "succeeds" having stored zero predictions. Each new model needs its own
 `[<model>]` config section with `ML_model = True`. Hyperparameter overrides
 live in `[ML]`: `pygrf_band_width` / `pygrf_local_weight` /
 `pygrf_n_estimators` / `pygrf_max_features` / `pygrf_kernel` /
@@ -400,6 +577,45 @@ rounded to a perfect square — and distant-sampling rate), `george_kernel`
 (`expsquared` | `matern32` | `matern52`) / `george_jitter`, and `bnn_epochs` /
 `bnn_batch_size` / `bnn_lr` / `bnn_prior_sigma` / `bnn_kl_weight` /
 `bnn_warmup_epochs` / `bnn_n_mc` / `bnn_calibrate_sigma`, and `mitra_hf_model` / `mitra_device` / `mitra_n_estimators` / `mitra_max_samples_support` / `mitra_max_samples_query` / `mitra_max_features` / `mitra_precision` (plus `mitra_fine_tune_steps` / `mitra_lr` / `mitra_warmup_steps` / `mitra_weight_decay` / `mitra_val_frac` for `mitra_ft`).
+
+`tabfm_gsa` and `tabicl_gsa` share `tabpfn_gsa_K` / `tabpfn_gsa_s` with
+`tabpfn_gsa` so the arms grid identically, and each takes its own inner-ensemble
+width — `tabfm_gsa_n_estimators` and `tabicl_gsa_n_estimators` (both default 8).
+The two keys are deliberately distinct: one config can run all three GSA arms
+side by side and no arm inherits another's width. `causilo` takes
+`causilo_n_estimators` / `causilo_device` / `causilo_use_kv_cache` /
+`causilo_retain_preprocessing`; its `random_state` is *not* configurable — it is
+forced from geocif's fold seed so causilo permutes in step with every other
+model.
+
+### TabPFN checkpoint selection
+
+`tabpfn` **pins TabPFN-3 by default**, rather than following whatever the
+installed `tabpfn` package defaults to. This matters because tabpfn 9.0.0 moved
+its own default to TabPFN-3.5, which would silently have changed every archived
+result on upgrade. Override per config:
+
+```ini
+[ML]
+tabpfn_model_version = v3.5      ; v2 | v2.5 | v2.6 | v3 | v3.5 | v3.5-fast, or "default" to follow the installed library
+tabpfn_n_estimators = auto       ; an int, or "auto" to use the count the checkpoint declares for itself
+```
+
+Both are optional and both reproduce pre-9.0.0 behaviour when unset. Note that
+TabPFN-3.5 ships from a **separate gated HuggingFace repo** from TabPFN-3 and
+needs its own one-time licence acceptance at <https://ux.priorlabs.ai>; the
+repo's own `LICENSE` file says nothing about this.
+
+### Causilo licensing
+
+`causilo` is kept out of geocif's core dependencies on purpose. Its **code** is
+Apache-2.0, but its **model weights** ship under the Causilo License v1.0, which
+permits non-commercial research, testing and evaluation only — commercial or
+production use, and hosted/API/SaaS services *whether paid or free*, require a
+separate licence from Nums AI Inc. Institutional affiliation and grant funding
+do not by themselves make a use commercial, and publishing papers and results
+(including model outputs) is explicitly permitted; routing predictions into an
+operational product is not. Install deliberately via `pip install geocif[causilo]`.
 
 The `bnn` model reports its own predictive uncertainty: total sigma =
 sqrt(aleatoric² + epistemic²) from Monte-Carlo weight sampling, rescaled by a

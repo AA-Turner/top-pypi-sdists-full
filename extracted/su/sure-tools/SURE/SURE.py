@@ -22,6 +22,7 @@ from .SURE_nsf2 import SURENF2
 from .SURE_vae import SUREVAE
 from .SURE_vanilla import SUREVanilla
 from .SURE_vae2 import SUREVAE2
+from .SURE_nb import SURENB
 from .SURE_vae_vanilla import SUREVAEVanilla
 
 import zuko 
@@ -116,7 +117,7 @@ class SURE(nn.Module):
                  perturb_size: int = 0,
                  covariate_sizes: list = [0],
                  covariate_dim: int = None,
-                 method: Literal['flow','flow2','vae','direct','vanilla'] = 'flow',
+                 method: Literal['flow','flow2','null_codebook','vae','direct','vanilla'] = 'flow',
                  z_dim: int = 40,
                  z_dist: Literal['normal','nsf'] = 'nsf',
                  loss_func: Literal['negbinomial','poisson','multinomial','bernoulli'] = 'multinomial',
@@ -188,6 +189,30 @@ class SURE(nn.Module):
                                   use_cuda=use_cuda,
                                   seed=seed,
                                   dtype=dtype)
+        elif method == 'null_codebook':
+            self.engine = SURENB(input_dim=input_dim,
+                                  context_sizes=context_sizes,
+                                  perturb_size=perturb_size,
+                                  covariate_sizes=covariate_sizes,
+                                  covariate_dim=covariate_dim,
+                                  z_dim=z_dim,
+                                  z_dist=z_dist,
+                                  loss_func=loss_func,
+                                  dispersion=dispersion,
+                                  use_zeroinflate=use_zeroinflate,
+                                  hidden_layers=hidden_layers,
+                                  hidden_layer_activation=hidden_layer_activation,
+                                  flow_type=flow_type,
+                                  flow_transforms=flow_transforms,
+                                  flow_hidden_layers=flow_hidden_layers,
+                                  nn_dropout=nn_dropout,
+                                  post_layer_fct=post_layer_fct,
+                                  post_act_fct=post_act_fct,
+                                  config_enum=config_enum,
+                                  use_cuda=use_cuda,
+                                  seed=seed,
+                                  dtype=dtype)
+        elif method=='vae':
             self.engine = SUREVAE(input_dim=input_dim,
                                   codebook_size=codebook_size,
                                   context_sizes=context_sizes,

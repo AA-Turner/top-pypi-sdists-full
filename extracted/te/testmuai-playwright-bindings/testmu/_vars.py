@@ -333,6 +333,18 @@ def _resolve_environment(name):
         ) from exc
 
 
+def _normalise_totp_seed(seed):
+    """Drop the grouping characters an authenticator enrolment screen shows.
+
+    Base32 has no space or hyphen, but sites display a seed in groups such as
+    "abcd efgh ijkl mnop", and that is what a user pastes into the TOTP
+    variable. The KaneAI authoring runtime strips them before pyotp, so a seed
+    saved that way resolves while authoring and then fails the replay with
+    "Non-base32 digit found"; normalise here too so both sides agree.
+    """
+    return "".join(seed.split()).replace("-", "").upper()
+
+
 def _resolve_totp(name):
     """Resolve {{totp.x}} — ATMS seed + pyotp when LT creds present, env fallback otherwise."""
     from testmu import _config
@@ -342,7 +354,7 @@ def _resolve_totp(name):
         if seed:
             import pyotp
 
-            return pyotp.TOTP(seed).now()
+            return pyotp.TOTP(_normalise_totp_seed(seed)).now()
         raise TestmuConfigError(
             f"Variable {{{{totp.{name}}}}} cannot be resolved: "
             f"no LT credentials and no TESTMU_TOTP_{name} env var set"
@@ -354,7 +366,7 @@ def _resolve_totp(name):
             raise ValueError("empty TOTP seed returned from ATMS")
         import pyotp
 
-        totp_val = pyotp.TOTP(seed).now()
+        totp_val = pyotp.TOTP(_normalise_totp_seed(seed)).now()
         _log.info(f"totp.{name} TOTP generated (value hidden)")
         return totp_val
     except Exception as exc:
@@ -363,7 +375,7 @@ def _resolve_totp(name):
         if seed:
             import pyotp
 
-            return pyotp.TOTP(seed).now()
+            return pyotp.TOTP(_normalise_totp_seed(seed)).now()
         raise TestmuConfigError(
             f"Variable {{{{totp.{name}}}}} cannot be resolved: ATMS failed and no TESTMU_TOTP_{name} env var set"
         ) from exc

@@ -85,6 +85,35 @@ pub(crate) fn parse_xprompt_calls(text: &str) -> Vec<ParsedXpromptCall> {
     calls
 }
 
+pub(crate) fn parse_xprompt_like_call_at(
+    text: &str,
+    marker_start: usize,
+    marker_len: usize,
+    allow_hitl_suffix: bool,
+) -> Option<ParsedXpromptCall> {
+    if marker_len == 0 {
+        return None;
+    }
+    let name_start = marker_start.checked_add(marker_len)?;
+    let suffix = text.get(name_start..)?;
+    let (name_len, name) = scan_name(suffix)?;
+    let name_end = name_start + name_len;
+    let mut suffix_start = name_end;
+    if allow_hitl_suffix
+        && text
+            .get(suffix_start..suffix_start + 2)
+            .is_some_and(|hitl| hitl == "!!" || hitl == "??")
+    {
+        suffix_start += 2;
+    }
+    Some(parse_call_suffix(
+        text,
+        name.replace("__", "/"),
+        (name_start, name_end),
+        suffix_start,
+    ))
+}
+
 pub(crate) fn xprompt_argument_open_colon_at(
     text: &str,
     colon_idx: usize,
@@ -146,11 +175,16 @@ fn parse_parenthesized(
     call: &mut ParsedXpromptCall,
 ) {
     call.syntax = XpromptArgSyntax::Parenthesized;
-    let Some(close_idx) = find_matching_paren_for_args(text, open_idx) else {
+    let close_idx = find_matching_paren_for_args(text, open_idx);
+    let body_end = close_idx.unwrap_or_else(|| {
         call.is_open = true;
+        text.len()
+    });
+    parse_arg_body(text, open_idx + 1, body_end, call);
+
+    let Some(close_idx) = close_idx else {
         return;
     };
-    parse_arg_body(text, open_idx + 1, close_idx, call);
 
     let after_close = close_idx + 1;
     let Some(after) = text.get(after_close..) else {
@@ -322,26 +356,11 @@ fn split_commas(text: &str, start: usize, end: usize) -> Vec<(usize, usize)> {
     let mut spans = Vec::new();
     let mut token_start = start;
     let mut saw_separator = false;
-    let mut scan = ArgScanner::default();
-    let mut i = start;
-    while i < end {
-        if scan.is_top_level() && text.as_bytes().get(i..i + 2) == Some(b"[[") {
-            match find_text_block_close_for_args(text, i, end) {
-                Some(close) => {
-                    i = close + 2;
-                    continue;
-                }
-                None => break,
-            }
-        }
-        scan.consume_quote(text, i);
-        if text.as_bytes()[i] == b',' && scan.is_top_level() {
-            let trimmed = trim_span(text, token_start, i);
-            spans.push(trimmed);
-            saw_separator = true;
-            token_start = i + 1;
-        }
-        i += 1;
+    for comma in top_level_commas_for_args(text, start, end) {
+        let trimmed = trim_span(text, token_start, comma);
+        spans.push(trimmed);
+        saw_separator = true;
+        token_start = comma + 1;
     }
     let trimmed = trim_span(text, token_start, end);
     if trimmed.0 < trimmed.1 || saw_separator {
@@ -350,8 +369,13 @@ fn split_commas(text: &str, start: usize, end: usize) -> Vec<(usize, usize)> {
     spans
 }
 
-fn find_top_level_equal(text: &str, start: usize, end: usize) -> Option<usize> {
-    let mut scan = ArgScanner::default();
+pub(crate) fn top_level_commas_for_args(
+    text: &str,
+    start: usize,
+    end: usize,
+) -> Vec<usize> {
+    let mut commas = Vec::new();
+    let mut scan = ArgClauseScanner::default();
     let mut i = start;
     while i < end {
         if scan.is_top_level() && text.as_bytes().get(i..i + 2) == Some(b"[[") {
@@ -363,7 +387,29 @@ fn find_top_level_equal(text: &str, start: usize, end: usize) -> Option<usize> {
                 None => break,
             }
         }
-        scan.consume_quote(text, i);
+        scan.consume(text, i);
+        if text.as_bytes()[i] == b',' && scan.is_top_level() {
+            commas.push(i);
+        }
+        i += 1;
+    }
+    commas
+}
+
+fn find_top_level_equal(text: &str, start: usize, end: usize) -> Option<usize> {
+    let mut scan = ArgClauseScanner::default();
+    let mut i = start;
+    while i < end {
+        if scan.is_top_level() && text.as_bytes().get(i..i + 2) == Some(b"[[") {
+            match find_text_block_close_for_args(text, i, end) {
+                Some(close) => {
+                    i = close + 2;
+                    continue;
+                }
+                None => break,
+            }
+        }
+        scan.consume(text, i);
         if text.as_bytes()[i] == b'=' && scan.is_top_level() {
             return Some(i);
         }
@@ -379,7 +425,10 @@ pub(crate) fn find_matching_bracket_for_args(
     find_matching_delimiter_for_args(text, open_idx, b'[', b']')
 }
 
-fn find_matching_paren_for_args(text: &str, open_idx: usize) -> Option<usize> {
+pub(crate) fn find_matching_paren_for_args(
+    text: &str,
+    open_idx: usize,
+) -> Option<usize> {
     find_matching_delimiter_for_args(text, open_idx, b'(', b')')
 }
 
@@ -437,6 +486,48 @@ impl ArgScanner {
         match (self.quote, bytes[idx]) {
             (None, b'"' | b'\'') => self.quote = Some(bytes[idx]),
             (Some(quote), ch) if ch == quote => self.quote = None,
+            _ => {}
+        }
+    }
+}
+
+#[derive(Default)]
+struct ArgClauseScanner {
+    quote: Option<u8>,
+    paren_depth: usize,
+    bracket_depth: usize,
+    brace_depth: usize,
+}
+
+impl ArgClauseScanner {
+    fn is_top_level(&self) -> bool {
+        self.quote.is_none()
+            && self.paren_depth == 0
+            && self.bracket_depth == 0
+            && self.brace_depth == 0
+    }
+
+    fn consume(&mut self, text: &str, idx: usize) {
+        let bytes = text.as_bytes();
+        match (self.quote, bytes[idx]) {
+            (None, b'"' | b'\'') => {
+                self.quote = Some(bytes[idx]);
+                return;
+            }
+            (Some(quote), ch) if ch == quote => {
+                self.quote = None;
+                return;
+            }
+            (Some(_), _) => return,
+            _ => {}
+        }
+        match bytes[idx] {
+            b'(' => self.paren_depth += 1,
+            b')' => self.paren_depth = self.paren_depth.saturating_sub(1),
+            b'[' => self.bracket_depth += 1,
+            b']' => self.bracket_depth = self.bracket_depth.saturating_sub(1),
+            b'{' => self.brace_depth += 1,
+            b'}' => self.brace_depth = self.brace_depth.saturating_sub(1),
             _ => {}
         }
     }
@@ -605,9 +696,23 @@ mod tests {
     }
 
     #[test]
-    fn marks_open_forms_without_parsing_required_args() {
+    fn parses_open_parenthesized_available_body() {
+        let call = one("#foo(key=42, other=true");
+        assert!(call.is_open);
+        assert_eq!(call.syntax, XpromptArgSyntax::Parenthesized);
+        assert_eq!(call.args.len(), 2);
+        assert_eq!(call.args[0].name.as_ref().unwrap().value, "key");
+        assert_eq!(call.args[0].value, "42");
+        assert_eq!(call.args[1].name.as_ref().unwrap().value, "other");
+        assert_eq!(call.args[1].value, "true");
+
+        let empty = one("#foo(arg=");
+        assert!(empty.is_open);
+        assert_eq!(empty.args.len(), 1);
+        assert_eq!(empty.args[0].name.as_ref().unwrap().value, "arg");
+        assert_eq!(empty.args[0].value, "");
+
         assert!(one("#foo(").is_open);
-        assert!(one("#foo(arg=").is_open);
         assert!(one("#foo:").is_open);
     }
 

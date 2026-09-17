@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: aa-contacts
-Version: 1.0.0
+Version: 1.0.1
 Summary: Contacts tool for AllianceAuth
 Keywords: aa-contacts,allianceauth,allianceauth_contacts,contacts,eveonline
 Author-email: Matteo Ghia <matteo.ghia@yahoo.it>
-Requires-Python: >=3.10,<3.14
+Requires-Python: >=3.10,<3.15
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
@@ -50,6 +51,10 @@ Users with the right [permission](#permissions) can add an alliance or corporati
 The index page shows all the alliances and corporations that have been added and are available for that user, that means every alliance or corporation in which the user has a character. Superusers can see all the alliances and corporations.
 
 In every alliance or corporation view, the user can see the contacts and their standings. If it has the right [permissions](#permissions), the user can see and edit notes or trigger a manual update of the contacts.
+
+#### Server Links
+
+From version 1.0.0 users with the right [permissions](#permissions) can see or edit server links. These consist of a URL and an optional password and can be used to save discord invites, TS3 server details and such.
 
 ### Secure Groups integration
 
@@ -121,10 +126,12 @@ Note: when multiple corporations/alliances are set, the logic applies an OR cond
 
 ## Permissions
 
-| Permission                    | Description                                                                                                           |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `manage_alliance_contacts`    | Can add tokens for the alliance and trigger manual updates                                                            |
-| `manage_corporation_contacts` | Can add tokens for the corporation and trigger manual updates                                                         |
-| `view_alliance_notes`         | Can view contact notes for alliance contacts. If combined with `manage_alliance_contacts`, can also edit notes.       |
-| `view_corporation_notes`      | Can view contact notes for corporation contacts. If combined with `manage_corporation_contacts`, can also edit notes. |
+| Permission                      | Description                                                                                                                 |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `manage_alliance_contacts`      | Can add tokens for the alliance and trigger manual updates                                                                  |
+| `manage_corporation_contacts`   | Can add tokens for the corporation and trigger manual updates                                                               |
+| `view_alliance_notes`           | Can view contact notes for alliance contacts. If combined with `manage_alliance_contacts`, can also edit notes.             |
+| `view_corporation_notes`        | Can view contact notes for corporation contacts. If combined with `manage_corporation_contacts`, can also edit notes.       |
+| `view_alliance_server_links`    | Can view server links for alliance contacts. if combined with `manage_alliance_contacts`, can also edit server links.       |
+| `view_corporation_server_links` | Can view server links for corporation contacts. if combined with `manage_corporation_contacts`, can also edit server links. |
 

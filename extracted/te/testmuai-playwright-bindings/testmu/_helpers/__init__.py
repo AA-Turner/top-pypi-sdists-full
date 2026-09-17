@@ -48,6 +48,7 @@ from testmu._helpers.execute_db import execute_db
 from testmu._helpers.tabs import new_tab, switch_tab, close_tab, ensure_active_page
 from testmu._helpers.drag import click_drag, drag_drop, element_drag
 from testmu._helpers.gesture import multi_click, long_press
+from testmu._helpers.loop import LoopExhausted
 from testmu._helpers.assertion import verify_assertion, evaluate_branch
 
 # Smart-gated — require LT sidecar/AI infrastructure

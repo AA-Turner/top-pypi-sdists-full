@@ -458,7 +458,7 @@ export declare class Sparsity__class extends SharedObject {
   etree(ata?: boolean): bigint[];
   ldl(amd?: boolean): [Sparsity, bigint[]];
   qr_sparse(amd?: boolean): [Sparsity, Sparsity, bigint[], bigint[]];
-  dfs(j: _bigint, top: _bigint, _arg2: _bigint[], _arg3: _bigint[], pinv: _bigint[], _arg5: boolean[]): [bigint, bigint[], bigint[]];
+  dfs(j: _bigint, top: _bigint, INOUT1: _bigint[], INOUT2: _bigint[], pinv: _bigint[], INOUT3: boolean[]): [bigint, bigint[], bigint[]];
   scc(): [bigint, bigint[], bigint[]];
   btf(): [bigint, bigint[], bigint[], bigint[], bigint[], bigint[], bigint[]];
   amd(): bigint[];
@@ -6834,12 +6834,53 @@ export declare class Function__class extends SharedObject {
   serialize(opts?: Record<string, _GenericType>): string;
   /**
    * [INTERNAL] 
+   * Export an SX/MX instruction graph as .html, .dot, or 
+   * .casadi_viz.
+   * The extension selects HTML, standalone Graphviz DOT, or a JSON graph 
+   * bundle. include_functions (default true) includes called graphs in 
+   * HTML/JSON exports. DOT displays the root graph only. DOT options 
+   * show_matrix_contents and show_matrix_sizes (both default true) control
+   * 
+   * matrix detail and dimensions. Load dump_trace JSONL files in the 
+   * viewer to 
+   * replay numerical evaluation. Options: view (function, 
+   * expression; default 
+   * function), direction (LR, RL, TB, BT; expression 
+   * view only; default TB), 
+   * viz_js (local Viz.js global bundle to embed; 
+   * by default uses the viewer 
+   * package renderer). viewer_url (string) 
+   * overrides the HTML viewer ESM module
+   * URL; default is https://unpkg.com/@casadi/casadi-
+   * viz@MAJOR.MINOR/dist/index.js  for this CasADi version.
+   * Extra doc: https://github.com/casadi/casadi/wiki/L_2k3
+   * Doc source: 
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L978
+   * Implementation: 
+   * https://github.com/casadi/casadi/blob/main/casadi/core/visualizer.cpp#L639-L643
+   * 
+   */
+  export_graph(fname: string, opts?: Record<string, _GenericType>): void;
+  /**
+   * [INTERNAL] 
+   * Return the .casadi_viz JSON bundle without writing a file.
+   * Uses the same graph options as the filename overload.
+   * Extra doc: https://github.com/casadi/casadi/wiki/L_2k4
+   * Doc source: 
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L985
+   * Implementation: 
+   * https://github.com/casadi/casadi/blob/main/casadi/core/visualizer.cpp#L635-L637
+   * 
+   */
+  export_graph(opts?: Record<string, _GenericType>): string;
+  /**
+   * [INTERNAL] 
    * Save  Function to a file.
    * See: 
    * load
    * Extra doc: https://github.com/casadi/casadi/wiki/L_240
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L969
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L992
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1466-L1469
    * 
@@ -6851,7 +6892,7 @@ export declare class Function__class extends SharedObject {
    * Only allowed for (a subset of) SX/MX Functions
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1wz
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L971
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L994
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1498-L1502
    * 
@@ -6862,7 +6903,7 @@ export declare class Function__class extends SharedObject {
    * Get all statistics obtained at the end of the last evaluate 
    * call.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1001
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1024
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1080-L1090
    * 
@@ -6874,7 +6915,7 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1009
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1032
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1749-L1755
    * 
@@ -6886,9 +6927,9 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1010
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1033
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1010-L1012
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1033-L1035
    * 
    */
   sx_in(iname: string): SX;
@@ -6898,7 +6939,7 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1013
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1036
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1765-L1771
    * 
@@ -6910,7 +6951,7 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1014
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1037
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1781-L1783
    * 
@@ -6922,9 +6963,9 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1015
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1038
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1015-L1017
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1038-L1040
    * 
    */
   mx_in(iname: string): MX;
@@ -6934,7 +6975,7 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1018
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1041
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1789-L1791
    * 
@@ -6946,7 +6987,7 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1037
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1060
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1757-L1763
    * 
@@ -6958,9 +6999,9 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1038
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1061
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1038-L1040
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1061-L1063
    * 
    */
   sx_out(oname: string): SX;
@@ -6970,7 +7011,7 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1041
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1064
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1773-L1779
    * 
@@ -6982,7 +7023,7 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1042
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1065
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1785-L1787
    * 
@@ -6994,9 +7035,9 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1043
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1066
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1043-L1045
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1066-L1068
    * 
    */
   mx_out(oname: string): MX;
@@ -7006,7 +7047,7 @@ export declare class Function__class extends SharedObject {
    * There is no guarantee that subsequent calls return unique answers
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1046
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1069
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1793-L1795
    * 
@@ -7017,7 +7058,7 @@ export declare class Function__class extends SharedObject {
    * Convert from/to flat vector of input/output nonzeros.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x6
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1053
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1076
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1797-L1799
    * 
@@ -7028,7 +7069,7 @@ export declare class Function__class extends SharedObject {
    * Convert from/to flat vector of input/output nonzeros.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x6
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1054
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1077
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1801-L1803
    * 
@@ -7039,7 +7080,7 @@ export declare class Function__class extends SharedObject {
    * Convert from/to flat vector of input/output nonzeros.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x6
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1055
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1078
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1805-L1807
    * 
@@ -7050,7 +7091,7 @@ export declare class Function__class extends SharedObject {
    * Convert from/to flat vector of input/output nonzeros.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x6
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1056
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1079
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1809-L1811
    * 
@@ -7064,7 +7105,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1066
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1089
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1813-L1815
    * 
@@ -7078,7 +7119,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1067
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1090
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1817-L1819
    * 
@@ -7092,7 +7133,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1068
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1091
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1821-L1823
    * 
@@ -7106,7 +7147,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1069
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1092
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1825-L1827
    * 
@@ -7120,7 +7161,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1070
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1093
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1829-L1831
    * 
@@ -7134,7 +7175,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1071
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1094
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1833-L1835
    * 
@@ -7148,7 +7189,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1072
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1095
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1837-L1839
    * 
@@ -7162,7 +7203,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1073
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1096
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1841-L1843
    * 
@@ -7176,7 +7217,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1074
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1097
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1845-L1847
    * 
@@ -7190,7 +7231,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1075
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1098
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1849-L1851
    * 
@@ -7204,7 +7245,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1076
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1099
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1853-L1855
    * 
@@ -7218,7 +7259,7 @@ export declare class Function__class extends SharedObject {
    * size. Does not perform sparsity checking.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1077
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1100
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1857-L1859
    * 
@@ -7229,7 +7270,7 @@ export declare class Function__class extends SharedObject {
    * Does the function have free variables.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x8
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1083
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1106
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1894-L1896
    * 
@@ -7240,7 +7281,7 @@ export declare class Function__class extends SharedObject {
    * Get free variables as a string.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1x9
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1088
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1111
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1382-L1384
    * 
@@ -7251,7 +7292,7 @@ export declare class Function__class extends SharedObject {
    * Get all the free variables of the function.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xa
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1093
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1116
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1870-L1876
    * 
@@ -7262,7 +7303,7 @@ export declare class Function__class extends SharedObject {
    * Get all the free variables of the function.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xb
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1098
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1121
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1878-L1884
    * 
@@ -7273,7 +7314,7 @@ export declare class Function__class extends SharedObject {
    * Extract the functions needed for the Lifted  Newton method.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xc
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1103
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1126
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1898-L1904
    * 
@@ -7284,7 +7325,7 @@ export declare class Function__class extends SharedObject {
    * Number of nodes in the algorithm.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xd
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1109
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1132
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1962-L1968
    * 
@@ -7295,7 +7336,7 @@ export declare class Function__class extends SharedObject {
    * Number of instruction in the algorithm (SXFunction/MXFunction)
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xe
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1114
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1137
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1906-L1912
    * 
@@ -7306,7 +7347,7 @@ export declare class Function__class extends SharedObject {
    * Identifier index of the instruction (SXFunction/MXFunction)
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xf
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1119
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1142
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1930-L1936
    * 
@@ -7318,7 +7359,7 @@ export declare class Function__class extends SharedObject {
    * (SXFunction/MXFunction)
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xg
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1126
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1149
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1938-L1944
    * 
@@ -7330,7 +7371,7 @@ export declare class Function__class extends SharedObject {
    * (SXFunction)
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xh
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1131
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1154
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1946-L1952
    * 
@@ -7342,7 +7383,7 @@ export declare class Function__class extends SharedObject {
    * (SXFunction/MXFunction)
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xi
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1138
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1161
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1954-L1960
    * 
@@ -7353,7 +7394,7 @@ export declare class Function__class extends SharedObject {
    * Get the  MX node corresponding to an instruction (MXFunction)
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xj
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1143
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1166
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1914-L1920
    * 
@@ -7367,7 +7408,7 @@ export declare class Function__class extends SharedObject {
    * returns nan for those instructions.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xk
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1151
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1174
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1922-L1928
    * 
@@ -7378,7 +7419,7 @@ export declare class Function__class extends SharedObject {
    * Is the class able to propagate seeds through the algorithm?
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xl
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1157
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1180
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1886-L1888
    * 
@@ -7389,7 +7430,7 @@ export declare class Function__class extends SharedObject {
    * Is the class able to propagate seeds through the algorithm?
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xl
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1158
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1181
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1890-L1892
    * 
@@ -7400,7 +7441,7 @@ export declare class Function__class extends SharedObject {
    * Get required length of arg field.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xm
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1164
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1187
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1235-L1235
    * 
@@ -7411,7 +7452,7 @@ export declare class Function__class extends SharedObject {
    * Get required length of res field.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xn
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1169
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1192
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1237-L1237
    * 
@@ -7422,7 +7463,7 @@ export declare class Function__class extends SharedObject {
    * Get required length of iw field.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xo
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1174
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1197
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1239-L1239
    * 
@@ -7433,7 +7474,7 @@ export declare class Function__class extends SharedObject {
    * Get required length of w field.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xp
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1179
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1202
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1241-L1241
    * 
@@ -7444,7 +7485,7 @@ export declare class Function__class extends SharedObject {
    * Name of the function.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xv
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1222
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1245
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1504-L1511
    * 
@@ -7457,7 +7498,7 @@ export declare class Function__class extends SharedObject {
    * true)
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1xw
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1229
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1252
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1861-L1863
    * 
@@ -7473,7 +7514,7 @@ export declare class Function__class extends SharedObject {
    * [INTERNAL] 
    * Assert that an input dimension is equal so some given value.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1274
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1297
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1982-L1988
    * 
@@ -7483,7 +7524,7 @@ export declare class Function__class extends SharedObject {
    * [INTERNAL] 
    * Assert that an output dimension is equal so some given value.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1277
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1300
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1990-L1995
    * 
@@ -7494,7 +7535,7 @@ export declare class Function__class extends SharedObject {
    * Assert that an output sparsity is a multiple of some given 
    * sparsity.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1280
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1303
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1997-L2006
    * 
@@ -7504,7 +7545,7 @@ export declare class Function__class extends SharedObject {
    * [INTERNAL] 
    * Checkout a memory object.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1284
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1307
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1970-L1972
    * 
@@ -7514,7 +7555,7 @@ export declare class Function__class extends SharedObject {
    * [INTERNAL] 
    * Release a memory object.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1287
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1310
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1974-L1976
    * 
@@ -7525,7 +7566,7 @@ export declare class Function__class extends SharedObject {
    * Get all functions in the cache.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_26i
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1300
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1323
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L2032-L2039
    * 
@@ -7536,7 +7577,7 @@ export declare class Function__class extends SharedObject {
    * Get a list of all functions.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1y3
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1305
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1328
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L2041-L2048
    * 
@@ -7547,7 +7588,7 @@ export declare class Function__class extends SharedObject {
    * Get a dependency function.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1y4
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1310
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1333
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L2050-L2056
    * 
@@ -7558,7 +7599,7 @@ export declare class Function__class extends SharedObject {
    * Check if a particular dependency exists.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1y5
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1315
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1338
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L2058-L2065
    * 
@@ -7574,7 +7615,7 @@ export declare class Function__class extends SharedObject {
    * depth-first ordered, unique, list of dependencies
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1y6
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1323
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1346
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L2067-L2082
    * 
@@ -7591,7 +7632,7 @@ export declare class Function__class extends SharedObject {
    * Maximum depth - a negative number indicates no maximum
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1y7
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1331
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1354
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L2084-L2101
    * 
@@ -7601,7 +7642,7 @@ export declare class Function__class extends SharedObject {
    * [INTERNAL] 
    * Obtain information about function
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1334
+   * https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1357
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L2138-L2140
    * 
@@ -7711,7 +7752,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L57
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L62-L63
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L63-L64
    * 
    */
   constructor();
@@ -7723,7 +7764,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L60
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L65-L74
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L66-L76
    * 
    */
   constructor(model_path: string, opts?: Record<string, _GenericType>);
@@ -7733,7 +7774,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L63
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L76-L78
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L78-L80
    * 
    */
   constructor(f: Function, opts?: Record<string, _GenericType>);
@@ -7743,7 +7784,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L72
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L95-L98
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L97-L100
    * 
    */
   name(): string;
@@ -7755,7 +7796,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L76
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L100-L100
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L102-L102
    * 
    */
   n_in(): bigint;
@@ -7767,7 +7808,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L77
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L101-L101
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L103-L103
    * 
    */
   n_out(): bigint;
@@ -7779,7 +7820,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L78
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L102-L102
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L104-L104
    * 
    */
   name_in(): string[];
@@ -7791,7 +7832,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L79
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L103-L103
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L105-L105
    * 
    */
   name_out(): string[];
@@ -7803,7 +7844,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L81
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L104-L106
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L106-L108
    * 
    */
   dimension(name: string): bigint[];
@@ -7815,7 +7856,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L83
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L107-L109
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L109-L111
    * 
    */
   dtype(name: string): string;
@@ -7827,7 +7868,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L85
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L110-L112
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L112-L114
    * 
    */
   dimension_param(name: string): string[];
@@ -7837,7 +7878,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L87
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L113-L115
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L115-L117
    * 
    */
   dynamic_params(): string[];
@@ -7847,7 +7888,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L93
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L117-L119
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L119-L121
    * 
    */
   bind_dim(param: string, value: _bigint): void;
@@ -7857,7 +7898,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L95
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L120-L123
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L122-L125
    * 
    */
   bind_shape(input_name: string, shape: _bigint[]): void;
@@ -7868,7 +7909,7 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L97
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L124-L126
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L126-L128
    * 
    */
   set(input_name: string, value: number[]): void;
@@ -7878,13 +7919,33 @@ export declare class GraphBuilder__class extends SharedObject {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L99
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L127-L129
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L129-L131
    * 
    */
   set(input_name: string, value: number): void;
   /**
    * [INTERNAL] 
    * Freeze into an evaluable  Function.
+   * For a file f.onnx, black-box derivatives fall back to sibling 
+   * fwd_f.onnx, 
+   * adj_f.onnx and jac_f.onnx when the model lacks the 
+   * corresponding tensors. 
+   * Forward/reverse siblings use dynamic nfwd/nadj 
+   * dimensions 
+   * (fwd_dim/adj_dim). Files are checked on derivative 
+   * capability queries and 
+   * loaded on demand. Derivative models use the 
+   * same rule recursively, e.g. 
+   * fwd_adj_f.onnx or adj_adj_f.onnx. Repeated
+   * AD modes follow CasADi tensor 
+   * prefixes (adj2_, adj3_, ...; fwd2_, 
+   * fwd3_, ...) and use seed dimensions 
+   * nadj2, nadj3, ... or nfwd2, nfwd3,
+   * ... (suffixing adj_dim/fwd_dim). 
+   * Serialized functions retain the 
+   * absolute source path for derivative lookup;
+   * constructed derivative 
+   * functions embed their model bytes.
    * Parameters:
    * -----------
    * name: 
@@ -7899,9 +7960,9 @@ export declare class GraphBuilder__class extends SharedObject {
    * default "ort"); any remaining options pass through to the backend.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_2je
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L111
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L122
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L131-L136
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L133-L138
    * 
    */
   create(name: string, name_in: string[], name_out: string[], opts?: Record<string, _GenericType>): Function;
@@ -7917,9 +7978,9 @@ export declare class GraphBuilder__class extends SharedObject {
    * See the full  create() overload
    * Extra doc: https://github.com/casadi/casadi/wiki/L_2jf
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L122
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L133
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L137-L139
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L139-L141
    * 
    */
   create(name: string, opts?: Record<string, _GenericType>): Function;
@@ -7928,9 +7989,9 @@ export declare class GraphBuilder__class extends SharedObject {
    * Freeze into an evaluable  Function, default naming.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_2jg
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L127
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L138
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L127-L127
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L138-L138
    * 
    */
   create(): Function;
@@ -7939,9 +8000,9 @@ export declare class GraphBuilder__class extends SharedObject {
    * Export to an ONNX model file.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_2jh
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L132
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.hpp#L143
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L140-L142
+   * https://github.com/casadi/casadi/blob/main/casadi/core/graph_builder.cpp#L142-L144
    * 
    */
   export_onnx(filename: string, opts?: Record<string, _GenericType>): void;
@@ -7974,7 +8035,7 @@ export declare class Linsol__class extends SharedObject {
    */
   constructor(name: string, solver: string, sp: Sparsity, opts?: Record<string, _GenericType>);
   static has_plugin(name: string): boolean;
-  static load_plugin(name: string): void;
+  static load_plugin(name: string): Promise<void>;
   static doc(name: string): string;
   /**
    * [INTERNAL] 
@@ -8098,7 +8159,7 @@ export declare class Linsol__class extends SharedObject {
   doc(name: string): string;
   type_name(): string;
   has_plugin(name: string): boolean;
-  load_plugin(name: string): void;
+  load_plugin(name: string): Promise<void>;
 }
 export interface Linsol__class extends PrintableCommon {}
 export type Linsol = Linsol__class;
@@ -8114,14 +8175,14 @@ export declare class ModelicaParser__class extends SharedObject {
    * [INTERNAL] 
    */
   constructor(name: string);
-  static load_plugin(name: string): void;
+  static load_plugin(name: string): Promise<void>;
   static doc(name: string): string;
   /**
    * [INTERNAL] 
    */
   parse(filename: string, output_dir: string): void;
   constructor(other: ModelicaParser);
-  load_plugin(name: string): void;
+  load_plugin(name: string): Promise<void>;
   doc(name: string): string;
   type_name(): string;
 }
@@ -8146,7 +8207,7 @@ export declare class CodeGenerator__class {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.hpp#L50
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.cpp#L399-L442
+   * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.cpp#L399-L444
    * 
    */
   add(f: Function, with_jac_sparsity?: boolean): void;
@@ -8156,7 +8217,7 @@ export declare class CodeGenerator__class {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.hpp#L58
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.cpp#L444-L448
+   * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.cpp#L446-L450
    * 
    */
   dump(): string;
@@ -8170,7 +8231,7 @@ export declare class CodeGenerator__class {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.hpp#L67
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.cpp#L531-L602
+   * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.cpp#L533-L604
    * 
    */
   generate(prefix?: string): string;
@@ -8182,7 +8243,7 @@ export declare class CodeGenerator__class {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.hpp#L70
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.cpp#L1233-L1253
+   * https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.cpp#L1246-L1266
    * 
    */
   add_include(new_include: string, relative_path?: boolean, use_ifdef?: string): void;
@@ -8214,7 +8275,7 @@ export declare class Importer__class extends SharedObject {
   constructor(name: string, compiler: string, opts?: Record<string, _GenericType>);
   static test_cast(ptr: SharedObjectInternal): boolean;
   static has_plugin(name: string): boolean;
-  static load_plugin(name: string): void;
+  static load_plugin(name: string): Promise<void>;
   static doc(name: string): string;
   /**
    * [INTERNAL] 
@@ -8295,7 +8356,7 @@ export declare class Importer__class extends SharedObject {
   serialize(s: SerializingStream): void;
   static deserialize(s: DeserializingStream): Importer;
   constructor(other: Importer);
-  load_plugin(name: string): void;
+  load_plugin(name: string): Promise<void>;
   test_cast(ptr: SharedObjectInternal): boolean;
   doc(name: string): string;
   deserialize(s: DeserializingStream): Importer;
@@ -10348,11 +10409,11 @@ export declare class XmlFile__class extends SharedObject {
    * [INTERNAL] 
    */
   constructor(name: string);
-  static load_plugin(name: string): void;
+  static load_plugin(name: string): Promise<void>;
   static doc(name: string): string;
   constructor(other: XmlFile);
   type_name(): string;
-  load_plugin(name: string): void;
+  load_plugin(name: string): Promise<void>;
   doc(name: string): string;
 }
 export interface XmlFile__class extends PrintableCommon {}
@@ -11105,7 +11166,7 @@ export declare class Opti__class extends PrintableCommon {
    * * 
    * Extra doc: https://github.com/casadi/casadi/wiki/L_27t
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L221
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L220
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L189-L195
    * 
@@ -11129,7 +11190,7 @@ export declare class Opti__class extends PrintableCommon {
    * * 
    * Extra doc: https://github.com/casadi/casadi/wiki/L_2bs
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L237
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L236
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L197-L203
    * 
@@ -11139,7 +11200,7 @@ export declare class Opti__class extends PrintableCommon {
    * [INTERNAL] 
    * Crunch the numbers; solve the problem.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L240
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L239
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L213-L219
    * 
@@ -11153,7 +11214,7 @@ export declare class Opti__class extends PrintableCommon {
    * is reached
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1e
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L248
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L247
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L221-L227
    * 
@@ -11162,7 +11223,26 @@ export declare class Opti__class extends PrintableCommon {
   /**
    * [INTERNAL] 
    * Obtain value of expression at the current value
-   * In regular mode, teh current value is the converged solution In debug 
+   * In regular mode, the current value is the converged solution In debug 
+   * mode,
+   * the value can be non-converged
+   * Parameters:
+   * -----------
+   * values: 
+   * Optional assignment expressions (e.g. x==3) to overrule the current
+   * 
+   * value
+   * Doc source: 
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L258
+   * Implementation: 
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L229-L235
+   * 
+   */
+  value(x: _MX, values?: _MX[]): DM;
+  /**
+   * [INTERNAL] 
+   * Obtain value of expression at the current value
+   * In regular mode, the current value is the converged solution In debug 
    * mode,
    * the value can be non-converged
    * Parameters:
@@ -11174,47 +11254,24 @@ export declare class Opti__class extends PrintableCommon {
    * Doc source: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L259
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L229-L235
-   * 
-   */
-  value(x: _MX, values?: _MX[]): DM;
-  /**
-   * [INTERNAL] 
-   * Set domain of a decision variable.
-   * Parameters:
-   * -----------
-   * x: 
-   * decision variable
-   * type: 
-   * 'real', 'integer' (default: real)
-   * ::
-   * * opti.set_domain(x, "real")
-   * * opti.set_domain(x, "integer")
-   * * 
-   * Extra doc: https://github.com/casadi/casadi/wiki/L_27t
-   * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L260
-   * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L238-L244
    * 
    */
   value(x: _DM, values?: _MX[]): DM;
   /**
    * [INTERNAL] 
-   * Set domain of a decision variable.
+   * Obtain value of expression at the current value
+   * In regular mode, the current value is the converged solution In debug 
+   * mode,
+   * the value can be non-converged
    * Parameters:
    * -----------
-   * x: 
-   * decision variable
-   * type: 
-   * 'real', 'integer' (default: real)
-   * ::
-   * * opti.set_domain(x, "real")
-   * * opti.set_domain(x, "integer")
-   * * 
-   * Extra doc: https://github.com/casadi/casadi/wiki/L_27t
+   * values: 
+   * Optional assignment expressions (e.g. x==3) to overrule the current
+   * 
+   * value
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L261
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L260
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L246-L252
    * 
@@ -11228,7 +11285,7 @@ export declare class Opti__class extends PrintableCommon {
    * part of the API
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1f
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L270
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L269
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L262-L268
    * 
@@ -11243,7 +11300,7 @@ export declare class Opti__class extends PrintableCommon {
    * No stability can be guaranteed about this part of the API
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1g
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L278
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L277
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L270-L276
    * 
@@ -11254,7 +11311,7 @@ export declare class Opti__class extends PrintableCommon {
    * get assignment expressions for initial values
    * Extra doc: https://github.com/casadi/casadi/wiki/L_266
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L283
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L282
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L278-L284
    * 
@@ -11265,7 +11322,7 @@ export declare class Opti__class extends PrintableCommon {
    * get assignment expressions for latest values
    * Extra doc: https://github.com/casadi/casadi/wiki/L_267
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L288
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L287
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L286-L292
    * 
@@ -11280,7 +11337,7 @@ export declare class Opti__class extends PrintableCommon {
    * Scale a helper function constructed via opti.x, opti.g, ...
    * Extra doc: https://github.com/casadi/casadi/wiki/L_2ci
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L294
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L293
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L254-L260
    * 
@@ -11294,7 +11351,7 @@ export declare class Opti__class extends PrintableCommon {
    * expression. Use  value on it to obtain the numerical value.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1h
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L303
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L302
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L302-L308
    * 
@@ -11305,7 +11362,7 @@ export declare class Opti__class extends PrintableCommon {
    * Number of (scalarised) decision variables.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_268
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L308
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L307
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L310-L316
    * 
@@ -11316,7 +11373,7 @@ export declare class Opti__class extends PrintableCommon {
    * Number of (scalarised) parameters.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_269
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L313
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L312
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L318-L324
    * 
@@ -11327,7 +11384,7 @@ export declare class Opti__class extends PrintableCommon {
    * Number of (scalarised) constraints.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_26a
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L318
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L317
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L326-L332
    * 
@@ -11339,7 +11396,7 @@ export declare class Opti__class extends PrintableCommon {
    * vector.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_26b
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L323
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L322
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L334-L340
    * 
@@ -11350,7 +11407,7 @@ export declare class Opti__class extends PrintableCommon {
    * Get all (scalarised) parameters as a symbolic column vector.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_26c
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L328
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L327
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L342-L348
    * 
@@ -11361,7 +11418,7 @@ export declare class Opti__class extends PrintableCommon {
    * Get all (scalarised) constraint expressions as a column vector.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_26d
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L333
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L332
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L350-L356
    * 
@@ -11372,7 +11429,7 @@ export declare class Opti__class extends PrintableCommon {
    * Get objective expression.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_26e
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L338
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L337
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L358-L364
    * 
@@ -11383,7 +11440,7 @@ export declare class Opti__class extends PrintableCommon {
    * Get all (scalarised) bounds on constraints as a column vector.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_26f
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L343
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L342
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L366-L372
    * 
@@ -11419,7 +11476,7 @@ export declare class Opti__class extends PrintableCommon {
    * * 
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1i
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L360
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L359
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L383-L389
    * 
@@ -11442,7 +11499,7 @@ export declare class Opti__class extends PrintableCommon {
    * Standard CasADi Funcion options
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1j
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L372
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L371
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L435-L439
    * 
@@ -11465,7 +11522,7 @@ export declare class Opti__class extends PrintableCommon {
    * Standard CasADi Funcion options
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1j
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L376
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L375
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L423-L433
    * 
@@ -11488,7 +11545,7 @@ export declare class Opti__class extends PrintableCommon {
    * Standard CasADi Funcion options
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1j
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L382
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L381
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L441-L465
    * 
@@ -11505,7 +11562,7 @@ export declare class Opti__class extends PrintableCommon {
    * not update the original.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1l
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L408
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L407
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L851-L853
    * 
@@ -11521,7 +11578,7 @@ export declare class Opti__class extends PrintableCommon {
    * not update the original.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1m
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L418
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L417
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L854-L856
    * 
@@ -11535,7 +11592,7 @@ export declare class Opti__class extends PrintableCommon {
    * not update the original.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1n
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L426
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L425
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L857-L859
    * 
@@ -11548,7 +11605,7 @@ export declare class Opti__class extends PrintableCommon {
    * constraints
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1o
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L434
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L433
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L483-L489
    * 
@@ -11562,7 +11619,7 @@ export declare class Opti__class extends PrintableCommon {
    * [INTERNAL] 
    * Get user data.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L437
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L436
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L496-L502
    * 
@@ -11572,9 +11629,9 @@ export declare class Opti__class extends PrintableCommon {
    * [INTERNAL] 
    * Readable name of the class.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L440
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L439
    * Implementation: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L440-L440
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L439-L439
    * 
    */
   type_name(): string;
@@ -11582,7 +11639,7 @@ export declare class Opti__class extends PrintableCommon {
    * [INTERNAL] 
    * Print representation.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L443
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L442
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L754-L774
    * 
@@ -11592,7 +11649,7 @@ export declare class Opti__class extends PrintableCommon {
    * [INTERNAL] 
    * Get string representation.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L446
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L445
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L776-L780
    * 
@@ -11604,7 +11661,7 @@ export declare class Opti__class extends PrintableCommon {
    * Do not use directly.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1p
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L454
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L453
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L467-L473
    * 
@@ -11616,7 +11673,7 @@ export declare class Opti__class extends PrintableCommon {
    * Do not use directly.
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1p
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L455
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L454
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L475-L481
    * 
@@ -11698,7 +11755,7 @@ export declare class OptiAdvanced__class extends Opti {
    * [INTERNAL] 
    * Get the underlying CasADi solver of the  Opti stack.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L564
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L563
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L504-L510
    * 
@@ -11709,7 +11766,7 @@ export declare class OptiAdvanced__class extends Opti {
    * return true if expression is only dependant on  Opti parameters,
    * not variables
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L567
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L566
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L512-L518
    * 
@@ -11722,7 +11779,7 @@ export declare class OptiAdvanced__class extends Opti {
    * calls used to create the variables
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1u
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L576
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L575
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L520-L526
    * 
@@ -11735,7 +11792,7 @@ export declare class OptiAdvanced__class extends Opti {
    * calls used to create the variables
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1u
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L577
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L576
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L528-L534
    * 
@@ -11748,7 +11805,7 @@ export declare class OptiAdvanced__class extends Opti {
    * calls used to create the variables
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1u
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L578
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L577
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L536-L542
    * 
@@ -11758,7 +11815,7 @@ export declare class OptiAdvanced__class extends Opti {
    * [INTERNAL] 
    * Interpret an expression (for internal use only)
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L582
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L581
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L544-L550
    * 
@@ -11768,7 +11825,7 @@ export declare class OptiAdvanced__class extends Opti {
    * [INTERNAL] 
    * Get meta-data of symbol (for internal use only)
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L585
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L584
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L552-L558
    * 
@@ -11778,7 +11835,7 @@ export declare class OptiAdvanced__class extends Opti {
    * [INTERNAL] 
    * Get meta-data of symbol (for internal use only)
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L588
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L587
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L560-L566
    * 
@@ -11788,7 +11845,7 @@ export declare class OptiAdvanced__class extends Opti {
    * [INTERNAL] 
    * Set meta-data of an expression.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L591
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L590
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L568-L574
    * 
@@ -11798,7 +11855,7 @@ export declare class OptiAdvanced__class extends Opti {
    * [INTERNAL] 
    * Set meta-data of an expression.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L594
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L593
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L576-L582
    * 
@@ -11892,7 +11949,7 @@ export declare class OptiAdvanced__class extends Opti {
    * [INTERNAL] 
    * Fix the structure of the optimization problem.
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L629
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L628
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L782-L788
    * 
@@ -11968,7 +12025,7 @@ export declare class OptiSol__class extends PrintableCommon {
    * 
    * value
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L677
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L676
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L872-L874
    * 
@@ -11987,7 +12044,7 @@ export declare class OptiSol__class extends PrintableCommon {
    * 
    * value
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L678
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L677
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L875-L877
    * 
@@ -12006,7 +12063,7 @@ export declare class OptiSol__class extends PrintableCommon {
    * 
    * value
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L679
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L678
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L878-L880
    * 
@@ -12016,7 +12073,7 @@ export declare class OptiSol__class extends PrintableCommon {
    * [INTERNAL] 
    * get assignment expressions for the optimal solution
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L683
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L682
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L882-L884
    * 
@@ -12034,7 +12091,7 @@ export declare class OptiSol__class extends PrintableCommon {
    * part of the API
    * Extra doc: https://github.com/casadi/casadi/wiki/L_1w
    * Doc source: 
-   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L692
+   * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L691
    * Implementation: 
    * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L890-L892
    * 
@@ -12455,9 +12512,10 @@ export function external(name: string, li: Importer, opts?: Record<string, _Gene
  * | dump_dir         | OT_STRING       | Directory to     | casadi::Function |
  * |                  |                 | dump             | Internal         |
  * |                  |                 | inputs/outputs   |                  |
- * |                  |                 | to. Make sure    |                  |
- * |                  |                 | the directory    |                  |
- * |                  |                 | exists [.]       |                  |
+ * |                  |                 | and traces to.   |                  |
+ * |                  |                 | Make sure the    |                  |
+ * |                  |                 | directory exists |                  |
+ * |                  |                 | [.]              |                  |
  * +------------------+-----------------+------------------+------------------+
  * | dump_format      | OT_STRING       | Choose file      | casadi::Function |
  * |                  |                 | format to dump   | Internal         |
@@ -13568,9 +13626,10 @@ export function event_out(): string[];
  * | dump_dir         | OT_STRING       | Directory to     | casadi::Function |
  * |                  |                 | dump             | Internal         |
  * |                  |                 | inputs/outputs   |                  |
- * |                  |                 | to. Make sure    |                  |
- * |                  |                 | the directory    |                  |
- * |                  |                 | exists [.]       |                  |
+ * |                  |                 | and traces to.   |                  |
+ * |                  |                 | Make sure the    |                  |
+ * |                  |                 | directory exists |                  |
+ * |                  |                 | [.]              |                  |
  * +------------------+-----------------+------------------+------------------+
  * | dump_format      | OT_STRING       | Choose file      | casadi::Function |
  * |                  |                 | format to dump   | Internal         |
@@ -15024,9 +15083,10 @@ export function nlpsol(name: string, solver: string, nl: NlpBuilder, opts?: Reco
  * | dump_dir         | OT_STRING       | Directory to     | casadi::Function |
  * |                  |                 | dump             | Internal         |
  * |                  |                 | inputs/outputs   |                  |
- * |                  |                 | to. Make sure    |                  |
- * |                  |                 | the directory    |                  |
- * |                  |                 | exists [.]       |                  |
+ * |                  |                 | and traces to.   |                  |
+ * |                  |                 | Make sure the    |                  |
+ * |                  |                 | directory exists |                  |
+ * |                  |                 | [.]              |                  |
  * +------------------+-----------------+------------------+------------------+
  * | dump_format      | OT_STRING       | Choose file      | casadi::Function |
  * |                  |                 | format to dump   | Internal         |
@@ -16768,9 +16828,9 @@ export function doc_nlpsol(name: string): string;
  * Check if a given ONNX runtime backend is available.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_2j8
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.hpp#L31
+ * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.hpp#L38
  * Implementation: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.cpp#L31-L33
+ * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.cpp#L38-L40
  * 
  */
 export function has_onnxbackend(solver: string): boolean;
@@ -16779,9 +16839,9 @@ export function has_onnxbackend(solver: string): boolean;
  * Load an ONNX runtime backend.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_2j9
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.hpp#L35
+ * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.hpp#L42
  * Implementation: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.cpp#L35-L37
+ * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.cpp#L42-L44
  * 
  */
 export function load_onnxbackend(solver: string): void;
@@ -16790,9 +16850,9 @@ export function load_onnxbackend(solver: string): void;
  * List available ONNX runtime backends.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_2ja
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.hpp#L39
+ * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.hpp#L46
  * Implementation: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.cpp#L39-L43
+ * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.cpp#L46-L50
  * 
  */
 export function onnxbackend_solvers(): string[];
@@ -16801,9 +16861,9 @@ export function onnxbackend_solvers(): string[];
  * Get documentation for an ONNX runtime backend.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_2jb
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.hpp#L45
+ * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.hpp#L52
  * Implementation: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.cpp#L45-L47
+ * https://github.com/casadi/casadi/blob/main/casadi/core/onnx_function.cpp#L52-L54
  * 
  */
 export function onnxbackend_doc(solver: string): string;
@@ -16985,9 +17045,10 @@ export function doc_graphmodel(name: string): string;
  * | dump_dir         | OT_STRING       | Directory to     | casadi::Function |
  * |                  |                 | dump             | Internal         |
  * |                  |                 | inputs/outputs   |                  |
- * |                  |                 | to. Make sure    |                  |
- * |                  |                 | the directory    |                  |
- * |                  |                 | exists [.]       |                  |
+ * |                  |                 | and traces to.   |                  |
+ * |                  |                 | Make sure the    |                  |
+ * |                  |                 | directory exists |                  |
+ * |                  |                 | [.]              |                  |
  * +------------------+-----------------+------------------+------------------+
  * | dump_format      | OT_STRING       | Choose file      | casadi::Function |
  * |                  |                 | format to dump   | Internal         |
@@ -17778,9 +17839,10 @@ export function doc_linsol(name: string): string;
  * | dump_dir         | OT_STRING       | Directory to     | casadi::Function |
  * |                  |                 | dump             | Internal         |
  * |                  |                 | inputs/outputs   |                  |
- * |                  |                 | to. Make sure    |                  |
- * |                  |                 | the directory    |                  |
- * |                  |                 | exists [.]       |                  |
+ * |                  |                 | and traces to.   |                  |
+ * |                  |                 | Make sure the    |                  |
+ * |                  |                 | directory exists |                  |
+ * |                  |                 | [.]              |                  |
  * +------------------+-----------------+------------------+------------------+
  * | dump_format      | OT_STRING       | Choose file      | casadi::Function |
  * |                  |                 | format to dump   | Internal         |
@@ -18396,9 +18458,10 @@ export function doc_dple(name: string): string;
  * | dump_dir         | OT_STRING       | Directory to     | casadi::Function |
  * |                  |                 | dump             | Internal         |
  * |                  |                 | inputs/outputs   |                  |
- * |                  |                 | to. Make sure    |                  |
- * |                  |                 | the directory    |                  |
- * |                  |                 | exists [.]       |                  |
+ * |                  |                 | and traces to.   |                  |
+ * |                  |                 | Make sure the    |                  |
+ * |                  |                 | directory exists |                  |
+ * |                  |                 | [.]              |                  |
  * +------------------+-----------------+------------------+------------------+
  * | dump_format      | OT_STRING       | Choose file      | casadi::Function |
  * |                  |                 | format to dump   | Internal         |
@@ -18943,9 +19006,10 @@ export function doc_expm(name: string): string;
  * | dump_dir         | OT_STRING       | Directory to     | casadi::Function |
  * |                  |                 | dump             | Internal         |
  * |                  |                 | inputs/outputs   |                  |
- * |                  |                 | to. Make sure    |                  |
- * |                  |                 | the directory    |                  |
- * |                  |                 | exists [.]       |                  |
+ * |                  |                 | and traces to.   |                  |
+ * |                  |                 | Make sure the    |                  |
+ * |                  |                 | directory exists |                  |
+ * |                  |                 | [.]              |                  |
  * +------------------+-----------------+------------------+------------------+
  * | dump_format      | OT_STRING       | Choose file      | casadi::Function |
  * |                  |                 | format to dump   | Internal         |
@@ -23570,7 +23634,7 @@ export function mldivide(x: _MX, y: _MX): MX;
  * calls used to create the variables
  * Extra doc: https://github.com/casadi/casadi/wiki/L_1u
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L578
+ * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L577
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L536-L542
  * 
@@ -23582,7 +23646,7 @@ export function symvar(x: _DM): DM[];
  * calls used to create the variables
  * Extra doc: https://github.com/casadi/casadi/wiki/L_1u
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L578
+ * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L577
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L536-L542
  * 
@@ -23594,7 +23658,7 @@ export function symvar(x: _SX): SX[];
  * calls used to create the variables
  * Extra doc: https://github.com/casadi/casadi/wiki/L_1u
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L578
+ * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L577
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L536-L542
  * 
@@ -24201,7 +24265,7 @@ export function inv_minor(A: _MX): MX;
  * Element-wise inverse.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_10y
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L245
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L248
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.cpp#L173-L175
  * 
@@ -24211,7 +24275,7 @@ export function inv(A: _DM): DM;
  * Element-wise inverse.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_10y
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L245
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L248
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.cpp#L173-L175
  * 
@@ -24221,7 +24285,7 @@ export function inv(A: _DM, lsolver: string, opts?: Record<string, _GenericType>
  * Element-wise inverse.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_10y
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L245
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L248
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.cpp#L173-L175
  * 
@@ -24231,7 +24295,7 @@ export function inv(A: _SX): SX;
  * Element-wise inverse.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_10y
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L245
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L248
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.cpp#L173-L175
  * 
@@ -24241,7 +24305,7 @@ export function inv(A: _SX, lsolver: string, opts?: Record<string, _GenericType>
  * Element-wise inverse.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_10y
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L245
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L248
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.cpp#L173-L175
  * 
@@ -24251,7 +24315,7 @@ export function inv(A: _MX): MX;
  * Element-wise inverse.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_10y
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L245
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L248
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.cpp#L173-L175
  * 
@@ -24705,9 +24769,9 @@ export function project(A: _MX, sp: Sparsity, intersect?: boolean): MX;
  * Ternary if_else: x ? y : z.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_113
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L288
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L291
  * Implementation: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L288-L290
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L291-L293
  * 
  */
 export function if_else(cond: _DM, if_true: _DM, if_false: _DM, short_circuit?: boolean): DM;
@@ -24715,9 +24779,9 @@ export function if_else(cond: _DM, if_true: _DM, if_false: _DM, short_circuit?: 
  * Ternary if_else: x ? y : z.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_113
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L288
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L291
  * Implementation: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L288-L290
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L291-L293
  * 
  */
 export function if_else(cond: _SX, if_true: _SX, if_false: _SX, short_circuit?: boolean): SX;
@@ -24725,9 +24789,9 @@ export function if_else(cond: _SX, if_true: _SX, if_false: _SX, short_circuit?: 
  * Ternary if_else: x ? y : z.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_113
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L288
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L291
  * Implementation: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L288-L290
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx_elem.hpp#L291-L293
  * 
  */
 export function if_else(cond: _MX, if_true: _MX, if_false: _MX, short_circuit?: boolean): MX;
@@ -25004,7 +25068,7 @@ export function contains_any(v: _MX[], n: _MX[]): boolean;
 /**
  * Crunch the numbers; solve the problem.
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L240
+ * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L239
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L213-L219
  * 
@@ -25013,7 +25077,7 @@ export function solve(A: _DM, b: _DM): DM;
 /**
  * Crunch the numbers; solve the problem.
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L240
+ * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L239
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L213-L219
  * 
@@ -25022,7 +25086,7 @@ export function solve(A: _DM, b: _DM, lsolver: string, opts?: Record<string, _Ge
 /**
  * Crunch the numbers; solve the problem.
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L240
+ * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L239
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L213-L219
  * 
@@ -25031,7 +25095,7 @@ export function solve(A: _SX, b: _SX): SX;
 /**
  * Crunch the numbers; solve the problem.
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L240
+ * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L239
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L213-L219
  * 
@@ -25040,7 +25104,7 @@ export function solve(A: _SX, b: _SX, lsolver: string, opts?: Record<string, _Ge
 /**
  * Crunch the numbers; solve the problem.
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L240
+ * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L239
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L213-L219
  * 
@@ -25049,7 +25113,7 @@ export function solve(A: _MX, b: _MX): MX;
 /**
  * Crunch the numbers; solve the problem.
  * Doc source: 
- * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L240
+ * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.hpp#L239
  * Implementation: 
  * https://github.com/casadi/casadi/blob/main/casadi/core/optistack.cpp#L213-L219
  * 
@@ -26550,6 +26614,118 @@ export function reverse(ex: _SX[], arg: _SX[], v: _SX[][], opts?: Record<string,
  */
 export function reverse(ex: _MX[], arg: _MX[], v: _MX[][], opts?: Record<string, _GenericType>): MX[][];
 /**
+ * Export expressions as .html, .dot, or .casadi_viz, defaulting to 
+ * expression
+ * view.
+ * Options are forwarded to  Function::export_graph.
+ * Extra doc: https://github.com/casadi/casadi/wiki/L_2k5  Without a filename, 
+ * return the .casadi_viz JSON bundle.
+ * Doc source: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx.hpp#L649
+ * Implementation: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/visualizer.cpp#L649-L651
+ * 
+ */
+export function export_graph(expressions: _SX[], opts?: Record<string, _GenericType>): string;
+/**
+ * Export expressions as .html, .dot, or .casadi_viz, defaulting to 
+ * expression
+ * view.
+ * Options are forwarded to  Function::export_graph.
+ * Extra doc: https://github.com/casadi/casadi/wiki/L_2k5  Without a filename, 
+ * return the .casadi_viz JSON bundle.
+ * Doc source: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx.hpp#L649
+ * Implementation: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/visualizer.cpp#L649-L651
+ * 
+ */
+export function export_graph(expression: _SX, opts?: Record<string, _GenericType>): string;
+/**
+ * Export expressions as .html, .dot, or .casadi_viz, defaulting to 
+ * expression
+ * view.
+ * Options are forwarded to  Function::export_graph.
+ * Extra doc: https://github.com/casadi/casadi/wiki/L_2k5  Without a filename, 
+ * return the .casadi_viz JSON bundle.
+ * Doc source: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx.hpp#L649
+ * Implementation: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/visualizer.cpp#L649-L651
+ * 
+ */
+export function export_graph(expressions: _SX[], fname: string, opts?: Record<string, _GenericType>): void;
+/**
+ * Export expressions as .html, .dot, or .casadi_viz, defaulting to 
+ * expression
+ * view.
+ * Options are forwarded to  Function::export_graph.
+ * Extra doc: https://github.com/casadi/casadi/wiki/L_2k5  Without a filename, 
+ * return the .casadi_viz JSON bundle.
+ * Doc source: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx.hpp#L649
+ * Implementation: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/visualizer.cpp#L649-L651
+ * 
+ */
+export function export_graph(expression: _SX, fname: string, opts?: Record<string, _GenericType>): void;
+/**
+ * Export expressions as .html, .dot, or .casadi_viz, defaulting to 
+ * expression
+ * view.
+ * Options are forwarded to  Function::export_graph.
+ * Extra doc: https://github.com/casadi/casadi/wiki/L_2k5  Without a filename, 
+ * return the .casadi_viz JSON bundle.
+ * Doc source: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx.hpp#L649
+ * Implementation: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/visualizer.cpp#L649-L651
+ * 
+ */
+export function export_graph(expression: _MX, opts?: Record<string, _GenericType>): string;
+/**
+ * Export expressions as .html, .dot, or .casadi_viz, defaulting to 
+ * expression
+ * view.
+ * Options are forwarded to  Function::export_graph.
+ * Extra doc: https://github.com/casadi/casadi/wiki/L_2k5  Without a filename, 
+ * return the .casadi_viz JSON bundle.
+ * Doc source: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx.hpp#L649
+ * Implementation: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/visualizer.cpp#L649-L651
+ * 
+ */
+export function export_graph(expression: _MX, fname: string, opts?: Record<string, _GenericType>): void;
+/**
+ * Export expressions as .html, .dot, or .casadi_viz, defaulting to 
+ * expression
+ * view.
+ * Options are forwarded to  Function::export_graph.
+ * Extra doc: https://github.com/casadi/casadi/wiki/L_2k5  Without a filename, 
+ * return the .casadi_viz JSON bundle.
+ * Doc source: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx.hpp#L649
+ * Implementation: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/visualizer.cpp#L649-L651
+ * 
+ */
+export function export_graph(expressions: _MX[], opts?: Record<string, _GenericType>): string;
+/**
+ * Export expressions as .html, .dot, or .casadi_viz, defaulting to 
+ * expression
+ * view.
+ * Options are forwarded to  Function::export_graph.
+ * Extra doc: https://github.com/casadi/casadi/wiki/L_2k5  Without a filename, 
+ * return the .casadi_viz JSON bundle.
+ * Doc source: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/sx.hpp#L649
+ * Implementation: 
+ * https://github.com/casadi/casadi/blob/main/casadi/core/visualizer.cpp#L649-L651
+ * 
+ */
+export function export_graph(expressions: _MX[], fname: string, opts?: Record<string, _GenericType>): void;
+/**
  * Substitute variable var with expression expr in multiple expressions.
  * Extra doc: https://github.com/casadi/casadi/wiki/L_1cm
  * Doc source: 
@@ -26621,7 +26797,7 @@ export function substitute(ex: _MX[], v: _MX[], vdef: _MX[]): MX[];
  * https://github.com/casadi/casadi/blob/main/casadi/core/generic_matrix.hpp#L730-L734
  * 
  */
-export function substitute_inplace(v: _DM[], INOUT1: _DM[], INOUT2: _DM[], reverse?: boolean): [any[], any[]];
+export function substitute_inplace(v: _DM[], INOUT1: _DM[], INOUT2: _DM[], reverse?: boolean): [DM[], DM[]];
 /**
  * Inplace substitution with piggyback expressions.
  * Substitute variables v out of the expressions vdef sequentially, as 
@@ -26634,7 +26810,7 @@ export function substitute_inplace(v: _DM[], INOUT1: _DM[], INOUT2: _DM[], rever
  * https://github.com/casadi/casadi/blob/main/casadi/core/generic_matrix.hpp#L730-L734
  * 
  */
-export function substitute_inplace(v: _SX[], INOUT1: _SX[], INOUT2: _SX[], reverse?: boolean): [any[], any[]];
+export function substitute_inplace(v: _SX[], INOUT1: _SX[], INOUT2: _SX[], reverse?: boolean): [SX[], SX[]];
 /**
  * Inplace substitution with piggyback expressions.
  * Substitute variables v out of the expressions vdef sequentially, as 
@@ -28206,7 +28382,7 @@ export function has_filesystem(name: string): boolean;
  * https://github.com/casadi/casadi/blob/main/casadi/core/filesystem.cpp#L96-L98
  * 
  */
-export function load_filesystem(name: string): void;
+export function load_filesystem(name: string): Promise<void>;
 /**
  * [INTERNAL] 
  * Get the documentation string for a plugin.
@@ -28224,7 +28400,7 @@ export function has_blas(name: string): boolean;
 /**
  * [INTERNAL] 
  */
-export function load_blas(name: string): void;
+export function load_blas(name: string): Promise<void>;
 /**
  * [INTERNAL] 
  */

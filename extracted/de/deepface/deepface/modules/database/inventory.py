@@ -9,6 +9,8 @@ from deepface.modules.database.mongo import MongoDbClient as MongoClient
 from deepface.modules.database.weaviate import WeaviateClient
 from deepface.modules.database.neo4j import Neo4jClient
 from deepface.modules.database.pinecone import PineconeClient
+from deepface.modules.database.milvus import MilvusClient
+from deepface.modules.database.qdrant import QdrantClient
 
 
 class DatabaseSpec(TypedDict):
@@ -47,5 +49,15 @@ database_inventory: Dict[str, DatabaseSpec] = {
         "is_vector_db": True,
         "connection_string": "DEEPFACE_PINECONE_API_KEY",
         "client": PineconeClient,
+    },
+    "milvus": {
+        "is_vector_db": True,
+        "connection_string": "DEEPFACE_MILVUS_URI",
+        "client": MilvusClient,
+    },
+    "qdrant": {
+        "is_vector_db": True,
+        "connection_string": "DEEPFACE_QDRANT_URI",
+        "client": QdrantClient,
     },
 }

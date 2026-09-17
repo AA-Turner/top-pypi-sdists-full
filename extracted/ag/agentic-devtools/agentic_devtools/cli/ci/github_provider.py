@@ -3606,6 +3606,68 @@ class GitHubActionsProvider(CIPlatformProvider):
             declared_author_comment_counts_by_review=declared_author_comment_counts_by_review,
         )
 
+        # Attempt direct Agent Tasks API dispatch if configured
+        use_agent_tasks = os.environ.get("AGDT_USE_AGENT_TASKS_API", "").lower() in ("true", "1", "yes")
+        if use_agent_tasks and repo and "/" in repo:
+            try:
+                from agentic_devtools.ai_providers.agent_tasks_payload import (
+                    AGENT_TASKS_ENDPOINT_TEMPLATE,
+                    build_agent_tasks_payload,
+                )
+
+                pr_meta = self.get_pr_metadata(pr_number)
+                owner, repo_name = repo.split("/", 1)
+                endpoint = AGENT_TASKS_ENDPOINT_TEMPLATE.format(owner=owner, repo=repo_name)
+                payload = build_agent_tasks_payload(
+                    prompt=body,
+                    model=os.environ.get("COPILOT_AGENT_MODEL", "claude-sonnet-5"),
+                    base_ref=pr_meta.base_branch,
+                    head_ref=pr_meta.head_branch,
+                )
+                api_resp = _gh_api(
+                    endpoint,
+                    method="POST",
+                    body=payload,
+                    token=token,
+                )
+                task_data = json.loads(api_resp)
+                task_url = task_data.get("html_url") or task_data.get("url") or ""
+                logger.info("PR #%d: Dispatched repair via Agent Tasks API: %s", pr_number, task_url)
+                trigger_marker = f"<!-- copilot-trigger:{review_id} -->" if review_id > 0 else ""
+                from agentic_devtools.cli.ci.pipeline.summary import _find_active_summary_comment
+
+                summary_comment = _find_active_summary_comment(self, pr_number)
+                if summary_comment is not None:
+                    s_id, s_body = summary_comment
+                    session_note = (
+                        f"\n\n🤖 **Active Copilot Repair Session**: [View Task Logs]({task_url})\n{trigger_marker}"
+                    )
+                    self.update_comment(s_id, f"{s_body}{session_note}")
+
+                # Post tracking replies to affected review comment threads
+                if task_url:
+                    for rc in review_comments:
+                        rc_id = getattr(rc, "id", None)
+                        if isinstance(rc_id, int) and rc_id > 0:
+                            try:
+                                reply_body = f"🤖 **Copilot Cloud Agent Task Dispatched**: [View Task Logs]({task_url})"
+                                self._reply_to_review_comment(pr_number, rc_id, reply_body)
+                            except Exception as reply_exc:
+                                logger.warning(
+                                    "PR #%d: Could not post task reply on review comment %d: %s",
+                                    pr_number,
+                                    rc_id,
+                                    reply_exc,
+                                )
+
+                return 1
+            except Exception as exc:
+                logger.warning(
+                    "PR #%d: Agent Tasks API dispatch failed, falling back to comment: %s",
+                    pr_number,
+                    exc,
+                )
+
         response = self._post_repair_comment(pr_number=pr_number, body=body, token=token)
         data = json.loads(response)
         return data["id"]
@@ -5640,9 +5702,9 @@ class GitHubActionsProvider(CIPlatformProvider):
                     and tier_result is not None
                     and tier_result.verdict == ResolutionVerdict.TENTATIVE
                 ):
-                    # Resolve-by-default outcomes should bypass tentative lifecycle
+                    # Resolve-by-default outcomes bypass tentative lifecycle
                     # persistence/replies. Keep an explicit engine_fallback marker
-                    # so the thread can be re-evaluated later.
+                    # recording unconfirmed resolution before permanent finalization.
                     tier_result = TierResult(
                         verdict=ResolutionVerdict.RESOLVE,
                         confidence=tier_result.confidence,

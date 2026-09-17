@@ -239,7 +239,7 @@ class GrpcToRest:
             payload_schema=cls.convert_payload_schema(model.payload_schema),
             segments_count=model.segments_count,
             status=cls.convert_collection_status(model.status),
-            points_count=model.points_count,
+            points_count=model.points_count if model.HasField("points_count") else None,
             indexed_vectors_count=(
                 model.indexed_vectors_count if model.HasField("indexed_vectors_count") else None
             ),
@@ -498,7 +498,7 @@ class GrpcToRest:
     @classmethod
     def convert_update_result(cls, model: grpc.UpdateResult) -> rest.UpdateResult:
         return rest.UpdateResult(
-            operation_id=model.operation_id,
+            operation_id=model.operation_id if model.HasField("operation_id") else None,
             status=cls.convert_update_status(model.status),
         )
 
@@ -1689,6 +1689,8 @@ class GrpcToRest:
             on_disk=model.on_disk if model.HasField("on_disk") else None,
             memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             enable_hnsw=model.enable_hnsw if model.HasField("enable_hnsw") else None,
+            # presence of grpc.KeywordPrefixParams is the only signal, an explicit `prefix=False`
+            # cannot be represented in grpc and comes back as `None`
             prefix=True if model.HasField("prefix") else None,
         )
 
@@ -2508,6 +2510,7 @@ class GrpcToRest:
             return dt
         if model.HasField("datetime"):
             return model.datetime
+        raise ValueError(f"invalid StartFrom model: {model}")  # pragma: no cover
 
     @classmethod
     def convert_order_by(cls, model: grpc.OrderBy) -> rest.OrderBy:
@@ -3644,7 +3647,9 @@ class RestToGrpc:
             return grpc.StartFrom(integer=model)
         if isinstance(model, float):
             return grpc.StartFrom(float=model)
-        if isinstance(model, datetime):
+        if isinstance(model, date):
+            # covers datetime too, which is a subclass of date. convert_datetime turns a
+            # bare date into midnight UTC on that day.
             ts = cls.convert_datetime(model)
             return grpc.StartFrom(timestamp=ts)
         if isinstance(model, str):
@@ -4383,6 +4388,9 @@ class RestToGrpc:
             is_tenant=model.is_tenant,
             on_disk=model.on_disk,
             enable_hnsw=model.enable_hnsw,
+            # grpc.KeywordPrefixParams is an empty message, its presence enables prefix matching,
+            # so an explicit `prefix=False` is sent as absent (which the server also treats as
+            # disabled) and is recovered as `None` when converting back
             prefix=grpc.KeywordPrefixParams() if model.prefix else None,
             memory=cls.convert_memory(model.memory) if model.memory is not None else None,
         )

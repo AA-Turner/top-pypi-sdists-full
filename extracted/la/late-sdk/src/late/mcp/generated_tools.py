@@ -4772,6 +4772,8 @@ def register_generated_tools(mcp, _get_client):
         creative_features: dict[str, Any] | None = None,
         post_id: str | None = None,
         platform_post_id: str | None = None,
+        campaign_name: str | None = None,
+        ad_set_name: str | None = None,
         ad_set_id: str | None = None,
         budget: dict[str, Any] | None = None,
         instagram_account_id: str | None = None,
@@ -4793,6 +4795,7 @@ def register_generated_tools(mcp, _get_client):
         link_url: str | None = None,
         call_to_action: str | None = None,
         spark_auth_code: str | None = None,
+        smart_plus: bool | None = None,
         promoted_object: dict[str, Any] | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
@@ -4809,8 +4812,10 @@ def register_generated_tools(mcp, _get_client):
                 account_id: Account ID (required)
                 ad_account_id: Platform ad account ID (required)
                 name: (required)
+                campaign_name: Exact name for the campaign this boost provisions. Omitted keeps the default `<name> - Campaign`. Every platform: on LinkedIn it names the campaign group. Ignored on the Meta attach shape (`adSetId`), which creates no campaign.
+                ad_set_name: Exact name for the ad-group level this boost provisions. Omitted keeps the default `<name> - Ad Group`. Meta: ad set; TikTok, Pinterest, Google: ad group; X: line item; LinkedIn: the campaign under the campaign group. Ignored on the Meta attach shape.
                 goal: Available goals vary by platform. Meta (Facebook/Instagram) and TikTok support all 7. LinkedIn supports all except app_promotion. X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views. (required)
-                ad_set_id: Meta only. Attach the boosted post to this existing ad set instead of creating a campaign. The ad set then owns budget, schedule and targeting; sending those too is a 400.
+                ad_set_id: Meta, or TikTok with `smartPlus: true`. Attach the boosted post to this existing ad set instead of creating a campaign. On TikTok the id is an existing Smart+ ad group: the post is added as one more Spark ad in it (up to 30 per ad group), under the identity its `sparkAuthCode` creates; goal and budget are inherited from the Smart+ campaign; a regular ad group is rejected with a 400. Meta: The ad set then owns budget, schedule and targeting; sending those too is a 400.
                 budget: Required unless adSetId is set.
                 instagram_account_id: Meta only. Instagram identity the ad runs AS (creative.instagram_user_id), overriding the account linked to the Page. Live-verified against a Page-post creative.
                 destination_type: Meta only. Ad-set destination_type: where the click LANDS, as opposed to instagramAccountId which is who the ad runs as. Independent of plain link CTAs and their goal. A messaging callToAction selects its destination automatically; an explicit destinationType must then match. Lead ads use ON_AD.
@@ -4900,6 +4905,7 @@ def register_generated_tools(mcp, _get_client):
         account running the ads (same-BC creators only). The creator generates the
         code in their TikTok app's Promote settings and shares it with the
         advertiser. Maps to `auth_code` on the creative entry of /v2/ad/create/.
+                smart_plus: TikTok only. Run the Spark post in a Smart+ campaign (goal `conversions` = Smart+ Web Conversions, `lead_generation` = Smart+ Lead Generation) instead of a regular campaign. Requires `sparkAuthCode` (the Smart+ ad runs the post under the identity that redeeming its Spark code creates; a Business Center-owned post is not accepted there) and `promotedObject.pixelId` + `customEventType`. `app_promotion` is not available on a Spark post. Rejected with a 400 on other platforms.
                 promoted_object: TikTok-only on this endpoint. The pixel a Website Conversion ad group
         optimizes toward, so a Spark Ad built from an existing organic post can
         optimize for a conversion instead of only engagement or traffic.
@@ -4940,6 +4946,8 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 ad_account_id=ad_account_id,
                 name=name,
+                campaign_name=campaign_name,
+                ad_set_name=ad_set_name,
                 goal=goal,
                 ad_set_id=ad_set_id,
                 budget=budget,
@@ -4962,6 +4970,7 @@ def register_generated_tools(mcp, _get_client):
                 link_url=link_url,
                 call_to_action=call_to_action,
                 spark_auth_code=spark_auth_code,
+                smart_plus=smart_plus,
                 promoted_object=promoted_object,
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
@@ -5019,6 +5028,7 @@ def register_generated_tools(mcp, _get_client):
         promotion: str | None = None,
         creative_features: dict[str, Any] | None = None,
         multi_advertiser: str | None = None,
+        ai_disclosure: str | None = None,
         validate_only: bool | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
@@ -5148,6 +5158,7 @@ def register_generated_tools(mcp, _get_client):
                 promotion: Not supported. Meta validates creative_sourcing_spec.promotion_metadata_spec on the create call and then discards it, so a Promotion set through the Marketing API never reaches the creative. Any object is rejected with 400 invalid_field_value. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Verified on 2026-09-11 across Graph v19.0 to v25.0 and every write path.
                 creative_features: Meta only. Applied to each new creative, including standalone and attach shapes. With creatives[], these are defaults; an item replaces the whole feature map, including an empty map. auto_promotion_tag is an Advantage+ enhancement, not the Ads Manager Promotion setting.
                 multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there.
+                ai_disclosure: Meta only. Meta's "Ad includes media created or edited with AI" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision.
                 validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType).
                 budget_type: Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts lifetime only (no daily-budget concept on the platform); sending daily returns 422. OpenAI Ads lifetime budgets require `endDate` to give the lifetime cap a spend window.
@@ -5584,6 +5595,7 @@ def register_generated_tools(mcp, _get_client):
                 promotion=promotion,
                 creative_features=creative_features,
                 multi_advertiser=multi_advertiser,
+                ai_disclosure=ai_disclosure,
                 validate_only=validate_only,
                 budget_amount=budget_amount,
                 budget_type=budget_type,
@@ -5817,6 +5829,7 @@ def register_generated_tools(mcp, _get_client):
         promotion: str | None = None,
         creative_features: dict[str, Any] | None = None,
         multi_advertiser: str | None = None,
+        ai_disclosure: str | None = None,
     ) -> str:
         """Create a standalone creative
 
@@ -5834,7 +5847,8 @@ def register_generated_tools(mcp, _get_client):
             url_tags: Appended to every outbound URL (e.g. utm_source=fb).
             promotion: Not supported. Meta validates creative_sourcing_spec.promotion_metadata_spec on the create call and then discards it, so a Promotion set through the Marketing API never reaches the creative. Any object is rejected with 400 invalid_field_value. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Verified on 2026-09-11 across Graph v19.0 to v25.0 and every write path.
             creative_features: Meta only. Applied to each new creative, including standalone and attach shapes. With creatives[], these are defaults; an item replaces the whole feature map, including an empty map. auto_promotion_tag is an Advantage+ enhancement, not the Ads Manager Promotion setting.
-            multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there."""
+            multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there.
+            ai_disclosure: Meta only. Meta's "Ad includes media created or edited with AI" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision."""
         client = _get_client()
         try:
             response = client.ad_creatives.create_ad_creative(
@@ -5852,6 +5866,7 @@ def register_generated_tools(mcp, _get_client):
                 promotion=promotion,
                 creative_features=creative_features,
                 multi_advertiser=multi_advertiser,
+                ai_disclosure=ai_disclosure,
             )
             return _format_response(response)
         except Exception as e:
@@ -7028,7 +7043,7 @@ def register_generated_tools(mcp, _get_client):
             to_date: Inclusive upper bound (YYYY-MM-DD). Defaults to today if omitted.
             limit: Page size (default 50)
             page: Page number (default 1)
-            sort_by: Sort by date, engagement, or a specific metric. Platform-specific metrics (follows, reposts, reels_skip_rate, ig_reels_*, completion_rate, profile_views) sort a null value as 0.
+            sort_by: Sort by date, engagement, or a specific metric. Platform-specific metrics (follows, reposts, reels_skip_rate, ig_reels_*, completion_rate, profile_views, website_clicks) sort a null value as 0.
             order: Sort order"""
         client = _get_client()
         try:
@@ -11076,6 +11091,7 @@ def register_generated_tools(mcp, _get_client):
         platform: str,
         profile_id: str,
         login_mode: str = "classic",
+        permission_level: str = "full",
         page_id: str | None = None,
         account_id: str | None = None,
         redirect_url: str | None = None,
@@ -11088,6 +11104,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 login_mode: Meta ads authorization mode. Business login is opt-in for Facebook and Instagram; classic preserves the posting-account flow.
+                permission_level: Business login only. Ad-account permission the connection's system user will hold. `full` asks the owner for Full control (MANAGE; required to create pixels and other account-level assets through Zernio). `advertise` asks for Manage campaigns (ADVERTISE), enough for campaigns, ad sets, creatives, ads, media and reporting, for owners who will not grant billing-level control to an integration. Either way Meta only lets a business admin complete the grant. 503 if the advertise configuration is not set up.
                 page_id: Business login only. Facebook Page ID to select from the token grants for ad creatives and lead forms.
                 platform: Platform to connect ads for. Only platforms with ads support are accepted.
 
@@ -11145,6 +11162,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.connect.connect_ads(
                 login_mode=login_mode,
+                permission_level=permission_level,
                 page_id=page_id,
                 platform=platform,
                 profile_id=profile_id,
@@ -17913,7 +17931,7 @@ def register_generated_tools(mcp, _get_client):
             tags: Array of keyword tags (max 500 characters combined for YouTube)
             category_id: YouTube video category ID
             privacy_status: Video privacy setting
-            thumbnail_url: Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 2 MB, recommended 1280x720). Works on any video you own, including existing videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails.
+            thumbnail_url: Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 50 MB, recommended 1280x720). Works on any video you own, including existing videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails.
             made_for_kids: COPPA compliance flag. Set true for child-directed content (restricts comments, notifications, ad targeting).
             contains_synthetic_media: AI-generated content disclosure. Set true if the video contains synthetic content that could be mistaken for real. YouTube may add a label.
             playlist_id: YouTube playlist ID to add the video to (e.g. 'PLxxxxxxxxxxxxx'). Use GET /v1/accounts/{id}/youtube-playlists to list available playlists. Only playlists owned by the channel are supported."""
@@ -17933,6 +17951,121 @@ def register_generated_tools(mcp, _get_client):
                 made_for_kids=made_for_kids,
                 contains_synthetic_media=contains_synthetic_media,
                 playlist_id=playlist_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    # PRODUCTS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List products",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def products_list_products(
+        account_id: str,
+        limit: int = 20,
+        cursor: str | None = None,
+        status: str | None = None,
+        query: str | None = None,
+    ) -> str:
+        """List products
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            limit: Page size (1-50).
+            cursor: Opaque cursor from a previous response. Omit for the first page.
+            status: Only products in this status.
+            query: Platform product search syntax, passed through verbatim (Shopify: title, vendor, product_type, tag, sku, handle, created_at, updated_at, ...)."""
+        client = _get_client()
+        try:
+            response = client.products.list_products(
+                account_id=account_id,
+                limit=limit,
+                cursor=cursor,
+                status=status,
+                query=query,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a product",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def products_get_product(account_id: str, product_id: str) -> str:
+        """Get a product
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            product_id: Platform-native numeric product id. Non-numeric values return 400. (required)"""
+        client = _get_client()
+        try:
+            response = client.products.get_product(
+                account_id=account_id, product_id=product_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a product",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def products_update_product(
+        account_id: str,
+        product_id: str,
+        title: str | None = None,
+        description_html: str | None = None,
+        handle: str | None = None,
+        vendor: str | None = None,
+        product_type: str | None = None,
+        tags: list[str] | None = None,
+        status: str | None = None,
+        seo: dict[str, Any] | None = None,
+        variants: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Update a product
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            product_id: Platform-native numeric product id. Non-numeric values return 400. (required)
+            title
+            description_html: Product description as HTML.
+            handle: URL slug of the product.
+            vendor
+            product_type
+            tags: Replaces the full tag list.
+            status: archived hides the product everywhere; draft keeps it editable but unpublished.
+            seo: Search-engine title and description overrides.
+            variants: Price changes per variant. Only the listed variants change."""
+        client = _get_client()
+        try:
+            response = client.products.update_product(
+                account_id=account_id,
+                product_id=product_id,
+                title=title,
+                description_html=description_html,
+                handle=handle,
+                vendor=vendor,
+                product_type=product_type,
+                tags=tags,
+                status=status,
+                seo=seo,
+                variants=variants,
             )
             return _format_response(response)
         except Exception as e:

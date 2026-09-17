@@ -2,13 +2,16 @@
 
 mod admission;
 mod condition;
+mod conditional;
+mod launch_hold;
 mod proc_runtime;
 
 pub use admission::{
     admission_unit_results, agent_unit_dispatch_prompt,
     agent_unit_dispatch_prompt_with_flags, dispatch_fingerprint,
-    next_admission_actions, reconcile_admission_journal, summarize_admission,
-    wait_target_key, LaunchAdmissionActionWire,
+    next_admission_actions, next_admission_actions_with_holds,
+    reconcile_admission_journal, summarize_admission, wait_target_key,
+    LaunchAdmissionActionWire, LaunchAdmissionHoldBlockWire,
     LaunchAdmissionJournalEntryWire, LaunchAdmissionSummaryWire,
     LaunchAdmissionUnitStateWire, LaunchAdmissionWaitFactWire,
     LaunchUnitPhaseWire, WaitedOutcomeWire,
@@ -24,6 +27,12 @@ pub use condition::{
     CONDITION_EVAL_WIRE_SCHEMA_VERSION, CONDITION_MAX_TIMEOUT_SECONDS,
     CONDITION_OUTPUT_CAP_BYTES,
 };
+pub use conditional::{
+    filter_conditional_launch_segments, ConditionalLaunchSegmentFilterWire,
+    ConditionalLaunchSegmentWire,
+    CONDITIONAL_LAUNCH_SEGMENT_FILTER_SCHEMA_VERSION,
+};
+pub use launch_hold::{launch_unit_hold_armer, launch_unit_hold_key};
 pub use proc_runtime::{
     cleanup_proc_private_inputs, parse_proc_duration_seconds,
     prepare_proc_script, proc_script_argv, resolve_proc_execution_cwd,
@@ -35,15 +44,20 @@ pub use proc_runtime::{
     PROC_PHASE_WAITING, XPROMPT_PROC_ORIGIN,
 };
 
+use crate::agent_identity::agent_name_in_hood;
 use crate::effort::split_model_effort;
 use crate::fenced_code::{
     fenced_block_ranges, language_from_info_string,
     scan_directive_owned_fences, CodeLanguage, CodeValue, CodeValueWire,
 };
+use crate::hold_directive::{
+    agent_holds_enabled, collect_hold_fields_with_flags, format_hold_directive,
+    HoldArgWire, HoldFieldsWire, HoldOccurrenceWire,
+};
 use crate::prompt_literals::inline_code_ranges;
 use crate::queue_directive::{
-    collect_queue_fields_with_flags, QueueArgWire, QueueFieldsWire,
-    QueueOccurrenceWire,
+    collect_queue_fields_with_flags, format_queue_weight, QueueArgWire,
+    QueueFieldsWire, QueueOccurrenceWire,
 };
 use crate::xprompt_text_block::find_text_block_close_for_args;
 use chrono::{Duration, NaiveDateTime};
@@ -348,6 +362,8 @@ pub struct AgentUnitWire {
     /// unset so admission never treats leftover prompt text as routing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dispatch_target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hold: Option<HoldFieldsWire>,
 }
 
 fn skip_if_false(value: &bool) -> bool {
@@ -505,6 +521,25 @@ pub struct ProcUnitWire {
     pub workspace_explicit: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selected_project: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_capacity: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wait_priority: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_weight: Option<f64>,
+    #[serde(default, skip_serializing_if = "skip_if_false")]
+    pub queue_weight_explicit: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hold: Option<HoldFieldsWire>,
+}
+
+impl ProcUnitWire {
+    pub fn has_authored_queue_fields(&self) -> bool {
+        self.queue_capacity.is_some()
+            || self.wait_priority.is_some()
+            || self.queue_weight.is_some()
+            || self.queue_weight_explicit
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -731,6 +766,8 @@ struct DirectiveOccurrence {
     end: usize,
     args: Vec<String>,
     is_bare: bool,
+    has_paren_form: bool,
+    paren_closed: bool,
     has_plus_suffix: bool,
     // True when a single colon argument came from a backtick literal
     // (`` %model:`literal@id` ``). Such values bypass the `@effort` split so any
@@ -835,8 +872,44 @@ pub fn plan_agent_launch_fanout(
     launch_kind: Option<&str>,
 ) -> Result<LaunchFanoutPlanWire, AgentLaunchFanoutPlanError> {
     let requested = launch_kind.unwrap_or("auto");
+    let filtered = filter_conditional_launch_segments(prompt)?;
+    if filtered.segments.is_empty() {
+        return Ok(empty_fanout_plan(match requested {
+            "auto" => "single",
+            other => other,
+        }));
+    }
+    let filtered_prompt = filtered
+        .segments
+        .iter()
+        .map(|segment| segment.prompt.as_str())
+        .collect::<Vec<_>>()
+        .join("\n---\n");
+    let prompt = filtered_prompt.as_str();
     match requested {
-        "multi_prompt" => Ok(plan_multi_prompt_fanout(prompt)),
+        "multi_prompt" => Ok(LaunchFanoutPlanWire {
+            schema_version: AGENT_LAUNCH_WIRE_SCHEMA_VERSION,
+            launch_kind: "multi_prompt".to_string(),
+            slots: filtered
+                .segments
+                .into_iter()
+                .enumerate()
+                .map(|(idx, segment)| LaunchFanoutSlotWire {
+                    wait_for_previous: has_wait_directive(&segment.prompt),
+                    prompt: segment.prompt,
+                    launch_kind: "multi_prompt".to_string(),
+                    slot_index: idx as u32,
+                    alt_id: None,
+                    timestamp: None,
+                    workflow_name: None,
+                    model: None,
+                    repeat_name: None,
+                    bead_id: None,
+                })
+                .collect(),
+            requires_sequential_naming_wait: true,
+            fanout_sleep_seconds: 0.0,
+        }),
         "alternatives" => plan_alternative_fanout(prompt),
         "model" => plan_model_fanout(prompt),
         "repeat" => Ok(plan_repeat_fanout(prompt)),
@@ -875,6 +948,16 @@ pub fn plan_agent_launch_fanout(
         other => Err(AgentLaunchFanoutPlanError::UnsupportedKind(
             other.to_string(),
         )),
+    }
+}
+
+fn empty_fanout_plan(launch_kind: &str) -> LaunchFanoutPlanWire {
+    LaunchFanoutPlanWire {
+        schema_version: AGENT_LAUNCH_WIRE_SCHEMA_VERSION,
+        launch_kind: launch_kind.to_string(),
+        slots: Vec::new(),
+        requires_sequential_naming_wait: false,
+        fanout_sleep_seconds: 0.0,
     }
 }
 
@@ -1124,6 +1207,9 @@ fn classify_typed_launch_unit(
     let mut finalizers = Vec::new();
     let mut wait_queue = QueueFieldsWire::default();
     let mut queue_occurrences = Vec::new();
+    let mut hold_occurrences = Vec::new();
+    let mut hold_fields: Option<HoldFieldsWire> = None;
+    let mut saw_repeat_directive = false;
     let mut proc_forbidden_directives = Vec::new();
 
     let scan = scan_directive_owned_fences(prompt);
@@ -1279,6 +1365,17 @@ fn classify_typed_launch_unit(
                 queue_occurrences
                     .push(queue_occurrence_from_directive(prompt, &directive));
             }
+            "hold" => {
+                if !agent_holds_enabled(enabled_feature_flags)
+                    && directive.is_bare
+                    && !directive.has_plus_suffix
+                {
+                    continue;
+                }
+                regions_to_remove.push((directive.start, directive.end));
+                hold_occurrences
+                    .push(hold_occurrence_from_directive(prompt, &directive));
+            }
             "id" => {
                 regions_to_remove.push((directive.start, directive.end));
                 if parsed_id.is_some() {
@@ -1396,31 +1493,44 @@ fn classify_typed_launch_unit(
             }
             "repeat" => {
                 regions_to_remove.push((directive.start, directive.end));
+                saw_repeat_directive = true;
             }
             _ => {}
         }
     }
 
     if !queue_occurrences.is_empty() {
-        if proc_code.is_some() {
-            proc_forbidden_directives.push("%queue".to_string());
-        } else {
-            let collected = collect_queue_fields_with_flags(
-                &queue_occurrences,
-                enabled_feature_flags,
-            );
-            for error in collected.errors {
-                diagnostics.push(typed_unit_diagnostic(
-                    &error.code,
-                    &error.message,
-                    &logical_id,
-                    error.source_span,
-                ));
-            }
-            if let Some(fields) = collected.fields {
-                wait_queue = fields;
-            }
+        let collected = collect_queue_fields_with_flags(
+            &queue_occurrences,
+            enabled_feature_flags,
+        );
+        for error in collected.errors {
+            diagnostics.push(typed_unit_diagnostic(
+                &error.code,
+                &error.message,
+                &logical_id,
+                error.source_span,
+            ));
         }
+        if let Some(fields) = collected.fields {
+            wait_queue = fields;
+        }
+    }
+
+    if !hold_occurrences.is_empty() {
+        let collected = collect_hold_fields_with_flags(
+            &hold_occurrences,
+            enabled_feature_flags,
+        );
+        for error in collected.errors {
+            diagnostics.push(typed_unit_diagnostic(
+                &error.code,
+                &error.message,
+                &logical_id,
+                error.source_span,
+            ));
+        }
+        hold_fields = collected.fields;
     }
 
     apply_parsed_identity(
@@ -1445,13 +1555,27 @@ fn classify_typed_launch_unit(
     if dispatch_target.is_some() {
         validate_dispatch_combinations(
             &logical_id,
-            proc_code.is_some(),
-            !raw_waits.is_empty(),
-            !queue_occurrences.is_empty(),
-            parsed_clan.is_some() || agent_clan.is_some(),
-            agent_family_parent.is_some(),
+            DispatchCombinationFacts {
+                is_proc: proc_code.is_some(),
+                has_waits: !raw_waits.is_empty(),
+                has_queue: !queue_occurrences.is_empty(),
+                has_hold: hold_fields.is_some(),
+                has_clan: parsed_clan.is_some() || agent_clan.is_some(),
+                has_family: agent_family_parent.is_some(),
+            },
             diagnostics,
         );
+    }
+
+    if hold_fields.is_some()
+        && (slot.launch_kind == "repeat" || saw_repeat_directive)
+    {
+        diagnostics.push(typed_unit_diagnostic(
+            "hold-with-repeat",
+            "%hold cannot be combined with %repeat; use `sase agent hold run` for repeated work under a hold.",
+            &logical_id,
+            None,
+        ));
     }
 
     let cleaned_prompt = strip_prompt_regions(prompt, &regions_to_remove)
@@ -1488,6 +1612,15 @@ fn classify_typed_launch_unit(
             ));
         }
         let shell_name = agent_identity.clone();
+        validate_hold_self(
+            hold_fields.as_ref(),
+            &logical_id,
+            shell_name.as_deref(),
+            agent_identity_explicit,
+            None,
+            None,
+            diagnostics,
+        );
         validate_proc_shell_name(
             shell_name.as_deref(),
             &logical_id,
@@ -1506,6 +1639,11 @@ fn classify_typed_launch_unit(
             &logical_id,
             diagnostics,
         );
+        let proc_queue_weight = wait_queue.weight.or_else(|| {
+            (wait_queue.queue_capacity.is_some()
+                || wait_queue.priority.is_some())
+            .then_some(0.0)
+        });
         LaunchUnitPayloadWire::Proc(ProcUnitWire {
             code,
             shell_name,
@@ -1522,8 +1660,22 @@ fn classify_typed_launch_unit(
             workspace,
             workspace_explicit: proc_options.contains_key("workspace"),
             selected_project: unit_project,
+            queue_capacity: wait_queue.queue_capacity,
+            wait_priority: wait_queue.priority,
+            queue_weight: proc_queue_weight,
+            queue_weight_explicit: wait_queue.weight.is_some(),
+            hold: hold_fields.clone(),
         })
     } else {
+        validate_hold_self(
+            hold_fields.as_ref(),
+            &logical_id,
+            agent_identity.as_deref(),
+            agent_identity_explicit,
+            agent_family_parent.as_deref(),
+            agent_clan.as_deref(),
+            diagnostics,
+        );
         LaunchUnitPayloadWire::Agent(AgentUnitWire {
             prompt: cleaned_prompt,
             identity: agent_identity,
@@ -1552,6 +1704,7 @@ fn classify_typed_launch_unit(
             workspace_provider,
             workspace_reference,
             dispatch_target,
+            hold: hold_fields,
         })
     };
 
@@ -1714,6 +1867,74 @@ fn queue_occurrence_from_directive(
         source_span: [directive.start, directive.end],
         args,
         has_plus_suffix: directive.has_plus_suffix,
+    }
+}
+
+fn hold_occurrence_from_directive(
+    prompt: &str,
+    directive: &DirectiveOccurrence,
+) -> HoldOccurrenceWire {
+    let args = directive
+        .args
+        .iter()
+        .map(|arg| {
+            let (name, value_raw) = split_named_directive_arg(arg);
+            HoldArgWire {
+                name,
+                value: unquote_directive_arg_value(value_raw.trim()),
+            }
+        })
+        .filter(|arg| arg.name.is_some() || !arg.value.is_empty())
+        .collect();
+    HoldOccurrenceWire {
+        source: prompt[directive.start..directive.end].to_string(),
+        source_span: [directive.start, directive.end],
+        args,
+        has_plus_suffix: directive.has_plus_suffix,
+    }
+}
+
+fn validate_hold_self(
+    hold: Option<&HoldFieldsWire>,
+    logical_id: &str,
+    identity: Option<&str>,
+    identity_explicit: bool,
+    family: Option<&str>,
+    clan: Option<&str>,
+    diagnostics: &mut Vec<LaunchPlanDiagnosticWire>,
+) {
+    let Some(hold) = hold else {
+        return;
+    };
+    let mut own = BTreeSet::new();
+    if identity_explicit {
+        if let Some(identity) = identity {
+            own.insert(identity.to_string());
+            if let Ok(parsed) =
+                crate::agent_identity::parse_agent_family_name(identity)
+            {
+                own.insert(parsed.family_name);
+            }
+        }
+    }
+    if let Some(family) = family {
+        own.insert(family.to_string());
+    }
+    if let Some(clan) = clan {
+        own.insert(clan.to_string());
+    }
+    if own.is_empty() {
+        return;
+    }
+    if let Some(name) = hold.names.iter().find(|name| own.contains(*name)) {
+        diagnostics.push(typed_unit_diagnostic(
+            "hold-self",
+            &format!(
+                "%hold target {name:?} matches this launch unit's own identity, family, or clan."
+            ),
+            logical_id,
+            None,
+        ));
     }
 }
 
@@ -2610,6 +2831,133 @@ fn validate_typed_wait_cycles(
             return;
         }
     }
+    let mut graph_with_holds = graph;
+    add_hold_cycle_edges(raw_units, &index_by_id, &mut graph_with_holds);
+    let mut state = vec![0_u8; raw_units.len()];
+    for index in 0..raw_units.len() {
+        if state[index] == 0
+            && wait_cycle_visit(index, &graph_with_holds, &mut state).is_some()
+        {
+            diagnostics.push(typed_plan_diagnostic(
+                "hold-cycle",
+                "Typed launch holds and waits contain a cycle (a `future` hold fences every other unit in the plan).",
+                None,
+            ));
+            return;
+        }
+    }
+}
+
+#[derive(Debug)]
+struct UnitHoldFacts {
+    identity: Option<String>,
+    family: Option<String>,
+    clan: Option<String>,
+    tribe: Option<String>,
+    workflow: Option<String>,
+}
+
+fn add_hold_cycle_edges(
+    raw_units: &[RawLaunchUnit],
+    index_by_id: &BTreeMap<String, usize>,
+    graph: &mut [Vec<usize>],
+) {
+    let facts: Vec<UnitHoldFacts> =
+        raw_units.iter().map(unit_hold_facts).collect();
+    for (holder_index, raw) in raw_units.iter().enumerate() {
+        let Some(hold) = unit_hold_fields(&raw.unit.payload) else {
+            continue;
+        };
+        let holder_facts = &facts[holder_index];
+        for (target_index, target_facts) in facts.iter().enumerate() {
+            if holder_index == target_index
+                || hold_kin_excluded(holder_facts, target_facts)
+            {
+                continue;
+            }
+            if hold_matches_unit(hold, target_facts) {
+                let holder_id = &raw.unit.logical_id;
+                if let Some(holder_graph_index) = index_by_id.get(holder_id) {
+                    graph[target_index].push(*holder_graph_index);
+                }
+            }
+        }
+    }
+}
+
+fn unit_hold_fields(
+    payload: &LaunchUnitPayloadWire,
+) -> Option<&HoldFieldsWire> {
+    match payload {
+        LaunchUnitPayloadWire::Agent(agent) => agent.hold.as_ref(),
+        LaunchUnitPayloadWire::Proc(proc_unit) => proc_unit.hold.as_ref(),
+    }
+}
+
+fn unit_hold_facts(raw: &RawLaunchUnit) -> UnitHoldFacts {
+    match &raw.unit.payload {
+        LaunchUnitPayloadWire::Agent(agent) => {
+            let identity = agent.effective_identity();
+            let identity_ref = identity.as_deref();
+            let family = identity_ref
+                .and_then(|name| {
+                    crate::agent_identity::parse_agent_family_name(name).ok()
+                })
+                .map(|parsed| parsed.family_name);
+            UnitHoldFacts {
+                identity,
+                family,
+                clan: agent.clan.clone(),
+                tribe: agent.tribe.clone().or_else(|| agent.clan_tribe.clone()),
+                workflow: agent.workspace_reference.clone(),
+            }
+        }
+        LaunchUnitPayloadWire::Proc(proc_unit) => UnitHoldFacts {
+            identity: proc_unit.shell_name.clone(),
+            family: None,
+            clan: None,
+            tribe: None,
+            workflow: proc_unit.selected_project.clone(),
+        },
+    }
+}
+
+fn hold_matches_unit(hold: &HoldFieldsWire, target: &UnitHoldFacts) -> bool {
+    if hold.future {
+        return true;
+    }
+    hold.names.iter().any(|name| {
+        target.identity.as_deref() == Some(name.as_str())
+            || target.family.as_deref() == Some(name.as_str())
+            || target.clan.as_deref() == Some(name.as_str())
+            || target.workflow.as_deref() == Some(name.as_str())
+    }) || hold
+        .tribes
+        .iter()
+        .any(|tribe| target.tribe.as_deref() == Some(tribe.as_str()))
+        || hold.hoods.iter().any(|hood| {
+            target.identity.as_deref().is_some_and(|name| {
+                agent_name_in_hood(name, hood).unwrap_or(false)
+            })
+        })
+}
+
+fn hold_kin_excluded(holder: &UnitHoldFacts, target: &UnitHoldFacts) -> bool {
+    if holder.identity.is_some() && holder.identity == target.identity {
+        return true;
+    }
+    if holder.clan.is_some() && holder.clan == target.clan {
+        return true;
+    }
+    match (holder.family.as_deref(), target.family.as_deref()) {
+        (Some(holder_family), Some(target_family)) => {
+            target_family == holder_family
+                || target_family
+                    .strip_prefix(holder_family)
+                    .is_some_and(|rest| rest.starts_with('.'))
+        }
+        _ => false,
+    }
 }
 
 fn wait_cycle_visit(
@@ -2841,29 +3189,38 @@ fn parse_dispatch_target(
     Ok(target.to_string())
 }
 
-fn validate_dispatch_combinations(
-    logical_id: &str,
+#[derive(Debug, Clone, Copy)]
+struct DispatchCombinationFacts {
     is_proc: bool,
     has_waits: bool,
     has_queue: bool,
+    has_hold: bool,
     has_clan: bool,
     has_family: bool,
+}
+
+fn validate_dispatch_combinations(
+    logical_id: &str,
+    facts: DispatchCombinationFacts,
     diagnostics: &mut Vec<LaunchPlanDiagnosticWire>,
 ) {
     let mut forbidden = Vec::new();
-    if is_proc {
+    if facts.is_proc {
         forbidden.push("%proc");
     }
-    if has_waits {
+    if facts.has_waits {
         forbidden.push("%wait");
     }
-    if has_queue {
+    if facts.has_queue {
         forbidden.push("%queue");
     }
-    if has_clan {
+    if facts.has_hold {
+        forbidden.push("%hold");
+    }
+    if facts.has_clan {
         forbidden.push("%clan");
     }
-    if has_family {
+    if facts.has_family {
         forbidden.push("%id(..., family=...)");
     }
     if forbidden.is_empty() {
@@ -2953,7 +3310,7 @@ fn render_launch_approval_preview(
             .unwrap_or_default();
         match &unit.payload {
             LaunchUnitPayloadWire::Agent(agent) => lines.push(format!(
-                "{} agent identity={} model={} workspace={} machine={} waits={}{} prompt={:?}",
+                "{} agent identity={} model={} workspace={} machine={} waits={}{}{} prompt={:?}",
                 unit.logical_id,
                 agent
                     .effective_identity()
@@ -2964,16 +3321,21 @@ fn render_launch_approval_preview(
                 agent.dispatch_target.as_deref().unwrap_or("local"),
                 waits,
                 condition,
+                hold_preview(agent.hold.as_ref()),
                 agent.prompt
             )),
             LaunchUnitPayloadWire::Proc(proc_unit) => lines.push(format!(
-                "{} proc shell={} project={} workspace={} waits={}{} code={}:{} preview={:?}",
+                "{} proc shell={} project={} workspace={}{} waits={}{}{} code={}:{} preview={:?}",
                 unit.logical_id,
                 proc_unit.shell_name.as_deref().unwrap_or("auto"),
                 proc_unit.selected_project.as_deref().unwrap_or("none"),
                 proc_unit.workspace,
+                proc_queue_preview(proc_unit)
+                    .map(|queue| format!(" queue={queue}"))
+                    .unwrap_or_default(),
                 waits,
                 condition,
+                hold_preview(proc_unit.hold.as_ref()),
                 proc_unit.code.language,
                 proc_unit.code.digest,
                 proc_unit.code.preview
@@ -2981,6 +3343,38 @@ fn render_launch_approval_preview(
         }
     }
     lines
+}
+
+fn hold_preview(hold: Option<&HoldFieldsWire>) -> String {
+    hold.and_then(format_hold_directive)
+        .map(|directive| format!(" hold={directive}"))
+        .unwrap_or_default()
+}
+
+fn proc_queue_preview(proc_unit: &ProcUnitWire) -> Option<String> {
+    if !proc_unit.has_authored_queue_fields() {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if let Some(capacity) = proc_unit.queue_capacity {
+        parts.push(format!("capacity={capacity}"));
+    }
+    if let Some(priority) = proc_unit.wait_priority {
+        parts.push(format!("priority={priority}"));
+    }
+    if let Some(weight) = proc_unit.queue_weight {
+        let suffix = if proc_unit.queue_weight_explicit {
+            ""
+        } else {
+            " implicit"
+        };
+        parts.push(format!("weight={}{}", format_queue_weight(weight), suffix));
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(format!("({})", parts.join(", ")))
+    }
 }
 
 fn wait_preview(wait: &WaitTargetWire) -> String {
@@ -3079,11 +3473,15 @@ fn split_multi_prompt_segments(prompt: &str) -> Vec<String> {
 }
 
 fn prompt_body_after_frontmatter(prompt: &str) -> &str {
+    &prompt[prompt_body_start_after_frontmatter(prompt)..]
+}
+
+fn prompt_body_start_after_frontmatter(prompt: &str) -> usize {
     let Some(first_line_end) = prompt.find('\n') else {
-        return prompt;
+        return 0;
     };
     if prompt[..first_line_end].trim() != "---" {
-        return prompt;
+        return 0;
     }
 
     let mut yaml_like = false;
@@ -3097,18 +3495,14 @@ fn prompt_body_after_frontmatter(prompt: &str) -> &str {
         };
         let content = &prompt[offset..content_end];
         if content.trim() == "---" {
-            return if yaml_like {
-                &prompt[line_end..]
-            } else {
-                prompt
-            };
+            return if yaml_like { line_end } else { 0 };
         }
         if content.contains(':') {
             yaml_like = true;
         }
         offset = line_end;
     }
-    prompt
+    0
 }
 
 fn push_nonempty_segment(out: &mut Vec<String>, segment: &str) {
@@ -3728,6 +4122,7 @@ fn directive_occurrences(
         let mut has_plus_suffix = false;
         let mut from_backtick_literal = false;
         let has_paren_form = caps.get(4).is_some();
+        let mut paren_closed = !has_paren_form;
         let colon_arg = caps.get(5);
         let has_plus_form = caps.get(6).is_some();
         let is_bare = !has_paren_form && colon_arg.is_none() && !has_plus_form;
@@ -3738,6 +4133,7 @@ fn directive_occurrences(
                 args =
                     parse_directive_args(&prompt[paren_start + 1..paren_end]);
                 end = paren_end + 1;
+                paren_closed = true;
             }
         } else if let Some(colon_arg) = colon_arg {
             from_backtick_literal = colon_arg.as_str().starts_with('`');
@@ -3755,6 +4151,8 @@ fn directive_occurrences(
             end,
             args,
             is_bare,
+            has_paren_form,
+            paren_closed,
             has_plus_suffix,
             from_backtick_literal,
         });
@@ -5242,7 +5640,7 @@ mod tests {
         )
         .unwrap_err();
 
-        assert!(err.to_string().contains("%if requires %if::"));
+        assert!(err.to_string().contains("static omission"));
 
         let paren_err = plan_typed_launch_units(
             "%if(true)\nReview",
@@ -5350,6 +5748,66 @@ mod tests {
         .unwrap_err();
 
         assert!(err.to_string().contains("cycle"));
+    }
+
+    #[test]
+    fn typed_launch_future_hold_cycle_rejects_wait_on_sibling() {
+        let err = plan_typed_launch_units_with_flags(
+            "%hold(future)\n%wait(unit=unit-2)\nFirst\n---\nSecond",
+            Some("multi_prompt"),
+            Some("sase"),
+            &["agent_holds".to_string()],
+        )
+        .unwrap_err();
+
+        assert!(err.to_string().contains("future"), "{err}");
+        match err {
+            AgentLaunchFanoutPlanError::TypedLaunchPlan { diagnostics } => {
+                assert!(diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == "hold-cycle"));
+            }
+            other => panic!("expected typed launch diagnostic, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn typed_launch_future_hold_cycle_rejects_two_future_siblings() {
+        let err = plan_typed_launch_units_with_flags(
+            "%hold(future)\nFirst\n---\n%hold(future)\nSecond",
+            Some("multi_prompt"),
+            Some("sase"),
+            &["agent_holds".to_string()],
+        )
+        .unwrap_err();
+
+        assert!(err.to_string().contains("future"), "{err}");
+    }
+
+    #[test]
+    fn typed_launch_future_hold_without_cycle_is_allowed() {
+        let plan = plan_typed_launch_units_with_flags(
+            "%hold(future)\nFirst",
+            Some("multi_prompt"),
+            Some("sase"),
+            &["agent_holds".to_string()],
+        )
+        .unwrap();
+
+        assert!(plan.diagnostics.is_empty(), "{:?}", plan.diagnostics);
+    }
+
+    #[test]
+    fn typed_launch_future_hold_cycle_ignores_kin_sibling() {
+        let plan = plan_typed_launch_units_with_flags(
+            "%id(parent, family=root)\n%hold(future)\n%wait(unit=unit-2)\nFirst\n---\n%id(child, family=root)\nSecond",
+            Some("multi_prompt"),
+            Some("sase"),
+            &["agent_holds".to_string()],
+        )
+        .unwrap();
+
+        assert!(plan.diagnostics.is_empty(), "{:?}", plan.diagnostics);
     }
 
     #[test]
@@ -7364,6 +7822,20 @@ Keep this comma, and the rest of the prose in the summary.";
         }
     }
 
+    fn proc_fields(
+        plan: &LaunchPlanWire,
+    ) -> (Option<u32>, Option<i32>, Option<f64>, bool) {
+        match &plan.units[0].payload {
+            LaunchUnitPayloadWire::Proc(proc_unit) => (
+                proc_unit.queue_capacity,
+                proc_unit.wait_priority,
+                proc_unit.queue_weight,
+                proc_unit.queue_weight_explicit,
+            ),
+            other => panic!("expected proc payload, got {other:?}"),
+        }
+    }
+
     #[test]
     fn typed_launch_parses_queue_spellings_and_round_trips() {
         for prompt in [
@@ -7418,7 +7890,7 @@ Keep this comma, and the rest of the prose in the summary.";
     }
 
     #[test]
-    fn typed_launch_rejects_wait_queue_keywords_and_proc_queue() {
+    fn typed_launch_rejects_wait_queue_keywords() {
         let runners = plan_queue_err("%wait(runners=5)\nDo work");
         assert!(runners.to_string().contains("%queue(capacity="));
         let capacity = plan_queue_err("%wait(capacity=5)\nDo work");
@@ -7431,14 +7903,54 @@ Keep this comma, and the rest of the prose in the summary.";
         assert!(plus.to_string().contains("%queue"));
         let empty = plan_queue_err("%q\nDo work");
         assert!(empty.to_string().contains("bare %q"));
-        let proc = plan_typed_launch_units_with_flags(
+    }
+
+    #[test]
+    fn typed_launch_proc_accepts_queue_spellings_and_authored_weight() {
+        for prompt in [
+            "%q:1\n%proc(\"just check\")",
+            "%queue:1\n%proc(\"just check\")",
+            "%q(1)\n%proc(\"just check\")",
             "%queue(capacity=1)\n%proc(\"just check\")",
-            Some("auto"),
-            Some("sase"),
-            &[],
-        )
-        .unwrap_err();
-        assert!(proc.to_string().contains("not valid on %proc"));
+        ] {
+            let plan = plan_queue(prompt);
+            let (capacity, priority, weight, weight_explicit) =
+                proc_fields(&plan);
+            assert_eq!(capacity, Some(1), "{prompt}");
+            assert_eq!(priority, None, "{prompt}");
+            assert_eq!(weight, Some(0.0), "{prompt}");
+            assert!(!weight_explicit, "{prompt}");
+            assert!(
+                plan.approval_preview[1]
+                    .contains("queue=(capacity=1, weight=0 implicit)"),
+                "{:?}",
+                plan.approval_preview
+            );
+        }
+
+        let plan =
+            plan_queue("%q(priority=20, weight=0.25)\n%proc(\"just check\")");
+        let (capacity, priority, weight, weight_explicit) = proc_fields(&plan);
+        assert_eq!(capacity, None);
+        assert_eq!(priority, Some(20));
+        assert_eq!(weight, Some(0.25));
+        assert!(weight_explicit);
+        assert!(plan.approval_preview[1]
+            .contains("queue=(priority=20, weight=0.25)"));
+
+        let value = serde_json::to_value(&plan.units[0].payload).unwrap();
+        assert_eq!(value["queue_weight"], serde_json::json!(0.25));
+        assert_eq!(value["queue_weight_explicit"], serde_json::json!(true));
+    }
+
+    #[test]
+    fn typed_launch_proc_queue_changes_content_digest() {
+        let plain = plan_queue("%proc(\"just check\")");
+        let queued = plan_queue("%q:1\n%proc(\"just check\")");
+        let weighted = plan_queue("%q(1, weight=0.5)\n%proc(\"just check\")");
+
+        assert_ne!(plain.content_digest, queued.content_digest);
+        assert_ne!(queued.content_digest, weighted.content_digest);
     }
 
     #[test]

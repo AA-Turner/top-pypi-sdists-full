@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "star-magic-program"
-version = "0.440.0"
-description = "Star-Magic UQFF calculator v0.440.0: FRONT 4 RE-SPECIFIED AND MEASURED SHIP (PAPER_2281) - the MD test as written was the equipartition identity, caught before any run; re-posed on the wavevector-dependent shear viscosity eta(k) and MEASURED with the program own numpy TIP4P/2005 MD (512 molecules, 240 ps): eta(k) rolls off with measured k_c 7.8 nm^-1 - the c_0 sound-cone scale (5.31), fast sound (2.45) excluded by 3x, the 0.344 coefficient not confirmed; Q-250 opened; gate 6,113/0."
+version = "0.442.0"
+description = "Star-Magic UQFF calculator v0.442.0: Q-251 PRE-STATED TEST SHIP (PAPER_2283) - two predictions for Lennard-Jones argon committed to the repo before the run (k_c 9.19 or 13.79 nm^-1), measured k_c 7.17 +- 0.05: neither; Q-251 closed negative; the eta(k) cutoff tracks the molecular diameter in both liquids (k_c sigma 2.50 / 2.44), not omega_SCm/c_s - opened as Q-252, Daniel-gated; gate 6,115/0."
 readme = "README.md"
 authors = [
     { name = "Daniel T. Murphy", email = "daniel.murphy00@enrgyone.com" }
@@ -103,6 +103,7 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "RULINGS_BATCH_2.md",
     "RULINGS_BATCH_3.md",
     "RULINGS_BATCH_4.md",
+    "RULINGS_BRIEF_Q246_Q247_Q250.md",
     "RULINGS_QUEUE.md",
     "SESSION_LOG.md",
     "SHIP_MESSAGE.txt",
@@ -189,14 +190,53 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "jhtdb_grade/kt_stage2_cutouts.py",
 ]
 "share/star-magic-program/md_grade" = [
+    "md_grade/README_MD_GRADE.md",
+    "md_grade/ar_analyze.py",
+    "md_grade/ar_s1.log",
+    "md_grade/ar_s1_analysis.json",
+    "md_grade/ar_s1_analysis.txt",
+    "md_grade/ar_s2.log",
+    "md_grade/ar_s2_analysis.json",
+    "md_grade/ar_s2_analysis.txt",
+    "md_grade/argon_record.py",
+    "md_grade/ewald_ref.py",
     "md_grade/front4_analyze.py",
     "md_grade/front4_eta_k.csv",
     "md_grade/front4_main_analysis.json",
     "md_grade/front4_main_run.log",
     "md_grade/front4_nve_check.txt",
+    "md_grade/front4_record.py",
+    "md_grade/front4_record_eta_k.csv",
+    "md_grade/front4_record_summary.json",
     "md_grade/front4_run.py",
     "md_grade/front4_tcaf.py",
+    "md_grade/gridcur.py",
+    "md_grade/lj_kernel.c",
     "md_grade/md_engine.py",
+    "md_grade/md_pme.py",
+    "md_grade/nve_pme.out",
+    "md_grade/nve_pme.py",
+    "md_grade/pair_kernel.c",
+    "md_grade/pool_B13.json",
+    "md_grade/pool_argon.json",
+    "md_grade/q251_argon_eta_k.csv",
+    "md_grade/q251_argon_summary.json",
+    "md_grade/rec_B13s11.log",
+    "md_grade/rec_B13s11_analysis.json",
+    "md_grade/rec_B13s12.log",
+    "md_grade/rec_B13s12_analysis.json",
+    "md_grade/rec_B13s13.log",
+    "md_grade/rec_B13s13_analysis.json",
+    "md_grade/rec_C20.log",
+    "md_grade/rec_C20_analysis.json",
+    "md_grade/rec_analyze.py",
+    "md_grade/rec_pool.py",
+    "md_grade/validate.out",
+    "md_grade/validate.py",
+    "md_grade/validate_argon.out",
+    "md_grade/validate_argon.py",
+    "md_grade/validate_gridcur.out",
+    "md_grade/validate_gridcur.py",
 ]
 "share/star-magic-program/notebooks" = [
     "notebooks/00_quickstart.ipynb",
@@ -2068,6 +2108,8 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "whitepapers/PAPER_227_Tapestry_LMC_Stellar_Wind_UQFF.md",
     "whitepapers/PAPER_2280_FRONT_2_EXTENSION_CHANNEL5200_THE_IN_MEDIUM_REYNOLDS_RUNG_NO_TREND_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2281_FRONT_4_RESPECIFIED_THE_EQUIPARTITION_IDENTITY_AND_THE_WAVEVECTOR_DEPENDENT_SHEAR_VISCOSITY_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2282_FRONT_4_THE_RECORD_RUN_SPME_ENGINE_FOUR_RUNS_TWO_BOXES_THREE_SEEDS_ETA_K_GAUSSIAN_KC_7_90_THREE_RULINGS_FOLDED_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2283_THE_Q251_PRESTATED_TEST_LENNARD_JONES_ARGON_KC_7_17_NEITHER_PREDICTION_Q251_CLOSED_NEGATIVE_THE_CUTOFF_TRACKS_SIGMA_Q252_OPENED_UQFF_LANDMARK.md",
     "whitepapers/PAPER_228_Westerlund2_OB_StellarWind_MUGE.md",
     "whitepapers/PAPER_229_Pillars_Creation_Erosion_MUGE.md",
     "whitepapers/PAPER_230_NGC2525_SN2018gv_Negative_MassLoss_MUGE.md",

@@ -51,7 +51,8 @@ class RelatedQuickSight(RelatedBI):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "QuickSight"
+        if self.type_name is UNSET:
+            self.type_name = "QuickSight"
 
 
 class RelatedQuickSightDashboardVisual(RelatedQuickSight):
@@ -69,7 +70,8 @@ class RelatedQuickSightDashboardVisual(RelatedQuickSight):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "QuickSightDashboardVisual"
+        if self.type_name is UNSET:
+            self.type_name = "QuickSightDashboardVisual"
 
 
 class RelatedQuickSightDataset(RelatedQuickSight):
@@ -82,15 +84,16 @@ class RelatedQuickSightDataset(RelatedQuickSight):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "QuickSightDataset" so it serializes correctly
 
-    quick_sight_dataset_import_mode: Union[str, None, UnsetType] = UNSET
+    quick_sight_import_mode: Union[str, None, UnsetType] = UNSET
     """Import mode for this dataset, for example: SPICE or DIRECT_QUERY."""
 
-    quick_sight_dataset_column_count: Union[int, None, UnsetType] = UNSET
+    quick_sight_column_count: Union[int, None, UnsetType] = UNSET
     """Number of columns present in this dataset."""
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "QuickSightDataset"
+        if self.type_name is UNSET:
+            self.type_name = "QuickSightDataset"
 
 
 class RelatedQuickSightDatasetField(RelatedQuickSight):
@@ -103,7 +106,7 @@ class RelatedQuickSightDatasetField(RelatedQuickSight):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "QuickSightDatasetField" so it serializes correctly
 
-    quick_sight_dataset_field_type: Union[str, None, UnsetType] = UNSET
+    quick_sight_type: Union[str, None, UnsetType] = UNSET
     """Datatype of this field, for example: STRING, INTEGER, etc."""
 
     quick_sight_dataset_qualified_name: Union[str, None, UnsetType] = UNSET
@@ -111,7 +114,8 @@ class RelatedQuickSightDatasetField(RelatedQuickSight):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "QuickSightDatasetField"
+        if self.type_name is UNSET:
+            self.type_name = "QuickSightDatasetField"
 
 
 class RelatedQuickSightFolder(RelatedQuickSight):
@@ -124,7 +128,7 @@ class RelatedQuickSightFolder(RelatedQuickSight):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "QuickSightFolder" so it serializes correctly
 
-    quick_sight_folder_type: Union[str, None, UnsetType] = UNSET
+    quick_sight_type: Union[str, None, UnsetType] = UNSET
     """Type of this folder, for example: SHARED or RESTRICTED."""
 
     quick_sight_folder_hierarchy: Union[List[Dict[str, str]], None, UnsetType] = UNSET
@@ -132,7 +136,8 @@ class RelatedQuickSightFolder(RelatedQuickSight):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "QuickSightFolder"
+        if self.type_name is UNSET:
+            self.type_name = "QuickSightFolder"
 
 
 class RelatedQuickSightAnalysis(RelatedQuickSight):
@@ -145,7 +150,7 @@ class RelatedQuickSightAnalysis(RelatedQuickSight):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "QuickSightAnalysis" so it serializes correctly
 
-    quick_sight_analysis_status: Union[str, None, UnsetType] = UNSET
+    quick_sight_status: Union[str, None, UnsetType] = UNSET
     """Status of this analysis, for example: CREATION_IN_PROGRESS, UPDATE_SUCCESSFUL, etc."""
 
     quick_sight_analysis_calculated_fields: Union[List[str], None, UnsetType] = UNSET
@@ -161,7 +166,8 @@ class RelatedQuickSightAnalysis(RelatedQuickSight):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "QuickSightAnalysis"
+        if self.type_name is UNSET:
+            self.type_name = "QuickSightAnalysis"
 
 
 class RelatedQuickSightAnalysisVisual(RelatedQuickSight):
@@ -179,7 +185,8 @@ class RelatedQuickSightAnalysisVisual(RelatedQuickSight):
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "QuickSightAnalysisVisual"
+        if self.type_name is UNSET:
+            self.type_name = "QuickSightAnalysisVisual"
 
 
 class RelatedQuickSightDashboard(RelatedQuickSight):
@@ -192,12 +199,13 @@ class RelatedQuickSightDashboard(RelatedQuickSight):
     # type_name inherited from parent with default=UNSET
     # __post_init__ sets it to "QuickSightDashboard" so it serializes correctly
 
-    quick_sight_dashboard_published_version_number: Union[int, None, UnsetType] = UNSET
+    quick_sight_published_version_number: Union[int, None, UnsetType] = UNSET
     """Version number of the published dashboard."""
 
-    quick_sight_dashboard_last_published_time: Union[int, None, UnsetType] = UNSET
+    quick_sight_last_published_time: Union[int, None, UnsetType] = UNSET
     """Time (epoch) at which this dashboard was last published, in milliseconds."""
 
     def __post_init__(self) -> None:
         RelatedReferenceable.__post_init__(self)
-        self.type_name = "QuickSightDashboard"
+        if self.type_name is UNSET:
+            self.type_name = "QuickSightDashboard"

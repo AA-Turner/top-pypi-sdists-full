@@ -54,6 +54,7 @@ class TestCurrentUsageResponse(unittest.TestCase):
                     objects_processed = 56, 
                     object_cap = 56, 
                     vectors_stored = 56, 
+                    vectors_stored_complete = True, 
                     vector_cap = 56, 
                     usage_pct = 1.337, 
                     cap_state = 'ok', ),

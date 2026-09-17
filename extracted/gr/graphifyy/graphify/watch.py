@@ -539,13 +539,21 @@ def _reconcile_markdown_links(
     authored link only when both files have unique representatives. If either
     side is ambiguous, retain the existing AST edge instead of guessing or
     deleting it. A link removed from its owning Markdown source is pruned.
+
+    Only authored links are owned here. A code-span mention (a ``references``
+    edge the markdown_mentions resolver emits) targets a code symbol rather
+    than a file representative, so it is left to the AST ownership rule above:
+    re-extracting the document regenerates it and re-extracting the code side
+    keeps or drops it with the target node.
     """
     from graphify.build import _is_ast_tier
     from graphify.extract import _file_node_id, _safe_extract_with_xaml_root
     from graphify.extractors.base import _make_id
     from graphify.extractors.markdown import extract_markdown
+    from graphify.markdown_resolution import _is_file_node
 
     all_nodes = result.get("nodes", []) + preserved_nodes
+    nodes_by_id = {node["id"]: node for node in all_nodes if node.get("id")}
     nodes_by_source: dict[str, list[dict]] = {}
     for node in all_nodes:
         if source_file := node.get("source_file"):
@@ -648,8 +656,18 @@ def _reconcile_markdown_links(
         candidate = project_root / Path(owner).parent / Path(target_source).name
         return raw_target == _make_id(str(candidate))
 
+    def _is_code_span_mention(edge: dict) -> bool:
+        target = nodes_by_id.get(edge.get("target"))
+        return (
+            target is not None
+            and target.get("file_type") == "code"
+            and not _is_file_node(target)
+        )
+
     def _keep_edge(edge: dict) -> bool:
         if not (_is_ast_tier(edge) and edge.get("relation") == "references"):
+            return True
+        if _is_code_span_mention(edge):
             return True
         owner = source_paths.normalize(edge.get("source_file"))
         if owner not in parsed_sources:
@@ -1669,7 +1687,7 @@ def _rebuild_code(
                     # #2438: the persisted callability markers are the only
                     # thing that lets an unchanged target pass the
                     # indirect_call guard — never re-derived from the label.
-                    for marker in ("_callable", "_callable_class"):
+                    for marker in ("_callable", "_callable_class", "_elixir_module"):
                         if node.get(marker):
                             ctx_node[marker] = node[marker]
                     metadata = node.get("metadata")
@@ -1845,6 +1863,7 @@ def _rebuild_code(
                 dedupe_edges as _dedupe_edges,
                 dedupe_nodes as _dedupe_nodes,
                 disambiguate_file_labels_in_nodes as _disamb_labels,
+                mint_external_stubs_in_data as _mint_external_stubs_in_data,
             )
             raw_nodes = _dedupe_nodes(result.get("nodes", []))
             _disamb_labels(raw_nodes)
@@ -1857,6 +1876,12 @@ def _rebuild_code(
                 # `result` (the raw merged extraction) never carries one.
                 "directed": bool((existing_graph_data or {}).get("directed", False)),
             }
+            # This path writes the raw merged extraction, not a build_from_json
+            # graph, so mint the same external stubs the builder does — otherwise
+            # an import to stdlib / a third-party module leaves an undeclared
+            # endpoint in graph.json that every loader materialises as an
+            # attribute-less phantom (#2873).
+            _mint_external_stubs_in_data(candidate_graph_data)
             candidate_graph_text = _json_text(candidate_graph_data)
             same_graph = False
             if existing_graph.exists():

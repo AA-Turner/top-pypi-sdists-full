@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: dbt-snowflake
-Version: 1.12.0
+Version: 1.12.1
 Summary: The Snowflake adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-snowflake
 Project-URL: Documentation, https://docs.getdbt.com

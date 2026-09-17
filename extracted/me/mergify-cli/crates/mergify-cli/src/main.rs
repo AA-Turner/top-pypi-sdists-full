@@ -162,7 +162,10 @@ const NATIVE_COMMANDS: &[(&str, &str)] = &[
 enum NativeCommand {
     /// `mergify auth login [--api-url URL]` — run the device grant
     /// and store the credential it mints.
-    AuthLogin(AuthOpts),
+    AuthLogin {
+        opts: AuthOpts,
+        no_browser: bool,
+    },
     /// `mergify auth logout [--api-url URL]` — revoke the stored
     /// credential and forget it.
     AuthLogout(AuthOpts),
@@ -924,7 +927,9 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
         Subcommands::Auth(AuthArgs { api_url, command }) => {
             let opts = AuthOpts { api_url };
             Dispatch::Native(match command {
-                AuthSubcommand::Login => NativeCommand::AuthLogin(opts),
+                AuthSubcommand::Login(AuthLoginArgs { no_browser }) => {
+                    NativeCommand::AuthLogin { opts, no_browser }
+                }
                 AuthSubcommand::Logout => NativeCommand::AuthLogout(opts),
                 AuthSubcommand::Status => NativeCommand::AuthStatus(opts),
             })
@@ -1553,12 +1558,16 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
             | NativeCommand::InternalManPage => {
                 unreachable!("introspection commands are handled before the runtime starts")
             }
-            NativeCommand::AuthLogin(opts) => {
+            NativeCommand::AuthLogin { opts, no_browser } => {
                 let store = mergify_core::CredentialStore::discover();
+                let system_browser = mergify_auth::browser::SystemBrowser;
+                let browser: Option<&dyn mergify_auth::browser::Browser> =
+                    if no_browser { None } else { Some(&system_browser) };
                 mergify_auth::login::run(
                     mergify_auth::login::LoginOptions {
                         api_url: opts.api_url.as_deref(),
                         store: &store,
+                        browser,
                     },
                     &mut output,
                 )
@@ -3440,13 +3449,18 @@ struct StackPushCli {
     #[arg(long = "no-verify", action = clap::ArgAction::SetTrue)]
     no_verify: bool,
 
-    /// Also register the stack with GitHub's native Stacks API, so
-    /// GitHub shows it as a stack and holds the ordering (the PR
-    /// descriptions then carry no `Depends-On:` header).
-    /// Experimental, and silently skipped where the API isn't
+    /// Don't register the stack with GitHub's native Stacks API.
+    /// By default, `mergify stack push` registers it, so GitHub
+    /// shows it as a stack and holds the ordering (the PR
+    /// descriptions then carry no `Depends-On:` header) —
+    /// experimental, and silently skipped where the API isn't
     /// available. Default falls back to git config
-    /// `mergify-cli.stack-github-native` (`false` when unset).
-    #[arg(long = "github-native", num_args = 0, default_missing_value = "true")]
+    /// `mergify-cli.stack-github-native` (`true` when unset).
+    #[arg(
+        long = "no-github-native",
+        num_args = 0,
+        default_missing_value = "false"
+    )]
     github_native: Option<bool>,
 }
 
@@ -3805,8 +3819,10 @@ struct SimulateCliArgs {
     #[arg(value_name = "PULL_REQUEST_URL", value_parser = mergify_core::pull_request::parse_pr_url)]
     pull_request: PullRequestRef,
 
-    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars.
+    /// Mergify token. Falls back to ``MERGIFY_TOKEN``, then the
+    /// credential ``mergify auth login`` stored for this API URL,
+    /// then ``GITHUB_TOKEN`` and ``gh auth token`` — the last two
+    /// are deprecated for the Mergify API.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -3952,8 +3968,11 @@ struct ScopesSendCliArgs {
     #[arg(long = "pull-request", short = 'p')]
     pull_request: Option<u64>,
 
-    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars.
+    /// Mergify application key. Falls back to ``MERGIFY_TOKEN``, then
+    /// ``GITHUB_TOKEN`` and ``gh auth token`` — both deprecated for
+    /// the Mergify API. The CI endpoints require an application key,
+    /// so the credential ``mergify auth login`` stores is not used
+    /// here.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -4128,9 +4147,12 @@ struct TestsShowCliArgs {
     )]
     repository: Option<String>,
 
-    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars. Needs an `admin` application
-    /// key or a GitHub PAT: a `ci` key is answered with 403.
+    /// Mergify token. Falls back to ``MERGIFY_TOKEN``, then the
+    /// credential ``mergify auth login`` stored for this API URL,
+    /// then ``GITHUB_TOKEN`` and ``gh auth token`` — the last two
+    /// are deprecated for the Mergify API. Needs an `admin`
+    /// application key or a user credential (`mergify auth login`
+    /// or a GitHub PAT): a `ci` key is answered with 403.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -4189,9 +4211,12 @@ struct TestsQuarantineCliArgs {
     #[arg(long, short = 'b')]
     branch: Option<String>,
 
-    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars. Needs an `admin` application
-    /// key or a GitHub PAT: a `ci` key is answered with 403.
+    /// Mergify token. Falls back to ``MERGIFY_TOKEN``, then the
+    /// credential ``mergify auth login`` stored for this API URL,
+    /// then ``GITHUB_TOKEN`` and ``gh auth token`` — the last two
+    /// are deprecated for the Mergify API. Needs an `admin`
+    /// application key or a user credential (`mergify auth login`
+    /// or a GitHub PAT): a `ci` key is answered with 403.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -4221,9 +4246,12 @@ struct TestsUnquarantineCliArgs {
     )]
     repository: Option<String>,
 
-    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars. Needs an `admin` application
-    /// key or a GitHub PAT: a `ci` key is answered with 403.
+    /// Mergify token. Falls back to ``MERGIFY_TOKEN``, then the
+    /// credential ``mergify auth login`` stored for this API URL,
+    /// then ``GITHUB_TOKEN`` and ``gh auth token`` — the last two
+    /// are deprecated for the Mergify API. Needs an `admin`
+    /// application key or a user credential (`mergify auth login`
+    /// or a GitHub PAT): a `ci` key is answered with 403.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -4253,8 +4281,10 @@ struct TestsQuarantineGetCliArgs {
     )]
     repository: Option<String>,
 
-    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars.
+    /// Mergify token. Falls back to ``MERGIFY_TOKEN``, then the
+    /// credential ``mergify auth login`` stored for this API URL,
+    /// then ``GITHUB_TOKEN`` and ``gh auth token`` — the last two
+    /// are deprecated for the Mergify API.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -4279,8 +4309,10 @@ struct TestsQuarantinedCliArgs {
     )]
     repository: Option<String>,
 
-    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars.
+    /// Mergify token. Falls back to ``MERGIFY_TOKEN``, then the
+    /// credential ``mergify auth login`` stored for this API URL,
+    /// then ``GITHUB_TOKEN`` and ``gh auth token`` — the last two
+    /// are deprecated for the Mergify API.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -4296,8 +4328,10 @@ struct TestsQuarantinedCliArgs {
 
 #[derive(clap::Args)]
 struct QueueArgs {
-    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars.
+    /// Mergify token. Falls back to ``MERGIFY_TOKEN``, then the
+    /// credential ``mergify auth login`` stored for this API URL,
+    /// then ``GITHUB_TOKEN`` and ``gh auth token`` — the last two
+    /// are deprecated for the Mergify API.
     #[arg(long, short = 't', global = true)]
     token: Option<String>,
 
@@ -4380,8 +4414,10 @@ struct ShowCliArgs {
 
 #[derive(clap::Args)]
 struct EventsCliArgs {
-    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars.
+    /// Mergify token. Falls back to ``MERGIFY_TOKEN``, then the
+    /// credential ``mergify auth login`` stored for this API URL,
+    /// then ``GITHUB_TOKEN`` and ``gh auth token`` — the last two
+    /// are deprecated for the Mergify API.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -4444,14 +4480,23 @@ struct AuthArgs {
     command: AuthSubcommand,
 }
 
+#[derive(clap::Args)]
+struct AuthLoginArgs {
+    /// Do not open a browser; only print the URL to open.
+    #[arg(long = "no-browser")]
+    no_browser: bool,
+}
+
 #[derive(Subcommand)]
 enum AuthSubcommand {
     /// Sign in to Mergify and store the credential.
     ///
-    /// Prints a URL and a code: open the one, enter the other, and
-    /// approve. The credential lands in your OS keychain, or in a
-    /// `0600` file when the machine has no keychain to offer.
-    Login,
+    /// Opens the approval page in your browser and prints the URL
+    /// and the code as well, so a machine with no browser can sign
+    /// in from the same command. The credential lands in your OS
+    /// keychain, or in a `0600` file when the machine has no
+    /// keychain to offer.
+    Login(AuthLoginArgs),
     /// Revoke the stored credential and forget it.
     ///
     /// Tells the Mergify API to revoke the token as well as deleting
@@ -4469,8 +4514,10 @@ enum AuthSubcommand {
 
 #[derive(clap::Args)]
 struct FreezeArgs {
-    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars.
+    /// Mergify token. Falls back to ``MERGIFY_TOKEN``, then the
+    /// credential ``mergify auth login`` stored for this API URL,
+    /// then ``GITHUB_TOKEN`` and ``gh auth token`` — the last two
+    /// are deprecated for the Mergify API.
     #[arg(long, short = 't', global = true)]
     token: Option<String>,
 
@@ -4877,6 +4924,27 @@ mod tests {
         assert_eq!(opts.token.as_deref(), Some("tok"));
         assert_eq!(opts.tests_target_branch.as_deref(), Some("main"));
         assert_eq!(opts.files, vec!["report.xml"]);
+    }
+
+    // The flag has to reach `LoginOptions`, not merely parse: an
+    // inverted `if no_browser` in `run_native` opens a browser for
+    // the user who asked for none, and every other test in the
+    // suite passes `browser: None` directly and would stay green.
+    #[test]
+    fn auth_login_carries_no_browser_through_dispatch() {
+        let Dispatch::Native(NativeCommand::AuthLogin { no_browser, .. }) =
+            dispatch_from_parsed(parse(&["auth", "login", "--no-browser"]))
+        else {
+            panic!("auth login must dispatch to the native AuthLogin variant");
+        };
+        assert!(no_browser);
+
+        let Dispatch::Native(NativeCommand::AuthLogin { no_browser, .. }) =
+            dispatch_from_parsed(parse(&["auth", "login"]))
+        else {
+            panic!("auth login must dispatch to the native AuthLogin variant");
+        };
+        assert!(!no_browser, "a browser is the default");
     }
 
     #[test]

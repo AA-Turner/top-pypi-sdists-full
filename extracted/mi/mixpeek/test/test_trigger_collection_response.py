@@ -46,6 +46,13 @@ class TestTriggerCollectionResponse(unittest.TestCase):
                     ''
                     ],
                 object_count = 56,
+                batch_ids = [
+                    ''
+                    ],
+                task_ids = [
+                    ''
+                    ],
+                batch_count = 56,
                 document_count = 56,
                 total_tiers = 56,
                 message = ''

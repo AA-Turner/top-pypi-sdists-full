@@ -25,6 +25,7 @@ from matrx_ai.config import (
     UnifiedConfig,
     UnifiedMessage,
     UnifiedResponse,
+    host_authored_user_turn,
 )
 from matrx_ai.config.finish_reason import (
     CONTINUABLE_METADATA_KEY,
@@ -38,6 +39,11 @@ from matrx_ai.db import (
     ensure_conversation_exists,
     ensure_user_request_exists,
     update_user_request_status,
+)
+from matrx_ai.db.control_tokens import (
+    CONTROL_TOKEN_METADATA_KEY,
+    clean_assistant_content,
+    control_token_metadata,
 )
 from matrx_ai.db.message_parts import validate_message_content
 from matrx_ai.db.message_positions import APPEND_MESSAGE_POSITION
@@ -915,6 +921,18 @@ async def _flush_assistant_message_mid_loop(
         if storage.get("content"):
             content_blocks.extend(storage["content"])
 
+    # DECLARED CONTROL TOKENS: the emitter already kept these machine lines off
+    # the person's screen; the durable row is written from the provider response
+    # instead, so it is cleaned from the SAME registry here and the values ride
+    # the row as structured metadata (matrx_ai/db/control_tokens.py).
+    _cleaned_blocks, _control_hits = clean_assistant_content(content_blocks)
+    content_blocks = _cleaned_blocks if isinstance(_cleaned_blocks, list) else content_blocks
+    _control_fields: dict[str, Any] = (
+        {"metadata": {CONTROL_TOKEN_METADATA_KEY: control_token_metadata(_control_hits)}}
+        if _control_hits
+        else {}
+    )
+
     position = len(current_request.config.messages.to_list())
     reserved_id = reserved_messages.get(position) or reserved_messages.get(str(position))
     tracker = get_tracker()
@@ -1029,6 +1047,7 @@ async def _flush_assistant_message_mid_loop(
                 reserved_id,
                 status="active",
                 content=content_blocks,
+                **_control_fields,
             )
             return reserved_id
 
@@ -1046,6 +1065,7 @@ async def _flush_assistant_message_mid_loop(
             status="active",
             content=content_blocks,
             created_by=exec_ctx.user_id or None,
+            **_control_fields,
         )
         reserved_messages[position] = message_id
         try:
@@ -1332,7 +1352,7 @@ def _loop_guard_meta(
 
 def _required_member_gate(
     current_request: AIMatrixRequest,
-    state: "ExecutionState | None",
+    state: ExecutionState | None,
 ) -> tuple[str, Any, bool]:
     """Evaluate the designated-member predicate (C-26) at a finishing exit.
 
@@ -1375,7 +1395,7 @@ def _required_member_gate(
 async def _change_claim_gate(
     current_request: AIMatrixRequest,
     api_response: UnifiedResponse | None,
-    state: "ExecutionState | None",
+    state: ExecutionState | None,
 ) -> tuple[str, Any]:
     """THE CHANGE-CLAIM GATE at a finishing exit — see ``change_claims.py``.
 
@@ -5746,8 +5766,10 @@ async def _execute_until_complete_inner(
                         f"you will then deliver your final answer incorporating "
                         f"their output."
                     )
+                    # Host-authored, NEVER the person: `user_content` is stamped
+                    # empty so no reader can mistake this notice for her words.
                     current_request.config.messages.append(
-                        UnifiedMessage(role="user", content=[TextContent(text=_rm_notice)])
+                        host_authored_user_turn(_rm_notice, reason="required_member_gate")
                     )
                     vcprint(
                         f"⚠️  Required-member gate: finish attempted without required "
@@ -5886,9 +5908,9 @@ async def _execute_until_complete_inner(
 
                     state.change_claim_corrections += 1
                     current_request.config.messages.append(
-                        UnifiedMessage(
-                            role="user",
-                            content=[TextContent(text=correction_notice(_cc_report))],
+                        host_authored_user_turn(
+                            correction_notice(_cc_report),
+                            reason="change_claim_gate",
                         )
                     )
                     vcprint(
@@ -6101,7 +6123,7 @@ async def _execute_until_complete_inner(
                     f"If you can't make progress, stop and tell the user what's wrong now."
                 )
                 current_request.config.messages.append(
-                    UnifiedMessage(role="user", content=[TextContent(text=_caution)])
+                    host_authored_user_turn(_caution, reason="loop_guard_approaching")
                 )
                 await exec_ctx.emitter.send_warning(
                     WarningPayload(
@@ -6170,7 +6192,7 @@ async def _execute_until_complete_inner(
                     f"attempt."
                 )
                 current_request.config.messages.append(
-                    UnifiedMessage(role="user", content=[TextContent(text=_directive)])
+                    host_authored_user_turn(_directive, reason="loop_guard_tools_disabled")
                 )
 
                 await exec_ctx.emitter.send_phase("processing")

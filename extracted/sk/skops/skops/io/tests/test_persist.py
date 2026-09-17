@@ -50,6 +50,7 @@ from sklearn.preprocessing import (
     PolynomialFeatures,
     StandardScaler,
 )
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import all_estimators, check_random_state
 from sklearn.utils._testing import SkipTest, set_random_state
 from sklearn.utils.estimator_checks import (
@@ -60,8 +61,9 @@ from sklearn.utils.estimator_checks import (
 from sklearn.utils.fixes import parse_version, sp_version
 
 import skops
-from skops.io import dump, dumps, get_untrusted_types, load, loads
+from skops.io import dump, dumps, get_untrusted_types, load, loads, visualize
 from skops.io._audit import NODE_TYPE_MAPPING, get_tree
+from skops.io._protocol import PROTOCOL
 from skops.io._sklearn import UNSUPPORTED_TYPES
 from skops.io._trusted_types import (
     CONTAINER_TYPE_NAMES,
@@ -74,11 +76,35 @@ from skops.io._trusted_types import (
 from skops.io._utils import LoadContext, SaveContext, _get_state, get_state, gettype
 from skops.io.exceptions import UnsupportedTypeException, UntrustedTypesFoundException
 from skops.io.tests._utils import assert_method_outputs_equal, assert_params_equal
-from skops.utils._fixes import construct_instances, get_tags
+from skops.utils._fixes import (
+    construct_instances,
+    get_sparray_type,
+    get_sparse_container,
+    get_tags,
+    sklearn_forces_sparray,
+    sklearn_sparse_output,
+    suppress_spmatrix_deprecation,
+)
+
+# Preferred scipy sparse container: a sparse *array* on scipy versions that
+# provide the sparray API (avoids scipy 2.0's spmatrix deprecation), else a
+# sparse matrix. Used wherever a test just needs some sparse data.
+SPARSE_CONTAINER = get_sparse_container("csr")
 
 # Default settings for X
 N_SAMPLES = 120
 N_FEATURES = 20
+
+
+@pytest.fixture(autouse=True)
+def sklearn_sparse_arrays():
+    # On scipy 2.0, constructing scipy sparse *matrices* emits a
+    # DeprecationWarning (which the test suite turns into an error). scikit-learn
+    # 1.9+ can emit sparse *arrays* instead via the ``sparse_interface`` config;
+    # enable it for every test so sklearn-produced sparse data doesn't trip the
+    # deprecation. This is a no-op on older scikit-learn.
+    with sklearn_sparse_output():
+        yield
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -314,7 +340,7 @@ def _unsupported_estimators(type_filter=None):
 
 
 @pytest.mark.parametrize(
-    "estimator", _tested_estimators(), ids=_get_check_estimator_ids
+    "estimator", list(_tested_estimators()), ids=_get_check_estimator_ids
 )
 def test_can_persist_non_fitted(estimator):
     """Check that non-fitted estimators can be persisted."""
@@ -388,16 +414,26 @@ def get_input(estimator):
 
     if tags.input_tags.sparse:
         # TfidfTransformer in sklearn 0.24 needs this
-        return sparse.csr_matrix(X), y
+        return SPARSE_CONTAINER(X), y
 
     raise ValueError(f"Unsupported X type for estimator: {tags.input_tags}")
 
 
 @pytest.mark.parametrize(
-    "estimator", _tested_estimators(), ids=_get_check_estimator_ids
+    "estimator", list(_tested_estimators()), ids=_get_check_estimator_ids
 )
 def test_can_persist_fitted(estimator):
     """Check that fitted estimators can be persisted and return the right results."""
+    if type(estimator).__name__ == "SpectralEmbedding" and sklearn_forces_sparray():
+        # Upstream scikit-learn bug: with ``sparse_interface="sparray"``,
+        # SpectralEmbedding builds a sparse array with int64 indices which
+        # scikit-learn's own ``_check_large_sparse`` then rejects. Reproducible
+        # with plain scikit-learn (no skops). Remove once fixed upstream.
+        pytest.xfail(
+            "SpectralEmbedding + sparse_interface='sparray' produces int64-index "
+            "sparse arrays rejected by sklearn's own validation (upstream bug)"
+        )
+
     set_random_state(estimator, random_state=0)
 
     X, y = get_input(estimator)
@@ -426,7 +462,9 @@ def test_can_persist_fitted(estimator):
 
 
 @pytest.mark.parametrize(
-    "ufunc", _tested_ufuncs(), ids=SCIPY_UFUNC_TYPE_NAMES + NUMPY_UFUNC_TYPE_NAMES
+    "ufunc",
+    list(_tested_ufuncs()),
+    ids=SCIPY_UFUNC_TYPE_NAMES + NUMPY_UFUNC_TYPE_NAMES,
 )
 def test_can_trust_ufuncs(ufunc):
     dumped = dumps(ufunc)
@@ -436,7 +474,7 @@ def test_can_trust_ufuncs(ufunc):
 
 @pytest.mark.parametrize(
     "type_",
-    _tested_types(),
+    list(_tested_types()),
     ids=PRIMITIVE_TYPE_NAMES + NUMPY_DTYPE_TYPE_NAMES + CONTAINER_TYPE_NAMES,
 )
 def test_can_trust_types(type_):
@@ -502,10 +540,16 @@ def test_can_trust_types(type_):
         ),
     ],
 )
-def test_gradient_boosting_estimators_have_no_untrusted_types(estimator, problem_type):
-    """Fitted GB/HGB models should save and load without any untrusted types,
-    even though they contain non-public sklearn internals (loss functions, link
-    functions, Cython loss classes, _BinMapper, TreePredictor)."""
+def test_gradient_boosting_estimators_trust_internals_except_tree_types(
+    estimator, problem_type
+):
+    """Fitted GB/HGB models save and load with the non-public sklearn
+    internals they rely on (loss functions, link functions, Cython loss
+    classes, _BinMapper) trusted by default, but not their raw tree storage
+    (``sklearn.tree._tree.Tree`` / ``TreePredictor``): loading their content is
+    not validated, so a crafted file can crash the process at predict time.
+    These remain loadable by explicitly trusting that one type, e.g.
+    ``trusted=["sklearn.tree._tree.Tree"]``."""
     set_random_state(estimator, random_state=0)
 
     if problem_type == "binary":
@@ -543,16 +587,60 @@ def test_gradient_boosting_estimators_have_no_untrusted_types(estimator, problem
     estimator.fit(X, y)
 
     dumped = dumps(estimator)
-    untrusted_types = get_untrusted_types(data=dumped)
-    assert untrusted_types == []
 
-    loaded = loads(dumped)
+    # GB models embed their trees via sklearn.tree._tree.Tree, HGB models via
+    # their own TreePredictor; neither is trusted by default.
+    expected_type = (
+        "sklearn.ensemble._hist_gradient_boosting.predictor.TreePredictor"
+        if type(estimator).__name__.startswith("HistGradientBoosting")
+        else "sklearn.tree._tree.Tree"
+    )
+    assert get_untrusted_types(data=dumped) == [expected_type]
+
+    with pytest.raises(UntrustedTypesFoundException, match=expected_type):
+        loads(dumped)
+
+    # Trust exactly (and only) the one type known to be needed here, rather
+    # than blindly trusting everything `get_untrusted_types` reports.
+    loaded = loads(dumped, trusted=[expected_type])
     assert_params_equal(estimator.__dict__, loaded.__dict__)
     assert_method_outputs_equal(estimator, loaded, X)
 
 
 @pytest.mark.parametrize(
-    "estimator", _unsupported_estimators(), ids=_get_check_estimator_ids
+    ("estimator", "expected_type"),
+    [
+        (
+            DecisionTreeClassifier(random_state=0),
+            "sklearn.tree._tree.Tree",
+        ),
+        (
+            HistGradientBoostingClassifier(max_iter=5, random_state=0),
+            "sklearn.ensemble._hist_gradient_boosting.predictor.TreePredictor",
+        ),
+    ],
+)
+def test_untrusted_tree_types_explain_the_risk(estimator, expected_type):
+    """The error raised for these types should explain *why* they're not
+    trusted, since loading them is otherwise indistinguishable from any other
+    untrusted type."""
+    X, y = make_classification(
+        n_samples=N_SAMPLES, n_features=N_FEATURES, random_state=0
+    )
+    estimator.fit(X, y)
+    dumped = dumps(estimator)
+
+    with pytest.raises(UntrustedTypesFoundException) as exc_info:
+        loads(dumped)
+
+    msg = str(exc_info.value)
+    assert expected_type in msg
+    assert "predict" in msg
+    assert "segfault" in msg or "crash" in msg
+
+
+@pytest.mark.parametrize(
+    "estimator", list(_unsupported_estimators()), ids=_get_check_estimator_ids
 )
 def test_unsupported_type_raises(estimator):
     """Estimators that are known to fail should raise an error"""
@@ -698,7 +786,7 @@ def test_metainfo():
             self.builtin_ = [1, 2, 3]
             self.stdlib_ = Counter([10, 20, 20, 30, 30, 30])
             self.numpy_ = np.arange(5)
-            self.sparse_ = sparse.csr_matrix([[0, 1], [1, 0]])
+            self.sparse_ = SPARSE_CONTAINER([[0, 1], [1, 0]])
             self.sklearn_ = LogisticRegression()
             # create a nested data structure to check if that works too
             self.nested_ = {
@@ -734,7 +822,7 @@ def test_metainfo():
             "__module__": "numpy",
         },
         "sparse_": {
-            "__class__": "csr_matrix",
+            "__class__": SPARSE_CONTAINER.__name__,
             "__module__": "scipy.sparse",
         },
         "sklearn_": {
@@ -788,8 +876,8 @@ class EstimatorIdenticalArrays(BaseEstimator):
 
         self.scalar_2 = X[0, 0]
 
-        # deduplication should work on sparse matrices
-        X_sparse = sparse.csr_matrix(X)
+        # deduplication should work on sparse containers
+        X_sparse = SPARSE_CONTAINER(X)
         self.X_sparse = X_sparse
         self.X_sparse2 = X_sparse
 
@@ -852,6 +940,55 @@ def test_get_tree_unknown_type_error_msg():
     msg = "Can't find loader this_get_tree_does_not_exist for type builtins.tuple."
     with pytest.raises(TypeError, match=msg):
         get_tree(state, LoadContext(None, -1), trusted=False)
+
+
+def _set_protocol(data: bytes, protocol: object) -> bytes:
+    """Return a copy of a skops dump with the protocol in schema.json replaced."""
+    out = io.BytesIO()
+    with ZipFile(io.BytesIO(data), "r") as src, ZipFile(out, "w") as dst:
+        for name in src.namelist():
+            content = src.read(name)
+            if name == "schema.json":
+                schema = json.loads(content)
+                schema["protocol"] = protocol
+                content = json.dumps(schema).encode()
+            dst.writestr(name, content)
+    return out.getvalue()
+
+
+@pytest.mark.parametrize(
+    "protocol, err",
+    [
+        (PROTOCOL + 1, ValueError),
+        (-1, ValueError),
+        ("0", TypeError),
+        (1.0, TypeError),
+        # bool is an int subclass; True would otherwise be treated as protocol 1
+        (True, TypeError),
+        (None, TypeError),
+    ],
+)
+def test_invalid_protocol_is_rejected(protocol, err, tmp_path):
+    # The protocol in schema.json selects which Node classes audit and construct
+    # the file, so every entry point must validate it before building the tree.
+    data = _set_protocol(dumps(LogisticRegression()), protocol)
+    path = tmp_path / "model.skops"
+    path.write_bytes(data)
+
+    with pytest.raises(err, match="protocol"):
+        loads(data, trusted=[])
+    with pytest.raises(err, match="protocol"):
+        load(path, trusted=[])
+    with pytest.raises(err, match="protocol"):
+        get_untrusted_types(data=data)
+    with pytest.raises(err, match="protocol"):
+        visualize(data)
+
+
+def test_newer_protocol_error_suggests_updating_skops():
+    data = _set_protocol(dumps(LogisticRegression()), PROTOCOL + 1)
+    with pytest.raises(ValueError, match="update skops"):
+        loads(data, trusted=[])
 
 
 class _BoundMethodHolder:
@@ -960,12 +1097,14 @@ class TestPersistingBoundMethods:
 
 
 class CustomEstimator(BaseEstimator):
-    """Estimator with np array, np scalar, and sparse matrix attribute"""
+    """Estimator with np array, np scalar, and sparse container attribute"""
 
     def fit(self, X, y=None):
         self.numpy_array = np.zeros(3)
         self.numpy_scalar = np.ones(1)[0]
-        self.sparse_matrix = sparse.csr_matrix(np.arange(3))
+        # 2D input: sparse *arrays* (unlike matrices) don't accept 1D on all
+        # supported scipy versions.
+        self.sparse_matrix = SPARSE_CONTAINER(np.arange(3).reshape(1, -1))
         return self
 
 
@@ -983,7 +1122,7 @@ def test_dump_to_and_load_from_disk(tmp_path):
     with ZipFile(f_name, "r") as input_zip:
         files = input_zip.namelist()
 
-    # there should be 4 files in total, schema.json, 2 np arrays, and 1 sparse matrix
+    # there should be 4 files total, schema.json, 2 np arrays, 1 sparse container
     assert len(files) == 4
     assert "schema.json" in files
 
@@ -1202,15 +1341,42 @@ def test_sparse_matrix(call_has_canonical_format):
 
     # note: this behavior is already implicitly tested by sklearn estimators
     # that use sparse matrices under the hood (tfidf) but it is better to check
-    # the behavior explicitly
-    x = sparse.csr_matrix((3, 4))
+    # the behavior explicitly. We deliberately exercise the legacy sparse
+    # *matrix* type here, so silence scipy 2.0's spmatrix deprecation, which is
+    # also emitted when the matrix is reconstructed on load.
+    with suppress_spmatrix_deprecation():
+        x = sparse.csr_matrix((3, 4))
+        if call_has_canonical_format:
+            x.has_canonical_format
+
+        dumped = dumps(x)
+        untrusted_types = get_untrusted_types(data=dumped)
+        y = loads(dumped, trusted=untrusted_types)
+
+        assert_params_equal(x.__dict__, y.__dict__)
+
+
+@pytest.mark.parametrize("call_has_canonical_format", [False, True])
+def test_sparse_array(call_has_canonical_format):
+    # scipy sparse *arrays* (the modern, NumPy-compatible replacement for sparse
+    # matrices) should round-trip through the same efficient npz node.
+    sparray_type = get_sparray_type()
+    if sparray_type is None:
+        pytest.skip("scipy sparse arrays are not available")
+
+    x = sparse.csr_array((3, 4))
     if call_has_canonical_format:
         x.has_canonical_format
 
     dumped = dumps(x)
+    # it should be stored as a single npz file, not decomposed as a plain object
+    with ZipFile(io.BytesIO(dumped), "r") as input_zip:
+        assert sum(1 for f in input_zip.namelist() if f.endswith(".npz")) == 1
+
     untrusted_types = get_untrusted_types(data=dumped)
     y = loads(dumped, trusted=untrusted_types)
 
+    assert isinstance(y, sparray_type)
     assert_params_equal(x.__dict__, y.__dict__)
 
 
@@ -1219,10 +1385,10 @@ def test_trusted_bool_raises(tmp_path):
     f_name = tmp_path / "file.skops"
     dump(10, f_name)
     with pytest.raises(TypeError, match="trusted must be a list of strings"):
-        load(f_name, trusted=True)  # type: ignore
+        load(f_name, trusted=True)
 
     with pytest.raises(TypeError, match="trusted must be a list of strings"):
-        loads(dumps(10), trusted=True)  # type: ignore
+        loads(dumps(10), trusted=True)
 
 
 def test_defaultdict():

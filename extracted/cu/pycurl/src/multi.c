@@ -219,6 +219,11 @@ do_multi_dealloc(CurlMultiObject *self)
     PyObject_GC_UnTrack(self);
     Py_TRASHCAN_BEGIN(self, do_multi_dealloc);
 
+    /* Removing easy handles can invoke M_SOCKETFUNCTION. Clear it first so
+     * the dying CurlMulti is not handed back to Python from its own
+     * tp_dealloc. */
+    Py_CLEAR(self->s_cb);
+
     util_multi_detach_easies(self, 0, 1);
 
     util_multi_xdecref(self);
@@ -344,7 +349,7 @@ multi_socket_callback(CURL *easy,
     if (result == Py_None) {
         ret = 0;
     } else if (callback_return_value_to_int(result, "multi socket", &ret) != 0) {
-        goto silent_error;
+        goto verbose_error;
     }
 
 silent_error:
@@ -395,7 +400,7 @@ multi_timer_callback(CURLM *multi,
     if (result == Py_None) {
         ret = 0;
     } else if (callback_return_value_to_int(result, "multi timer", &ret) != 0) {
-        goto silent_error;
+        goto verbose_error;
     }
 
 silent_error:
@@ -456,6 +461,11 @@ multi_notify_callback(CURLM *multi,
         warn_failed_to_acquire_thread(
             "multi_notify_callback failed to acquire thread");
         return;
+    }
+    /* a pending exception would turn this callback's PyObject_Call into a
+       SystemError, replacing the original */
+    if (PyErr_Occurred()) {
+        goto done;
     }
 
     /* The callback may fire during curl_multi_cleanup after Py_CLEAR(n_cb). */

@@ -27,7 +27,7 @@ import casadi as c
 import numpy
 import unittest
 from types import *
-from helpers import *
+from helpers import casadiTestCase, memory_heavy, requiresPlugin, requires_nlpsol, systemswig
 import pickle
 from operator import itemgetter
 import sys
@@ -39,6 +39,58 @@ try:
     from scipy.linalg import expm
 except:
     scipy_available = False
+
+def _parse_stub(pyi):
+  """ast.parse the generated stub, reporting a too-new construct as a failure.
+
+  These tests parse the stub with the *running* interpreter on purpose.  A
+  type checker validates stub syntax against the Python version it is
+  targeting -- mypy rejects the whole file with
+
+    error: Positional-only parameters are only supported in Python 3.8 and
+    greater  [syntax]
+    (errors prevented further checking)
+
+  -- so a stub using syntax newer than the oldest interpreter casadi ships
+  wheels for is unusable for those users, and unsuppressably so.  Running
+  this on every matrix cell is what makes the oldest cell enforce that.
+  """
+  import ast
+  with open(pyi) as fh:
+    src = fh.read()
+  try:
+    return src, ast.parse(src, filename=pyi)
+  except SyntaxError as e:
+    # raise rather than testcase.fail(): unittest treats AssertionError as a
+    # failure just the same, and a raise is terminal to a type checker, so
+    # callers do not see an Optional return.
+    raise AssertionError(
+        "casadi.pyi does not parse on Python %d.%d: %s (line %s).\n"
+        "Stub syntax must stay within the oldest Python casadi ships wheels "
+        "for -- type checkers validate stubs against their target version, "
+        "and reject the entire file.  Use the pre-PEP-570 `__name` "
+        "convention instead of `/` for positional-only parameters."
+        % (sys.version_info[0], sys.version_info[1], e.msg, e.lineno))
+
+
+def _callable_param_lists(ann):
+  """The one legitimate list literal in a type expression: the parameter
+  list of `Callable[[A, B], R]`.  Returns those ast.List nodes within ann."""
+  import ast
+  out = []
+  for n in ast.walk(ann):
+    if not isinstance(n, ast.Subscript):
+      continue
+    v = n.value
+    name = v.id if isinstance(v, ast.Name) else v.attr if isinstance(v, ast.Attribute) else None
+    if name != "Callable":
+      continue
+    sl = n.slice
+    sl = getattr(sl, "value", sl)  # ast.Index wrapper on Python < 3.9
+    first = sl.elts[0] if isinstance(sl, ast.Tuple) and sl.elts else sl
+    if isinstance(first, ast.List):
+      out.append(first)
+  return out
 
 class Misctests(casadiTestCase):
 
@@ -575,6 +627,124 @@ class Misctests(casadiTestCase):
       solver.solve(A,ca.vertcat(1,2,3))
       self.assertTrue("t_proc_total" in solver.stats())
       self.assertTrue(solver.stats()["t_wall_total"]>=0)
+
+  def test_stub_no_duplicate_parameter_names(self):
+    self.message("Generated casadi.pyi must not repeat a parameter name")
+    # SWIG matches the &OUTPUT/&INOUT typemaps by parameter NAME, so headers
+    # rename such arguments via SWIG_INOUT(x) -> INOUT (casadi_common.hpp).
+    # Using plain SWIG_INOUT twice in one declaration therefore emits the same
+    # parameter name twice into casadi.pyi, which Python rejects with
+    # "duplicate argument in function definition" -- that makes the whole stub
+    # unusable for mypy (issue #4390).  Use the numbered SWIG_INOUT1..6
+    # variants instead; casadi.i already %applies INOUT1..INOUT6.
+    import ast
+    import os
+    pyi = os.path.join(os.path.dirname(os.path.abspath(ca.__file__)), "casadi.pyi")
+    if not os.path.exists(pyi):
+      self.skipTest("casadi.pyi not installed; stubs are disabled in this build")
+    # Duplicate parameters are valid *grammar*, so the parse succeeds and we
+    # have to look for them ourselves; doing so names the offending function
+    # instead of just reporting a line number.
+    src, tree = _parse_stub(pyi)
+    offenders = []
+    for node in ast.walk(tree):
+      if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        continue
+      a = node.args
+      names = [x.arg for x in
+               list(getattr(a, "posonlyargs", [])) + list(a.args) + list(a.kwonlyargs)]
+      names += [x.arg for x in (a.vararg, a.kwarg) if x is not None]
+      dupes = sorted(set(n for n in names if names.count(n) > 1))
+      if dupes:
+        offenders.append("line %d: %s(): %s" % (node.lineno, node.name, ", ".join(dupes)))
+    self.assertEqual(
+        offenders, [],
+        "casadi.pyi repeats a parameter name, so the stub is not valid Python "
+        "and mypy cannot load it.  A C++ declaration is very likely using "
+        "SWIG_INOUT() more than once; switch those to SWIG_INOUT1/2/3...  "
+        "Offenders:\n  " + "\n  ".join(offenders))
+    # Belt and braces: duplicate arguments are rejected when the symbol table
+    # is built, not by the parser, and this also catches any other such error.
+    try:
+      compile(src, pyi, "exec")
+    except SyntaxError as e:
+      self.fail("casadi.pyi does not compile: %s (line %s)" % (e.msg, e.lineno))
+
+  def test_stub_no_positional_only_syntax(self):
+    self.message("Generated casadi.pyi must stay within the oldest supported syntax")
+    # PEP 570's `/` needs Python 3.8.  A type checker validates stub syntax
+    # against the version it TARGETS, not the one it runs on, so `/` makes
+    # mypy reject the entire file for anyone targeting 3.7 -- and casadi still
+    # ships 3.7 wheels.  pyright happens to accept it, which is why this went
+    # unnoticed from 3.8.0 (issue #4315's stubs) until now.  Use the
+    # pre-PEP-570 `__name` convention instead: it means the same thing to both
+    # checkers and parses everywhere.
+    #
+    # _parse_stub already fails on interpreters that cannot parse `/` at all;
+    # this catches it on the modern cells too, so the guard does not depend on
+    # an old Python being in the matrix.
+    import os
+    pyi = os.path.join(os.path.dirname(os.path.abspath(ca.__file__)), "casadi.pyi")
+    if not os.path.exists(pyi):
+      self.skipTest("casadi.pyi not installed; stubs are disabled in this build")
+    import ast
+    _, tree = _parse_stub(pyi)
+    offenders = []
+    for node in ast.walk(tree):
+      if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        continue
+      posonly = getattr(node.args, "posonlyargs", [])
+      if posonly:
+        offenders.append("line %d: %s(%s, /)"
+                         % (node.lineno, node.name,
+                            ", ".join(a.arg for a in posonly)))
+    self.assertEqual(
+        offenders, [],
+        "casadi.pyi uses PEP 570 positional-only syntax, which mypy rejects "
+        "outright for targets below 3.8.  Use a leading __ on the parameter "
+        "name instead.  Offenders:\n  " + "\n  ".join(offenders))
+
+  def test_stub_no_list_literal_annotations(self):
+    self.message("Generated casadi.pyi must not leave doc tokens in annotations")
+    # casadi's typemaps carry a human-readable doc name (xName) like "[int]"
+    # alongside the stub types (xStubIn/xStubOut).  If a typemap declares only
+    # pystub_in, the *return* position falls back to the doc name and the stub
+    # gets `-> [int]`, which is a list literal: valid Python grammar, so it
+    # compiles, but meaningless as a type.  This bit the &INOUT typemap, whose
+    # arguments are inputs and outputs at once and so need both halves.
+    import ast
+    import os
+    pyi = os.path.join(os.path.dirname(os.path.abspath(ca.__file__)), "casadi.pyi")
+    if not os.path.exists(pyi):
+      self.skipTest("casadi.pyi not installed; stubs are disabled in this build")
+    src, tree = _parse_stub(pyi)
+    src_lines = src.splitlines()
+    # ast.unparse is 3.9+; fall back to the source line so this test also runs
+    # on the oldest cells, which are the ones that catch too-new stub syntax.
+    def _show(ann):
+      unparse = getattr(ast, "unparse", None)
+      return unparse(ann) if unparse else src_lines[ann.lineno - 1].strip()
+    offenders = []
+    for node in ast.walk(tree):
+      if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        continue
+      a = node.args
+      annotations = [("return", node.returns)]
+      for arg in list(getattr(a, "posonlyargs", [])) + list(a.args) + list(a.kwonlyargs):
+        annotations.append((arg.arg, arg.annotation))
+      for where, ann in annotations:
+        if ann is None:
+          continue
+        if any(isinstance(n, ast.List) and n not in _callable_param_lists(ann)
+               for n in ast.walk(ann)):
+          offenders.append("line %d: %s() %s: %s"
+                           % (node.lineno, node.name, where, _show(ann)))
+    self.assertEqual(
+        offenders, [],
+        "casadi.pyi contains a list literal where a type belongs, so a doc "
+        "token (e.g. \"[int]\") leaked through unsubstituted.  The typemap "
+        "involved is probably missing pystub_out=xStubOut.  Offenders:\n  "
+        + "\n  ".join(offenders))
 
   def test_unicode(self):
     import sys

@@ -55,7 +55,6 @@ from ._persistence import (
 )
 from ._supervisor import (
     _BACKGROUND_RESTART_TASKS,
-    _SUPERVISOR_SELF_RESTART_FLUSH_DELAY_S,
     _schedule_supervisor_self_restart,
     _supervisor_fetch_current_options,
     _supervisor_merge_and_post_options,
@@ -75,7 +74,7 @@ from ._tools_meta import (
 )
 
 if TYPE_CHECKING:
-    from fastmcp import FastMCP
+    from ha_mcp._vendor.fastmcp import FastMCP
 
     from ..config import Settings
     from ..server import HomeAssistantSmartMCPServer

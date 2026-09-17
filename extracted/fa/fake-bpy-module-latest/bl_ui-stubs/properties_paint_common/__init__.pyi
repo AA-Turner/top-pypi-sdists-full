@@ -367,6 +367,9 @@ def brush_basic__draw_color_selector(context, layout, brush, gp_settings) -> Non
 def brush_basic_grease_pencil_paint_settings(
     layout, context, brush, props, *, compact=False
 ) -> None: ...
+def brush_basic_grease_pencil_sculpt_settings(
+    layout, context, brush, *, compact=False
+) -> None: ...
 def brush_basic_grease_pencil_vertex_settings(
     layout, context, brush, *, compact=False
 ) -> None: ...

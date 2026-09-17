@@ -9597,6 +9597,46 @@ module.exports = async function createcasadi() {
     default_in(a0) {
       return __chk(M._swig_casadi_Function_default_in_0(__unwrap(this), BigInt(a0)));
     }
+    export_graph(...args) {
+      switch (args.length) {
+        case 1: {
+          if (typeof args[0] === 'string') {
+            const [a0] = args;
+      const a1 = {};
+
+      const __nps1 = M.lengthBytesUTF8(a0);
+      const __ps1  = M._malloc(__nps1 + 1);
+      M.stringToUTF8(a0, __ps1, __nps1 + 1);
+      const __r = __chk(M._swig_casadi_Function_export_graph_0(__unwrap(this), __ps1, __unwrap(a1)));
+
+      M._free(__ps1);
+      return __r;
+          }
+          if (M._swig_can_std__mapT_std__string_casadi__GenericType_t(__unwrap(args[0]))) {
+            const [a0] = args;
+      return (()=>{const __p=__chk(M._swig_casadi_Function_export_graph_1(__unwrap(this), __unwrap(a0)));const __s=M.UTF8ToString(__p);M._free(__p);return __s;})();
+          }
+          throw new TypeError(`Function.export_graph: no overload matches arg types at arity 1`);
+        }
+        case 2: {
+          const [a0, a1] = args;
+
+      const __nps1 = M.lengthBytesUTF8(a0);
+      const __ps1  = M._malloc(__nps1 + 1);
+      M.stringToUTF8(a0, __ps1, __nps1 + 1);
+      const __r = __chk(M._swig_casadi_Function_export_graph_0(__unwrap(this), __ps1, __unwrap(a1)));
+
+      M._free(__ps1);
+      return __r;
+        }
+        case 0: {
+          const [] = args;
+      const a0 = {};
+      return (()=>{const __p=__chk(M._swig_casadi_Function_export_graph_1(__unwrap(this), __unwrap(a0)));const __s=M.UTF8ToString(__p);M._free(__p);return __s;})();
+        }
+        default: throw new Error(`Function.export_graph: no overload for ${args.length} args`);
+      }
+    }
     forward(a0) {
       return __from_handle(__chk(M._swig_casadi_Function_forward_0(__unwrap(this), BigInt(a0))));
     }
@@ -22098,6 +22138,221 @@ module.exports = async function createcasadi() {
       }
       throw new TypeError(`jacobian: no overload matches arg types`);
     },
+    export_graph(...args) {
+      if (args.length === 1 && M._swig_can_MXVector(__unwrap(args[0]))) {
+        const [a0] = args;
+      const a1 = {};
+
+      let __vp1 = a0;
+      let __vown1 = false;
+      if (Array.isArray(a0)) {
+        __vp1 = new MXVector();
+        __vown1 = true;
+        for (const __x of a0) __vp1.push_back(__x);
+      }
+      const __r = (()=>{const __p=__chk(M._swig_casadi_casadi_export_graph_0(__unwrap(__vp1), __unwrap(a1)));const __s=M.UTF8ToString(__p);M._free(__p);return __s;})();
+
+      if (__vown1 && __vp1.delete) __vp1.delete();
+      return __r;
+      }
+      if (args.length === 2 && M._swig_can_MXVector(__unwrap(args[0])) && M._swig_can_std__mapT_std__string_casadi__GenericType_t(__unwrap(args[1]))) {
+        const [a0, a1] = args;
+
+      let __vp1 = a0;
+      let __vown1 = false;
+      if (Array.isArray(a0)) {
+        __vp1 = new MXVector();
+        __vown1 = true;
+        for (const __x of a0) __vp1.push_back(__x);
+      }
+      const __r = (()=>{const __p=__chk(M._swig_casadi_casadi_export_graph_0(__unwrap(__vp1), __unwrap(a1)));const __s=M.UTF8ToString(__p);M._free(__p);return __s;})();
+
+      if (__vown1 && __vp1.delete) __vp1.delete();
+      return __r;
+      }
+      if (args.length === 1 && (M._swig_can_MX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0]))) {
+        const [a0] = args;
+      const a1 = {};
+      return (()=>{const __p=__chk(M._swig_casadi_casadi_export_graph_1(__unwrap(__coerce(a0, MX)), __unwrap(a1)));const __s=M.UTF8ToString(__p);M._free(__p);return __s;})();
+      }
+      if (args.length === 2 && (M._swig_can_MX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0])) && M._swig_can_std__mapT_std__string_casadi__GenericType_t(__unwrap(args[1]))) {
+        const [a0, a1] = args;
+      return (()=>{const __p=__chk(M._swig_casadi_casadi_export_graph_1(__unwrap(__coerce(a0, MX)), __unwrap(a1)));const __s=M.UTF8ToString(__p);M._free(__p);return __s;})();
+      }
+      if (args.length === 2 && M._swig_can_MXVector(__unwrap(args[0])) && typeof args[1] === 'string') {
+        const [a0, a1] = args;
+      const a2 = {};
+
+      let __vp1 = a0;
+      let __vown1 = false;
+      if (Array.isArray(a0)) {
+        __vp1 = new MXVector();
+        __vown1 = true;
+        for (const __x of a0) __vp1.push_back(__x);
+      }
+
+      const __nps2 = M.lengthBytesUTF8(a1);
+      const __ps2  = M._malloc(__nps2 + 1);
+      M.stringToUTF8(a1, __ps2, __nps2 + 1);
+      const __r = __chk(M._swig_casadi_casadi_export_graph_2(__unwrap(__vp1), __ps2, __unwrap(a2)));
+
+      if (__vown1 && __vp1.delete) __vp1.delete();
+
+      M._free(__ps2);
+      return __r;
+      }
+      if (args.length === 3 && M._swig_can_MXVector(__unwrap(args[0])) && typeof args[1] === 'string' && M._swig_can_std__mapT_std__string_casadi__GenericType_t(__unwrap(args[2]))) {
+        const [a0, a1, a2] = args;
+
+      let __vp1 = a0;
+      let __vown1 = false;
+      if (Array.isArray(a0)) {
+        __vp1 = new MXVector();
+        __vown1 = true;
+        for (const __x of a0) __vp1.push_back(__x);
+      }
+
+      const __nps2 = M.lengthBytesUTF8(a1);
+      const __ps2  = M._malloc(__nps2 + 1);
+      M.stringToUTF8(a1, __ps2, __nps2 + 1);
+      const __r = __chk(M._swig_casadi_casadi_export_graph_2(__unwrap(__vp1), __ps2, __unwrap(a2)));
+
+      if (__vown1 && __vp1.delete) __vp1.delete();
+
+      M._free(__ps2);
+      return __r;
+      }
+      if (args.length === 2 && (M._swig_can_MX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0])) && typeof args[1] === 'string') {
+        const [a0, a1] = args;
+      const a2 = {};
+
+      const __nps2 = M.lengthBytesUTF8(a1);
+      const __ps2  = M._malloc(__nps2 + 1);
+      M.stringToUTF8(a1, __ps2, __nps2 + 1);
+      const __r = __chk(M._swig_casadi_casadi_export_graph_3(__unwrap(__coerce(a0, MX)), __ps2, __unwrap(a2)));
+
+      M._free(__ps2);
+      return __r;
+      }
+      if (args.length === 3 && (M._swig_can_MX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0])) && typeof args[1] === 'string' && M._swig_can_std__mapT_std__string_casadi__GenericType_t(__unwrap(args[2]))) {
+        const [a0, a1, a2] = args;
+
+      const __nps2 = M.lengthBytesUTF8(a1);
+      const __ps2  = M._malloc(__nps2 + 1);
+      M.stringToUTF8(a1, __ps2, __nps2 + 1);
+      const __r = __chk(M._swig_casadi_casadi_export_graph_3(__unwrap(__coerce(a0, MX)), __ps2, __unwrap(a2)));
+
+      M._free(__ps2);
+      return __r;
+      }
+      if (args.length === 1 && M._swig_can_SXVector(__unwrap(args[0]))) {
+        const [a0] = args;
+      const a1 = {};
+
+      let __vp1 = a0;
+      let __vown1 = false;
+      if (Array.isArray(a0)) {
+        __vp1 = new SXVector();
+        __vown1 = true;
+        for (const __x of a0) __vp1.push_back(__x);
+      }
+      const __r = (()=>{const __p=__chk(M._swig_casadi_casadi_export_graph_4(__unwrap(__vp1), __unwrap(a1)));const __s=M.UTF8ToString(__p);M._free(__p);return __s;})();
+
+      if (__vown1 && __vp1.delete) __vp1.delete();
+      return __r;
+      }
+      if (args.length === 2 && M._swig_can_SXVector(__unwrap(args[0])) && M._swig_can_std__mapT_std__string_casadi__GenericType_t(__unwrap(args[1]))) {
+        const [a0, a1] = args;
+
+      let __vp1 = a0;
+      let __vown1 = false;
+      if (Array.isArray(a0)) {
+        __vp1 = new SXVector();
+        __vown1 = true;
+        for (const __x of a0) __vp1.push_back(__x);
+      }
+      const __r = (()=>{const __p=__chk(M._swig_casadi_casadi_export_graph_4(__unwrap(__vp1), __unwrap(a1)));const __s=M.UTF8ToString(__p);M._free(__p);return __s;})();
+
+      if (__vown1 && __vp1.delete) __vp1.delete();
+      return __r;
+      }
+      if (args.length === 1 && (M._swig_can_SX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0]))) {
+        const [a0] = args;
+      const a1 = {};
+      return (()=>{const __p=__chk(M._swig_casadi_casadi_export_graph_5(__unwrap(__coerce(a0, SX)), __unwrap(a1)));const __s=M.UTF8ToString(__p);M._free(__p);return __s;})();
+      }
+      if (args.length === 2 && (M._swig_can_SX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0])) && M._swig_can_std__mapT_std__string_casadi__GenericType_t(__unwrap(args[1]))) {
+        const [a0, a1] = args;
+      return (()=>{const __p=__chk(M._swig_casadi_casadi_export_graph_5(__unwrap(__coerce(a0, SX)), __unwrap(a1)));const __s=M.UTF8ToString(__p);M._free(__p);return __s;})();
+      }
+      if (args.length === 2 && M._swig_can_SXVector(__unwrap(args[0])) && typeof args[1] === 'string') {
+        const [a0, a1] = args;
+      const a2 = {};
+
+      let __vp1 = a0;
+      let __vown1 = false;
+      if (Array.isArray(a0)) {
+        __vp1 = new SXVector();
+        __vown1 = true;
+        for (const __x of a0) __vp1.push_back(__x);
+      }
+
+      const __nps2 = M.lengthBytesUTF8(a1);
+      const __ps2  = M._malloc(__nps2 + 1);
+      M.stringToUTF8(a1, __ps2, __nps2 + 1);
+      const __r = __chk(M._swig_casadi_casadi_export_graph_6(__unwrap(__vp1), __ps2, __unwrap(a2)));
+
+      if (__vown1 && __vp1.delete) __vp1.delete();
+
+      M._free(__ps2);
+      return __r;
+      }
+      if (args.length === 3 && M._swig_can_SXVector(__unwrap(args[0])) && typeof args[1] === 'string' && M._swig_can_std__mapT_std__string_casadi__GenericType_t(__unwrap(args[2]))) {
+        const [a0, a1, a2] = args;
+
+      let __vp1 = a0;
+      let __vown1 = false;
+      if (Array.isArray(a0)) {
+        __vp1 = new SXVector();
+        __vown1 = true;
+        for (const __x of a0) __vp1.push_back(__x);
+      }
+
+      const __nps2 = M.lengthBytesUTF8(a1);
+      const __ps2  = M._malloc(__nps2 + 1);
+      M.stringToUTF8(a1, __ps2, __nps2 + 1);
+      const __r = __chk(M._swig_casadi_casadi_export_graph_6(__unwrap(__vp1), __ps2, __unwrap(a2)));
+
+      if (__vown1 && __vp1.delete) __vp1.delete();
+
+      M._free(__ps2);
+      return __r;
+      }
+      if (args.length === 2 && (M._swig_can_SX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0])) && typeof args[1] === 'string') {
+        const [a0, a1] = args;
+      const a2 = {};
+
+      const __nps2 = M.lengthBytesUTF8(a1);
+      const __ps2  = M._malloc(__nps2 + 1);
+      M.stringToUTF8(a1, __ps2, __nps2 + 1);
+      const __r = __chk(M._swig_casadi_casadi_export_graph_7(__unwrap(__coerce(a0, SX)), __ps2, __unwrap(a2)));
+
+      M._free(__ps2);
+      return __r;
+      }
+      if (args.length === 3 && (M._swig_can_SX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0])) && typeof args[1] === 'string' && M._swig_can_std__mapT_std__string_casadi__GenericType_t(__unwrap(args[2]))) {
+        const [a0, a1, a2] = args;
+
+      const __nps2 = M.lengthBytesUTF8(a1);
+      const __ps2  = M._malloc(__nps2 + 1);
+      M.stringToUTF8(a1, __ps2, __nps2 + 1);
+      const __r = __chk(M._swig_casadi_casadi_export_graph_7(__unwrap(__coerce(a0, SX)), __ps2, __unwrap(a2)));
+
+      M._free(__ps2);
+      return __r;
+      }
+      throw new TypeError(`export_graph: no overload matches arg types`);
+    },
     le(...args) {
       if (args.length === 2 && (M._swig_can_MX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0])) && (M._swig_can_MX(__unwrap(args[1])) || typeof args[1] === 'number' || typeof args[1] === 'bigint' || Array.isArray(args[1]))) {
         const [a0, a1] = args;
@@ -26753,6 +27008,21 @@ module.exports = async function createcasadi() {
     return __origFnCall.call(this, arg, ...rest);
   };
 
+  // Preserve symbolic lists before permissive scalar-matrix overloads accept arrays.
+  const __origExportGraph = __m.export_graph;
+  __m.export_graph = function (expression, ...args) {
+    if (Array.isArray(expression)) {
+      const Cls = expression.every(e => e instanceof SX) ? SXVector
+        : expression.every(e => e instanceof MX) ? MXVector : null;
+      if (Cls) {
+        const vector = __arr_to_vec(expression, Cls);
+        try { return __origExportGraph.call(this, vector, ...args); }
+        finally { vector.delete(); }
+      }
+    }
+    return __origExportGraph.call(this, expression, ...args);
+  };
+
   /* Function instances are directly callable, mirroring Python:
      f(a, b) positional with n_out-shaped return (0 -> null, 1 -> bare,
      >1 -> list); f({name: v}) dict-in/dict-out.  The dict check must
@@ -26773,36 +27043,57 @@ module.exports = async function createcasadi() {
     return n === 0 ? null : n === 1 ? r[0] : r;
   });
 
-  /* Lazy plugin loading: make load_<type>(name) async -- fetch the
-     sibling .so into MEMFS (browser) or read it from disk (Node), then
-     run the synchronous C++ loader. */
-  const __ensurePlugin = async (soname) => {
-    try { if (M.FS.analyzePath("/" + soname).exists) return; } catch (e) {}
-    let bytes;
-    if (typeof process !== "undefined" && process.versions && process.versions.node) {
-      bytes = require("fs").readFileSync(__path.join(__dirname, soname));
-    } else {
-      // Resolve via locateFile so the .so is fetched from the same base as
-      // the core (.wasm), not relative to the document.
-      const __url = (typeof M.locateFile === "function") ? M.locateFile(soname, "") : soname;
-      const resp = await fetch(__url);
-      if (!resp.ok) throw new Error("Failed to fetch plugin " + soname + ": " + resp.status);
-      bytes = new Uint8Array(await resp.arrayBuffer());
-    }
-    M.FS.writeFile("/" + soname, bytes);
-  };
-  for (const [__fn, __infix] of [["load_nlpsol", "nlpsol"], ["load_conic", "conic"],
-      ["load_linsol", "linsol"], ["load_integrator", "integrator"],
-      ["load_rootfinder", "rootfinder"], ["load_interpolant", "interpolant"],
-      ["load_expm", "expm"], ["load_dple", "dple"]]) {
-    const __orig = __m[__fn];
-    if (typeof __orig !== "function") continue;
-    __m[__fn] = async (name) => {
-      await __ensurePlugin("libcasadi_" + __infix + "_" + name + ".so");
-      return __orig.call(__m, name);
-    };
-  }
 
+  // Fetch each plugin once, including concurrent loads; permit retries after failures.
+  const __pluginLoads = new Map();
+  const __loadPlugin = (kind, name, register) => {
+    if (!/^[A-Za-z0-9_]+$/.test(name)) {
+      return Promise.reject(new Error("Invalid plugin name: " + name));
+    }
+    const soname = "libcasadi_" + kind + "_" + name + ".so";
+    if (!__pluginLoads.has(soname)) {
+      const pending = Promise.resolve().then(async () => {
+        if (!M.FS.analyzePath("/" + soname).exists) {
+          let bytes;
+          if (typeof process !== "undefined" && process.versions && process.versions.node) {
+            bytes = require("fs").readFileSync(__path.join(__dirname, soname));
+          } else {
+            const url = M.locateFile ? M.locateFile(soname, "") : soname;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Failed to fetch plugin " + soname + ": " + response.status);
+            bytes = new Uint8Array(await response.arrayBuffer());
+          }
+          M.FS.writeFile("/" + soname, bytes);
+        }
+        return register(name);
+      });
+      __pluginLoads.set(soname, pending);
+      pending.catch(() => {
+        __pluginLoads.delete(soname);
+        // A failed registration may have left an unusable file behind.
+        try { M.FS.unlink("/" + soname); } catch (_) {}
+      });
+    }
+    return __pluginLoads.get(soname);
+  };
+
+  for (const kind of ["nlpsol", "conic", "linsol", "integrator", "rootfinder",
+      "interpolant", "expm", "dple", "blas", "filesystem"]) {
+    const fn = "load_" + kind;
+    const original = __m[fn];
+    if (typeof original === "function") {
+      __m[fn] = name => __loadPlugin(kind, name, original.bind(__m));
+    }
+  }
+  // Class-based entry points need the same asynchronous fetch as free functions.
+  for (const [cls, kind, free] of [
+      ["Linsol", "linsol", "load_linsol"], ["XmlFile", "xmlfile"],
+      ["Importer", "importer"], ["ModelicaParser", "modelicaparser"]]) {
+    if (!__m[cls] || typeof __m[cls].load_plugin !== "function") continue;
+    const original = __m[cls].load_plugin.bind(__m[cls]);
+    __m[cls].load_plugin = free && __m[free]
+      ? __m[free] : name => __loadPlugin(kind, name, original);
+  }
 
 
     DeserializerBase.prototype.unpack = function () {

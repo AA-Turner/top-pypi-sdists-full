@@ -247,7 +247,7 @@ def _find_recent_diff_preservation_blocker(
     """Return the latest unconsumed trusted diff-preservation blocker payload."""
 
     def _parse_blocker(body: str) -> DiffPreservationBlocker | None:
-        match = cast(re.Match[str], _DIFF_PRESERVATION_BLOCKER_RE.fullmatch(body.rstrip("\r\n")))
+        match = cast(re.Match[str], _DIFF_PRESERVATION_BLOCKER_RE.search(body.rstrip("\r\n")))
         encoded = match.group(1)
         padding = "=" * (-len(encoded) % 4)
         try:
@@ -331,7 +331,7 @@ def _find_recent_diff_preservation_blocker(
             (
                 comment.id
                 for comment in trusted_comments
-                if _DIFF_PRESERVATION_BLOCKER_CLEARED_RE.fullmatch(comment.body.rstrip("\r\n")) is not None
+                if _DIFF_PRESERVATION_BLOCKER_CLEARED_RE.search(comment.body.rstrip("\r\n")) is not None
             ),
             default=0,
         )
@@ -340,7 +340,7 @@ def _find_recent_diff_preservation_blocker(
                 comment
                 for comment in trusted_comments
                 if comment.id > latest_cleared_id
-                and _DIFF_PRESERVATION_BLOCKER_RE.fullmatch(comment.body.rstrip("\r\n")) is not None
+                and _DIFF_PRESERVATION_BLOCKER_RE.search(comment.body.rstrip("\r\n")) is not None
             ),
             key=lambda comment: comment.id,
             reverse=True,
@@ -654,18 +654,32 @@ def run_pipeline(
                 pre_mutation_snapshot.head_sha[:8],
             )
             return False
-        try:
-            provider.post_comment_as_pr_token(current_snapshot.pr_number, marker)
-        except Exception as exc:
-            if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
-                raise
-            logger.warning(
-                "PR #%d: Failed to persist diff-preservation blocker for %s: %s",
-                current_snapshot.pr_number,
-                current_snapshot.head_sha[:8],
-                str(exc)[:200],
-            )
-            return False
+        persisted_in_summary = False
+        from agentic_devtools.cli.ci.pipeline.summary import _find_active_summary_comment
+
+        summary_comment = _find_active_summary_comment(provider, current_snapshot.pr_number)
+        if summary_comment is not None:
+            summary_id, summary_body = summary_comment
+            if _DIFF_PRESERVATION_BLOCKER_PREFIX in summary_body:
+                updated_body = _DIFF_PRESERVATION_BLOCKER_RE.sub(marker, summary_body)
+            else:
+                updated_body = f"{summary_body}\n\n{marker}"
+            provider.update_comment(summary_id, updated_body)
+            persisted_in_summary = True
+
+        if not persisted_in_summary:
+            try:
+                provider.post_comment_as_pr_token(current_snapshot.pr_number, marker)
+            except Exception as exc:
+                if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
+                    raise
+                logger.warning(
+                    "PR #%d: Failed to persist diff-preservation blocker for %s: %s",
+                    current_snapshot.pr_number,
+                    current_snapshot.head_sha[:8],
+                    str(exc)[:200],
+                )
+                return False
         persisted_diff_preservation_allows_file_removal = invalidation_allows_file_removal
         persisted_diff_preservation_allowed_removed_files = tuple(sorted(allowed_removed_files))
         return True
@@ -699,18 +713,38 @@ def run_pipeline(
                 live_head_sha[:8],
             )
             return
-        marker = f"{_DIFF_PRESERVATION_BLOCKER_CLEARED_PREFIX}{live_head_sha} -->"
-        try:
-            provider.post_comment_as_pr_token(current_snapshot.pr_number, marker)
-        except Exception as exc:
-            if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
-                raise
-            logger.warning(
-                "PR #%d: Failed to clear diff-preservation blocker for %s: %s",
-                current_snapshot.pr_number,
-                current_snapshot.head_sha[:8],
-                str(exc)[:200],
-            )
+
+        cleared_in_summary = False
+        from agentic_devtools.cli.ci.pipeline.summary import _find_active_summary_comment
+
+        summary_comment = _find_active_summary_comment(provider, current_snapshot.pr_number)
+        if summary_comment is not None and _DIFF_PRESERVATION_BLOCKER_PREFIX in summary_comment[1]:
+            summary_id, summary_body = summary_comment
+            cleaned_body = _DIFF_PRESERVATION_BLOCKER_RE.sub("", summary_body).rstrip()
+            provider.update_comment(summary_id, cleaned_body)
+            cleared_in_summary = True
+
+        # Delete any standalone blocker comments or cleared comments on this PR
+        for c in provider.list_issue_comments(current_snapshot.pr_number):
+            c_body = (c.body or "").strip()
+            if _DIFF_PRESERVATION_BLOCKER_RE.fullmatch(c_body) or _DIFF_PRESERVATION_BLOCKER_CLEARED_RE.fullmatch(
+                c_body
+            ):
+                provider.delete_comment(c.id)
+
+        if not cleared_in_summary:
+            marker = f"{_DIFF_PRESERVATION_BLOCKER_CLEARED_PREFIX}{live_head_sha} -->"
+            try:
+                provider.post_comment_as_pr_token(current_snapshot.pr_number, marker)
+            except Exception as exc:
+                if isinstance(exc, ProviderRateLimitError) and exc.is_rate_limit:
+                    raise
+                logger.warning(
+                    "PR #%d: Failed to clear diff-preservation blocker for %s: %s",
+                    current_snapshot.pr_number,
+                    current_snapshot.head_sha[:8],
+                    str(exc)[:200],
+                )
 
     def _refresh_snapshot_after_invalidation() -> str | None:
         """Refresh and validate the PR snapshot after a mutating action."""
@@ -853,8 +887,8 @@ def run_pipeline(
             continue
 
         # If a prior side-effecting action failed, skip this action entirely
-        # (including evaluation) to prevent unsafe cascades.
-        if exec_failed_by:
+        # (including evaluation) unless it explicitly opts into recovery work.
+        if exec_failed_by and not getattr(action, "runs_on_prior_failure", False):
             result = ActionResult(
                 name=action_name,
                 decision=ActionDecision.SKIP,

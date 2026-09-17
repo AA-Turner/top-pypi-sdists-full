@@ -55,7 +55,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
           cache-dependency-glob: '**/pyproject.toml'
@@ -75,7 +75,7 @@ jobs:
       - name: Generate the GitHub release notes
         env:
           RELEASE: ${{ steps.calver.outputs.release }}
-        run: uv run --extra=release towncrier build --draft --version "$RELEASE" >
+        run: uv run --group=release towncrier build --draft --version "$RELEASE" >
           release-notes.md
 
       # Assemble the same fragments into CHANGELOG.rst under a new
@@ -83,7 +83,7 @@ jobs:
       - name: Update the changelog
         env:
           RELEASE: ${{ steps.calver.outputs.release }}
-        run: uv run --extra=release towncrier build --yes --version "$RELEASE"
+        run: uv run --group=release towncrier build --yes --version "$RELEASE"
 
       - uses: stefanzweifel/git-auto-commit-action@v7
         id: commit
@@ -112,7 +112,7 @@ jobs:
           git checkout "$NEW_TAG"
           uv build --sdist --wheel --out-dir dist/
           WHEEL="$(ls dist/*.whl)"
-          uv run --extra=release check-wheel-contents "${WHEEL}"
+          uv run --group=release check-wheel-contents "${WHEEL}"
           echo "wheel_filename=${WHEEL}" >> "$GITHUB_OUTPUT"
 
       - name: Publish distribution 📦 to PyPI
@@ -151,7 +151,7 @@ jobs:
           timeout_seconds: 5
           max_attempts: 50
           command: |
-            uv run --no-cache --with="doccmd==$RELEASE" --extra=release poet --formula doccmd > "$HOMEBREW_FILENAME"
+            uv run --no-cache --with="doccmd==$RELEASE" --group=release poet --formula doccmd > "$HOMEBREW_FILENAME"
 
       - name: Update Homebrew description
         id: update_homebrew_description
@@ -429,9 +429,6 @@ jobs:
       # ``.pkg`` and kexts - so Gatekeeper verifies this binary online.
       # Shipping a ``.pkg`` instead would allow stapling, at the cost of
       # the documented ``curl ... && chmod +x`` one-liner.
-      #
-      # There is no ``spctl --assess`` step: it rejects every bare
-      # executable with "does not seem to be an app", notarized or not.
       - name: Notarize the macOS binary
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -460,6 +457,19 @@ jobs:
                   --password "${APPLE_APP_PASSWORD}" || true
               exit 1
           fi
+
+      # ``spctl --assess --type exec`` is intended for app bundles and
+      # rejects a bare command-line executable with "does not seem to be an
+      # app" even when it is notarized.  For standalone code, require the
+      # notarization ticket directly.  Retry because the ticket is published
+      # online and can take a short time to become available after acceptance.
+      - name: Check the notarization ticket is available
+        uses: nick-fields/retry@v4
+        with:
+          timeout_seconds: 60
+          max_attempts: 10
+          retry_wait_seconds: 30
+          command: codesign -vvvv -R="notarized" --check-notarization dist/doccmd-macos
 
       - name: Upload macOS binary to release
         env:

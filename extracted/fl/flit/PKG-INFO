@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: flit
-Version: 4.0.2
+Version: 4.1.0
 Summary: A simple packaging tool for simple packages.
 Author-email: Thomas Kluyver <thomas@kluyver.me.uk>
 Requires-Python: >=3.8
@@ -10,7 +10,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
-Requires-Dist: flit_core >=4.0.2
+Requires-Dist: flit_core >=4.1.0
 Requires-Dist: requests
 Requires-Dist: docutils
 Requires-Dist: tomli-w
